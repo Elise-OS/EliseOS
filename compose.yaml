@@ -1,0 +1,245 @@
+name: michel-os
+
+x-node-common: &node-common
+  restart: unless-stopped
+  volumes:
+    - michel_secrets:/run/michel-secrets:ro
+  environment:
+    MICHEL_VERSION: ${MICHEL_VERSION:-0.1.0}
+    MICHEL_SECRETS_DIR: /run/michel-secrets
+    POSTGRES_HOST: postgres
+    POSTGRES_DB: michel
+    POSTGRES_USER: michel
+    MQTT_URL: mqtt://mosquitto:1883
+    MQTT_USERNAME: michel_core
+    AI_BASE_URL: http://ai:8000
+    COOKIE_SECURE: 'false'
+    TZ: ${TZ:-Europe/Paris}
+
+services:
+  bootstrap:
+    image: alpine:3.22
+    restart: 'no'
+    volumes:
+      - michel_secrets:/secrets
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        umask 077
+        for name in postgres_password mqtt_password ai_shared_secret session_secret; do
+          if [ ! -s "/secrets/$$name" ]; then
+            tr -dc 'A-Za-z0-9' </dev/urandom | head -c 48 > "/secrets/$$name"
+          fi
+        done
+        chmod 0444 /secrets/*
+
+  postgres:
+    image: postgres:18-bookworm
+    restart: unless-stopped
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_DB: michel
+      POSTGRES_USER: michel
+      POSTGRES_PASSWORD_FILE: /run/michel-secrets/postgres_password
+      TZ: ${TZ:-Europe/Paris}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - michel_secrets:/run/michel-secrets:ro
+      - ./docker/postgres/init-homeassistant.sql:/docker-entrypoint-initdb.d/10-homeassistant.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U michel -d michel']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0.22
+    restart: unless-stopped
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    volumes:
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./docker/mosquitto/acl:/mosquitto/config/acl:ro
+      - ./docker/mosquitto/entrypoint.sh:/usr/local/bin/michel-mosquitto-entrypoint:ro
+      - mosquitto_data:/mosquitto/data
+      - michel_secrets:/run/michel-secrets:ro
+    entrypoint: ['/bin/sh', '/usr/local/bin/michel-mosquitto-entrypoint']
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "mosquitto_sub -u michel_core -P $$(cat /run/michel-secrets/mqtt_password) -t '$$SYS/broker/uptime' -C 1 -W 3 >/dev/null",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  zigbee2mqtt:
+    image: ghcr.io/koenkk/zigbee2mqtt:2.6.1
+    restart: unless-stopped
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/ttyACM0
+      ZIGBEE2MQTT_CONFIG_SERIAL_ADAPTER: ${ZIGBEE_ADAPTER_TYPE:-zstack}
+    volumes:
+      - zigbee2mqtt_data:/app/data
+      - ./docker/zigbee2mqtt/configuration.yaml:/app/data/configuration.yaml:ro
+      - ./docker/zigbee2mqtt/entrypoint.sh:/usr/local/bin/michel-zigbee-entrypoint:ro
+      - michel_secrets:/run/michel-secrets:ro
+    entrypoint: ['/bin/sh', '/usr/local/bin/michel-zigbee-entrypoint']
+    devices:
+      - ${ZIGBEE_ADAPTER:-/dev/null}:/dev/ttyACM0
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.7.4
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-Europe/Paris}
+      MQTT_HOST: mosquitto
+      MICHEL_HOME_ID: ${MICHEL_HOME_ID:-home_demo}
+      MICHEL_SECRETS_DIR: /run/michel-secrets
+      HA_DATABASE_URL: postgresql://michel@postgres:5432/homeassistant
+    volumes:
+      - homeassistant_data:/config
+      - ./docker/homeassistant/configuration.yaml:/config/configuration.yaml:ro
+      - ./docker/homeassistant/custom_components:/config/custom_components:ro
+      - ./docker/homeassistant/entrypoint.sh:/usr/local/bin/michel-ha-entrypoint:ro
+      - michel_secrets:/run/michel-secrets:ro
+    entrypoint: ['/bin/bash', '/usr/local/bin/michel-ha-entrypoint']
+
+  ai:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ai
+    image: michel-os/ai:${MICHEL_VERSION:-0.1.0}
+    restart: unless-stopped
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    environment:
+      AI_SHARED_SECRET_FILE: /run/michel-secrets/ai_shared_secret
+      MODEL_ROOT: /var/lib/michel-ai
+    volumes:
+      - ai_models:/var/lib/michel-ai
+      - michel_secrets:/run/michel-secrets:ro
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  api:
+    <<: *node-common
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.node
+      target: api
+    image: michel-os/api:${MICHEL_VERSION:-0.1.0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+      ai:
+        condition: service_healthy
+    environment:
+      MICHEL_VERSION: ${MICHEL_VERSION:-0.1.0}
+      MICHEL_SECRETS_DIR: /run/michel-secrets
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: michel
+      POSTGRES_USER: michel
+      MQTT_URL: mqtt://mosquitto:1883
+      MQTT_USERNAME: michel_core
+      AI_BASE_URL: http://ai:8000
+      COOKIE_SECURE: 'false'
+      MICHEL_DEMO_MODE: ${MICHEL_DEMO_MODE:-false}
+      MICHEL_SIMULATION_MODE: ${MICHEL_SIMULATION_MODE:-false}
+      MICHEL_HOME_ID: ${MICHEL_HOME_ID:-home_demo}
+      MICHEL_DISCOVERY_NAME: ${MICHEL_DISCOVERY_NAME:-Élise OS}
+      MEDIA_ROOT: /var/lib/elise/media
+      TZ: ${TZ:-Europe/Paris}
+    volumes:
+      - michel_secrets:/run/michel-secrets:ro
+      - resident_media:/var/lib/elise/media
+    command:
+      [
+        '/bin/sh',
+        '-c',
+        './node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma && node dist/main.js',
+      ]
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3000/api/v1/system/health').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  worker:
+    <<: *node-common
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.node
+      target: worker
+    image: michel-os/worker:${MICHEL_VERSION:-0.1.0}
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      MICHEL_SECRETS_DIR: /run/michel-secrets
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: michel
+      POSTGRES_USER: michel
+      AI_BASE_URL: http://ai:8000
+      WEBHOOK_URL: ${WEBHOOK_URL:-}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      TZ: ${TZ:-Europe/Paris}
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.node
+      target: dashboard
+    image: michel-os/dashboard:${MICHEL_VERSION:-0.1.0}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '${MICHEL_HTTP_PORT:-8080}:8080'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:8080/']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  michel_secrets:
+  postgres_data:
+  mosquitto_data:
+  resident_media:
+  zigbee2mqtt_data:
+  homeassistant_data:
+  ai_models:

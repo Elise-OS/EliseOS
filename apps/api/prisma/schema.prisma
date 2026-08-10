@@ -1,0 +1,666 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MembershipRole {
+  OWNER
+  ADMINISTRATOR
+  CAREGIVER
+  VIEWER
+}
+
+enum SensorStatus {
+  ONLINE
+  DEGRADED
+  OFFLINE
+  UNKNOWN
+}
+
+enum SensorCompatibility {
+  VALIDATED
+  RECOGNIZED
+  PARTIAL
+  UNSUPPORTED
+}
+
+enum SensorMappingTransform {
+  ON_OFF
+  OPEN_CLOSED
+  NUMERIC
+  EVENT_ACTION
+}
+
+enum PushPlatform {
+  IOS
+  ANDROID
+}
+
+enum AlertType {
+  INACTIVITY
+  DOOR_OPEN
+  SOS
+  UNUSUAL_ACTIVITY
+  TEMPERATURE
+  SENSOR_OFFLINE
+  LOW_BATTERY
+  MEDICATION_MISSED
+  SYSTEM
+}
+
+enum AlertSeverity {
+  INFO
+  ATTENTION
+  URGENT
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum InstallationStatus {
+  DRAFT
+  LEARNING
+  ACTIVE
+}
+
+enum MobilityLevel {
+  INDEPENDENT
+  CANE
+  WALKER
+  WHEELCHAIR
+}
+
+enum SupportNeedKind {
+  MEMORY
+  PARKINSON
+  FALL_RISK
+  VISION
+  HEARING
+  OTHER
+}
+
+enum TrustedContactRole {
+  ADMINISTRATOR
+  RELATIVE
+  EMERGENCY
+}
+
+enum HabitSource {
+  ONBOARDING
+  LEARNED
+  USER
+}
+
+enum HabitStatus {
+  UNKNOWN
+  PROVIDED
+  LEARNING
+  CONFIRMED
+}
+
+enum MedicationDoseStatus {
+  PENDING
+  TAKEN
+  MISSED
+  SKIPPED
+}
+
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  homes       Home[]
+  memberships Membership[]
+}
+
+model Home {
+  id                     String                  @id @default(cuid())
+  organizationId         String
+  name                   String
+  timezone               String                  @default("Europe/Paris")
+  type                   String                  @default("Maison")
+  address                String?
+  floorCount             Int                     @default(1)
+  installationStatus     InstallationStatus      @default(DRAFT)
+  learningStartedAt      DateTime?
+  primaryResidentId      String?                 @unique
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  organization           Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  primaryResident        Resident?               @relation("PrimaryResident", fields: [primaryResidentId], references: [id])
+  residents              Resident[]              @relation("HomeResidents")
+  rooms                  Room[]
+  devices                Device[]
+  sensors                Sensor[]
+  events                 ObservationEvent[]
+  habits                 HabitProfile[]
+  models                 ModelArtifact[]
+  evaluations            AnomalyEvaluation[]
+  alerts                 Alert[]
+  journalEntries         JournalEntry[]
+  visits                 Visit[]
+  appointments           Appointment[]
+  configurationRevisions ConfigurationRevision[]
+  trustedContacts        TrustedContact[]
+  auditLogs              AuditLog[]
+  outboxMessages         OutboxMessage[]
+  medications            Medication[]
+  equipmentSync          EquipmentSyncState?
+
+  @@index([organizationId])
+}
+
+model Resident {
+  id              String             @id @default(cuid())
+  homeId          String
+  displayName     String
+  birthYear       Int?
+  firstName       String?
+  lastName        String?
+  preferredName   String?
+  birthDate       DateTime?
+  spokenLanguage  String             @default("Français")
+  formOfAddress   String?
+  photoPath       String?
+  photoMimeType   String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  home            Home               @relation("HomeResidents", fields: [homeId], references: [id], onDelete: Cascade)
+  primaryFor      Home?              @relation("PrimaryResident")
+  caregivers      CaregiverProfile[]
+  context         ResidentContext?
+  supportNeeds    SupportNeed[]
+  trustedContacts TrustedContact[]
+  habits          HabitProfile[]
+  medications     Medication[]
+}
+
+model User {
+  id                 String             @id @default(cuid())
+  username           String?            @unique
+  email              String?            @unique
+  phone              String?            @unique
+  displayName        String
+  passwordHash       String
+  totpSecret         String?
+  mustChangePassword Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  memberships        Membership[]
+  caregiver          CaregiverProfile?
+  sessions           Session[]
+  alertActions       AlertTransition[]
+  journal            JournalEntry[]
+  trustedContact     TrustedContact?
+  confirmedDoses     MedicationDose[]
+  pushSubscriptions  PushSubscription[]
+}
+
+model ResidentContext {
+  id                String        @id @default(cuid())
+  residentId        String        @unique
+  livesAlone        Boolean       @default(false)
+  livesWithPartner  Boolean       @default(false)
+  livesWithRelative Boolean       @default(false)
+  receivesHomeHelp  Boolean       @default(false)
+  receivesVisits    Boolean       @default(false)
+  hasPet            Boolean       @default(false)
+  mobility          MobilityLevel
+  hearingDifficulty Boolean       @default(false)
+  visualDifficulty  Boolean       @default(false)
+  resident          Resident      @relation(fields: [residentId], references: [id], onDelete: Cascade)
+}
+
+model SupportNeed {
+  id         String          @id @default(cuid())
+  residentId String
+  kind       SupportNeedKind
+  note       String?
+  createdAt  DateTime        @default(now())
+  resident   Resident        @relation(fields: [residentId], references: [id], onDelete: Cascade)
+
+  @@unique([residentId, kind])
+}
+
+model TrustedContact {
+  id         String             @id @default(cuid())
+  homeId     String
+  residentId String
+  userId     String?            @unique
+  firstName  String
+  lastName   String
+  phone      String?
+  email      String?
+  relation   String?
+  role       TrustedContactRole
+  priority   Int
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  home       Home               @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  resident   Resident           @relation(fields: [residentId], references: [id], onDelete: Cascade)
+  user       User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([homeId, priority])
+  @@index([residentId])
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Role {
+  id          String       @id @default(cuid())
+  key         String       @unique
+  name        String
+  permissions String[]
+  memberships Membership[]
+}
+
+model Membership {
+  id             String         @id @default(cuid())
+  organizationId String
+  userId         String
+  roleId         String?
+  systemRole     MembershipRole
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           Role?          @relation(fields: [roleId], references: [id])
+
+  @@unique([organizationId, userId])
+}
+
+model CaregiverProfile {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  residentId String
+  relation   String?
+  isPrimary  Boolean  @default(false)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resident   Resident @relation(fields: [residentId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+model Room {
+  id        String   @id @default(cuid())
+  homeId    String
+  name      String
+  kind      String
+  floor     Int      @default(0)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  home      Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  devices   Device[]
+  sensors   Sensor[]
+
+  @@unique([homeId, name])
+}
+
+model Device {
+  id             String    @id @default(cuid())
+  homeId         String
+  roomId         String?
+  sourceDeviceId String?
+  manufacturer   String?
+  model          String?
+  name           String
+  lastSeenAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  home           Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  room           Room?     @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  sensors        Sensor[]
+
+  @@unique([homeId, sourceDeviceId])
+}
+
+model Sensor {
+  id            String              @id @default(cuid())
+  homeId        String
+  roomId        String?
+  deviceId      String?
+  entityId      String
+  capability    String
+  compatibility SensorCompatibility @default(RECOGNIZED)
+  status        SensorStatus        @default(UNKNOWN)
+  sourceName    String?
+  domain        String?
+  deviceClass   String?
+  unit          String?
+  available     Boolean             @default(true)
+  removedAt     DateTime?
+  lastSeenAt    DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  home          Home                @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  room          Room?               @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  device        Device?             @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  events        ObservationEvent[]
+  mapping       SensorMapping?
+
+  @@unique([homeId, entityId])
+}
+
+model SensorMapping {
+  id         String                 @id @default(cuid())
+  sensorId   String                 @unique
+  capability String
+  transform  SensorMappingTransform
+  enabled    Boolean                @default(true)
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  sensor     Sensor                 @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+}
+
+model EquipmentSyncState {
+  id                  String    @id @default(cuid())
+  homeId              String    @unique
+  bridgeConnected     Boolean   @default(false)
+  homeAssistantSeenAt DateTime?
+  inventorySeenAt     DateTime?
+  lastSyncRequestedAt DateTime?
+  entityCount         Int       @default(0)
+  deviceCount         Int       @default(0)
+  pairingActive       Boolean   @default(false)
+  pairingExpiresAt    DateTime?
+  lastError           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  home                Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
+}
+
+model ObservationEvent {
+  id            String   @id @default(cuid())
+  homeId        String
+  sensorId      String?
+  sourceEventId String   @unique
+  capability    String
+  quality       String
+  payload       Json
+  occurredAt    DateTime
+  receivedAt    DateTime
+  createdAt     DateTime @default(now())
+  home          Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  sensor        Sensor?  @relation(fields: [sensorId], references: [id], onDelete: SetNull)
+
+  @@index([homeId, occurredAt(sort: Desc)])
+  @@index([capability, occurredAt])
+}
+
+model HabitProfile {
+  id          String      @id @default(cuid())
+  homeId      String
+  residentId  String?
+  kind        String
+  status      HabitStatus @default(LEARNING)
+  source      HabitSource @default(LEARNED)
+  startMinute Int?
+  endMinute   Int?
+  parameters  Json
+  confidence  Float       @default(0)
+  validFrom   DateTime    @default(now())
+  validTo     DateTime?
+  createdAt   DateTime    @default(now())
+  home        Home        @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  resident    Resident?   @relation(fields: [residentId], references: [id], onDelete: Cascade)
+
+  @@index([residentId, kind])
+}
+
+model ModelArtifact {
+  id          String   @id @default(cuid())
+  homeId      String
+  version     String
+  algorithm   String
+  path        String
+  sha256      String
+  trainedFrom DateTime
+  trainedTo   DateTime
+  metrics     Json
+  active      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@unique([homeId, version])
+}
+
+model AnomalyEvaluation {
+  id           String   @id @default(cuid())
+  homeId       String
+  modelVersion String
+  score        Float
+  confidence   Float
+  factors      Json
+  evaluatedAt  DateTime @default(now())
+  home         Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@index([homeId, evaluatedAt(sort: Desc)])
+}
+
+model Alert {
+  id             String                 @id @default(cuid())
+  homeId         String
+  type           AlertType
+  severity       AlertSeverity
+  status         AlertStatus            @default(OPEN)
+  title          String
+  explanation    String
+  confidence     Float?
+  ruleKey        String?
+  openedAt       DateTime               @default(now())
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  home           Home                   @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  transitions    AlertTransition[]
+  deliveries     NotificationDelivery[]
+
+  @@index([homeId, status, openedAt(sort: Desc)])
+  @@index([homeId, ruleKey, status])
+}
+
+model Medication {
+  id           String               @id @default(cuid())
+  homeId       String
+  residentId   String
+  name         String
+  dosage       String
+  instructions String?
+  active       Boolean              @default(true)
+  startsOn     DateTime?
+  endsOn       DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  home         Home                 @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  resident     Resident             @relation(fields: [residentId], references: [id], onDelete: Cascade)
+  schedules    MedicationSchedule[]
+
+  @@index([homeId, active])
+  @@index([residentId])
+}
+
+model MedicationSchedule {
+  id           String           @id @default(cuid())
+  medicationId String
+  minuteOfDay  Int
+  daysOfWeek   Int[]
+  graceMinutes Int              @default(60)
+  active       Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  medication   Medication       @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  doses        MedicationDose[]
+
+  @@index([medicationId, active])
+}
+
+model MedicationDose {
+  id            String               @id @default(cuid())
+  scheduleId    String
+  scheduledFor  DateTime
+  status        MedicationDoseStatus @default(PENDING)
+  confirmedAt   DateTime?
+  confirmedById String?
+  note          String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  schedule      MedicationSchedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  confirmedBy   User?                @relation(fields: [confirmedById], references: [id], onDelete: SetNull)
+
+  @@unique([scheduleId, scheduledFor])
+  @@index([scheduledFor, status])
+}
+
+model AlertTransition {
+  id        String      @id @default(cuid())
+  alertId   String
+  userId    String?
+  from      AlertStatus
+  to        AlertStatus
+  note      String?
+  createdAt DateTime    @default(now())
+  alert     Alert       @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model NotificationDelivery {
+  id                 String            @id @default(cuid())
+  alertId            String?
+  pushSubscriptionId String?
+  channel            String
+  endpoint           String
+  status             String
+  providerTicketId   String?
+  attempts           Int               @default(0)
+  lastAttemptAt      DateTime?
+  deliveredAt        DateTime?
+  error              String?
+  createdAt          DateTime          @default(now())
+  alert              Alert?            @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  pushSubscription   PushSubscription? @relation(fields: [pushSubscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([providerTicketId])
+}
+
+model PushSubscription {
+  id            String                 @id @default(cuid())
+  userId        String
+  expoPushToken String                 @unique
+  platform      PushPlatform
+  deviceName    String?
+  enabled       Boolean                @default(true)
+  lastSeenAt    DateTime               @default(now())
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries    NotificationDelivery[]
+
+  @@index([userId, enabled])
+}
+
+model JournalEntry {
+  id         String   @id @default(cuid())
+  homeId     String
+  authorId   String?
+  kind       String
+  title      String
+  body       String?
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  home       Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  author     User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+}
+
+model Visit {
+  id          String    @id @default(cuid())
+  homeId      String
+  visitorName String
+  startsAt    DateTime
+  endsAt      DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  home        Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
+}
+
+model Appointment {
+  id        String    @id @default(cuid())
+  homeId    String
+  title     String
+  startsAt  DateTime
+  endsAt    DateTime?
+  location  String?
+  notes     String?
+  createdAt DateTime  @default(now())
+  home      Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
+}
+
+model ConfigurationRevision {
+  id        String   @id @default(cuid())
+  homeId    String
+  version   Int
+  settings  Json
+  createdAt DateTime @default(now())
+  home      Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@unique([homeId, version])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  homeId    String
+  actorId   String?
+  action    String
+  target    String
+  metadata  Json
+  createdAt DateTime @default(now())
+  home      Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@index([homeId, createdAt(sort: Desc)])
+}
+
+model OutboxMessage {
+  id          String       @id @default(cuid())
+  homeId      String
+  topic       String
+  payload     Json
+  status      OutboxStatus @default(PENDING)
+  attempts    Int          @default(0)
+  availableAt DateTime     @default(now())
+  processedAt DateTime?
+  lastError   String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  home        Home         @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@index([status, availableAt])
+}

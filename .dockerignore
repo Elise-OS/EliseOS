@@ -1,0 +1,14 @@
+.git
+.github
+.turbo
+node_modules
+**/node_modules
+**/dist
+**/build
+**/.venv
+**/__pycache__
+backups
+secrets
+.env*
+!.env.example
+*.log

@@ -1,0 +1,26 @@
+user zigbee2mqtt
+topic readwrite zigbee2mqtt/#
+topic read homeassistant/#
+
+user homeassistant
+topic read zigbee2mqtt/#
+topic readwrite homeassistant/#
+topic write michel/v1/events
+topic write michel/v1/entity-states
+topic write michel/v1/inventory
+topic write michel/v1/bridge/status
+topic read michel/v1/inventory/request
+topic read michel/v1/commands/#
+topic write michel/v1/commands/results/#
+
+user michel_core
+topic read $SYS/#
+topic read michel/v1/events
+topic read michel/v1/entity-states
+topic read michel/v1/inventory
+topic read michel/v1/bridge/status
+topic write michel/v1/inventory/request
+topic write zigbee2mqtt/bridge/request/permit_join
+topic read zigbee2mqtt/bridge/response/permit_join
+topic write michel/v1/commands/#
+topic read michel/v1/commands/results/#

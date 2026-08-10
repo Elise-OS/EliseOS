@@ -1,0 +1,15 @@
+homeassistant:
+  name: Élise Home Engine
+  unit_system: metric
+  currency: EUR
+  country: FR
+  time_zone: Europe/Paris
+
+default_config:
+
+recorder:
+  db_url: !env_var HA_DATABASE_URL
+  purge_keep_days: 10
+  auto_purge: true
+
+michel_bridge:

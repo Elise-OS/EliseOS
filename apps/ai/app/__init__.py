@@ -1,0 +1,1 @@
+"""Michel AI service."""

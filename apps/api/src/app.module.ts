@@ -1,0 +1,59 @@
+import { Module } from '@nestjs/common';
+import { AlertsController } from './modules/alerts/alerts.controller';
+import { AlertsService } from './modules/alerts/alerts.service';
+import { AuthController } from './modules/auth/auth.controller';
+import { AuthService } from './modules/auth/auth.service';
+import { SessionGuard } from './modules/auth/session.guard';
+import { DiscoveryController } from './modules/discovery/discovery.controller';
+import { DiscoveryService } from './modules/discovery/discovery.service';
+import { ActivityController } from './modules/household/activity.controller';
+import { ActivityService } from './modules/household/activity.service';
+import { RealtimeService } from './modules/household/realtime.service';
+import { ResidentMediaController } from './modules/household/resident-media.controller';
+import { ResidentMediaService } from './modules/household/resident-media.service';
+import { IngestionService } from './modules/sensing/ingestion.service';
+import { MqttIngestionService } from './modules/sensing/mqtt-ingestion.service';
+import { SimulationController } from './modules/sensing/simulation.controller';
+import { SimulationService } from './modules/sensing/simulation.service';
+import { SystemController } from './modules/system/system.controller';
+import { MedicationsController } from './modules/medications/medications.controller';
+import { MedicationsService } from './modules/medications/medications.service';
+import { EquipmentController } from './modules/equipment/equipment.controller';
+import { EquipmentService } from './modules/equipment/equipment.service';
+import { NotificationsController } from './modules/notifications/notifications.controller';
+import { NotificationsService } from './modules/notifications/notifications.service';
+import { PrismaService } from './platform/prisma.service';
+import { SeedService } from './platform/seed.service';
+
+@Module({
+  controllers: [
+    SystemController,
+    AuthController,
+    ActivityController,
+    AlertsController,
+    DiscoveryController,
+    ResidentMediaController,
+    SimulationController,
+    MedicationsController,
+    EquipmentController,
+    NotificationsController,
+  ],
+  providers: [
+    PrismaService,
+    SeedService,
+    AuthService,
+    SessionGuard,
+    DiscoveryService,
+    ActivityService,
+    RealtimeService,
+    ResidentMediaService,
+    AlertsService,
+    IngestionService,
+    EquipmentService,
+    NotificationsService,
+    MqttIngestionService,
+    SimulationService,
+    MedicationsService,
+  ],
+})
+export class AppModule {}

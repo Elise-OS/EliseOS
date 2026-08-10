@@ -1,0 +1,19 @@
+version: 4
+homeassistant:
+  enabled: true
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://mosquitto:1883
+  user: zigbee2mqtt
+frontend:
+  enabled: true
+  port: 8080
+advanced:
+  log_level: info
+  channel: 11
+  transmit_power: 20
+  last_seen: ISO_8601
+  cache_state: true
+  cache_state_persistent: true
+  cache_state_send_on_startup: true
+permit_join: false

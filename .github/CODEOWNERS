@@ -1,0 +1,4 @@
+* @michel-os/maintainers
+/apps/ai/ @michel-os/ai-maintainers
+/docker/homeassistant/ @michel-os/home-automation-maintainers
+/docs/privacy.md @michel-os/security-maintainers
