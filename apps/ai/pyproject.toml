@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.4,<9", "httpx>=0.28,<1", "ruff>=0.12,<1"]
+dev = ["pytest>=8.4,<10", "httpx>=0.28,<1", "ruff>=0.12,<1"]
 
 [build-system]
 requires = ["hatchling>=1.27"]
