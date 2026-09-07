@@ -12,6 +12,6 @@
     "test": "node --test"
   },
   "dependencies": {
-    "zod": "^4.0.10"
+    "zod": "^4.5.4"
   }
 }
