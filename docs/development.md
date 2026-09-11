@@ -7,7 +7,7 @@
 - Python 3.12 with an isolated virtual environment for Michel AI.
 - Docker Engine 23+ and Docker Compose.
 
-Run `pnpm install`, `pnpm db:generate`, then `pnpm build`. The complete local appliance starts with `docker compose up -d`. Set `ZIGBEE_ADAPTER` to the stable `/dev/serial/by-id/...` path of the coordinator on Linux. Without a coordinator, Zigbee2MQTT remains an infrastructure-only development service.
+Run `pnpm install`, `pnpm db:generate`, then `pnpm build`. The complete local appliance starts with `docker compose up -d`. On Linux, run `scripts/detect-zigbee-adapter.sh --write-env .env` before starting Zigbee2MQTT; it selects the stable USB path and driver, with native Zigbee2MQTT probing as a fallback. Without a coordinator, Zigbee2MQTT remains stopped.
 
 The default V0 starts without demo data and opens the first-administrator assistant. Set
 `MICHEL_DEMO_MODE=true` to explicitly load the demonstration account
@@ -18,7 +18,7 @@ Use `docker compose -f compose.yaml -f compose.maintenance.yaml up -d` only for 
 
 ## Profiles and secrets
 
-The bootstrap container generates random PostgreSQL, MQTT, AI and session secrets in a private
+The bootstrap container generates random PostgreSQL, MQTT, AI, session, camera-encryption and media-ticket secrets in a private
 Docker volume. Runtime containers receive this volume read-only. Repository files never contain
 generated credentials.
 

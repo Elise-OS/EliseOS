@@ -1,6 +1,6 @@
 # Michel OS
 
-Michel OS is a local-first, open-source home reassurance platform for families and caregivers. It learns routines from non-invasive sensors and highlights unusual situations without cameras or microphones. The project is dedicated to Michel.
+Michel OS is a local-first, open-source home reassurance platform for families and caregivers. It learns routines from non-invasive sensors and highlights unusual situations. Optional cameras can add local person detection, live verification and push-to-talk after explicit consent; media never enters the behavioural observation pipeline. The project is dedicated to Michel.
 
 > Michel OS is a wellbeing product. It is not a medical device, an emergency service, or a substitute for professional care.
 
@@ -13,12 +13,13 @@ This repository contains the first end-to-end product slice:
 - Michel Core, PostgreSQL, transactional outbox and alert lifecycle;
 - a separate local Isolation Forest service with a guarded 14-day learning period;
 - a responsive French/English family dashboard and a React Native/Expo app with local discovery and push notifications;
+- optional local RTSP/ONVIF cameras through go2rtc, with encrypted credentials, WebRTC viewing, privacy mode and 24-hour alert snapshots;
 - automatic secrets, retention, encrypted backup support and CI checks;
 - multi-stage ARM64/AMD64 containers ready for the future Raspberry Pi image pipeline.
 
 The flashable appliance image, Wi-Fi captive onboarding and signed OTA channel are later release milestones; they are intentionally not represented as complete in V0.
 
-Any sensor made available to Home Assistant can appear in Élise. Recognized device classes work automatically; unknown entities remain visible to administrators and can be assigned a safe, bounded capability mapping without adding model-specific code.
+Any sensor made available to Home Assistant can appear in Élise. Recognized device classes work automatically; unknown entities remain visible to administrators and can be assigned a safe, bounded capability mapping without adding model-specific code. Camera person events use the same universal mapping. Live video requires a local RTSP stream, while two-way audio remains a model-level validated capability.
 
 ## Quick start
 
@@ -29,7 +30,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-On Raspberry Pi, set `ZIGBEE_ADAPTER` to the coordinator's stable `/dev/serial/by-id/...` path and `ZIGBEE_ADAPTER_TYPE` to its Zigbee2MQTT driver (`zstack`, `ember`, `deconz`, or `zigate`) before the first full start. For development without Zigbee hardware, start the core slice:
+On Raspberry Pi and Linux NAS installations, `scripts/detect-zigbee-adapter.sh --write-env .env` detects the coordinator through its stable `/dev/serial/by-id/...` path and selects the matching Zigbee2MQTT driver. Known zStack, EmberZNet, deCONZ, ZiGate and ZBOSS families are classified explicitly; unknown single adapters use Zigbee2MQTT's native probing. Set `ZIGBEE_ADAPTER_MODE=manual` only for a remote or unusual coordinator. For development without Zigbee hardware, start the core slice:
 
 ```bash
 docker compose up -d bootstrap postgres mosquitto ai api worker dashboard
@@ -96,11 +97,22 @@ workspace dependencies; changing a lockfile or a package manifest intentionally 
 
 Open the URL configured as `MICHEL_NAS_URL` after a successful deployment.
 
+To work only on the Dashboard from the Mac while keeping every backend service on the NAS:
+
+```bash
+bash scripts/dev-dashboard.sh
+```
+
+The local Vite server opens on `http://127.0.0.1:5173` and proxies `/api` to the NAS URL
+configured in `config/nas-deploy.env`.
+
 Useful references:
 
+- [NAS deployment and clean reset (French)](README-NAS.md)
 - [Architecture and safety invariants](docs/architecture.md)
 - [Development, secrets and backups](docs/development.md)
 - [Privacy and retention](docs/privacy.md)
+- [Camera setup, security and compatibility](docs/cameras.md)
 - [Architecture decisions](docs/adr)
 
 Michel OS is licensed under `AGPL-3.0-only`.

@@ -1,9 +1,41 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { hash } from '@node-rs/argon2';
-import type { DashboardPeriod, Installation } from '@michel/contracts';
+import {
+  alertRuleSettingsSchema,
+  DEFAULT_ALERT_RULE_SETTINGS,
+  type DashboardPeriod,
+} from '@michel/contracts';
 import { PrismaService } from '../../platform/prisma.service';
 
-const ACTIVITY_CAPABILITIES = ['motion', 'occupancy', 'contact', 'button'];
+const ACTIVITY_CAPABILITIES = ['motion', 'occupancy', 'person_presence', 'contact', 'button'];
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2
+    ? sorted[middle]!
+    : Math.round((sorted[middle - 1]! + sorted[middle]!) / 2);
+}
+
+function minuteOfDay(value: Date, timezone: string): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: timezone,
+  }).formatToParts(value);
+  const number = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+  return number('hour') * 60 + number('minute');
+}
+
+function localDateKey(value: Date, timezone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: timezone,
+  }).format(value);
+}
 
 @Injectable()
 export class ActivityService {
@@ -11,7 +43,7 @@ export class ActivityService {
 
   private async homeFor(userId: string) {
     return this.prisma.home.findFirst({
-      where: { organization: { memberships: { some: { userId } } } },
+      where: { organization: { memberships: { some: { userId, disabledAt: null } } } },
       include: {
         primaryResident: { include: { supportNeeds: true, habits: true } },
         rooms: true,
@@ -27,7 +59,7 @@ export class ActivityService {
       await Promise.all([
         this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
         this.prisma.observationEvent.findFirst({
-          where: { homeId: home.id },
+          where: { homeId: home.id, sensor: { analysisEnabled: true } },
           orderBy: { occurredAt: 'desc' },
           include: { sensor: { include: { room: true } } },
         }),
@@ -35,12 +67,12 @@ export class ActivityService {
           where: { homeId: home.id, status: { in: ['OPEN', 'ACKNOWLEDGED'] } },
         }),
         this.prisma.sensor.findMany({
-          where: { homeId: home.id },
+          where: { homeId: home.id, analysisEnabled: true },
           include: { room: true },
           orderBy: { lastSeenAt: 'desc' },
         }),
         this.prisma.observationEvent.findMany({
-          where: { homeId: home.id },
+          where: { homeId: home.id, sensor: { analysisEnabled: true } },
           orderBy: { occurredAt: 'desc' },
           take: 8,
           include: { sensor: { include: { room: true } } },
@@ -57,7 +89,9 @@ export class ActivityService {
     const learningDays = home.learningStartedAt
       ? Math.floor((Date.now() - home.learningStartedAt.getTime()) / 86_400_000)
       : 0;
-    const degraded = sensors.some((sensor) => ['OFFLINE', 'DEGRADED'].includes(sensor.status));
+    const insufficientCoverage =
+      sensors.length === 0 ||
+      sensors.some((sensor) => ['OFFLINE', 'DEGRADED', 'UNKNOWN'].includes(sensor.status));
     const upcoming = [
       nextVisit
         ? {
@@ -104,7 +138,7 @@ export class ActivityService {
               .length,
           }
         : null,
-      reassurance: degraded
+      reassurance: insufficientCoverage
         ? 'INSUFFICIENT_DATA'
         : openAlerts > 0
           ? 'ATTENTION'
@@ -143,6 +177,24 @@ export class ActivityService {
     };
   }
 
+  public async updateHome(
+    userId: string,
+    input: { name: string; type: string; address: string; timezone: string },
+  ) {
+    const home = await this.homeFor(userId);
+    if (!home) throw new ForbiddenException('Home unavailable');
+    return this.prisma.home.update({
+      where: { id: home.id },
+      data: {
+        name: input.name,
+        type: input.type,
+        address: input.address || null,
+        timezone: input.timezone,
+      },
+      select: { id: true, name: true, type: true, address: true, timezone: true, floorCount: true },
+    });
+  }
+
   public async summary(userId: string, period: DashboardPeriod) {
     const home = await this.homeFor(userId);
     if (!home)
@@ -156,17 +208,29 @@ export class ActivityService {
         byCapability: [],
       };
     const to = new Date();
-    const from = new Date(to.getTime() - (period === '24h' ? 24 : 7 * 24) * 3_600_000);
-    const events = await this.prisma.observationEvent.findMany({
-      where: {
-        homeId: home.id,
-        occurredAt: { gte: from, lte: to },
-        capability: { in: ACTIVITY_CAPABILITIES },
-      },
-      orderBy: { occurredAt: 'asc' },
-      include: { sensor: { include: { room: true } } },
-    });
-    const bucketCount = period === '24h' ? 24 : 7;
+    const periodHours = period === '24h' ? 24 : period === '7d' ? 7 * 24 : 28 * 24;
+    const from = new Date(to.getTime() - periodHours * 3_600_000);
+    const [events, sessions] = await Promise.all([
+      this.prisma.observationEvent.findMany({
+        where: {
+          homeId: home.id,
+          occurredAt: { gte: from, lte: to },
+          capability: { in: ACTIVITY_CAPABILITIES },
+        },
+        orderBy: { occurredAt: 'asc' },
+        include: { sensor: { include: { room: true } } },
+      }),
+      this.prisma.roomPresenceSession.findMany({
+        where: {
+          homeId: home.id,
+          startedAt: { lte: to },
+          OR: [{ endedAt: { gte: from } }, { endedAt: null }],
+        },
+        include: { room: true },
+        orderBy: { startedAt: 'asc' },
+      }),
+    ]);
+    const bucketCount = period === '24h' ? 24 : period === '7d' ? 7 : 28;
     const bucketMs = period === '24h' ? 3_600_000 : 86_400_000;
     const buckets = Array.from({ length: bucketCount }, (_, index) => {
       const start = new Date(from.getTime() + index * bucketMs);
@@ -199,6 +263,54 @@ export class ActivityService {
       roomCounts.set(key, current);
       capabilityCounts.set(event.capability, (capabilityCounts.get(event.capability) ?? 0) + 1);
     }
+    const dwell = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        durations: number[];
+        totalSeconds: number;
+        reliableSessions: number;
+        ambiguousSeconds: number;
+      }
+    >();
+    const intervals: Array<[number, number]> = [];
+    for (const session of sessions) {
+      const start = Math.max(from.getTime(), session.startedAt.getTime());
+      const end = Math.min(to.getTime(), session.endedAt?.getTime() ?? to.getTime());
+      if (end <= start) continue;
+      const seconds = Math.round((end - start) / 1_000);
+      intervals.push([start, end]);
+      const current = dwell.get(session.roomId) ?? {
+        id: session.roomId,
+        name: session.room.name,
+        durations: [],
+        totalSeconds: 0,
+        reliableSessions: 0,
+        ambiguousSeconds: 0,
+      };
+      current.totalSeconds += seconds;
+      if (session.state === 'AMBIGUOUS') current.ambiguousSeconds += seconds;
+      if (
+        !session.excludedFromLearning &&
+        session.confidence !== 'LOW' &&
+        session.state !== 'AMBIGUOUS'
+      ) {
+        current.durations.push(seconds);
+        current.reliableSessions += 1;
+      }
+      dwell.set(session.roomId, current);
+    }
+    const merged: Array<[number, number]> = [];
+    for (const interval of intervals.sort((a, b) => a[0] - b[0])) {
+      const last = merged.at(-1);
+      if (last && interval[0] <= last[1]) last[1] = Math.max(last[1], interval[1]);
+      else merged.push([...interval] as [number, number]);
+    }
+    const knownSeconds = merged.reduce(
+      (sum, [start, end]) => sum + Math.round((end - start) / 1_000),
+      0,
+    );
     return {
       period,
       from: from.toISOString(),
@@ -209,6 +321,155 @@ export class ActivityService {
       byCapability: [...capabilityCounts.entries()]
         .map(([capability, count]) => ({ capability, count }))
         .sort((a, b) => b.count - a.count),
+      dwellByRoom: [...dwell.values()]
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          totalSeconds: item.totalSeconds,
+          averageSeconds: item.durations.length
+            ? Math.round(
+                item.durations.reduce((sum, value) => sum + value, 0) / item.durations.length,
+              )
+            : 0,
+          medianSeconds: median(item.durations),
+          sessions: sessions.filter((session) => session.roomId === item.id).length,
+          reliableSessions: item.reliableSessions,
+          ambiguousSeconds: item.ambiguousSeconds,
+          confidenceRate: sessions.filter((session) => session.roomId === item.id).length
+            ? item.reliableSessions /
+              sessions.filter((session) => session.roomId === item.id).length
+            : 0,
+        }))
+        .sort((a, b) => b.totalSeconds - a.totalSeconds),
+      unknownSeconds: Math.max(0, periodHours * 3_600 - knownSeconds),
+    };
+  }
+
+  public async routines(userId: string) {
+    const home = await this.homeFor(userId);
+    const now = new Date();
+    if (!home) {
+      return {
+        learningDays: 0,
+        requiredLearningDays: 14,
+        progress: 0,
+        coverageSufficient: false,
+        behavioralAlertsEnabled: false,
+        window: { from: now.toISOString(), to: now.toISOString() },
+        rooms: [],
+        changes: [],
+      };
+    }
+    const from = new Date(now.getTime() - 28 * 86_400_000);
+    const [sessions, sensors, revision] = await Promise.all([
+      this.prisma.roomPresenceSession.findMany({
+        where: { homeId: home.id, startedAt: { gte: from } },
+        include: { room: true },
+        orderBy: { startedAt: 'asc' },
+      }),
+      this.prisma.sensor.findMany({
+        where: {
+          homeId: home.id,
+          analysisEnabled: true,
+          capability: { in: ['motion', 'occupancy', 'person_presence'] },
+        },
+        select: { status: true },
+      }),
+      this.prisma.configurationRevision.findFirst({
+        where: { homeId: home.id },
+        orderBy: { version: 'desc' },
+        select: { settings: true },
+      }),
+    ]);
+    const settings = revision?.settings as Record<string, unknown> | undefined;
+    const parsedRules = alertRuleSettingsSchema.safeParse(settings?.alertRules);
+    const rules = parsedRules.success ? parsedRules.data : DEFAULT_ALERT_RULE_SETTINGS;
+    const learningDays = home.learningStartedAt
+      ? Math.max(0, Math.floor((now.getTime() - home.learningStartedAt.getTime()) / 86_400_000))
+      : 0;
+    const coverageSufficient =
+      sensors.length > 0 && sensors.every((sensor) => sensor.status === 'ONLINE');
+    const today = localDateKey(now, home.timezone);
+    const roomRoutines = home.rooms.map((room) => {
+      const roomSessions = sessions.filter((session) => session.roomId === room.id);
+      const reliable = roomSessions.filter(
+        (session) =>
+          session.durationSeconds !== null &&
+          session.state === 'CLOSED' &&
+          session.confidence !== 'LOW' &&
+          !session.excludedFromLearning,
+      );
+      const durations = reliable.map((session) => session.durationSeconds!);
+      const dates = new Set(
+        reliable.map((session) => localDateKey(session.startedAt, home.timezone)),
+      );
+      const middle = median(durations);
+      const mad = median(durations.map((duration) => Math.abs(duration - middle)));
+      const dailyTotals = new Map<string, number>();
+      for (const session of reliable) {
+        const key = localDateKey(session.startedAt, home.timezone);
+        dailyTotals.set(key, (dailyTotals.get(key) ?? 0) + session.durationSeconds!);
+      }
+      const minutes = reliable.map((session) => minuteOfDay(session.startedAt, home.timezone));
+      return {
+        roomId: room.id,
+        roomName: room.name,
+        status:
+          learningDays >= 14 && durations.length >= 10 && coverageSufficient
+            ? ('CONFIRMED' as const)
+            : ('LEARNING' as const),
+        sampleDays: dates.size,
+        sessions: reliable.length,
+        averageSeconds: durations.length
+          ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length)
+          : 0,
+        medianSeconds: middle,
+        madSeconds: mad,
+        averageDailySeconds: dailyTotals.size
+          ? Math.round(
+              [...dailyTotals.values()].reduce((sum, value) => sum + value, 0) / dailyTotals.size,
+            )
+          : 0,
+        firstMinute: minutes.length ? Math.min(...minutes) : null,
+        lastMinute: reliable.length
+          ? Math.max(...reliable.map((session) => minuteOfDay(session.endedAt!, home.timezone)))
+          : null,
+        confidenceRate: roomSessions.length ? reliable.length / roomSessions.length : 0,
+        todaySeconds: roomSessions
+          .filter((session) => localDateKey(session.startedAt, home.timezone) === today)
+          .reduce((sum, session) => {
+            const end = session.endedAt ?? now;
+            return (
+              sum + Math.max(0, Math.round((end.getTime() - session.startedAt.getTime()) / 1_000))
+            );
+          }, 0),
+      };
+    });
+    return {
+      learningDays,
+      requiredLearningDays: 14,
+      progress: Math.min(1, learningDays / 14),
+      coverageSufficient,
+      behavioralAlertsEnabled: rules.behavioral.enabled,
+      window: { from: from.toISOString(), to: now.toISOString() },
+      rooms: roomRoutines,
+      changes: roomRoutines
+        .filter(
+          (room) =>
+            room.status === 'CONFIRMED' &&
+            room.averageDailySeconds > 0 &&
+            Math.abs(room.todaySeconds - room.averageDailySeconds) / room.averageDailySeconds >=
+              0.5,
+        )
+        .map((room) => ({
+          roomId: room.roomId,
+          roomName: room.roomName,
+          kind: 'DAILY_DWELL' as const,
+          direction:
+            room.todaySeconds > room.averageDailySeconds ? ('HIGHER' as const) : ('LOWER' as const),
+          observedSeconds: room.todaySeconds,
+          baselineSeconds: room.averageDailySeconds,
+        })),
     };
   }
 
@@ -217,7 +478,7 @@ export class ActivityService {
       where: {
         organization: {
           memberships: {
-            some: { userId, systemRole: { in: ['OWNER', 'ADMINISTRATOR'] } },
+            some: { userId, disabledAt: null },
           },
         },
       },
@@ -229,7 +490,11 @@ export class ActivityService {
             habits: { orderBy: { kind: 'asc' } },
           },
         },
-        trustedContacts: { orderBy: { priority: 'asc' }, include: { user: true } },
+        trustedContacts: {
+          where: { archivedAt: null },
+          orderBy: { priority: 'asc' },
+          include: { user: { include: { memberships: true } } },
+        },
         rooms: {
           orderBy: { name: 'asc' },
           include: {
@@ -246,7 +511,7 @@ export class ActivityService {
         },
       },
     });
-    if (!home) throw new ForbiddenException('Administrator access required');
+    if (!home) throw new ForbiddenException('Access denied');
     const caregivers = await this.prisma.caregiverProfile.findMany({
       where: { resident: { homeId: home.id } },
       include: {
@@ -254,22 +519,27 @@ export class ActivityService {
       },
       orderBy: [{ isPrimary: 'desc' }, { user: { displayName: 'asc' } }],
     });
-    const sensorView = (sensor: (typeof home.sensors)[number]) => ({
-      id: sensor.id,
-      entityId: sensor.entityId,
-      capability: sensor.capability,
-      status: sensor.status,
-      compatibility: sensor.compatibility,
-      lastSeenAt: sensor.lastSeenAt?.toISOString() ?? null,
-      lastValue: (sensor.events[0]?.payload as Record<string, unknown> | undefined) ?? null,
-      device: sensor.device
-        ? {
-            name: sensor.device.name,
-            manufacturer: sensor.device.manufacturer,
-            model: sensor.device.model,
-          }
-        : null,
-    });
+    const sensorView = (sensor: (typeof home.sensors)[number]) => {
+      const live = sensor.available && sensor.status === 'ONLINE';
+      return {
+        id: sensor.id,
+        entityId: sensor.entityId,
+        capability: sensor.capability,
+        status: live ? sensor.status : 'OFFLINE',
+        compatibility: sensor.compatibility,
+        lastSeenAt: sensor.lastSeenAt?.toISOString() ?? null,
+        lastValue: live
+          ? ((sensor.events[0]?.payload as Record<string, unknown> | undefined) ?? null)
+          : null,
+        device: sensor.device
+          ? {
+              name: sensor.device.name,
+              manufacturer: sensor.device.manufacturer,
+              model: sensor.device.model,
+            }
+          : null,
+      };
+    };
     return {
       home: {
         id: home.id,
@@ -324,9 +594,20 @@ export class ActivityService {
         phone: contact.phone,
         email: contact.email,
         relation: contact.relation,
-        role: contact.role,
+        role:
+          contact.user?.memberships.find(
+            (membership) => membership.organizationId === home.organizationId,
+          )?.systemRole ?? null,
+        isEmergency: contact.isEmergency,
         priority: contact.priority,
         hasAccount: contact.userId !== null,
+        accessDisabled: Boolean(
+          contact.user?.memberships.find(
+            (membership) => membership.organizationId === home.organizationId,
+          )?.disabledAt,
+        ),
+        archived: contact.archivedAt !== null,
+        isCurrentUser: contact.userId === userId,
         username: contact.user?.username ?? null,
       })),
       caregivers: caregivers.map((caregiver) => ({
@@ -346,7 +627,9 @@ export class ActivityService {
     const home = await this.prisma.home.findFirst({
       where: {
         organization: {
-          memberships: { some: { userId, systemRole: { in: ['OWNER', 'ADMINISTRATOR'] } } },
+          memberships: {
+            some: { userId, disabledAt: null, systemRole: { in: ['OWNER', 'ADMINISTRATOR'] } },
+          },
         },
       },
       select: { id: true, trustedContacts: { select: { id: true } } },
@@ -367,85 +650,13 @@ export class ActivityService {
     return { orderedIds };
   }
 
-  public async createContact(userId: string, contact: Installation['contacts'][number]) {
-    const home = await this.prisma.home.findFirst({
-      where: {
-        organization: {
-          memberships: { some: { userId, systemRole: { in: ['OWNER', 'ADMINISTRATOR'] } } },
-        },
-      },
-      select: { id: true, organizationId: true, primaryResidentId: true },
-    });
-    if (!home?.primaryResidentId) throw new ForbiddenException('Administrator access required');
-    const residentId = home.primaryResidentId;
-    const temporaryPasswordHash = contact.temporaryPassword
-      ? await hash(contact.temporaryPassword)
-      : null;
-    return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(1296649293)`;
-      const last = await tx.trustedContact.findFirst({
-        where: { homeId: home.id },
-        orderBy: { priority: 'desc' },
-        select: { priority: true },
-      });
-      let accountId: string | null = null;
-      if (contact.role === 'administrateur') {
-        if (!contact.username || !temporaryPasswordHash) {
-          throw new ForbiddenException('Administrator credentials required');
-        }
-        const account = await tx.user.create({
-          data: {
-            username: contact.username.toLowerCase(),
-            email: contact.email ? contact.email.toLowerCase() : null,
-            phone: contact.phone || null,
-            displayName: `${contact.firstName} ${contact.lastName}`.trim(),
-            passwordHash: temporaryPasswordHash,
-            mustChangePassword: true,
-          },
-        });
-        accountId = account.id;
-        await tx.membership.create({
-          data: {
-            organizationId: home.organizationId,
-            userId: account.id,
-            systemRole: 'ADMINISTRATOR',
-          },
-        });
-        await tx.caregiverProfile.create({
-          data: {
-            userId: account.id,
-            residentId,
-            relation: contact.relation || null,
-          },
-        });
-      }
-      return tx.trustedContact.create({
-        data: {
-          homeId: home.id,
-          residentId,
-          userId: accountId,
-          firstName: contact.firstName,
-          lastName: contact.lastName,
-          phone: contact.phone || null,
-          email: contact.email ? contact.email.toLowerCase() : null,
-          relation: contact.relation || null,
-          role:
-            contact.role === 'administrateur'
-              ? 'ADMINISTRATOR'
-              : contact.role === 'urgence'
-                ? 'EMERGENCY'
-                : 'RELATIVE',
-          priority: (last?.priority ?? -1) + 1,
-        },
-      });
-    });
-  }
-
   public async assignSensor(userId: string, sensorId: string, roomId: string | null) {
     const home = await this.prisma.home.findFirst({
       where: {
         organization: {
-          memberships: { some: { userId, systemRole: { in: ['OWNER', 'ADMINISTRATOR'] } } },
+          memberships: {
+            some: { userId, disabledAt: null, systemRole: { in: ['OWNER', 'ADMINISTRATOR'] } },
+          },
         },
       },
       select: { id: true, rooms: { select: { id: true } } },
@@ -454,11 +665,25 @@ export class ActivityService {
     if (roomId && !home.rooms.some((room) => room.id === roomId)) {
       throw new ForbiddenException('Unknown room identifier');
     }
-    const updated = await this.prisma.sensor.updateMany({
+    const sensor = await this.prisma.sensor.findFirst({
       where: { id: sensorId, homeId: home.id },
-      data: { roomId },
+      select: { id: true, deviceId: true },
     });
-    if (updated.count !== 1) throw new ForbiddenException('Unknown sensor identifier');
+    if (!sensor) throw new ForbiddenException('Unknown sensor identifier');
+    if (sensor.deviceId) {
+      await this.prisma.$transaction([
+        this.prisma.device.update({
+          where: { id: sensor.deviceId },
+          data: { roomId, installationStatus: 'NEEDS_PLACEMENT' },
+        }),
+        this.prisma.sensor.updateMany({
+          where: { deviceId: sensor.deviceId, homeId: home.id },
+          data: { roomId },
+        }),
+      ]);
+    } else {
+      await this.prisma.sensor.update({ where: { id: sensor.id }, data: { roomId } });
+    }
     return { sensorId, roomId };
   }
 
@@ -495,7 +720,7 @@ export class ActivityService {
 
   public async timeline(userId: string, limit = 50) {
     return this.prisma.observationEvent.findMany({
-      where: { home: { organization: { memberships: { some: { userId } } } } },
+      where: { home: { organization: { memberships: { some: { userId, disabledAt: null } } } } },
       orderBy: { occurredAt: 'desc' },
       take: Math.min(limit, 100),
       include: { sensor: { include: { room: true } } },
@@ -504,7 +729,9 @@ export class ActivityService {
 
   public async activityFeed(userId: string, limit: number, cursor?: string) {
     const items = await this.prisma.observationEvent.findMany({
-      where: { home: { organization: { memberships: { some: { userId } } } } },
+      where: {
+        home: { organization: { memberships: { some: { userId, disabledAt: null } } } },
+      },
       orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -517,7 +744,9 @@ export class ActivityService {
 
   public async journal(userId: string) {
     return this.prisma.journalEntry.findMany({
-      where: { home: { organization: { memberships: { some: { userId } } } } },
+      where: {
+        home: { organization: { memberships: { some: { userId, disabledAt: null } } } },
+      },
       orderBy: { occurredAt: 'desc' },
       take: 50,
     });
@@ -525,7 +754,9 @@ export class ActivityService {
 
   public async journalFeed(userId: string, limit: number, cursor?: string) {
     const items = await this.prisma.journalEntry.findMany({
-      where: { home: { organization: { memberships: { some: { userId } } } } },
+      where: {
+        home: { organization: { memberships: { some: { userId, disabledAt: null } } } },
+      },
       orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

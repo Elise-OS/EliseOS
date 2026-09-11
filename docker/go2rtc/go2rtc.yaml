@@ -1,0 +1,19 @@
+app:
+  modules: [api, rtsp, webrtc, ffmpeg, mjpeg]
+
+api:
+  listen: ':1984'
+  allow_paths:
+    - /api
+    - /api/streams
+    - /api/webrtc
+    - /api/frame.jpeg
+
+rtsp:
+  listen: ':8554'
+
+webrtc:
+  listen: ':8555'
+  candidates: []
+
+streams: {}

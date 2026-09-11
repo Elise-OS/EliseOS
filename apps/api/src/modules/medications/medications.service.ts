@@ -1,5 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import type { MembershipRole } from '@prisma/client';
 import { PrismaService } from '../../platform/prisma.service';
+import { rolesFor } from '../auth/access-policy';
 import { localDateKey, minuteFromTime, scheduledDate, weekdayForDateKey } from './medication-time';
 
 export interface MedicationInput {
@@ -27,7 +29,7 @@ export interface ScheduleInput {
   active?: boolean | undefined;
 }
 
-const MEDICATION_EDITOR_ROLES = ['OWNER', 'ADMINISTRATOR', 'CAREGIVER'] as const;
+const MEDICATION_EDITOR_ROLES = rolesFor('medications:manage');
 
 @Injectable()
 export class MedicationsService {
@@ -43,7 +45,7 @@ export class MedicationsService {
   }
 
   public async create(userId: string, input: MedicationInput) {
-    const home = await this.homeFor(userId, [...MEDICATION_EDITOR_ROLES]);
+    const home = await this.homeFor(userId, MEDICATION_EDITOR_ROLES);
     if (!home.primaryResidentId) throw new ForbiddenException('A resident is required');
     return this.prisma.$transaction(async (tx) => {
       const medication = await tx.medication.create({
@@ -79,7 +81,7 @@ export class MedicationsService {
   }
 
   public async update(userId: string, medicationId: string, input: MedicationPatch) {
-    const home = await this.homeFor(userId, [...MEDICATION_EDITOR_ROLES]);
+    const home = await this.homeFor(userId, MEDICATION_EDITOR_ROLES);
     const existing = await this.prisma.medication.findFirst({
       where: { id: medicationId, homeId: home.id },
     });
@@ -103,7 +105,7 @@ export class MedicationsService {
   }
 
   public async addSchedule(userId: string, medicationId: string, input: ScheduleInput) {
-    const home = await this.homeFor(userId, [...MEDICATION_EDITOR_ROLES]);
+    const home = await this.homeFor(userId, MEDICATION_EDITOR_ROLES);
     const medication = await this.prisma.medication.findFirst({
       where: { id: medicationId, homeId: home.id },
       select: { id: true },
@@ -121,7 +123,7 @@ export class MedicationsService {
   }
 
   public async updateSchedule(userId: string, scheduleId: string, input: ScheduleInput) {
-    const home = await this.homeFor(userId, [...MEDICATION_EDITOR_ROLES]);
+    const home = await this.homeFor(userId, MEDICATION_EDITOR_ROLES);
     const schedule = await this.prisma.medicationSchedule.findFirst({
       where: { id: scheduleId, medication: { homeId: home.id } },
       select: { id: true },
@@ -166,7 +168,7 @@ export class MedicationsService {
   }
 
   public async confirm(userId: string, doseId: string, status: 'TAKEN' | 'SKIPPED', note?: string) {
-    const home = await this.homeFor(userId, [...MEDICATION_EDITOR_ROLES]);
+    const home = await this.homeFor(userId, MEDICATION_EDITOR_ROLES);
     const dose = await this.prisma.medicationDose.findFirst({
       where: { id: doseId, schedule: { medication: { homeId: home.id } } },
     });
@@ -244,12 +246,16 @@ export class MedicationsService {
     );
   }
 
-  private async homeFor(userId: string, roles?: Array<'OWNER' | 'ADMINISTRATOR' | 'CAREGIVER'>) {
+  private async homeFor(userId: string, roles?: MembershipRole[]) {
     const home = await this.prisma.home.findFirst({
       where: {
         organization: {
           memberships: {
-            some: { userId, ...(roles ? { systemRole: { in: roles } } : {}) },
+            some: {
+              userId,
+              disabledAt: null,
+              ...(roles ? { systemRole: { in: roles } } : {}),
+            },
           },
         },
       },

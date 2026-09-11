@@ -1,4 +1,6 @@
 import { createHmac } from 'node:crypto';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { MichelAiClient } from '@michel/ai-client';
 import {
@@ -7,7 +9,7 @@ import {
   type AlertRuleSettings,
 } from '@michel/contracts';
 import pg from 'pg';
-import { LEARNED_HABIT_STATUS, shouldCreateAnomalyAlert } from './policy.js';
+import { LEARNED_HABIT_STATUS } from './policy.js';
 import { isDosePastConfirmationWindow, missedDoseCopy } from './medication-rules.js';
 import {
   countNightActivity,
@@ -15,6 +17,7 @@ import {
   isStale,
   numericPayload,
   persistentTemperatureViolation,
+  sensorCoverageState,
 } from './rules.js';
 
 const { Pool } = pg;
@@ -51,6 +54,7 @@ type AlertSeverity = 'INFO' | 'ATTENTION' | 'URGENT';
 
 interface AlertCandidate {
   homeId: string;
+  roomId?: string | null;
   ruleKey: string;
   type: AlertType;
   severity: AlertSeverity;
@@ -59,25 +63,49 @@ interface AlertCandidate {
   explanation: string;
 }
 
-const CAPABILITIES = [
-  'motion',
-  'occupancy',
-  'contact',
-  'button',
-  'temperature',
-  'humidity',
-  'power',
-  'energy',
-  'battery',
-] as const;
+function stableBucket(value: string | null, buckets = 8): number {
+  if (!value) return -1;
+  let hash = 5381;
+  for (const character of value) hash = (hash * 33) ^ character.charCodeAt(0);
+  return Math.abs(hash) % buckets;
+}
 
-function eventFeatures(occurredAt: Date, capability: string, quality: string) {
-  const hour = occurredAt.getHours();
+function sessionFeatures(session: {
+  startedAt: Date;
+  durationSeconds: number;
+  dailyTotalSeconds: number;
+  roomId: string;
+  previousRoomId: string | null;
+  source: string;
+  confidence: string;
+  plausibleTransition: boolean | null;
+}) {
+  const hour = session.startedAt.getUTCHours() + session.startedAt.getUTCMinutes() / 60;
+  const day = session.startedAt.getUTCDay();
+  const roomBucket = stableBucket(session.roomId);
+  const previousBucket = stableBucket(session.previousRoomId);
   return {
     hour_sin: Math.sin((hour / 24) * Math.PI * 2),
     hour_cos: Math.cos((hour / 24) * Math.PI * 2),
-    capability_code: CAPABILITIES.indexOf(capability as (typeof CAPABILITIES)[number]),
-    quality: quality === 'good' ? 1 : 0,
+    weekday_sin: Math.sin((day / 7) * Math.PI * 2),
+    weekday_cos: Math.cos((day / 7) * Math.PI * 2),
+    log_duration: Math.log1p(session.durationSeconds),
+    daily_total_hours: session.dailyTotalSeconds / 3_600,
+    source_sensor: session.source === 'SENSOR' ? 1 : 0,
+    source_camera: session.source === 'CAMERA' ? 1 : 0,
+    source_combined: session.source === 'COMBINED' ? 1 : 0,
+    confidence: session.confidence === 'HIGH' ? 1 : session.confidence === 'MEDIUM' ? 0.6 : 0.2,
+    plausible_transition:
+      session.plausibleTransition === null ? 0.5 : session.plausibleTransition ? 1 : 0,
+    ...Object.fromEntries(
+      Array.from({ length: 8 }, (_, index) => [`room_${index}`, index === roomBucket ? 1 : 0]),
+    ),
+    ...Object.fromEntries(
+      Array.from({ length: 8 }, (_, index) => [
+        `previous_room_${index}`,
+        index === previousBucket ? 1 : 0,
+      ]),
+    ),
   };
 }
 
@@ -112,41 +140,20 @@ async function claim(): Promise<OutboxRow | null> {
 }
 
 async function handleAi(row: OutboxRow): Promise<void> {
-  const score = await ai.score(row.payload);
-  const previous = await pool.query<{ score: number; confidence: number }>(
-    `SELECT score, confidence FROM "AnomalyEvaluation" WHERE "homeId" = $1 ORDER BY "evaluatedAt" DESC LIMIT 1`,
+  const activeModel = await pool.query<{ algorithm: string }>(
+    `SELECT algorithm FROM "ModelArtifact" WHERE "homeId" = $1 AND active = true
+     ORDER BY "createdAt" DESC LIMIT 1`,
     [row.homeId],
   );
+  if (activeModel.rows[0]?.algorithm === 'isolation-forest-session-v2') return;
+  const score = await ai.score(row.payload);
   await pool.query(
     `INSERT INTO "AnomalyEvaluation" (id, "homeId", "modelVersion", score, confidence, factors, "evaluatedAt")
      VALUES (concat('eval_', gen_random_uuid()), $1, $2, $3, $4, $5::jsonb, NOW())`,
     [row.homeId, score.model_version, score.score, score.confidence, JSON.stringify(score.factors)],
   );
-  const prior = previous.rows[0];
-  if (
-    shouldCreateAnomalyAlert(
-      { score: score.score, confidence: score.confidence, isAnomaly: score.is_anomaly },
-      prior,
-    )
-  ) {
-    const existing = await pool.query(
-      `SELECT 1 FROM "Alert" WHERE "homeId" = $1 AND type = 'UNUSUAL_ACTIVITY' AND status IN ('OPEN', 'ACKNOWLEDGED') LIMIT 1`,
-      [row.homeId],
-    );
-    if (existing.rowCount === 0) {
-      const created = await pool.query<{ id: string }>(
-        `INSERT INTO "Alert" (id, "homeId", type, severity, status, title, explanation, confidence, "openedAt", "createdAt", "updatedAt")
-         VALUES (concat('alert_', gen_random_uuid()), $1, 'UNUSUAL_ACTIVITY', 'ATTENTION', 'OPEN', $2, $3, $4, NOW(), NOW(), NOW()) RETURNING id`,
-        [
-          row.homeId,
-          'Activité inhabituelle détectée',
-          score.factors[0]?.message ?? 'Le rythme observé diffère des habitudes récentes.',
-          score.confidence,
-        ],
-      );
-      await enqueueWebhook(row.homeId, created.rows[0]!.id, 'alert.opened');
-    }
-  }
+  // The raw-event model remains in shadow mode until session-based features have
+  // completed their comparison period. Core deliberately creates no alert here.
 }
 
 async function handleWebhook(row: OutboxRow): Promise<void> {
@@ -256,7 +263,7 @@ async function handlePush(row: OutboxRow): Promise<void> {
         `INSERT INTO "OutboxMessage"
          (id, "homeId", topic, payload, status, attempts, "availableAt", "createdAt", "updatedAt")
          VALUES (concat('outbox_', gen_random_uuid()), $1, 'push.receipt',
-           jsonb_build_object('deliveryId', $2, 'ticketId', $3, 'subscriptionId', $4),
+           jsonb_build_object('deliveryId', $2::text, 'ticketId', $3::text, 'subscriptionId', $4::text),
            'PENDING', 0, NOW() + INTERVAL '15 minutes', NOW(), NOW())`,
         [row.homeId, delivery.rows[0].id, ticket.id, subscription.id],
       );
@@ -334,10 +341,17 @@ async function enqueueWebhook(homeId: string, alertId: string, event: string): P
   await pool.query(
     `INSERT INTO "OutboxMessage" (id, "homeId", topic, payload, status, attempts, "availableAt", "createdAt", "updatedAt")
      VALUES
-       (concat('outbox_', gen_random_uuid()), $1, 'webhook', jsonb_build_object('event', $2, 'alertId', $3), 'PENDING', 0, NOW(), NOW(), NOW()),
-       (concat('outbox_', gen_random_uuid()), $1, 'push', jsonb_build_object('event', $2, 'alertId', $3), 'PENDING', 0, NOW(), NOW(), NOW())`,
+       (concat('outbox_', gen_random_uuid()), $1, 'webhook', jsonb_build_object('event', $2::text, 'alertId', $3::text), 'PENDING', 0, NOW(), NOW(), NOW()),
+       (concat('outbox_', gen_random_uuid()), $1, 'push', jsonb_build_object('event', $2::text, 'alertId', $3::text), 'PENDING', 0, NOW(), NOW(), NOW())`,
     [homeId, event, alertId],
   );
+  if (event === 'alert.opened') {
+    await pool.query(
+      `INSERT INTO "OutboxMessage" (id, "homeId", topic, payload, status, attempts, "availableAt", "createdAt", "updatedAt")
+       VALUES (concat('outbox_', gen_random_uuid()), $1, 'camera.snapshot', jsonb_build_object('alertId', $2::text), 'PENDING', 0, NOW(), NOW(), NOW())`,
+      [homeId, alertId],
+    );
+  }
 }
 
 async function syncAlert(candidate: AlertCandidate): Promise<void> {
@@ -358,10 +372,11 @@ async function syncAlert(candidate: AlertCandidate): Promise<void> {
       return;
     }
     const created = await pool.query<{ id: string }>(
-      `INSERT INTO "Alert" (id, "homeId", type, severity, status, title, explanation, "ruleKey", "openedAt", "createdAt", "updatedAt")
-       VALUES (concat('alert_', gen_random_uuid()), $1, $2, $3, 'OPEN', $4, $5, $6, NOW(), NOW(), NOW()) RETURNING id`,
+      `INSERT INTO "Alert" (id, "homeId", "roomId", type, severity, status, title, explanation, "ruleKey", "openedAt", "createdAt", "updatedAt")
+       VALUES (concat('alert_', gen_random_uuid()), $1, $2, $3, $4, 'OPEN', $5, $6, $7, NOW(), NOW(), NOW()) RETURNING id`,
       [
         candidate.homeId,
+        candidate.roomId ?? null,
         candidate.type,
         candidate.severity,
         candidate.title,
@@ -386,6 +401,45 @@ async function syncAlert(candidate: AlertCandidate): Promise<void> {
   await enqueueWebhook(candidate.homeId, current.id, 'alert.resolved');
 }
 
+async function captureAlertSnapshot(homeId: string, alertId: string): Promise<void> {
+  const alert = await pool.query<{ roomId: string | null }>(
+    `SELECT "roomId" FROM "Alert" WHERE id = $1 AND "homeId" = $2`,
+    [alertId, homeId],
+  );
+  const roomId = alert.rows[0]?.roomId;
+  if (!roomId) return;
+  const result = await pool.query<{ id: string; streamKey: string }>(
+    `SELECT id, "streamKey" FROM "Camera"
+     WHERE "homeId" = $1 AND "roomId" = $2 AND "snapshotEnabled" = true
+       AND "privacyMode" = false AND "consentedAt" IS NOT NULL
+       AND status IN ('ONLINE', 'DEGRADED')
+     ORDER BY "createdAt" ASC LIMIT 1`,
+    [homeId, roomId],
+  );
+  const camera = result.rows[0];
+  if (!camera) return;
+  const go2rtc = process.env.GO2RTC_URL ?? 'http://go2rtc:1984';
+  const query = new URLSearchParams({ src: camera.streamKey });
+  const response = await fetch(`${go2rtc}/api/frame.jpeg?${query}`);
+  if (!response.ok) throw new Error(`Snapshot service returned ${response.status}`);
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length === 0 || bytes.length > 5 * 1024 * 1024) {
+    throw new Error('Snapshot has an invalid size');
+  }
+  const root = path.resolve(process.env.CAMERA_MEDIA_ROOT ?? '/var/lib/elise/camera-media');
+  const directory = path.join(root, homeId);
+  await fs.mkdir(directory, { recursive: true });
+  const relativePath = path.join(homeId, `${alertId}-${camera.id}.jpg`);
+  await fs.writeFile(path.join(root, relativePath), bytes, { mode: 0o600 });
+  await pool.query(
+    `INSERT INTO "CameraSnapshot"
+     (id, "homeId", "cameraId", "alertId", path, "mimeType", "sizeBytes", "capturedAt", "expiresAt", "createdAt")
+     VALUES (concat('snapshot_', gen_random_uuid()), $1, $2, $3, $4, 'image/jpeg', $5, NOW(), NOW() + INTERVAL '24 hours', NOW())
+     ON CONFLICT ("alertId", "cameraId") DO NOTHING`,
+    [homeId, camera.id, alertId, relativePath, bytes.length],
+  );
+}
+
 function parseRules(settings: unknown): AlertRuleSettings {
   const candidate = (settings as { alertRules?: unknown } | null)?.alertRules;
   const parsed = alertRuleSettingsSchema.safeParse(candidate);
@@ -408,12 +462,13 @@ async function evaluateSensorRules(): Promise<void> {
       capability: string;
       status: string;
       lastSeenAt: Date | null;
+      roomId: string | null;
       roomName: string | null;
       payload: unknown;
       occurredAt: Date | null;
     }>(
       `SELECT s.id, s."entityId", COALESCE(d.name, s."entityId") AS name, s.capability,
-        s.status, s."lastSeenAt", r.name AS "roomName", latest.payload, latest."occurredAt"
+        s.status, s."lastSeenAt", r.id AS "roomId", r.name AS "roomName", latest.payload, latest."occurredAt"
        FROM "Sensor" s
        LEFT JOIN "Device" d ON d.id = s."deviceId"
        LEFT JOIN "Room" r ON r.id = s."roomId"
@@ -421,7 +476,8 @@ async function evaluateSensorRules(): Promise<void> {
          SELECT e.payload, e."occurredAt" FROM "ObservationEvent" e
          WHERE e."sensorId" = s.id ORDER BY e."occurredAt" DESC LIMIT 1
        ) latest ON true
-       WHERE s."homeId" = $1`,
+       WHERE s."homeId" = $1 AND s."analysisEnabled" = true AND s."removedAt" IS NULL
+         AND (s."deviceId" IS NULL OR (d.enabled = true AND d."installationStatus" = 'OPERATIONAL'))`,
       [home.homeId],
     );
     for (const sensor of sensors.rows) {
@@ -434,6 +490,7 @@ async function evaluateSensorRules(): Promise<void> {
       }
       await syncAlert({
         homeId: home.homeId,
+        roomId: sensor.roomId,
         ruleKey: `sensor-offline:${sensor.id}`,
         type: 'SENSOR_OFFLINE',
         severity: 'ATTENTION',
@@ -445,6 +502,7 @@ async function evaluateSensorRules(): Promise<void> {
       if (sensor.capability === 'contact') {
         await syncAlert({
           homeId: home.homeId,
+          roomId: sensor.roomId,
           ruleKey: `door-open:${sensor.id}`,
           type: 'DOOR_OPEN',
           severity: 'ATTENTION',
@@ -461,6 +519,7 @@ async function evaluateSensorRules(): Promise<void> {
         const battery = numericPayload(sensor.payload);
         await syncAlert({
           homeId: home.homeId,
+          roomId: sensor.roomId,
           ruleKey: `low-battery:${sensor.id}`,
           type: 'LOW_BATTERY',
           severity: 'INFO',
@@ -479,14 +538,20 @@ async function evaluateSensorRules(): Promise<void> {
       sensorId: string;
       entityId: string;
       roomName: string | null;
+      roomId: string | null;
       occurredAt: Date;
       payload: unknown;
     }>(
-      `SELECT e."sensorId", s."entityId", r.name AS "roomName", e."occurredAt", e.payload
+      `SELECT e."sensorId", s."entityId", r.id AS "roomId", r.name AS "roomName", e."occurredAt", e.payload
        FROM "ObservationEvent" e
        JOIN "Sensor" s ON s.id = e."sensorId"
        LEFT JOIN "Room" r ON r.id = s."roomId"
-       WHERE e."homeId" = $1 AND e.capability = 'temperature'
+       WHERE e."homeId" = $1 AND e.capability = 'temperature' AND s."analysisEnabled" = true
+         AND s."removedAt" IS NULL
+         AND (s."deviceId" IS NULL OR EXISTS (
+           SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
+             AND d."installationStatus" = 'OPERATIONAL'
+         ))
          AND e."occurredAt" >= NOW() - INTERVAL '24 hours'
        ORDER BY e."occurredAt" ASC`,
       [home.homeId],
@@ -524,6 +589,7 @@ async function evaluateSensorRules(): Promise<void> {
       );
       await syncAlert({
         homeId: home.homeId,
+        roomId: first.roomId,
         ruleKey: `temperature-low:${sensorId}`,
         type: 'TEMPERATURE',
         severity: 'ATTENTION',
@@ -533,6 +599,7 @@ async function evaluateSensorRules(): Promise<void> {
       });
       await syncAlert({
         homeId: home.homeId,
+        roomId: first.roomId,
         ruleKey: `temperature-high:${sensorId}`,
         type: 'TEMPERATURE',
         severity: 'ATTENTION',
@@ -543,9 +610,16 @@ async function evaluateSensorRules(): Promise<void> {
     }
 
     const nightEvents = await pool.query<{ occurredAt: Date }>(
-      `SELECT "occurredAt" FROM "ObservationEvent"
-       WHERE "homeId" = $1 AND capability IN ('motion', 'occupancy')
-         AND "occurredAt" >= NOW() - INTERVAL '24 hours'`,
+      `SELECT e."occurredAt" FROM "ObservationEvent" e
+       JOIN "Sensor" s ON s.id = e."sensorId" AND s."analysisEnabled" = true
+         AND s."removedAt" IS NULL
+         AND (s."deviceId" IS NULL OR EXISTS (
+           SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
+             AND d."installationStatus" = 'OPERATIONAL'
+         ))
+       WHERE e."homeId" = $1 AND e.capability IN ('motion', 'occupancy', 'person_presence')
+         AND COALESCE((e.payload->>'active')::boolean, false) = true
+         AND e."occurredAt" >= NOW() - INTERVAL '24 hours'`,
       [home.homeId],
     );
     const nightCount = countNightActivity(
@@ -572,17 +646,62 @@ async function evaluateInactivity(): Promise<void> {
     lastActivity: Date | null;
     inactivityMinutes: number;
     inactivityEnabled: boolean;
+    configuredSensors: number;
     activeSensors: number;
   }>(
     `SELECT h.id AS "homeId", MAX(e."occurredAt") AS "lastActivity",
       COALESCE((SELECT (c.settings#>>'{alertRules,inactivity,minutes}')::int FROM "ConfigurationRevision" c WHERE c."homeId" = h.id ORDER BY version DESC LIMIT 1),
         (SELECT (c.settings->>'inactivityMinutes')::int FROM "ConfigurationRevision" c WHERE c."homeId" = h.id ORDER BY version DESC LIMIT 1), 180) AS "inactivityMinutes",
       COALESCE((SELECT (c.settings#>>'{alertRules,inactivity,enabled}')::boolean FROM "ConfigurationRevision" c WHERE c."homeId" = h.id ORDER BY version DESC LIMIT 1), true) AS "inactivityEnabled",
-      (SELECT COUNT(*)::int FROM "Sensor" s WHERE s."homeId" = h.id AND s.status = 'ONLINE') AS "activeSensors"
-     FROM "Home" h LEFT JOIN "ObservationEvent" e ON e."homeId" = h.id AND e.capability IN ('motion', 'occupancy', 'contact') GROUP BY h.id`,
+      (SELECT COUNT(*)::int FROM "Sensor" s WHERE s."homeId" = h.id
+        AND s."analysisEnabled" = true AND s."removedAt" IS NULL
+        AND s.capability IN ('motion', 'occupancy', 'person_presence', 'contact')
+        AND (s."deviceId" IS NULL OR EXISTS (
+          SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
+            AND d."installationStatus" = 'OPERATIONAL'
+        ))) AS "configuredSensors",
+      (SELECT COUNT(*)::int FROM "Sensor" s WHERE s."homeId" = h.id AND s.status = 'ONLINE'
+        AND s."analysisEnabled" = true AND s."removedAt" IS NULL
+        AND s.capability IN ('motion', 'occupancy', 'person_presence', 'contact')
+        AND (s."deviceId" IS NULL OR EXISTS (
+          SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
+            AND d."installationStatus" = 'OPERATIONAL'
+        ))) AS "activeSensors"
+     FROM "Home" h LEFT JOIN "ObservationEvent" e ON e."homeId" = h.id
+       AND EXISTS (SELECT 1 FROM "Sensor" active_sensor WHERE active_sensor.id = e."sensorId"
+         AND active_sensor."analysisEnabled" = true AND active_sensor."removedAt" IS NULL
+         AND (active_sensor."deviceId" IS NULL OR EXISTS (
+           SELECT 1 FROM "Device" d WHERE d.id = active_sensor."deviceId" AND d.enabled = true
+             AND d."installationStatus" = 'OPERATIONAL'
+         )))
+       AND e.capability IN ('motion', 'occupancy', 'person_presence', 'contact')
+       AND (e.capability = 'contact' OR COALESCE((e.payload->>'active')::boolean, false) = true)
+     GROUP BY h.id`,
   );
   for (const home of homes.rows) {
-    if (home.activeSensors === 0) {
+    const coverage = sensorCoverageState(home.configuredSensors, home.activeSensors);
+    if (coverage === 'UNCONFIGURED') {
+      await syncAlert({
+        homeId: home.homeId,
+        ruleKey: 'coverage',
+        type: 'SYSTEM',
+        severity: 'ATTENTION',
+        active: false,
+        title: 'Données capteurs suffisantes',
+        explanation: '',
+      });
+      await syncAlert({
+        homeId: home.homeId,
+        ruleKey: 'inactivity',
+        type: 'INACTIVITY',
+        severity: 'ATTENTION',
+        active: false,
+        title: 'Aucune activité récente',
+        explanation: '',
+      });
+      continue;
+    }
+    if (coverage === 'OUTAGE') {
       await syncAlert({
         homeId: home.homeId,
         ruleKey: 'coverage',
@@ -717,6 +836,409 @@ async function applyRetention(): Promise<void> {
   await pool.query(
     `DELETE FROM "NotificationDelivery" WHERE "createdAt" < NOW() - INTERVAL '30 days'`,
   );
+  await pool.query(
+    `DELETE FROM "RoomPresenceSession" WHERE "startedAt" < NOW() - INTERVAL '90 days'`,
+  );
+  await pool.query(
+    `DELETE FROM "PresenceTransitionDecision" WHERE "occurredAt" < NOW() - INTERVAL '90 days'`,
+  );
+  await pool.query(
+    `DELETE FROM "RoomDailyPresenceAggregate" WHERE "localDate" < NOW() - INTERVAL '2 years'`,
+  );
+}
+
+async function maintainTopologicalPresence(): Promise<void> {
+  if (process.env.TOPOLOGY_TRACKING_ENABLED === 'false') return;
+  const pending = await pool.query<{
+    id: string;
+    homeId: string;
+    residentId: string | null;
+    confirmedRoomId: string;
+    candidateRoomId: string;
+    pathRoomIds: unknown;
+    transitionStartedAt: Date;
+  }>(
+    `SELECT id, "homeId", "residentId", "confirmedRoomId", "candidateRoomId",
+       "pathRoomIds", "transitionStartedAt"
+     FROM "PresenceTrackingState"
+     WHERE status = 'IN_TRANSIT' AND "confirmedRoomId" IS NOT NULL
+       AND "candidateRoomId" IS NOT NULL AND "transitionStartedAt" <= NOW() - INTERVAL '20 seconds'
+       AND "transitionStartedAt" >= NOW() - INTERVAL '2 minutes'`,
+  );
+  for (const tracking of pending.rows) {
+    const latest = await pool.query<{
+      id: string;
+      sensorId: string | null;
+      capability: string;
+      occurredAt: Date;
+      active: boolean | null;
+    }>(
+      `SELECT e.id, e."sensorId", e.capability, e."occurredAt",
+         CASE WHEN e.payload ? 'active' THEN (e.payload->>'active')::boolean ELSE NULL END AS active
+       FROM "ObservationEvent" e
+       WHERE e."homeId" = $1 AND e."roomId" = $2
+         AND e.capability IN ('occupancy', 'person_presence')
+         AND e."occurredAt" >= $3
+       ORDER BY e."occurredAt" DESC, e.id DESC LIMIT 1`,
+      [tracking.homeId, tracking.candidateRoomId, tracking.transitionStartedAt],
+    );
+    const proof = latest.rows[0];
+    if (!proof?.active) continue;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const promoted = await client.query(
+        `UPDATE "PresenceTrackingState"
+         SET status = 'CONFIRMED', "confirmedRoomId" = "candidateRoomId", "candidateRoomId" = NULL,
+           "confidenceScore" = LEAST("confidenceScore", 0.82),
+           "reasonCodes" = '["PERSISTENT_DESTINATION","INFERRED_PATH"]'::jsonb,
+           "transitionStartedAt" = NULL, "updatedAt" = NOW()
+         WHERE id = $1 AND status = 'IN_TRANSIT' RETURNING id`,
+        [tracking.id],
+      );
+      if (!promoted.rowCount) {
+        await client.query('ROLLBACK');
+        continue;
+      }
+      await client.query(
+        `UPDATE "RoomPresenceSession"
+         SET state = 'CLOSED', "endedAt" = NOW(),
+           "durationSeconds" = GREATEST(0, EXTRACT(EPOCH FROM (NOW() - "startedAt"))::int),
+           "endReason" = 'TRANSITION', "updatedAt" = NOW()
+         WHERE "homeId" = $1 AND state = 'OPEN' AND "endedAt" IS NULL`,
+        [tracking.homeId],
+      );
+      await client.query(
+        `INSERT INTO "RoomPresenceSession"
+          (id, "homeId", "residentId", "roomId", "sensorId", capability, "startedAt",
+           "lastConfirmedAt", state, confidence, source, "entryEventId", "previousRoomId",
+           "plausibleTransition", "excludedFromLearning", "ambiguousReason", "createdAt", "updatedAt")
+         VALUES (concat('presence_', gen_random_uuid()), $1, $2, $3, $4, $5, $6, NOW(),
+           'OPEN', 'MEDIUM', CASE WHEN $5 = 'person_presence' THEN 'CAMERA'::"PresenceSource" ELSE 'SENSOR'::"PresenceSource" END,
+           $7, $8, false, true, 'INFERRED_PATH', NOW(), NOW())`,
+        [
+          tracking.homeId,
+          tracking.residentId,
+          tracking.candidateRoomId,
+          proof.sensorId,
+          proof.capability,
+          proof.occurredAt,
+          proof.id,
+          tracking.confirmedRoomId,
+        ],
+      );
+      await client.query(
+        `INSERT INTO "PresenceTransitionDecision"
+          (id, "homeId", "residentId", "fromRoomId", "toRoomId", "pathRoomIds", outcome,
+           "confidenceScore", "reasonCodes", "evidenceSummary", explanation, "occurredAt", "confirmedAt", "createdAt")
+         VALUES (concat('presence_decision_', gen_random_uuid()), $1, $2, $3, $4, $5::jsonb,
+           'CONFIRMED', 0.82, '["PERSISTENT_DESTINATION","INFERRED_PATH"]'::jsonb,
+           jsonb_build_array(jsonb_build_object('eventId', $6, 'sensorId', $7, 'roomId', $4,
+             'capability', $8, 'occurredAt', $9, 'observed', true)),
+           'Destination confirmée après une présence persistante de 20 secondes.', NOW(), NOW(), NOW())`,
+        [
+          tracking.homeId,
+          tracking.residentId,
+          tracking.confirmedRoomId,
+          tracking.candidateRoomId,
+          JSON.stringify(tracking.pathRoomIds),
+          proof.id,
+          proof.sensorId,
+          proof.capability,
+          proof.occurredAt.toISOString(),
+        ],
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  await pool.query(
+    `UPDATE "PresenceTrackingState"
+     SET status = 'STALE', "reasonCodes" = '["NO_RECENT_EVIDENCE"]'::jsonb,
+       "confidenceScore" = LEAST("confidenceScore", 0.45), "updatedAt" = NOW()
+     WHERE status IN ('CONFIRMED', 'AMBIGUOUS')
+       AND "lastEvidenceAt" <= NOW() - INTERVAL '15 minutes'`,
+  );
+}
+
+async function maintainPresenceSessions(): Promise<void> {
+  await pool.query(
+    `UPDATE "RoomPresenceSession"
+     SET state = CASE WHEN state = 'AMBIGUOUS' THEN 'AMBIGUOUS'::"PresenceSessionState" ELSE 'CLOSED'::"PresenceSessionState" END,
+         "endedAt" = "lastConfirmedAt" + INTERVAL '10 minutes',
+         "durationSeconds" = GREATEST(0, EXTRACT(EPOCH FROM (("lastConfirmedAt" + INTERVAL '10 minutes') - "startedAt"))::int),
+         "endReason" = 'MOTION_TIMEOUT',
+         "updatedAt" = NOW()
+     WHERE state IN ('OPEN', 'AMBIGUOUS') AND "endedAt" IS NULL AND capability = 'motion'
+       AND "lastConfirmedAt" <= NOW() - INTERVAL '10 minutes'`,
+  );
+  await pool.query(
+    `UPDATE "RoomPresenceSession" session
+     SET state = CASE WHEN session.state = 'AMBIGUOUS' THEN 'AMBIGUOUS'::"PresenceSessionState" ELSE 'CLOSED'::"PresenceSessionState" END,
+         "endedAt" = session."lastConfirmedAt",
+         "durationSeconds" = GREATEST(0, EXTRACT(EPOCH FROM (session."lastConfirmedAt" - session."startedAt"))::int),
+         "endReason" = 'SENSOR_OFFLINE', "excludedFromLearning" = true, "updatedAt" = NOW()
+     FROM "Sensor" sensor
+     WHERE session."sensorId" = sensor.id AND session.state IN ('OPEN', 'AMBIGUOUS')
+       AND session."endedAt" IS NULL AND sensor.status = 'OFFLINE'`,
+  );
+}
+
+async function calculatePresenceAggregates(): Promise<void> {
+  await pool.query(
+    `WITH all_sessions AS (
+       SELECT s."homeId", s."roomId", date_trunc('day', s."startedAt" AT TIME ZONE h.timezone) AS "localDate",
+         COUNT(*)::int AS passages,
+         COUNT(*) FILTER (WHERE s.state = 'AMBIGUOUS')::int AS ambiguous
+       FROM "RoomPresenceSession" s JOIN "Home" h ON h.id = s."homeId"
+       WHERE s."startedAt" >= NOW() - INTERVAL '28 days'
+       GROUP BY s."homeId", s."roomId", date_trunc('day', s."startedAt" AT TIME ZONE h.timezone)
+     ), reliable AS (
+       SELECT s."homeId", s."roomId", date_trunc('day', s."startedAt" AT TIME ZONE h.timezone) AS "localDate",
+         s."durationSeconds", s."startedAt", s."endedAt", h.timezone
+       FROM "RoomPresenceSession" s JOIN "Home" h ON h.id = s."homeId"
+       WHERE s."startedAt" >= NOW() - INTERVAL '28 days' AND s.state = 'CLOSED'
+         AND s.confidence <> 'LOW' AND s."excludedFromLearning" = false AND s."durationSeconds" IS NOT NULL
+     ), medians AS (
+       SELECT "homeId", "roomId", "localDate",
+         percentile_cont(0.5) WITHIN GROUP (ORDER BY "durationSeconds") AS median
+       FROM reliable GROUP BY "homeId", "roomId", "localDate"
+     ), stats AS (
+       SELECT r."homeId", r."roomId", r."localDate", COUNT(*)::int AS reliable_count,
+         SUM(r."durationSeconds")::int AS total_seconds,
+         ROUND(AVG(r."durationSeconds"))::int AS average_seconds,
+         ROUND(m.median)::int AS median_seconds,
+         ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY ABS(r."durationSeconds" - m.median)))::int AS mad_seconds,
+         MIN(EXTRACT(HOUR FROM r."startedAt" AT TIME ZONE r.timezone)::int * 60 + EXTRACT(MINUTE FROM r."startedAt" AT TIME ZONE r.timezone)::int)::int AS first_minute,
+         MAX(EXTRACT(HOUR FROM r."endedAt" AT TIME ZONE r.timezone)::int * 60 + EXTRACT(MINUTE FROM r."endedAt" AT TIME ZONE r.timezone)::int)::int AS last_minute
+       FROM reliable r JOIN medians m USING ("homeId", "roomId", "localDate")
+       GROUP BY r."homeId", r."roomId", r."localDate", m.median
+     )
+     INSERT INTO "RoomDailyPresenceAggregate"
+       (id, "homeId", "roomId", "localDate", "dayKind", passages, "totalSeconds", "averageSeconds",
+        "medianSeconds", "madSeconds", "firstMinute", "lastMinute", "reliableSessions",
+        "ambiguousSessions", "confidenceRate", "calculatedAt")
+     SELECT concat('presence_daily_', gen_random_uuid()), a."homeId", a."roomId", a."localDate",
+       CASE WHEN EXTRACT(ISODOW FROM a."localDate") >= 6 THEN 'WEEKEND' ELSE 'WEEKDAY' END,
+       a.passages, COALESCE(s.total_seconds, 0), COALESCE(s.average_seconds, 0),
+       COALESCE(s.median_seconds, 0), COALESCE(s.mad_seconds, 0), s.first_minute, s.last_minute,
+       COALESCE(s.reliable_count, 0), a.ambiguous,
+       CASE WHEN a.passages = 0 THEN 0 ELSE COALESCE(s.reliable_count, 0)::float / a.passages END, NOW()
+     FROM all_sessions a LEFT JOIN stats s USING ("homeId", "roomId", "localDate")
+     ON CONFLICT ("homeId", "roomId", "localDate") DO UPDATE SET
+       "dayKind" = EXCLUDED."dayKind", passages = EXCLUDED.passages,
+       "totalSeconds" = EXCLUDED."totalSeconds", "averageSeconds" = EXCLUDED."averageSeconds",
+       "medianSeconds" = EXCLUDED."medianSeconds", "madSeconds" = EXCLUDED."madSeconds",
+       "firstMinute" = EXCLUDED."firstMinute", "lastMinute" = EXCLUDED."lastMinute",
+       "reliableSessions" = EXCLUDED."reliableSessions", "ambiguousSessions" = EXCLUDED."ambiguousSessions",
+       "confidenceRate" = EXCLUDED."confidenceRate", "calculatedAt" = NOW()`,
+  );
+
+  const profiles = await pool.query<{
+    homeId: string;
+    roomId: string;
+    samples: number;
+    days: number;
+    medianSeconds: number;
+    madSeconds: number;
+    averageDailySeconds: number;
+    confidence: number;
+    learningDays: number;
+  }>(
+    `SELECT a."homeId", a."roomId", SUM(a."reliableSessions")::int AS samples,
+       COUNT(*)::int AS days, ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY a."medianSeconds"))::int AS "medianSeconds",
+       ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY a."madSeconds"))::int AS "madSeconds",
+       ROUND(AVG(a."totalSeconds"))::int AS "averageDailySeconds", AVG(a."confidenceRate") AS confidence,
+       GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - h."learningStartedAt")) / 86400))::int AS "learningDays"
+     FROM "RoomDailyPresenceAggregate" a JOIN "Home" h ON h.id = a."homeId"
+     WHERE a."localDate" >= (NOW() - INTERVAL '28 days')
+     GROUP BY a."homeId", a."roomId", h."learningStartedAt"`,
+  );
+  for (const profile of profiles.rows) {
+    const kind = `room-presence:${profile.roomId}`;
+    const status =
+      profile.learningDays >= 14 && profile.samples >= 10 ? LEARNED_HABIT_STATUS : 'LEARNING';
+    await pool.query(
+      `UPDATE "HabitProfile" SET "validTo" = NOW()
+       WHERE "homeId" = $1 AND kind = $2 AND "validTo" IS NULL`,
+      [profile.homeId, kind],
+    );
+    await pool.query(
+      `INSERT INTO "HabitProfile"
+       (id, "homeId", "residentId", kind, status, source, parameters, confidence, "validFrom", "createdAt")
+       SELECT concat('habit_', gen_random_uuid()), h.id, h."primaryResidentId", $2, $3::"HabitStatus", 'LEARNED', $4::jsonb, $5, NOW(), NOW()
+       FROM "Home" h WHERE h.id = $1`,
+      [
+        profile.homeId,
+        kind,
+        status,
+        JSON.stringify({
+          roomId: profile.roomId,
+          samples: profile.samples,
+          days: profile.days,
+          medianSeconds: profile.medianSeconds,
+          madSeconds: profile.madSeconds,
+          averageDailySeconds: profile.averageDailySeconds,
+          windowDays: 28,
+        }),
+        Math.min(1, Number(profile.confidence)),
+      ],
+    );
+  }
+}
+
+function frenchDuration(seconds: number): string {
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours ? `${hours} h${rest ? ` ${rest} min` : ''}` : `${minutes} min`;
+}
+
+async function evaluateBehavioralDwell(): Promise<void> {
+  const sessions = await pool.query<{
+    id: string;
+    homeId: string;
+    roomId: string;
+    roomName: string;
+    startedAt: Date;
+    anomalySince: Date | null;
+    medianSeconds: number;
+    madSeconds: number;
+  }>(
+    `SELECT s.id, s."homeId", s."roomId", r.name AS "roomName", s."startedAt",
+       s."dwellAnomalySince" AS "anomalySince", baseline.median AS "medianSeconds", baseline.mad AS "madSeconds"
+     FROM "RoomPresenceSession" s JOIN "Room" r ON r.id = s."roomId"
+     JOIN LATERAL (
+       SELECT ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY a."medianSeconds"))::int AS median,
+         ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY a."madSeconds"))::int AS mad,
+         SUM(a."reliableSessions") AS samples
+       FROM "RoomDailyPresenceAggregate" a
+       WHERE a."homeId" = s."homeId" AND a."roomId" = s."roomId" AND a."localDate" >= NOW() - INTERVAL '28 days'
+     ) baseline ON baseline.samples >= 10
+     WHERE s.state = 'OPEN' AND s.confidence <> 'LOW' AND s."excludedFromLearning" = false
+       AND EXISTS (SELECT 1 FROM "Home" h WHERE h.id = s."homeId" AND h."learningStartedAt" <= NOW() - INTERVAL '14 days')
+       AND COALESCE((SELECT (c.settings#>>'{alertRules,behavioral,enabled}')::boolean
+         FROM "ConfigurationRevision" c WHERE c."homeId" = s."homeId" ORDER BY c.version DESC LIMIT 1), false) = true
+       AND NOT EXISTS (SELECT 1 FROM "Sensor" sensor WHERE sensor."homeId" = s."homeId"
+         AND sensor."analysisEnabled" = true AND sensor.capability IN ('motion','occupancy','person_presence')
+         AND sensor.status <> 'ONLINE')`,
+  );
+  for (const session of sessions.rows) {
+    const elapsed = Math.round((Date.now() - session.startedAt.getTime()) / 1_000);
+    const threshold = session.medianSeconds + Math.max(3 * session.madSeconds, 30 * 60);
+    const abnormal = elapsed > threshold;
+    if (!abnormal) {
+      if (session.anomalySince)
+        await pool.query(
+          `UPDATE "RoomPresenceSession" SET "dwellAnomalySince" = NULL WHERE id = $1`,
+          [session.id],
+        );
+      await syncAlert({
+        homeId: session.homeId,
+        roomId: session.roomId,
+        ruleKey: `behavior-dwell:${session.id}`,
+        type: 'UNUSUAL_ACTIVITY',
+        severity: 'ATTENTION',
+        active: false,
+        title: 'Durée de présence revenue à l’habitude',
+        explanation: '',
+      });
+      continue;
+    }
+    if (!session.anomalySince) {
+      await pool.query(
+        `UPDATE "RoomPresenceSession" SET "dwellAnomalySince" = NOW() WHERE id = $1`,
+        [session.id],
+      );
+      continue;
+    }
+    const persistent = Date.now() - session.anomalySince.getTime() >= 15 * 60_000;
+    await syncAlert({
+      homeId: session.homeId,
+      roomId: session.roomId,
+      ruleKey: `behavior-dwell:${session.id}`,
+      type: 'UNUSUAL_ACTIVITY',
+      severity: 'ATTENTION',
+      active: persistent,
+      title: `Présence inhabituellement longue dans ${session.roomName}`,
+      explanation: `La présence dans ${session.roomName} dure depuis ${frenchDuration(elapsed)} ; la durée habituelle est d’environ ${frenchDuration(session.medianSeconds)}.`,
+    });
+  }
+  const staleAlerts = await pool.query<{ homeId: string; roomId: string | null; ruleKey: string }>(
+    `SELECT a."homeId", a."roomId", a."ruleKey" FROM "Alert" a
+     WHERE a."ruleKey" LIKE 'behavior-dwell:%' AND a.status IN ('OPEN','ACKNOWLEDGED')
+       AND NOT EXISTS (SELECT 1 FROM "RoomPresenceSession" s
+         WHERE concat('behavior-dwell:', s.id) = a."ruleKey" AND s.state = 'OPEN')`,
+  );
+  for (const alert of staleAlerts.rows) {
+    await syncAlert({
+      homeId: alert.homeId,
+      roomId: alert.roomId,
+      ruleKey: alert.ruleKey,
+      type: 'UNUSUAL_ACTIVITY',
+      severity: 'ATTENTION',
+      active: false,
+      title: 'Durée de présence revenue à l’habitude',
+      explanation: '',
+    });
+  }
+}
+
+async function scorePresenceSessionsInShadowMode(): Promise<void> {
+  const sessions = await pool.query<{
+    id: string;
+    homeId: string;
+    startedAt: Date;
+    durationSeconds: number;
+    dailyTotalSeconds: number;
+    roomId: string;
+    previousRoomId: string | null;
+    source: string;
+    confidence: string;
+    plausibleTransition: boolean | null;
+  }>(
+    `SELECT s.id, s."homeId", s."startedAt", s."durationSeconds", s."roomId",
+       s."previousRoomId", s.source, s.confidence, s."plausibleTransition",
+       SUM(s."durationSeconds") OVER (
+         PARTITION BY s."homeId", date_trunc('day', s."startedAt" AT TIME ZONE h.timezone)
+       )::int AS "dailyTotalSeconds"
+     FROM "RoomPresenceSession" s JOIN "Home" h ON h.id = s."homeId"
+     WHERE s.state = 'CLOSED' AND s."endedAt" >= NOW() - INTERVAL '24 hours'
+       AND s."durationSeconds" IS NOT NULL AND s.confidence <> 'LOW'
+       AND s."excludedFromLearning" = false
+       AND EXISTS (SELECT 1 FROM "ModelArtifact" model WHERE model."homeId" = s."homeId"
+         AND model.active = true AND model.algorithm = 'isolation-forest-session-v2')
+       AND NOT EXISTS (SELECT 1 FROM "AnomalyEvaluation" evaluation
+         WHERE evaluation."homeId" = s."homeId"
+           AND evaluation.factors @> jsonb_build_array(jsonb_build_object('feature', 'session_id', 'message', s.id)))`,
+  );
+  for (const session of sessions.rows) {
+    const score = await ai.score({
+      home_id: session.homeId,
+      observed_at: session.startedAt.toISOString(),
+      features: sessionFeatures(session),
+    });
+    await pool.query(
+      `INSERT INTO "AnomalyEvaluation"
+       (id, "homeId", "modelVersion", score, confidence, factors, "evaluatedAt")
+       VALUES (concat('eval_', gen_random_uuid()), $1, $2, $3, $4, $5::jsonb, NOW())`,
+      [
+        session.homeId,
+        score.model_version,
+        score.score,
+        score.confidence,
+        JSON.stringify([
+          ...score.factors,
+          { feature: 'session_id', contribution: 0, message: session.id },
+        ]),
+      ],
+    );
+  }
 }
 
 async function trainEligibleHomes(): Promise<void> {
@@ -731,27 +1253,36 @@ async function trainEligibleHomes(): Promise<void> {
   );
   for (const home of homes.rows) {
     const observations = await pool.query<{
-      occurredAt: Date;
-      capability: string;
-      quality: string;
+      startedAt: Date;
+      durationSeconds: number;
+      dailyTotalSeconds: number;
+      roomId: string;
+      previousRoomId: string | null;
+      source: string;
+      confidence: string;
+      plausibleTransition: boolean | null;
     }>(
-      `SELECT "occurredAt", capability, quality
-       FROM "ObservationEvent"
-       WHERE "homeId" = $1 AND "occurredAt" >= NOW() - INTERVAL '28 days'
-       ORDER BY "occurredAt" ASC`,
+      `SELECT s."startedAt", s."durationSeconds", s."roomId", s."previousRoomId", s.source,
+         s.confidence, s."plausibleTransition",
+         SUM(s."durationSeconds") OVER (
+           PARTITION BY date_trunc('day', s."startedAt" AT TIME ZONE h.timezone)
+         )::int AS "dailyTotalSeconds"
+       FROM "RoomPresenceSession" s JOIN "Home" h ON h.id = s."homeId"
+       WHERE s."homeId" = $1 AND s."startedAt" >= NOW() - INTERVAL '28 days'
+         AND s.state = 'CLOSED' AND s.confidence <> 'LOW'
+         AND s."excludedFromLearning" = false AND s."durationSeconds" IS NOT NULL
+       ORDER BY s."startedAt" ASC`,
       [home.homeId],
     );
     if (observations.rowCount === null || observations.rowCount < 96) continue;
-    const first = observations.rows[0]!.occurredAt;
-    const last = observations.rows.at(-1)!.occurredAt;
+    const first = observations.rows[0]!.startedAt;
+    const last = observations.rows.at(-1)!.startedAt;
     const daysCovered = Math.floor((last.getTime() - first.getTime()) / 86_400_000) + 1;
     if (daysCovered < 14) continue;
     const trained = await ai.train({
       home_id: home.homeId,
       days_covered: daysCovered,
-      samples: observations.rows.map((event) =>
-        eventFeatures(event.occurredAt, event.capability, event.quality),
-      ),
+      samples: observations.rows.map(sessionFeatures),
     });
     const client = await pool.connect();
     try {
@@ -761,7 +1292,7 @@ async function trainEligibleHomes(): Promise<void> {
       ]);
       await client.query(
         `INSERT INTO "ModelArtifact" (id, "homeId", version, algorithm, path, sha256, "trainedFrom", "trainedTo", metrics, active, "createdAt")
-         VALUES (concat('model_', gen_random_uuid()), $1, $2, 'isolation-forest', $3, $4, $5, $6, $7::jsonb, true, NOW())
+         VALUES (concat('model_', gen_random_uuid()), $1, $2, 'isolation-forest-session-v2', $3, $4, $5, $6, $7::jsonb, true, NOW())
          ON CONFLICT ("homeId", version) DO UPDATE SET active = true, metrics = EXCLUDED.metrics`,
         [
           home.homeId,
@@ -775,12 +1306,12 @@ async function trainEligibleHomes(): Promise<void> {
       );
       await client.query(
         `UPDATE "HabitProfile" SET "validTo" = NOW()
-         WHERE "homeId" = $1 AND kind = 'routine' AND "validTo" IS NULL`,
+         WHERE "homeId" = $1 AND kind = 'ml:routine' AND "validTo" IS NULL`,
         [home.homeId],
       );
       await client.query(
         `INSERT INTO "HabitProfile" (id, "homeId", kind, status, parameters, confidence, "validFrom", "createdAt")
-         VALUES (concat('habit_', gen_random_uuid()), $1, 'routine', $2, $3::jsonb, $4, NOW(), NOW())`,
+         VALUES (concat('habit_', gen_random_uuid()), $1, 'ml:routine', $2, $3::jsonb, $4, NOW(), NOW())`,
         [
           home.homeId,
           LEARNED_HABIT_STATUS,
@@ -812,40 +1343,66 @@ async function main(): Promise<void> {
   let lastRuleCheck = 0;
   let lastRetentionRun = 0;
   let lastTrainingRun = 0;
+  let lastPresenceCheck = 0;
+  let lastPresenceAggregateRun = 0;
+  let lastTopologicalPresenceCheck = 0;
   while (running) {
-    if (Date.now() - lastRuleCheck > 60_000) {
-      await evaluateSensorRules();
-      lastRuleCheck = Date.now();
-    }
-    if (Date.now() - lastInactivityCheck > 60_000) {
-      await evaluateInactivity();
-      lastInactivityCheck = Date.now();
-    }
-    if (Date.now() - lastMedicationCheck > 60_000) {
-      await evaluateMedicationDoses();
-      lastMedicationCheck = Date.now();
-    }
-    if (Date.now() - lastRetentionRun > 86_400_000) {
-      await applyRetention();
-      lastRetentionRun = Date.now();
-    }
-    if (Date.now() - lastTrainingRun > 86_400_000) {
-      await trainEligibleHomes();
-      lastTrainingRun = Date.now();
-    }
-    const row = await claim();
-    if (!row) {
-      await delay(1_000);
-      continue;
-    }
     try {
-      if (row.topic === 'ai.score') await handleAi(row);
-      if (row.topic === 'webhook') await handleWebhook(row);
-      if (row.topic === 'push') await handlePush(row);
-      if (row.topic === 'push.receipt') await handlePushReceipt(row);
-      await complete(row);
+      if (Date.now() - lastRuleCheck > 60_000) {
+        await evaluateSensorRules();
+        lastRuleCheck = Date.now();
+      }
+      if (Date.now() - lastInactivityCheck > 60_000) {
+        await evaluateInactivity();
+        lastInactivityCheck = Date.now();
+      }
+      if (Date.now() - lastMedicationCheck > 60_000) {
+        await evaluateMedicationDoses();
+        lastMedicationCheck = Date.now();
+      }
+      if (Date.now() - lastPresenceCheck > 60_000) {
+        await maintainPresenceSessions();
+        await evaluateBehavioralDwell();
+        await scorePresenceSessionsInShadowMode();
+        lastPresenceCheck = Date.now();
+      }
+      if (Date.now() - lastTopologicalPresenceCheck > 5_000) {
+        await maintainTopologicalPresence();
+        lastTopologicalPresenceCheck = Date.now();
+      }
+      if (Date.now() - lastPresenceAggregateRun > 86_400_000) {
+        await calculatePresenceAggregates();
+        lastPresenceAggregateRun = Date.now();
+      }
+      if (Date.now() - lastRetentionRun > 86_400_000) {
+        await applyRetention();
+        lastRetentionRun = Date.now();
+      }
+      if (Date.now() - lastTrainingRun > 86_400_000) {
+        await trainEligibleHomes();
+        lastTrainingRun = Date.now();
+      }
+      const row = await claim();
+      if (!row) {
+        await delay(1_000);
+        continue;
+      }
+      try {
+        if (row.topic === 'ai.score') await handleAi(row);
+        if (row.topic === 'webhook') await handleWebhook(row);
+        if (row.topic === 'push') await handlePush(row);
+        if (row.topic === 'push.receipt') await handlePushReceipt(row);
+        if (row.topic === 'camera.snapshot') {
+          const alertId = typeof row.payload.alertId === 'string' ? row.payload.alertId : '';
+          if (alertId) await captureAlertSnapshot(row.homeId, alertId);
+        }
+        await complete(row);
+      } catch (error) {
+        await fail(row, error);
+      }
     } catch (error) {
-      await fail(row, error);
+      console.error('Worker cycle failed; retrying without stopping the worker.', error);
+      await delay(5_000);
     }
   }
   await pool.end();

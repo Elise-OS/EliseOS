@@ -12,6 +12,16 @@ export function isStale(lastSeenAt: Date | null, now: Date, minutes: number): bo
   return !lastSeenAt || elapsedMinutes(lastSeenAt, now) >= minutes;
 }
 
+export type SensorCoverageState = 'UNCONFIGURED' | 'OUTAGE' | 'READY';
+
+export function sensorCoverageState(
+  configuredSensors: number,
+  activeSensors: number,
+): SensorCoverageState {
+  if (configuredSensors <= 0) return 'UNCONFIGURED';
+  return activeSensors <= 0 ? 'OUTAGE' : 'READY';
+}
+
 export function isDoorOpenTooLong(
   payload: unknown,
   occurredAt: Date | null,

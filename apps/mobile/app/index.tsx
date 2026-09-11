@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import eliseLogo from '../assets/logo.png';
 import {
   ActivityIndicator,
   Animated,
   AppState,
   type AppStateStatus,
+  Image,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   RefreshControl,
@@ -23,8 +25,29 @@ import { discoveryService } from '../src/discovery/service';
 import type { DiscoveredServer, SavedServer } from '../src/discovery/types';
 import { DashboardApp } from '../src/dashboard/DashboardApp';
 import { registerPushNotifications } from '../src/notifications';
+import { MobileSetup, type Locale } from '../src/setup/MobileSetup';
 
-type Stage = 'boot' | 'welcome' | 'discovery' | 'login' | 'dashboard';
+type Stage =
+  'boot' | 'welcome' | 'discovery' | 'login' | 'setup' | 'dashboard-preview' | 'dashboard';
+type LoginOption = { id: string; displayName: string; identifier: string };
+
+const LOCALE_KEY = '@elise:locale';
+const SETUP_PREVIEW_ID = 'elise-setup-preview';
+const setupPreviewServer: DiscoveredServer = {
+  id: SETUP_PREVIEW_ID,
+  instanceId: SETUP_PREVIEW_ID,
+  instanceName: 'Élise OS · Démo installation',
+  version: '0.1.0-demo',
+  apiVersion: 1,
+  serverTime: new Date().toISOString(),
+  supportsMobile: true,
+  setupRequired: true,
+  url: 'http://elise-demo.local:8090',
+  host: 'elise-demo.local',
+  port: 8090,
+  source: 'manual',
+  lastSeenAt: new Date().toISOString(),
+};
 
 const colors = {
   navy: '#0B2948',
@@ -59,11 +82,14 @@ const asDiscovered = (server: SavedServer): DiscoveredServer => {
 
 export default function HomeScreen() {
   const [stage, setStage] = useState<Stage>('boot');
+  const [locale, setLocale] = useState<Locale>('fr');
   const [servers, setServers] = useState<DiscoveredServer[]>([]);
   const [knownServers, setKnownServers] = useState<SavedServer[]>([]);
   const [server, setServer] = useState<SavedServer | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [userName, setUserName] = useState('');
+  const [loginOptions, setLoginOptions] = useState<LoginOption[]>([]);
+  const [setupPreview, setSetupPreview] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [manualUrl, setManualUrl] = useState('');
@@ -78,8 +104,12 @@ export default function HomeScreen() {
   useEffect(() => {
     let mounted = true;
     const bootstrap = async () => {
-      const last = await ServerRegistry.last();
+      const [last, savedLocale] = await Promise.all([
+        ServerRegistry.last(),
+        AsyncStorage.getItem(LOCALE_KEY),
+      ]);
       if (!mounted) return;
+      if (savedLocale === 'fr' || savedLocale === 'en') setLocale(savedLocale);
       if (!last) {
         setStage('welcome');
         return;
@@ -88,6 +118,10 @@ export default function HomeScreen() {
       const savedToken = await ServerRegistry.token(last.id);
       if (!mounted) return;
       if (!savedToken) {
+        void mobileApi
+          .loginOptions(last)
+          .then(setLoginOptions)
+          .catch(() => setLoginOptions([]));
         setStage('login');
         return;
       }
@@ -165,22 +199,47 @@ export default function HomeScreen() {
   const visibleServers = useMemo(() => {
     const discoveredIds = new Set(servers.map((item) => item.instanceId));
     return {
-      live: servers,
+      live: [...servers, setupPreviewServer],
       remembered: knownServers.filter((item) => !discoveredIds.has(item.instanceId)),
     };
   }, [knownServers, servers]);
 
   const chooseServer = async (candidate: DiscoveredServer) => {
+    setBusy(true);
     setError('');
-    if (candidate.setupRequired) {
-      await Linking.openURL(candidate.url);
-      return;
+    try {
+      if (candidate.instanceId === SETUP_PREVIEW_ID) {
+        setSetupPreview(true);
+        setServer({
+          ...candidate,
+          lastConnectedAt: candidate.lastSeenAt,
+        });
+        setStage('setup');
+        return;
+      }
+      setSetupPreview(false);
+      const current = await discoveryService.refreshServer(candidate);
+      const saved = await ServerRegistry.save(current);
+      setServer(saved);
+      setEmail('');
+      setPassword('');
+      setLoginOptions([]);
+      if (current.setupRequired) {
+        setStage('setup');
+        return;
+      }
+      const options = await mobileApi.loginOptions(saved).catch(() => []);
+      setLoginOptions(options);
+      setStage('login');
+    } catch {
+      setError(
+        locale === 'fr'
+          ? 'Élise ne répond plus à cette adresse. Relancez la recherche.'
+          : 'Élise is no longer responding at this address. Scan again.',
+      );
+    } finally {
+      setBusy(false);
     }
-    const saved = await ServerRegistry.save(candidate);
-    setServer(saved);
-    setEmail('');
-    setPassword('');
-    setStage('login');
   };
 
   const connectManual = async () => {
@@ -189,7 +248,11 @@ export default function HomeScreen() {
     try {
       await chooseServer(await discoveryService.manual(manualUrl));
     } catch {
-      setError('Adresse introuvable. Vérifiez qu’Élise est allumée et sur le même Wi-Fi.');
+      setError(
+        locale === 'fr'
+          ? 'Adresse introuvable. Vérifiez qu’Élise est allumée et sur le même Wi-Fi.'
+          : 'Address not found. Check that Élise is on and connected to the same Wi-Fi.',
+      );
     } finally {
       setBusy(false);
     }
@@ -207,7 +270,11 @@ export default function HomeScreen() {
       setUserName(result.user.displayName);
       setStage('dashboard');
     } catch {
-      setError('Identifiants incorrects ou Élise indisponible.');
+      setError(
+        locale === 'fr'
+          ? 'Identifiants incorrects ou Élise indisponible.'
+          : 'Incorrect credentials or Élise is unavailable.',
+      );
     } finally {
       setBusy(false);
     }
@@ -220,6 +287,20 @@ export default function HomeScreen() {
     setOverview(null);
     setAlerts([]);
     setStage('welcome');
+  };
+
+  const changeLocale = (next: Locale) => {
+    setLocale(next);
+    void AsyncStorage.setItem(LOCALE_KEY, next);
+  };
+
+  const completeSetup = async (accessToken: string, displayName: string) => {
+    if (!server) return;
+    await ServerRegistry.saveToken(server.id, accessToken);
+    await ServerRegistry.remember(server);
+    setToken(accessToken);
+    setUserName(displayName);
+    setStage('dashboard');
   };
 
   if (stage === 'boot') {
@@ -238,29 +319,60 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.welcome}>
         <View style={styles.welcomeHalo} />
-        <View style={styles.welcomeBrand}>
-          <View style={styles.miniLogo}>
-            <Ionicons name="home-outline" size={20} color="#fff" />
+        <View style={styles.welcomeTop}>
+          <View style={styles.welcomeBrand}>
+            <Image source={eliseLogo} style={styles.welcomeLogo} />
+            <Text style={styles.welcomeBrandText}>Élise</Text>
           </View>
-          <Text style={styles.welcomeBrandText}>Élise</Text>
+          <View style={styles.languageSwitch}>
+            <Pressable
+              style={[styles.languageOption, locale === 'fr' && styles.languageOptionActive]}
+              onPress={() => changeLocale('fr')}
+            >
+              <Text style={styles.flag}>🇫🇷</Text>
+              <Text style={[styles.languageText, locale === 'fr' && styles.languageTextActive]}>
+                FR
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.languageOption, locale === 'en' && styles.languageOptionActive]}
+              onPress={() => changeLocale('en')}
+            >
+              <Text style={styles.flag}>🇬🇧</Text>
+              <Text style={[styles.languageText, locale === 'en' && styles.languageTextActive]}>
+                EN
+              </Text>
+            </Pressable>
+          </View>
         </View>
         <View style={styles.welcomeBody}>
-          <View style={styles.welcomeIcon}>
-            <Ionicons name="shield-checkmark-outline" size={35} color="#fff" />
-          </View>
-          <Text style={styles.eyebrowLight}>VOTRE MAISON, EN TOUTE SÉRÉNITÉ</Text>
-          <Text style={styles.welcomeTitle}>Élise veille.{`\n`}Vous restez proche.</Text>
+          <Image source={eliseLogo} style={styles.welcomeHeroLogo} />
+          <Text style={styles.eyebrowLight}>
+            {locale === 'fr' ? 'VOTRE MAISON, EN TOUTE SÉRÉNITÉ' : 'YOUR HOME, WITH PEACE OF MIND'}
+          </Text>
+          <Text style={styles.welcomeTitle}>
+            {locale === 'fr'
+              ? 'Élise veille.\nVous restez proche.'
+              : 'Élise watches over.\nYou stay close.'}
+          </Text>
           <Text style={styles.welcomeText}>
-            Connectez-vous à votre Élise sur le réseau local pour retrouver l’essentiel, où que vous
-            soyez dans la maison.
+            {locale === 'fr'
+              ? 'Connectez-vous à votre Élise sur le réseau local pour retrouver l’essentiel, où que vous soyez dans la maison.'
+              : 'Connect to your Élise on the local network and keep what matters close at hand throughout the home.'}
           </Text>
         </View>
         <View>
           <Pressable style={styles.primaryLight} onPress={() => setStage('discovery')}>
-            <Text style={styles.primaryLightText}>Rechercher mon Élise</Text>
+            <Text style={styles.primaryLightText}>
+              {locale === 'fr' ? 'Rechercher mon Élise' : 'Find my Élise'}
+            </Text>
             <Ionicons name="arrow-forward" size={19} color={colors.navy} />
           </Pressable>
-          <Text style={styles.welcomePrivacy}>Aucune caméra · Aucune écoute · 100 % local</Text>
+          <Text style={styles.welcomePrivacy}>
+            {locale === 'fr'
+              ? 'Aucune caméra · Aucune écoute · 100 % local'
+              : 'No camera · No listening · 100% local'}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -275,7 +387,13 @@ export default function HomeScreen() {
       >
         <View style={[styles.serverIcon, remembered && styles.serverIconRemembered]}>
           <Ionicons
-            name={remembered ? 'time-outline' : 'home-outline'}
+            name={
+              candidate.instanceId === SETUP_PREVIEW_ID
+                ? 'construct-outline'
+                : remembered
+                  ? 'time-outline'
+                  : 'home-outline'
+            }
             size={22}
             color={colors.blue}
           />
@@ -283,24 +401,34 @@ export default function HomeScreen() {
         <View style={styles.serverCopy}>
           <Text style={styles.serverName}>{candidate.instanceName}</Text>
           <Text style={styles.serverUrl} numberOfLines={1}>
-            {candidate.url}
+            {candidate.instanceId === SETUP_PREVIEW_ID
+              ? locale === 'fr'
+                ? 'Aperçu local · aucune donnée envoyée'
+                : 'Local preview · no data is sent'
+              : candidate.url}
           </Text>
           <View style={styles.serverStatus}>
             <View style={[styles.dot, candidate.setupRequired && styles.dotAmber]} />
             <Text style={styles.serverStatusText}>
               {candidate.setupRequired
-                ? 'À CONFIGURER SUR LE WEB'
+                ? candidate.instanceId === SETUP_PREVIEW_ID
+                  ? locale === 'fr'
+                    ? 'DÉMO · ÉLISE OS À CONFIGURER'
+                    : 'DEMO · ÉLISE OS NEEDS SETUP'
+                  : locale === 'fr'
+                    ? 'ÉLISE OS À CONFIGURER'
+                    : 'ÉLISE OS NEEDS SETUP'
                 : remembered
-                  ? 'CONNEXION RÉCENTE'
-                  : 'PRÊT À SE CONNECTER'}
+                  ? locale === 'fr'
+                    ? 'CONNEXION RÉCENTE'
+                    : 'RECENT CONNECTION'
+                  : locale === 'fr'
+                    ? 'PRÊT À SE CONNECTER'
+                    : 'READY TO CONNECT'}
             </Text>
           </View>
         </View>
-        <Ionicons
-          name={candidate.setupRequired ? 'open-outline' : 'chevron-forward'}
-          size={20}
-          color={colors.muted}
-        />
+        <Ionicons name="chevron-forward" size={20} color={colors.muted} />
       </Pressable>
     );
     return (
@@ -319,12 +447,22 @@ export default function HomeScreen() {
             </Pressable>
           </View>
           <View>
-            <Text style={styles.pageEyebrow}>RÉSEAU LOCAL</Text>
+            <Text style={styles.pageEyebrow}>
+              {locale === 'fr' ? 'RÉSEAU LOCAL' : 'LOCAL NETWORK'}
+            </Text>
             <Text style={styles.pageTitle}>
-              {servers.length ? 'Votre Élise est là.' : 'Recherche en cours…'}
+              {servers.length
+                ? locale === 'fr'
+                  ? 'Votre Élise est là.'
+                  : 'Your Élise is here.'
+                : locale === 'fr'
+                  ? 'Recherche en cours…'
+                  : 'Scanning…'}
             </Text>
             <Text style={styles.pageText}>
-              Vérifiez que votre téléphone et le Raspberry Pi utilisent le même réseau Wi-Fi.
+              {locale === 'fr'
+                ? 'Votre téléphone recherche automatiquement Élise OS sur tout le réseau Wi-Fi local.'
+                : 'Your phone is automatically scanning the entire local Wi-Fi network for Élise OS.'}
             </Text>
           </View>
           {!servers.length && (
@@ -350,28 +488,40 @@ export default function HomeScreen() {
                   <Ionicons name="wifi" size={28} color="#fff" />
                 </View>
               </View>
-              <Text style={styles.radarTitle}>Scan mDNS actif</Text>
+              <Text style={styles.radarTitle}>
+                {locale === 'fr' ? 'Scan réseau actif' : 'Network scan active'}
+              </Text>
               <Text style={styles.radarText}>
-                Recherche de _michel._tcp et vérification du réseau local
+                {locale === 'fr'
+                  ? 'Recherche mDNS et vérification des ports 8090 et 8080 sur le sous-réseau'
+                  : 'Searching with mDNS and probing ports 8090 and 8080 across the subnet'}
               </Text>
             </View>
           )}
           {visibleServers.live.length > 0 && (
             <View style={styles.list}>
-              <Text style={styles.sectionLabel}>DÉTECTÉ MAINTENANT</Text>
+              <Text style={styles.sectionLabel}>
+                {locale === 'fr' ? 'DÉTECTÉ MAINTENANT' : 'FOUND NOW'}
+              </Text>
               {visibleServers.live.map((item) => renderServer(item))}
             </View>
           )}
           {visibleServers.remembered.length > 0 && (
             <View style={styles.list}>
-              <Text style={styles.sectionLabel}>CONNEXIONS RÉCENTES</Text>
+              <Text style={styles.sectionLabel}>
+                {locale === 'fr' ? 'CONNEXIONS RÉCENTES' : 'RECENT CONNECTIONS'}
+              </Text>
               {visibleServers.remembered.map((item) => renderServer(asDiscovered(item), true))}
             </View>
           )}
           <View style={styles.manualCard}>
-            <Text style={styles.manualTitle}>Connexion manuelle</Text>
+            <Text style={styles.manualTitle}>
+              {locale === 'fr' ? 'Connexion manuelle' : 'Manual connection'}
+            </Text>
             <Text style={styles.manualText}>
-              Si Élise n’apparaît pas, saisissez son adresse locale.
+              {locale === 'fr'
+                ? 'Si Élise n’apparaît pas, saisissez son adresse locale.'
+                : 'If Élise does not appear, enter its local address.'}
             </Text>
             <View style={styles.manualRow}>
               <TextInput
@@ -381,7 +531,7 @@ export default function HomeScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
-                placeholder="http://192.168.1.50:8080"
+                placeholder="http://192.168.1.55:8090"
                 placeholderTextColor="#98A1A9"
               />
               <Pressable
@@ -426,25 +576,75 @@ export default function HomeScreen() {
             <View style={styles.loginServerIcon}>
               <Ionicons name="home-outline" size={28} color="#fff" />
             </View>
-            <Text style={styles.pageEyebrow}>SERVEUR SÉLECTIONNÉ</Text>
+            <Text style={styles.pageEyebrow}>
+              {locale === 'fr' ? 'SERVEUR SÉLECTIONNÉ' : 'SELECTED SERVER'}
+            </Text>
             <Text style={styles.loginTitle}>{server.instanceName}</Text>
             <Text style={styles.loginUrl}>{server.url}</Text>
             <View style={styles.form}>
-              <Text style={styles.label}>Identifiant</Text>
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-              />
-              <Text style={styles.label}>Mot de passe</Text>
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoComplete="current-password"
-              />
+              <Text style={styles.label}>
+                {locale === 'fr' ? 'Qui êtes-vous ?' : 'Who are you?'}
+              </Text>
+              {loginOptions.length ? (
+                <View style={styles.userList}>
+                  {loginOptions.map((option) => {
+                    const selected = email === option.identifier;
+                    return (
+                      <Pressable
+                        key={option.id}
+                        style={[styles.userCard, selected && styles.userCardActive]}
+                        onPress={() => {
+                          setEmail(option.identifier);
+                          setPassword('');
+                        }}
+                      >
+                        <View style={[styles.userAvatar, selected && styles.userAvatarActive]}>
+                          <Text
+                            style={[styles.userInitials, selected && styles.userInitialsActive]}
+                          >
+                            {option.displayName
+                              .split(' ')
+                              .map((part) => part[0])
+                              .join('')
+                              .slice(0, 2)
+                              .toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.userName}>{option.displayName}</Text>
+                          <Text style={styles.userIdentifier}>@{option.identifier}</Text>
+                        </View>
+                        <Ionicons
+                          name={selected ? 'checkmark-circle' : 'chevron-forward'}
+                          size={21}
+                          color={selected ? colors.green : colors.muted}
+                        />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : (
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  placeholder={locale === 'fr' ? 'Identifiant' : 'Username'}
+                />
+              )}
+              {email ? (
+                <>
+                  <Text style={styles.label}>{locale === 'fr' ? 'Mot de passe' : 'Password'}</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    autoComplete="current-password"
+                    autoFocus={loginOptions.length > 0}
+                  />
+                </>
+              ) : null}
               {error ? <Text style={styles.formError}>{error}</Text> : null}
               <Pressable
                 style={styles.primary}
@@ -455,7 +655,9 @@ export default function HomeScreen() {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <>
-                    <Text style={styles.primaryText}>Se connecter</Text>
+                    <Text style={styles.primaryText}>
+                      {locale === 'fr' ? 'Se connecter' : 'Sign in'}
+                    </Text>
                     <Ionicons name="arrow-forward" size={19} color="#fff" />
                   </>
                 )}
@@ -463,11 +665,118 @@ export default function HomeScreen() {
             </View>
             <View style={styles.localNotice}>
               <Ionicons name="shield-checkmark-outline" size={18} color={colors.green} />
-              <Text style={styles.localNoticeText}>Connexion directe à votre serveur local</Text>
+              <Text style={styles.localNoticeText}>
+                {locale === 'fr'
+                  ? 'Connexion directe à votre serveur local'
+                  : 'Direct connection to your local server'}
+              </Text>
             </View>
           </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
+    );
+  }
+
+  if (stage === 'setup' && server) {
+    return (
+      <MobileSetup
+        server={server}
+        locale={locale}
+        previewMode={setupPreview}
+        onBack={() => {
+          setSetupPreview(false);
+          setStage('discovery');
+        }}
+        onCompleted={completeSetup}
+        onPreviewCompleted={() => setStage('dashboard-preview')}
+      />
+    );
+  }
+
+  if (stage === 'dashboard-preview' && server) {
+    return (
+      <SafeAreaView style={styles.dashboardScreen}>
+        <ScrollView contentContainerStyle={styles.dashboardContent}>
+          <View style={styles.dashboardHeader}>
+            <View>
+              <Text style={styles.dashboardHello}>
+                {locale === 'fr' ? 'Bonjour Camille,' : 'Hello Camille,'}
+              </Text>
+              <Text style={styles.dashboardHome}>
+                {locale === 'fr' ? 'Logement de Jeanne' : 'Jeanne’s home'}
+              </Text>
+            </View>
+            <Image source={eliseLogo} style={styles.previewDashboardLogo} resizeMode="contain" />
+          </View>
+          <View style={styles.previewBanner}>
+            <Ionicons name="eye-outline" size={17} color={colors.blue} />
+            <Text style={styles.previewBannerText}>
+              {locale === 'fr' ? 'DASHBOARD DE DÉMONSTRATION' : 'DEMO DASHBOARD'}
+            </Text>
+          </View>
+          <View style={[styles.statusCard, { borderColor: `${colors.green}55` }]}>
+            <View style={[styles.statusIcon, { backgroundColor: colors.green }]}>
+              <Ionicons name="checkmark-circle-outline" size={27} color="#fff" />
+            </View>
+            <Text style={styles.statusLabel}>
+              {locale === 'fr' ? 'SITUATION ACTUELLE' : 'CURRENT SITUATION'}
+            </Text>
+            <Text style={styles.statusTitle}>
+              {locale === 'fr' ? 'Tout semble normal' : 'Everything looks normal'}
+            </Text>
+            <Text style={styles.statusDetail}>
+              {locale === 'fr'
+                ? 'Élise commence à apprendre les habitudes de Jeanne.'
+                : 'Élise is starting to learn Jeanne’s routines.'}
+            </Text>
+          </View>
+          <View style={styles.metricRow}>
+            <View style={styles.metricCard}>
+              <View style={styles.metricIcon}>
+                <Ionicons name="sparkles-outline" size={20} color={colors.blue} />
+              </View>
+              <Text style={styles.metricLabel}>
+                {locale === 'fr' ? 'APPRENTISSAGE' : 'LEARNING'}
+              </Text>
+              <Text style={styles.metricValue}>{locale === 'fr' ? 'Jour 1' : 'Day 1'}</Text>
+              <Text style={styles.metricDetail}>
+                {locale === 'fr' ? 'sur 14 jours' : 'of 14 days'}
+              </Text>
+            </View>
+            <View style={styles.metricCard}>
+              <View style={styles.metricIcon}>
+                <Ionicons name="home-outline" size={20} color={colors.blue} />
+              </View>
+              <Text style={styles.metricLabel}>{locale === 'fr' ? 'PRÉSENCE' : 'PRESENCE'}</Text>
+              <Text style={styles.metricValue}>{locale === 'fr' ? 'À domicile' : 'At home'}</Text>
+              <Text style={styles.metricDetail}>
+                {locale === 'fr' ? 'Configuration terminée' : 'Setup complete'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.emptyAlerts}>
+            <Ionicons name="checkmark-circle-outline" size={24} color={colors.green} />
+            <Text style={styles.emptyAlertsText}>
+              {locale === 'fr'
+                ? 'Aucune situation ne demande votre attention.'
+                : 'Nothing needs your attention.'}
+            </Text>
+          </View>
+          <Pressable
+            style={styles.primary}
+            onPress={() => {
+              setSetupPreview(false);
+              setServer(null);
+              setStage('discovery');
+            }}
+          >
+            <Text style={styles.primaryText}>
+              {locale === 'fr' ? 'Quitter la démonstration' : 'Exit demo'}
+            </Text>
+            <Ionicons name="close-outline" size={20} color="#fff" />
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
@@ -688,7 +997,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#3C7090',
     opacity: 0.5,
   },
+  welcomeTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
   welcomeBrand: { flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 10 },
+  welcomeLogo: { width: 40, height: 40, borderRadius: 12 },
+  welcomeHeroLogo: {
+    width: 82,
+    height: 82,
+    borderRadius: 24,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,.25)',
+  },
+  languageSwitch: {
+    flexDirection: 'row',
+    gap: 3,
+    padding: 3,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,.16)',
+  },
+  languageOption: {
+    minHeight: 34,
+    paddingHorizontal: 9,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  languageOptionActive: { backgroundColor: '#fff' },
+  flag: { fontSize: 17 },
+  languageText: { color: '#C9D6DE', fontSize: 11, fontWeight: '800' },
+  languageTextActive: { color: colors.navy },
   welcomeBrandText: { color: '#fff', fontFamily: 'Georgia', fontSize: 20, fontWeight: '600' },
   welcomeBody: { alignItems: 'center' },
   welcomeIcon: {
@@ -873,6 +1218,32 @@ const styles = StyleSheet.create({
   loginTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 31, marginTop: 2 },
   loginUrl: { color: colors.muted, fontSize: 11, marginTop: 7 },
   form: { width: '100%', marginTop: 32 },
+  userList: { gap: 9, marginBottom: 16 },
+  userCard: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 13,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.paper,
+  },
+  userCardActive: { borderColor: '#94B6A1', backgroundColor: '#E8F1EB' },
+  userAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.cream,
+  },
+  userAvatarActive: { backgroundColor: colors.green },
+  userInitials: { color: colors.blue, fontWeight: '800', fontSize: 13 },
+  userInitialsActive: { color: '#fff' },
+  userName: { color: colors.navy, fontWeight: '800', fontSize: 15 },
+  userIdentifier: { color: colors.muted, fontSize: 12, marginTop: 3 },
   label: { color: colors.navy, fontSize: 11, fontWeight: '800', marginBottom: 7 },
   input: {
     height: 49,
@@ -906,6 +1277,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  previewDashboardLogo: { width: 54, height: 54, borderRadius: 14 },
+  previewBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: '#E5EEF4',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 16,
+  },
+  previewBannerText: { color: colors.blue, fontSize: 10, fontWeight: '900', letterSpacing: 0.7 },
   dashboardHello: { color: colors.muted, fontSize: 12 },
   dashboardHome: { color: colors.navy, fontFamily: 'Georgia', fontSize: 24, marginTop: 3 },
   avatar: {

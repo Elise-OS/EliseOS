@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Direct caméra Élise</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, system-ui, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        align-items: center;
+        background: #102d2d;
+        display: flex;
+        justify-content: center;
+        margin: 0;
+        min-height: 100vh;
+        overflow: hidden;
+      }
+      video {
+        height: 100vh;
+        object-fit: contain;
+        width: 100vw;
+      }
+      #state {
+        align-items: center;
+        background: rgba(5, 25, 25, 0.78);
+        border-radius: 999px;
+        display: flex;
+        font-size: 12px;
+        gap: 9px;
+        left: 16px;
+        padding: 9px 13px;
+        position: fixed;
+        top: 16px;
+      }
+      #state i {
+        animation: pulse 1.8s infinite;
+        background: #d99a55;
+        border-radius: 50%;
+        height: 8px;
+        width: 8px;
+      }
+      #state.connected i {
+        background: #55a27a;
+      }
+      #state.error i {
+        animation: none;
+        background: #d15c50;
+      }
+      @keyframes pulse {
+        50% {
+          box-shadow: 0 0 0 5px rgba(217, 154, 85, 0.18);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <video id="camera" autoplay playsinline></video>
+    <div id="state"><i></i><span>Connexion locale…</span></div>
+    <script src="/camera-viewer.js"></script>
+  </body>
+</html>

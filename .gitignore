@@ -3,6 +3,7 @@ dist/
 build/
 coverage/
 .turbo/
+.expo/
 .ruff_cache/
 .pytest_cache/
 __pycache__/

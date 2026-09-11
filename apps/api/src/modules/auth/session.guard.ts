@@ -27,6 +27,11 @@ export class SessionGuard implements CanActivate {
     });
     if (!session || session.expiresAt <= new Date())
       throw new UnauthorizedException('Session expired');
+    const activeMembership = await this.prisma.membership.findFirst({
+      where: { userId: session.userId, disabledAt: null },
+      select: { id: true },
+    });
+    if (!activeMembership) throw new UnauthorizedException('Access disabled');
     const passwordChangeRoute = request.path.endsWith('/auth/change-password');
     const logoutRoute = request.path.endsWith('/auth/logout');
     const meRoute = request.path.endsWith('/auth/me');

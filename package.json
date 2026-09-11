@@ -19,7 +19,13 @@
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @michel/api prisma:generate",
     "db:migrate": "pnpm --filter @michel/api prisma:migrate",
+    "dev:dashboard": "bash scripts/dev-dashboard.sh",
     "deploy:nas": "bash scripts/deploy-nas.sh",
+    "nas:status": "bash scripts/nas-status.sh",
+    "nas:reset-db": "bash scripts/nas-reset-database.sh",
+    "nas:clean-install": "bash scripts/nas-clean-install.sh",
+    "zigbee:detect": "bash scripts/detect-zigbee-adapter.sh --write-env .env",
+    "test:zigbee-detection": "bash scripts/detect-zigbee-adapter.test.sh",
     "prepare": "husky"
   },
   "devDependencies": {

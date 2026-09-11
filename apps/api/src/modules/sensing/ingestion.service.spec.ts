@@ -16,6 +16,22 @@ describe('normalized Michel event', () => {
     });
     expect(event.capability).toBe('motion');
   });
+
+  it('accepts camera AI as a normalized fact without any media payload', () => {
+    const event = normalizedEventSchema.parse({
+      schemaVersion: '1.0',
+      eventId: 'evt-camera-person-1',
+      occurredAt: '2026-08-10T18:00:00.000Z',
+      receivedAt: '2026-08-10T18:00:00.100Z',
+      homeId: 'home-1',
+      source: { platform: 'home-assistant', entityId: 'binary_sensor.salon_person' },
+      capability: 'person_presence',
+      quality: 'good',
+      payload: { active: true },
+    });
+    expect(event.payload).toEqual({ active: true });
+    expect(JSON.stringify(event)).not.toContain('rtsp');
+  });
 });
 
 describe('Home Assistant universal inventory', () => {

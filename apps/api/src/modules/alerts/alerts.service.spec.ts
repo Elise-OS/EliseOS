@@ -14,7 +14,7 @@ describe('AlertsService rules', () => {
     await expect(service.rules('owner-1')).resolves.toEqual(DEFAULT_ALERT_RULE_SETTINGS);
   });
 
-  it('requires administrator access to read rule settings', async () => {
+  it('requires an active membership to read rule settings', async () => {
     const prisma = { home: { findFirst: vi.fn().mockResolvedValue(null) } };
     const service = new AlertsService(prisma as never);
 
@@ -71,6 +71,7 @@ describe('AlertsService rules', () => {
     expect(accessCall.where.id).toBe('alert-1');
     expect(accessCall.where.home.organization.memberships.some).toEqual({
       userId: 'viewer-1',
+      disabledAt: null,
       systemRole: { in: ['OWNER', 'ADMINISTRATOR', 'CAREGIVER'] },
     });
   });

@@ -1,6 +1,6 @@
 user zigbee2mqtt
 topic readwrite zigbee2mqtt/#
-topic read homeassistant/#
+topic write homeassistant/#
 
 user homeassistant
 topic read zigbee2mqtt/#
@@ -9,6 +9,9 @@ topic write michel/v1/events
 topic write michel/v1/entity-states
 topic write michel/v1/inventory
 topic write michel/v1/bridge/status
+topic write michel/v1/discovery
+topic read michel/v1/discovery/commands/#
+topic write michel/v1/discovery/results/#
 topic read michel/v1/inventory/request
 topic read michel/v1/commands/#
 topic write michel/v1/commands/results/#
@@ -19,8 +22,16 @@ topic read michel/v1/events
 topic read michel/v1/entity-states
 topic read michel/v1/inventory
 topic read michel/v1/bridge/status
+topic read michel/v1/discovery
+topic write michel/v1/discovery/commands/#
+topic read michel/v1/discovery/results/#
 topic write michel/v1/inventory/request
 topic write zigbee2mqtt/bridge/request/permit_join
+topic write zigbee2mqtt/bridge/request/device/remove
+topic read zigbee2mqtt/bridge/state
+topic read zigbee2mqtt/bridge/devices
+topic read zigbee2mqtt/bridge/event
 topic read zigbee2mqtt/bridge/response/permit_join
+topic read zigbee2mqtt/bridge/response/device/remove
 topic write michel/v1/commands/#
 topic read michel/v1/commands/results/#

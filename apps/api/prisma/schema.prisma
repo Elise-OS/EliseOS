@@ -35,6 +35,55 @@ enum SensorMappingTransform {
   EVENT_ACTION
 }
 
+enum SensorInstallationStatus {
+  DETECTED
+  NEEDS_CONFIRMATION
+  NEEDS_PLACEMENT
+  NEEDS_TEST
+  OPERATIONAL
+  ATTENTION
+  DISABLED
+}
+
+enum SensorClassificationSource {
+  METADATA
+  MODEL_PROFILE
+  USER
+}
+
+enum SensorSessionStatus {
+  PENDING
+  WAITING_FOR_DEVICE
+  DEVICE_FOUND
+  COMPLETED
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum EquipmentDiscoveryStatus {
+  DISCOVERED
+  CONFIGURING
+  COMPLETED
+  IGNORED
+  FAILED
+  EXPIRED
+}
+
+enum CameraStatus {
+  ONLINE
+  DEGRADED
+  OFFLINE
+  UNKNOWN
+}
+
+enum CameraCompatibility {
+  VALIDATED
+  RECOGNIZED
+  PARTIAL
+  UNSUPPORTED
+}
+
 enum PushPlatform {
   IOS
   ANDROID
@@ -50,6 +99,9 @@ enum AlertType {
   LOW_BATTERY
   MEDICATION_MISSED
   SYSTEM
+  WATER_LEAK
+  SMOKE
+  CARBON_MONOXIDE
 }
 
 enum AlertSeverity {
@@ -94,12 +146,6 @@ enum SupportNeedKind {
   OTHER
 }
 
-enum TrustedContactRole {
-  ADMINISTRATOR
-  RELATIVE
-  EMERGENCY
-}
-
 enum HabitSource {
   ONBOARDING
   LEARNED
@@ -111,6 +157,48 @@ enum HabitStatus {
   PROVIDED
   LEARNING
   CONFIRMED
+}
+
+enum PresenceSessionState {
+  OPEN
+  CLOSED
+  AMBIGUOUS
+}
+
+enum PresenceConfidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum PresenceSource {
+  SENSOR
+  CAMERA
+  COMBINED
+}
+
+enum PresenceEndReason {
+  TRANSITION
+  EXPLICIT_ABSENCE
+  MOTION_TIMEOUT
+  SENSOR_OFFLINE
+  CORRECTION
+}
+
+enum PresenceTrackingStatus {
+  CONFIRMED
+  IN_TRANSIT
+  AMBIGUOUS
+  STALE
+  UNKNOWN
+}
+
+enum PresenceDecisionOutcome {
+  CONFIRMED
+  PENDING
+  AMBIGUOUS
+  CANCELLED
+  STALE
 }
 
 enum MedicationDoseStatus {
@@ -130,38 +218,49 @@ model Organization {
 }
 
 model Home {
-  id                     String                  @id @default(cuid())
-  organizationId         String
-  name                   String
-  timezone               String                  @default("Europe/Paris")
-  type                   String                  @default("Maison")
-  address                String?
-  floorCount             Int                     @default(1)
-  installationStatus     InstallationStatus      @default(DRAFT)
-  learningStartedAt      DateTime?
-  primaryResidentId      String?                 @unique
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  organization           Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  primaryResident        Resident?               @relation("PrimaryResident", fields: [primaryResidentId], references: [id])
-  residents              Resident[]              @relation("HomeResidents")
-  rooms                  Room[]
-  devices                Device[]
-  sensors                Sensor[]
-  events                 ObservationEvent[]
-  habits                 HabitProfile[]
-  models                 ModelArtifact[]
-  evaluations            AnomalyEvaluation[]
-  alerts                 Alert[]
-  journalEntries         JournalEntry[]
-  visits                 Visit[]
-  appointments           Appointment[]
-  configurationRevisions ConfigurationRevision[]
-  trustedContacts        TrustedContact[]
-  auditLogs              AuditLog[]
-  outboxMessages         OutboxMessage[]
-  medications            Medication[]
-  equipmentSync          EquipmentSyncState?
+  id                         String                      @id @default(cuid())
+  organizationId             String
+  name                       String
+  timezone                   String                      @default("Europe/Paris")
+  type                       String                      @default("Maison")
+  address                    String?
+  floorCount                 Int                         @default(1)
+  installationStatus         InstallationStatus          @default(DRAFT)
+  learningStartedAt          DateTime?
+  primaryResidentId          String?                     @unique
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  primaryResident            Resident?                   @relation("PrimaryResident", fields: [primaryResidentId], references: [id])
+  residents                  Resident[]                  @relation("HomeResidents")
+  rooms                      Room[]
+  devices                    Device[]
+  sensors                    Sensor[]
+  events                     ObservationEvent[]
+  habits                     HabitProfile[]
+  models                     ModelArtifact[]
+  evaluations                AnomalyEvaluation[]
+  alerts                     Alert[]
+  journalEntries             JournalEntry[]
+  visits                     Visit[]
+  appointments               Appointment[]
+  configurationRevisions     ConfigurationRevision[]
+  trustedContacts            TrustedContact[]
+  auditLogs                  AuditLog[]
+  outboxMessages             OutboxMessage[]
+  medications                Medication[]
+  equipmentSync              EquipmentSyncState?
+  cameras                    Camera[]
+  cameraSnapshots            CameraSnapshot[]
+  sensorOnboardingSessions   SensorOnboardingSession[]
+  sensorVerificationSessions SensorVerificationSession[]
+  plan                       HomePlan?
+  presenceSessions           RoomPresenceSession[]
+  presenceAggregates         RoomDailyPresenceAggregate[]
+  deviceEntities             DeviceEntity[]
+  equipmentDiscoveries       EquipmentDiscovery[]
+  presenceTracking           PresenceTrackingState?
+  presenceDecisions          PresenceTransitionDecision[]
 
   @@index([organizationId])
 }
@@ -189,6 +288,9 @@ model Resident {
   trustedContacts TrustedContact[]
   habits          HabitProfile[]
   medications     Medication[]
+  presenceSessions RoomPresenceSession[]
+  presenceTracking PresenceTrackingState[]
+  presenceDecisions PresenceTransitionDecision[]
 }
 
 model User {
@@ -239,22 +341,23 @@ model SupportNeed {
 }
 
 model TrustedContact {
-  id         String             @id @default(cuid())
-  homeId     String
-  residentId String
-  userId     String?            @unique
-  firstName  String
-  lastName   String
-  phone      String?
-  email      String?
-  relation   String?
-  role       TrustedContactRole
-  priority   Int
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
-  home       Home               @relation(fields: [homeId], references: [id], onDelete: Cascade)
-  resident   Resident           @relation(fields: [residentId], references: [id], onDelete: Cascade)
-  user       User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id          String    @id @default(cuid())
+  homeId      String
+  residentId  String
+  userId      String?   @unique
+  firstName   String
+  lastName    String
+  phone       String?
+  email       String?
+  relation    String?
+  isEmergency Boolean   @default(false)
+  priority    Int
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  home        Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  resident    Resident  @relation(fields: [residentId], references: [id], onDelete: Cascade)
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([homeId, priority])
   @@index([residentId])
@@ -267,23 +370,14 @@ model SystemSetting {
   updatedAt DateTime @updatedAt
 }
 
-model Role {
-  id          String       @id @default(cuid())
-  key         String       @unique
-  name        String
-  permissions String[]
-  memberships Membership[]
-}
-
 model Membership {
   id             String         @id @default(cuid())
   organizationId String
   userId         String
-  roleId         String?
   systemRole     MembershipRole
+  disabledAt     DateTime?
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role           Role?          @relation(fields: [roleId], references: [id])
 
   @@unique([organizationId, userId])
 }
@@ -309,6 +403,18 @@ model Session {
   @@index([expiresAt])
 }
 
+// Recovery snapshot taken once before retiring furniture. No cascade: retain it
+// until a human chooses to remove the recovery data.
+model HomePlanFurnitureBackup {
+  id          String   @id
+  homeId      String
+  planId      String   @unique
+  planData    Json
+  revision    Int
+  deviceNotes Json
+  capturedAt  DateTime @default(now())
+}
+
 model Room {
   id        String   @id @default(cuid())
   homeId    String
@@ -316,58 +422,182 @@ model Room {
   kind      String
   floor     Int      @default(0)
   sortOrder Int      @default(0)
+  geometry  Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   home      Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
   devices   Device[]
   sensors   Sensor[]
+  cameras   Camera[]
+  alerts    Alert[]
+  observationEvents ObservationEvent[]
+  presenceSessions RoomPresenceSession[]
+  presenceAggregates RoomDailyPresenceAggregate[]
+  trackingConfirmed PresenceTrackingState[] @relation("TrackingConfirmedRoom")
+  trackingCandidates PresenceTrackingState[] @relation("TrackingCandidateRoom")
+  transitionOrigins PresenceTransitionDecision[] @relation("DecisionFromRoom")
+  transitionDestinations PresenceTransitionDecision[] @relation("DecisionToRoom")
 
   @@unique([homeId, name])
 }
 
+model HomePlan {
+  id            String   @id @default(cuid())
+  homeId        String   @unique
+  revision      Int      @default(0)
+  schemaVersion Int      @default(1)
+  data          Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  home          Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+}
+
 model Device {
-  id             String    @id @default(cuid())
-  homeId         String
-  roomId         String?
-  sourceDeviceId String?
-  manufacturer   String?
-  model          String?
-  name           String
-  lastSeenAt     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  home           Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
-  room           Room?     @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  sensors        Sensor[]
+  id                   String                      @id @default(cuid())
+  homeId               String
+  roomId               String?
+  sourceDeviceId       String?
+  networkIdentifier    String?
+  manufacturer         String?
+  model                String?
+  name                 String
+  displayName          String?
+  protocol             String?
+  integration          String?
+  installationStatus   SensorInstallationStatus    @default(DETECTED)
+  enabled              Boolean                     @default(true)
+  placementConfirmedAt DateTime?
+  placementNote        String?
+  lastSeenAt           DateTime?
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  home                 Home                        @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  room                 Room?                       @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  sensors              Sensor[]
+  cameras              Camera[]
+  onboardingSessions   SensorOnboardingSession[]
+  verificationSessions SensorVerificationSession[]
+  entities             DeviceEntity[]
 
   @@unique([homeId, sourceDeviceId])
 }
 
+model DeviceEntity {
+  id             String   @id @default(cuid())
+  homeId         String
+  deviceId       String?
+  entityId       String
+  name           String
+  domain         String
+  deviceClass    String?
+  integration    String?
+  protocol       String?
+  available      Boolean  @default(true)
+  state          Json?
+  actions        Json
+  lastSeenAt     DateTime?
+  removedAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  home           Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  device         Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@unique([homeId, entityId])
+  @@index([deviceId])
+}
+
+model EquipmentDiscovery {
+  id             String                   @id @default(cuid())
+  homeId         String
+  discoveryKey   String
+  flowId         String?
+  handler        String
+  source         String
+  title          String
+  status         EquipmentDiscoveryStatus @default(DISCOVERED)
+  step           Json?
+  lastError      String?
+  lastSeenAt     DateTime
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  home           Home                     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@unique([homeId, discoveryKey])
+  @@index([homeId, status])
+}
+
 model Sensor {
+  id                        String                      @id @default(cuid())
+  homeId                    String
+  roomId                    String?
+  deviceId                  String?
+  entityId                  String
+  capability                String
+  compatibility             SensorCompatibility         @default(RECOGNIZED)
+  status                    SensorStatus                @default(UNKNOWN)
+  sourceName                String?
+  domain                    String?
+  deviceClass               String?
+  unit                      String?
+  available                 Boolean                     @default(true)
+  analysisEnabled           Boolean                     @default(true)
+  classificationSource      SensorClassificationSource  @default(METADATA)
+  classificationConfidence  Float                       @default(1)
+  classificationReason      String?
+  classificationConfirmedAt DateTime?
+  removedAt                 DateTime?
+  lastSeenAt                DateTime?
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+  home                      Home                        @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  room                      Room?                       @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  device                    Device?                     @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  events                    ObservationEvent[]
+  mapping                   SensorMapping?
+  verificationSessions      SensorVerificationSession[]
+
+  @@unique([homeId, entityId])
+}
+
+model SensorOnboardingSession {
   id            String              @id @default(cuid())
   homeId        String
-  roomId        String?
   deviceId      String?
-  entityId      String
-  capability    String
-  compatibility SensorCompatibility @default(RECOGNIZED)
-  status        SensorStatus        @default(UNKNOWN)
-  sourceName    String?
-  domain        String?
-  deviceClass   String?
-  unit          String?
-  available     Boolean             @default(true)
-  removedAt     DateTime?
-  lastSeenAt    DateTime?
+  requestedById String
+  protocol      String
+  status        SensorSessionStatus @default(PENDING)
+  step          String              @default("PREPARE")
+  errorCode     String?
+  errorMessage  String?
+  expiresAt     DateTime
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   home          Home                @relation(fields: [homeId], references: [id], onDelete: Cascade)
-  room          Room?               @relation(fields: [roomId], references: [id], onDelete: SetNull)
   device        Device?             @relation(fields: [deviceId], references: [id], onDelete: SetNull)
-  events        ObservationEvent[]
-  mapping       SensorMapping?
 
-  @@unique([homeId, entityId])
+  @@index([homeId, status])
+  @@index([expiresAt])
+}
+
+model SensorVerificationSession {
+  id            String              @id @default(cuid())
+  homeId        String
+  deviceId      String?
+  sensorId      String?
+  requestedById String
+  status        SensorSessionStatus @default(PENDING)
+  startedAt     DateTime            @default(now())
+  expiresAt     DateTime
+  observedAt    DateTime?
+  errorCode     String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  home          Home                @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  device        Device?             @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  sensor        Sensor?             @relation(fields: [sensorId], references: [id], onDelete: SetNull)
+
+  @@index([homeId, status])
+  @@index([expiresAt])
 }
 
 model SensorMapping {
@@ -379,6 +609,61 @@ model SensorMapping {
   createdAt  DateTime               @default(now())
   updatedAt  DateTime               @updatedAt
   sensor     Sensor                 @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+}
+
+model Camera {
+  id                 String              @id @default(cuid())
+  homeId             String
+  roomId             String?
+  deviceId           String?
+  name               String
+  provider           String              @default("onvif")
+  streamKey          String              @unique
+  streamEntityId     String
+  personEntityId     String?
+  privacyEntityId    String?
+  streamUrlEncrypted String
+  status             CameraStatus        @default(UNKNOWN)
+  compatibility      CameraCompatibility @default(RECOGNIZED)
+  liveEnabled        Boolean             @default(true)
+  talkEnabled        Boolean             @default(false)
+  ptzEnabled         Boolean             @default(false)
+  privacySupported   Boolean             @default(false)
+  snapshotEnabled    Boolean             @default(true)
+  privacyMode        Boolean             @default(false)
+  consentedAt        DateTime?
+  consentedById      String?
+  lastSeenAt         DateTime?
+  lastPersonSeenAt   DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  home               Home                @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  room               Room?               @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  device             Device?             @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  snapshots          CameraSnapshot[]
+
+  @@unique([homeId, streamEntityId])
+  @@index([homeId, roomId])
+  @@index([homeId, personEntityId])
+}
+
+model CameraSnapshot {
+  id         String   @id @default(cuid())
+  homeId     String
+  cameraId   String
+  alertId    String
+  path       String
+  mimeType   String   @default("image/jpeg")
+  sizeBytes  Int
+  capturedAt DateTime @default(now())
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  home       Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  camera     Camera   @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  alert      Alert    @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@unique([alertId, cameraId])
+  @@index([expiresAt])
 }
 
 model EquipmentSyncState {
@@ -402,6 +687,9 @@ model ObservationEvent {
   id            String   @id @default(cuid())
   homeId        String
   sensorId      String?
+  roomId        String?
+  roomSource    String?
+  roomConfidence PresenceConfidence?
   sourceEventId String   @unique
   capability    String
   quality       String
@@ -411,9 +699,119 @@ model ObservationEvent {
   createdAt     DateTime @default(now())
   home          Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
   sensor        Sensor?  @relation(fields: [sensorId], references: [id], onDelete: SetNull)
+  room          Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
 
   @@index([homeId, occurredAt(sort: Desc)])
+  @@index([homeId, roomId, occurredAt(sort: Desc)])
   @@index([capability, occurredAt])
+}
+
+model RoomPresenceSession {
+  id                   String               @id @default(cuid())
+  homeId               String
+  residentId           String?
+  roomId               String
+  sensorId             String?
+  capability           String
+  startedAt            DateTime
+  lastConfirmedAt      DateTime
+  endedAt              DateTime?
+  durationSeconds      Int?
+  state                PresenceSessionState @default(OPEN)
+  confidence           PresenceConfidence
+  source               PresenceSource
+  entryEventId         String?
+  exitEventId          String?
+  endReason            PresenceEndReason?
+  previousRoomId       String?
+  plausibleTransition  Boolean?
+  excludedFromLearning Boolean              @default(false)
+  ambiguousReason      String?
+  dwellAnomalySince    DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  home                 Home                 @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  resident             Resident?            @relation(fields: [residentId], references: [id], onDelete: SetNull)
+  room                 Room                 @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([homeId, state, lastConfirmedAt(sort: Desc)])
+  @@index([homeId, roomId, startedAt(sort: Desc)])
+  @@index([residentId, startedAt(sort: Desc)])
+}
+
+model PresenceTrackingState {
+  id                  String                 @id @default(cuid())
+  homeId              String                 @unique
+  residentId          String?
+  status              PresenceTrackingStatus @default(UNKNOWN)
+  confirmedRoomId     String?
+  candidateRoomId     String?
+  pathRoomIds         Json                   @default("[]")
+  confidenceScore     Float                  @default(0)
+  reasonCodes         Json                   @default("[]")
+  evidenceSummary     Json                   @default("[]")
+  lastEvidenceAt      DateTime?
+  transitionStartedAt DateTime?
+  inconsistencyCount  Int                    @default(0)
+  inconsistencyWindowAt DateTime?
+  trackingDegraded    Boolean                @default(false)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  home                Home                   @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  resident            Resident?              @relation(fields: [residentId], references: [id], onDelete: SetNull)
+  confirmedRoom       Room?                  @relation("TrackingConfirmedRoom", fields: [confirmedRoomId], references: [id], onDelete: SetNull)
+  candidateRoom       Room?                  @relation("TrackingCandidateRoom", fields: [candidateRoomId], references: [id], onDelete: SetNull)
+
+  @@index([residentId])
+  @@index([status, lastEvidenceAt(sort: Desc)])
+}
+
+model PresenceTransitionDecision {
+  id              String                  @id @default(cuid())
+  homeId          String
+  residentId      String?
+  fromRoomId      String?
+  toRoomId        String?
+  pathRoomIds     Json                    @default("[]")
+  outcome         PresenceDecisionOutcome
+  confidenceScore Float
+  reasonCodes     Json                    @default("[]")
+  evidenceSummary Json                    @default("[]")
+  explanation     String
+  occurredAt      DateTime
+  confirmedAt     DateTime?
+  createdAt       DateTime                @default(now())
+  home            Home                    @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  resident        Resident?               @relation(fields: [residentId], references: [id], onDelete: SetNull)
+  fromRoom        Room?                   @relation("DecisionFromRoom", fields: [fromRoomId], references: [id], onDelete: SetNull)
+  toRoom          Room?                   @relation("DecisionToRoom", fields: [toRoomId], references: [id], onDelete: SetNull)
+
+  @@index([homeId, occurredAt(sort: Desc)])
+  @@index([residentId, occurredAt(sort: Desc)])
+}
+
+model RoomDailyPresenceAggregate {
+  id                String   @id @default(cuid())
+  homeId            String
+  roomId            String
+  localDate         DateTime
+  dayKind           String
+  passages          Int
+  totalSeconds      Int
+  averageSeconds    Int
+  medianSeconds     Int
+  madSeconds        Int
+  firstMinute       Int?
+  lastMinute        Int?
+  reliableSessions  Int
+  ambiguousSessions Int
+  confidenceRate    Float
+  calculatedAt      DateTime @default(now())
+  home              Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  room              Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([homeId, roomId, localDate])
+  @@index([homeId, localDate(sort: Desc)])
 }
 
 model HabitProfile {
@@ -467,23 +865,26 @@ model AnomalyEvaluation {
 }
 
 model Alert {
-  id             String                 @id @default(cuid())
-  homeId         String
-  type           AlertType
-  severity       AlertSeverity
-  status         AlertStatus            @default(OPEN)
-  title          String
-  explanation    String
-  confidence     Float?
-  ruleKey        String?
-  openedAt       DateTime               @default(now())
-  acknowledgedAt DateTime?
-  resolvedAt     DateTime?
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
-  home           Home                   @relation(fields: [homeId], references: [id], onDelete: Cascade)
-  transitions    AlertTransition[]
-  deliveries     NotificationDelivery[]
+  id              String                 @id @default(cuid())
+  homeId          String
+  roomId          String?
+  type            AlertType
+  severity        AlertSeverity
+  status          AlertStatus            @default(OPEN)
+  title           String
+  explanation     String
+  confidence      Float?
+  ruleKey         String?
+  openedAt        DateTime               @default(now())
+  acknowledgedAt  DateTime?
+  resolvedAt      DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  home            Home                   @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  room            Room?                  @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  transitions     AlertTransition[]
+  deliveries      NotificationDelivery[]
+  cameraSnapshots CameraSnapshot[]
 
   @@index([homeId, status, openedAt(sort: Desc)])
   @@index([homeId, ruleKey, status])

@@ -40,7 +40,13 @@ export class NotificationsService {
     const home = await this.prisma.home.findFirst({
       where: {
         organization: {
-          memberships: { some: { userId, systemRole: { in: ['OWNER', 'ADMINISTRATOR'] } } },
+          memberships: {
+            some: {
+              userId,
+              disabledAt: null,
+              systemRole: { in: ['OWNER', 'ADMINISTRATOR'] },
+            },
+          },
         },
       },
       select: { id: true },

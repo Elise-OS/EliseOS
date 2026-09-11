@@ -47,6 +47,7 @@ describe('SimulationService', () => {
             memberships: {
               some: {
                 userId: 'admin-1',
+                disabledAt: null,
                 systemRole: { in: ['OWNER', 'ADMINISTRATOR'] },
               },
             },

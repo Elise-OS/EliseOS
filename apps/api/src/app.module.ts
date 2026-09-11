@@ -24,6 +24,14 @@ import { NotificationsController } from './modules/notifications/notifications.c
 import { NotificationsService } from './modules/notifications/notifications.service';
 import { PrismaService } from './platform/prisma.service';
 import { SeedService } from './platform/seed.service';
+import { CameraMediaAuthController, CamerasController } from './modules/cameras/cameras.controller';
+import { CamerasService } from './modules/cameras/cameras.service';
+import { SensorsController } from './modules/sensors/sensors.controller';
+import { SensorsService } from './modules/sensors/sensors.service';
+import { HomePlanController } from './modules/household/home-plan.controller';
+import { HomePlanService } from './modules/household/home-plan.service';
+import { PeopleController } from './modules/household/people.controller';
+import { PeopleService } from './modules/household/people.service';
 
 @Module({
   controllers: [
@@ -37,6 +45,11 @@ import { SeedService } from './platform/seed.service';
     MedicationsController,
     EquipmentController,
     NotificationsController,
+    CamerasController,
+    CameraMediaAuthController,
+    SensorsController,
+    HomePlanController,
+    PeopleController,
   ],
   providers: [
     PrismaService,
@@ -54,6 +67,10 @@ import { SeedService } from './platform/seed.service';
     MqttIngestionService,
     SimulationService,
     MedicationsService,
+    CamerasService,
+    SensorsService,
+    HomePlanService,
+    PeopleService,
   ],
 })
 export class AppModule {}

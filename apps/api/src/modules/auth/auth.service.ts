@@ -7,8 +7,10 @@ import {
 import { hash, verify } from '@node-rs/argon2';
 import type { Prisma } from '@prisma/client';
 import type { Installation } from '@michel/contracts';
+import type { AccessCapability, MembershipRole } from '@michel/contracts';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../../platform/prisma.service';
+import { activeMembership, capabilitiesFor } from './access-policy';
 
 interface PublicUser {
   id: string;
@@ -17,6 +19,8 @@ interface PublicUser {
   email: string | null;
   phone: string | null;
   mustChangePassword: boolean;
+  role: MembershipRole;
+  capabilities: AccessCapability[];
 }
 
 interface AuthenticatedSession {
@@ -34,6 +38,23 @@ export class AuthService {
     return { setupRequired: (await this.prisma.user.count()) === 0, systemReady: true };
   }
 
+  public async loginOptions(): Promise<
+    Array<{ id: string; displayName: string; identifier: string }>
+  > {
+    const users = await this.prisma.user.findMany({
+      where: {
+        memberships: { some: { disabledAt: null } },
+        OR: [{ username: { not: null } }, { email: { not: null } }],
+      },
+      select: { id: true, displayName: true, username: true, email: true },
+      orderBy: { displayName: 'asc' },
+    });
+    return users.flatMap((user) => {
+      const identifier = user.username ?? user.email;
+      return identifier ? [{ id: user.id, displayName: user.displayName, identifier }] : [];
+    });
+  }
+
   public async bootstrapEquipment(token?: string) {
     const configured = (await this.prisma.user.count()) > 0;
     let userId: string | undefined;
@@ -48,8 +69,9 @@ export class AuthService {
       }
       if (
         session.user.mustChangePassword ||
-        !session.user.memberships.some((membership) =>
-          ['OWNER', 'ADMINISTRATOR'].includes(membership.systemRole),
+        !session.user.memberships.some(
+          (membership) =>
+            !membership.disabledAt && ['OWNER', 'ADMINISTRATOR'].includes(membership.systemRole),
         )
       ) {
         throw new ForbiddenException('Administrator access required');
@@ -63,7 +85,11 @@ export class AuthService {
               home: {
                 organization: {
                   memberships: {
-                    some: { userId, systemRole: { in: ['OWNER', 'ADMINISTRATOR'] as const } },
+                    some: {
+                      userId,
+                      disabledAt: null,
+                      systemRole: { in: ['OWNER', 'ADMINISTRATOR'] as const },
+                    },
                   },
                 },
               },
@@ -85,7 +111,11 @@ export class AuthService {
   public async login(identifier: string, password: string): Promise<AuthenticatedSession> {
     const normalized = identifier.toLowerCase();
     const user = await this.prisma.user.findFirst({
-      where: { OR: [{ username: normalized }, { email: normalized }] },
+      where: {
+        OR: [{ username: normalized }, { email: normalized }],
+        memberships: { some: { disabledAt: null } },
+      },
+      include: { memberships: { where: { disabledAt: null }, take: 1 } },
     });
     if (!user || !(await verify(user.passwordHash, password)))
       throw new UnauthorizedException('Invalid credentials');
@@ -98,7 +128,7 @@ export class AuthService {
         expiresAt: new Date(Date.now() + 30 * 86_400_000),
       },
     });
-    return { token, user: this.publicUser(user) };
+    return { token, user: this.publicUser(user, user.memberships[0]!.systemRole) };
   }
 
   public async bootstrap(input: {
@@ -109,13 +139,6 @@ export class AuthService {
   }): Promise<AuthenticatedSession> {
     const passwordHash = await hash(input.password);
     const token = randomBytes(32).toString('base64url');
-    const administratorPasswords = new Map<string, string>();
-    for (const contact of input.installation.contacts) {
-      if (contact.role === 'administrateur' && contact.temporaryPassword) {
-        administratorPasswords.set(contact.id, await hash(contact.temporaryPassword));
-      }
-    }
-
     return this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(1296649292)`;
       if ((await tx.user.count()) > 0) throw new ConflictException('Élise is already configured');
@@ -138,13 +161,13 @@ export class AuthService {
         data: {
           id: process.env.MICHEL_HOME_ID?.trim() || 'home_demo',
           organizationId: organization.id,
-          name: setup.home.name,
-          timezone: setup.home.timezone,
-          type: setup.home.type,
-          address: setup.home.address || null,
-          floorCount: setup.home.floors,
-          installationStatus: 'LEARNING',
-          learningStartedAt: new Date(),
+          name: `Logement de ${setup.resident.dailyName}`,
+          timezone: setup.timezone,
+          type: 'Maison',
+          address: null,
+          floorCount: 1,
+          installationStatus: 'DRAFT',
+          learningStartedAt: null,
         },
       });
       const birthYear = /^\d{4}-/.test(setup.resident.birthDate)
@@ -173,15 +196,6 @@ export class AuthService {
           relation: setup.caregiver.relation,
           isPrimary: true,
         },
-      });
-      await tx.room.createMany({
-        data: setup.rooms.map((room, index) => ({
-          homeId: home.id,
-          name: room.name,
-          kind: room.kind,
-          floor: this.floorNumber(room.floor),
-          sortOrder: index,
-        })),
       });
       await tx.residentContext.create({
         data: {
@@ -219,56 +233,10 @@ export class AuthService {
           lastName: setup.caregiver.lastName,
           relation: setup.caregiver.relation,
           email: input.email ?? null,
-          role: 'ADMINISTRATOR',
+          isEmergency: false,
           priority: 0,
         },
       });
-      for (const [index, contact] of setup.contacts.entries()) {
-        let contactUserId: string | undefined;
-        if (contact.role === 'administrateur') {
-          const password = administratorPasswords.get(contact.id);
-          if (!contact.username || !password) throw new Error('Missing administrator credentials');
-          const contactUser = await tx.user.create({
-            data: {
-              username: contact.username.toLowerCase(),
-              email: contact.email ? contact.email.toLowerCase() : null,
-              phone: contact.phone || null,
-              displayName: `${contact.firstName} ${contact.lastName}`.trim(),
-              passwordHash: password,
-              mustChangePassword: true,
-            },
-          });
-          contactUserId = contactUser.id;
-          await tx.membership.create({
-            data: {
-              organizationId: organization.id,
-              userId: contactUser.id,
-              systemRole: 'ADMINISTRATOR',
-            },
-          });
-          await tx.caregiverProfile.create({
-            data: {
-              userId: contactUser.id,
-              residentId: resident.id,
-              relation: contact.relation || null,
-            },
-          });
-        }
-        await tx.trustedContact.create({
-          data: {
-            homeId: home.id,
-            residentId: resident.id,
-            userId: contactUserId ?? null,
-            firstName: contact.firstName,
-            lastName: contact.lastName,
-            phone: contact.phone || null,
-            email: contact.email ? contact.email.toLowerCase() : null,
-            relation: contact.relation || null,
-            role: this.contactRole(contact.role),
-            priority: index + 1,
-          },
-        });
-      }
       for (const [kind, habit] of Object.entries(setup.habits)) {
         await tx.habitProfile.create({
           data: {
@@ -283,22 +251,6 @@ export class AuthService {
           },
         });
       }
-      const roomIds = new Map(
-        (await tx.room.findMany({ where: { homeId: home.id } })).map((room) => [
-          room.name,
-          room.id,
-        ]),
-      );
-      for (const equipment of setup.equipment) {
-        const requestedRoom = setup.rooms.find((room) => room.id === equipment.roomId);
-        const roomId = requestedRoom ? roomIds.get(requestedRoom.name) : undefined;
-        if (!roomId) throw new Error('Unknown room assignment');
-        const updated = await tx.sensor.updateMany({
-          where: { id: equipment.id, homeId: home.id },
-          data: { roomId },
-        });
-        if (updated.count !== 1) throw new Error('Unknown equipment');
-      }
       const sanitizedSetup = this.sanitizeInstallation(setup);
       await tx.configurationRevision.create({
         data: { homeId: home.id, version: 1, settings: sanitizedSetup as Prisma.InputJsonValue },
@@ -307,9 +259,9 @@ export class AuthService {
         data: {
           homeId: home.id,
           actorId: user.id,
-          action: 'INSTALLATION_COMPLETED',
+          action: 'ENVIRONMENT_CREATED',
           target: home.id,
-          metadata: { residentId: resident.id, rooms: setup.rooms.length },
+          metadata: { residentId: resident.id },
         },
       });
       await tx.session.create({
@@ -320,13 +272,20 @@ export class AuthService {
         },
       });
 
-      return { token, user: this.publicUser(user), homeId: home.id, residentId: resident.id };
+      return {
+        token,
+        user: this.publicUser(user, 'OWNER'),
+        homeId: home.id,
+        residentId: resident.id,
+      };
     });
   }
 
   public async currentUser(userId: string): Promise<PublicUser> {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    return this.publicUser(user);
+    const membership = await this.prisma.membership.findFirst({ where: activeMembership(userId) });
+    if (!membership) throw new ForbiddenException('Access disabled');
+    return this.publicUser(user, membership.systemRole);
   }
 
   public async changePassword(userId: string, newPassword: string): Promise<PublicUser> {
@@ -335,21 +294,27 @@ export class AuthService {
       where: { id: userId },
       data: { passwordHash, mustChangePassword: false },
     });
-    return this.publicUser(user);
+    const membership = await this.prisma.membership.findFirstOrThrow({
+      where: activeMembership(userId),
+    });
+    return this.publicUser(user, membership.systemRole);
   }
 
   public async logout(sessionId: string): Promise<void> {
     await this.prisma.session.deleteMany({ where: { id: sessionId } });
   }
 
-  private publicUser(user: {
-    id: string;
-    displayName: string;
-    username: string | null;
-    email: string | null;
-    phone: string | null;
-    mustChangePassword: boolean;
-  }): PublicUser {
+  private publicUser(
+    user: {
+      id: string;
+      displayName: string;
+      username: string | null;
+      email: string | null;
+      phone: string | null;
+      mustChangePassword: boolean;
+    },
+    role: MembershipRole,
+  ): PublicUser {
     return {
       id: user.id,
       displayName: user.displayName,
@@ -357,6 +322,8 @@ export class AuthService {
       email: user.email,
       phone: user.phone,
       mustChangePassword: user.mustChangePassword,
+      role,
+      capabilities: capabilitiesFor(role),
     };
   }
 
@@ -384,17 +351,6 @@ export class AuthService {
     }[value] as 'MEMORY' | 'PARKINSON' | 'FALL_RISK' | 'VISION' | 'HEARING';
   }
 
-  private contactRole(
-    value: Installation['contacts'][number]['role'],
-  ): 'ADMINISTRATOR' | 'RELATIVE' | 'EMERGENCY' {
-    return { administrateur: 'ADMINISTRATOR', proche: 'RELATIVE', urgence: 'EMERGENCY' }[value] as
-      'ADMINISTRATOR' | 'RELATIVE' | 'EMERGENCY';
-  }
-
-  private floorNumber(value: string): number {
-    return value === 'Rez-de-chaussée' ? 0 : Number.parseInt(value, 10) || 0;
-  }
-
   private timeToMinute(value: string): number {
     const [hour = 0, minute = 0] = value.split(':').map(Number);
     return hour * 60 + minute;
@@ -411,18 +367,6 @@ export class AuthService {
   }
 
   private sanitizeInstallation(setup: Installation): Record<string, unknown> {
-    return {
-      ...setup,
-      contacts: setup.contacts.map((contact) => ({
-        id: contact.id,
-        firstName: contact.firstName,
-        lastName: contact.lastName,
-        phone: contact.phone,
-        email: contact.email,
-        relation: contact.relation,
-        role: contact.role,
-        username: contact.username,
-      })),
-    };
+    return { ...setup };
   }
 }

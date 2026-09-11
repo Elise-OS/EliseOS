@@ -1,7 +1,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import { Platform } from 'react-native';
 import Zeroconf, { ImplType, type ZeroconfService } from 'react-native-zeroconf';
-import { normalizeUrl, parseDiscoveryInfo, subnetPrefix } from './helpers';
+import { normalizeUrl, parseDiscoveryInfo, subnetCandidates } from './helpers';
 import type { DiscoveredServer } from './types';
 
 type Listener = (servers: DiscoveredServer[]) => void;
@@ -10,7 +10,8 @@ type ErrorListener = (message: string) => void;
 const SERVICE_TYPE = 'michel';
 const SERVICE_PROTOCOL = 'tcp';
 const SERVICE_DOMAIN = 'local.';
-const PORT = 8080;
+const PORTS = [8080, 8090] as const;
+const PORT = PORTS[0];
 const PROBE_TIMEOUT = 700;
 const CONCURRENCY = 32;
 
@@ -104,14 +105,7 @@ export class DiscoveryService {
     const network = await NetInfo.fetch();
     if (!this.current(session)) return;
     const address = (network.details as { ipAddress?: string | null } | null)?.ipAddress;
-    const prefix = subnetPrefix(address);
-    const candidates = ['http://michel.local:8080'];
-    if (prefix) {
-      for (let suffix = 1; suffix <= 254; suffix += 1) {
-        if (`${prefix}.${suffix}` !== address)
-          candidates.push(`http://${prefix}.${suffix}:${PORT}`);
-      }
-    }
+    const candidates = subnetCandidates(address, PORTS);
 
     let index = 0;
     const worker = async () => {

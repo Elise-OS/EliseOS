@@ -25,7 +25,11 @@ export class SimulationService {
       where: {
         organization: {
           memberships: {
-            some: { userId, systemRole: { in: ['OWNER', 'ADMINISTRATOR'] } },
+            some: {
+              userId,
+              disabledAt: null,
+              systemRole: { in: ['OWNER', 'ADMINISTRATOR'] },
+            },
           },
         },
       },

@@ -6,6 +6,7 @@ import {
   isStale,
   numericPayload,
   persistentTemperatureViolation,
+  sensorCoverageState,
 } from './rules.js';
 
 const now = new Date('2026-08-09T12:00:00.000Z');
@@ -67,5 +68,11 @@ describe('deterministic alert rules', () => {
     expect(numericPayload({ value: 8 })).toBe(8);
     expect(numericPayload({ value: '15.5' })).toBe(15.5);
     expect(numericPayload({ value: 'unknown' })).toBeNull();
+  });
+
+  it('does not report a coverage outage before a real sensor is configured', () => {
+    expect(sensorCoverageState(0, 0)).toBe('UNCONFIGURED');
+    expect(sensorCoverageState(2, 0)).toBe('OUTAGE');
+    expect(sensorCoverageState(2, 1)).toBe('READY');
   });
 });

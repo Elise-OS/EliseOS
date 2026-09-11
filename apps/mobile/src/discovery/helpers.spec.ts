@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeUrl, parseDiscoveryInfo, subnetPrefix } from './helpers';
+import { normalizeUrl, parseDiscoveryInfo, subnetCandidates, subnetPrefix } from './helpers';
 
 describe('Michel discovery helpers', () => {
   it('normalizes manual local addresses', () => {
@@ -10,6 +10,15 @@ describe('Michel discovery helpers', () => {
   it('derives the local IPv4 subnet', () => {
     expect(subnetPrefix('192.168.1.42')).toBe('192.168.1');
     expect(subnetPrefix('fe80::1')).toBeNull();
+  });
+
+  it('scans every host on both Élise OS ports', () => {
+    const candidates = subnetCandidates('192.168.1.20');
+
+    expect(candidates).toContain('http://192.168.1.55:8090');
+    expect(candidates).toContain('http://192.168.1.55:8080');
+    expect(candidates).not.toContain('http://192.168.1.20:8090');
+    expect(candidates).toContain('http://elise.local:8090');
   });
 
   it('rejects services that do not expose the Michel mobile contract', () => {

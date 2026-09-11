@@ -1,0 +1,1139 @@
+.room-equipment-page {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 24px 30px 48px;
+  color: var(--navy, #102e49);
+  font-size: 16px;
+}
+.room-equipment-page button,
+.equipment-dialog button {
+  font: inherit;
+  cursor: pointer;
+}
+.room-equipment-page button:disabled,
+.equipment-dialog button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+.room-equipment-page :focus-visible,
+.equipment-dialog :focus-visible {
+  outline: 3px solid #247fa4;
+  outline-offset: 4px;
+}
+.room-equipment-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 32px;
+  color: #526579;
+  font-size: 0.875rem;
+}
+.room-equipment-breadcrumb button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  padding: 8px 0;
+  background: transparent;
+  color: inherit;
+}
+.room-equipment-breadcrumb svg {
+  width: 17px;
+  height: 17px;
+}
+.room-equipment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid #dfe5ea;
+}
+.room-equipment-title {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+}
+.room-equipment-room-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 90px;
+  height: 90px;
+  border: 1px solid #d9e5ed;
+  border-radius: 26px;
+  color: #266a92;
+  background: #edf5fa;
+}
+.room-equipment-room-icon svg {
+  width: 42px;
+  height: 42px;
+  stroke-width: 1.5;
+}
+.equipment-kicker {
+  display: block;
+  color: #637687;
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.room-equipment-title h1 {
+  margin: 4px 0 12px;
+  font:
+    500 clamp(2rem, 4vw, 3rem)/1.12 'Source Serif 4',
+    Georgia,
+    serif;
+  overflow-wrap: anywhere;
+}
+.room-equipment-metadata {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+  color: #56697a;
+  font-size: 0.875rem;
+}
+.room-equipment-metadata span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.room-equipment-metadata svg {
+  width: 16px;
+  height: 16px;
+}
+.room-equipment-total {
+  flex: 0 0 auto;
+  text-align: right;
+}
+.room-equipment-total > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 2rem;
+  font-weight: 650;
+}
+.room-equipment-total svg {
+  width: 23px;
+  color: #407d99;
+}
+.room-equipment-total p {
+  margin: 4px 0 0;
+  color: #657787;
+  font-size: 0.875rem;
+}
+.room-equipment-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  margin: 30px 0 22px;
+}
+.room-equipment-section-heading h2 {
+  margin: 0 0 6px;
+  font-size: 1.3rem;
+  font-weight: 650;
+}
+.room-equipment-section-heading p {
+  color: #637584;
+  margin: 0;
+  font-size: 0.9375rem;
+}
+.room-equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 19px;
+}
+.room-sensor-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #dfe6ed;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 3px 9px #19344a03;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+.room-sensor-card:hover {
+  border-color: #a9c4d7;
+  box-shadow: 0 10px 26px #19344a0c;
+  transform: translateY(-2px);
+}
+.room-sensor-card.is-configured {
+  border-color: #b7d4d1;
+}
+.room-sensor-card-main {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 24px 23px 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.room-sensor-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 22px;
+}
+.room-sensor-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 48px;
+  height: 48px;
+  border-radius: 15px;
+  background: #edf3f9;
+  color: #3d719f;
+}
+.room-sensor-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.8;
+}
+.category-temperature .room-sensor-icon {
+  color: #b56a29;
+  background: #fff0e2;
+}
+.category-humidity .room-sensor-icon,
+.category-water_leak .room-sensor-icon {
+  color: #307ba7;
+  background: #e9f5fc;
+}
+.category-motion .room-sensor-icon {
+  color: #7252ac;
+  background: #f2edfb;
+}
+.category-presence .room-sensor-icon {
+  color: #297c72;
+  background: #e7f6f1;
+}
+.category-fall_detection .room-sensor-icon,
+.category-smoke .room-sensor-icon {
+  color: #b45b54;
+  background: #fcedeb;
+}
+.category-button .room-sensor-icon {
+  color: #8a65a9;
+  background: #f4edf8;
+}
+.category-illuminance .room-sensor-icon {
+  color: #957115;
+  background: #fff7d9;
+}
+.room-sensor-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 20px;
+  background: #f1f4f6;
+  padding: 6px 9px;
+  font-size: 0.75rem;
+  color: #5b6e7c;
+  white-space: nowrap;
+}
+.room-sensor-status.is-configured {
+  background: #eaf5f0;
+  color: #267256;
+}
+.room-sensor-status svg {
+  width: 13px;
+  height: 13px;
+}
+.room-sensor-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #8b9ba8;
+}
+.room-sensor-card h3 {
+  margin: 0 0 6px;
+  font-size: 1.125rem;
+  line-height: 1.4;
+  font-weight: 650;
+}
+.room-sensor-card p {
+  margin: 0;
+  color: #6b7b89;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+.room-sensor-card-value {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  min-height: 86px;
+  margin: 13px 0 20px;
+}
+.room-sensor-card-value strong {
+  font-size: 1.7rem;
+  font-weight: 550;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+.room-sensor-card-value strong > span {
+  font-size: 1rem;
+}
+.room-sensor-card-value .is-outdated {
+  color: #74828d;
+}
+.room-sensor-card-value small {
+  color: #6d7e8c;
+  font-size: 0.8125rem;
+}
+.room-sensor-empty-line {
+  color: #becbd5;
+  font-size: 1.65rem;
+}
+.room-sensor-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 9px;
+  align-self: stretch;
+  border-top: 1px solid #edf0f3;
+  margin-top: auto;
+  padding: 17px 0;
+  color: #256b93;
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+.room-sensor-card-footer svg {
+  width: 18px;
+  height: 18px;
+}
+.room-sensor-hide {
+  position: absolute;
+  right: 17px;
+  bottom: 67px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 9px;
+  color: #718596;
+  background: #f7f9fb;
+  opacity: 0;
+}
+.room-sensor-hide svg {
+  width: 16px;
+}
+.room-sensor-card:hover .room-sensor-hide,
+.room-sensor-card:focus-within .room-sensor-hide {
+  opacity: 1;
+}
+.room-equipment-footnote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 28px 0 0;
+  color: #6f7e89;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.room-equipment-footnote svg {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+}
+.equipment-primary,
+.equipment-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 11px 17px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-size: 0.875rem !important;
+  font-weight: 650 !important;
+  text-decoration: none;
+}
+.equipment-primary {
+  background: #173f60;
+  border-color: #173f60;
+  color: white;
+}
+.equipment-primary:hover {
+  background: #245374;
+}
+.equipment-secondary {
+  color: #244f6c;
+  background: #fff;
+  border-color: #d3e0e8;
+}
+.equipment-secondary:hover {
+  background: #f1f7fb;
+}
+.equipment-primary svg,
+.equipment-secondary svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+.equipment-text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 0;
+  border: 0;
+  background: transparent;
+  color: #426d87;
+  font-size: 0.875rem !important;
+}
+.equipment-text-button svg {
+  width: 17px;
+  height: 17px;
+}
+.equipment-dialog-backdrop {
+  position: fixed;
+  z-index: 250;
+  inset: 0;
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  padding: 24px;
+  background: #10293b75;
+  backdrop-filter: blur(5px);
+}
+.equipment-dialog {
+  width: min(620px, 100%);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  border: 1px solid #e1e9ed;
+  border-radius: 25px;
+  background: #fff;
+  color: #17364f;
+  box-shadow: 0 24px 100px #0b24394d;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.equipment-dialog.is-wide {
+  width: min(760px, 100%);
+}
+.equipment-dialog-heading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 21px 27px;
+  border-bottom: 1px solid #e5ecf0;
+  background: #fff;
+}
+.equipment-dialog-heading h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.equipment-icon-button {
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #536d80;
+  background: #f1f5f7;
+}
+.equipment-icon-button svg {
+  width: 19px;
+  height: 19px;
+}
+.equipment-category-content,
+.equipment-category-picker,
+.equipment-onboarding,
+.equipment-guide {
+  padding: 24px 28px 28px;
+}
+.equipment-onboarding > .equipment-guide {
+  padding: 0;
+}
+.equipment-dialog h3 {
+  margin: 16px 0 10px;
+  font-size: 1.125rem;
+  font-weight: 650;
+}
+.equipment-dialog h4 {
+  font-size: 1rem;
+  margin: 22px 0 8px;
+}
+.equipment-dialog small {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.equipment-dialog p {
+  margin: 8px 0 15px;
+}
+.equipment-dialog a {
+  color: #226c9d;
+}
+.equipment-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid #e7edf0;
+}
+.equipment-catalog-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 5px;
+  margin: 14px 0 21px;
+  border-radius: 13px;
+  background: #f0f4f7;
+}
+.equipment-catalog-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 9px;
+  color: #596f80;
+  background: transparent;
+  font-size: 0.875rem;
+}
+.equipment-catalog-tabs button[aria-selected='true'] {
+  color: #163f5b;
+  background: #fff;
+  box-shadow: 0 2px 7px #102e4910;
+  font-weight: 650;
+}
+.equipment-catalog-tabs button > span {
+  padding: 0 6px;
+  border-radius: 7px;
+  background: #e5eef4;
+  font-size: 0.75rem;
+}
+.equipment-product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.equipment-product-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  border: 1px solid #dfe7ee;
+  border-radius: 17px;
+  padding: 17px;
+  color: #183e5b;
+  background: #fff;
+  text-align: left;
+}
+.equipment-product-card:hover {
+  border-color: #83acc5;
+  background: #fbfdff;
+}
+.equipment-product-card small {
+  color: #708392;
+}
+.equipment-product-card img {
+  align-self: center;
+  width: 150px;
+  max-width: 100%;
+  height: 135px;
+  object-fit: contain;
+  margin: 10px 0 19px;
+}
+.equipment-product-card > span:last-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 8px;
+  font-size: 0.875rem;
+  color: #377393;
+}
+.equipment-product-card > span:last-child svg {
+  width: 16px;
+}
+.equipment-product-detail {
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  margin: 15px 0 24px;
+}
+.equipment-product-detail img {
+  width: 180px;
+  height: 170px;
+  object-fit: contain;
+  flex: 0 1 40%;
+}
+.equipment-product-detail h3 {
+  font-size: 1.55rem;
+  margin: 5px 0;
+}
+.equipment-product-image-fallback {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  width: 150px;
+  height: 135px;
+  color: #768ca1;
+  background: #f4f7f9;
+  border-radius: 12px;
+}
+.equipment-product-image-fallback svg {
+  width: 42px;
+  height: 42px;
+}
+.equipment-product-image-fallback span {
+  font-size: 0.75rem;
+}
+.equipment-product-badge {
+  display: inline-block;
+  border-radius: 7px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  color: #316e57;
+  background: #eaf5ed;
+}
+.equipment-capability-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 15px 0;
+}
+.equipment-capability-tags span {
+  border-radius: 9px;
+  padding: 6px 10px;
+  background: #edf4f9;
+  color: #376181;
+  font-size: 0.8125rem;
+}
+.equipment-product-specs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  padding: 17px;
+  border-radius: 13px;
+  background: #f7f9fb;
+}
+.equipment-product-specs dt {
+  color: #6a7b87;
+  font-size: 0.8125rem;
+}
+.equipment-product-specs dd {
+  margin: 3px 0 0;
+  font-size: 0.875rem;
+}
+.equipment-product-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 23px 0 12px;
+  font-size: 0.875rem;
+}
+.equipment-hardware-grid {
+  margin-top: 18px;
+}
+.equipment-unlisted {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 24px;
+  padding: 17px;
+  border: 1px dashed #bcceda;
+  border-radius: 13px;
+  background: #f8fbfd;
+  color: #315c79;
+  text-align: left;
+}
+.equipment-unlisted > svg {
+  width: 21px;
+  flex: 0 0 21px;
+}
+.equipment-unlisted > svg:last-child {
+  margin-left: auto;
+}
+.equipment-unlisted span {
+  font-size: 0.875rem;
+}
+.equipment-unlisted small {
+  display: block;
+  color: #6e8291;
+}
+.equipment-device-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 17px 0;
+  border-bottom: 1px solid #e7edf1;
+}
+.equipment-device-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #edf5f8;
+  color: #4c7f95;
+}
+.equipment-device-icon svg {
+  width: 21px;
+}
+.equipment-device-row > div:first-of-type {
+  flex: 1;
+  min-width: 0;
+}
+.equipment-device-row strong {
+  display: block;
+  font-size: 0.9375rem;
+  overflow-wrap: anywhere;
+}
+.equipment-device-row p {
+  margin: 3px 0 8px;
+  color: #6a7e8c;
+  font-size: 0.8125rem;
+}
+.equipment-device-row small {
+  display: block;
+  color: #748694;
+}
+.equipment-device-value {
+  font-weight: 650;
+}
+.equipment-device-row .equipment-device-attention {
+  color: #926521;
+}
+.equipment-device-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.equipment-device-actions button {
+  border: 1px solid #dce5eb;
+  border-radius: 8px;
+  padding: 6px 9px;
+  font-size: 0.8125rem;
+  background: white;
+  color: #376888;
+}
+.equipment-connected-choice,
+.equipment-category-picker > button {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  padding: 16px;
+  margin-bottom: 9px;
+  border: 1px solid #dfe7ed;
+  border-radius: 14px;
+  background: #fff;
+  color: #214b67;
+  text-align: left;
+}
+.equipment-connected-choice > svg,
+.equipment-category-picker > button > svg {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+}
+.equipment-connected-choice > svg:last-child,
+.equipment-category-picker > button > svg:last-child {
+  margin-left: auto;
+}
+.equipment-connected-choice strong,
+.equipment-category-picker strong {
+  display: block;
+  font-size: 0.9375rem;
+}
+.equipment-connected-choice small,
+.equipment-category-picker small {
+  display: block;
+  color: #6b7e8c;
+}
+.equipment-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 18px 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.equipment-field input,
+.equipment-field select {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid #cddce5;
+  border-radius: 11px;
+  padding: 10px 12px;
+  background: #fff;
+  color: #1e425c;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.4;
+  font-weight: 400;
+}
+.equipment-field input::placeholder {
+  color: #8a9aa6;
+}
+.equipment-note {
+  border-radius: 13px;
+  padding: 15px 18px;
+  color: #5e6f7b;
+  background: #f3f6f8;
+  font-size: 0.875rem;
+}
+.equipment-note ul {
+  margin: 5px 0 0;
+  padding-left: 22px;
+}
+.equipment-error {
+  margin: 16px 0;
+  padding: 14px 17px;
+  border-radius: 12px;
+  background: #fff0ec;
+  color: #a34433;
+  font-size: 0.875rem;
+}
+.equipment-error button {
+  margin-left: 10px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-decoration: underline;
+}
+.equipment-muted {
+  color: #718391;
+  font-size: 0.875rem;
+}
+.equipment-working {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  z-index: 300;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 9px;
+  padding: 12px 20px;
+  border-radius: 20px;
+  background: #173f60;
+  color: white;
+  box-shadow: 0 6px 28px #102a4c22;
+  font-size: 0.875rem;
+}
+.equipment-working svg {
+  width: 19px;
+  height: 19px;
+}
+.equipment-steps {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 20px;
+  margin: 0 0 22px;
+  list-style: none;
+  border-bottom: 1px solid #e3eaf0;
+}
+.equipment-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8a9aa5;
+  font-size: 0.8125rem;
+}
+.equipment-steps li > span {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #edf2f6;
+}
+.equipment-steps li svg {
+  width: 15px;
+  height: 15px;
+}
+.equipment-steps li.is-active {
+  color: #245a7c;
+}
+.equipment-steps li.is-active > span {
+  background: #235575;
+  color: white;
+}
+.equipment-onboarding-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 12px 6px 22px;
+}
+.equipment-onboarding-intro > svg {
+  width: 65px;
+  height: 65px;
+  padding: 16px;
+  border-radius: 22px;
+  background: #eaf3f9;
+  color: #34789c;
+  margin-bottom: 18px;
+}
+.equipment-onboarding-intro h3 {
+  margin: 8px 0;
+  font-size: 1.5rem;
+}
+.equipment-onboarding-intro p {
+  color: #6a7d8b;
+  font-size: 0.9375rem;
+}
+.equipment-countdown {
+  font-size: 2.3rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.equipment-guide-steps {
+  list-style: none;
+  counter-reset: guide;
+  padding: 0;
+  margin: 20px 0;
+}
+.equipment-guide-steps li {
+  position: relative;
+  padding: 4px 0 18px 42px;
+  counter-increment: guide;
+  font-size: 0.9375rem;
+}
+.equipment-guide-steps li::before {
+  content: counter(guide);
+  position: absolute;
+  left: 0;
+  top: 2px;
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #e9f1f6;
+  color: #47728d;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+.equipment-found {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  padding: 18px;
+  border-radius: 15px;
+  background: #edf7f2;
+  color: #32765c;
+}
+.equipment-found > svg {
+  width: 25px;
+}
+.equipment-found p {
+  margin: 3px 0 0;
+  color: #527465;
+  font-size: 0.875rem;
+}
+.equipment-room-binding {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 15px;
+  border-radius: 12px;
+  background: #f0f5f8;
+}
+.equipment-room-binding svg {
+  width: 18px;
+}
+.equipment-guide-intro h3 {
+  margin: 5px 0 9px;
+}
+.equipment-guide-intro p {
+  color: #63798b;
+}
+.equipment-test {
+  display: flex;
+  gap: 14px;
+  margin-top: 25px;
+  padding: 18px;
+  border: 1px solid #dde7ed;
+  border-radius: 16px;
+}
+.equipment-test > svg {
+  flex: 0 0 23px;
+  color: #4382a4;
+  margin-top: 6px;
+}
+.equipment-test h3 {
+  margin: 0 0 8px;
+}
+.equipment-test p {
+  font-size: 0.875rem;
+  color: #657b8c;
+}
+.equipment-test .equipment-success {
+  color: #328366;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.equipment-success svg {
+  width: 18px;
+}
+@keyframes equipment-pulse {
+  50% {
+    box-shadow: 0 0 0 18px #dcebf655;
+  }
+}
+.equipment-pulse {
+  animation: equipment-pulse 2s ease-in-out infinite;
+}
+@media (max-width: 1150px) {
+  .room-equipment-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .room-equipment-page {
+    padding-inline: 20px;
+  }
+}
+@media (max-width: 650px) {
+  .room-equipment-page {
+    padding: 14px 4px 30px;
+  }
+  .room-equipment-breadcrumb {
+    margin-bottom: 19px;
+  }
+  .room-equipment-header {
+    align-items: flex-start;
+    padding-bottom: 21px;
+  }
+  .room-equipment-title {
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .room-equipment-room-icon {
+    flex-basis: 55px;
+    height: 55px;
+    border-radius: 17px;
+  }
+  .room-equipment-room-icon svg {
+    width: 29px;
+    height: 29px;
+  }
+  .room-equipment-total {
+    display: none;
+  }
+  .room-equipment-metadata {
+    gap: 8px 12px;
+  }
+  .room-equipment-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 24px;
+  }
+  .room-equipment-section-heading h2 {
+    font-size: 1.2rem;
+  }
+  .room-equipment-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .room-sensor-card-main {
+    padding: 20px 20px 0;
+  }
+  .room-sensor-card-top {
+    margin-bottom: 14px;
+  }
+  .room-sensor-card-value {
+    min-height: 57px;
+    margin: 12px 0 16px;
+  }
+  .room-sensor-hide {
+    opacity: 1;
+  }
+  .equipment-dialog-backdrop {
+    padding: 10px;
+    align-items: end;
+  }
+  .equipment-dialog {
+    max-height: calc(100dvh - 20px);
+    border-radius: 22px;
+  }
+  .equipment-dialog-heading {
+    padding: 17px 18px;
+  }
+  .equipment-dialog-heading h2 {
+    font-size: 1.125rem;
+  }
+  .equipment-category-content,
+  .equipment-category-picker,
+  .equipment-onboarding,
+  .equipment-guide {
+    padding: 18px;
+  }
+  .equipment-product-card {
+    padding: 12px;
+  }
+  .equipment-product-grid {
+    gap: 10px;
+  }
+  .equipment-product-card img {
+    height: 110px;
+  }
+  .equipment-product-detail {
+    gap: 16px;
+  }
+  .equipment-product-detail img {
+    width: 120px;
+    height: 130px;
+  }
+  .equipment-product-detail h3 {
+    font-size: 1.2rem;
+  }
+  .equipment-product-specs {
+    grid-template-columns: 1fr;
+  }
+  .equipment-dialog-footer .equipment-primary {
+    width: 100%;
+  }
+  .equipment-device-row {
+    flex-wrap: wrap;
+  }
+  .equipment-device-actions {
+    flex-direction: row;
+    margin-left: 55px;
+  }
+  .equipment-steps {
+    gap: 6px;
+  }
+  .equipment-steps li {
+    gap: 5px;
+    font-size: 0.75rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .equipment-pulse,
+  .equipment-dialog .is-spinning {
+    animation: none;
+  }
+  .room-sensor-card {
+    transition: none;
+  }
+}

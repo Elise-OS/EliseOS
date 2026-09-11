@@ -5,7 +5,7 @@ import { PrismaService } from '../../platform/prisma.service';
 
 interface DatabaseNotification {
   homeId: string;
-  type: 'activity' | 'alerts' | 'household' | 'journal' | 'schedule' | 'medications';
+  type: 'activity' | 'alerts' | 'household' | 'journal' | 'schedule' | 'medications' | 'presence';
   entityId?: string;
 }
 
@@ -44,7 +44,7 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
   public forUser(userId: string): Observable<{ data: unknown }> {
     return from(
       this.prisma.home.findFirst({
-        where: { organization: { memberships: { some: { userId } } } },
+        where: { organization: { memberships: { some: { userId, disabledAt: null } } } },
         select: { id: true },
       }),
     ).pipe(

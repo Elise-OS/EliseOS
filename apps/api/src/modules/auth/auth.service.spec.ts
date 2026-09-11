@@ -14,6 +14,7 @@ const createdUser = {
 
 const installation = {
   username: 'paul',
+  timezone: 'Europe/Paris',
   caregiver: { firstName: 'Paul', lastName: 'Martin', relation: 'Petit-fils' },
   resident: {
     firstName: 'Madeleine',
@@ -29,32 +30,10 @@ const installation = {
   senses: [],
   important: ['memory' as const, 'fall' as const],
   importantNote: 'Rassurer avec des phrases courtes.',
-  home: {
-    name: 'Maison de Madeleine',
-    type: 'Maison',
-    floors: 1,
-    address: '',
-    timezone: 'Europe/Paris',
-  },
-  rooms: [{ id: 'room-client', name: 'Salon', kind: 'LIVING_ROOM', floor: 'Rez-de-chaussée' }],
-  contacts: [
-    {
-      id: 'contact-admin',
-      firstName: 'Sophie',
-      lastName: 'Martin',
-      phone: '0600000000',
-      email: 'sophie@example.com',
-      relation: 'Infirmière',
-      role: 'administrateur' as const,
-      username: 'sophie',
-      temporaryPassword: 'Temporaire-2026!',
-    },
-  ],
   habits: {
     Lever: { from: '07:30', to: '09:00', unknown: false },
     Coucher: { from: '21:00', to: '23:00', unknown: true },
   },
-  equipment: [],
 };
 
 describe('AuthService bootstrap', () => {
@@ -63,10 +42,7 @@ describe('AuthService bootstrap', () => {
       $executeRaw: vi.fn().mockResolvedValue(0),
       user: {
         count: vi.fn().mockResolvedValue(0),
-        create: vi
-          .fn()
-          .mockResolvedValueOnce(createdUser)
-          .mockResolvedValueOnce({ ...createdUser, id: 'user-2', username: 'sophie' }),
+        create: vi.fn().mockResolvedValueOnce(createdUser),
       },
       organization: { create: vi.fn().mockResolvedValue({ id: 'org-1' }) },
       membership: { create: vi.fn().mockResolvedValue({ id: 'membership-1' }) },
@@ -108,6 +84,15 @@ describe('AuthService bootstrap', () => {
       data: { organizationId: 'org-1', userId: 'user-1', systemRole: 'OWNER' },
     });
     expect(tx.session.create).toHaveBeenCalledTimes(1);
+    const homeCreate = tx.home.create.mock.calls[0]?.[0] as
+      { data: Record<string, unknown> } | undefined;
+    expect(homeCreate?.data).toMatchObject({
+      installationStatus: 'DRAFT',
+      learningStartedAt: null,
+      name: 'Logement de Madeleine',
+      timezone: 'Europe/Paris',
+    });
+    expect(tx.room.createMany).not.toHaveBeenCalled();
     const contextCreate = tx.residentContext.create.mock.calls[0]?.[0] as
       { data: { livesAlone: boolean } } | undefined;
     expect(contextCreate?.data.livesAlone).toBe(true);
@@ -115,9 +100,7 @@ describe('AuthService bootstrap', () => {
       { data: Array<{ kind: string }> } | undefined;
     expect(needsCreate?.data.map((need) => need.kind)).toEqual(['MEMORY', 'FALL_RISK', 'OTHER']);
     expect(tx.habitProfile.create).toHaveBeenCalledTimes(2);
-    expect(tx.membership.create).toHaveBeenCalledWith({
-      data: { organizationId: 'org-1', userId: 'user-2', systemRole: 'ADMINISTRATOR' },
-    });
+    expect(tx.membership.create).toHaveBeenCalledTimes(1);
     const revision = tx.configurationRevision.create.mock.calls[0]?.[0] as {
       data: { settings: unknown };
     };
@@ -167,7 +150,7 @@ describe('AuthService equipment discovery', () => {
           expiresAt: new Date(Date.now() + 60_000),
           user: {
             mustChangePassword: false,
-            memberships: [{ systemRole: 'OWNER' }],
+            memberships: [{ systemRole: 'OWNER', disabledAt: null }],
           },
         }),
       },
@@ -184,6 +167,7 @@ describe('AuthService equipment discovery', () => {
               memberships: {
                 some: {
                   userId: 'user-1',
+                  disabledAt: null,
                   systemRole: { in: ['OWNER', 'ADMINISTRATOR'] },
                 },
               },
@@ -191,6 +175,29 @@ describe('AuthService equipment discovery', () => {
           },
         },
       }),
+    );
+  });
+});
+
+describe('AuthService mobile login options', () => {
+  it('returns only enabled users with a usable identifier', async () => {
+    const prisma = {
+      user: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'user-1', displayName: 'Paul Martin', username: 'paul', email: 'paul@example.com' },
+          { id: 'user-2', displayName: 'Alice Martin', username: null, email: 'alice@example.com' },
+          { id: 'user-3', displayName: 'Sans accès', username: null, email: null },
+        ]),
+      },
+    };
+    const service = new AuthService(prisma as never);
+
+    await expect(service.loginOptions()).resolves.toEqual([
+      { id: 'user-1', displayName: 'Paul Martin', identifier: 'paul' },
+      { id: 'user-2', displayName: 'Alice Martin', identifier: 'alice@example.com' },
+    ]);
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { displayName: 'asc' } }),
     );
   });
 });

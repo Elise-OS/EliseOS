@@ -1,29 +1,56 @@
 import * as Progress from '@radix-ui/react-progress';
 import { Button, Card, Metric, StatusPill } from '@michel/ui';
 import {
+  Accessibility,
   Activity,
-  ArrowDown,
-  ArrowUp,
+  Archive,
   Bell,
   BookOpen,
+  CalendarDays,
+  Camera,
   ChevronRight,
   CircleCheck,
+  Clock3,
   CookingPot,
   DoorOpen,
+  Ear,
+  Eye,
+  Footprints,
   HeartHandshake,
   Home,
+  KeyRound,
+  LogOut,
+  Mail,
   Menu,
+  Mic,
+  MicOff,
+  PawPrint,
+  PanelLeftClose,
   Pill,
+  Phone,
+  Plus,
+  Power,
   Radar,
+  Search,
   Settings,
   ShieldCheck,
   Sofa,
+  Sparkles,
+  Thermometer,
+  Trash2,
   UsersRound,
+  UserRound,
+  Video,
+  VideoOff,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { copy, type Locale } from './i18n';
 import { resizeResidentPhoto, Setup } from './Setup';
+import { SensorsPanel } from './SensorsPanel';
+import { HomePlanEditor } from './HomePlanEditor';
+import { HomeOverview } from './HomeOverview';
+import { GuidedTour, type GuidedTourMode } from './GuidedTour';
 
 interface Overview {
   onboardingRequired: boolean;
@@ -117,9 +144,13 @@ interface Household {
     phone: string | null;
     email: string | null;
     relation: string | null;
-    role: 'ADMINISTRATOR' | 'RELATIVE' | 'EMERGENCY';
+    role: 'OWNER' | 'ADMINISTRATOR' | 'CAREGIVER' | 'VIEWER' | null;
+    isEmergency: boolean;
     priority: number;
     hasAccount: boolean;
+    accessDisabled: boolean;
+    archived: boolean;
+    isCurrentUser: boolean;
     username: string | null;
   }>;
   rooms: Array<{
@@ -133,16 +164,12 @@ interface Household {
   unassignedSensors: HouseholdSensor[];
 }
 
-interface EquipmentStatus {
-  homeAssistant: { connected: boolean; lastSeenAt: string | null };
-  inventory: {
-    lastSyncAt: string | null;
-    lastRequestedAt: string | null;
-    entities: number;
-    devices: number;
-  };
-  pairing: { active: boolean; expiresAt: string | null };
-  lastError: string | null;
+type Person = Household['trustedContacts'][number];
+type AccessRole = Exclude<Person['role'], 'OWNER' | null>;
+
+interface CurrentAccess {
+  role: 'OWNER' | 'ADMINISTRATOR' | 'CAREGIVER' | 'VIEWER';
+  capabilities: string[];
 }
 
 interface EquipmentCandidate {
@@ -185,6 +212,48 @@ interface AlertItem {
     note: string | null;
     createdAt: string;
   }>;
+  cameraSnapshots?: Array<{
+    id: string;
+    cameraId: string;
+    capturedAt: string;
+    expiresAt: string;
+  }>;
+}
+
+interface CameraItem {
+  id: string;
+  name: string;
+  provider: string;
+  status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'UNKNOWN';
+  compatibility: 'VALIDATED' | 'RECOGNIZED' | 'PARTIAL' | 'UNSUPPORTED';
+  room: { id: string; name: string; kind: string } | null;
+  capabilities: { live: boolean; talk: boolean; ptz: boolean; privacy: boolean; snapshot: boolean };
+  privacyMode: boolean;
+  consentedAt: string | null;
+  lastSeenAt: string | null;
+  lastPersonSeenAt: string | null;
+}
+
+interface CameraSession {
+  cameraId: string;
+  mediaUrl: string;
+  expiresAt: string;
+  talkEnabled: boolean;
+}
+
+interface CameraDraft {
+  name: string;
+  roomId: string;
+  provider: string;
+  streamEntityId: string;
+  personEntityId: string;
+  privacyEntityId: string;
+  streamUrl: string;
+  talk: boolean;
+  ptz: boolean;
+  privacy: boolean;
+  snapshot: boolean;
+  intimateSpaceConsent: boolean;
 }
 
 interface JournalItem {
@@ -214,6 +283,7 @@ interface AlertRuleSettings {
   };
   sensorOffline: { enabled: boolean; minutes: number };
   lowBattery: { enabled: boolean; percent: number };
+  behavioral: { enabled: boolean };
 }
 
 interface MedicationItem {
@@ -254,13 +324,40 @@ interface MedicationDraft {
 }
 
 interface ActivitySummary {
-  period: '24h' | '7d';
+  period: '24h' | '7d' | '28d';
   from: string;
   to: string;
   total: number;
   buckets: Array<{ start: string; label: string; count: number }>;
   byRoom: Array<{ id: string | null; name: string; count: number }>;
   byCapability: Array<{ capability: string; count: number }>;
+  dwellByRoom: Array<{
+    id: string;
+    name: string;
+    totalSeconds: number;
+    averageSeconds: number;
+    medianSeconds: number;
+    sessions: number;
+    reliableSessions: number;
+    ambiguousSeconds: number;
+    confidenceRate: number;
+  }>;
+  unknownSeconds: number;
+}
+
+interface RoutinesSummary {
+  learningDays: number;
+  requiredLearningDays: number;
+  progress: number;
+  coverageSufficient: boolean;
+  behavioralAlertsEnabled: boolean;
+  changes: Array<{
+    roomId: string;
+    roomName: string;
+    direction: 'LOWER' | 'HIGHER';
+    observedSeconds: number;
+    baselineSeconds: number;
+  }>;
 }
 
 interface ScheduleItem {
@@ -273,12 +370,95 @@ interface ScheduleItem {
   notes: string | null;
 }
 
-const navIcons = [Home, Activity, Bell, Sofa, Pill, BookOpen, UsersRound, Settings];
+const navIcons = [Home, Activity, Bell, Sofa, Radar, Pill, BookOpen, UsersRound, Settings, Video];
+export const sidebarHiddenNavIndexes = new Set([4, 5, 6, 9]);
 const roomIcons: Record<string, typeof Sofa> = {
   LIVING_ROOM: Sofa,
   KITCHEN: CookingPot,
   ENTRANCE: DoorOpen,
 };
+
+export function SidebarNavigation({
+  labels,
+  active,
+  openAlerts,
+  onSelect,
+}: {
+  labels: readonly string[];
+  active: number;
+  openAlerts: number;
+  onSelect: (index: number) => void;
+}) {
+  return (
+    <nav aria-label="Navigation principale">
+      {labels.map((label, index) => {
+        if (sidebarHiddenNavIndexes.has(index)) return null;
+        const Icon = navIcons[index]!;
+        return (
+          <button
+            key={label}
+            data-tour-target={`nav-${index}`}
+            className={active === index ? 'nav-item nav-item--active' : 'nav-item'}
+            onClick={() => onSelect(index)}
+          >
+            <Icon size={18} />
+            <span>{label}</span>
+            {index === 2 && <b>{openAlerts}</b>}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+export function SidebarBehaviorSetting({
+  locale,
+  enabled,
+  disabled,
+  onChange,
+}: {
+  locale: Locale;
+  enabled: boolean;
+  disabled: boolean;
+  onChange: (enabled: boolean) => void;
+}) {
+  return (
+    <Card className="settings-card sidebar-behavior-settings">
+      <div className="settings-card-heading">
+        <span className="settings-icon">
+          <PanelLeftClose />
+        </span>
+        <div>
+          <h2>{locale === 'fr' ? 'Barre latérale automatique' : 'Automatic sidebar'}</h2>
+          <p>
+            {disabled
+              ? locale === 'fr'
+                ? 'La barre reste ouverte pendant la création de votre environnement.'
+                : 'The sidebar stays open while your environment is being created.'
+              : locale === 'fr'
+                ? 'Masquez la barre lorsque la souris la quitte. Approchez le bord gauche pour la rouvrir.'
+                : 'Hide the sidebar when the pointer leaves it. Move to the left edge to reopen it.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          className={`config-toggle-btn ${enabled && !disabled ? 'is-on' : ''}`}
+          role="switch"
+          aria-checked={enabled && !disabled}
+          aria-label={
+            locale === 'fr'
+              ? 'Masquer automatiquement la barre latérale'
+              : 'Automatically hide the sidebar'
+          }
+          disabled={disabled}
+          onClick={() => onChange(!enabled)}
+        >
+          <span className="config-toggle-handle" />
+        </button>
+      </div>
+    </Card>
+  );
+}
 
 export function Login({
   locale,
@@ -313,7 +493,7 @@ export function Login({
     <main className="login-screen">
       <div className="login-brand">
         <div className="brand-mark">
-          <Home />
+          <img src="/logo.png" alt="" />
         </div>
         <span>Élise</span>
       </div>
@@ -361,8 +541,8 @@ export function Login({
           </Button>
           <small>
             {locale === 'fr'
-              ? 'Cette étape crée le premier compte administrateur de la maison.'
-              : 'This step creates the home’s first administrator account.'}
+              ? 'Cette étape crée le compte propriétaire protégé de la maison.'
+              : 'This step creates the home’s protected owner account.'}
           </small>
         </div>
       </Card>
@@ -409,7 +589,7 @@ function ChangePassword({ locale, onSuccess }: { locale: Locale; onSuccess: () =
     <main className="login-screen">
       <div className="login-brand">
         <div className="brand-mark">
-          <Home />
+          <img src="/logo.png" alt="" />
         </div>
         <span>Élise</span>
       </div>
@@ -465,9 +645,72 @@ function relativeTime(value: string, locale: Locale): string {
   return locale === 'fr' ? `il y a ${hours} h` : `${hours}h ago`;
 }
 
+function readableDuration(seconds: number, locale: Locale): string {
+  const minutes = Math.max(0, Math.round(seconds / 60));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return `${hours} ${locale === 'fr' ? 'h' : 'hr'}${rest ? ` ${rest} min` : ''}`;
+}
+
 function formatMinute(value: number | null): string {
   if (value === null) return '—';
   return `${String(Math.floor(value / 60)).padStart(2, '0')} h ${String(value % 60).padStart(2, '0')}`;
+}
+
+function residentAge(value: string | null, locale: Locale): string | null {
+  if (!value) return null;
+  const birthDate = new Date(value);
+  if (Number.isNaN(birthDate.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  if (
+    today.getMonth() < birthDate.getMonth() ||
+    (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())
+  ) {
+    age -= 1;
+  }
+  return locale === 'fr' ? `${age} ans` : `${age} years old`;
+}
+
+function residentMobilityLabel(value: string, locale: Locale): string {
+  const labels: Record<string, [string, string]> = {
+    INDEPENDENT: ['Se déplace sans aide', 'Moves independently'],
+    CANE: ['Utilise une canne', 'Uses a cane'],
+    WALKER: ['Utilise un déambulateur', 'Uses a walker'],
+    WHEELCHAIR: ['Utilise un fauteuil roulant', 'Uses a wheelchair'],
+  };
+  return labels[value]?.[locale === 'fr' ? 0 : 1] ?? value;
+}
+
+function supportNeedLabel(value: string, locale: Locale): string {
+  const labels: Record<string, [string, string]> = {
+    MEMORY: ['Mémoire et repères', 'Memory and orientation'],
+    PARKINSON: ['Parkinson et mobilité', 'Parkinson’s and mobility'],
+    FALL_RISK: ['Risque de chute', 'Fall risk'],
+    VISION: ['Déficience visuelle', 'Visual impairment'],
+    HEARING: ['Déficience auditive', 'Hearing impairment'],
+    OTHER: ['Autre information importante', 'Other important information'],
+  };
+  return labels[value]?.[locale === 'fr' ? 0 : 1] ?? value;
+}
+
+function habitLabel(value: string, locale: Locale): string {
+  const labels: Record<string, [string, string]> = {
+    WAKE_UP: ['Réveil', 'Wake-up'],
+    BREAKFAST: ['Petit-déjeuner', 'Breakfast'],
+    LUNCH: ['Déjeuner', 'Lunch'],
+    DINNER: ['Dîner', 'Dinner'],
+    BEDTIME: ['Coucher', 'Bedtime'],
+    NIGHT: ['Nuit', 'Night'],
+  };
+  return (
+    labels[value]?.[locale === 'fr' ? 0 : 1] ??
+    value
+      .toLowerCase()
+      .replaceAll('_', ' ')
+      .replace(/^./, (letter) => letter.toUpperCase())
+  );
 }
 
 function inputTime(value: number): string {
@@ -483,6 +726,7 @@ function capabilityLabel(capability: string, locale: Locale): string {
   const labels: Record<string, [string, string]> = {
     motion: ['Mouvement', 'Motion'],
     occupancy: ['Présence', 'Occupancy'],
+    person_presence: ['Personne détectée', 'Person detected'],
     contact: ['Ouverture', 'Opening'],
     button: ['Bouton d’appel', 'Call button'],
     temperature: ['Température', 'Temperature'],
@@ -492,16 +736,6 @@ function capabilityLabel(capability: string, locale: Locale): string {
     battery: ['Batterie', 'Battery'],
   };
   return labels[capability]?.[locale === 'fr' ? 0 : 1] ?? capability;
-}
-
-function sensorStatusLabel(status: string, locale: Locale): string {
-  const labels: Record<string, [string, string]> = {
-    ONLINE: ['Disponible', 'Available'],
-    DEGRADED: ['Données fragiles', 'Limited data'],
-    OFFLINE: ['Ne répond plus', 'Not responding'],
-    UNKNOWN: ['À vérifier', 'To check'],
-  };
-  return labels[status]?.[locale === 'fr' ? 0 : 1] ?? status;
 }
 
 export function activityDescription(item: ActivityItem, locale: Locale): string {
@@ -520,6 +754,7 @@ export function activityDescription(item: ActivityItem, locale: Locale): string 
   const labels: Record<string, [string, string]> = {
     motion: ['Mouvement détecté', 'Movement detected'],
     occupancy: ['Présence détectée', 'Presence detected'],
+    person_presence: ['Personne détectée', 'Person detected'],
     contact: contactOpen
       ? ['Ouverture détectée', 'Opening detected']
       : ['Fermeture détectée', 'Closing detected'],
@@ -651,6 +886,19 @@ export function AlertRulesPanel({
         </div>
       </div>
       <div className="alert-rule-list">
+        <label className="alert-rule-row">
+          <span>
+            <strong>Écarts aux habitudes apprises</strong>
+            <small>Disponible après 14 jours fiables et deux contrôles espacés.</small>
+          </span>
+          <input
+            aria-label="Activer les alertes comportementales"
+            type="checkbox"
+            checked={rules.behavioral.enabled}
+            onChange={(event) => toggle('behavioral', event.target.checked)}
+          />
+          <span className="rule-value">Validation manuelle</span>
+        </label>
         <label className="alert-rule-row">
           <span>
             <strong>Absence de mouvement</strong>
@@ -1220,6 +1468,1043 @@ export function MedicationPanel({
   );
 }
 
+function CamerasPanel({
+  locale,
+  cameras,
+  rooms,
+  candidates,
+  session,
+  talking,
+  notice,
+  formOpen,
+  draft,
+  onDraft,
+  onToggleForm,
+  onConfigure,
+  onOpen,
+  onClose,
+  onPrivacy,
+  onTalkStart,
+  onTalkStop,
+}: {
+  locale: Locale;
+  cameras: CameraItem[];
+  rooms: Household['rooms'];
+  candidates: EquipmentCandidate[];
+  session: CameraSession | null;
+  talking: boolean;
+  notice: string;
+  formOpen: boolean;
+  draft: CameraDraft;
+  onDraft: (draft: CameraDraft) => void;
+  onToggleForm: () => void;
+  onConfigure: (event: FormEvent) => void;
+  onOpen: (cameraId: string) => void;
+  onClose: () => void;
+  onPrivacy: (camera: CameraItem) => void;
+  onTalkStart: () => void;
+  onTalkStop: () => void;
+}) {
+  const selectedCamera = cameras.find((camera) => camera.id === session?.cameraId) ?? null;
+  const selectedRoom = rooms.find((room) => room.id === draft.roomId);
+  const intimateSpace = ['BEDROOM', 'BATHROOM'].includes(selectedRoom?.kind ?? '');
+  const cameraEntities = candidates.filter((candidate) => candidate.domain === 'camera');
+  const binaryEntities = candidates.filter((candidate) => candidate.domain === 'binary_sensor');
+  const switchEntities = candidates.filter((candidate) => candidate.domain === 'switch');
+  const insecureRemote =
+    typeof window !== 'undefined' &&
+    window.location.protocol !== 'https:' &&
+    !['localhost', '127.0.0.1'].includes(window.location.hostname);
+
+  return (
+    <section className="section-view camera-page">
+      <div className="page-heading camera-page-heading">
+        <div>
+          <span className="eyebrow">
+            {locale === 'fr' ? 'Surveillance locale' : 'Local monitoring'}
+          </span>
+          <h2>{locale === 'fr' ? 'Caméras' : 'Cameras'}</h2>
+          <p>
+            {locale === 'fr'
+              ? 'Le direct reste local. Les images d’alerte sont supprimées après 24 heures.'
+              : 'Live video stays local. Alert images are deleted after 24 hours.'}
+          </p>
+        </div>
+        <Button className="button-secondary" onClick={onToggleForm}>
+          {formOpen ? <X /> : <Plus />}
+          {formOpen
+            ? locale === 'fr'
+              ? 'Fermer'
+              : 'Close'
+            : locale === 'fr'
+              ? 'Ajouter une caméra'
+              : 'Add a camera'}
+        </Button>
+      </div>
+
+      {insecureRemote && (
+        <div className="camera-security-note" role="status">
+          <ShieldCheck />
+          <span>
+            <strong>
+              {locale === 'fr' ? 'HTTPS requis pour parler' : 'HTTPS required to talk'}
+            </strong>
+            {locale === 'fr'
+              ? ' Activez HTTPS sur votre adresse Tailscale pour autoriser le microphone.'
+              : ' Enable HTTPS on your Tailscale address to allow microphone access.'}
+          </span>
+        </div>
+      )}
+      {notice && <p className="form-notice camera-notice">{notice}</p>}
+
+      {formOpen && (
+        <Card className="camera-setup-card">
+          <div className="settings-card-heading">
+            <span className="settings-icon">
+              <Video />
+            </span>
+            <div>
+              <h2>{locale === 'fr' ? 'Connexion locale sécurisée' : 'Secure local connection'}</h2>
+              <p>
+                {locale === 'fr'
+                  ? 'Les identifiants du flux sont chiffrés et ne seront jamais affichés après enregistrement.'
+                  : 'Stream credentials are encrypted and never displayed after saving.'}
+              </p>
+            </div>
+          </div>
+          <form className="camera-form" onSubmit={onConfigure}>
+            <label>
+              <span>{locale === 'fr' ? 'Nom visible' : 'Display name'}</span>
+              <input
+                required
+                value={draft.name}
+                onChange={(event) => onDraft({ ...draft, name: event.target.value })}
+                placeholder="Caméra du salon"
+              />
+            </label>
+            <label>
+              <span>{locale === 'fr' ? 'Pièce' : 'Room'}</span>
+              <select
+                required
+                value={draft.roomId}
+                onChange={(event) =>
+                  onDraft({ ...draft, roomId: event.target.value, intimateSpaceConsent: false })
+                }
+              >
+                <option value="">{locale === 'fr' ? 'Choisir une pièce' : 'Choose a room'}</option>
+                {rooms.map((room) => (
+                  <option key={room.id} value={room.id}>
+                    {room.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>{locale === 'fr' ? 'Fabricant ou protocole' : 'Provider or protocol'}</span>
+              <input
+                required
+                value={draft.provider}
+                onChange={(event) => onDraft({ ...draft, provider: event.target.value })}
+              />
+            </label>
+            <label className="camera-form-wide">
+              <span>
+                {locale === 'fr' ? 'Entité caméra Home Assistant' : 'Home Assistant camera entity'}
+              </span>
+              <select
+                required
+                value={draft.streamEntityId}
+                onChange={(event) => onDraft({ ...draft, streamEntityId: event.target.value })}
+              >
+                <option value="">
+                  {locale === 'fr' ? 'Sélectionner le flux' : 'Select stream'}
+                </option>
+                {cameraEntities.map((entity) => (
+                  <option key={entity.entityId} value={entity.entityId}>
+                    {entity.sourceName ?? entity.entityId}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="camera-form-wide">
+              <span>{locale === 'fr' ? 'Adresse RTSP locale' : 'Local RTSP address'}</span>
+              <input
+                required
+                type="password"
+                autoComplete="off"
+                value={draft.streamUrl}
+                onChange={(event) => onDraft({ ...draft, streamUrl: event.target.value })}
+                placeholder="rtsp://utilisateur:mot-de-passe@192.168.1.25/..."
+              />
+            </label>
+            <label>
+              <span>{locale === 'fr' ? 'Détection de personne' : 'Person detection'}</span>
+              <select
+                value={draft.personEntityId}
+                onChange={(event) => onDraft({ ...draft, personEntityId: event.target.value })}
+              >
+                <option value="">{locale === 'fr' ? 'Aucune' : 'None'}</option>
+                {binaryEntities.map((entity) => (
+                  <option key={entity.entityId} value={entity.entityId}>
+                    {entity.sourceName ?? entity.entityId}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>{locale === 'fr' ? 'Commande mode intimité' : 'Privacy mode control'}</span>
+              <select
+                value={draft.privacyEntityId}
+                onChange={(event) => onDraft({ ...draft, privacyEntityId: event.target.value })}
+              >
+                <option value="">
+                  {locale === 'fr' ? 'Protection Élise uniquement' : 'Élise protection only'}
+                </option>
+                {switchEntities.map((entity) => (
+                  <option key={entity.entityId} value={entity.entityId}>
+                    {entity.sourceName ?? entity.entityId}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <fieldset className="camera-capabilities camera-form-wide">
+              <legend>
+                {locale === 'fr'
+                  ? 'Fonctions vérifiées sur ce modèle'
+                  : 'Features verified on this model'}
+              </legend>
+              {(
+                [
+                  ['talk', locale === 'fr' ? 'Interphone' : 'Two-way audio'],
+                  ['ptz', 'Pan / Tilt / Zoom'],
+                  ['privacy', locale === 'fr' ? 'Mode intimité matériel' : 'Hardware privacy mode'],
+                  ['snapshot', locale === 'fr' ? 'Capture sur alerte' : 'Alert snapshot'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key}>
+                  <input
+                    type="checkbox"
+                    checked={draft[key]}
+                    onChange={(event) => onDraft({ ...draft, [key]: event.target.checked })}
+                  />{' '}
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+            {intimateSpace && (
+              <div className="camera-intimate-warning camera-form-wide">
+                <ShieldCheck />
+                <div>
+                  <strong>
+                    {locale === 'fr'
+                      ? 'Espace particulièrement sensible'
+                      : 'Highly sensitive space'}
+                  </strong>
+                  <p>
+                    {locale === 'fr'
+                      ? 'Confirmez que la personne filmée comprend l’accès accordé aux aidants et peut retirer son consentement.'
+                      : 'Confirm that the filmed person understands caregiver access and can withdraw consent.'}
+                  </p>
+                  <label>
+                    <input
+                      required
+                      type="checkbox"
+                      checked={draft.intimateSpaceConsent}
+                      onChange={(event) =>
+                        onDraft({ ...draft, intimateSpaceConsent: event.target.checked })
+                      }
+                    />{' '}
+                    {locale === 'fr'
+                      ? 'Consentement explicite recueilli'
+                      : 'Explicit consent obtained'}
+                  </label>
+                </div>
+              </div>
+            )}
+            {!intimateSpace && (
+              <label className="camera-consent camera-form-wide">
+                <input
+                  required
+                  type="checkbox"
+                  checked={draft.intimateSpaceConsent}
+                  onChange={(event) =>
+                    onDraft({ ...draft, intimateSpaceConsent: event.target.checked })
+                  }
+                />{' '}
+                {locale === 'fr'
+                  ? 'La personne accompagnée a été informée de cette caméra et des accès accordés.'
+                  : 'The resident has been informed about this camera and its access.'}
+              </label>
+            )}
+            <Button type="submit" className="camera-form-wide">
+              {locale === 'fr' ? 'Chiffrer et ajouter la caméra' : 'Encrypt and add camera'}
+            </Button>
+          </form>
+        </Card>
+      )}
+
+      {session && selectedCamera ? (
+        <Card className="camera-viewer-card">
+          <div className="camera-viewer-heading">
+            <div>
+              <span className="camera-live-dot" />
+              <span className="eyebrow">
+                {talking
+                  ? locale === 'fr'
+                    ? 'Micro actif'
+                    : 'Microphone active'
+                  : locale === 'fr'
+                    ? 'En direct'
+                    : 'Live'}
+              </span>
+              <h2>{selectedCamera.name}</h2>
+              <p>{selectedCamera.room?.name}</p>
+            </div>
+            <button
+              type="button"
+              className="camera-close"
+              onClick={onClose}
+              aria-label={locale === 'fr' ? 'Fermer le direct' : 'Close live view'}
+            >
+              <X />
+            </button>
+          </div>
+          <div className="camera-frame">
+            <iframe
+              key={session.mediaUrl}
+              src={session.mediaUrl}
+              title={selectedCamera.name}
+              allow="autoplay; microphone; fullscreen"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <div className="camera-viewer-actions">
+            {selectedCamera.capabilities.talk && (
+              <button
+                type="button"
+                className={`talk-button ${talking ? 'talk-button--active' : ''}`}
+                onPointerDown={onTalkStart}
+                onPointerUp={onTalkStop}
+                onPointerCancel={onTalkStop}
+              >
+                {talking ? <Mic /> : <MicOff />}
+                {talking
+                  ? locale === 'fr'
+                    ? 'Parlez maintenant'
+                    : 'Speak now'
+                  : locale === 'fr'
+                    ? 'Maintenir pour parler'
+                    : 'Hold to talk'}
+              </button>
+            )}
+            <small>
+              {locale === 'fr'
+                ? 'Le son n’est jamais enregistré par Élise.'
+                : 'Élise never records audio.'}
+            </small>
+          </div>
+        </Card>
+      ) : (
+        <div className="camera-grid">
+          {cameras.map((camera) => (
+            <Card
+              className={`camera-card ${camera.privacyMode ? 'camera-card--private' : ''}`}
+              key={camera.id}
+            >
+              <div className="camera-card-visual">
+                {camera.privacyMode ? <VideoOff /> : <Video />}
+                <span>
+                  {camera.status === 'ONLINE'
+                    ? locale === 'fr'
+                      ? 'Disponible'
+                      : 'Available'
+                    : camera.status}
+                </span>
+              </div>
+              <div className="camera-card-body">
+                <span className="eyebrow">
+                  {camera.room?.name ?? (locale === 'fr' ? 'Sans pièce' : 'No room')}
+                </span>
+                <h2>{camera.name}</h2>
+                <p>
+                  {camera.privacyMode
+                    ? locale === 'fr'
+                      ? 'Mode intimité actif'
+                      : 'Privacy mode enabled'
+                    : camera.lastPersonSeenAt
+                      ? `${locale === 'fr' ? 'Dernière présence' : 'Last presence'} · ${relativeTime(camera.lastPersonSeenAt, locale)}`
+                      : locale === 'fr'
+                        ? 'Aucune présence récente'
+                        : 'No recent presence'}
+                </p>
+              </div>
+              <div className="camera-card-actions">
+                <Button
+                  disabled={camera.privacyMode || camera.status === 'OFFLINE'}
+                  onClick={() => onOpen(camera.id)}
+                >
+                  {locale === 'fr' ? 'Voir le direct' : 'Open live view'}
+                </Button>
+                <button type="button" className="privacy-button" onClick={() => onPrivacy(camera)}>
+                  <ShieldCheck />
+                  {camera.privacyMode
+                    ? locale === 'fr'
+                      ? 'Réactiver'
+                      : 'Enable'
+                    : locale === 'fr'
+                      ? 'Intimité'
+                      : 'Privacy'}
+                </button>
+              </div>
+            </Card>
+          ))}
+          {!cameras.length && (
+            <Card className="camera-empty">
+              <Video />
+              <h2>{locale === 'fr' ? 'Aucune caméra configurée' : 'No camera configured'}</h2>
+              <p>
+                {locale === 'fr'
+                  ? 'Ajoutez d’abord deux caméras pilotes pour valider le direct, la présence et l’interphone.'
+                  : 'Start with two pilot cameras to validate live view, presence and two-way audio.'}
+              </p>
+            </Card>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+const blankPerson = {
+  firstName: '',
+  lastName: '',
+  phone: '',
+  email: '',
+  relation: '',
+  isEmergency: false,
+  hasAccess: false,
+  role: 'CAREGIVER' as AccessRole,
+  username: '',
+  temporaryPassword: '',
+};
+
+const personRoleLabel = (role: Person['role'], locale: Locale) => {
+  const labels = {
+    OWNER: ['Propriétaire', 'Owner'],
+    ADMINISTRATOR: ['Administrateur', 'Administrator'],
+    CAREGIVER: ['Aidant', 'Caregiver'],
+    VIEWER: ['Lecture seule', 'Read only'],
+  } as const;
+  return role
+    ? labels[role][locale === 'fr' ? 0 : 1]
+    : locale === 'fr'
+      ? 'Sans accès'
+      : 'No access';
+};
+
+export function PeoplePanel({
+  locale,
+  currentRole,
+}: {
+  locale: Locale;
+  currentRole: CurrentAccess['role'];
+}) {
+  const [people, setPeople] = useState<Person[]>([]);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<'ALL' | 'ACCESS' | 'EMERGENCY' | 'DISABLED'>('ALL');
+  const [editor, setEditor] = useState<Person | 'new' | null>(null);
+  const [draft, setDraft] = useState(blankPerson);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const canManage = currentRole === 'OWNER' || currentRole === 'ADMINISTRATOR';
+  const load = useCallback(async () => {
+    try {
+      const response = await fetch('/api/v1/household/people?archived=true');
+      if (response.ok) setPeople((await response.json()) as Person[]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => void load(), [load]);
+
+  const edit = (person?: Person) => {
+    setEditor(person ?? 'new');
+    setError('');
+    setDraft(
+      person
+        ? {
+            firstName: person.firstName,
+            lastName: person.lastName,
+            phone: person.phone ?? '',
+            email: person.email ?? '',
+            relation: person.relation ?? '',
+            isEmergency: person.isEmergency,
+            hasAccess: person.hasAccount,
+            role: person.role && person.role !== 'OWNER' ? person.role : 'CAREGIVER',
+            username: person.username ?? '',
+            temporaryPassword: '',
+          }
+        : blankPerson,
+    );
+  };
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    const existing = editor === 'new' ? null : editor;
+    if (!draft.firstName || !draft.lastName || (!draft.phone && !draft.email)) {
+      setError(
+        locale === 'fr'
+          ? 'Indiquez le nom et un moyen de contact.'
+          : 'Enter a name and contact method.',
+      );
+      return;
+    }
+    if (
+      (!existing || !existing.hasAccount) &&
+      draft.hasAccess &&
+      (!draft.username || draft.temporaryPassword.length < 12)
+    ) {
+      setError(
+        locale === 'fr'
+          ? 'Un identifiant et un mot de passe temporaire de 12 caractères sont requis.'
+          : 'A username and 12-character temporary password are required.',
+      );
+      return;
+    }
+    setSaving(true);
+    setError('');
+    const response = await fetch(
+      existing ? `/api/v1/household/people/${existing.id}` : '/api/v1/household/people',
+      {
+        method: existing ? 'PATCH' : 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          firstName: draft.firstName,
+          lastName: draft.lastName,
+          phone: draft.phone,
+          email: draft.email,
+          relation: draft.relation,
+          isEmergency: draft.isEmergency,
+          ...(!existing && draft.hasAccess
+            ? {
+                access: {
+                  role: draft.role,
+                  username: draft.username,
+                  temporaryPassword: draft.temporaryPassword,
+                },
+              }
+            : {}),
+        }),
+      },
+    );
+    let roleOk = true;
+    if (
+      response.ok &&
+      existing &&
+      ((!existing.hasAccount && draft.hasAccess) ||
+        (existing.hasAccount && existing.role !== draft.role))
+    ) {
+      roleOk = (
+        await fetch(`/api/v1/household/people/${existing.id}/access`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(
+            existing.hasAccount
+              ? { action: 'role', role: draft.role }
+              : {
+                  action: 'create',
+                  role: draft.role,
+                  username: draft.username,
+                  temporaryPassword: draft.temporaryPassword,
+                },
+          ),
+        })
+      ).ok;
+    }
+    setSaving(false);
+    if (!response.ok || !roleOk) {
+      const body = (await response.json().catch(() => null)) as { message?: string } | null;
+      setError(
+        body?.message ??
+          (locale === 'fr'
+            ? 'Impossible d’enregistrer cette fiche.'
+            : 'Unable to save this profile.'),
+      );
+      return;
+    }
+    setEditor(null);
+    await load();
+  };
+  const access = async (person: Person, action: 'disable' | 'enable' | 'reset-password') => {
+    let body: Record<string, string> = { action };
+    if (action === 'reset-password') {
+      const password = window.prompt(
+        locale === 'fr'
+          ? 'Mot de passe temporaire (12 caractères minimum)'
+          : 'Temporary password (12 characters minimum)',
+      );
+      if (!password || password.length < 12) return;
+      body = { action, temporaryPassword: password };
+    } else if (
+      !window.confirm(
+        locale === 'fr' ? 'Confirmer cette modification d’accès ?' : 'Confirm this access change?',
+      )
+    )
+      return;
+    const response = await fetch(`/api/v1/household/people/${person.id}/access`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (response.ok) await load();
+  };
+  const archive = async (person: Person) => {
+    if (
+      !window.confirm(
+        locale === 'fr'
+          ? 'Archiver cette fiche ? Son historique sera conservé.'
+          : 'Archive this profile? Its history will be kept.',
+      )
+    )
+      return;
+    if ((await fetch(`/api/v1/household/people/${person.id}`, { method: 'DELETE' })).ok)
+      await load();
+  };
+  const visible = people.filter((person) => {
+    if (
+      !`${person.firstName} ${person.lastName} ${person.relation ?? ''} ${person.email ?? ''}`
+        .toLowerCase()
+        .includes(query.toLowerCase())
+    )
+      return false;
+    if (filter === 'ACCESS') return person.hasAccount && !person.accessDisabled && !person.archived;
+    if (filter === 'EMERGENCY') return person.isEmergency && !person.archived;
+    if (filter === 'DISABLED') return person.accessDisabled || person.archived;
+    return !person.archived;
+  });
+  const filters = {
+    ALL: locale === 'fr' ? 'Tous' : 'All',
+    ACCESS: locale === 'fr' ? 'Avec accès' : 'With access',
+    EMERGENCY: locale === 'fr' ? 'Urgence' : 'Emergency',
+    DISABLED: locale === 'fr' ? 'Désactivés' : 'Disabled',
+  };
+  const activePeople = people.filter((person) => !person.archived).length;
+  const activeAccess = people.filter(
+    (person) => person.hasAccount && !person.accessDisabled && !person.archived,
+  ).length;
+  const emergencyContacts = people.filter(
+    (person) => person.isEmergency && !person.archived,
+  ).length;
+  return (
+    <section className="section-view people-page">
+      <div className="people-hero">
+        <div className="people-title-row">
+          <span className="people-title-icon">
+            <UsersRound />
+          </span>
+          <div>
+            <span className="eyebrow">
+              {locale === 'fr' ? 'Cercle de confiance' : 'Care circle'}
+            </span>
+            <h2>{locale === 'fr' ? 'Les proches' : 'People'}</h2>
+            <p>
+              {locale === 'fr'
+                ? 'Les bonnes personnes, avec le bon niveau d’accès.'
+                : 'The right people, with the right level of access.'}
+            </p>
+          </div>
+        </div>
+        {canManage && (
+          <Button className="people-add-button" onClick={() => edit()}>
+            <Plus />
+            {locale === 'fr' ? 'Ajouter un proche' : 'Add person'}
+          </Button>
+        )}
+      </div>
+      <div className="people-overview" aria-label={locale === 'fr' ? 'Résumé' : 'Summary'}>
+        <div>
+          <span className="people-overview-icon people-overview-icon--family">
+            <UserRound />
+          </span>
+          <p>
+            <strong>{activePeople}</strong>
+            <span>{locale === 'fr' ? 'proches enregistrés' : 'saved people'}</span>
+          </p>
+        </div>
+        <i />
+        <div>
+          <span className="people-overview-icon people-overview-icon--access">
+            <ShieldCheck />
+          </span>
+          <p>
+            <strong>{activeAccess}</strong>
+            <span>{locale === 'fr' ? 'accès à Élise' : 'Élise access'}</span>
+          </p>
+        </div>
+        <i />
+        <div>
+          <span className="people-overview-icon people-overview-icon--urgent">
+            <Bell />
+          </span>
+          <p>
+            <strong>{emergencyContacts}</strong>
+            <span>{locale === 'fr' ? 'contacts prioritaires' : 'priority contacts'}</span>
+          </p>
+        </div>
+      </div>
+      <div className="people-toolbar">
+        <label className="people-search">
+          <Search />
+          <input
+            aria-label={locale === 'fr' ? 'Rechercher' : 'Search'}
+            type="search"
+            placeholder={
+              locale === 'fr'
+                ? 'Rechercher par nom, lien ou email'
+                : 'Search by name, relationship or email'
+            }
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <div role="group" aria-label={locale === 'fr' ? 'Filtrer la liste' : 'Filter list'}>
+          {(Object.keys(filters) as Array<keyof typeof filters>).map((value) => (
+            <button
+              type="button"
+              className={filter === value ? 'is-active' : ''}
+              key={value}
+              onClick={() => setFilter(value)}
+            >
+              {filters[value]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="people-card-grid">
+        {loading &&
+          Array.from({ length: 4 }, (_, index) => (
+            <Card className="people-card people-card--skeleton" key={index}>
+              <i />
+              <i />
+              <i />
+            </Card>
+          ))}
+        {!loading &&
+          visible.map((person) => (
+            <Card
+              className={`people-card role-card-${person.role ?? 'NONE'}${person.accessDisabled || person.archived ? ' is-disabled' : ''}`}
+              key={person.id}
+            >
+              <div className="people-card-accent" />
+              <div className="people-card-top">
+                <span className="people-avatar">
+                  {person.firstName[0]}
+                  {person.lastName[0]}
+                </span>
+                <div>
+                  <h3>
+                    {person.firstName} {person.lastName}
+                  </h3>
+                  <p>
+                    {person.relation ||
+                      (locale === 'fr' ? 'Lien non précisé' : 'Relationship not specified')}
+                  </p>
+                </div>
+                {person.isEmergency && (
+                  <span
+                    className="people-priority"
+                    title={locale === 'fr' ? 'Priorité d’appel' : 'Call priority'}
+                  >
+                    <Bell />
+                    {person.priority + 1}
+                  </span>
+                )}
+              </div>
+              <div className="people-badges">
+                <span className={`people-role role-${person.role ?? 'NONE'}`}>
+                  {personRoleLabel(person.role, locale)}
+                </span>
+                {person.isEmergency && (
+                  <span className="people-emergency">
+                    <Bell />
+                    {locale === 'fr' ? 'Contact prioritaire' : 'Priority contact'}
+                  </span>
+                )}
+                {person.accessDisabled && (
+                  <span>{locale === 'fr' ? 'Accès désactivé' : 'Access disabled'}</span>
+                )}
+                {person.archived && <span>{locale === 'fr' ? 'Archivé' : 'Archived'}</span>}
+              </div>
+              <div className="people-contact-lines">
+                {person.phone && (
+                  <a href={`tel:${person.phone}`}>
+                    <Phone /> <span>{person.phone}</span>
+                  </a>
+                )}
+                {person.email && (
+                  <a href={`mailto:${person.email}`}>
+                    <Mail /> <span>{person.email}</span>
+                  </a>
+                )}
+                {person.username && (
+                  <small>
+                    <UserRound /> <span>@{person.username}</span>
+                  </small>
+                )}
+              </div>
+              <div className="people-card-footer">
+                <span className={`people-access-state${person.accessDisabled ? ' is-off' : ''}`}>
+                  <i />
+                  {person.hasAccount
+                    ? person.accessDisabled
+                      ? locale === 'fr'
+                        ? 'Accès suspendu'
+                        : 'Access suspended'
+                      : locale === 'fr'
+                        ? 'Accès actif'
+                        : 'Active access'
+                    : locale === 'fr'
+                      ? 'Contact uniquement'
+                      : 'Contact only'}
+                </span>
+                {canManage && !person.isCurrentUser && (
+                  <div className="people-actions">
+                    <button className="people-edit" onClick={() => edit(person)}>
+                      {locale === 'fr' ? 'Voir la fiche' : 'View profile'}
+                    </button>
+                    <details className="people-action-menu">
+                      <summary aria-label={locale === 'fr' ? 'Plus d’actions' : 'More actions'}>
+                        •••
+                      </summary>
+                      <div>
+                        {person.hasAccount && (
+                          <button
+                            onClick={() =>
+                              void access(person, person.accessDisabled ? 'enable' : 'disable')
+                            }
+                          >
+                            <Power />
+                            {person.accessDisabled
+                              ? locale === 'fr'
+                                ? 'Réactiver l’accès'
+                                : 'Enable access'
+                              : locale === 'fr'
+                                ? 'Suspendre l’accès'
+                                : 'Suspend access'}
+                          </button>
+                        )}
+                        {person.hasAccount && !person.accessDisabled && (
+                          <button onClick={() => void access(person, 'reset-password')}>
+                            <KeyRound />
+                            {locale === 'fr' ? 'Réinitialiser le mot de passe' : 'Reset password'}
+                          </button>
+                        )}
+                        <button className="is-danger" onClick={() => void archive(person)}>
+                          <Archive />
+                          {locale === 'fr' ? 'Archiver la fiche' : 'Archive profile'}
+                        </button>
+                      </div>
+                    </details>
+                  </div>
+                )}
+                {person.isCurrentUser && (
+                  <small>{locale === 'fr' ? 'Votre compte' : 'Your account'}</small>
+                )}
+              </div>
+            </Card>
+          ))}
+        {!loading && visible.length === 0 && (
+          <Card className="people-empty">
+            <span>
+              <UsersRound />
+            </span>
+            <h3>
+              {locale === 'fr' ? 'Personne ne correspond à cette vue' : 'No one matches this view'}
+            </h3>
+            <p>
+              {locale === 'fr'
+                ? 'Modifiez la recherche ou choisissez un autre filtre.'
+                : 'Change your search or choose another filter.'}
+            </p>
+          </Card>
+        )}
+      </div>
+      {editor && (
+        <div
+          className="people-editor-backdrop"
+          onMouseDown={(event) => event.target === event.currentTarget && setEditor(null)}
+        >
+          <div className="people-editor" role="dialog" aria-modal="true">
+            <header>
+              <div>
+                <span className="eyebrow">
+                  {editor === 'new'
+                    ? locale === 'fr'
+                      ? 'Nouveau proche'
+                      : 'New person'
+                    : locale === 'fr'
+                      ? 'Modifier la fiche'
+                      : 'Edit profile'}
+                </span>
+                <h2>
+                  {editor === 'new'
+                    ? locale === 'fr'
+                      ? 'Ajouter au cercle'
+                      : 'Add to circle'
+                    : `${editor.firstName} ${editor.lastName}`}
+                </h2>
+              </div>
+              <button
+                aria-label={locale === 'fr' ? 'Fermer' : 'Close'}
+                onClick={() => setEditor(null)}
+              >
+                <X />
+              </button>
+            </header>
+            <form onSubmit={(event) => void save(event)}>
+              <div className="people-form-grid">
+                <label>
+                  {locale === 'fr' ? 'Prénom' : 'First name'}
+                  <input
+                    autoFocus
+                    value={draft.firstName}
+                    onChange={(e) => setDraft({ ...draft, firstName: e.target.value })}
+                  />
+                </label>
+                <label>
+                  {locale === 'fr' ? 'Nom' : 'Last name'}
+                  <input
+                    value={draft.lastName}
+                    onChange={(e) => setDraft({ ...draft, lastName: e.target.value })}
+                  />
+                </label>
+                <label>
+                  {locale === 'fr' ? 'Téléphone' : 'Phone'}
+                  <input
+                    type="tel"
+                    value={draft.phone}
+                    onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Email
+                  <input
+                    type="email"
+                    value={draft.email}
+                    onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                  />
+                </label>
+                <label className="wide">
+                  {locale === 'fr' ? 'Lien avec le résident' : 'Relationship'}
+                  <input
+                    value={draft.relation}
+                    onChange={(e) => setDraft({ ...draft, relation: e.target.value })}
+                  />
+                </label>
+              </div>
+              <label className="people-check">
+                <input
+                  type="checkbox"
+                  checked={draft.isEmergency}
+                  onChange={(e) => setDraft({ ...draft, isEmergency: e.target.checked })}
+                />
+                <span>
+                  <strong>{locale === 'fr' ? 'Contact d’urgence' : 'Emergency contact'}</strong>
+                  <small>
+                    {locale === 'fr'
+                      ? 'Visible dans l’ordre d’appel prioritaire.'
+                      : 'Shown in the priority call order.'}
+                  </small>
+                </span>
+              </label>
+              {(editor === 'new' || !editor.hasAccount) && (
+                <label className="people-check">
+                  <input
+                    type="checkbox"
+                    checked={draft.hasAccess}
+                    onChange={(e) => setDraft({ ...draft, hasAccess: e.target.checked })}
+                  />
+                  <span>
+                    <strong>
+                      {locale === 'fr' ? 'Donner accès à Élise' : 'Grant Élise access'}
+                    </strong>
+                    <small>
+                      {locale === 'fr'
+                        ? 'Mot de passe à changer à la première connexion.'
+                        : 'Password must be changed at first sign-in.'}
+                    </small>
+                  </span>
+                </label>
+              )}
+              {(draft.hasAccess || (editor !== 'new' && editor.hasAccount)) &&
+                (editor === 'new' || editor.role !== 'OWNER') && (
+                  <div className="people-access-fields">
+                    <label>
+                      {locale === 'fr' ? 'Rôle' : 'Role'}
+                      <select
+                        value={draft.role}
+                        onChange={(e) => setDraft({ ...draft, role: e.target.value as AccessRole })}
+                      >
+                        {currentRole === 'OWNER' && (
+                          <option value="ADMINISTRATOR">
+                            {locale === 'fr' ? 'Administrateur' : 'Administrator'}
+                          </option>
+                        )}
+                        <option value="CAREGIVER">
+                          {locale === 'fr' ? 'Aidant' : 'Caregiver'}
+                        </option>
+                        <option value="VIEWER">
+                          {locale === 'fr' ? 'Lecture seule' : 'Read only'}
+                        </option>
+                      </select>
+                    </label>
+                    {(editor === 'new' || !editor.hasAccount) && (
+                      <>
+                        <label>
+                          {locale === 'fr' ? 'Identifiant' : 'Username'}
+                          <input
+                            value={draft.username}
+                            onChange={(e) => setDraft({ ...draft, username: e.target.value })}
+                          />
+                        </label>
+                        <label className="wide">
+                          {locale === 'fr' ? 'Mot de passe temporaire' : 'Temporary password'}
+                          <input
+                            type="password"
+                            minLength={12}
+                            value={draft.temporaryPassword}
+                            onChange={(e) =>
+                              setDraft({ ...draft, temporaryPassword: e.target.value })
+                            }
+                          />
+                        </label>
+                      </>
+                    )}
+                  </div>
+                )}
+              {error && <p className="form-error">{error}</p>}
+              <footer>
+                <Button type="button" className="button-secondary" onClick={() => setEditor(null)}>
+                  {locale === 'fr' ? 'Annuler' : 'Cancel'}
+                </Button>
+                <Button disabled={saving}>
+                  {saving
+                    ? locale === 'fr'
+                      ? 'Enregistrement…'
+                      : 'Saving…'
+                    : locale === 'fr'
+                      ? 'Enregistrer'
+                      : 'Save'}
+                </Button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function App() {
   const [locale, setLocale] = useState<Locale>(() => {
     if (typeof window === 'undefined') return 'fr';
@@ -1227,6 +2512,10 @@ export function App() {
   });
   const [overview, setOverview] = useState<Overview | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
+  const [currentAccess, setCurrentAccess] = useState<CurrentAccess>({
+    role: 'VIEWER',
+    capabilities: [],
+  });
   const [dataError, setDataError] = useState(false);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [activityCursor, setActivityCursor] = useState<string | null>(null);
@@ -1237,8 +2526,9 @@ export function App() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [alertFilter, setAlertFilter] = useState<'ALL' | AlertItem['status']>('ALL');
   const [journal, setJournal] = useState<JournalItem[]>([]);
-  const [analyticsPeriod, setAnalyticsPeriod] = useState<'24h' | '7d'>('24h');
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<'24h' | '7d' | '28d'>('24h');
   const [analytics, setAnalytics] = useState<ActivitySummary | null>(null);
+  const [routines, setRoutines] = useState<RoutinesSummary | null>(null);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [medications, setMedications] = useState<MedicationItem[]>([]);
   const [medicationDoses, setMedicationDoses] = useState<MedicationDoseItem[]>([]);
@@ -1250,13 +2540,44 @@ export function App() {
   const [alertRules, setAlertRules] = useState<AlertRuleSettings | null>(null);
   const [savingRules, setSavingRules] = useState(false);
   const [ruleNotice, setRuleNotice] = useState('');
-  const [equipmentStatus, setEquipmentStatus] = useState<EquipmentStatus | null>(null);
   const [equipmentCandidates, setEquipmentCandidates] = useState<EquipmentCandidate[]>([]);
-  const [equipmentNotice, setEquipmentNotice] = useState('');
+  const [cameras, setCameras] = useState<CameraItem[]>([]);
+  const [cameraSession, setCameraSession] = useState<CameraSession | null>(null);
+  const cameraSessionRequest = useRef(0);
+  const [cameraNotice, setCameraNotice] = useState('');
+  const [cameraFormOpen, setCameraFormOpen] = useState(false);
+  const [talking, setTalking] = useState(false);
+  const [revealedSnapshots, setRevealedSnapshots] = useState<Set<string>>(() => new Set());
+  const [cameraDraft, setCameraDraft] = useState<CameraDraft>({
+    name: '',
+    roomId: '',
+    provider: 'reolink',
+    streamEntityId: '',
+    personEntityId: '',
+    privacyEntityId: '',
+    streamUrl: '',
+    talk: true,
+    ptz: true,
+    privacy: true,
+    snapshot: true,
+    intimateSpaceConsent: false,
+  });
   const [active, setActive] = useState(0);
+  const [homeSection, setHomeSection] = useState<'OVERVIEW' | 'EDITOR' | 'LIVE_PLAN'>('OVERVIEW');
+  const [homeEditorRoomId, setHomeEditorRoomId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarAutoHide, setSidebarAutoHide] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.localStorage.getItem('elise_sidebar_auto_hide') !== 'false';
+  });
   const [authRequired, setAuthRequired] = useState(false);
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutFailed, setLogoutFailed] = useState(false);
+  const [tourMode, setTourMode] = useState<GuidedTourMode | null>(null);
+  const [initialTourHandled, setInitialTourHandled] = useState(false);
+  const [homeSetupPreview, setHomeSetupPreview] = useState(false);
+  const tourReturnActive = useRef(8);
   const [contactDraft, setContactDraft] = useState({
     firstName: '',
     lastName: '',
@@ -1276,9 +2597,16 @@ export function App() {
     previewSetup ? 'setup' : 'loading',
   );
   const t = copy[locale];
+  const sidebarAutoHideLocked =
+    household?.home.installationStatus === 'DRAFT' || tourMode !== null || homeSetupPreview;
+  const sidebarAutoHideActive = sidebarAutoHide && !sidebarAutoHideLocked;
   const changeLocale = (nextLocale: Locale) => {
     setLocale(nextLocale);
     window.localStorage.setItem('michel_locale', nextLocale);
+  };
+  const changeSidebarAutoHide = (enabled: boolean) => {
+    setSidebarAutoHide(enabled);
+    window.localStorage.setItem('elise_sidebar_auto_hide', String(enabled));
   };
 
   const refresh = useCallback(async () => {
@@ -1301,6 +2629,8 @@ export function App() {
       }
       if (!response.ok) throw new Error('Overview unavailable');
       setOverview((await response.json()) as Overview);
+      const meResponse = await fetch('/api/v1/auth/me');
+      if (meResponse.ok) setCurrentAccess((await meResponse.json()) as CurrentAccess);
       const now = new Date();
       const historyStart = new Date(now.getTime() - 7 * 86_400_000);
       const historyEnd = new Date(now.getTime() + 86_400_000);
@@ -1315,8 +2645,9 @@ export function App() {
         dosesResponse,
         analyticsResponse,
         scheduleResponse,
-        equipmentStatusResponse,
         equipmentCandidatesResponse,
+        camerasResponse,
+        routinesResponse,
       ] = await Promise.all([
         fetch('/api/v1/activity/feed?limit=30'),
         fetch('/api/v1/alerts'),
@@ -1330,8 +2661,9 @@ export function App() {
         fetch(
           `/api/v1/schedule?from=${encodeURIComponent(now.toISOString())}&to=${encodeURIComponent(new Date(now.getTime() + 90 * 86_400_000).toISOString())}`,
         ),
-        fetch('/api/v1/equipment/status'),
         fetch('/api/v1/equipment/candidates'),
+        fetch('/api/v1/cameras'),
+        fetch('/api/v1/analytics/routines'),
       ]);
       if (activityResponse.ok) {
         const feed = (await activityResponse.json()) as {
@@ -1354,16 +2686,38 @@ export function App() {
         setMedicationDoses((await dosesResponse.json()) as MedicationDoseItem[]);
       if (analyticsResponse.ok) setAnalytics((await analyticsResponse.json()) as ActivitySummary);
       if (scheduleResponse.ok) setSchedule((await scheduleResponse.json()) as ScheduleItem[]);
-      if (equipmentStatusResponse.ok)
-        setEquipmentStatus((await equipmentStatusResponse.json()) as EquipmentStatus);
       if (equipmentCandidatesResponse.ok)
         setEquipmentCandidates((await equipmentCandidatesResponse.json()) as EquipmentCandidate[]);
+      if (camerasResponse.ok) setCameras((await camerasResponse.json()) as CameraItem[]);
+      if (routinesResponse.ok) setRoutines((await routinesResponse.json()) as RoutinesSummary);
       setAuthRequired(false);
       setDataError(false);
     } catch {
       setDataError(true);
     }
   }, [analyticsPeriod]);
+
+  const logout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setLogoutFailed(false);
+    try {
+      const response = await fetch('/api/v1/auth/logout', { method: 'POST' });
+      if (!response.ok && response.status !== 401) throw new Error('Logout failed');
+      setOverview(null);
+      setHousehold(null);
+      setAuthRequired(true);
+      setPasswordChangeRequired(false);
+      setMenuOpen(false);
+      setDataError(false);
+      setTourMode(null);
+      setInitialTourHandled(false);
+    } catch {
+      setLogoutFailed(true);
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   useEffect(() => {
     if (previewSetup) return;
@@ -1395,6 +2749,44 @@ export function App() {
     events.onmessage = refresh;
     return () => events.close();
   }, [authRequired, passwordChangeRequired, entryState, refresh]);
+
+  useEffect(() => {
+    if (
+      entryState === 'app' &&
+      household?.home.installationStatus === 'DRAFT' &&
+      !initialTourHandled &&
+      !tourMode &&
+      homeSection !== 'EDITOR'
+    ) {
+      setTourMode('initial');
+    }
+  }, [entryState, homeSection, household?.home.installationStatus, initialTourHandled, tourMode]);
+
+  const showTourTarget = useCallback((index: number) => {
+    setActive(index);
+    if (index === 3) {
+      setHomeEditorRoomId(null);
+      setHomeSection('OVERVIEW');
+    }
+    if (window.matchMedia('(max-width: 960px)').matches) setMenuOpen(true);
+  }, []);
+
+  const closeTour = useCallback(() => {
+    const initial = tourMode === 'initial';
+    setTourMode(null);
+    setMenuOpen(false);
+    if (initial) {
+      setInitialTourHandled(true);
+      setHomeEditorRoomId(null);
+      setHomeSection('EDITOR');
+      setActive(3);
+    } else {
+      setHomeSetupPreview(true);
+      setHomeEditorRoomId(null);
+      setHomeSection('EDITOR');
+      setActive(3);
+    }
+  }, [tourMode]);
 
   const isLearning = overview?.reassurance === 'LEARNING';
   const statusTitle =
@@ -1461,20 +2853,6 @@ export function App() {
     }
     setLoadingMoreActivity(false);
   };
-  const moveContact = async (contactId: string, direction: -1 | 1) => {
-    if (!household) return;
-    const contacts = [...household.trustedContacts];
-    const current = contacts.findIndex((contact) => contact.id === contactId);
-    const target = current + direction;
-    if (current < 0 || target < 0 || target >= contacts.length) return;
-    [contacts[current], contacts[target]] = [contacts[target]!, contacts[current]!];
-    const response = await fetch('/api/v1/household/contacts/priorities', {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ orderedIds: contacts.map((contact) => contact.id) }),
-    });
-    if (response.ok) await refresh();
-  };
   const replaceResidentPhoto = async (file: File) => {
     if (!resident) return;
     const form = new FormData();
@@ -1518,7 +2896,7 @@ export function App() {
       );
       return;
     }
-    const response = await fetch('/api/v1/household/contacts', {
+    const response = await fetch('/api/v1/household/people', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -1528,10 +2906,16 @@ export function App() {
         phone: contactDraft.phone,
         email: contactDraft.email,
         relation: contactDraft.relation,
-        role: contactDraft.role,
-        username: contactDraft.role === 'administrateur' ? contactDraft.username : undefined,
-        temporaryPassword:
-          contactDraft.role === 'administrateur' ? contactDraft.temporaryPassword : undefined,
+        isEmergency: contactDraft.role === 'urgence',
+        ...(contactDraft.role === 'administrateur'
+          ? {
+              access: {
+                role: 'ADMINISTRATOR',
+                username: contactDraft.username,
+                temporaryPassword: contactDraft.temporaryPassword,
+              },
+            }
+          : {}),
       }),
     });
     if (!response.ok) {
@@ -1555,53 +2939,121 @@ export function App() {
     });
     await refresh();
   };
-  const assignSensor = async (sensorId: string, roomId: string | null) => {
-    const response = await fetch(`/api/v1/household/sensors/${sensorId}/room`, {
+  const configureCamera = async (event: FormEvent) => {
+    event.preventDefault();
+    setCameraNotice('');
+    const response = await fetch('/api/v1/cameras', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: cameraDraft.name,
+        roomId: cameraDraft.roomId,
+        provider: cameraDraft.provider,
+        streamEntityId: cameraDraft.streamEntityId,
+        personEntityId: cameraDraft.personEntityId || null,
+        privacyEntityId: cameraDraft.privacyEntityId || null,
+        streamUrl: cameraDraft.streamUrl,
+        compatibility: 'RECOGNIZED',
+        capabilities: {
+          live: true,
+          talk: cameraDraft.talk,
+          ptz: cameraDraft.ptz,
+          privacy: cameraDraft.privacy,
+          snapshot: cameraDraft.snapshot,
+        },
+        intimateSpaceConsent: cameraDraft.intimateSpaceConsent,
+      }),
+    });
+    if (!response.ok) {
+      const result = (await response.json().catch(() => null)) as { message?: string } | null;
+      setCameraNotice(
+        result?.message ??
+          (locale === 'fr'
+            ? 'La caméra n’a pas pu être configurée.'
+            : 'The camera could not be configured.'),
+      );
+      return;
+    }
+    setCameraNotice(
+      locale === 'fr'
+        ? 'Caméra ajoutée. Élise vérifie maintenant le flux local.'
+        : 'Camera added. Élise is now checking the local stream.',
+    );
+    setCameraFormOpen(false);
+    setCameraDraft({
+      name: '',
+      roomId: '',
+      provider: 'reolink',
+      streamEntityId: '',
+      personEntityId: '',
+      privacyEntityId: '',
+      streamUrl: '',
+      talk: true,
+      ptz: true,
+      privacy: true,
+      snapshot: true,
+      intimateSpaceConsent: false,
+    });
+    await refresh();
+  };
+  const openCamera = async (cameraId: string, talk = false) => {
+    const requestId = ++cameraSessionRequest.current;
+    setCameraNotice('');
+    try {
+      const response = await fetch(
+        `/api/v1/cameras/${cameraId}/${talk ? 'talk-session' : 'live-session'}`,
+        { method: 'POST' },
+      );
+      if (requestId !== cameraSessionRequest.current) return;
+      if (response.ok) {
+        setCameraSession((await response.json()) as CameraSession);
+        return;
+      }
+      const result = (await response.json().catch(() => null)) as { message?: string } | null;
+      setCameraNotice(
+        result?.message ??
+          (locale === 'fr' ? 'Le direct est indisponible.' : 'Live view is unavailable.'),
+      );
+    } catch {
+      if (requestId === cameraSessionRequest.current) {
+        setCameraNotice(
+          locale === 'fr' ? 'Le direct est indisponible.' : 'Live view is unavailable.',
+        );
+      }
+    }
+  };
+  const toggleCameraPrivacy = async (camera: CameraItem) => {
+    cameraSessionRequest.current += 1;
+    setCameraSession((session) => (session?.cameraId === camera.id ? null : session));
+    const response = await fetch(`/api/v1/cameras/${camera.id}/privacy`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ roomId }),
+      body: JSON.stringify({ enabled: !camera.privacyMode }),
     });
-    if (response.ok) await refresh();
-  };
-  const syncEquipment = async () => {
-    setEquipmentNotice(locale === 'fr' ? 'Synchronisation demandée…' : 'Sync requested…');
-    const response = await fetch('/api/v1/equipment/sync', { method: 'POST' });
-    setEquipmentNotice(
+    setCameraNotice(
       response.ok
-        ? locale === 'fr'
-          ? 'Home Assistant actualise maintenant l’inventaire.'
-          : 'Home Assistant is refreshing the inventory.'
+        ? camera.privacyMode
+          ? locale === 'fr'
+            ? 'Mode intimité désactivé.'
+            : 'Privacy mode disabled.'
+          : locale === 'fr'
+            ? 'Mode intimité activé.'
+            : 'Privacy mode enabled.'
         : locale === 'fr'
-          ? 'La synchronisation n’a pas pu démarrer.'
-          : 'Sync could not be started.',
-    );
-    if (response.ok) window.setTimeout(() => void refresh(), 1_500);
-  };
-  const togglePairing = async () => {
-    const activePairing = equipmentStatus?.pairing.active;
-    const response = await fetch(
-      '/api/v1/equipment/pairing-sessions' + (activePairing ? '/current' : ''),
-      {
-        method: activePairing ? 'DELETE' : 'POST',
-        headers: { 'content-type': 'application/json' },
-        ...(activePairing ? {} : { body: JSON.stringify({ durationSeconds: 180 }) }),
-      },
+          ? 'Le mode intimité n’a pas pu être modifié.'
+          : 'Privacy mode could not be changed.',
     );
     if (response.ok) await refresh();
   };
-  const mapEquipment = async (entityId: string, capability: string, transform: string) => {
-    const response = await fetch(
-      `/api/v1/equipment/entities/${encodeURIComponent(entityId)}/mapping`,
-      {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ capability, transform, enabled: true }),
-      },
-    );
-    if (response.ok) {
-      setEquipmentNotice(locale === 'fr' ? 'Correspondance enregistrée.' : 'Mapping saved.');
-      await refresh();
-    }
+  const startTalking = async () => {
+    if (!cameraSession) return;
+    setTalking(true);
+    await openCamera(cameraSession.cameraId, true);
+  };
+  const stopTalking = async () => {
+    if (!cameraSession) return;
+    setTalking(false);
+    await openCamera(cameraSession.cameraId, false);
   };
   const runSimulation = async (scenario: string) => {
     setRunningSimulation(scenario);
@@ -1710,10 +3162,12 @@ export function App() {
   );
 
   const resident = household?.residents.find((item) => item.primary) ?? household?.residents[0];
+  const canEditResident = currentAccess.capabilities.includes('configuration:manage');
   const configuredSensors = [
     ...(household?.unassignedSensors.map((sensor) => ({
       ...sensor,
       roomId: null,
+      roomName: null,
     })) ?? []),
     ...(household?.rooms.flatMap((room) =>
       room.sensors.map((sensor) => ({ ...sensor, roomId: room.id, roomName: room.name })),
@@ -1724,6 +3178,21 @@ export function App() {
     const value = Number(sensor.lastValue?.value);
     return Number.isFinite(value) && value <= (alertRules?.lowBattery.percent ?? 15);
   }).length;
+  const currentTemperatureSensor = configuredSensors
+    .filter((sensor) => {
+      if (sensor.capability !== 'temperature' || sensor.status === 'OFFLINE') return false;
+      return Number.isFinite(Number(sensor.lastValue?.value));
+    })
+    .sort(
+      (left, right) =>
+        new Date(right.lastSeenAt ?? 0).getTime() - new Date(left.lastSeenAt ?? 0).getTime(),
+    )[0];
+  const currentTemperature = currentTemperatureSensor
+    ? new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }).format(Number(currentTemperatureSensor.lastValue?.value))
+    : null;
   const managerName = overview?.currentUser?.displayName ?? '';
   const managerInitials = managerName
     .split(/\s+/)
@@ -1749,7 +3218,7 @@ export function App() {
     return (
       <main className="boot-screen">
         <span className="boot-mark">
-          <Home />
+          <img src="/logo.png" alt="" />
         </span>
         <b>Élise</b>
         <i />
@@ -1764,6 +3233,9 @@ export function App() {
         onCompleted={() => {
           setEntryState('app');
           setAuthRequired(false);
+          setHomeSection('OVERVIEW');
+          setInitialTourHandled(false);
+          setActive(0);
           void refresh();
         }}
       />
@@ -1801,7 +3273,7 @@ export function App() {
     return (
       <main className="boot-screen unavailable-screen">
         <span className="boot-mark">
-          <Home />
+          <img src="/logo.png" alt="" />
         </span>
         <h1>Élise est momentanément inaccessible</h1>
         <p>Vérifiez que le service local est démarré, puis réessayez.</p>
@@ -1814,7 +3286,7 @@ export function App() {
     return (
       <main className="boot-screen">
         <span className="boot-mark">
-          <Home />
+          <img src="/logo.png" alt="" />
         </span>
         <b>Élise</b>
         <i />
@@ -1823,13 +3295,16 @@ export function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarAutoHideActive ? 'app-shell--sidebar-auto-hide' : ''}`}>
       <aside className={`sidebar ${menuOpen ? 'sidebar--open' : ''}`}>
         <div className="brand">
           <div className="brand-mark">
-            <Home size={23} strokeWidth={1.8} />
+            <img src="/logo.png" alt="" />
           </div>
-          <span>Élise</span>
+          <span className="brand-copy">
+            <strong>Élise</strong>
+            <small>{locale === 'fr' ? 'Maison & sérénité' : 'Home & peace of mind'}</small>
+          </span>
         </div>
         <button
           className="mobile-close"
@@ -1838,36 +3313,66 @@ export function App() {
         >
           <X />
         </button>
-        <nav aria-label="Navigation principale">
-          {t.nav.map((label, index) => {
-            const Icon = navIcons[index]!;
-            return (
-              <button
-                key={label}
-                className={active === index ? 'nav-item nav-item--active' : 'nav-item'}
-                onClick={() => {
-                  setActive(index);
-                  setMenuOpen(false);
-                }}
-              >
-                <Icon size={18} />
-                <span>{label}</span>
-                {index === 2 && <b>{overview.openAlerts ?? 0}</b>}
-              </button>
-            );
-          })}
-        </nav>
+        <div className="sidebar-navigation">
+          <span className="sidebar-section-label">
+            {locale === 'fr' ? 'Navigation' : 'Navigation'}
+          </span>
+          <SidebarNavigation
+            labels={t.nav}
+            active={active}
+            openAlerts={overview.openAlerts ?? 0}
+            onSelect={(index) => {
+              if (index === 3) {
+                setHomeEditorRoomId(null);
+                setHomeSection('OVERVIEW');
+              }
+              setActive(index);
+              if (!tourMode) setMenuOpen(false);
+            }}
+          />
+        </div>
         <div className="caregiver">
           <div className="avatar">{managerInitials || '—'}</div>
-          <div>
+          <div className="caregiver-identity">
             <strong>{managerName}</strong>
             <span>{locale === 'fr' ? 'Aidant principal' : 'Primary caregiver'}</span>
           </div>
+          <button
+            type="button"
+            className={`caregiver-logout${logoutFailed ? ' caregiver-logout--failed' : ''}`}
+            onClick={() => void logout()}
+            disabled={loggingOut}
+            aria-label={
+              logoutFailed
+                ? locale === 'fr'
+                  ? 'Réessayer la déconnexion'
+                  : 'Retry signing out'
+                : locale === 'fr'
+                  ? 'Se déconnecter'
+                  : 'Sign out'
+            }
+            title={locale === 'fr' ? 'Se déconnecter' : 'Sign out'}
+          >
+            <LogOut size={16} />
+            <span className="sr-only">
+              {logoutFailed
+                ? locale === 'fr'
+                  ? 'Réessayer'
+                  : 'Try again'
+                : loggingOut
+                  ? locale === 'fr'
+                    ? 'Déconnexion…'
+                    : 'Signing out…'
+                  : locale === 'fr'
+                    ? 'Se déconnecter'
+                    : 'Sign out'}
+            </span>
+          </button>
         </div>
       </aside>
 
       <main>
-        <header className="topbar">
+        <header className={`topbar${active === 0 ? '' : ' topbar--compact'}`}>
           <button
             className="mobile-menu"
             onClick={() => setMenuOpen(true)}
@@ -1875,23 +3380,27 @@ export function App() {
           >
             <Menu />
           </button>
-          <div>
-            <span className="eyebrow">{overview.home?.name ?? 'Élise OS'}</span>
-            <h1>
-              {locale === 'fr'
-                ? `Bonjour ${overview.currentUser?.firstName ?? ''},`
-                : `Hello ${overview.currentUser?.firstName ?? ''},`}
-              <br />
-              <em>
+          {active === 0 && (
+            <div>
+              <span className="eyebrow">{overview.home?.name ?? 'Élise OS'}</span>
+              <h1>
                 {locale === 'fr'
-                  ? `Élise veille sur ${residentName}.`
-                  : `Élise is watching over ${residentName}.`}
-              </em>
-            </h1>
-          </div>
-          <div className="top-actions">
-            <StatusPill>{t.local}</StatusPill>
-          </div>
+                  ? `Bonjour ${overview.currentUser?.firstName ?? ''},`
+                  : `Hello ${overview.currentUser?.firstName ?? ''},`}
+                <br />
+                <em>
+                  {locale === 'fr'
+                    ? `Élise veille sur ${residentName}.`
+                    : `Élise is watching over ${residentName}.`}
+                </em>
+              </h1>
+            </div>
+          )}
+          {active === 0 && (
+            <div className="top-actions">
+              <StatusPill>{t.local}</StatusPill>
+            </div>
+          )}
         </header>
 
         {dataError && (
@@ -1926,14 +3435,14 @@ export function App() {
                 </p>
               </div>
               <div className="period-switch" role="group" aria-label="Période d’analyse">
-                {(['24h', '7d'] as const).map((period) => (
+                {(['24h', '7d', '28d'] as const).map((period) => (
                   <button
                     type="button"
                     key={period}
                     aria-pressed={analyticsPeriod === period}
                     onClick={() => setAnalyticsPeriod(period)}
                   >
-                    {period === '24h' ? '24 h' : '7 jours'}
+                    {period === '24h' ? '24 h' : period === '7d' ? '7 jours' : '28 jours'}
                   </button>
                 ))}
               </div>
@@ -1951,7 +3460,9 @@ export function App() {
                       {locale === 'fr' ? 'événements utiles' : 'useful events'}
                     </h2>
                   </div>
-                  <StatusPill>{analyticsPeriod === '24h' ? '24 h' : '7 j'}</StatusPill>
+                  <StatusPill>
+                    {analyticsPeriod === '24h' ? '24 h' : analyticsPeriod === '7d' ? '7 j' : '28 j'}
+                  </StatusPill>
                 </div>
                 <div className="activity-bars" aria-label="Répartition des événements">
                   {analytics?.buckets.map((bucket) => {
@@ -2001,6 +3512,57 @@ export function App() {
             </div>
 
             <Card className="timeline-card activity-page">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">
+                    {locale === 'fr' ? 'Habitudes locales' : 'Local routines'}
+                  </span>
+                  <h2>{locale === 'fr' ? 'Temps passé par pièce' : 'Time spent by room'}</h2>
+                </div>
+                <StatusPill>
+                  {routines
+                    ? `${Math.min(routines.learningDays, routines.requiredLearningDays)}/${routines.requiredLearningDays} j`
+                    : '—'}
+                </StatusPill>
+              </div>
+              <p>
+                {routines?.coverageSufficient
+                  ? locale === 'fr'
+                    ? `Apprentissage local à ${Math.round(routines.progress * 100)} %. Les périodes ambiguës sont exclues.`
+                    : `Local learning is ${Math.round(routines.progress * 100)}% complete. Ambiguous periods are excluded.`
+                  : locale === 'fr'
+                    ? 'Couverture insuffisante : Élise affiche les données sans en tirer de conclusion.'
+                    : 'Insufficient coverage: data is shown without drawing a conclusion.'}
+              </p>
+              <div className="analytics-breakdown">
+                {analytics?.dwellByRoom.map((room) => (
+                  <span key={room.id}>
+                    <strong>{readableDuration(room.totalSeconds, locale)}</strong> {room.name}
+                    <small>
+                      {locale === 'fr' ? 'médiane' : 'median'}{' '}
+                      {readableDuration(room.medianSeconds, locale)} · {room.reliableSessions}/
+                      {room.sessions} {locale === 'fr' ? 'fiables' : 'reliable'}
+                    </small>
+                  </span>
+                ))}
+              </div>
+              {!analytics?.dwellByRoom.length && (
+                <small>
+                  {locale === 'fr'
+                    ? 'Aucune session fiable sur cette période.'
+                    : 'No reliable session in this period.'}
+                </small>
+              )}
+              {routines?.changes.map((change) => (
+                <p key={change.roomId}>
+                  {locale === 'fr'
+                    ? `${change.roomName} : temps ${change.direction === 'HIGHER' ? 'supérieur' : 'inférieur'} à l’habitude aujourd’hui (${readableDuration(change.observedSeconds, locale)} contre ${readableDuration(change.baselineSeconds, locale)}).`
+                    : `${change.roomName}: time is ${change.direction === 'HIGHER' ? 'higher' : 'lower'} than usual today (${readableDuration(change.observedSeconds, locale)} versus ${readableDuration(change.baselineSeconds, locale)}).`}
+                </p>
+              ))}
+            </Card>
+
+            <Card className="timeline-card activity-page">
               <div className="section-heading timeline-heading">
                 <div>
                   <span className="eyebrow">Timeline</span>
@@ -2039,6 +3601,7 @@ export function App() {
                       {[
                         'motion',
                         'occupancy',
+                        'person_presence',
                         'contact',
                         'temperature',
                         'humidity',
@@ -2155,6 +3718,39 @@ export function App() {
                       <h2>{alert.title}</h2>
                       <p>{alert.explanation}</p>
                       <small>{relativeTime(alert.openedAt, locale)}</small>
+                      {alert.cameraSnapshots && alert.cameraSnapshots.length > 0 && (
+                        <div className="alert-snapshot">
+                          {revealedSnapshots.has(alert.id) ? (
+                            <>
+                              <img
+                                src={`/api/v1/alerts/${alert.id}/snapshot`}
+                                alt={
+                                  locale === 'fr'
+                                    ? 'Capture locale associée à l’alerte'
+                                    : 'Local snapshot associated with the alert'
+                                }
+                              />
+                              <small>
+                                {locale === 'fr'
+                                  ? `Suppression automatique ${relativeTime(alert.cameraSnapshots[0]!.expiresAt, locale)}`
+                                  : `Automatically deleted ${relativeTime(alert.cameraSnapshots[0]!.expiresAt, locale)}`}
+                              </small>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRevealedSnapshots((current) => new Set([...current, alert.id]))
+                              }
+                            >
+                              <Video />
+                              {locale === 'fr'
+                                ? 'Afficher la capture de la pièce'
+                                : 'Show room snapshot'}
+                            </button>
+                          )}
+                        </div>
+                      )}
                       {alert.transitions && alert.transitions.length > 0 && (
                         <details className="alert-history">
                           <summary>
@@ -2199,31 +3795,54 @@ export function App() {
             </div>
           </section>
         ) : active === 3 ? (
-          <section className="section-view">
-            <div className="page-heading">
-              <span className="eyebrow">{overview.home?.name}</span>
-              <h2>{t.nav[3]}</h2>
-            </div>
-            <Card className="rooms-card rooms-page">
-              <div className="room-grid">
-                {overview.rooms?.map((room) => {
-                  const Icon = roomIcons[room.kind] ?? Home;
-                  return (
-                    <div key={room.id} className="room">
-                      <Icon />
-                      <span>
-                        <strong>{room.name}</strong>
-                        <small>
-                          {room.sensors} {locale === 'fr' ? 'capteurs' : 'sensors'}
-                        </small>
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          </section>
+          homeSection === 'OVERVIEW' ? (
+            <HomeOverview
+              locale={locale}
+              home={household?.home}
+              cameras={cameras}
+              canManage={currentAccess.role === 'OWNER' || currentAccess.role === 'ADMINISTRATOR'}
+              onManage={(roomId) => {
+                setHomeEditorRoomId(roomId ?? null);
+                setHomeSection('EDITOR');
+              }}
+              onOpenLivePlan={() => setHomeSection('LIVE_PLAN')}
+              onOpenSensors={() => setActive(4)}
+              onOpenCameras={() => setActive(9)}
+            />
+          ) : (
+            <HomePlanEditor
+              key={homeSetupPreview ? 'setup-preview' : 'home-plan'}
+              locale={locale}
+              home={household?.home}
+              sensors={[
+                ...(household?.unassignedSensors ?? []),
+                ...(household?.rooms.flatMap((room) => room.sensors) ?? []),
+              ]}
+              cameras={cameras}
+              readOnly={homeSection === 'LIVE_PLAN'}
+              initialMode={homeSection === 'LIVE_PLAN' ? 'LIVE' : 'EDIT'}
+              initialRoomId={homeSection === 'EDITOR' ? homeEditorRoomId : null}
+              setupPreview={homeSetupPreview}
+              onSetupPreviewClose={() => {
+                setHomeSetupPreview(false);
+                setHomeEditorRoomId(null);
+                setHomeSection('OVERVIEW');
+                setActive(tourReturnActive.current);
+              }}
+              onBack={() => {
+                setHomeEditorRoomId(null);
+                setHomeSection('OVERVIEW');
+              }}
+              onOpenCamera={(cameraId) => {
+                setActive(9);
+                void openCamera(cameraId);
+              }}
+              onSaved={() => void refresh()}
+            />
+          )
         ) : active === 4 ? (
+          <SensorsPanel locale={locale} rooms={household?.rooms ?? []} />
+        ) : active === 5 ? (
           <MedicationPanel
             locale={locale}
             medications={medications}
@@ -2234,11 +3853,11 @@ export function App() {
             onConfirm={(doseId) => void confirmMedicationDose(doseId, 'TAKEN')}
             onSkip={(doseId) => void confirmMedicationDose(doseId, 'SKIPPED')}
           />
-        ) : active === 5 ? (
+        ) : active === 6 ? (
           <section className="section-view">
             <div className="page-heading">
               <span className="eyebrow">{overview.home?.name}</span>
-              <h2>{t.nav[5]}</h2>
+              <h2>{t.nav[6]}</h2>
             </div>
             <Card className="journal-card journal-page">
               {journal.length === 0 ? (
@@ -2254,131 +3873,83 @@ export function App() {
               )}
             </Card>
           </section>
-        ) : active === 6 ? (
-          <section className="section-view">
-            <div className="page-heading">
-              <span className="eyebrow">{residentName}</span>
-              <h2>{t.nav[6]}</h2>
-              <p>
-                {locale === 'fr'
-                  ? 'Les personnes enregistrées localement, classées selon leur priorité de contact.'
-                  : 'People stored locally, ordered by contact priority.'}
-              </p>
-            </div>
-            <div className="contact-grid">
-              {household?.trustedContacts.map((contact, index) => (
-                <Card className="contact-card" key={contact.id}>
-                  <div className="contact-priority">{contact.priority + 1}</div>
-                  <div>
-                    <StatusPill>
-                      {contact.role === 'ADMINISTRATOR'
-                        ? locale === 'fr'
-                          ? 'Administrateur'
-                          : 'Administrator'
-                        : contact.role === 'EMERGENCY'
-                          ? locale === 'fr'
-                            ? 'Urgence'
-                            : 'Emergency'
-                          : locale === 'fr'
-                            ? 'Proche'
-                            : 'Relative'}
-                    </StatusPill>
-                    <h2>
-                      {contact.firstName} {contact.lastName}
-                    </h2>
-                    <p>
-                      {contact.relation ||
-                        (locale === 'fr' ? 'Lien non précisé' : 'Relationship not specified')}
-                    </p>
-                    {contact.phone && <a href={`tel:${contact.phone}`}>{contact.phone}</a>}
-                    {contact.email && <a href={`mailto:${contact.email}`}>{contact.email}</a>}
-                    {contact.hasAccount && (
-                      <small>
-                        {locale === 'fr' ? 'Compte associé' : 'Linked account'} :{' '}
-                        {contact.username ?? '—'}
-                      </small>
-                    )}
-                    <div className="contact-order-actions">
-                      <button
-                        type="button"
-                        disabled={index === 0}
-                        aria-label="Monter dans la priorité"
-                        onClick={() => void moveContact(contact.id, -1)}
-                      >
-                        <ArrowUp />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={index === household.trustedContacts.length - 1}
-                        aria-label="Descendre dans la priorité"
-                        onClick={() => void moveContact(contact.id, 1)}
-                      >
-                        <ArrowDown />
-                      </button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-              {household?.trustedContacts.length === 0 && (
-                <Card>
-                  <p>
-                    {locale === 'fr'
-                      ? 'Aucun proche supplémentaire n’a été ajouté.'
-                      : 'No additional contact has been added.'}
-                  </p>
-                </Card>
-              )}
-            </div>
-          </section>
-        ) : active === 8 ? (
+        ) : active === 7 ? (
+          <PeoplePanel locale={locale} currentRole={currentAccess.role} />
+        ) : active === 9 ? (
+          <CamerasPanel
+            locale={locale}
+            cameras={cameras}
+            rooms={household?.rooms ?? []}
+            candidates={equipmentCandidates}
+            session={cameraSession}
+            talking={talking}
+            notice={cameraNotice}
+            formOpen={cameraFormOpen}
+            draft={cameraDraft}
+            onDraft={setCameraDraft}
+            onToggleForm={() => setCameraFormOpen((value) => !value)}
+            onConfigure={(event) => void configureCamera(event)}
+            onOpen={(cameraId) => void openCamera(cameraId)}
+            onClose={() => {
+              cameraSessionRequest.current += 1;
+              setCameraSession(null);
+              setTalking(false);
+            }}
+            onPrivacy={(camera) => void toggleCameraPrivacy(camera)}
+            onTalkStart={() => void startTalking()}
+            onTalkStop={() => void stopTalking()}
+          />
+        ) : active === 10 ? (
           <section className="section-view resident-page">
-            <div className="page-heading">
-              <span className="eyebrow">
-                {locale === 'fr' ? 'Profil d’accompagnement' : 'Support profile'}
-              </span>
-              <h2>{resident?.displayName ?? residentName}</h2>
-              <p>
-                {locale === 'fr'
-                  ? 'Toutes les informations utiles enregistrées pendant l’installation.'
-                  : 'All useful information recorded during setup.'}
-              </p>
-            </div>
-            {resident && (
-              <div className="resident-detail-grid">
-                <Card className="resident-identity-card">
-                  {resident.photoUrl ? (
-                    <img src={resident.photoUrl} alt="" />
-                  ) : (
-                    <div className="resident-photo-fallback">
-                      {(resident.preferredName ?? resident.firstName ?? '?')[0]}
-                    </div>
-                  )}
-                  <div>
-                    <span className="eyebrow">{locale === 'fr' ? 'Identité' : 'Identity'}</span>
-                    <h2>
-                      {resident.firstName} {resident.lastName}
-                    </h2>
-                    <p>
-                      {locale === 'fr' ? 'Prénom utilisé' : 'Preferred name'} :{' '}
-                      {resident.preferredName || '—'}
-                    </p>
-                    <p>
-                      {locale === 'fr' ? 'Appellation' : 'Form of address'} :{' '}
-                      {resident.formOfAddress || '—'}
-                    </p>
-                    <p>
-                      {locale === 'fr' ? 'Date de naissance' : 'Birth date'} :{' '}
-                      {resident.birthDate
-                        ? new Date(resident.birthDate).toLocaleDateString(locale)
-                        : '—'}
-                    </p>
-                    <p>
-                      {locale === 'fr' ? 'Langue parlée' : 'Spoken language'} :{' '}
-                      {resident.spokenLanguage}
-                    </p>
-                    <div className="resident-photo-actions">
-                      <label className="button button-secondary">
-                        {locale === 'fr' ? 'Remplacer la photo' : 'Replace photo'}
+            <header className="resident-hero">
+              <div>
+                <span className="eyebrow">
+                  {locale === 'fr' ? 'Profil d’accompagnement' : 'Support profile'}
+                </span>
+                <h2>
+                  {locale === 'fr' ? 'La fiche de ' : ''}
+                  {resident?.preferredName ?? resident?.displayName ?? residentName}
+                  {locale === 'fr' ? '' : '’s profile'}
+                </h2>
+                <p>
+                  {locale === 'fr'
+                    ? 'Les repères essentiels pour un accompagnement attentif et personnalisé.'
+                    : 'Essential context for attentive, personal support.'}
+                </p>
+              </div>
+              <Button className="button-secondary resident-back" onClick={() => setActive(0)}>
+                <ChevronRight aria-hidden="true" />
+                {locale === 'fr' ? 'Retour à l’accueil' : 'Back to home'}
+              </Button>
+            </header>
+
+            {resident ? (
+              <div className="resident-profile-layout">
+                <Card className="resident-profile-card">
+                  <div className="resident-profile-photo">
+                    {resident.photoUrl ? (
+                      <img
+                        src={resident.photoUrl}
+                        alt={
+                          locale === 'fr'
+                            ? `Portrait de ${resident.displayName}`
+                            : resident.displayName
+                        }
+                      />
+                    ) : (
+                      <div className="resident-photo-fallback">
+                        {(resident.preferredName ?? resident.firstName ?? '?')[0]}
+                      </div>
+                    )}
+                    {canEditResident && (
+                      <label
+                        className="resident-photo-upload"
+                        title={locale === 'fr' ? 'Changer la photo' : 'Change photo'}
+                      >
+                        <Camera aria-hidden="true" />
+                        <span className="sr-only">
+                          {locale === 'fr' ? 'Changer la photo' : 'Change photo'}
+                        </span>
                         <input
                           type="file"
                           accept="image/jpeg,image/png,image/webp"
@@ -2388,125 +3959,281 @@ export function App() {
                           }}
                         />
                       </label>
-                      {resident.photoUrl && (
-                        <Button
-                          className="button-secondary"
-                          onClick={() => void removeResidentPhoto()}
-                        >
-                          {locale === 'fr' ? 'Supprimer la photo' : 'Remove photo'}
-                        </Button>
-                      )}
+                    )}
+                  </div>
+
+                  <div className="resident-profile-intro">
+                    <span className="resident-primary-pill">
+                      <i />
+                      {locale === 'fr' ? 'Personne accompagnée' : 'Resident'}
+                    </span>
+                    <h3>
+                      {resident.firstName} {resident.lastName}
+                    </h3>
+                    <p>
+                      {resident.formOfAddress
+                        ? `${resident.formOfAddress} · ${resident.preferredName || resident.firstName}`
+                        : locale === 'fr'
+                          ? `Prénom utilisé : ${resident.preferredName || resident.firstName || '—'}`
+                          : `Preferred name: ${resident.preferredName || resident.firstName || '—'}`}
+                    </p>
+                  </div>
+
+                  <div className="resident-facts">
+                    <div>
+                      <span className="resident-fact-icon resident-fact-icon--date">
+                        <CalendarDays aria-hidden="true" />
+                      </span>
+                      <p>
+                        <small>{locale === 'fr' ? 'Naissance' : 'Born'}</small>
+                        <strong>
+                          {resident.birthDate
+                            ? new Date(resident.birthDate).toLocaleDateString(locale, {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric',
+                              })
+                            : '—'}
+                        </strong>
+                        {residentAge(resident.birthDate, locale) && (
+                          <span>{residentAge(resident.birthDate, locale)}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="resident-fact-icon resident-fact-icon--language">
+                        <BookOpen aria-hidden="true" />
+                      </span>
+                      <p>
+                        <small>{locale === 'fr' ? 'Langue parlée' : 'Spoken language'}</small>
+                        <strong>{resident.spokenLanguage || '—'}</strong>
+                      </p>
                     </div>
                   </div>
+
+                  {canEditResident && resident.photoUrl && (
+                    <button
+                      className="resident-remove-photo"
+                      type="button"
+                      onClick={() => void removeResidentPhoto()}
+                    >
+                      <Trash2 aria-hidden="true" />
+                      {locale === 'fr' ? 'Supprimer la photo' : 'Remove photo'}
+                    </button>
+                  )}
                 </Card>
-                <Card>
-                  <span className="eyebrow">
-                    {locale === 'fr' ? 'Situation de vie' : 'Living context'}
-                  </span>
-                  <h2>{locale === 'fr' ? 'Repères du quotidien' : 'Daily context'}</h2>
-                  {resident.context ? (
-                    <ul className="detail-list">
-                      <li>
-                        {resident.context.livesAlone
-                          ? locale === 'fr'
-                            ? 'Vit seul(e)'
-                            : 'Lives alone'
-                          : locale === 'fr'
-                            ? 'Ne vit pas seul(e)'
-                            : 'Does not live alone'}
-                      </li>
-                      {resident.context.livesWithPartner && (
-                        <li>
-                          {locale === 'fr' ? 'Vit avec son conjoint' : 'Lives with a partner'}
-                        </li>
-                      )}
-                      {resident.context.livesWithRelative && (
-                        <li>{locale === 'fr' ? 'Vit avec un proche' : 'Lives with a relative'}</li>
-                      )}
-                      {resident.context.receivesHomeHelp && (
-                        <li>
-                          {locale === 'fr' ? 'Reçoit une aide à domicile' : 'Receives home help'}
-                        </li>
-                      )}
-                      {resident.context.receivesVisits && (
-                        <li>
+
+                <div className="resident-content-grid">
+                  <Card className="resident-info-card resident-context-card">
+                    <header>
+                      <span className="resident-section-icon resident-section-icon--home">
+                        <Home aria-hidden="true" />
+                      </span>
+                      <div>
+                        <span className="eyebrow">
+                          {locale === 'fr' ? 'Situation de vie' : 'Living context'}
+                        </span>
+                        <h3>{locale === 'fr' ? 'Son quotidien' : 'Daily life'}</h3>
+                      </div>
+                    </header>
+                    {resident.context ? (
+                      <div className="resident-context-list">
+                        <div className="resident-context-item resident-context-item--wide">
+                          {resident.context.livesAlone ? (
+                            <Home aria-hidden="true" />
+                          ) : (
+                            <UsersRound aria-hidden="true" />
+                          )}
+                          <span>
+                            {resident.context.livesAlone
+                              ? locale === 'fr'
+                                ? 'Vit seul(e) à son domicile'
+                                : 'Lives alone at home'
+                              : locale === 'fr'
+                                ? 'Vit accompagné(e) à son domicile'
+                                : 'Lives with someone at home'}
+                          </span>
+                        </div>
+                        {resident.context.livesWithPartner && (
+                          <div className="resident-context-item">
+                            <HeartHandshake aria-hidden="true" />
+                            <span>{locale === 'fr' ? 'Avec son conjoint' : 'With a partner'}</span>
+                          </div>
+                        )}
+                        {resident.context.livesWithRelative && (
+                          <div className="resident-context-item">
+                            <UsersRound aria-hidden="true" />
+                            <span>{locale === 'fr' ? 'Avec un proche' : 'With a relative'}</span>
+                          </div>
+                        )}
+                        {resident.context.receivesHomeHelp && (
+                          <div className="resident-context-item">
+                            <Accessibility aria-hidden="true" />
+                            <span>{locale === 'fr' ? 'Aide à domicile' : 'Home help'}</span>
+                          </div>
+                        )}
+                        {resident.context.receivesVisits && (
+                          <div className="resident-context-item">
+                            <CalendarDays aria-hidden="true" />
+                            <span>{locale === 'fr' ? 'Visites régulières' : 'Regular visits'}</span>
+                          </div>
+                        )}
+                        {resident.context.hasPet && (
+                          <div className="resident-context-item">
+                            <PawPrint aria-hidden="true" />
+                            <span>
+                              {locale === 'fr' ? 'Vit avec un animal' : 'Lives with a pet'}
+                            </span>
+                          </div>
+                        )}
+                        <div className="resident-context-item resident-context-item--wide">
+                          <Footprints aria-hidden="true" />
+                          <span>{residentMobilityLabel(resident.context.mobility, locale)}</span>
+                        </div>
+                        {resident.context.visualDifficulty && (
+                          <div className="resident-context-item resident-context-item--attention">
+                            <Eye aria-hidden="true" />
+                            <span>
+                              {locale === 'fr' ? 'Difficulté visuelle' : 'Visual difficulty'}
+                            </span>
+                          </div>
+                        )}
+                        {resident.context.hearingDifficulty && (
+                          <div className="resident-context-item resident-context-item--attention">
+                            <Ear aria-hidden="true" />
+                            <span>
+                              {locale === 'fr' ? 'Difficulté auditive' : 'Hearing difficulty'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="resident-empty-state">
+                        <Home aria-hidden="true" />
+                        <p>
+                          {locale === 'fr' ? 'Aucun contexte renseigné.' : 'No context recorded.'}
+                        </p>
+                      </div>
+                    )}
+                  </Card>
+
+                  <Card className="resident-info-card resident-support-card">
+                    <header>
+                      <span className="resident-section-icon resident-section-icon--support">
+                        <HeartHandshake aria-hidden="true" />
+                      </span>
+                      <div>
+                        <span className="eyebrow">
+                          {locale === 'fr' ? 'Accompagnement' : 'Support'}
+                        </span>
+                        <h3>{locale === 'fr' ? 'Points d’attention' : 'Key considerations'}</h3>
+                      </div>
+                      <span className="resident-card-count">{resident.supportNeeds.length}</span>
+                    </header>
+                    {resident.supportNeeds.length ? (
+                      <div className="resident-support-list">
+                        {resident.supportNeeds.map((need) => (
+                          <article key={need.id}>
+                            <span>
+                              {need.kind === 'VISION' ? (
+                                <Eye aria-hidden="true" />
+                              ) : need.kind === 'HEARING' ? (
+                                <Ear aria-hidden="true" />
+                              ) : need.kind === 'FALL_RISK' || need.kind === 'PARKINSON' ? (
+                                <Footprints aria-hidden="true" />
+                              ) : (
+                                <HeartHandshake aria-hidden="true" />
+                              )}
+                            </span>
+                            <div>
+                              <strong>{supportNeedLabel(need.kind, locale)}</strong>
+                              {need.note && <p>{need.note}</p>}
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="resident-empty-state resident-empty-state--positive">
+                        <CircleCheck aria-hidden="true" />
+                        <p>
                           {locale === 'fr'
-                            ? 'Reçoit des visites régulières'
-                            : 'Receives regular visits'}
-                        </li>
-                      )}
-                      {resident.context.hasPet && (
-                        <li>{locale === 'fr' ? 'Possède un animal' : 'Has a pet'}</li>
-                      )}
-                      <li>
-                        {locale === 'fr' ? 'Mobilité' : 'Mobility'} : {resident.context.mobility}
-                      </li>
-                      {resident.context.visualDifficulty && (
-                        <li>{locale === 'fr' ? 'Difficulté visuelle' : 'Visual difficulty'}</li>
-                      )}
-                      {resident.context.hearingDifficulty && (
-                        <li>{locale === 'fr' ? 'Difficulté auditive' : 'Hearing difficulty'}</li>
-                      )}
-                    </ul>
-                  ) : (
-                    <p>—</p>
-                  )}
-                </Card>
-                <Card>
-                  <span className="eyebrow">{locale === 'fr' ? 'Accompagnement' : 'Support'}</span>
-                  <h2>{locale === 'fr' ? 'Informations importantes' : 'Important information'}</h2>
-                  {resident.supportNeeds.length ? (
-                    <ul className="detail-list">
-                      {resident.supportNeeds.map((need) => (
-                        <li key={need.id}>
-                          {need.kind}
-                          {need.note ? ` — ${need.note}` : ''}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>
-                      {locale === 'fr'
-                        ? 'Aucun besoin particulier indiqué.'
-                        : 'No particular support need recorded.'}
-                    </p>
-                  )}
-                </Card>
-                <Card>
-                  <span className="eyebrow">{locale === 'fr' ? 'Habitudes' : 'Habits'}</span>
-                  <h2>{locale === 'fr' ? 'Repères enregistrés' : 'Recorded routines'}</h2>
-                  {resident.habits.length ? (
-                    <ul className="detail-list">
-                      {resident.habits.map((habit) => (
-                        <li key={habit.id}>
-                          {habit.kind} —{' '}
-                          {habit.status === 'UNKNOWN'
-                            ? locale === 'fr'
-                              ? 'À apprendre'
-                              : 'To learn'
-                            : `${formatMinute(habit.startMinute)} – ${formatMinute(habit.endMinute)}`}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>
-                      {locale === 'fr'
-                        ? 'Élise apprendra progressivement les habitudes.'
-                        : 'Élise will learn routines progressively.'}
-                    </p>
-                  )}
-                </Card>
+                            ? 'Aucun besoin particulier indiqué.'
+                            : 'No particular support need recorded.'}
+                        </p>
+                      </div>
+                    )}
+                  </Card>
+
+                  <Card className="resident-info-card resident-habits-card">
+                    <header>
+                      <span className="resident-section-icon resident-section-icon--habits">
+                        <Clock3 aria-hidden="true" />
+                      </span>
+                      <div>
+                        <span className="eyebrow">{locale === 'fr' ? 'Habitudes' : 'Habits'}</span>
+                        <h3>{locale === 'fr' ? 'Les repères de sa journée' : 'Daily routines'}</h3>
+                      </div>
+                      <span className="resident-card-count">{resident.habits.length}</span>
+                    </header>
+                    {resident.habits.length ? (
+                      <div className="resident-routine-list">
+                        {resident.habits.map((habit) => (
+                          <article key={habit.id}>
+                            <span className="resident-routine-dot" />
+                            <div>
+                              <strong>{habitLabel(habit.kind, locale)}</strong>
+                              <small>
+                                {habit.status === 'UNKNOWN'
+                                  ? locale === 'fr'
+                                    ? 'Élise est en train d’apprendre ce repère'
+                                    : 'Élise is learning this routine'
+                                  : `${formatMinute(habit.startMinute)} – ${formatMinute(habit.endMinute)}`}
+                              </small>
+                            </div>
+                            <span
+                              className={`resident-routine-status status-${habit.status.toLowerCase()}`}
+                            >
+                              {habit.status === 'UNKNOWN'
+                                ? locale === 'fr'
+                                  ? 'À apprendre'
+                                  : 'To learn'
+                                : locale === 'fr'
+                                  ? 'Enregistré'
+                                  : 'Recorded'}
+                            </span>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="resident-empty-state">
+                        <Clock3 aria-hidden="true" />
+                        <p>
+                          {locale === 'fr'
+                            ? 'Élise apprendra progressivement les habitudes.'
+                            : 'Élise will learn routines progressively.'}
+                        </p>
+                      </div>
+                    )}
+                  </Card>
+                </div>
               </div>
+            ) : (
+              <Card className="resident-empty-profile">
+                <UserRound aria-hidden="true" />
+                <h3>{locale === 'fr' ? 'Aucun résident configuré' : 'No resident configured'}</h3>
+                <p>
+                  {locale === 'fr'
+                    ? 'La fiche apparaîtra ici après la configuration initiale.'
+                    : 'The profile will appear here after initial setup.'}
+                </p>
+              </Card>
             )}
-            <Button className="button-secondary" onClick={() => setActive(0)}>
-              {t.nav[0]}
-            </Button>
           </section>
-        ) : active === 7 ? (
+        ) : active === 8 ? (
           <section className="section-view settings-page">
             <div className="page-heading">
               <span className="eyebrow">Élise OS</span>
-              <h2>{t.nav[7]}</h2>
+              <h2>{t.nav[8]}</h2>
             </div>
             <Card className="settings-card">
               <div className="settings-card-heading">
@@ -2543,6 +4270,37 @@ export function App() {
                 </button>
               </div>
             </Card>
+            <SidebarBehaviorSetting
+              locale={locale}
+              enabled={sidebarAutoHide}
+              disabled={sidebarAutoHideLocked}
+              onChange={changeSidebarAutoHide}
+            />
+            <Card className="settings-card guided-tour-settings">
+              <div className="settings-card-heading">
+                <span className="settings-icon">
+                  <Sparkles />
+                </span>
+                <div>
+                  <h2>{locale === 'fr' ? 'Visite guidée' : 'Guided tour'}</h2>
+                  <p>
+                    {locale === 'fr'
+                      ? 'Redécouvrez les espaces essentiels de l’application, sans modifier votre logement.'
+                      : 'Rediscover the essential areas of the application without changing your home.'}
+                  </p>
+                </div>
+                <Button
+                  className="button-secondary"
+                  onClick={() => {
+                    tourReturnActive.current = active;
+                    setHomeSetupPreview(false);
+                    setTourMode('replay');
+                  }}
+                >
+                  {locale === 'fr' ? 'Revoir la visite' : 'Replay the tour'}
+                </Button>
+              </div>
+            </Card>
             {household && (
               <Card className="settings-card">
                 <div className="settings-card-heading">
@@ -2558,158 +4316,6 @@ export function App() {
                     {household.home.address && <p>{household.home.address}</p>}
                   </div>
                 </div>
-              </Card>
-            )}
-            {household && (
-              <Card className="settings-card">
-                <div className="settings-card-heading">
-                  <span className="settings-icon">
-                    <Radar />
-                  </span>
-                  <div>
-                    <h2>{locale === 'fr' ? 'Équipements réels' : 'Real equipment'}</h2>
-                    <p>
-                      {locale === 'fr'
-                        ? 'Tous les équipements exposés par Home Assistant sont reconnus, quel que soit leur protocole ou leur marque.'
-                        : 'Every device exposed by Home Assistant is discovered, regardless of protocol or brand.'}
-                    </p>
-                  </div>
-                </div>
-                <div className="equipment-health">
-                  <span
-                    className={
-                      equipmentStatus?.homeAssistant.connected ? 'is-online' : 'is-offline'
-                    }
-                  >
-                    <i />
-                    Home Assistant ·{' '}
-                    {equipmentStatus?.homeAssistant.connected
-                      ? locale === 'fr'
-                        ? 'connecté'
-                        : 'connected'
-                      : locale === 'fr'
-                        ? 'hors ligne'
-                        : 'offline'}
-                  </span>
-                  <small>
-                    {equipmentStatus
-                      ? `${equipmentStatus.inventory.devices} appareil(s) · ${equipmentStatus.inventory.entities} entité(s)`
-                      : locale === 'fr'
-                        ? 'Inventaire en attente'
-                        : 'Waiting for inventory'}
-                  </small>
-                  <div className="equipment-actions">
-                    <Button className="button-secondary" onClick={() => void syncEquipment()}>
-                      {locale === 'fr' ? 'Actualiser' : 'Refresh'}
-                    </Button>
-                    <Button className="button-secondary" onClick={() => void togglePairing()}>
-                      {equipmentStatus?.pairing.active
-                        ? locale === 'fr'
-                          ? 'Arrêter l’association Zigbee'
-                          : 'Stop Zigbee pairing'
-                        : locale === 'fr'
-                          ? 'Associer un appareil Zigbee'
-                          : 'Pair a Zigbee device'}
-                    </Button>
-                  </div>
-                  {equipmentNotice && <p className="equipment-notice">{equipmentNotice}</p>}
-                </div>
-                {equipmentCandidates.length ? (
-                  <div className="settings-sensor-list">
-                    {equipmentCandidates.map((sensor) => (
-                      <div className="equipment-row" key={sensor.id}>
-                        <span>
-                          <strong>
-                            {sensor.sourceName ?? sensor.device?.name ?? sensor.entityId}
-                          </strong>
-                          <small>
-                            {sensor.compatibility === 'UNSUPPORTED'
-                              ? locale === 'fr'
-                                ? 'À configurer'
-                                : 'Needs mapping'
-                              : capabilityLabel(sensor.capability, locale)}{' '}
-                            ·{' '}
-                            {sensor.available
-                              ? sensorStatusLabel(sensor.status, locale)
-                              : locale === 'fr'
-                                ? 'Indisponible'
-                                : 'Unavailable'}
-                          </small>
-                          <small>{sensor.entityId}</small>
-                        </span>
-                        {sensor.compatibility === 'UNSUPPORTED' ? (
-                          <div className="equipment-mapping">
-                            <select
-                              defaultValue="motion"
-                              aria-label="Capacité Élise"
-                              id={`cap-${sensor.id}`}
-                            >
-                              <option value="motion">Mouvement</option>
-                              <option value="occupancy">Présence</option>
-                              <option value="contact">Ouverture</option>
-                              <option value="button">Bouton</option>
-                              <option value="temperature">Température</option>
-                              <option value="humidity">Humidité</option>
-                              <option value="power">Puissance</option>
-                              <option value="energy">Énergie</option>
-                              <option value="battery">Batterie</option>
-                            </select>
-                            <Button
-                              className="button-secondary"
-                              onClick={() => {
-                                const select = document.getElementById(
-                                  `cap-${sensor.id}`,
-                                ) as HTMLSelectElement;
-                                const numeric = [
-                                  'temperature',
-                                  'humidity',
-                                  'power',
-                                  'energy',
-                                  'battery',
-                                ].includes(select.value);
-                                void mapEquipment(
-                                  sensor.entityId,
-                                  select.value,
-                                  numeric
-                                    ? 'NUMERIC'
-                                    : select.value === 'contact'
-                                      ? 'OPEN_CLOSED'
-                                      : select.value === 'button'
-                                        ? 'EVENT_ACTION'
-                                        : 'ON_OFF',
-                                );
-                              }}
-                            >
-                              {locale === 'fr' ? 'Utiliser' : 'Use'}
-                            </Button>
-                          </div>
-                        ) : (
-                          <select
-                            value={sensor.room?.id ?? ''}
-                            onChange={(event) =>
-                              void assignSensor(sensor.id, event.target.value || null)
-                            }
-                          >
-                            <option value="">
-                              {locale === 'fr' ? 'Sans pièce' : 'Unassigned'}
-                            </option>
-                            {household.rooms.map((room) => (
-                              <option key={room.id} value={room.id}>
-                                {room.name}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="empty-state">
-                    {locale === 'fr'
-                      ? 'Aucun équipement réel détecté. L’installation reste pleinement valide.'
-                      : 'No real equipment detected. The installation remains valid.'}
-                  </p>
-                )}
               </Card>
             )}
             {simulationScenarios.length > 0 && (
@@ -2969,6 +4575,21 @@ export function App() {
                   }
                   icon={<Radar />}
                 />
+                {currentTemperatureSensor && currentTemperature !== null && (
+                  <Metric
+                    label={locale === 'fr' ? 'Température' : 'Temperature'}
+                    value={
+                      <>
+                        {currentTemperature} °C
+                        <small>
+                          {currentTemperatureSensor.roomName ??
+                            (locale === 'fr' ? 'Pièce non renseignée' : 'Room not specified')}
+                        </small>
+                      </>
+                    }
+                    icon={<Thermometer />}
+                  />
+                )}
               </div>
             </section>
 
@@ -3007,7 +4628,7 @@ export function App() {
                           : 'The pillbox is up to date today.'}
                     </p>
                   </div>
-                  <button type="button" onClick={() => setActive(4)}>
+                  <button type="button" onClick={() => setActive(5)}>
                     {locale === 'fr' ? 'Voir' : 'View'} <ChevronRight />
                   </button>
                 </article>
@@ -3084,7 +4705,7 @@ export function App() {
                       {locale === 'fr' ? 'information(s) importante(s)' : 'important item(s)'}
                     </p>
                   </div>
-                  <Button className="button-secondary" onClick={() => setActive(8)}>
+                  <Button className="button-secondary" onClick={() => setActive(10)}>
                     {locale === 'fr' ? 'Voir la fiche résident' : 'View resident profile'}
                   </Button>
                 </Card>
@@ -3127,7 +4748,14 @@ export function App() {
                   {overview.rooms?.map((room) => {
                     const Icon = roomIcons[room.kind] ?? Home;
                     return (
-                      <button key={room.id} className="room" onClick={() => setActive(3)}>
+                      <button
+                        key={room.id}
+                        className="room"
+                        onClick={() => {
+                          setHomeSection('OVERVIEW');
+                          setActive(3);
+                        }}
+                      >
                         <Icon />
                         <span>
                           <strong>{room.name}</strong>
@@ -3140,7 +4768,13 @@ export function App() {
                     );
                   })}
                 </div>
-                <Button className="button-secondary" onClick={() => setActive(3)}>
+                <Button
+                  className="button-secondary"
+                  onClick={() => {
+                    setHomeSection('OVERVIEW');
+                    setActive(3);
+                  }}
+                >
                   {t.allRooms}
                 </Button>
               </Card>
@@ -3191,7 +4825,7 @@ export function App() {
                   </div>
                 </div>
                 {journal.slice(0, 3).map((entry) => (
-                  <button className="journal-row" key={entry.id} onClick={() => setActive(5)}>
+                  <button className="journal-row" key={entry.id} onClick={() => setActive(6)}>
                     <span>
                       <strong>{new Date(entry.occurredAt).toLocaleDateString(locale)}</strong>
                       <small>{entry.title}</small>
@@ -3213,6 +4847,16 @@ export function App() {
           <HeartHandshake />
         </footer>
       </main>
+      {tourMode && (
+        <GuidedTour
+          key={tourMode}
+          locale={locale}
+          mode={tourMode}
+          onTargetChange={showTourTarget}
+          onComplete={closeTour}
+          onSkip={closeTour}
+        />
+      )}
     </div>
   );
 }

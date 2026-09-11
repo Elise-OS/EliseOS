@@ -9,5 +9,7 @@ export DATABASE_URL="postgresql://${POSTGRES_USER:-michel}:${postgres_password}@
 export MQTT_PASSWORD="$(cat "$secret_dir/mqtt_password")"
 export AI_SHARED_SECRET="$(cat "$secret_dir/ai_shared_secret")"
 export SESSION_SECRET="$(cat "$secret_dir/session_secret")"
+export CAMERA_ENCRYPTION_KEY="$(cat "$secret_dir/camera_encryption_key")"
+export CAMERA_TICKET_KEY="$(cat "$secret_dir/camera_ticket_key")"
 
 exec "$@"

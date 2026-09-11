@@ -34,6 +34,11 @@ export class AuthController {
     return this.auth.setupState();
   }
 
+  @Get('login-options')
+  public loginOptions() {
+    return this.auth.loginOptions();
+  }
+
   @Get('bootstrap-equipment')
   public bootstrapEquipment(@Req() request: Request) {
     const authorization = request.header('authorization');
@@ -64,7 +69,12 @@ export class AuthController {
     const input = parseRequest(bootstrapSchema, body);
     const result = await this.auth.bootstrap(input);
     this.setSessionCookie(response, result.token);
-    return { user: result.user, homeId: result.homeId, residentId: result.residentId };
+    return {
+      accessToken: result.token,
+      user: result.user,
+      homeId: result.homeId,
+      residentId: result.residentId,
+    };
   }
 
   @Get('me')

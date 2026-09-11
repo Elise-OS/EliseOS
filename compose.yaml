@@ -22,17 +22,28 @@ services:
     restart: 'no'
     volumes:
       - michel_secrets:/secrets
+      - go2rtc_config:/go2rtc
+      - ./docker/go2rtc/go2rtc.yaml:/go2rtc-template.yaml:ro
+    environment:
+      MICHEL_WEBRTC_CANDIDATE: ${MICHEL_WEBRTC_CANDIDATE:-}
     command:
       - /bin/sh
       - -ec
       - |
         umask 077
-        for name in postgres_password mqtt_password ai_shared_secret session_secret; do
+        for name in postgres_password mqtt_password ai_shared_secret session_secret camera_encryption_key camera_ticket_key; do
           if [ ! -s "/secrets/$$name" ]; then
             tr -dc 'A-Za-z0-9' </dev/urandom | head -c 48 > "/secrets/$$name"
           fi
         done
         chmod 0444 /secrets/*
+        cp /go2rtc-template.yaml /go2rtc/go2rtc.yaml
+        if [ -n "$${MICHEL_WEBRTC_CANDIDATE:-}" ]; then
+          case "$${MICHEL_WEBRTC_CANDIDATE}" in
+            *[!A-Za-z0-9._:-]*) echo 'Invalid MICHEL_WEBRTC_CANDIDATE' >&2; exit 1 ;;
+          esac
+          sed -i "s|candidates: \[\]|candidates: ['$${MICHEL_WEBRTC_CANDIDATE}:8555']|" /go2rtc/go2rtc.yaml
+        fi
 
   postgres:
     image: postgres:18-bookworm
@@ -49,6 +60,8 @@ services:
       - postgres_data:/var/lib/postgresql
       - michel_secrets:/run/michel-secrets:ro
       - ./docker/postgres/init-homeassistant.sql:/docker-entrypoint-initdb.d/10-homeassistant.sql:ro
+    ports:
+      - '127.0.0.1:${MICHEL_POSTGRES_HOST_PORT:-5433}:5432'
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U michel -d michel']
       interval: 5s
@@ -68,6 +81,8 @@ services:
       - mosquitto_data:/mosquitto/data
       - michel_secrets:/run/michel-secrets:ro
     entrypoint: ['/bin/sh', '/usr/local/bin/michel-mosquitto-entrypoint']
+    ports:
+      - '127.0.0.1:${MICHEL_MQTT_HOST_PORT:-1884}:1883'
     healthcheck:
       test:
         [
@@ -79,7 +94,7 @@ services:
       retries: 10
 
   zigbee2mqtt:
-    image: ghcr.io/koenkk/zigbee2mqtt:2.6.1
+    image: ghcr.io/koenkk/zigbee2mqtt:2.13.0
     restart: unless-stopped
     depends_on:
       mosquitto:
@@ -87,10 +102,10 @@ services:
     environment:
       TZ: ${TZ:-Europe/Paris}
       ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/ttyACM0
-      ZIGBEE2MQTT_CONFIG_SERIAL_ADAPTER: ${ZIGBEE_ADAPTER_TYPE:-zstack}
+      MICHEL_ZIGBEE_ADAPTER_TYPE: ${ZIGBEE_ADAPTER_TYPE:-auto}
     volumes:
       - zigbee2mqtt_data:/app/data
-      - ./docker/zigbee2mqtt/configuration.yaml:/app/data/configuration.yaml:ro
+      - ./docker/zigbee2mqtt/configuration.yaml:/usr/local/share/michel/zigbee2mqtt-configuration.yaml:ro
       - ./docker/zigbee2mqtt/entrypoint.sh:/usr/local/bin/michel-zigbee-entrypoint:ro
       - michel_secrets:/run/michel-secrets:ro
     entrypoint: ['/bin/sh', '/usr/local/bin/michel-zigbee-entrypoint']
@@ -100,6 +115,10 @@ services:
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:2026.7.4
     restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
     depends_on:
       postgres:
         condition: service_healthy
@@ -107,10 +126,13 @@ services:
         condition: service_healthy
     environment:
       TZ: ${TZ:-Europe/Paris}
-      MQTT_HOST: mosquitto
+      MQTT_HOST: 127.0.0.1
+      MQTT_PORT: ${MICHEL_MQTT_HOST_PORT:-1884}
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: ${MICHEL_POSTGRES_HOST_PORT:-5433}
+      HA_HTTP_PORT: ${MICHEL_HA_HTTP_PORT:-8124}
       MICHEL_HOME_ID: ${MICHEL_HOME_ID:-home_demo}
       MICHEL_SECRETS_DIR: /run/michel-secrets
-      HA_DATABASE_URL: postgresql://michel@postgres:5432/homeassistant
     volumes:
       - homeassistant_data:/config
       - ./docker/homeassistant/configuration.yaml:/config/configuration.yaml:ro
@@ -118,6 +140,23 @@ services:
       - ./docker/homeassistant/entrypoint.sh:/usr/local/bin/michel-ha-entrypoint:ro
       - michel_secrets:/run/michel-secrets:ro
     entrypoint: ['/bin/bash', '/usr/local/bin/michel-ha-entrypoint']
+
+  go2rtc:
+    image: ghcr.io/alexxit/go2rtc:1.9.14
+    restart: unless-stopped
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    volumes:
+      - go2rtc_config:/config:ro
+    ports:
+      - '${MICHEL_WEBRTC_BIND:-0.0.0.0}:8555:8555/tcp'
+      - '${MICHEL_WEBRTC_BIND:-0.0.0.0}:8555:8555/udp'
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:1984/api']
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   ai:
     build:
@@ -160,6 +199,8 @@ services:
         condition: service_healthy
       ai:
         condition: service_healthy
+      go2rtc:
+        condition: service_healthy
     environment:
       MICHEL_VERSION: ${MICHEL_VERSION:-0.1.0}
       MICHEL_SECRETS_DIR: /run/michel-secrets
@@ -172,13 +213,22 @@ services:
       COOKIE_SECURE: 'false'
       MICHEL_DEMO_MODE: ${MICHEL_DEMO_MODE:-false}
       MICHEL_SIMULATION_MODE: ${MICHEL_SIMULATION_MODE:-false}
+      TOPOLOGY_TRACKING_ENABLED: ${TOPOLOGY_TRACKING_ENABLED:-true}
       MICHEL_HOME_ID: ${MICHEL_HOME_ID:-home_demo}
       MICHEL_DISCOVERY_NAME: ${MICHEL_DISCOVERY_NAME:-Élise OS}
       MEDIA_ROOT: /var/lib/elise/media
+      CAMERA_MEDIA_ROOT: /var/lib/elise/camera-media
+      GO2RTC_URL: http://go2rtc:1984
+      MATTER_SERVER_ENABLED: ${MATTER_SERVER_ENABLED:-false}
+      ZWAVE_SERVER_ENABLED: ${ZWAVE_SERVER_ENABLED:-false}
+      BLUETOOTH_ENABLED: ${BLUETOOTH_ENABLED:-true}
+      ESPHOME_ONBOARDING_ENABLED: ${ESPHOME_ONBOARDING_ENABLED:-false}
+      HA_CONFIG_FLOW_ENABLED: ${HA_CONFIG_FLOW_ENABLED:-false}
       TZ: ${TZ:-Europe/Paris}
     volumes:
       - michel_secrets:/run/michel-secrets:ro
       - resident_media:/var/lib/elise/media
+      - camera_media:/var/lib/elise/camera-media
     command:
       [
         '/bin/sh',
@@ -215,7 +265,13 @@ services:
       AI_BASE_URL: http://ai:8000
       WEBHOOK_URL: ${WEBHOOK_URL:-}
       WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
+      CAMERA_MEDIA_ROOT: /var/lib/elise/camera-media
+      GO2RTC_URL: http://go2rtc:1984
+      TOPOLOGY_TRACKING_ENABLED: ${TOPOLOGY_TRACKING_ENABLED:-true}
       TZ: ${TZ:-Europe/Paris}
+    volumes:
+      - michel_secrets:/run/michel-secrets:ro
+      - camera_media:/var/lib/elise/camera-media
 
   dashboard:
     build:
@@ -237,9 +293,11 @@ services:
 
 volumes:
   michel_secrets:
+  go2rtc_config:
   postgres_data:
   mosquitto_data:
   resident_media:
+  camera_media:
   zigbee2mqtt_data:
   homeassistant_data:
   ai_models:

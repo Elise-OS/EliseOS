@@ -6,6 +6,9 @@ import {
   AlertRulesPanel,
   Login,
   MedicationPanel,
+  PeoplePanel,
+  SidebarBehaviorSetting,
+  SidebarNavigation,
   SimulationPanel,
 } from './App';
 import { createBootstrapPayload, Setup } from './Setup';
@@ -16,6 +19,32 @@ describe('Élise copy', () => {
     expect(copy.en.normal).toBeTruthy();
     expect(copy.fr.nav).toHaveLength(copy.en.nav.length);
     expect(copy.fr.nav).toContain('Médicaments');
+  });
+
+  it('hides medications and journal from the sidebar in both languages', () => {
+    for (const labels of [copy.fr.nav, copy.en.nav]) {
+      const html = renderToStaticMarkup(
+        <SidebarNavigation labels={labels} active={0} openAlerts={0} onSelect={() => undefined} />,
+      );
+
+      expect(html).not.toContain(labels[5]);
+      expect(html).not.toContain(labels[6]);
+    }
+  });
+
+  it('offers automatic sidebar hiding but keeps it off during environment creation', () => {
+    const available = renderToStaticMarkup(
+      <SidebarBehaviorSetting locale="fr" enabled disabled={false} onChange={() => undefined} />,
+    );
+    const duringSetup = renderToStaticMarkup(
+      <SidebarBehaviorSetting locale="en" enabled disabled onChange={() => undefined} />,
+    );
+
+    expect(available).toContain('Masquer automatiquement la barre latérale');
+    expect(available).toContain('aria-checked="true"');
+    expect(duringSetup).toContain('sidebar stays open');
+    expect(duringSetup).toContain('aria-checked="false"');
+    expect(duringSetup).toContain('disabled=""');
   });
 
   it('translates sensor events with useful values instead of a generic message', () => {
@@ -52,10 +81,21 @@ describe('Élise first startup', () => {
       <Setup locale="fr" onLocaleChange={() => undefined} onCompleted={() => undefined} />,
     );
     expect(html).toContain('Préparons Élise pour une personne qui compte');
-    expect(html).toContain('Étape 1 sur 12');
+    expect(html).toContain('Étape 1 sur 6');
     expect(html).toContain('Vos données restent stockées localement');
     expect(html).toContain('Français');
     expect(html).not.toContain('Téléphone');
+  });
+
+  it('renders the onboarding in English when English is selected', () => {
+    const html = renderToStaticMarkup(
+      <Setup locale="en" onLocaleChange={() => undefined} onCompleted={() => undefined} />,
+    );
+    expect(html).toContain('Set up Élise for someone who matters');
+    expect(html).toContain('Start setup');
+    expect(html).toContain('Step 1 of 6 · Welcome');
+    expect(html).toContain('Draft saved on this device');
+    expect(html).not.toContain('Préparons Élise pour une personne qui compte');
   });
 
   it('builds the owner identity without collecting a phone number', () => {
@@ -71,7 +111,18 @@ describe('Élise first startup', () => {
       <Login locale="fr" onSuccess={() => undefined} onOpenSetup={() => undefined} />,
     );
     expect(html).toContain('Créer un environnement Élise');
-    expect(html).toContain('premier compte administrateur');
+    expect(html).toContain('compte propriétaire protégé');
+  });
+});
+
+describe('People access design', () => {
+  it('shows management actions only to administrators', () => {
+    const viewer = renderToStaticMarkup(<PeoplePanel locale="fr" currentRole="VIEWER" />);
+    const owner = renderToStaticMarkup(<PeoplePanel locale="fr" currentRole="OWNER" />);
+    expect(viewer).toContain('Les proches');
+    expect(viewer).not.toContain('Ajouter un proche');
+    expect(owner).toContain('Ajouter un proche');
+    expect(owner).toContain('contacts prioritaires');
   });
 });
 
@@ -115,6 +166,7 @@ describe('Élise alert rule design', () => {
           },
           sensorOffline: { enabled: true, minutes: 120 },
           lowBattery: { enabled: true, percent: 15 },
+          behavioral: { enabled: false },
         }}
         saving={false}
         notice=""
@@ -169,5 +221,34 @@ describe('Élise medication design', () => {
     expect(html).toContain('Un oubli est possible');
     expect(html).toContain('Confirmer la prise');
     expect(html).not.toContain('n’a pas été pris');
+  });
+});
+
+describe('Élise sensors panel design', () => {
+  it('renders modern reassuring sensor management with room groupings and quick filters', async () => {
+    const { SensorsPanel } = await import('./SensorsPanel');
+    const html = renderToStaticMarkup(
+      <SensorsPanel
+        locale="fr"
+        rooms={[
+          { id: 'living-room', name: 'Salon', kind: 'LIVING_ROOM' },
+          { id: 'kitchen', name: 'Cuisine', kind: 'KITCHEN' },
+        ]}
+      />,
+    );
+
+    expect(html).toContain('Capteurs &amp; Équipements');
+    expect(html).toContain('Protection &amp; Sérénité du domicile');
+    expect(html).toContain('Tous les capteurs');
+    expect(html).toContain('Opérationnels');
+    expect(html).toContain('À installer / poser');
+    expect(html).toContain('Piles faibles');
+    expect(html).toContain('Par pièces');
+    expect(html).toContain('Ajouter un capteur');
+    expect(html).toContain('Vérification de la clé');
+    expect(html).toContain('Jumeler un équipement');
+    expect(html).toContain('Le domicile, pièce par pièce');
+    expect(html).not.toContain('Aucun capteur dans cette pièce');
+    expect(html).not.toContain('class="sensors-room-section"');
   });
 });

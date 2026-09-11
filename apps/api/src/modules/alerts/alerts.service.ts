@@ -5,6 +5,10 @@ import {
   type AlertRuleSettings,
 } from '@michel/contracts';
 import { PrismaService } from '../../platform/prisma.service';
+import { rolesFor } from '../auth/access-policy';
+
+const ALERT_MANAGERS = rolesFor('alerts:manage');
+const CONFIGURATION_MANAGERS = rolesFor('configuration:manage');
 
 @Injectable()
 export class AlertsService {
@@ -12,27 +16,43 @@ export class AlertsService {
 
   public list(userId: string) {
     return this.prisma.alert.findMany({
-      where: { home: { organization: { memberships: { some: { userId } } } } },
+      where: {
+        home: { organization: { memberships: { some: { userId, disabledAt: null } } } },
+      },
       orderBy: { openedAt: 'desc' },
       take: 100,
-      include: { transitions: true },
+      include: {
+        transitions: true,
+        cameraSnapshots: {
+          where: { expiresAt: { gt: new Date() } },
+          select: { id: true, cameraId: true, capturedAt: true, expiresAt: true },
+        },
+      },
     });
   }
 
   public async feed(userId: string, limit: number, cursor?: string) {
     const items = await this.prisma.alert.findMany({
-      where: { home: { organization: { memberships: { some: { userId } } } } },
+      where: {
+        home: { organization: { memberships: { some: { userId, disabledAt: null } } } },
+      },
       orderBy: [{ openedAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      include: { transitions: { orderBy: { createdAt: 'asc' } } },
+      include: {
+        transitions: { orderBy: { createdAt: 'asc' } },
+        cameraSnapshots: {
+          where: { expiresAt: { gt: new Date() } },
+          select: { id: true, cameraId: true, capturedAt: true, expiresAt: true },
+        },
+      },
     });
     const page = items.slice(0, limit);
     return { items: page, nextCursor: items.length > limit ? (page.at(-1)?.id ?? null) : null };
   }
 
   public async rules(userId: string): Promise<AlertRuleSettings> {
-    const home = await this.administratorHome(userId);
+    const home = await this.memberHome(userId);
     const revision = await this.prisma.configurationRevision.findFirst({
       where: { homeId: home.id },
       orderBy: { version: 'desc' },
@@ -84,7 +104,11 @@ export class AlertsService {
         home: {
           organization: {
             memberships: {
-              some: { userId, systemRole: { in: ['OWNER', 'ADMINISTRATOR', 'CAREGIVER'] } },
+              some: {
+                userId,
+                disabledAt: null,
+                systemRole: { in: ALERT_MANAGERS },
+              },
             },
           },
         },
@@ -127,13 +151,28 @@ export class AlertsService {
       where: {
         organization: {
           memberships: {
-            some: { userId, systemRole: { in: ['OWNER', 'ADMINISTRATOR'] } },
+            some: {
+              userId,
+              disabledAt: null,
+              systemRole: { in: CONFIGURATION_MANAGERS },
+            },
           },
         },
       },
       select: { id: true },
     });
     if (!home) throw new ForbiddenException('Administrator access required');
+    return home;
+  }
+
+  private async memberHome(userId: string) {
+    const home = await this.prisma.home.findFirst({
+      where: {
+        organization: { memberships: { some: { userId, disabledAt: null } } },
+      },
+      select: { id: true },
+    });
+    if (!home) throw new ForbiddenException('Access denied');
     return home;
   }
 }
