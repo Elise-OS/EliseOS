@@ -1,3 +1,5 @@
+import { deviceSupportsCategory, type RoomSensorCategory } from '@michel/contracts';
+
 export type SensorRoom = {
   id: string;
   name: string;
@@ -33,6 +35,13 @@ export type SensorUiDevice = {
   }>;
   action: 'CONFIRM' | 'ASSIGN_ROOM' | 'PLACE' | 'TEST' | 'CHECK' | 'NONE';
 };
+
+export function connectedDevicesForCategory(
+  devices: SensorUiDevice[],
+  category: RoomSensorCategory,
+) {
+  return devices.filter((device) => deviceSupportsCategory(device, category));
+}
 
 type HealthCapability = { primary: boolean; status: string };
 

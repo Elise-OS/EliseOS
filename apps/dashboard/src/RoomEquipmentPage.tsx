@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Bell,
+  BatteryMedium,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -36,7 +37,12 @@ import { EquipmentDialog } from './EquipmentDialog';
 import { SensorOnboardingDialog } from './SensorOnboardingDialog';
 import { SensorInstallationGuide } from './SensorInstallationGuide';
 import { productsForCategory } from './sensor-products';
-import { sensorJson, sensorRequest, type SensorUiDevice } from './sensor-ui';
+import {
+  connectedDevicesForCategory,
+  sensorJson,
+  sensorRequest,
+  type SensorUiDevice,
+} from './sensor-ui';
 import type { Locale } from './i18n';
 
 const categoryIcons = {
@@ -90,6 +96,18 @@ export function roomCategoryDevices(
   );
 }
 
+export function otherConnectedDevices(
+  devices: SensorUiDevice[],
+  category: RoomSensorCategory,
+  roomId: string,
+  assignedDevices: SensorUiDevice[],
+) {
+  const assignedIds = new Set(assignedDevices.map(({ id }) => id));
+  return connectedDevicesForCategory(devices, category).filter(
+    (device) => device.room?.id !== roomId && !assignedIds.has(device.id),
+  );
+}
+
 export function mainEntranceDevices(plan: HomePlan, roomId: string, devices: SensorUiDevice[]) {
   const opening = plan.levels
     .flatMap(({ openings }) => openings)
@@ -133,7 +151,11 @@ export function roomSensorReading(
   const capability = capabilities.find((c) => c.value !== null) ?? capabilities[0];
   const lastSeenAt = capability?.lastSeenAt ?? device.lastSeenAt;
   const lastSeen = lastSeenAt ? Date.parse(lastSeenAt) : NaN;
-  const stale = !Number.isFinite(lastSeen) || now - lastSeen > 60 * 60 * 1000;
+  // Binary states can remain unchanged while the physical device keeps reporting.
+  const stateful = ['presence', 'motion', 'contact'].includes(category);
+  const deviceSeen = device.lastSeenAt ? Date.parse(device.lastSeenAt) : NaN;
+  const freshness = stateful && Number.isFinite(deviceSeen) ? deviceSeen : lastSeen;
+  const stale = !Number.isFinite(freshness) || now - freshness > 60 * 60 * 1000;
   const status = !device.enabled
     ? fr
       ? 'Désactivé'
@@ -142,23 +164,23 @@ export function roomSensorReading(
       ? fr
         ? 'Hors ligne'
         : 'Offline'
-      : device.installationStatus === 'NEEDS_TEST'
+      : ['DETECTED', 'NEEDS_CONFIRMATION', 'NEEDS_PLACEMENT'].includes(device.installationStatus)
         ? fr
-          ? 'À tester'
-          : 'Needs test'
-        : ['DETECTED', 'NEEDS_CONFIRMATION', 'NEEDS_PLACEMENT'].includes(device.installationStatus)
+          ? 'À vérifier'
+          : 'Needs checking'
+        : device.installationStatus === 'ATTENTION' || capability?.status === 'DEGRADED'
           ? fr
             ? 'À vérifier'
             : 'Needs checking'
-          : device.installationStatus === 'ATTENTION' || capability?.status === 'DEGRADED'
+          : stale || capability?.status !== 'ONLINE'
             ? fr
-              ? 'À vérifier'
-              : 'Needs checking'
-            : stale || capability?.status !== 'ONLINE'
-              ? fr
-                ? 'Mesure ancienne'
+              ? stateful
+                ? 'Aucun signal récent'
+                : 'Mesure ancienne'
+              : stateful
+                ? 'No recent signal'
                 : 'Old reading'
-              : null;
+            : null;
   const value = capability?.value;
   let reading = '—';
   if (typeof value?.value === 'number')
@@ -208,6 +230,35 @@ export function roomSensorReading(
     lastSeenAt,
     outdated: stale || capability?.status !== 'ONLINE' || !device.enabled,
   };
+}
+
+export function lastReadingLabel(
+  lastSeenAt: string | null,
+  fr: boolean,
+  now = Date.now(),
+  category?: RoomSensorCategory,
+) {
+  if (!lastSeenAt) return fr ? 'Heure de mesure inconnue' : 'Reading time unknown';
+  const receivedAt = new Date(lastSeenAt);
+  if (Number.isNaN(receivedAt.getTime()))
+    return fr ? 'Heure de mesure inconnue' : 'Reading time unknown';
+  const locale = fr ? 'fr-FR' : 'en-GB';
+  const time = receivedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const sameDay = receivedAt.toDateString() === new Date(now).toDateString();
+  const date = receivedAt.toLocaleDateString(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const stateful = category && ['presence', 'motion', 'contact'].includes(category);
+  const frenchLabel = stateful ? 'Dernier changement reçu' : 'Dernière mesure reçue';
+  if (fr)
+    return sameDay
+      ? `${frenchLabel} à ${time}`
+      : `${frenchLabel} le ${date} à ${time}`;
+  return sameDay
+    ? `Latest ${stateful ? 'change' : 'reading'} received at ${time}`
+    : `Latest ${stateful ? 'change' : 'reading'} received on ${date} at ${time}`;
 }
 
 export function RoomEquipmentPage({
@@ -294,12 +345,8 @@ export function RoomEquipmentPage({
   );
   const selected = ROOM_SENSOR_CATEGORIES.find(({ id }) => id === category);
   const selectedDevices = category ? categoryDevices(category) : [];
-  const compatible = category
-    ? devices.filter(
-        (device) =>
-          deviceSupportsCategory(device, category) &&
-          !selectedDevices.some(({ id }) => id === device.id),
-      )
+  const availableConnected = category
+    ? otherConnectedDevices(devices, category, roomId, selectedDevices)
     : [];
   const count = new Set(equipped.flatMap((id) => categoryDevices(id).map(({ id }) => id))).size;
   const outdoor = ['GARDEN', 'TERRACE'].includes(room.kind);
@@ -423,12 +470,23 @@ export function RoomEquipmentPage({
         className="room-equipment-breadcrumb"
         aria-label={fr ? 'Navigation de la pièce' : 'Room navigation'}
       >
-        <button onClick={onBack}>
-          <ArrowLeft />
-          {fr ? 'Mon logement' : 'My home'}
+        <button
+          className="room-equipment-back"
+          onClick={onBack}
+          aria-label={fr ? 'Retour à Mon logement' : 'Back to My home'}
+        >
+          <span className="room-equipment-back-icon" aria-hidden="true">
+            <ArrowLeft />
+          </span>
+          <span className="room-equipment-back-copy">
+            <span>{fr ? 'Retour à' : 'Back to'}</span>
+            <strong>{fr ? 'Mon logement' : 'My home'}</strong>
+          </span>
         </button>
-        <ChevronRight />
-        <span>{room.name}</span>
+        <ChevronRight className="room-equipment-breadcrumb-divider" aria-hidden="true" />
+        <span className="room-equipment-current-room" aria-current="page">
+          {room.name}
+        </span>
       </nav>
       <header className="room-equipment-header">
         <div className="room-equipment-title">
@@ -483,16 +541,6 @@ export function RoomEquipmentPage({
             {fr ? 'Choisissez ce que vous souhaitez suivre.' : 'Choose what you want to monitor.'}
           </p>
         </div>
-        <button
-          className="equipment-secondary"
-          onClick={() => {
-            setMore(true);
-            setError('');
-          }}
-        >
-          <Plus />
-          {fr ? 'Ajouter un autre type' : 'Add another type'}
-        </button>
       </div>
       {error && !category && !more && !guideId && (
         <div className="equipment-error" role="alert">
@@ -542,6 +590,20 @@ export function RoomEquipmentPage({
                       {roomSensorReading(entranceDevices[0]!, 'contact', fr, now).reading}
                     </strong>
                     <small>{entranceDevices[0]!.name}</small>
+                    <small>
+                      {lastReadingLabel(
+                        roomSensorReading(entranceDevices[0]!, 'contact', fr, now).lastSeenAt,
+                        fr,
+                        now,
+                        'contact',
+                      )}
+                    </small>
+                    {entranceDevices[0]!.batteryPercent !== null && (
+                      <small className="room-sensor-battery">
+                        <BatteryMedium />
+                        {fr ? 'Batterie' : 'Battery'} {entranceDevices[0]!.batteryPercent} %
+                      </small>
+                    )}
                   </>
                 ) : entranceDevices.length > 1 ? (
                   <>
@@ -621,10 +683,14 @@ export function RoomEquipmentPage({
                       <strong className={reading.outdated ? 'is-outdated' : ''}>
                         {reading.reading}
                       </strong>
-                      <small>
-                        {reading.status ??
-                          (fr ? 'Dernière mesure reçue' : 'Latest received reading')}
-                      </small>
+                      {reading.status && <small>{reading.status}</small>}
+                      <small>{lastReadingLabel(reading.lastSeenAt, fr, now, category!)}</small>
+                      {items[0]!.batteryPercent !== null && (
+                        <small className="room-sensor-battery">
+                          <BatteryMedium />
+                          {fr ? 'Batterie' : 'Battery'} {items[0]!.batteryPercent} %
+                        </small>
+                      )}
                     </>
                   ) : items.length > 1 ? (
                     <>
@@ -902,11 +968,6 @@ export function RoomEquipmentPage({
                           ? 'Compatibilité documentée · test Élise à faire'
                           : 'Documented compatibility · Élise test pending'}
                     </span>
-                    <p className="equipment-muted">
-                      {fr
-                        ? `${product.testQuantity} exemplaire${product.testQuantity > 1 ? 's' : ''} dans le parc de test.`
-                        : `${product.testQuantity} unit${product.testQuantity > 1 ? 's' : ''} in the test inventory.`}
-                    </p>
                   </div>
                 </div>
                 <div className="equipment-capability-tags">
@@ -1005,8 +1066,19 @@ export function RoomEquipmentPage({
                             )}
                             {reading.lastSeenAt && (
                               <small>
-                                {fr ? 'Reçu le ' : 'Received '}{' '}
+                                {fr
+                                  ? ['presence', 'motion', 'contact'].includes(category!)
+                                    ? 'Dernier changement le '
+                                    : 'Mesure reçue le '
+                                  : ['presence', 'motion', 'contact'].includes(category!)
+                                    ? 'Latest change on '
+                                    : 'Reading received '}{' '}
                                 {new Date(reading.lastSeenAt).toLocaleString(fr ? 'fr-FR' : 'en')}
+                              </small>
+                            )}
+                            {device.batteryPercent !== null && (
+                              <small>
+                                {fr ? 'Batterie' : 'Battery'} {device.batteryPercent} %
                               </small>
                             )}
                           </div>
@@ -1050,8 +1122,7 @@ export function RoomEquipmentPage({
                     aria-controls="equipment-connected-panel"
                     onClick={() => setTab('CONNECTED')}
                   >
-                    {fr ? 'Déjà connectés' : 'Already connected'}
-                    <span>{compatible.length}</span>
+                    {fr ? 'Autres capteurs connectés' : 'Other connected sensors'}
                   </button>
                 </div>
                 {tab === 'PRODUCTS' ? (
@@ -1088,7 +1159,7 @@ export function RoomEquipmentPage({
                     role="tabpanel"
                     aria-labelledby="equipment-connected-tab"
                   >
-                    {compatible.map((device) => (
+                    {availableConnected.map((device) => (
                       <button
                         className="equipment-connected-choice"
                         key={device.id}
@@ -1106,16 +1177,31 @@ export function RoomEquipmentPage({
                                 ? 'Sans pièce'
                                 : 'Unassigned'}
                           </small>
+                          {device.batteryPercent !== null && (
+                            <small>
+                              {fr ? 'Batterie' : 'Battery'} {device.batteryPercent} %
+                            </small>
+                          )}
                         </span>
                         <Plus />
                       </button>
                     ))}
-                    {!compatible.length && (
-                      <p className="equipment-note">
-                        {fr
-                          ? 'Aucun autre appareil compatible déjà connecté.'
-                          : 'No other compatible device is connected yet.'}
-                      </p>
+                    {!availableConnected.length && (
+                      <div className="equipment-connected-empty" role="status">
+                        <Radio />
+                        <strong>
+                          {fr ? 'Aucun autre capteur à ajouter' : 'No other sensor to add'}
+                        </strong>
+                        <p>
+                          {selectedDevices.length
+                            ? fr
+                              ? 'Les capteurs de cette pièce sont déjà affichés plus haut. Les autres capteurs compatibles apparaîtront ici.'
+                              : 'Sensors in this room are already shown above. Other compatible sensors will appear here.'
+                            : fr
+                              ? 'Les capteurs compatibles déjà connectés apparaîtront ici.'
+                              : 'Compatible connected sensors will appear here.'}
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}

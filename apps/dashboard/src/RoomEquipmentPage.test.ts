@@ -4,7 +4,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { deviceSupportsCategory, type HomePlan, type SensorDevice } from '@michel/contracts';
 import {
   RoomEquipmentPage,
+  lastReadingLabel,
   mainEntranceDevices,
+  otherConnectedDevices,
   roomCategoryDevices,
   roomSensorReading,
 } from './RoomEquipmentPage';
@@ -14,6 +16,7 @@ import {
   productMatchesDetectedModel,
   productsForCategory,
 } from './sensor-products';
+import { connectedDevicesForCategory } from './sensor-ui';
 
 const plan = {
   levels: [{ rooms: [{ id: 'room', name: 'Salon', kind: 'LIVING_ROOM' }] }],
@@ -61,6 +64,31 @@ describe('room equipment cards', () => {
     expect(roomCategoryDevices(plan, 'room', [multi], 'humidity')).toEqual([multi]);
   });
 
+  it('counts a compatible connected sensor even when it is already in the selected room', () => {
+    const assigned = device([capability('temperature')]);
+    const elsewhere = device([capability('temperature')], {
+      id: 'elsewhere',
+      room: { id: 'other', name: 'Chambre', kind: 'BEDROOM' },
+    });
+    const incompatible = device([capability('humidity')], { id: 'humidity' });
+    expect(connectedDevicesForCategory([assigned, elsewhere, incompatible], 'temperature')).toEqual(
+      [assigned, elsewhere],
+    );
+    expect(
+      otherConnectedDevices([assigned, elsewhere, incompatible], 'temperature', 'room', [assigned]),
+    ).toEqual([elsewhere]);
+  });
+
+  it('shows the measurement time and includes the date for an older reading', () => {
+    const today = new Date(2026, 8, 12, 21, 10).toISOString();
+    const yesterday = new Date(2026, 8, 11, 21, 10).toISOString();
+    const now = new Date(2026, 8, 12, 21, 15).getTime();
+    expect(lastReadingLabel(today, true, now)).toBe('Dernière mesure reçue à 21:10');
+    expect(lastReadingLabel(yesterday, true, now)).toBe(
+      'Dernière mesure reçue le 11/09/2026 à 21:10',
+    );
+  });
+
   it('detects a product model mismatch without confusing punctuation or case', () => {
     const product = SENSOR_PRODUCTS.find(({ model }) => model === 'SDC-4-1-00')!;
     expect(productMatchesDetectedModel(product, 'sdc_4_1_00')).toBe(true);
@@ -88,6 +116,26 @@ describe('room equipment cards', () => {
     expect(
       roomSensorReading(old, 'temperature', true, Date.parse('2026-01-01T02:00:00.000Z')),
     ).toMatchObject({ reading: '21,5 °C', status: 'Mesure ancienne', outdated: true });
+  });
+
+  it('keeps a steady presence current when the device has reported recently', () => {
+    const now = Date.parse('2026-09-12T19:35:00.000Z');
+    const r3 = device(
+      [{ ...capability('occupancy', { active: true }), lastSeenAt: '2026-09-12T18:15:32.000Z' }],
+      {
+        model: 'Multi-function smart presence sensor R3',
+        installationStatus: 'NEEDS_TEST',
+        lastSeenAt: '2026-09-12T19:18:56.000Z',
+      },
+    );
+    expect(roomSensorReading(r3, 'presence', true, now)).toMatchObject({
+      reading: 'Détecté',
+      status: null,
+      outdated: false,
+    });
+    expect(lastReadingLabel('2026-09-12T18:15:32.000Z', true, now, 'presence')).toBe(
+      'Dernier changement reçu à 20:15',
+    );
   });
 
   it('uses exactly the physical test inventory in the documented catalogue', () => {

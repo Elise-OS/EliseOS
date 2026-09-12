@@ -23,23 +23,82 @@
 .room-equipment-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 32px;
-  color: #526579;
-  font-size: 0.875rem;
+  gap: 14px;
+  min-width: 0;
+  margin-bottom: 25px;
 }
-.room-equipment-breadcrumb button {
-  display: flex;
+.room-equipment-breadcrumb .room-equipment-back {
+  display: inline-flex;
   align-items: center;
-  gap: 9px;
-  border: 0;
-  padding: 8px 0;
-  background: transparent;
-  color: inherit;
+  gap: 12px;
+  min-height: 56px;
+  padding: 7px 18px 7px 8px;
+  border: 1px solid #dbe6ec;
+  border-radius: 17px;
+  background: linear-gradient(145deg, #fff, #f8fbfc);
+  color: #183c59;
+  text-align: left;
+  box-shadow: 0 3px 12px rgb(28 58 82 / 5%);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
-.room-equipment-breadcrumb svg {
-  width: 17px;
-  height: 17px;
+.room-equipment-breadcrumb .room-equipment-back:hover {
+  border-color: #a9c9d7;
+  box-shadow: 0 8px 20px rgb(28 58 82 / 10%);
+  transform: translateY(-2px);
+}
+.room-equipment-back-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #e8f2f6;
+  color: #226486;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+.room-equipment-back:hover .room-equipment-back-icon {
+  background: #d9eaf1;
+  transform: translateX(-2px);
+}
+.room-equipment-back-icon svg {
+  width: 19px;
+  height: 19px;
+}
+.room-equipment-back-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.15;
+}
+.room-equipment-back-copy > span {
+  color: #718496;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.room-equipment-back-copy strong {
+  font-size: 0.875rem;
+  font-weight: 750;
+}
+.room-equipment-breadcrumb-divider {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  color: #a0b2bf;
+}
+.room-equipment-current-room {
+  min-width: 0;
+  overflow: hidden;
+  color: #456277;
+  font-size: 0.875rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .room-equipment-header {
   position: relative;
@@ -292,6 +351,15 @@
 .room-sensor-card-value small {
   color: #6d7e8c;
   font-size: 0.8125rem;
+}
+.room-sensor-battery {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.room-sensor-battery svg {
+  width: 15px;
+  height: 15px;
 }
 .room-sensor-empty-line {
   color: #becbd5;
@@ -920,6 +988,30 @@
   display: block;
   color: #6b7e8c;
 }
+.equipment-connected-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 30px 22px;
+  border: 1px solid #dfe7ed;
+  border-radius: 14px;
+  background: #f7fafc;
+  color: #254d67;
+  text-align: center;
+}
+.equipment-connected-empty > svg {
+  width: 24px;
+  height: 24px;
+  color: #668aa1;
+}
+.equipment-connected-empty p {
+  max-width: 440px;
+  margin: 0;
+  color: #6b7e8c;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
 .equipment-field {
   display: flex;
   flex-direction: column;
@@ -1130,6 +1222,11 @@
   color: #47728d;
   font-size: 0.8125rem;
   font-weight: 650;
+}
+.equipment-search-button {
+  display: flex;
+  width: fit-content;
+  margin-inline: auto;
 }
 .equipment-found,
 .equipment-found-hero {
@@ -1425,7 +1522,17 @@
     padding: 14px 4px 30px;
   }
   .room-equipment-breadcrumb {
-    margin-bottom: 19px;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .room-equipment-breadcrumb .room-equipment-back {
+    min-height: 50px;
+    padding: 5px 12px 5px 6px;
+  }
+  .room-equipment-back-icon {
+    flex-basis: 38px;
+    width: 38px;
+    height: 38px;
   }
   .room-equipment-header {
     align-items: flex-start;

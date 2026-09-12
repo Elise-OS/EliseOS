@@ -1207,6 +1207,7 @@ export function SensorsPanel({ locale, rooms }: { locale: Locale; rooms: Room[] 
                     <SensorStatusBadge
                       status={device.installationStatus}
                       enabled={device.enabled}
+                      health={sensorDeviceHealthStatus(device)}
                       fr={fr}
                     />
                   </div>
@@ -1765,6 +1766,7 @@ function SensorCard({
             <SensorStatusBadge
               status={device.installationStatus}
               enabled={device.enabled}
+              health={sensorDeviceHealthStatus(device)}
               fr={fr}
             />
           </div>
@@ -1863,10 +1865,12 @@ function SensorCard({
 function SensorStatusBadge({
   status,
   enabled,
+  health,
   fr,
 }: {
   status: string;
   enabled: boolean;
+  health: 'ONLINE' | 'DEGRADED' | 'OFFLINE';
   fr: boolean;
 }) {
   if (!enabled) {
@@ -1885,7 +1889,19 @@ function SensorStatusBadge({
         <span className="modern-status-badge is-placement">{fr ? 'À placer' : 'To place'}</span>
       );
     case 'NEEDS_TEST':
-      return <span className="modern-status-badge is-test">{fr ? 'À tester' : 'To test'}</span>;
+      return (
+        <span
+          className={`modern-status-badge ${health === 'ONLINE' ? 'is-operational' : 'is-test'}`}
+        >
+          {health === 'ONLINE'
+            ? fr
+              ? 'Connecté · validation à faire'
+              : 'Connected · validation pending'
+            : fr
+              ? 'Validation à faire'
+              : 'Validation pending'}
+        </span>
+      );
     case 'NEEDS_CONFIRMATION':
       return (
         <span className="modern-status-badge is-attention">{fr ? 'À identifier' : 'Identify'}</span>

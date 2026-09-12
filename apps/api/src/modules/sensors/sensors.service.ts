@@ -368,7 +368,8 @@ export class SensorsService {
           displayName: input.name ?? session.device!.displayName,
           roomId: input.roomId,
           ...(input.placementNote !== undefined ? { placementNote: input.placementNote } : {}),
-          installationStatus: input.roomId ? 'NEEDS_TEST' : 'NEEDS_PLACEMENT',
+          installationStatus: input.roomId ? 'OPERATIONAL' : 'NEEDS_PLACEMENT',
+          placementConfirmedAt: input.roomId ? new Date() : null,
         },
       });
       await tx.sensor.updateMany({

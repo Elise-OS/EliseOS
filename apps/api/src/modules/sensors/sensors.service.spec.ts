@@ -617,7 +617,7 @@ describe('SensorsService physical device views', () => {
     );
   });
 
-  it('completes an unassigned installation without cancelling its session', async () => {
+  it('completes installation without cancelling its session and activates an assigned sensor', async () => {
     const now = new Date('2026-08-21T10:00:00.000Z');
     const device = detectedDevice(now);
     const session = {
@@ -641,12 +641,12 @@ describe('SensorsService physical device views', () => {
     const prisma = {
       home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
       sensorOnboardingSession: { findFirst: vi.fn().mockResolvedValue(session) },
-      room: { findFirst: vi.fn() },
       homePlan: { findUnique: vi.fn().mockResolvedValue(null) },
       device: { findFirst: vi.fn().mockResolvedValue(device) },
       $transaction: vi.fn(async (callback: (tx: unknown) => Promise<void>) =>
         callback({
           device: { update: transactionDeviceUpdate },
+          room: { findFirst: vi.fn().mockResolvedValue({ id: 'room-1' }) },
           sensor: { updateMany: transactionSensorUpdate },
           homePlan: { findUnique: vi.fn().mockResolvedValue(null) },
           sensorOnboardingSession: { updateMany: transactionSessionUpdate },
@@ -669,6 +669,7 @@ describe('SensorsService physical device views', () => {
       displayName: 'Température chambre',
       roomId: null,
       installationStatus: 'NEEDS_PLACEMENT',
+      placementConfirmedAt: null,
     });
     expect(transactionSensorUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -681,5 +682,19 @@ describe('SensorsService physical device views', () => {
     expect(sessionUpdate.data).toMatchObject({ status: 'COMPLETED', step: 'COMPLETE' });
     expect(mqtt.setZigbeePairing).toHaveBeenCalledWith(false, 0);
     expect(result.sessionId).toBe(session.id);
+
+    await service.completeOnboarding('user-1', session.id, {
+      name: 'Température chambre',
+      roomId: 'room-1',
+    });
+    expect(transactionDeviceUpdate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          roomId: 'room-1',
+          installationStatus: 'OPERATIONAL',
+          placementConfirmedAt: expect.any(Date),
+        }),
+      }),
+    );
   });
 });

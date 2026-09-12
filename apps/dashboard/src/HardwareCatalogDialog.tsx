@@ -2,7 +2,7 @@ import { ArrowLeft, ChevronRight, Radio } from 'lucide-react';
 import { useState } from 'react';
 import { ROOM_SENSOR_CATEGORIES, type SensorProduct } from '@michel/contracts';
 import { EquipmentDialog } from './EquipmentDialog';
-import { SENSOR_PRODUCTS, TEST_HARDWARE_COUNT } from './sensor-products';
+import { SENSOR_PRODUCTS } from './sensor-products';
 import type { Locale } from './i18n';
 
 function ProductPhoto({ product }: { product: SensorProduct }) {
@@ -55,11 +55,7 @@ export function HardwareCatalogDialog({
   return (
     <EquipmentDialog
       wide
-      title={
-        fr
-          ? `Matériel de test · ${TEST_HARDWARE_COUNT} appareils`
-          : `Test hardware · ${TEST_HARDWARE_COUNT} devices`
-      }
+      title={fr ? 'Matériel de test' : 'Test hardware'}
       onClose={close}
     >
       <div className="equipment-category-content">
@@ -86,11 +82,6 @@ export function HardwareCatalogDialog({
                       ? 'Documenté · test Élise à faire'
                       : 'Documented · Élise test pending'}
                 </span>
-                <p className="equipment-muted">
-                  {fr
-                    ? `${selected.testQuantity} exemplaire${selected.testQuantity > 1 ? 's' : ''} dans le matériel de test.`
-                    : `${selected.testQuantity} unit${selected.testQuantity > 1 ? 's' : ''} in the test inventory.`}
-                </p>
               </div>
             </div>
             {!!selected.categories.length && (
@@ -171,10 +162,7 @@ export function HardwareCatalogDialog({
                     {product.brand} · {familyLabel(product, fr)}
                   </span>
                   <strong>{fr ? product.name : product.nameEn}</strong>
-                  <small>
-                    {product.model} · {product.testQuantity} {fr ? 'disponible' : 'available'}
-                    {product.testQuantity > 1 ? 's' : ''}
-                  </small>
+                  <small>{product.model}</small>
                   <span>
                     {fr ? 'Voir la fiche' : 'View details'}
                     <ChevronRight />

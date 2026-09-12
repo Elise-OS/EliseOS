@@ -1,6 +1,6 @@
 import { ProductPhoto, SensorProductCard } from './SensorProductCard';
 import type { HomePlan, RoomSensorCategory, SensorProduct } from '@michel/contracts';
-import { deviceSupportsCategory, ROOM_SENSOR_CATEGORIES } from '@michel/contracts';
+import { ROOM_SENSOR_CATEGORIES } from '@michel/contracts';
 import {
   Activity,
   ArrowLeft,
@@ -34,7 +34,12 @@ import { EquipmentDialog } from './EquipmentDialog';
 import type { Locale } from './i18n';
 import { SENSOR_PRODUCTS, productsForCategory } from './sensor-products';
 import { SensorOnboardingDialog } from './SensorOnboardingDialog';
-import { sensorJson, sensorRequest, type SensorUiDevice } from './sensor-ui';
+import {
+  connectedDevicesForCategory,
+  sensorJson,
+  sensorRequest,
+  type SensorUiDevice,
+} from './sensor-ui';
 
 const categoryIcons: Record<RoomSensorCategory, typeof Thermometer> = {
   temperature: Thermometer,
@@ -178,11 +183,7 @@ export function HomeSensorOnboardingDialog({
     : initialProduct && initialProduct.kind !== 'ROOM_SENSOR'
       ? SENSOR_PRODUCTS.filter((item) => item.kind !== 'ROOM_SENSOR' && (!outdoor || item.outdoor))
       : [];
-  const compatible = category
-    ? devices.filter(
-        (device) => deviceSupportsCategory(device, category) && device.room?.id !== roomId,
-      )
-    : [];
+  const compatible = category ? connectedDevicesForCategory(devices, category) : [];
 
   const assign = async () => {
     if (!assigning || !name.trim()) return;
@@ -335,7 +336,7 @@ export function HomeSensorOnboardingDialog({
               <ArrowLeft /> {fr ? 'Retour aux capteurs' : 'Back to sensors'}
             </button>
             <h3>{assigning.name}</h3>
-            {assigning.room && (
+            {assigning.room && assigning.room.id !== roomId && (
               <p className="equipment-note">
                 {fr
                   ? `Cet appareil sera déplacé de « ${assigning.room.name} » vers « ${selectedRoom?.name} », avec toutes ses mesures.`
@@ -366,7 +367,13 @@ export function HomeSensorOnboardingDialog({
                 onClick={() => void assign()}
               >
                 <Check />
-                {fr ? `Associer à ${selectedRoom?.name}` : `Assign to ${selectedRoom?.name}`}
+                {assigning.room?.id === roomId
+                  ? fr
+                    ? 'Enregistrer'
+                    : 'Save'
+                  : fr
+                    ? `Associer à ${selectedRoom?.name}`
+                    : `Assign to ${selectedRoom?.name}`}
               </button>
             </footer>
           </>
@@ -461,16 +468,27 @@ export function HomeSensorOnboardingDialog({
                     <Radio />
                     <span>
                       <strong>{device.name}</strong>
-                      <small>{device.room?.name ?? (fr ? 'Sans pièce' : 'Unassigned')}</small>
+                      <small>
+                        {device.room?.id === roomId
+                          ? fr
+                            ? 'Déjà dans cette pièce'
+                            : 'Already in this room'
+                          : (device.room?.name ?? (fr ? 'Sans pièce' : 'Unassigned'))}
+                      </small>
+                      {device.batteryPercent !== null && (
+                        <small>
+                          {fr ? 'Batterie' : 'Battery'} {device.batteryPercent} %
+                        </small>
+                      )}
                     </span>
-                    <Plus />
+                    {device.room?.id === roomId ? <Check /> : <Plus />}
                   </button>
                 ))}
                 {!compatible.length && (
                   <p className="equipment-note">
                     {fr
-                      ? 'Aucun autre appareil compatible déjà connecté.'
-                      : 'No other compatible device is connected yet.'}
+                      ? 'Aucun appareil compatible déjà connecté.'
+                      : 'No compatible device is connected yet.'}
                   </p>
                 )}
               </div>

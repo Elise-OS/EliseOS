@@ -19,6 +19,7 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
   };
   private zigbeeInventoryReceived = false;
   private readonly joinedZigbeeDevices = new Set<string>();
+  private rejoinedDeviceInventoryTimer: NodeJS.Timeout | undefined;
   private readonly pendingDiscoveryCommands = new Map<
     string,
     {
@@ -128,6 +129,17 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
             .catch((error: unknown) =>
               this.logger.error('Unable to mark departed Zigbee device offline', error),
             );
+        } else if (
+          event.type === 'device_announce' &&
+          typeof event.data?.ieee_address === 'string'
+        ) {
+          // A steady occupancy value may not emit a new HA state_changed event after rejoin.
+          // Refresh the current HA inventory so its availability is restored.
+          if (this.rejoinedDeviceInventoryTimer) clearTimeout(this.rejoinedDeviceInventoryTimer);
+          this.rejoinedDeviceInventoryTimer = setTimeout(() => {
+            this.rejoinedDeviceInventoryTimer = undefined;
+            this.requestInventory('');
+          }, 3_000);
         }
         return;
       }
@@ -264,6 +276,7 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
   }
 
   public onModuleDestroy(): void {
+    if (this.rejoinedDeviceInventoryTimer) clearTimeout(this.rejoinedDeviceInventoryTimer);
     for (const pending of this.pendingDiscoveryCommands.values()) {
       clearTimeout(pending.timer);
       pending.reject(new Error('Service arrêté.'));

@@ -37,12 +37,6 @@ export function SensorProductCard({
       <span className="equipment-kicker">{product.brand}</span>
       <strong>{fr ? product.name : product.nameEn}</strong>
       <small>
-        {product.testQuantity}{' '}
-        {fr
-          ? `${product.testQuantity > 1 ? 'disponibles' : 'disponible'} pour les tests`
-          : 'available for testing'}
-      </small>
-      <small>
         {product.categories.length
           ? product.categories
               .map(

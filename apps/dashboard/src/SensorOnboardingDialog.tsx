@@ -8,7 +8,6 @@ import {
 } from '@michel/contracts';
 import type { Locale } from './i18n';
 import { EquipmentDialog } from './EquipmentDialog';
-import { SensorInstallationGuide } from './SensorInstallationGuide';
 import { sensorJson, sensorRequest, type SensorRoom, type SensorUiDevice } from './sensor-ui';
 import { productMatchesDetectedModel } from './sensor-products';
 
@@ -48,10 +47,9 @@ export function SensorOnboardingDialog({
 }) {
   const fr = locale === 'fr';
   const [session, setSession] = useState<Session | null>(null);
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [roomId, setRoomId] = useState(initialRoomId ?? '');
   const [name, setName] = useState('');
-  const [installed, setInstalled] = useState<SensorUiDevice | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
@@ -84,7 +82,6 @@ export function SensorOnboardingDialog({
     if (open) {
       setRoomId(initialRoomId ?? '');
       setName('');
-      setInstalled(null);
       setStep(1);
       setSession(null);
     }
@@ -179,7 +176,7 @@ export function SensorOnboardingDialog({
     setBusy(true);
     setError('');
     try {
-      if (session && step !== 4)
+      if (session)
         await sensorRequest(`/api/v1/sensor-devices/onboarding-sessions/${session.id}`, {
           method: 'DELETE',
         });
@@ -198,7 +195,7 @@ export function SensorOnboardingDialog({
     setBusy(true);
     setError('');
     try {
-      const result = await sensorRequest<{ device: SensorUiDevice }>(
+      await sensorRequest(
         `/api/v1/sensor-devices/onboarding-sessions/${session.id}/complete`,
         sensorJson('POST', {
           name: name.trim(),
@@ -208,18 +205,12 @@ export function SensorOnboardingDialog({
         }),
       );
       if (!alive.current) return;
-      setInstalled(result.device);
-      setSession(null);
-      setStep(4);
       try {
         await onChanged.current();
       } catch {
-        setError(
-          fr
-            ? 'Capteur enregistré. L’actualisation a échoué ; réessayez depuis le guide.'
-            : 'Sensor saved. Refresh failed; retry from the guide.',
-        );
+        // The installation is complete even if refreshing the list fails temporarily.
       }
+      onClose();
     } catch (err) {
       if (alive.current) setError((err as Error).message);
     } finally {
@@ -236,41 +227,31 @@ export function SensorOnboardingDialog({
   ];
   return (
     <EquipmentDialog
-      title={
-        step === 4
-          ? fr
-            ? 'Installer et vérifier'
-            : 'Place and check'
-          : fr
-            ? 'Ajouter un capteur'
-            : 'Add a sensor'
-      }
+      title={fr ? 'Ajouter un capteur' : 'Add a sensor'}
       onClose={() => void close()}
       busy={busy}
       closeLabel={fr ? 'Fermer' : 'Close'}
     >
       <div className="equipment-onboarding">
-        {step < 4 && (
-          <ol className="equipment-steps">
-            {(fr ? ['Préparer', 'Connecter', 'Installer'] : ['Prepare', 'Connect', 'Install']).map(
-              (label, index) => (
-                <li
-                  className={
-                    step > index + 1 ? 'is-complete' : step === index + 1 ? 'is-current' : ''
-                  }
-                  aria-current={step === index + 1 ? 'step' : undefined}
-                  key={label}
-                >
-                  <span>{step > index + 1 ? <Check /> : index + 1}</span>
-                  <div>
-                    <small>{fr ? `Étape ${index + 1} sur 3` : `Step ${index + 1} of 3`}</small>
-                    <strong>{label}</strong>
-                  </div>
-                </li>
-              ),
-            )}
-          </ol>
-        )}
+        <ol className="equipment-steps">
+          {(fr ? ['Préparer', 'Connecter', 'Installer'] : ['Prepare', 'Connect', 'Install']).map(
+            (label, index) => (
+              <li
+                className={
+                  step > index + 1 ? 'is-complete' : step === index + 1 ? 'is-current' : ''
+                }
+                aria-current={step === index + 1 ? 'step' : undefined}
+                key={label}
+              >
+                <span>{step > index + 1 ? <Check /> : index + 1}</span>
+                <div>
+                  <small>{fr ? `Étape ${index + 1} sur 3` : `Step ${index + 1} of 3`}</small>
+                  <strong>{label}</strong>
+                </div>
+              </li>
+            ),
+          )}
+        </ol>
         {!ready && (
           <p role="status">
             <LoaderCircle className="is-spinning" /> {fr ? 'Préparation…' : 'Preparing…'}
@@ -311,7 +292,11 @@ export function SensorOnboardingDialog({
                 <li key={line}>{line}</li>
               ))}
             </ol>
-            <button className="equipment-primary" disabled={busy} onClick={() => void start()}>
+            <button
+              className="equipment-primary equipment-search-button"
+              disabled={busy}
+              onClick={() => void start()}
+            >
               <Radio />
               {fr ? 'Rechercher mon capteur' : 'Find my sensor'}
             </button>
@@ -467,18 +452,6 @@ export function SensorOnboardingDialog({
           <p className="equipment-error" role="alert">
             {error}
           </p>
-        )}
-        {step === 4 && installed && (
-          <SensorInstallationGuide
-            device={installed}
-            locale={locale}
-            onChanged={async () => {
-              await onChanged.current();
-              const devices = await sensorRequest<SensorUiDevice[]>('/api/v1/sensor-devices');
-              setInstalled(devices.find(({ id }) => id === installed.id) ?? installed);
-            }}
-            onDone={() => void close()}
-          />
         )}
       </div>
     </EquipmentDialog>
