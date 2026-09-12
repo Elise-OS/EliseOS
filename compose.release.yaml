@@ -1,0 +1,25 @@
+services:
+  bootstrap:
+    image: ${ELISE_BOOTSTRAP_IMAGE:-alpine:3.22}
+  postgres:
+    image: ${ELISE_POSTGRES_IMAGE:-postgres:18-bookworm}
+  mosquitto:
+    image: ${ELISE_MOSQUITTO_IMAGE:-eclipse-mosquitto:2.0.22}
+  zigbee2mqtt:
+    image: ${ELISE_ZIGBEE2MQTT_IMAGE:-ghcr.io/koenkk/zigbee2mqtt:2.13.0}
+  homeassistant:
+    image: ${ELISE_HOMEASSISTANT_IMAGE:-ghcr.io/home-assistant/home-assistant:2026.7.4}
+  go2rtc:
+    image: ${ELISE_GO2RTC_IMAGE:-ghcr.io/alexxit/go2rtc:1.9.14}
+  ai:
+    image: ${ELISE_AI_IMAGE:-ghcr.io/elise-os/eliseos-ai:${MICHEL_VERSION}}
+    build: !reset null
+  api:
+    image: ${ELISE_API_IMAGE:-ghcr.io/elise-os/eliseos-api:${MICHEL_VERSION}}
+    build: !reset null
+  worker:
+    image: ${ELISE_WORKER_IMAGE:-ghcr.io/elise-os/eliseos-worker:${MICHEL_VERSION}}
+    build: !reset null
+  dashboard:
+    image: ${ELISE_DASHBOARD_IMAGE:-ghcr.io/elise-os/eliseos-dashboard:${MICHEL_VERSION}}
+    build: !reset null

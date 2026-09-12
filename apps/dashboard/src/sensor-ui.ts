@@ -34,6 +34,25 @@ export type SensorUiDevice = {
   action: 'CONFIRM' | 'ASSIGN_ROOM' | 'PLACE' | 'TEST' | 'CHECK' | 'NONE';
 };
 
+type HealthCapability = { primary: boolean; status: string };
+
+export function sensorCapabilitiesForHealth<T extends HealthCapability>(capabilities: T[]): T[] {
+  const primary = capabilities.filter((capability) => capability.primary);
+  return primary.length > 0 ? primary : capabilities;
+}
+
+export function sensorDeviceHealthStatus(device: {
+  enabled: boolean;
+  capabilities: HealthCapability[];
+}): 'ONLINE' | 'DEGRADED' | 'OFFLINE' {
+  const states = sensorCapabilitiesForHealth(device.capabilities).map(({ status }) => status);
+  if (!device.enabled || states.length === 0 || states.every((status) => status === 'OFFLINE'))
+    return 'OFFLINE';
+  if (states.some((status) => ['DEGRADED', 'OFFLINE', 'UNKNOWN'].includes(status)))
+    return 'DEGRADED';
+  return 'ONLINE';
+}
+
 export async function sensorRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: 'no-store', ...init });
   const result: unknown = await response.json().catch(() => null);

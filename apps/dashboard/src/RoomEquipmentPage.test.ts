@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { HomePlan, SensorDevice } from '@michel/contracts';
-import { roomCategoryDevices, roomSensorReading } from './RoomEquipmentPage';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { deviceSupportsCategory, type HomePlan, type SensorDevice } from '@michel/contracts';
+import {
+  RoomEquipmentPage,
+  mainEntranceDevices,
+  roomCategoryDevices,
+  roomSensorReading,
+} from './RoomEquipmentPage';
 import {
   SENSOR_PRODUCTS,
   TEST_HARDWARE_COUNT,
@@ -61,6 +68,15 @@ describe('room equipment cards', () => {
     expect(productMatchesDetectedModel(product, null)).toBeNull();
   });
 
+  it('recognizes the commercial R3 model name returned by Home Assistant', () => {
+    const product = SENSOR_PRODUCTS.find(({ model }) => model === '3RPL01084Z')!;
+    const detectedModel = 'Multi-function smart presence sensor R3';
+    const detected = { model: detectedModel, capabilities: [{ capability: 'occupancy' }] };
+
+    expect(productMatchesDetectedModel(product, detectedModel)).toBe(true);
+    expect(deviceSupportsCategory(detected, 'presence')).toBe(true);
+  });
+
   it('does not confuse a documented PIR occupancy sensor with still presence', () => {
     const pir = device([capability('occupancy', { active: true })], { model: 'SNZB-03P' });
     expect(roomCategoryDevices(plan, 'room', [pir], 'motion')).toEqual([pir]);
@@ -114,5 +130,71 @@ describe('room equipment cards', () => {
     const dryContact = device([capability('dry_contact', { open: true })], { model: 'SDC-4-1-00' });
     expect(roomCategoryDevices(plan, 'room', [dryContact], 'contact')).toEqual([dryContact]);
     expect(roomSensorReading(dryContact, 'contact', true).reading).toBe('Ouvert');
+  });
+
+  it('only marks a contact sensor on the main entrance as configured', () => {
+    const entrancePlan = {
+      levels: [
+        {
+          rooms: [{ id: 'entry', kind: 'ENTRANCE' }],
+          openings: [
+            { id: 'front-door', roomIds: ['entry'], isMainEntrance: true },
+            { id: 'side-door', roomIds: ['entry'], isMainEntrance: false },
+          ],
+        },
+      ],
+      placements: [
+        {
+          kind: 'SENSOR',
+          roomId: 'entry',
+          targetType: 'OPENING',
+          targetId: 'side-door',
+          equipmentRefKind: 'DEVICE',
+          equipmentId: 'side',
+        },
+        {
+          kind: 'SENSOR',
+          roomId: 'entry',
+          targetType: 'OPENING',
+          targetId: 'front-door',
+          equipmentRefKind: 'DEVICE',
+          equipmentId: 'front',
+        },
+      ],
+    } as unknown as HomePlan;
+    const front = device([capability('contact', { open: false })], { id: 'front' });
+    const side = device([capability('contact', { open: true })], { id: 'side' });
+
+    expect(mainEntranceDevices(entrancePlan, 'entry', [side, front])).toEqual([front]);
+    expect(mainEntranceDevices(entrancePlan, 'elsewhere', [side, front])).toEqual([]);
+  });
+
+  it('shows the extra main entrance card only for an entrance room', () => {
+    const renderRoom = (kind: string) =>
+      renderToStaticMarkup(
+        createElement(RoomEquipmentPage, {
+          roomId: 'room',
+          plan: {
+            ...plan,
+            levels: [
+              {
+                name: 'Rez-de-chaussée',
+                rooms: [{ id: 'room', name: 'Pièce', kind }],
+                openings: [],
+              },
+            ],
+          } as unknown as HomePlan,
+          devices: [],
+          locale: 'fr',
+          onBack: () => {},
+          onEditPlan: () => {},
+          onRefresh: async () => {},
+          onPlanSaved: () => {},
+        }),
+      );
+
+    expect(renderRoom('ENTRANCE')).toContain('Ouverture principale');
+    expect(renderRoom('ENTRANCE')).toContain('Ouverture');
+    expect(renderRoom('LIVING_ROOM')).not.toContain('Ouverture principale');
   });
 });

@@ -7,7 +7,7 @@ const image = (model: string) => `/sensor-products/${model}.png`;
 
 // Exact hardware currently available for Élise tests. DOCUMENTED confirms that
 // manufacturer and integration documentation exist, not a completed physical test.
-export const SENSOR_PRODUCTS: SensorProduct[] = [
+const documentedProducts: SensorProduct[] = [
   {
     id: 'thirdreality-presence-r3',
     brand: 'Third Reality',
@@ -505,6 +505,26 @@ export const SENSOR_PRODUCTS: SensorProduct[] = [
   },
 ];
 
+export const SENSOR_PRODUCTS: SensorProduct[] = documentedProducts.map((product) => ({
+  ...product,
+  recommendation: {
+    mode:
+      product.kind === 'ENERGY_MONITOR'
+        ? 'HOME'
+        : product.kind === 'SMART_PLUG'
+          ? 'APPLIANCE'
+          : product.categories.some((id) => ['presence', 'motion'].includes(id))
+            ? 'DETECTION'
+            : product.categories.some((id) => ['contact', 'water_leak', 'button'].includes(id))
+              ? 'TARGET'
+              : 'ROOM',
+    advice: product.placement.join(' '),
+    adviceEn: product.placementEn.join(' '),
+    sourceUrl: product.id === 'thirdreality-motion' ? product.sourceUrl : product.manualUrl,
+    ...(product.id === 'thirdreality-motion' ? { detectionDistanceM: 6 } : {}),
+  },
+}));
+
 export const TEST_HARDWARE_COUNT = SENSOR_PRODUCTS.reduce(
   (total, product) => total + product.testQuantity,
   0,
@@ -517,10 +537,18 @@ export function productsForCategory(category: RoomSensorCategory, outdoor: boole
 }
 
 const normalizedModel = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+const detectedModelAliases: Record<string, string[]> = {
+  '3RPL01084Z': ['SMARTPRESENCESENSORR3', 'MULTIFUNCTIONSMARTPRESENCESENSORR3'],
+};
 
 export function productMatchesDetectedModel(product: SensorProduct, detectedModel?: string | null) {
   if (!detectedModel?.trim()) return null;
   const expected = normalizedModel(product.model);
   const detected = normalizedModel(detectedModel);
-  return detected === expected || detected.includes(expected) || expected.includes(detected);
+  return (
+    detected === expected ||
+    detected.includes(expected) ||
+    expected.includes(detected) ||
+    (detectedModelAliases[product.model] ?? []).some((alias) => detected.includes(alias))
+  );
 }

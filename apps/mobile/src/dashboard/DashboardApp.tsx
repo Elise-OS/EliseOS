@@ -42,6 +42,7 @@ import {
 } from '../api';
 import { caregiverPresenceCopy } from './presence-copy';
 import type { SavedServer } from '../discovery/types';
+import { activeServerUrl } from '../discovery/helpers';
 import { subscribeNotificationNavigation } from '../notifications';
 import { friendlyValue, relativeTime, roomOf } from './formatters';
 
@@ -183,9 +184,11 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
 
   useEffect(() => {
     let stream: EventSource | null = null;
+    let streamUrl = '';
     const open = () => {
       stream?.close();
-      stream = new EventSource(`${server.url}/api/v1/events`, {
+      streamUrl = activeServerUrl(server);
+      stream = new EventSource(`${streamUrl}/api/v1/events`, {
         headers: { Authorization: `Bearer ${token}` },
         pollingInterval: 3_000,
       });
@@ -213,6 +216,9 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
       });
     };
     open();
+    const endpointCheck = setInterval(() => {
+      if (activeServerUrl(server) !== streamUrl) open();
+    }, 3_000);
     const state = AppState.addEventListener('change', (next) => {
       if (next === 'active') {
         open();
@@ -220,10 +226,11 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
       } else stream?.close();
     });
     return () => {
+      clearInterval(endpointCheck);
       state.remove();
       stream?.close();
     };
-  }, [queryClient, rootKey, server.url, token]);
+  }, [queryClient, rootKey, server, token]);
 
   const offline = !connected || (overview.isError && Boolean(overview.data));
   const lastUpdated = overview.dataUpdatedAt ? new Date(overview.dataUpdatedAt) : null;
@@ -976,7 +983,7 @@ function AlertsTab({
                       <Image
                         style={styles.mobileAlertSnapshotImage}
                         source={{
-                          uri: `${server.url}/api/v1/alerts/${selected.id}/snapshot`,
+                          uri: `${activeServerUrl(server)}/api/v1/alerts/${selected.id}/snapshot`,
                           headers: { Authorization: `Bearer ${token}` },
                         }}
                       />
@@ -2581,7 +2588,9 @@ function CameraSection({
           {session ? (
             <WebView
               key={session.mediaUrl}
-              source={{ uri: `${server.url.replace(/\/$/, '')}${session.mediaUrl}` }}
+              source={{
+                uri: `${activeServerUrl(server).replace(/\/$/, '')}${session.mediaUrl}`,
+              }}
               style={styles.cameraWebView}
               allowsInlineMediaPlayback
               mediaPlaybackRequiresUserAction={false}

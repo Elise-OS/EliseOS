@@ -1,0 +1,14 @@
+[Unit]
+Description=Élise first boot installation
+ConditionPathExists=!/var/lib/elise/.firstboot-complete
+After=cloud-final.service network-online.target docker.service tailscaled.service elise-preparation.service
+Wants=cloud-final.service network-online.target elise-preparation.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/elise/elise-firstboot.sh
+Restart=on-failure
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target

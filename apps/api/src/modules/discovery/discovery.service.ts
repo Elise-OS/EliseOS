@@ -1,18 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { DiscoveryInfo } from '@michel/contracts';
 import { PrismaService } from '../../platform/prisma.service';
+import { RemoteAccessAgentClient } from '../remote-access/remote-access-agent.client';
 
 const INSTANCE_ID_KEY = 'discovery.instanceId';
 
 @Injectable()
 export class DiscoveryService {
-  public constructor(private readonly prisma: PrismaService) {}
+  public constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly remoteAccess?: RemoteAccessAgentClient,
+  ) {}
 
   public async info(): Promise<DiscoveryInfo> {
-    const [instanceId, userCount] = await Promise.all([
+    const [instanceId, userCount, remote] = await Promise.all([
       this.instanceId(),
       this.prisma.user.count(),
+      this.remoteAccess?.status().catch(() => null) ?? null,
     ]);
     return {
       instanceId,
@@ -22,6 +27,8 @@ export class DiscoveryService {
       serverTime: new Date().toISOString(),
       supportsMobile: true,
       setupRequired: userCount === 0,
+      localUrl: process.env.MICHEL_LOCAL_URL?.trim() || null,
+      remoteUrl: remote?.remoteUrl ?? process.env.MICHEL_REMOTE_URL?.trim() ?? null,
     };
   }
 

@@ -49,10 +49,14 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
-  public async login(@Body() body: unknown, @Res({ passthrough: true }) response: Response) {
+  public async login(
+    @Body() body: unknown,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const input = parseRequest(loginSchema, body);
     const result = await this.auth.login(input.identifier, input.password);
-    this.setSessionCookie(response, result.token);
+    this.setSessionCookie(request, response, result.token);
     return { user: result.user };
   }
 
@@ -65,10 +69,14 @@ export class AuthController {
   }
 
   @Post('bootstrap')
-  public async bootstrap(@Body() body: unknown, @Res({ passthrough: true }) response: Response) {
+  public async bootstrap(
+    @Body() body: unknown,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const input = parseRequest(bootstrapSchema, body);
     const result = await this.auth.bootstrap(input);
-    this.setSessionCookie(response, result.token);
+    this.setSessionCookie(request, response, result.token);
     return {
       accessToken: result.token,
       user: result.user,
@@ -102,11 +110,12 @@ export class AuthController {
     response.clearCookie('michel_session', { path: '/' });
   }
 
-  private setSessionCookie(response: Response, token: string): void {
+  private setSessionCookie(request: Request, response: Response, token: string): void {
+    const forwardedProtocol = request.header('x-forwarded-proto')?.split(',')[0]?.trim();
     response.cookie('michel_session', token, {
       httpOnly: true,
       sameSite: 'strict',
-      secure: process.env.COOKIE_SECURE === 'true',
+      secure: process.env.COOKIE_SECURE === 'true' || forwardedProtocol === 'https',
       maxAge: 30 * 86_400_000,
       path: '/',
     });

@@ -1,0 +1,25 @@
+[Unit]
+Description=Élise private remote access agent
+After=network-online.target tailscaled.service
+Wants=network-online.target tailscaled.service
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/elise/remote-access-agent.py
+Environment=ELISE_REMOTE_AGENT_SOCKET=/run/elise-remote-access/agent.sock
+Environment=ELISE_REMOTE_TARGET_PORT=18080
+Environment=ELISE_CONFIG_DIR=/etc/elise
+Environment=ELISE_COMPOSE_DIR=/opt/elise/current
+EnvironmentFile=-/etc/elise/agent.env
+RuntimeDirectory=elise-remote-access
+RuntimeDirectoryMode=0755
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/run/elise-remote-access /etc/elise
+
+[Install]
+WantedBy=multi-user.target

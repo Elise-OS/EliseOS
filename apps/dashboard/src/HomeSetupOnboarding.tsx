@@ -2,9 +2,15 @@ import type { HomeSetupStage, RequestedRoom } from '@michel/contracts';
 import {
   ArrowLeft,
   ArrowRight,
+  Bath,
+  BedDouble,
+  Boxes,
   Check,
   CircleCheck,
+  CookingPot,
+  DoorOpen,
   Eye,
+  Footprints,
   Grid2X2,
   Link2,
   MapPin,
@@ -13,8 +19,15 @@ import {
   Play,
   Plus,
   RotateCcw,
+  Sofa,
   Sparkles,
+  Sun,
+  Toilet,
+  Trees,
+  Utensils,
+  Warehouse,
   X,
+  type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -28,20 +41,20 @@ export type HomeSetupDetails = {
   levels: number;
 };
 
-const roomCatalog = [
-  ['ENTRANCE', 'Entrée', 'Entrance'],
-  ['LIVING_ROOM', 'Salon', 'Living room'],
-  ['KITCHEN', 'Cuisine', 'Kitchen'],
-  ['DINING_ROOM', 'Salle à manger', 'Dining room'],
-  ['BEDROOM', 'Chambre', 'Bedroom'],
-  ['BATHROOM', 'Salle de bain', 'Bathroom'],
-  ['TOILET', 'Toilettes', 'Toilet'],
-  ['HALLWAY', 'Couloir', 'Hallway'],
-  ['GARAGE', 'Garage', 'Garage'],
-  ['GARDEN', 'Jardin', 'Garden'],
-  ['TERRACE', 'Terrasse', 'Terrace'],
-  ['OTHER', 'Autre', 'Other'],
-] as const;
+const roomCatalog: ReadonlyArray<readonly [string, string, string, LucideIcon]> = [
+  ['ENTRANCE', 'Entrée', 'Entrance', DoorOpen],
+  ['LIVING_ROOM', 'Salon', 'Living room', Sofa],
+  ['KITCHEN', 'Cuisine', 'Kitchen', CookingPot],
+  ['DINING_ROOM', 'Salle à manger', 'Dining room', Utensils],
+  ['BEDROOM', 'Chambre', 'Bedroom', BedDouble],
+  ['BATHROOM', 'Salle de bain', 'Bathroom', Bath],
+  ['TOILET', 'Toilettes', 'Toilet', Toilet],
+  ['HALLWAY', 'Couloir', 'Hallway', Footprints],
+  ['GARAGE', 'Garage', 'Garage', Warehouse],
+  ['GARDEN', 'Jardin', 'Garden', Trees],
+  ['TERRACE', 'Terrasse', 'Terrace', Sun],
+  ['OTHER', 'Autre', 'Other', Boxes],
+];
 
 const draftId = () =>
   `requested-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
@@ -154,7 +167,7 @@ export function HomeSetupOnboarding({
       <header className="home-setup-topbar">
         <div>
           <span className="home-setup-mark">
-            <Grid2X2 />
+            <img src="/logo.png" alt="" />
           </span>
           <span>
             <strong>Élise</strong>
@@ -262,19 +275,32 @@ export function HomeSetupOnboarding({
 
       {stage === 'ROOMS' && (
         <div className="home-setup-card home-setup-rooms">
-          <span className="eyebrow">{fr ? 'Votre futur plan' : 'Your future plan'}</span>
-          <h1>{fr ? 'Quelles pièces composent le logement ?' : 'Which rooms are in the home?'}</h1>
-          <p>
-            {fr
-              ? 'Ajoutez les pièces connues et indiquez leur niveau. Vous les dessinerez vous-même juste après.'
-              : 'Add the known rooms and assign their floor. You will draw them yourself next.'}
-          </p>
+          <div className="home-setup-rooms-heading">
+            <div>
+              <span className="eyebrow">{fr ? 'Votre futur plan' : 'Your future plan'}</span>
+              <h1>
+                {fr ? 'Quelles pièces composent le logement ?' : 'Which rooms are in the home?'}
+              </h1>
+              <p>
+                {fr
+                  ? 'Ajoutez les pièces connues et indiquez leur niveau. Vous les dessinerez vous-même juste après.'
+                  : 'Add the known rooms and assign their floor. You will draw them yourself next.'}
+              </p>
+            </div>
+            <div className="home-setup-room-total" aria-live="polite">
+              <strong>{rooms.length}</strong>
+              <span>
+                {fr ? (rooms.length > 1 ? 'pièces ajoutées' : 'pièce ajoutée') : 'rooms added'}
+              </span>
+            </div>
+          </div>
           <div className="home-room-catalog">
-            {roomCatalog.map(([kind, french, english]) => {
+            {roomCatalog.map(([kind, french, english, Icon]) => {
               const count = rooms.filter((room) => room.kind === kind).length;
               return (
-                <div key={kind}>
+                <div className={count ? 'is-selected' : ''} key={kind}>
                   <button
+                    className="room-counter-minus"
                     type="button"
                     aria-label={`${fr ? 'Retirer' : 'Remove'} ${fr ? french : english}`}
                     disabled={!count}
@@ -282,11 +308,15 @@ export function HomeSetupOnboarding({
                   >
                     <Minus />
                   </button>
-                  <span>
+                  <span className="home-room-catalog-copy">
+                    <i>
+                      <Icon aria-hidden="true" />
+                    </i>
                     <strong>{fr ? french : english}</strong>
                     <small>{count}</small>
                   </span>
                   <button
+                    className="room-counter-plus"
                     type="button"
                     aria-label={`${fr ? 'Ajouter' : 'Add'} ${fr ? french : english}`}
                     onClick={() => addRoom(kind, french, english)}
@@ -299,50 +329,65 @@ export function HomeSetupOnboarding({
           </div>
           {!!rooms.length && (
             <div className="home-requested-rooms">
-              {rooms.map((room) => (
-                <div key={room.id}>
-                  <Grid2X2 />
-                  <input
-                    aria-label={fr ? 'Nom de la pièce' : 'Room name'}
-                    value={room.name}
-                    onChange={(event) =>
-                      setRooms((current) =>
-                        current.map((item) =>
-                          item.id === room.id ? { ...item, name: event.target.value } : item,
-                        ),
-                      )
-                    }
-                  />
-                  <select
-                    aria-label={fr ? 'Niveau' : 'Floor'}
-                    value={room.floor}
-                    onChange={(event) =>
-                      setRooms((current) =>
-                        current.map((item) =>
-                          item.id === room.id
-                            ? { ...item, floor: Number(event.target.value) }
-                            : item,
-                        ),
-                      )
-                    }
-                  >
-                    {Array.from({ length: floorCount }, (_, floor) => (
-                      <option value={floor} key={floor}>
-                        {floorName(floor, locale)}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    aria-label={`${fr ? 'Supprimer' : 'Delete'} ${room.name}`}
-                    onClick={() =>
-                      setRooms((current) => current.filter(({ id }) => id !== room.id))
-                    }
-                  >
-                    <X />
-                  </button>
+              <header>
+                <div>
+                  <strong>{fr ? 'Pièces ajoutées' : 'Added rooms'}</strong>
+                  <small>
+                    {fr ? 'Personnalisez leur nom et leur niveau.' : 'Set their name and floor.'}
+                  </small>
                 </div>
-              ))}
+              </header>
+              <div className="home-requested-rooms-list">
+                {rooms.map((room) => {
+                  const RoomIcon = roomCatalog.find(([kind]) => kind === room.kind)?.[3] ?? Grid2X2;
+                  return (
+                    <div key={room.id}>
+                      <span className="home-requested-room-icon">
+                        <RoomIcon aria-hidden="true" />
+                      </span>
+                      <input
+                        aria-label={fr ? 'Nom de la pièce' : 'Room name'}
+                        value={room.name}
+                        onChange={(event) =>
+                          setRooms((current) =>
+                            current.map((item) =>
+                              item.id === room.id ? { ...item, name: event.target.value } : item,
+                            ),
+                          )
+                        }
+                      />
+                      <select
+                        aria-label={fr ? 'Niveau' : 'Floor'}
+                        value={room.floor}
+                        onChange={(event) =>
+                          setRooms((current) =>
+                            current.map((item) =>
+                              item.id === room.id
+                                ? { ...item, floor: Number(event.target.value) }
+                                : item,
+                            ),
+                          )
+                        }
+                      >
+                        {Array.from({ length: floorCount }, (_, floor) => (
+                          <option value={floor} key={floor}>
+                            {floorName(floor, locale)}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        aria-label={`${fr ? 'Supprimer' : 'Delete'} ${room.name}`}
+                        onClick={() =>
+                          setRooms((current) => current.filter(({ id }) => id !== room.id))
+                        }
+                      >
+                        <X />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
           {(localError || error) && <p className="home-setup-error">{localError || error}</p>}

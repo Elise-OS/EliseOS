@@ -1,79 +1,16 @@
-import type { EquipmentCoverage, EquipmentTarget } from '@michel/contracts';
-import type { CSSProperties } from 'react';
+import { useState } from 'react';
+import { ArrowLeft, ArrowRight, RefreshCw, Sparkles } from 'lucide-react';
+import type { EquipmentCoverage, SensorProduct } from '@michel/contracts';
+import { ROOM_SENSOR_CATEGORIES } from '@michel/contracts';
+import { EquipmentDialog } from './EquipmentDialog';
+import { ProductPhoto, SensorProductCard } from './SensorProductCard';
 import {
-  AlertTriangle,
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  CircleCheck,
-  MapPin,
-  PackageCheck,
-  Radio,
-  RefreshCw,
-  ShieldCheck,
-  Sparkles,
-  X,
-} from 'lucide-react';
-
-const capabilityLabels: Record<string, [string, string]> = {
-  motion: ['Détecteur de mouvement', 'Motion sensor'],
-  occupancy: ['Capteur de présence', 'Occupancy sensor'],
-  person_presence: ['Capteur de présence fine', 'Fine presence sensor'],
-  contact: ['Capteur d’ouverture', 'Opening sensor'],
-  temperature: ['Capteur de température', 'Temperature sensor'],
-  humidity: ['Capteur d’humidité', 'Humidity sensor'],
-  water_leak: ['Détecteur de fuite', 'Water leak sensor'],
-  power: ['Prise avec mesure d’énergie', 'Energy-monitoring plug'],
-};
-
-const itemLabels: Record<string, [string, string]> = {
-  MAIN_ENTRANCE: ['Entrée principale', 'Main entrance'],
-  STAIR: ['Escalier', 'Staircase'],
-  SINK: ['Évier', 'Sink'],
-  WASHBASIN: ['Lavabo', 'Washbasin'],
-  WASHING_MACHINE: ['Lave-linge', 'Washing machine'],
-  DISHWASHER: ['Lave-vaisselle', 'Dishwasher'],
-  SHOWER: ['Douche', 'Shower'],
-  BATHTUB: ['Baignoire', 'Bathtub'],
-  TOILET: ['Toilettes', 'Toilet'],
-  FRIDGE: ['Réfrigérateur', 'Fridge'],
-  OVEN: ['Four', 'Oven'],
-  COFFEE_MACHINE: ['Cafetière', 'Coffee machine'],
-  KETTLE: ['Bouilloire', 'Kettle'],
-  MICROWAVE: ['Micro-ondes', 'Microwave'],
-  MEDICAL_DEVICE: ['Appareil médical', 'Medical device'],
-};
-
-const warnings: Record<EquipmentCoverage['summary']['warnings'][number], [string, string]> = {
-  EMPTY_PLAN: [
-    'Ajoutez au moins une pièce pour qu’Élise puisse analyser le logement.',
-    'Add at least one room so Elise can analyse the home.',
-  ],
-  MISSING_MAIN_ENTRANCE: [
-    'L’entrée principale n’est pas dessinée : le capteur d’ouverture correspondant ne peut pas encore être compté.',
-    'The main entrance is not drawn, so its opening sensor cannot be counted yet.',
-  ],
-  MISSING_PASSAGES: [
-    'Les passages entre les pièces ne sont pas dessinés. Leur ajout affinera les emplacements conseillés.',
-    'Passages between rooms are not drawn. Adding them will refine the suggested locations.',
-  ],
-  MISSING_STAIRS: [
-    'Tous les niveaux ne sont pas encore reliés par un escalier dans le plan.',
-    'Not all floors are connected by a staircase in the plan yet.',
-  ],
-  MISSING_WATER_POINTS: [
-    'Aucun point d’eau n’est placé. Ajoutez l’évier, le lavabo ou le lave-linge pour obtenir les besoins de détection de fuite.',
-    'No water point is placed. Add the sink, washbasin or washing machine to calculate leak detection needs.',
-  ],
-};
-
-const localizedTarget = (target: EquipmentTarget, fr: boolean) =>
-  target.type === 'ROOM' ? target.label : (itemLabels[target.kind]?.[fr ? 0 : 1] ?? target.label);
-
-const capabilitySummary = (capabilities: string[], fr: boolean) =>
-  capabilities
-    .map((capability) => capabilityLabels[capability]?.[fr ? 0 : 1] ?? capability)
-    .join(' · ');
+  COVERAGE_FAMILIES,
+  COVERAGE_TYPES,
+  coverageProducts,
+  type CoverageType,
+} from './coverage-model';
+import './coverage-explorer.css';
 
 export function SensorCoverageRecommendations({
   locale,
@@ -95,177 +32,208 @@ export function SensorCoverageRecommendations({
   onClose?: () => void;
 }) {
   const fr = locale === 'fr';
-  const summary = coverage?.summary;
-  const coverageRate = summary?.totals.required
-    ? Math.round((summary.totals.covered / summary.totals.required) * 100)
-    : 0;
-  return (
-    <section className="coverage-recommendations-page">
-      <header className="coverage-recommendations-topbar">
-        <div>
-          <span>
-            <ShieldCheck />
-          </span>
-          <div>
-            <strong>Élise</strong>
-            <small>{fr ? 'Analyse du logement' : 'Home analysis'}</small>
+  const [chosenType, setChosenType] = useState<CoverageType | null>(null);
+  const [previewProduct, setPreviewProduct] = useState<SensorProduct | null>(null);
+  const type = chosenType ?? 'presence';
+  const definition = COVERAGE_TYPES.find((item) => item.id === type)!;
+  const activeFamily = COVERAGE_FAMILIES.find((family) => family.types.includes(type))!;
+  const products = coverageProducts(type);
+
+  if (previewProduct) {
+    const categoryLabels = previewProduct.categories
+      .map((id) => ROOM_SENSOR_CATEGORIES.find((category) => category.id === id))
+      .filter(Boolean);
+    return (
+      <EquipmentDialog
+        title={previewProduct.brand + ' · ' + (fr ? previewProduct.name : previewProduct.nameEn)}
+        onClose={() => setPreviewProduct(null)}
+      >
+        <div className="equipment-category-content coverage-product-sheet">
+          <div className="equipment-product-detail">
+            <ProductPhoto product={previewProduct} />
+            <div>
+              <span className="equipment-kicker">{previewProduct.brand}</span>
+              <h3>{fr ? previewProduct.name : previewProduct.nameEn}</h3>
+              <p>{previewProduct.model}</p>
+              <span className="equipment-product-badge">
+                {fr ? 'Compatibilité documentée' : 'Documented compatibility'}
+              </span>
+            </div>
+          </div>
+          {!!categoryLabels.length && (
+            <div className="equipment-capability-tags">
+              {categoryLabels.map((category) => (
+                <span key={category!.id}>{category![fr ? 'label' : 'labelEn']}</span>
+              ))}
+            </div>
+          )}
+          <div className="coverage-product-specs">
+            <div>
+              <small>{fr ? 'Alimentation' : 'Power'}</small>
+              <strong>{fr ? previewProduct.power : previewProduct.powerEn}</strong>
+            </div>
+            <div>
+              <small>{fr ? 'Protocole' : 'Protocol'}</small>
+              <strong>{previewProduct.protocol.toUpperCase()}</strong>
+            </div>
+          </div>
+          <h4>{fr ? 'Fonctions documentées' : 'Documented features'}</h4>
+          <ul>
+            {(fr ? previewProduct.features : previewProduct.featuresEn).map((feature) => (
+              <li key={feature}>{feature}</li>
+            ))}
+          </ul>
+          <h4>{fr ? 'Conseils de placement' : 'Placement guidance'}</h4>
+          <ul>
+            {(fr ? previewProduct.placement : previewProduct.placementEn).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <h4>{fr ? 'Préparation' : 'Preparation'}</h4>
+          <ul>
+            {(fr ? previewProduct.preparation : previewProduct.preparationEn).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <div className="equipment-product-links">
+            <a href={previewProduct.sourceUrl} target="_blank" rel="noreferrer">
+              {fr ? 'Page officielle du produit' : 'Official product page'} ↗
+            </a>
+            <a href={previewProduct.manualUrl} target="_blank" rel="noreferrer">
+              {fr ? 'Notice fabricant' : 'Manufacturer manual'} ↗
+            </a>
           </div>
         </div>
-        {onClose && (
-          <button type="button" onClick={onClose} aria-label={fr ? 'Fermer' : 'Close'}>
-            <X />
-          </button>
-        )}
-      </header>
+      </EquipmentDialog>
+    );
+  }
 
+  const content = (
+    <section className="coverage-explorer">
       {loading ? (
-        <div className="coverage-recommendations-state" role="status">
+        <div className="coverage-explorer-state" role="status">
           <Sparkles />
-          <h2>{fr ? 'Élise analyse votre plan…' : 'Elise is analysing your plan…'}</h2>
-          <p>
-            {fr
-              ? 'Pièces, passages et équipements sont pris en compte.'
-              : 'Rooms, passages and equipment are being taken into account.'}
-          </p>
+          <p>{fr ? 'Chargement du catalogue…' : 'Loading the catalogue…'}</p>
         </div>
-      ) : error || !summary ? (
-        <div className="coverage-recommendations-state is-error" role="alert">
-          <AlertTriangle />
-          <h2>{fr ? 'L’analyse n’est pas disponible' : 'The analysis is unavailable'}</h2>
-          <p>{error || (fr ? 'Réessayez dans quelques instants.' : 'Please try again shortly.')}</p>
-          <button type="button" onClick={onRetry}>
+      ) : error || !coverage ? (
+        <div className="coverage-explorer-state" role="alert">
+          <p>{error || (fr ? 'Catalogue indisponible.' : 'Catalogue unavailable.')}</p>
+          <button className="equipment-secondary" onClick={onRetry}>
             <RefreshCw />
             {fr ? 'Réessayer' : 'Try again'}
           </button>
         </div>
       ) : (
-        <div className="coverage-recommendations-content">
-          <header className="coverage-recommendations-hero">
-            <div className="coverage-hero-copy">
-              <span className="eyebrow">
-                <Sparkles />
-                {fr ? 'Votre couverture recommandée' : 'Your recommended coverage'}
-              </span>
-              <h1>
-                {summary.totals.required
-                  ? fr
-                    ? `${summary.totals.required} capteur${summary.totals.required > 1 ? 's' : ''} pour couvrir le logement`
-                    : `${summary.totals.required} sensor${summary.totals.required > 1 ? 's' : ''} to cover the home`
-                  : fr
-                    ? 'Le plan doit être complété'
-                    : 'The plan needs more detail'}
-              </h1>
-              <p>
-                {fr
-                  ? `Une sélection sur mesure à partir des pièces, passages et équipements dessinés dans votre plan.`
-                  : 'A tailored selection based on the rooms, passages and equipment drawn in your plan.'}
-              </p>
-            </div>
-            <div className="coverage-score" aria-label={`${coverageRate}%`}>
-              <div
-                className="coverage-score-ring"
-                style={{ '--coverage-rate': `${coverageRate * 3.6}deg` } as CSSProperties}
-              >
-                <span>
-                  <strong>{coverageRate}%</strong>
-                  <small>{fr ? 'déjà couvert' : 'covered'}</small>
-                </span>
-              </div>
-              <p>
-                {summary.totals.toAdd
-                  ? fr
-                    ? `Plus que ${summary.totals.toAdd} appareil${summary.totals.toAdd > 1 ? 's' : ''} à prévoir`
-                    : `${summary.totals.toAdd} device${summary.totals.toAdd > 1 ? 's' : ''} left to add`
-                  : fr
-                    ? 'Votre couverture est complète'
-                    : 'Your coverage is complete'}
-              </p>
-            </div>
-          </header>
-
-          <div className="coverage-totals">
-            <span>
-              <i>
-                <Radio />
-              </i>
-              <strong>{summary.totals.required}</strong>
-              <small>{fr ? 'capteurs recommandés' : 'recommended sensors'}</small>
-            </span>
-            <span>
-              <i>
-                <CircleCheck />
-              </i>
-              <strong>{summary.totals.covered}</strong>
-              <small>{fr ? 'déjà présents' : 'already present'}</small>
-            </span>
-            <span className="is-highlighted">
-              <i>
-                <PackageCheck />
-              </i>
-              <strong>{summary.totals.toAdd}</strong>
-              <small>{fr ? 'à prévoir' : 'to add'}</small>
-            </span>
-          </div>
-
-          {!!summary.warnings.length && (
-            <aside className="coverage-plan-warnings">
-              <header>
-                <AlertTriangle />
-                <strong>{fr ? 'Analyse à affiner' : 'Analysis to refine'}</strong>
-              </header>
-              <ul>
-                {summary.warnings.map((warning) => (
-                  <li key={warning}>{warnings[warning][fr ? 0 : 1]}</li>
-                ))}
-              </ul>
-            </aside>
-          )}
-
-          <CoverageList
-            locale={locale}
-            title={fr ? 'Le kit conseillé' : 'Recommended kit'}
-            items={summary.main}
-            empty={
-              fr
-                ? 'La couverture principale est complète avec les appareils déjà installés.'
-                : 'Core coverage is complete with the devices already installed.'
-            }
-          />
-          {!!summary.optional.length && (
-            <CoverageList
-              locale={locale}
-              title={fr ? 'Pour aller plus loin' : 'Going further'}
-              subtitle={
-                fr
-                  ? 'Confort et compréhension supplémentaires, hors du total principal.'
-                  : 'Additional comfort and insight, outside the main total.'
-              }
-              items={summary.optional}
-              optional
-            />
-          )}
-
-          <aside className="coverage-safety-note">
-            <ShieldCheck />
+        <>
+          <header className="coverage-explorer-intro">
+            <h2>{fr ? 'Les capteurs documentés par Élise' : 'Sensors documented by Élise'}</h2>
             <p>
               {fr
-                ? 'Cette recommandation aide Élise à mieux comprendre le logement. Elle ne constitue ni une garantie de sécurité, ni un dispositif médical ou un service d’urgence.'
-                : 'This recommendation helps Elise understand the home. It is not a safety guarantee, medical device or emergency service.'}
+                ? 'Choisissez une famille puis un type de capteur pour consulter les modèles compatibles.'
+                : 'Choose a family and sensor type to browse compatible models.'}
             </p>
-          </aside>
-        </div>
+          </header>
+          <nav
+            className="coverage-family-list"
+            aria-label={fr ? 'Familles de capteurs' : 'Sensor families'}
+          >
+            {COVERAGE_FAMILIES.map((family) => (
+              <button
+                type="button"
+                key={family.labelEn}
+                aria-pressed={family === activeFamily}
+                onClick={() => setChosenType(family.types[0]!)}
+              >
+                <strong>{fr ? family.label : family.labelEn}</strong>
+              </button>
+            ))}
+          </nav>
+          <nav
+            className="coverage-type-list"
+            aria-label={fr ? 'Types de capteurs' : 'Sensor types'}
+          >
+            {COVERAGE_TYPES.filter((item) => activeFamily.types.includes(item.id)).map((item) => {
+              return (
+                <button
+                  type="button"
+                  key={item.id}
+                  aria-pressed={type === item.id}
+                  onClick={() => setChosenType(item.id)}
+                >
+                  <span>
+                    <strong>{item[fr ? 'label' : 'labelEn']}</strong>
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+          <div className="coverage-type-detail">
+            <header>
+              <h3>{definition[fr ? 'label' : 'labelEn']}</h3>
+              <p>{definition[fr ? 'description' : 'descriptionEn']}</p>
+            </header>
+            <div className="coverage-product-heading">
+              <h4>{fr ? 'Modèles documentés' : 'Documented models'}</h4>
+              <span>{products.length}</span>
+            </div>
+            {!products.length ? (
+              <div className="coverage-empty-products">
+                <strong>
+                  {fr
+                    ? 'Aucun modèle documenté actuellement'
+                    : 'No documented model currently available'}
+                </strong>
+                <p>
+                  {fr
+                    ? 'Le type reste visible pour présenter tout ce qu’Élise peut couvrir.'
+                    : 'The type remains visible to show everything Élise can cover.'}
+                </p>
+              </div>
+            ) : (
+              <div className="equipment-product-grid">
+                {products.map((product) => (
+                  <article className="coverage-product" key={product.id}>
+                    <SensorProductCard
+                      product={product}
+                      fr={fr}
+                      onSelect={() => setPreviewProduct(product)}
+                    />
+                    <p>{fr ? product.recommendation?.advice : product.recommendation?.adviceEn}</p>
+                    {product.recommendation?.detectionDistanceM && (
+                      <small>
+                        {product.recommendation.detectionDistanceM} m ·{' '}
+                        {fr ? 'distance de détection documentée' : 'documented detection distance'}
+                      </small>
+                    )}
+                    <a
+                      href={product.recommendation?.sourceUrl ?? product.manualUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {fr ? 'Source fabricant' : 'Manufacturer source'} ↗
+                    </a>
+                  </article>
+                ))}
+              </div>
+            )}
+            <p className="coverage-explorer-note">
+              {fr
+                ? 'Un appareil multifonction apparaît dans chaque type qu’il documente, mais il reste un seul produit.'
+                : 'A multifunction device appears under every documented type, but remains a single product.'}
+            </p>
+          </div>
+        </>
       )}
-
-      {!loading && !error && summary && (onBack || onContinue) && (
-        <footer className="coverage-recommendations-actions">
+      {!loading && !error && coverage && (onBack || onContinue) && (
+        <footer className="coverage-explorer-footer">
           {onBack && (
-            <button type="button" onClick={onBack}>
+            <button className="equipment-secondary" onClick={onBack}>
               <ArrowLeft />
               {fr ? 'Modifier le plan' : 'Edit the plan'}
             </button>
           )}
           {onContinue && (
-            <button type="button" className="home-setup-primary" onClick={onContinue}>
+            <button className="equipment-primary" onClick={onContinue}>
               {fr ? 'Terminer la création' : 'Finish setup'}
               <ArrowRight />
             </button>
@@ -274,112 +242,12 @@ export function SensorCoverageRecommendations({
       )}
     </section>
   );
-}
 
-function CoverageList({
-  locale,
-  title,
-  subtitle,
-  items,
-  empty,
-  optional = false,
-}: {
-  locale: 'fr' | 'en';
-  title: string;
-  subtitle?: string;
-  items: EquipmentCoverage['summary']['main'];
-  empty?: string;
-  optional?: boolean;
-}) {
-  const fr = locale === 'fr';
-  const toAdd = items.reduce((total, item) => total + item.toAdd, 0);
-  return (
-    <section className={`coverage-kit-section${optional ? ' is-optional' : ''}`}>
-      <header>
-        <span className="coverage-section-number">{optional ? '02' : '01'}</span>
-        <div>
-          <h2>{title}</h2>
-          {subtitle && <p>{subtitle}</p>}
-        </div>
-        {!!items.length && (
-          <strong className="coverage-section-count">
-            {toAdd} {fr ? 'à prévoir' : 'to add'}
-          </strong>
-        )}
-      </header>
-      {!items.length && empty && (
-        <div className="coverage-kit-empty">
-          <Check />
-          {empty}
-        </div>
-      )}
-      <div className="coverage-kit-grid">
-        {items.map((item) => (
-          <article key={item.id} className="coverage-kit-card">
-            <header>
-              <span className="coverage-product-icon">
-                <Radio />
-              </span>
-              <div className="coverage-product-copy">
-                <span>{capabilitySummary(item.capabilities, fr)}</span>
-                <h3>{item.label}</h3>
-                <p>
-                  {[item.manufacturer, item.model].filter(Boolean).join(' · ') ||
-                    (fr ? 'Profil compatible' : 'Compatible profile')}
-                </p>
-              </div>
-              <strong className="coverage-product-quantity">
-                <small>{fr ? 'Qté' : 'Qty'}</small>
-                {item.total}
-              </strong>
-            </header>
-            <div className="coverage-kit-counts">
-              <span>
-                <CircleCheck />
-                {item.covered} {fr ? 'présent(s)' : 'present'}
-              </span>
-              <span>
-                <PackageCheck />
-                {item.toAdd} {fr ? 'à prévoir' : 'to add'}
-              </span>
-            </div>
-            <div className="coverage-card-progress" aria-hidden="true">
-              <span style={{ width: `${item.total ? (item.covered / item.total) * 100 : 0}%` }} />
-            </div>
-            <div className="coverage-locations">
-              <h4>
-                <MapPin />
-                {fr ? 'Où les placer' : 'Where to place them'}
-              </h4>
-              <ul>
-                {item.targets.map((entry, index) => (
-                  <li key={`${entry.target.type}:${entry.target.id}:${index}`}>
-                    <span className={entry.fulfilled ? 'is-covered' : ''}>
-                      {entry.fulfilled ? <Check /> : <Radio />}
-                    </span>
-                    <div>
-                      <strong>{localizedTarget(entry.target, fr)}</strong>
-                      <small>
-                        {capabilitySummary(entry.capabilities, fr)}
-                        {entry.deviceName ? ` · ${entry.deviceName}` : ''}
-                      </small>
-                    </div>
-                    <em className={entry.fulfilled ? 'is-covered' : ''}>
-                      {entry.fulfilled
-                        ? fr
-                          ? 'En place'
-                          : 'Installed'
-                        : fr
-                          ? 'À équiper'
-                          : 'To equip'}
-                    </em>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
+  return onClose ? (
+    <EquipmentDialog title={fr ? 'Ce qu’Élise couvre' : 'What Élise covers'} wide onClose={onClose}>
+      {content}
+    </EquipmentDialog>
+  ) : (
+    content
   );
 }

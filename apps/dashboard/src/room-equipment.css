@@ -42,33 +42,23 @@
   height: 17px;
 }
 .room-equipment-header {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 24px;
-  padding-bottom: 32px;
-  border-bottom: 1px solid #dfe5ea;
+  gap: 28px;
+  margin-bottom: 28px;
+  padding: 26px 28px;
+  overflow: hidden;
+  border: 1px solid #d9e4e8;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 86% 18%, rgb(82 155 181 / 14%), transparent 28%),
+    linear-gradient(118deg, #ffffff 0%, #f5f9fa 68%, #edf5f7 100%);
+  box-shadow: 0 14px 44px rgb(29 55 79 / 8%);
 }
 .room-equipment-title {
-  display: flex;
-  align-items: center;
-  gap: 22px;
   min-width: 0;
-}
-.room-equipment-room-icon {
-  display: grid;
-  place-items: center;
-  flex: 0 0 90px;
-  height: 90px;
-  border: 1px solid #d9e5ed;
-  border-radius: 26px;
-  color: #266a92;
-  background: #edf5fa;
-}
-.room-equipment-room-icon svg {
-  width: 42px;
-  height: 42px;
-  stroke-width: 1.5;
 }
 .equipment-kicker {
   display: block;
@@ -79,9 +69,10 @@
   text-transform: uppercase;
 }
 .room-equipment-title h1 {
-  margin: 4px 0 12px;
+  margin: 3px 0 12px;
+  color: #0b3158;
   font:
-    500 clamp(2rem, 4vw, 3rem)/1.12 'Source Serif 4',
+    500 clamp(2rem, 3.5vw, 3rem)/1.05 'Source Serif 4',
     Georgia,
     serif;
   overflow-wrap: anywhere;
@@ -98,30 +89,43 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  padding: 7px 11px;
+  border: 1px solid #dce3e5;
+  border-radius: 999px;
+  background: #fff;
+  color: #526579;
+  font-size: 0.8125rem;
+  font-weight: 700;
 }
 .room-equipment-metadata svg {
   width: 16px;
   height: 16px;
 }
-.room-equipment-total {
+.room-equipment-actions {
   flex: 0 0 auto;
-  text-align: right;
 }
-.room-equipment-total > span {
+.room-equipment-actions button {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  font-size: 2rem;
-  font-weight: 650;
+  justify-content: center;
+  gap: 8px;
+  min-height: 50px;
+  padding: 0 20px;
+  border: 1px solid #17456f;
+  border-radius: 13px;
+  background: #17456f;
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgb(23 69 111 / 17%);
 }
-.room-equipment-total svg {
-  width: 23px;
-  color: #407d99;
+.room-equipment-actions button svg {
+  width: 18px;
+  height: 18px;
 }
-.room-equipment-total p {
-  margin: 4px 0 0;
-  color: #657787;
-  font-size: 0.875rem;
+.room-equipment-status {
+  color: #26705a !important;
+  border-color: #c8e7db !important;
+  background: #edf8f3 !important;
 }
 .room-equipment-section-heading {
   display: flex;
@@ -463,6 +467,154 @@
   padding: 24px 28px 28px;
 }
 .equipment-onboarding > .equipment-guide {
+  padding: 0;
+}
+.home-sensor-flow {
+  padding: 22px 28px 28px;
+}
+.home-sensor-flow-steps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 25px;
+  padding: 0;
+  list-style: none;
+}
+.home-sensor-flow-steps li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #7a8994;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+.home-sensor-flow-steps li::after {
+  content: '';
+  height: 2px;
+  flex: 1;
+  border-radius: 2px;
+  background: #e2e8ec;
+}
+.home-sensor-flow-steps li:last-child::after {
+  display: none;
+}
+.home-sensor-flow-steps li.is-active {
+  color: #245f81;
+}
+.home-sensor-flow-steps li > span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 50%;
+  background: #eef2f4;
+}
+.home-sensor-flow-steps li.is-active > span {
+  color: #fff;
+  background: #286d91;
+}
+.home-sensor-flow-steps svg {
+  width: 15px;
+  height: 15px;
+}
+.home-sensor-flow-intro {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+.home-sensor-flow-intro.is-compact {
+  margin: 5px 0 16px;
+}
+.home-sensor-flow-intro h3 {
+  margin: 0 0 4px;
+}
+.home-sensor-flow-intro p {
+  margin: 0;
+  color: #697d8d;
+  font-size: 0.875rem;
+}
+.home-sensor-flow-icon,
+.home-sensor-room-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: #316f91;
+  background: #eaf3f7;
+}
+.home-sensor-flow-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+}
+.home-sensor-flow-icon svg {
+  width: 23px;
+}
+.home-sensor-room-groups {
+  display: grid;
+  gap: 19px;
+}
+.home-sensor-room-groups section > h4 {
+  margin: 0 0 9px;
+  color: #667a89;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.home-sensor-room-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+.home-sensor-room-grid > button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid #dde6eb;
+  border-radius: 14px;
+  color: #204763;
+  background: #fff;
+  text-align: left;
+}
+.home-sensor-room-grid > button:hover {
+  border-color: #85aec4;
+  background: #f8fbfd;
+}
+.home-sensor-room-grid > button > span:nth-child(2) {
+  min-width: 0;
+}
+.home-sensor-room-grid strong,
+.home-sensor-room-grid small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.home-sensor-room-grid strong {
+  font-size: 0.9375rem;
+}
+.home-sensor-room-grid small {
+  color: #718390;
+  font-size: 0.75rem;
+}
+.home-sensor-room-grid > button > svg {
+  width: 18px;
+  color: #5485a0;
+}
+.home-sensor-room-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  border: 1px solid rgb(68 91 106 / 18%);
+}
+.home-sensor-room-icon svg {
+  width: 18px;
+}
+.home-sensor-category-picker {
   padding: 0;
 }
 .equipment-dialog h3 {
@@ -843,46 +995,87 @@
   height: 19px;
 }
 .equipment-steps {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 0 20px;
-  margin: 0 0 22px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  margin: 0 0 32px;
   list-style: none;
-  border-bottom: 1px solid #e3eaf0;
+  border-bottom: 1px solid #dfe8ed;
 }
 .equipment-steps li {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
-  color: #8a9aa5;
-  font-size: 0.8125rem;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 10px 14px;
+  border-bottom: 3px solid transparent;
+  color: #7c8b96;
+  background: transparent;
 }
 .equipment-steps li > span {
   display: grid;
   place-items: center;
-  width: 27px;
-  height: 27px;
+  width: 29px;
+  height: 29px;
   border-radius: 50%;
-  background: #edf2f6;
+  color: #71828e;
+  background: #e5eaee;
+  font-size: 0.8125rem;
+  font-weight: 750;
+}
+.equipment-steps li > div {
+  min-width: 0;
+}
+.equipment-steps li small,
+.equipment-steps li strong {
+  display: block;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.equipment-steps li small {
+  margin-bottom: 2px;
+  color: #8b98a1;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.equipment-steps li strong {
+  color: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
 }
 .equipment-steps li svg {
   width: 15px;
   height: 15px;
 }
-.equipment-steps li.is-active {
-  color: #245a7c;
+.equipment-steps li.is-current {
+  border-bottom-color: #216b91;
+  color: #164b6d;
 }
-.equipment-steps li.is-active > span {
-  background: #235575;
+.equipment-steps li.is-current > span {
+  background: #1e6286;
   color: white;
+}
+.equipment-steps li.is-current small {
+  color: #4b7891;
+}
+.equipment-steps li.is-complete {
+  color: #2d725d;
+}
+.equipment-steps li.is-complete > span {
+  color: #fff;
+  background: #3c826c;
 }
 .equipment-onboarding-intro {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 12px 6px 22px;
+  padding: 26px 22px;
+  border: 1px solid #dce9ef;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #f7fbfd, #edf6f9);
 }
 .equipment-onboarding-intro > svg {
   width: 65px;
@@ -914,15 +1107,20 @@
 }
 .equipment-guide-steps li {
   position: relative;
-  padding: 4px 0 18px 42px;
+  min-height: 58px;
+  margin-bottom: 10px;
+  padding: 16px 18px 16px 58px;
+  border: 1px solid #e3eaee;
+  border-radius: 14px;
+  background: #fff;
   counter-increment: guide;
   font-size: 0.9375rem;
 }
 .equipment-guide-steps li::before {
   content: counter(guide);
   position: absolute;
-  left: 0;
-  top: 2px;
+  left: 16px;
+  top: 14px;
   display: grid;
   place-items: center;
   width: 27px;
@@ -933,7 +1131,8 @@
   font-size: 0.8125rem;
   font-weight: 650;
 }
-.equipment-found {
+.equipment-found,
+.equipment-found-hero {
   display: flex;
   gap: 15px;
   align-items: center;
@@ -944,6 +1143,134 @@
 }
 .equipment-found > svg {
   width: 25px;
+}
+.equipment-install-step {
+  display: grid;
+  gap: 18px;
+}
+.equipment-found-hero {
+  padding: 22px;
+  border: 1px solid #cfe8dc;
+  background: linear-gradient(145deg, #f1faf6, #e8f6ef);
+}
+.equipment-found-icon {
+  flex: 0 0 48px;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  color: #fff;
+  background: #348069;
+  box-shadow: 0 8px 20px rgb(52 128 105 / 20%);
+}
+.equipment-found-icon svg {
+  width: 25px;
+  height: 25px;
+}
+.equipment-found-hero h3 {
+  margin: 3px 0 2px;
+  color: #205f4c;
+  font-size: 1.35rem;
+}
+.equipment-found-hero p {
+  margin: 0;
+  color: #527465;
+  font-size: 0.9rem;
+}
+.equipment-detected-functions {
+  display: grid;
+  gap: 9px;
+}
+.equipment-detected-functions > span {
+  color: #71818c;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+.equipment-detected-functions .equipment-capability-tags {
+  margin: 0;
+}
+.equipment-detected-functions .equipment-capability-tags span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #28664f;
+  background: #eaf6f0;
+}
+.equipment-detected-functions .equipment-capability-tags svg {
+  width: 14px;
+  height: 14px;
+}
+.equipment-install-warning {
+  margin: 0;
+  padding: 12px 15px;
+  border-left: 3px solid #d49b45;
+  border-radius: 8px 12px 12px 8px;
+  color: #795c2e;
+  background: #fff8eb;
+  font-size: 0.84rem;
+}
+.equipment-install-form {
+  padding: 19px;
+  border: 1px solid #dce6eb;
+  border-radius: 18px;
+  background: #f8fafb;
+}
+.equipment-install-form-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.equipment-install-form-heading > svg {
+  width: 37px;
+  height: 37px;
+  padding: 9px;
+  border-radius: 12px;
+  color: #276f93;
+  background: #e6f1f6;
+}
+.equipment-install-form-heading h4,
+.equipment-install-form-heading p {
+  margin: 0;
+}
+.equipment-install-form-heading h4 {
+  font-size: 1rem;
+}
+.equipment-install-form-heading p {
+  color: #6d7f8b;
+  font-size: 0.82rem;
+}
+.equipment-install-form .equipment-field {
+  margin: 13px 0 0;
+}
+.equipment-room-choice {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  border: 1px solid #cfe0e8;
+  border-radius: 13px;
+  color: #245671;
+  background: #fff;
+}
+.equipment-room-choice > svg {
+  width: 19px;
+  height: 19px;
+}
+.equipment-room-choice > svg:last-child {
+  margin-left: auto;
+  color: #348069;
+}
+.equipment-room-choice span {
+  display: grid;
+  line-height: 1.25;
+}
+.equipment-room-choice small {
+  color: #7b8c97;
+  font-size: 0.72rem;
 }
 .equipment-found p {
   margin: 3px 0 0;
@@ -1021,26 +1348,20 @@
   }
   .room-equipment-header {
     align-items: flex-start;
-    padding-bottom: 21px;
+    flex-direction: column;
+    margin-bottom: 22px;
+    padding: 21px;
+    border-radius: 22px;
   }
   .room-equipment-title {
-    gap: 14px;
-    align-items: flex-start;
-  }
-  .room-equipment-room-icon {
-    flex-basis: 55px;
-    height: 55px;
-    border-radius: 17px;
-  }
-  .room-equipment-room-icon svg {
-    width: 29px;
-    height: 29px;
-  }
-  .room-equipment-total {
-    display: none;
+    width: 100%;
   }
   .room-equipment-metadata {
     gap: 8px 12px;
+  }
+  .room-equipment-actions,
+  .room-equipment-actions button {
+    width: 100%;
   }
   .room-equipment-section-heading {
     align-items: flex-start;
@@ -1088,6 +1409,12 @@
   .equipment-guide {
     padding: 18px;
   }
+  .home-sensor-flow {
+    padding: 18px;
+  }
+  .home-sensor-room-grid {
+    grid-template-columns: 1fr;
+  }
   .equipment-product-card {
     padding: 12px;
   }
@@ -1121,11 +1448,17 @@
     margin-left: 55px;
   }
   .equipment-steps {
-    gap: 6px;
+    gap: 4px;
+    padding: 4px;
   }
   .equipment-steps li {
-    gap: 5px;
-    font-size: 0.75rem;
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    padding: 8px 5px;
+  }
+  .equipment-steps li > div {
+    display: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {

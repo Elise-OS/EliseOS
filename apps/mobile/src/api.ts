@@ -13,6 +13,7 @@ import type {
 } from '@michel/contracts';
 import type { Installation } from '@michel/contracts';
 import type { SavedServer } from './discovery/types';
+import { preferredServerUrls, rememberActiveServerUrl } from './discovery/helpers';
 
 export interface Overview {
   onboardingRequired: boolean;
@@ -109,15 +110,26 @@ const request = async <T>(
   token?: string,
   init?: RequestInit,
 ) => {
-  const response = await fetch(`${server.url}/api/v1${path}`, {
-    ...init,
-    headers: {
-      accept: 'application/json',
-      ...(init?.body ? { 'content-type': 'application/json' } : {}),
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
-  });
+  let response: Response | undefined;
+  let lastError: unknown;
+  for (const baseUrl of preferredServerUrls(server)) {
+    try {
+      response = await fetch(`${baseUrl}/api/v1${path}`, {
+        ...init,
+        headers: {
+          accept: 'application/json',
+          ...(init?.body ? { 'content-type': 'application/json' } : {}),
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+          ...init?.headers,
+        },
+      });
+      rememberActiveServerUrl(server, baseUrl);
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (!response) throw lastError instanceof Error ? lastError : new Error('Élise is unreachable');
   if (!response.ok) throw new Error(String(response.status));
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;

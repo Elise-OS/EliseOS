@@ -227,19 +227,18 @@ describe('structural home understanding', () => {
     expect(html).toContain('Rez-de-chaussée');
     expect(html).toContain('1er étage');
     expect(html).toContain('Couloir partage un mur avec Cuisine');
-    expect(html).toContain('Une porte permet de passer de Couloir à Cuisine');
-    expect(html).toContain('L’entrée principale donne dans Couloir');
+    expect(html).not.toContain('Une porte permet de passer de Couloir à Cuisine');
+    expect(html).not.toContain('L’entrée principale donne dans Couloir');
     expect(html).toContain('Un escalier monte de Couloir vers Salon');
-    expect(html).toContain('Couloir communique directement avec Cuisine, sans porte');
+    expect(html).toContain('Couloir est relié à Cuisine');
     expect(html).toContain('environ 12 m² dessinés');
   });
 
   it('moves persistent element labels into a legend below the map', () => {
     const html = renderToStaticMarkup(<PlanLegend plan={plan} floor={plan.levels[0]!} />);
     expect(html).toContain('Légende');
-    expect(html).toContain('Porte');
-    expect(html).toContain('Passage ouvert');
-    expect(html).toContain('Entrée principale');
+    expect(html).not.toContain('Passage ouvert');
+    expect(html).not.toContain('Entrée principale');
     expect(html).toContain('Escalier');
   });
 

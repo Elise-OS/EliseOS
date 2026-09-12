@@ -32,6 +32,9 @@ import { HomePlanController } from './modules/household/home-plan.controller';
 import { HomePlanService } from './modules/household/home-plan.service';
 import { PeopleController } from './modules/household/people.controller';
 import { PeopleService } from './modules/household/people.service';
+import { RemoteAccessController } from './modules/remote-access/remote-access.controller';
+import { RemoteAccessService } from './modules/remote-access/remote-access.service';
+import { RemoteAccessAgentClient } from './modules/remote-access/remote-access-agent.client';
 
 @Module({
   controllers: [
@@ -50,6 +53,7 @@ import { PeopleService } from './modules/household/people.service';
     SensorsController,
     HomePlanController,
     PeopleController,
+    RemoteAccessController,
   ],
   providers: [
     PrismaService,
@@ -71,6 +75,8 @@ import { PeopleService } from './modules/household/people.service';
     SensorsService,
     HomePlanService,
     PeopleService,
+    RemoteAccessService,
+    RemoteAccessAgentClient,
   ],
 })
 export class AppModule {}

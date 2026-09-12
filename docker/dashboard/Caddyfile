@@ -1,29 +1,4 @@
-:8080 {
-  encode zstd gzip
-
-  @remote_bootstrap {
-    path /api/v1/auth/bootstrap /api/v1/auth/bootstrap-equipment
-    not remote_ip private_ranges
-  }
-  respond @remote_bootstrap "La configuration d’Élise est disponible uniquement sur le réseau local." 403
-
-  handle /api/* {
-    reverse_proxy api:3000
-  }
-
-  handle_path /camera-media/* {
-    forward_auth api:3000 {
-      uri /api/v1/cameras/media-auth?ticket={query.ticket}&src={query.src}&talk={query.talk}&path={http.request.uri.path}
-    }
-    reverse_proxy go2rtc:1984
-  }
-
-  handle {
-    root * /srv
-    try_files {path} /index.html
-    file_server
-  }
-
+(elise_security_headers) {
   header {
     X-Content-Type-Options nosniff
     X-Frame-Options SAMEORIGIN
@@ -31,4 +6,67 @@
     Permissions-Policy "camera=(), microphone=(self), geolocation=()"
     Content-Security-Policy "default-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data: blob:; media-src 'self' blob:; frame-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'"
   }
+}
+
+(elise_static) {
+  @sensor_product_images path /sensor-products/*
+  header @sensor_product_images Cache-Control "public, max-age=604800"
+  handle {
+    root * /srv
+    try_files {path} /index.html
+    file_server
+  }
+}
+
+:8080 {
+  encode zstd gzip
+  handle /api/* {
+    reverse_proxy api:3000 {
+      header_up X-Elise-Gateway local
+      header_up X-Forwarded-Proto {scheme}
+    }
+  }
+  handle_path /camera-media/* {
+    forward_auth api:3000 {
+      uri /api/v1/cameras/media-auth?ticket={query.ticket}&src={query.src}&talk={query.talk}&path={http.request.uri.path}
+      header_up X-Elise-Gateway local
+    }
+    reverse_proxy go2rtc:1984
+  }
+  import elise_static
+  import elise_security_headers
+}
+
+# Compose publishes this listener on host loopback only. Tailscale Serve is the
+# sole network entry point and terminates private HTTPS on port 8443.
+:8081 {
+  encode zstd gzip
+  @remote_forbidden {
+    path /api/v1/auth/bootstrap /api/v1/auth/bootstrap-equipment /api/docs*
+  }
+  handle @remote_forbidden {
+    respond "Cette fonction est disponible uniquement au domicile." 403
+  }
+  @remote_access_changes {
+    method POST PUT PATCH DELETE
+    path /api/v1/remote-access/*
+  }
+  handle @remote_access_changes {
+    respond "L’accès à distance se règle uniquement au domicile." 403
+  }
+  handle /api/* {
+    reverse_proxy api:3000 {
+      header_up X-Elise-Gateway remote
+      header_up X-Forwarded-Proto https
+    }
+  }
+  handle_path /camera-media/* {
+    forward_auth api:3000 {
+      uri /api/v1/cameras/media-auth?ticket={query.ticket}&src={query.src}&talk={query.talk}&path={http.request.uri.path}
+      header_up X-Elise-Gateway remote
+    }
+    reverse_proxy go2rtc:1984
+  }
+  import elise_static
+  import elise_security_headers
 }

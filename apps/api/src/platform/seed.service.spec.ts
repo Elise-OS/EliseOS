@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- Vitest asymmetric matchers use `any`. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SeedService } from './seed.service';
 
@@ -5,11 +6,14 @@ vi.mock('@node-rs/argon2', () => ({ hash: vi.fn().mockResolvedValue('demo-passwo
 
 function createPrisma(organizationCount = 0) {
   const create = () =>
-    vi.fn(async ({ data }: { data: { id?: string } }) => ({
-      ...data,
-      id: data.id ?? 'generated-id',
-    }));
-  const createMany = () => vi.fn(async ({ data }: { data: unknown[] }) => ({ count: data.length }));
+    vi.fn(({ data }: { data: { id?: string } }) =>
+      Promise.resolve({
+        ...data,
+        id: data.id ?? 'generated-id',
+      }),
+    );
+  const createMany = () =>
+    vi.fn(({ data }: { data: unknown[] }) => Promise.resolve({ count: data.length }));
   const tx = {
     organization: { create: vi.fn().mockResolvedValue({ id: 'org_demo' }) },
     home: {

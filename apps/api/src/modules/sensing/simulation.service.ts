@@ -15,8 +15,7 @@ export class SimulationService {
   ) {}
 
   public list() {
-    this.assertEnabled();
-    return SIMULATION_SCENARIO_INFO;
+    return this.enabled() ? SIMULATION_SCENARIO_INFO : [];
   }
 
   public async run(userId: string, scenario: SimulationScenario, runId: string, now = new Date()) {
@@ -51,8 +50,12 @@ export class SimulationService {
   }
 
   private assertEnabled(): void {
-    if (process.env.MICHEL_SIMULATION_MODE !== 'true' && process.env.MICHEL_DEMO_MODE !== 'true') {
+    if (!this.enabled()) {
       throw new NotFoundException('Simulation is not enabled');
     }
+  }
+
+  private enabled(): boolean {
+    return process.env.MICHEL_SIMULATION_MODE === 'true' || process.env.MICHEL_DEMO_MODE === 'true';
   }
 }

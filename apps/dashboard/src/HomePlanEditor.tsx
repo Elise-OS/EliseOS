@@ -51,6 +51,7 @@ import { RoomEquipmentPage } from './RoomEquipmentPage';
 import { retireFurniture } from '@michel/contracts';
 import { sensorRequest } from './sensor-ui';
 import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';
+import { DataLoadingScreen } from './DataLoadingScreen';
 
 type Sensor = {
   id: string;
@@ -643,7 +644,6 @@ export function HomePlanEditor({
   const [pendingConnection, setPendingConnection] = useState<{
     sourceRoomId: string;
     targetRoomId: string;
-    doorRoomId: string;
     point: Point;
     rotation: number;
   } | null>(null);
@@ -778,17 +778,6 @@ export function HomePlanEditor({
   const selectedRoom = currentFloor?.rooms.find((room) => room.id === selectedRoomId) ?? null;
   const selectedOpening =
     currentFloor?.openings.find((opening) => opening.id === selectedOpeningId) ?? null;
-  const pendingConnectionRooms =
-    currentFloor && pendingConnection
-      ? currentFloor.rooms.filter(({ id }) =>
-          [pendingConnection.sourceRoomId, pendingConnection.targetRoomId].includes(id),
-        )
-      : [];
-  const doorHostRooms =
-    pendingConnectionRooms.some(({ kind }) => kind === 'HALLWAY') &&
-    pendingConnectionRooms.some(({ kind }) => kind !== 'HALLWAY')
-      ? pendingConnectionRooms.filter(({ kind }) => kind !== 'HALLWAY')
-      : pendingConnectionRooms;
   const editingRoom = plan?.levels
     .flatMap(({ rooms }) => rooms)
     .find(({ id }) => id === editingRoomId);
@@ -1078,52 +1067,38 @@ export function HomePlanEditor({
       Math.abs(sourceEdge.x - sourceBox.x - sourceBox.width) < 2
         ? 90
         : 0;
-    const preferredDoorRoom =
-      source.kind === 'HALLWAY' && target.kind !== 'HALLWAY'
-        ? target
-        : target.kind === 'HALLWAY' && source.kind !== 'HALLWAY'
-          ? source
-          : target;
     setPendingConnection({
       sourceRoomId: source.id,
       targetRoomId: target.id,
-      doorRoomId: preferredDoorRoom.id,
       point: shared
         ? { x: snap(shared.x), y: snap(shared.y) }
         : { x: snap(sourceEdge.x), y: snap(sourceEdge.y) },
       rotation: shared?.rotation ?? logicalRotation,
     });
   };
-  const confirmConnection = (kind: 'DOOR' | 'PASSAGE') => {
+  const confirmConnection = () => {
     if (!pendingConnection || !currentFloor) return;
     const source = currentFloor.rooms.find(({ id }) => id === pendingConnection.sourceRoomId);
     const target = currentFloor.rooms.find(({ id }) => id === pendingConnection.targetRoomId);
-    const doorRoom = currentFloor.rooms.find(({ id }) => id === pendingConnection.doorRoomId);
-    const otherRoom =
-      doorRoom?.id === source?.id ? target : doorRoom?.id === target?.id ? source : undefined;
-    const doorWall = doorRoom && otherRoom ? closestWall(center(otherRoom), [doorRoom]) : null;
     commit((draft) => {
       draft.levels
         .find(({ id }) => id === currentFloor.id)!
         .openings.push({
-          id: uid('door'),
-          kind,
+          id: uid('link'),
+          kind: 'PASSAGE',
           roomIds: [pendingConnection.sourceRoomId, pendingConnection.targetRoomId],
-          x: kind === 'DOOR' && doorWall ? snap(doorWall.point.x) : pendingConnection.point.x,
-          y: kind === 'DOOR' && doorWall ? snap(doorWall.point.y) : pendingConnection.point.y,
-          width: kind === 'DOOR' ? 90 : 130,
-          rotation: kind === 'DOOR' && doorWall ? doorWall.rotation : pendingConnection.rotation,
+          x: pendingConnection.point.x,
+          y: pendingConnection.point.y,
+          width: 130,
+          rotation: pendingConnection.rotation,
           isMainEntrance: false,
           logical: !sharedWallPoint(source!, target!),
-          hostRoomId: kind === 'DOOR' ? doorRoom?.id : undefined,
         });
     });
     setSelectedRoomId(pendingConnection.targetRoomId);
     setSelectedOpeningId(null);
     setPendingConnection(null);
-    setMessage(
-      `${source?.name} est maintenant relié à ${target?.name}${kind === 'PASSAGE' ? ' par un passage ouvert' : ' par une porte'}.`,
-    );
+    setMessage(`${source?.name} est maintenant relié à ${target?.name}.`);
   };
   const moveStairAnchor = (at: Point) => {
     const drag = stairDrag.current;
@@ -1732,10 +1707,13 @@ export function HomePlanEditor({
   };
 
   if (!plan || !currentFloor)
-    return (
-      <div className="home-plan-loading">
-        {saveState === 'ERROR' ? message : 'Chargement du logement…'}
-      </div>
+    return saveState === 'ERROR' ? (
+      <div className="home-plan-loading">{message}</div>
+    ) : (
+      <DataLoadingScreen
+        locale={locale}
+        message={locale === 'fr' ? 'Chargement de votre logement…' : 'Loading your home…'}
+      />
     );
 
   const setupDraft = shouldRunHomeSetup({
@@ -1803,7 +1781,14 @@ export function HomePlanEditor({
         plan={plan}
         devices={sensorDevices}
         locale={locale}
-        onBack={() => setEditingRoomId(null)}
+        onBack={() => {
+          if (initialRoomId && onBack) {
+            onBack();
+            return;
+          }
+          setEditingRoomId(null);
+        }}
+        onEditPlan={() => setEditingRoomId(null)}
         onPlanSaved={(saved) => {
           setPlan(normalizePlan(saved));
           setHistory([]);
@@ -1978,21 +1963,6 @@ export function HomePlanEditor({
           >
             <MoveHorizontal /> Couloir
           </button>
-          <button className={tool === 'DOOR' ? 'active' : ''} onClick={() => setTool('DOOR')}>
-            <DoorOpen /> Porte
-          </button>
-          <button
-            className={tool === 'MAIN_ENTRANCE' ? 'active' : ''}
-            onClick={() => {
-              setTool('MAIN_ENTRANCE');
-              setMessage('Touchez un mur extérieur pour placer l’entrée principale.');
-            }}
-          >
-            <DoorOpen /> Entrée principale
-          </button>
-          <button className={tool === 'WINDOW' ? 'active' : ''} onClick={() => setTool('WINDOW')}>
-            <Waves /> Fenêtre
-          </button>
           <button
             className={tool === 'CONNECT' ? 'active' : ''}
             onClick={() => {
@@ -2074,30 +2044,13 @@ export function HomePlanEditor({
             </defs>
             <rect width="100%" height="100%" fill="url(#plan-grid)" data-plan-background="true" />
             {currentFloor.openings
-              .filter(
-                ({ kind, roomIds }) =>
-                  (kind === 'DOOR' || kind === 'PASSAGE') && roomIds.length === 2,
-              )
+              .filter(({ kind, roomIds }) => kind === 'PASSAGE' && roomIds.length === 2)
               .map((opening) => {
                 const from = currentFloor.rooms.find(({ id }) => id === opening.roomIds[0]);
                 const to = currentFloor.rooms.find(({ id }) => id === opening.roomIds[1]);
                 if (!from || !to) return null;
-                const inferredHostRoomId =
-                  opening.hostRoomId ??
-                  (from.kind === 'HALLWAY' && to.kind !== 'HALLWAY'
-                    ? to.id
-                    : to.kind === 'HALLWAY' && from.kind !== 'HALLWAY'
-                      ? from.id
-                      : to.id);
-                const doorPoint = { x: opening.x, y: opening.y };
-                const start =
-                  opening.kind === 'DOOR' && inferredHostRoomId === from.id
-                    ? doorPoint
-                    : roomEdgeToward(from, opening.kind === 'DOOR' ? doorPoint : center(to));
-                const end =
-                  opening.kind === 'DOOR' && inferredHostRoomId === to.id
-                    ? doorPoint
-                    : roomEdgeToward(to, opening.kind === 'DOOR' ? doorPoint : center(from));
+                const start = roomEdgeToward(from, center(to));
+                const end = roomEdgeToward(to, center(from));
                 const horizontal = Math.abs(end.x - start.x) >= Math.abs(end.y - start.y);
                 const bend = Math.max(
                   45,
@@ -2246,36 +2199,6 @@ export function HomePlanEditor({
                 </g>
               );
             })}
-            {currentFloor.openings.map((opening) => (
-              <g
-                key={opening.id}
-                className={`plan-opening ${opening.kind.toLowerCase()} ${opening.isMainEntrance ? 'main-entrance' : ''} ${selectedOpeningId === opening.id ? 'selected' : ''}`}
-                onPointerDown={(event) => {
-                  if (mode !== 'EDIT') return;
-                  event.stopPropagation();
-                  setSelectedOpeningId(opening.id);
-                  setSelectedRoomId(null);
-                  setSelectedPlacementId(null);
-                  setMovingOpeningId(null);
-                }}
-              >
-                <line
-                  className="opening-hit-area"
-                  x1={opening.x - Math.max(60, opening.width / 2)}
-                  y1={opening.y}
-                  x2={opening.x + Math.max(60, opening.width / 2)}
-                  y2={opening.y}
-                  transform={`rotate(${opening.rotation} ${opening.x} ${opening.y})`}
-                />
-                <line
-                  x1={opening.x - opening.width / 2}
-                  y1={opening.y}
-                  x2={opening.x + opening.width / 2}
-                  y2={opening.y}
-                  transform={`rotate(${opening.rotation} ${opening.x} ${opening.y})`}
-                />
-              </g>
-            ))}
             {tool !== 'CONNECT' &&
               plan.levels
                 .flatMap(({ stairs }) => stairs)
@@ -2560,48 +2483,23 @@ export function HomePlanEditor({
         <div className="plan-confirm-backdrop" role="presentation">
           <div className="plan-confirm-modal" role="dialog" aria-modal="true">
             <span className="understanding-icon route">
-              <DoorOpen />
+              <MoveHorizontal />
             </span>
             <div>
-              <span className="eyebrow">Créer un passage</span>
-              <h3>Comment communiquent ces deux pièces ?</h3>
+              <span className="eyebrow">Compréhension du plan</span>
+              <h3>Relier ces deux pièces ?</h3>
               <p>
                 {currentFloor.rooms.find(({ id }) => id === pendingConnection.sourceRoomId)?.name} →{' '}
                 {currentFloor.rooms.find(({ id }) => id === pendingConnection.targetRoomId)?.name}
               </p>
             </div>
-            <div className="door-side-choice">
-              <strong>La porte sera placée sur le mur de :</strong>
-              <div>
-                {doorHostRooms.map((room) => (
-                  <button
-                    key={room.id}
-                    className={pendingConnection.doorRoomId === room.id ? 'active' : ''}
-                    onClick={() =>
-                      setPendingConnection((current) =>
-                        current ? { ...current, doorRoomId: room.id } : current,
-                      )
-                    }
-                  >
-                    {room.name}
-                  </button>
-                ))}
-              </div>
-              {doorHostRooms.length === 1 && (
-                <small>
-                  Une porte donnant sur un couloir appartient automatiquement à la pièce.
-                </small>
-              )}
-            </div>
+            <p>Élise saura simplement que ces deux pièces communiquent.</p>
             <footer>
               <button className="secondary" onClick={() => setPendingConnection(null)}>
                 Annuler
               </button>
-              <button className="passage" onClick={() => confirmConnection('PASSAGE')}>
-                <MoveHorizontal /> Passage ouvert
-              </button>
-              <button className="primary" onClick={() => confirmConnection('DOOR')}>
-                <DoorOpen /> Ajouter la porte
+              <button className="primary" onClick={confirmConnection}>
+                <Link2 /> Relier les pièces
               </button>
             </footer>
           </div>
@@ -2673,51 +2571,16 @@ export function HomePlanEditor({
 
 export function PlanLegend({ plan, floor }: { plan: HomePlan; floor: FloorLayout }) {
   const floorPlacements = plan.placements.filter(({ floorId }) => floorId === floor.id);
-  const hasDoor = floor.openings.some(
-    ({ kind, isMainEntrance }) => kind === 'DOOR' && !isMainEntrance,
-  );
-  const hasMainEntrance = floor.openings.some(({ isMainEntrance }) => isMainEntrance);
-  const hasPassage = floor.openings.some(({ kind }) => kind === 'PASSAGE');
-  const hasWindow = floor.openings.some(({ kind }) => kind === 'WINDOW');
   const hasStair = plan.levels
     .flatMap(({ stairs }) => stairs)
     .some(({ fromFloorId, toFloorId }) => fromFloorId === floor.id || toFloorId === floor.id);
   const hasSensor = floorPlacements.some(({ kind }) => kind === 'SENSOR');
   const hasCamera = floorPlacements.some(({ kind }) => kind === 'CAMERA');
-  if (
-    !hasDoor &&
-    !hasMainEntrance &&
-    !hasPassage &&
-    !hasWindow &&
-    !hasStair &&
-    !hasSensor &&
-    !hasCamera
-  )
-    return null;
+  if (!hasStair && !hasSensor && !hasCamera) return null;
   return (
     <aside className="plan-legend" aria-label="Légende du plan">
       <strong>Légende</strong>
       <div>
-        {hasDoor && (
-          <span>
-            <i className="legend-line door" /> Porte
-          </span>
-        )}
-        {hasPassage && (
-          <span>
-            <i className="legend-line passage" /> Passage ouvert
-          </span>
-        )}
-        {hasMainEntrance && (
-          <span>
-            <i className="legend-line entrance" /> Entrée principale
-          </span>
-        )}
-        {hasWindow && (
-          <span>
-            <i className="legend-line window" /> Fenêtre
-          </span>
-        )}
         {hasStair && (
           <span>
             <i className="legend-stair">⌃</i> Escalier
@@ -2773,12 +2636,8 @@ export function PlanUnderstandingPanel({
     group.add(neighbour);
     adjacencyGroups.set(owner, group);
   }
-  const doorConnections = plan.connections.filter(({ kind }) => kind === 'DOOR');
-  const openPassages = plan.connections.filter(({ kind }) => kind === 'PASSAGE');
+  const roomLinks = plan.connections.filter(({ kind }) => kind === 'DOOR' || kind === 'PASSAGE');
   const stairs = plan.levels.flatMap(({ stairs }) => stairs);
-  const mainEntrance = plan.levels
-    .flatMap(({ openings }) => openings)
-    .find(({ isMainEntrance }) => isMainEntrance);
   const issueCount =
     plan.understanding.isolatedRoomIds.length +
     plan.understanding.adjacentWithoutPassage.length +
@@ -2903,33 +2762,13 @@ export function PlanUnderstandingPanel({
                 </span>
               </button>
             ))}
-            {mainEntrance?.roomIds[0] && (
-              <button onClick={() => onFocusRoom(mainEntrance.roomIds[0]!)}>
-                <DoorOpen />
-                <span>
-                  {locale === 'fr'
-                    ? `L’entrée principale donne dans ${roomName(mainEntrance.roomIds[0])}.`
-                    : `The main entrance opens into ${roomName(mainEntrance.roomIds[0])}.`}
-                </span>
-              </button>
-            )}
-            {doorConnections.map((connection) => (
-              <button key={connection.id} onClick={() => onFocusRoom(connection.fromRoomId)}>
-                <DoorOpen />
-                <span>
-                  {locale === 'fr'
-                    ? `Une porte permet de passer de ${roomName(connection.fromRoomId)} à ${roomName(connection.toRoomId)}.`
-                    : `A door connects ${roomName(connection.fromRoomId)} to ${roomName(connection.toRoomId)}.`}
-                </span>
-              </button>
-            ))}
-            {openPassages.map((connection) => (
+            {roomLinks.map((connection) => (
               <button key={connection.id} onClick={() => onFocusRoom(connection.fromRoomId)}>
                 <MoveHorizontal />
                 <span>
                   {locale === 'fr'
-                    ? `${roomName(connection.fromRoomId)} communique directement avec ${roomName(connection.toRoomId)}, sans porte.`
-                    : `${roomName(connection.fromRoomId)} opens directly into ${roomName(connection.toRoomId)}, without a door.`}
+                    ? `${roomName(connection.fromRoomId)} est relié à ${roomName(connection.toRoomId)}.`
+                    : `${roomName(connection.fromRoomId)} is linked to ${roomName(connection.toRoomId)}.`}
                 </span>
               </button>
             ))}
@@ -2972,8 +2811,8 @@ export function PlanUnderstandingPanel({
               <button key={`missing-${first}-${second}`} onClick={() => onFocusRoom(first)}>
                 <AlertTriangle />{' '}
                 {locale === 'fr'
-                  ? `${roomName(first)} et ${roomName(second)} sont accolées, mais aucun passage n’est indiqué.`
-                  : `${roomName(first)} and ${roomName(second)} touch, but no passage is marked.`}
+                  ? `${roomName(first)} et ${roomName(second)} sont accolées, mais aucune liaison n’est indiquée.`
+                  : `${roomName(first)} and ${roomName(second)} touch, but no link is defined.`}
               </button>
             ))}
             {plan.understanding.nearAdjacencyIds.map((adjacencyId) => {

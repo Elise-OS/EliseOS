@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   assembleFloorForOverview,
   getCoverageStatus,
+  homeRealtimeEventAction,
+  locatePlanRoom,
   roomAreaM2,
   roomIconKey,
   summarizeHome,
@@ -114,6 +116,13 @@ const device = (id: string, physicalDeviceId: string, capability: string): Senso
 });
 
 describe('home overview', () => {
+  it('ignores SSE keepalives and updates presence without refreshing the full page', () => {
+    expect(homeRealtimeEventAction('{"type":"connected"}')).toBe('IGNORE');
+    expect(homeRealtimeEventAction('{"type":"heartbeat"}')).toBe('IGNORE');
+    expect(homeRealtimeEventAction('{"type":"presence"}')).toBe('PRESENCE');
+    expect(homeRealtimeEventAction('{"type":"household"}')).toBe('REFRESH');
+    expect(homeRealtimeEventAction('invalid')).toBe('REFRESH');
+  });
   it('uses the room type icon and infers a useful icon for legacy Other rooms', () => {
     expect(roomIconKey({ kind: 'LIVING_ROOM', name: 'Pièce principale' })).toBe('LIVING_ROOM');
     expect(roomIconKey({ kind: 'OTHER', name: 'Cuisine' })).toBe('KITCHEN');
@@ -126,6 +135,15 @@ describe('home overview', () => {
     room.geometry.points = room.geometry.points.map(({ x, y }) => ({ x: x * 2, y: y * 2 }));
 
     expect(roomAreaM2(room)).toBe(18.5);
+  });
+
+  it('locates the floor that contains the detected presence room', () => {
+    expect(locatePlanRoom(plan, 'living')).toMatchObject({
+      level: { id: 'ground' },
+      room: { id: 'living', name: 'Salon' },
+    });
+    expect(locatePlanRoom(plan, 'missing-room')).toBeNull();
+    expect(locatePlanRoom(plan, null)).toBeNull();
   });
 
   it('assembles rooms connected by a logical door without changing the saved floor', () => {
@@ -248,6 +266,37 @@ describe('home overview', () => {
     expect(result.approximate).toBe(true);
     expect(result.physicalDevices).toBe(1);
     expect(result.activeEquipment).toBe(3);
+  });
+
+  it('does not degrade a working device because a secondary capability is offline', () => {
+    const workingDevice = device('device-1', 'physical-1', 'temperature');
+    workingDevice.capabilities.push({
+      ...workingDevice.capabilities[0]!,
+      sensorId: 'battery-sensor',
+      entityId: 'sensor.device_1_battery',
+      capability: 'battery',
+      label: 'Batterie',
+      primary: false,
+      status: 'OFFLINE',
+    });
+
+    expect(summarizeHome(plan, [workingDevice], []).online).toBe(1);
+    expect(summarizeHome(plan, [workingDevice], []).degraded).toBe(0);
+  });
+
+  it('still reports a device as degraded when one of its primary functions is offline', () => {
+    const degradedDevice = device('device-1', 'physical-1', 'temperature');
+    degradedDevice.capabilities.push({
+      ...degradedDevice.capabilities[0]!,
+      sensorId: 'humidity-sensor',
+      entityId: 'sensor.device_1_humidity',
+      capability: 'humidity',
+      label: 'Humidité',
+      status: 'OFFLINE',
+    });
+
+    expect(summarizeHome(plan, [degradedDevice], []).online).toBe(0);
+    expect(summarizeHome(plan, [degradedDevice], []).degraded).toBe(1);
   });
 
   it('distinguishes complete, partial and missing coverage', () => {

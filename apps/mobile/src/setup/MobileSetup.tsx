@@ -273,10 +273,6 @@ export function MobileSetup({
   const [creationPhase, setCreationPhase] = useState<'form' | 'creating' | 'ready'>('form');
   const [creationStep, setCreationStep] = useState(0);
   const pulse = useRef(new Animated.Value(0)).current;
-  const residentName =
-    draft.dailyName ||
-    draft.residentFirstName ||
-    (locale === 'fr' ? 'le résident' : 'the resident');
   const strength = useMemo(
     () =>
       [

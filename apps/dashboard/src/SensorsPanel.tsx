@@ -48,6 +48,7 @@ import { SensorOnboardingDialog } from './SensorOnboardingDialog';
 import { SensorInstallationGuide } from './SensorInstallationGuide';
 import { HardwareCatalogDialog } from './HardwareCatalogDialog';
 import type { Locale } from './i18n';
+import { sensorDeviceHealthStatus } from './sensor-ui';
 
 type Room = { id: string; name: string; kind: string; floor?: number; sortOrder?: number };
 
@@ -391,9 +392,7 @@ export function SensorsPanel({ locale, rooms }: { locale: Locale; rooms: Room[] 
     const batteryLow = devices.filter(
       (d) => d.batteryPercent !== null && d.batteryPercent <= 20,
     ).length;
-    const offline = devices.filter((d) =>
-      d.capabilities.every((c) => c.status === 'OFFLINE'),
-    ).length;
+    const offline = devices.filter((d) => sensorDeviceHealthStatus(d) === 'OFFLINE').length;
     const unassigned = devices.filter((d) => !d.room).length;
     return {
       total: devices.length,
@@ -428,7 +427,7 @@ export function SensorsPanel({ locale, rooms }: { locale: Locale; rooms: Room[] 
         (device.batteryPercent === null || device.batteryPercent > 20)
       )
         return false;
-      if (activeFilter === 'OFFLINE' && !device.capabilities.every((c) => c.status === 'OFFLINE'))
+      if (activeFilter === 'OFFLINE' && sensorDeviceHealthStatus(device) !== 'OFFLINE')
         return false;
 
       if (roomFilter === 'NONE' && device.room) return false;
@@ -1739,7 +1738,7 @@ function SensorCard({
 }) {
   const Icon = getSensorIcon(device.capabilities);
   const isLowBattery = device.batteryPercent !== null && device.batteryPercent <= 20;
-  const isOffline = device.capabilities.every((c) => c.status === 'OFFLINE');
+  const isOffline = sensorDeviceHealthStatus(device) === 'OFFLINE';
   const liveCapabilities = device.capabilities.filter(
     (capability) =>
       capability.primary &&

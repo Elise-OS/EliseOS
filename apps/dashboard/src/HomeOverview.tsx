@@ -18,22 +18,15 @@ import {
   CircleDot,
   CookingPot,
   DoorOpen,
-  Droplets,
   Eye,
   Footprints,
   Home,
-  Layers3,
   MapPin,
-  Move,
   Plus,
-  PlugZap,
   Radio,
-  Ruler,
   ShieldCheck,
   Sofa,
-  Sparkles,
   Sun,
-  ThermometerSun,
   Toilet,
   Trees,
   Utensils,
@@ -41,7 +34,11 @@ import {
   Wifi,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { HomeSensorOnboardingDialog } from './HomeSensorOnboardingDialog';
+import { COVERAGE_FAMILIES, coverageNeeds } from './coverage-model';
 import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';
+import { sensorDeviceHealthStatus } from './sensor-ui';
+import { DataLoadingScreen } from './DataLoadingScreen';
 
 type HomeInfo = {
   name: string;
@@ -49,6 +46,17 @@ type HomeInfo = {
   address: string | null;
   floorCount: number;
 };
+
+export function homeRealtimeEventAction(data: string): 'IGNORE' | 'PRESENCE' | 'REFRESH' {
+  try {
+    const type = (JSON.parse(data) as { type?: unknown }).type;
+    if (type === 'connected' || type === 'heartbeat') return 'IGNORE';
+    if (type === 'presence') return 'PRESENCE';
+  } catch {
+    // Unknown server events fall back to a full refresh.
+  }
+  return 'REFRESH';
+}
 
 type CameraItem = {
   id: string;
@@ -138,15 +146,17 @@ export const roomAreaM2 = (room: PlanRoom) =>
     }, 0) / 2,
   ) / 10_000;
 
+export function locatePlanRoom(plan: HomePlan, roomId: string | null | undefined) {
+  if (!roomId) return null;
+  for (const level of plan.levels) {
+    const room = level.rooms.find(({ id }) => id === roomId);
+    if (room) return { level, room };
+  }
+  return null;
+}
+
 const deviceState = (device: SensorDevice): 'ONLINE' | 'DEGRADED' | 'OFFLINE' => {
-  const states = device.capabilities.map(({ status }) => status);
-  if (!device.enabled || !states.length || states.every((status) => status === 'OFFLINE'))
-    return 'OFFLINE';
-  if (
-    states.some((status) => status === 'DEGRADED' || status === 'OFFLINE' || status === 'UNKNOWN')
-  )
-    return 'DEGRADED';
-  return 'ONLINE';
+  return sensorDeviceHealthStatus(device);
 };
 
 const capabilityCategory = (capability: string) => {
@@ -396,13 +406,11 @@ export function assembleFloorForOverview(source: FloorLayout): FloorLayout {
 function MiniPlan({
   floor,
   plan,
-  selectedRoomId,
   presence,
   onSelect,
 }: {
   floor: FloorLayout;
   plan: HomePlan;
-  selectedRoomId: string | null;
   presence: PresenceEstimate | null;
   onSelect: (roomId: string) => void;
 }) {
@@ -421,12 +429,11 @@ function MiniPlan({
       <rect width="100%" height="100%" rx="20" fill="url(#overview-grid)" />
       {floor.rooms.map((room) => {
         const center = roomCenter(room);
-        const selected = room.id === selectedRoomId;
         const occupied = room.id === presence?.roomId;
         return (
           <g
             key={room.id}
-            className={`home-overview-room${selected ? ' is-selected' : ''}${occupied ? ' has-presence' : ''}`}
+            className={`home-overview-room${occupied ? ' has-presence' : ''}`}
             onClick={() => onSelect(room.id)}
             role="button"
             tabIndex={0}
@@ -441,21 +448,20 @@ function MiniPlan({
             <text className="room-area" x={center.x} y={center.y + 20} textAnchor="middle">
               {roomAreaM2(room).toFixed(1)} m²
             </text>
-            {occupied && <circle className="presence-dot" cx={center.x} cy={center.y + 45} r="7" />}
+            {occupied && (
+              <g
+                className="presence-marker"
+                transform={`translate(${center.x} ${center.y + 52})`}
+                aria-label={`Présence probable dans ${room.name}`}
+              >
+                <circle className="presence-marker-pulse" cx="0" cy="0" r="24" />
+                <circle className="presence-marker-core" cx="0" cy="0" r="13" />
+                <circle className="presence-marker-center" cx="0" cy="0" r="4" />
+              </g>
+            )}
           </g>
         );
       })}
-      {floor.openings.map((opening) => (
-        <line
-          key={opening.id}
-          className={`home-overview-opening is-${opening.kind.toLowerCase()}`}
-          x1={opening.x - opening.width / 2}
-          y1={opening.y}
-          x2={opening.x + opening.width / 2}
-          y2={opening.y}
-          transform={`rotate(${opening.rotation} ${opening.x} ${opening.y})`}
-        />
-      ))}
       {floor.stairs.map((stair) => {
         const destination = plan.levels.find(({ id }) =>
           stair.fromFloorId === floor.id ? id === stair.toFloorId : id === stair.fromFloorId,
@@ -478,8 +484,6 @@ export function HomeOverview({
   canManage,
   onManage,
   onOpenLivePlan,
-  onOpenSensors,
-  onOpenCameras,
 }: {
   locale: 'fr' | 'en';
   home: HomeInfo | undefined;
@@ -487,8 +491,6 @@ export function HomeOverview({
   canManage: boolean;
   onManage: (roomId?: string) => void;
   onOpenLivePlan: () => void;
-  onOpenSensors: () => void;
-  onOpenCameras: () => void;
 }) {
   const fr = locale === 'fr';
   const [plan, setPlan] = useState<HomePlan | null>(null);
@@ -501,65 +503,96 @@ export function HomeOverview({
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   const [floorId, setFloorId] = useState('');
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [coverageOpen, setCoverageOpen] = useState(false);
+  const [sensorFlowOpen, setSensorFlowOpen] = useState(false);
 
-  const refresh = useCallback(async () => {
-    setCoverageLoading(true);
-    try {
-      const [planResponse, presenceResponse, devicesResponse, coverageResponse, protocolsResponse] =
-        await Promise.all([
+  const refresh = useCallback(
+    async (showLoading = false) => {
+      if (showLoading) setCoverageLoading(true);
+      try {
+        const [
+          planResponse,
+          presenceResponse,
+          devicesResponse,
+          coverageResponse,
+          protocolsResponse,
+        ] = await Promise.all([
           fetch('/api/v1/household/plan', { cache: 'no-store' }),
           fetch('/api/v1/household/presence', { cache: 'no-store' }),
           fetch('/api/v1/sensor-devices', { cache: 'no-store' }),
           fetch('/api/v1/household/plan/equipment-coverage', { cache: 'no-store' }),
           fetch('/api/v1/sensor-devices/protocols', { cache: 'no-store' }),
         ]);
-      if (!planResponse.ok) throw new Error('plan');
-      const nextPlan = (await planResponse.json()) as HomePlan;
-      setPlan(nextPlan);
-      setFloorId((current) =>
-        nextPlan.levels.some(({ id }) => id === current) ? current : (nextPlan.levels[0]?.id ?? ''),
-      );
-      if (presenceResponse.ok) setPresence((await presenceResponse.json()) as PresenceEstimate);
-      if (devicesResponse.ok) setDevices((await devicesResponse.json()) as SensorDevice[]);
-      if (coverageResponse.ok) {
-        setCoverage((await coverageResponse.json()) as EquipmentCoverage);
-        setCoverageError('');
-      } else {
-        setCoverageError(
-          fr
-            ? 'L’analyse des capteurs n’a pas pu être chargée.'
-            : 'The sensor analysis could not be loaded.',
+        if (!planResponse.ok) throw new Error('plan');
+        const nextPlan = (await planResponse.json()) as HomePlan;
+        const nextPresence = presenceResponse.ok
+          ? ((await presenceResponse.json()) as PresenceEstimate)
+          : null;
+        setPlan(nextPlan);
+        setFloorId((current) =>
+          nextPlan.levels.some(({ id }) => id === current)
+            ? current
+            : (locatePlanRoom(nextPlan, nextPresence?.roomId)?.level.id ??
+              nextPlan.levels[0]?.id ??
+              ''),
         );
+        if (nextPresence) setPresence(nextPresence);
+        if (devicesResponse.ok) setDevices((await devicesResponse.json()) as SensorDevice[]);
+        if (coverageResponse.ok) {
+          setCoverage((await coverageResponse.json()) as EquipmentCoverage);
+          setCoverageError('');
+        } else {
+          setCoverageError(
+            fr
+              ? 'L’analyse des capteurs n’a pas pu être chargée.'
+              : 'The sensor analysis could not be loaded.',
+          );
+        }
+        if (protocolsResponse.ok) setProtocols((await protocolsResponse.json()) as Protocol[]);
+        setUnavailable(false);
+      } catch {
+        setUnavailable(true);
+      } finally {
+        setLoading(false);
+        setCoverageLoading(false);
       }
-      if (protocolsResponse.ok) setProtocols((await protocolsResponse.json()) as Protocol[]);
-      setUnavailable(false);
-    } catch {
-      setUnavailable(true);
-    } finally {
-      setLoading(false);
-      setCoverageLoading(false);
-    }
-  }, [fr]);
+    },
+    [fr],
+  );
 
-  useEffect(() => void refresh(), [refresh]);
+  const refreshPresence = useCallback(async () => {
+    const response = await fetch('/api/v1/household/presence', { cache: 'no-store' });
+    if (!response.ok) return;
+    const nextPresence = (await response.json()) as PresenceEstimate;
+    setPresence(nextPresence);
+    const occupiedLevel = plan ? locatePlanRoom(plan, nextPresence.roomId)?.level : null;
+    if (occupiedLevel) setFloorId(occupiedLevel.id);
+  }, [plan]);
+
+  useEffect(() => void refresh(true), [refresh]);
   useEffect(() => {
     const events = new EventSource('/api/v1/events');
-    events.onmessage = () => void refresh();
+    events.onmessage = (event) => {
+      const action = homeRealtimeEventAction(String(event.data));
+      if (action === 'PRESENCE') void refreshPresence();
+      if (action === 'REFRESH') void refresh();
+    };
     return () => events.close();
-  }, [refresh]);
+  }, [refresh, refreshPresence]);
 
   const savedFloor = plan?.levels.find(({ id }) => id === floorId) ?? plan?.levels[0] ?? null;
   const floor = useMemo(
     () => (savedFloor ? assembleFloorForOverview(savedFloor) : null),
     [savedFloor],
   );
-  const selectedRoom = floor?.rooms.find(({ id }) => id === selectedRoomId) ?? null;
   const metrics = useMemo(
     () => (plan ? summarizeHome(plan, devices, cameras) : null),
     [plan, devices, cameras],
   );
+  const activePresenceLocation = plan ? locatePlanRoom(plan, presence?.roomId) : null;
+  const lastPresenceLocation = plan
+    ? locatePlanRoom(plan, presence?.confirmedRoomId ?? presence?.roomId)
+    : null;
   const unassignedDevices = devices.filter(({ room }) => !room).length;
   const unassignedCameras = cameras.filter(({ room }) => !room).length;
   const essentialMissing = coverage.recommendations.filter(
@@ -592,78 +625,44 @@ export function HomeOverview({
         ? 'Opérationnel'
         : 'Operational';
   const statusClass = equipmentProblems ? 'attention' : completionProblems ? 'incomplete' : 'ready';
-  const areaLabel = new Intl.NumberFormat(fr ? 'fr-FR' : 'en-US', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(metrics?.area ?? 0);
-
-  const coverageCards = plan
-    ? [
-        { id: 'presence', label: fr ? 'Présence et mouvement' : 'Presence and motion', icon: Move },
-        { id: 'entrance', label: fr ? 'Entrée principale' : 'Main entrance', icon: DoorOpen },
-        {
-          id: 'climate',
-          label: fr ? 'Température et humidité' : 'Temperature and humidity',
-          icon: ThermometerSun,
-        },
-        { id: 'water', label: fr ? 'Points d’eau' : 'Water points', icon: Droplets },
-        {
-          id: 'electric',
-          label: fr ? 'Appareils électriques' : 'Electrical appliances',
-          icon: PlugZap,
-        },
-      ].map((item) => ({ ...item, status: getCoverageStatus(item.id, plan, devices, coverage) }))
-    : [];
-
-  const roomPlacements =
-    selectedRoom && plan ? plan.placements.filter(({ roomId }) => roomId === selectedRoom.id) : [];
-  const roomCameras = selectedRoom
-    ? cameras.filter(({ room }) => room?.id === selectedRoom.id)
-    : [];
-  const roomOpenings =
-    selectedRoom && floor
-      ? floor.openings.filter(({ roomIds }) => roomIds.includes(selectedRoom.id))
-      : [];
-  const roomPassages =
-    selectedRoom && plan
-      ? plan.connections.filter(
-          ({ fromRoomId, toRoomId }) =>
-            fromRoomId === selectedRoom.id || toRoomId === selectedRoom.id,
-        ).length
-      : 0;
-  const roomEquipmentIds = new Set(
-    roomPlacements.filter(({ kind }) => kind === 'SENSOR').map(({ equipmentId }) => equipmentId),
-  );
-  const roomDevices = selectedRoom
-    ? devices.filter(
-        (device) => device.room?.id === selectedRoom.id || roomEquipmentIds.has(device.id),
-      )
-    : [];
+  const coverageCards = COVERAGE_FAMILIES.map((family) => {
+    const needs = family.types.flatMap((type) => coverageNeeds(type, coverage, plan, devices));
+    const covered = needs.filter((need) => need.covered).length;
+    return {
+      label: fr ? family.label : family.labelEn,
+      text: needs.length
+        ? covered + '/' + needs.length + (fr ? ' équipés' : ' equipped')
+        : fr
+          ? 'À découvrir'
+          : 'Explore',
+    };
+  });
 
   if (loading)
     return (
-      <div className="home-overview-loading">
-        {fr ? 'Préparation de votre logement…' : 'Preparing your home…'}
-      </div>
+      <DataLoadingScreen
+        locale={locale}
+        message={fr ? 'Préparation de votre logement…' : 'Preparing your home…'}
+      />
     );
 
   return (
     <section className="home-overview-page">
       <header className="home-overview-hero">
-        <div>
-          <span className="eyebrow">{fr ? 'Vue d’ensemble' : 'Overview'}</span>
-          <h2>{home?.name ?? (fr ? 'Mon logement' : 'My home')}</h2>
-          <p className="home-overview-address">
-            <MapPin />
-            {home?.address || (fr ? 'Adresse à renseigner' : 'Address not provided')}
-          </p>
-          <div className="home-overview-meta">
-            <span>
-              {homeTypeLabels[home?.type ?? ''] ?? home?.type ?? (fr ? 'Logement' : 'Home')}
-            </span>
-            <span className={`home-overview-status ${statusClass}`}>
-              <CircleDot /> {overallStatus}
-            </span>
+        <div className="home-overview-hero-copy">
+          <div>
+            <span className="eyebrow">{fr ? 'Vue d’ensemble' : 'Overview'}</span>
+            <h2>{home?.name ?? (fr ? 'Mon logement' : 'My home')}</h2>
+            <div className="home-overview-meta">
+              <span>
+                {homeTypeLabels[home?.type ?? ''] ?? home?.type ?? (fr ? 'Logement' : 'Home')}
+              </span>
+              {equipmentProblems === 0 && (
+                <span className={`home-overview-status ${statusClass}`}>
+                  <CircleDot /> {overallStatus}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div className="home-overview-actions">
@@ -671,18 +670,17 @@ export function HomeOverview({
             {canManage ? <Home /> : <Eye />}
             {canManage
               ? fr
-                ? 'Gérer mon logement'
+                ? 'Modifier mon logement'
                 : 'Manage my home'
               : fr
                 ? 'Voir le plan en direct'
                 : 'View live plan'}
           </button>
-          <button onClick={onOpenSensors}>
-            <Radio /> {fr ? 'Capteurs' : 'Sensors'}
-          </button>
-          <button onClick={onOpenCameras}>
-            <Camera /> {fr ? 'Caméras' : 'Cameras'}
-          </button>
+          {canManage && (
+            <button className="add-sensor" onClick={() => setSensorFlowOpen(true)}>
+              <Plus /> {fr ? 'Ajouter un capteur' : 'Add a sensor'}
+            </button>
+          )}
         </div>
       </header>
 
@@ -701,46 +699,10 @@ export function HomeOverview({
                 : 'Other home information remains available.'}
             </p>
           </div>
-          <button onClick={() => void refresh()}>{fr ? 'Réessayer' : 'Try again'}</button>
+          <button onClick={() => void refresh(true)}>{fr ? 'Réessayer' : 'Try again'}</button>
         </div>
       ) : (
         <>
-          <div className="home-overview-metrics">
-            <article>
-              <Layers3 />
-              <span>{fr ? 'Niveaux' : 'Levels'}</span>
-              <strong>{metrics.levels}</strong>
-            </article>
-            <article>
-              <Home />
-              <span>{fr ? 'Pièces' : 'Rooms'}</span>
-              <strong>{metrics.rooms}</strong>
-            </article>
-            <article>
-              <Ruler />
-              <span>{fr ? 'Surface' : 'Area'}</span>
-              <strong className="home-overview-area-value">
-                {metrics.approximate ? '≈ ' : ''}
-                {areaLabel} m²
-              </strong>
-            </article>
-            <article>
-              <Radio />
-              <span>{fr ? 'Capteurs' : 'Sensors'}</span>
-              <strong>{metrics.physicalDevices}</strong>
-            </article>
-            <article>
-              <Camera />
-              <span>{fr ? 'Caméras' : 'Cameras'}</span>
-              <strong>{cameras.length}</strong>
-            </article>
-            <article>
-              <ShieldCheck />
-              <span>{fr ? 'Actifs' : 'Active'}</span>
-              <strong>{metrics.activeEquipment}</strong>
-            </article>
-          </div>
-
           <div className="home-overview-main-grid">
             <article className="home-overview-plan-card">
               <header>
@@ -748,9 +710,6 @@ export function HomeOverview({
                   <span className="eyebrow">{fr ? 'Plan interactif' : 'Interactive plan'}</span>
                   <h3>{fr ? 'Votre logement en un coup d’œil' : 'Your home at a glance'}</h3>
                 </div>
-                <button onClick={onOpenLivePlan}>
-                  {fr ? 'Ouvrir en grand' : 'Open full view'} <ArrowRight />
-                </button>
               </header>
               <div className="home-overview-floor-tabs" role="tablist">
                 {[...plan.levels]
@@ -761,7 +720,6 @@ export function HomeOverview({
                       className={floor?.id === level.id ? 'active' : ''}
                       onClick={() => {
                         setFloorId(level.id);
-                        setSelectedRoomId(null);
                       }}
                     >
                       {level.name}
@@ -770,105 +728,32 @@ export function HomeOverview({
               </div>
               <div className="home-overview-plan-layout">
                 {floor && (
-                  <MiniPlan
-                    floor={floor}
-                    plan={plan}
-                    selectedRoomId={selectedRoomId}
-                    presence={presence}
-                    onSelect={setSelectedRoomId}
-                  />
+                  <MiniPlan floor={floor} plan={plan} presence={presence} onSelect={onManage} />
                 )}
-                <aside className="home-overview-room-detail">
-                  {selectedRoom ? (
-                    <>
-                      <span className="eyebrow">{fr ? 'Pièce sélectionnée' : 'Selected room'}</span>
-                      <h4>{selectedRoom.name}</h4>
-                      <p>
-                        {roomKindLabels[selectedRoom.kind] ?? selectedRoom.kind} ·{' '}
-                        {roomAreaM2(selectedRoom).toFixed(1)} m²
-                      </p>
-                      <dl>
-                        <div>
-                          <dt>{fr ? 'Portes et fenêtres' : 'Doors and windows'}</dt>
-                          <dd>{roomOpenings.length}</dd>
-                        </div>
-                        <div>
-                          <dt>{fr ? 'Passages' : 'Passages'}</dt>
-                          <dd>{roomPassages}</dd>
-                        </div>
-                        <div>
-                          <dt>{fr ? 'Capteurs' : 'Sensors'}</dt>
-                          <dd>{roomPlacements.filter(({ kind }) => kind === 'SENSOR').length}</dd>
-                        </div>
-                        <div>
-                          <dt>{fr ? 'Caméras' : 'Cameras'}</dt>
-                          <dd>{roomCameras.length}</dd>
-                        </div>
-                      </dl>
-                      {presence?.roomId === selectedRoom.id && (
-                        <div className="home-overview-presence">
-                          <CircleDot />
-                          <div>
-                            <strong>
-                              {presence.state === 'AMBIGUOUS'
-                                ? fr
-                                  ? 'Plusieurs présences possibles'
-                                  : 'Multiple possible presences'
-                                : fr
-                                  ? 'Présence probable'
-                                  : 'Probable presence'}
-                            </strong>
-                            <span>
-                              {presence.durationSeconds !== null
-                                ? `${fr ? 'depuis' : 'for'} ${Math.max(1, Math.round(presence.durationSeconds / 60))} min`
-                                : ''}{' '}
-                              ·{' '}
-                              {presence.confidence === 'HIGH'
-                                ? fr
-                                  ? 'confiance élevée'
-                                  : 'high confidence'
-                                : presence.confidence === 'MEDIUM'
-                                  ? fr
-                                    ? 'confiance moyenne'
-                                    : 'medium confidence'
-                                  : fr
-                                    ? 'confiance faible'
-                                    : 'low confidence'}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="home-overview-room-placeholder">
-                      <MapPin />
-                      <strong>{fr ? 'Sélectionnez une pièce' : 'Select a room'}</strong>
-                      <span>
-                        {fr
-                          ? 'Touchez une pièce pour voir ses informations.'
-                          : 'Tap a room to see its details.'}
-                      </span>
-                    </div>
-                  )}
-                </aside>
               </div>
               <footer className="home-overview-legend">
-                <span>
-                  <i className="door" />
-                  {fr ? 'Porte' : 'Door'}
-                </span>
-                <span>
-                  <i className="window" />
-                  {fr ? 'Fenêtre' : 'Window'}
-                </span>
-                <span>
-                  <i className="passage" />
-                  {fr ? 'Passage' : 'Passage'}
-                </span>
-                <span>
-                  <CircleDot />
-                  {fr ? 'Présence probable' : 'Probable presence'}
-                </span>
+                {activePresenceLocation ? (
+                  <button
+                    type="button"
+                    className="presence-active"
+                    onClick={() => setFloorId(activePresenceLocation.level.id)}
+                  >
+                    <CircleDot />
+                    {fr ? 'Présence probable' : 'Probable presence'} ·{' '}
+                    {activePresenceLocation.room.name}
+                  </button>
+                ) : lastPresenceLocation ? (
+                  <span className="presence-stale">
+                    <CircleDot />
+                    {fr ? 'Dernière présence connue' : 'Last known presence'} ·{' '}
+                    {lastPresenceLocation.room.name}
+                  </span>
+                ) : (
+                  <span className="presence-empty">
+                    <CircleDot />
+                    {fr ? 'Aucune présence récente' : 'No recent presence'}
+                  </span>
+                )}
               </footer>
 
               <section className="home-overview-rooms">
@@ -896,17 +781,7 @@ export function HomeOverview({
                     ).length;
                     const RoomIcon = roomIcon(room);
                     return (
-                      <button
-                        key={room.id}
-                        className={selectedRoomId === room.id ? 'active' : ''}
-                        onClick={() => {
-                          if (canManage) {
-                            onManage(room.id);
-                            return;
-                          }
-                          setSelectedRoomId(room.id);
-                        }}
-                      >
+                      <button key={room.id} onClick={() => onManage(room.id)}>
                         <span
                           className="room-card-color"
                           style={{ background: room.geometry.color }}
@@ -929,86 +804,6 @@ export function HomeOverview({
                     );
                   })}
                 </div>
-
-                {selectedRoom && (
-                  <article className="home-overview-room-sheet">
-                    <header>
-                      <div>
-                        <span className="eyebrow">
-                          {roomKindLabels[selectedRoom.kind] ?? selectedRoom.kind}
-                        </span>
-                        <h4>{selectedRoom.name}</h4>
-                        <p>
-                          {roomAreaM2(selectedRoom).toFixed(1)} m² · {roomOpenings.length}{' '}
-                          {fr ? 'ouvertures' : 'openings'} · {roomPassages}{' '}
-                          {fr ? 'passages' : 'passages'}
-                        </p>
-                      </div>
-                      {canManage && (
-                        <button onClick={() => onManage(selectedRoom.id)}>
-                          <Plus /> {fr ? 'Ajouter dans cette pièce' : 'Add to this room'}
-                        </button>
-                      )}
-                    </header>
-                    <div className="room-sheet-columns">
-                      <section>
-                        <h5>
-                          <Radio /> {fr ? 'Capteurs associés' : 'Assigned sensors'}{' '}
-                          <b>{roomDevices.length}</b>
-                        </h5>
-                        {roomDevices.length ? (
-                          <div className="room-sheet-devices">
-                            {roomDevices.map((device) => (
-                              <div key={device.id}>
-                                <i className={deviceState(device).toLowerCase()} />
-                                <span>
-                                  <strong>{device.name}</strong>
-                                  <small>
-                                    {device.capabilities.map(({ label }) => label).join(' · ')}
-                                  </small>
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p>
-                            {fr
-                              ? 'Aucun capteur associé à cette pièce.'
-                              : 'No sensors assigned to this room.'}
-                          </p>
-                        )}
-                      </section>
-                      <section>
-                        <h5>
-                          <Camera /> {fr ? 'Caméras' : 'Cameras'} <b>{roomCameras.length}</b>
-                        </h5>
-                        {roomCameras.length ? (
-                          <div className="room-sheet-devices">
-                            {roomCameras.map((camera) => (
-                              <div key={camera.id}>
-                                <i className={camera.status.toLowerCase()} />
-                                <span>
-                                  <strong>{camera.name}</strong>
-                                  <small>
-                                    {camera.privacyMode
-                                      ? fr
-                                        ? 'Mode privé'
-                                        : 'Privacy mode'
-                                      : camera.status}
-                                  </small>
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p>
-                            {fr ? 'Aucune caméra dans cette pièce.' : 'No camera in this room.'}
-                          </p>
-                        )}
-                      </section>
-                    </div>
-                  </article>
-                )}
               </section>
             </article>
 
@@ -1073,192 +868,58 @@ export function HomeOverview({
                 </div>
               </article>
 
-              <article className="home-overview-summary-card coverage-card">
-                <header>
-                  <div>
+              <button
+                className="home-overview-summary-card coverage-card coverage-card-trigger"
+                onClick={() => setCoverageOpen(true)}
+              >
+                <span className="coverage-card-title">
+                  <span>
                     <span className="eyebrow">{fr ? 'Compréhension' : 'Understanding'}</span>
-                    <h3>{fr ? 'Ce qu’Élise couvre' : 'What Elise covers'}</h3>
-                  </div>
+                    <strong>{fr ? 'Ce qu’Élise couvre' : 'What Élise covers'}</strong>
+                  </span>
                   <ShieldCheck />
-                </header>
-                {coverageCards.map(({ id, label, icon: Icon, status }) => (
-                  <div className="coverage-row" key={id}>
-                    <span>
-                      <Icon />
-                      {label}
-                    </span>
-                    <b className={status.toLowerCase()}>
-                      {status === 'COVERED'
-                        ? fr
-                          ? 'Couvert'
-                          : 'Covered'
-                        : status === 'PARTIAL'
-                          ? fr
-                            ? 'Partiel'
-                            : 'Partial'
-                          : fr
-                            ? 'Non équipé'
-                            : 'Not equipped'}
-                    </b>
-                  </div>
+                </span>
+                {coverageCards.map(({ label, text }) => (
+                  <span className="coverage-row" key={label}>
+                    <span>{label}</span>
+                    <small>{text}</small>
+                  </span>
                 ))}
-                <button
-                  className="coverage-details-button"
-                  type="button"
-                  onClick={() => setCoverageOpen(true)}
-                >
-                  <Sparkles />
-                  {fr ? 'Voir les capteurs recommandés' : 'View recommended sensors'}
+                <span className="coverage-card-hint">
+                  {fr ? 'Fonctions, pièces et produits' : 'Functions, rooms and products'}
                   <ArrowRight />
-                </button>
-              </article>
+                </span>
+              </button>
             </div>
           </div>
-
-          {completionProblems + equipmentProblems > 0 && (
-            <article className="home-overview-todo">
-              <header>
-                <div>
-                  <span className="eyebrow">{fr ? 'Actions utiles' : 'Useful actions'}</span>
-                  <h3>{fr ? 'À compléter' : 'To complete'}</h3>
-                </div>
-                <AlertTriangle />
-              </header>
-              <div>
-                {unassignedDevices > 0 && (
-                  <button onClick={onOpenSensors}>
-                    <MapPin />
-                    <span>
-                      <strong>
-                        {unassignedDevices} {fr ? 'capteur(s) à placer' : 'sensor(s) to place'}
-                      </strong>
-                      <small>
-                        {fr
-                          ? 'Attribuez-les à une pièce ou un objet.'
-                          : 'Assign them to a room or object.'}
-                      </small>
-                    </span>
-                    <ArrowRight />
-                  </button>
-                )}
-                {unassignedCameras > 0 && (
-                  <button onClick={onOpenCameras}>
-                    <Camera />
-                    <span>
-                      <strong>
-                        {unassignedCameras} {fr ? 'caméra(s) à attribuer' : 'camera(s) to assign'}
-                      </strong>
-                      <small>{fr ? 'Choisissez leur pièce.' : 'Choose their room.'}</small>
-                    </span>
-                    <ArrowRight />
-                  </button>
-                )}
-                {deviceProblems > 0 && (
-                  <button onClick={onOpenSensors}>
-                    <Wifi />
-                    <span>
-                      <strong>
-                        {deviceProblems} {fr ? 'capteur(s) à vérifier' : 'sensor(s) to check'}
-                      </strong>
-                      <small>
-                        {fr
-                          ? 'Certains appareils ne répondent pas normalement.'
-                          : 'Some devices are not responding normally.'}
-                      </small>
-                    </span>
-                    <ArrowRight />
-                  </button>
-                )}
-                {cameraProblems > 0 && (
-                  <button onClick={onOpenCameras}>
-                    <Camera />
-                    <span>
-                      <strong>
-                        {cameraProblems} {fr ? 'caméra(s) à vérifier' : 'camera(s) to check'}
-                      </strong>
-                      <small>
-                        {fr ? 'Certaines caméras sont hors ligne.' : 'Some cameras are offline.'}
-                      </small>
-                    </span>
-                    <ArrowRight />
-                  </button>
-                )}
-                {essentialMissing > 0 && (
-                  <button onClick={canManage ? () => onManage() : onOpenSensors}>
-                    <ShieldCheck />
-                    <span>
-                      <strong>
-                        {essentialMissing}{' '}
-                        {fr ? 'recommandation(s) essentielle(s)' : 'essential recommendation(s)'}
-                      </strong>
-                      <small>
-                        {fr
-                          ? 'Complétez la couverture utile du logement.'
-                          : 'Complete useful home coverage.'}
-                      </small>
-                    </span>
-                    <ArrowRight />
-                  </button>
-                )}
-                {structuralIssues > 0 && (
-                  <button onClick={canManage ? () => onManage() : onOpenLivePlan}>
-                    <Layers3 />
-                    <span>
-                      <strong>
-                        {structuralIssues}{' '}
-                        {fr ? 'point(s) du plan à confirmer' : 'plan item(s) to confirm'}
-                      </strong>
-                      <small>
-                        {fr
-                          ? 'Escalier, étage ou circulation à préciser.'
-                          : 'Stair, floor or circulation needs clarification.'}
-                      </small>
-                    </span>
-                    <ArrowRight />
-                  </button>
-                )}
-                {planNeedsSetup && (
-                  <button onClick={canManage ? () => onManage() : onOpenLivePlan}>
-                    <Home />
-                    <span>
-                      <strong>{fr ? 'Plan du logement à terminer' : 'Home plan to finish'}</strong>
-                      <small>
-                        {fr
-                          ? 'Ajoutez les pièces et confirmez l’organisation du logement.'
-                          : 'Add rooms and confirm the home layout.'}
-                      </small>
-                    </span>
-                    <ArrowRight />
-                  </button>
-                )}
-              </div>
-            </article>
-          )}
         </>
       )}
       {coverageOpen && (
-        <div
-          className="coverage-recommendations-backdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label={fr ? 'Capteurs recommandés' : 'Recommended sensors'}
-        >
-          <SensorCoverageRecommendations
-            locale={locale}
-            coverage={coverage}
-            loading={coverageLoading}
-            error={
-              coverageError ||
-              (unavailable
-                ? fr
-                  ? 'L’analyse n’a pas pu être chargée.'
-                  : 'The analysis could not be loaded.'
-                : '')
-            }
-            onRetry={() => void refresh()}
-            onClose={() => setCoverageOpen(false)}
-          />
-        </div>
+        <SensorCoverageRecommendations
+          locale={locale}
+          coverage={coverage}
+          loading={coverageLoading}
+          error={
+            coverageError ||
+            (unavailable
+              ? fr
+                ? 'L’analyse n’a pas pu être chargée.'
+                : 'The analysis could not be loaded.'
+              : '')
+          }
+          onRetry={() => void refresh(true)}
+          onClose={() => setCoverageOpen(false)}
+        />
+      )}
+      {sensorFlowOpen && plan && (
+        <HomeSensorOnboardingDialog
+          open
+          locale={locale}
+          plan={plan}
+          devices={devices}
+          onClose={() => setSensorFlowOpen(false)}
+          onInstalled={refresh}
+        />
       )}
     </section>
   );

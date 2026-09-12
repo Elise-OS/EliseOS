@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, LoaderCircle, MapPin, Radio, RadioTower, RefreshCw } from 'lucide-react';
+import { Check, LoaderCircle, MapPin, Radio, RadioTower, RefreshCw, Sparkles } from 'lucide-react';
 import {
   deviceSupportsCategory,
   ROOM_SENSOR_CATEGORIES,
-  type HomePlan,
   type RoomSensorCategory,
   type SensorProduct,
 } from '@michel/contracts';
@@ -19,10 +18,9 @@ type Session = {
   status: string;
   expiresAt: string;
   errorMessage?: string | null;
-  detectedDevice?: SensorUiDevice | null;
+  detectedDevice?: (SensorUiDevice & { detectedType?: string }) | null;
   connection?: { pairingOpen: boolean } | null;
 };
-type Target = { type: 'ROOM' | 'OPENING' | 'STAIR'; id: string };
 
 /** One installation flow for both the sensor list and a contextual room page. */
 export function SensorOnboardingDialog({
@@ -30,6 +28,7 @@ export function SensorOnboardingDialog({
   locale,
   rooms,
   initialRoomId,
+  initialTarget,
   category,
   product,
   onClose,
@@ -40,6 +39,7 @@ export function SensorOnboardingDialog({
   locale: Locale;
   rooms: SensorRoom[];
   initialRoomId?: string;
+  initialTarget?: { type: 'OPENING'; id: string } | undefined;
   category?: RoomSensorCategory | undefined;
   product?: SensorProduct | undefined;
   onClose: () => void;
@@ -51,9 +51,6 @@ export function SensorOnboardingDialog({
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [roomId, setRoomId] = useState(initialRoomId ?? '');
   const [name, setName] = useState('');
-  const [note, setNote] = useState('');
-  const [target, setTarget] = useState<Target | null>(null);
-  const [plan, setPlan] = useState<HomePlan | null>(null);
   const [installed, setInstalled] = useState<SensorUiDevice | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -69,8 +66,7 @@ export function SensorOnboardingDialog({
     setSession(next);
     if (next.status === 'DEVICE_FOUND' && next.detectedDevice) {
       setStep(3);
-      setName(next.detectedDevice.name);
-      setNote(next.detectedDevice.placementNote ?? '');
+      setName(product ? (fr ? product.name : product.nameEn) : next.detectedDevice.name);
     } else setStep(2);
   };
   useEffect(() => {
@@ -87,8 +83,6 @@ export function SensorOnboardingDialog({
     setError('');
     if (open) {
       setRoomId(initialRoomId ?? '');
-      setTarget(null);
-      setNote('');
       setName('');
       setInstalled(null);
       setStep(1);
@@ -105,12 +99,6 @@ export function SensorOnboardingDialog({
           adopt(current);
           if (!open) resume.current?.();
         }
-        if (open) {
-          const nextPlan = await sensorRequest<HomePlan>('/api/v1/household/plan', {
-            signal: controller.signal,
-          });
-          if (!controller.signal.aborted) setPlan(nextPlan);
-        }
         if (!controller.signal.aborted) setReady(true);
       } catch (err) {
         if (!controller.signal.aborted && open) {
@@ -120,7 +108,7 @@ export function SensorOnboardingDialog({
       }
     })();
     return () => controller.abort();
-  }, [open, initialRoomId, onResume]);
+  }, [open, initialRoomId, initialTarget?.id, onResume, product, fr]);
 
   useEffect(() => {
     if (!open || !session || !['PENDING', 'WAITING_FOR_DEVICE'].includes(session.status)) return;
@@ -205,7 +193,8 @@ export function SensorOnboardingDialog({
     }
   };
   const finish = async () => {
-    if (!session?.detectedDevice || !name.trim() || (initialRoomId && !roomId)) return;
+    if (!session?.detectedDevice || !name.trim() || !roomId) return;
+    if (initialTarget && !deviceSupportsCategory(session.detectedDevice, 'contact')) return;
     setBusy(true);
     setError('');
     try {
@@ -213,9 +202,8 @@ export function SensorOnboardingDialog({
         `/api/v1/sensor-devices/onboarding-sessions/${session.id}/complete`,
         sensorJson('POST', {
           name: name.trim(),
-          roomId: roomId || null,
-          target: roomId ? target : null,
-          placementNote: note.trim() || null,
+          roomId,
+          target: initialTarget ?? null,
           buttonRole: 'ASSISTANCE',
         }),
       );
@@ -246,32 +234,6 @@ export function SensorOnboardingDialog({
   const categoryLabel = ROOM_SENSOR_CATEGORIES.find(({ id }) => id === category)?.[
     fr ? 'label' : 'labelEn'
   ];
-  const floor = plan?.levels.find(({ rooms }) => rooms.some(({ id }) => id === roomId));
-  const capabilities = new Set(device?.capabilities.map(({ capability }) => capability));
-  const targets: Array<{ target: Target; label: string }> = [
-    ...(floor?.openings ?? [])
-      .filter(
-        (opening) =>
-          opening.roomIds.includes(roomId) &&
-          (capabilities.has('contact') ||
-            (opening.kind === 'PASSAGE' &&
-              ['motion', 'occupancy', 'person_presence'].some((c) => capabilities.has(c)))),
-      )
-      .map((opening, index) => ({
-        target: { type: 'OPENING' as const, id: opening.id },
-        label: `${opening.isMainEntrance ? (fr ? 'Entrée principale' : 'Main entrance') : opening.kind === 'WINDOW' ? (fr ? 'Fenêtre' : 'Window') : fr ? 'Passage / porte' : 'Passage / door'} ${index + 1}`,
-      })),
-    ...(floor?.stairs ?? [])
-      .filter(
-        (stair) =>
-          [stair.fromRoomId, stair.toRoomId].includes(roomId) &&
-          ['motion', 'occupancy', 'person_presence'].some((c) => capabilities.has(c)),
-      )
-      .map((stair) => ({
-        target: { type: 'STAIR' as const, id: stair.id },
-        label: fr ? 'Escalier' : 'Stairs',
-      })),
-  ];
   return (
     <EquipmentDialog
       title={
@@ -292,9 +254,18 @@ export function SensorOnboardingDialog({
           <ol className="equipment-steps">
             {(fr ? ['Préparer', 'Connecter', 'Installer'] : ['Prepare', 'Connect', 'Install']).map(
               (label, index) => (
-                <li className={step >= index + 1 ? 'is-active' : ''} key={label}>
+                <li
+                  className={
+                    step > index + 1 ? 'is-complete' : step === index + 1 ? 'is-current' : ''
+                  }
+                  aria-current={step === index + 1 ? 'step' : undefined}
+                  key={label}
+                >
                   <span>{step > index + 1 ? <Check /> : index + 1}</span>
-                  {label}
+                  <div>
+                    <small>{fr ? `Étape ${index + 1} sur 3` : `Step ${index + 1} of 3`}</small>
+                    <strong>{label}</strong>
+                  </div>
                 </li>
               ),
             )}
@@ -373,118 +344,107 @@ export function SensorOnboardingDialog({
           </div>
         )}
         {step === 3 && device && (
-          <>
-            <div className="equipment-found">
-              <Check />
+          <div className="equipment-install-step">
+            <div className="equipment-found-hero">
+              <span className="equipment-found-icon">
+                <Check />
+              </span>
               <div>
-                <strong>{fr ? 'Capteur trouvé' : 'Sensor found'}</strong>
+                <span className="equipment-kicker">
+                  {fr ? 'Connexion réussie' : 'Connection successful'}
+                </span>
+                <h3>{fr ? 'Votre capteur est prêt' : 'Your sensor is ready'}</h3>
                 <p>
                   {[device.manufacturer, device.model].filter(Boolean).join(' · ') || device.name}
                 </p>
               </div>
             </div>
-            <div className="equipment-capability-tags">
-              {device.capabilities
-                .filter(({ capability }) => !['battery', 'signal_strength'].includes(capability))
-                .map((c) => (
-                  <span key={c.sensorId}>{c.label}</span>
-                ))}
+            <div className="equipment-detected-functions">
+              <span>{fr ? 'Fonctions détectées' : 'Detected features'}</span>
+              <div className="equipment-capability-tags">
+                {device.capabilities
+                  .filter(
+                    ({ capability, primary }) =>
+                      primary && !['battery', 'signal_strength', 'unknown'].includes(capability),
+                  )
+                  .map((c) => (
+                    <span key={c.sensorId}>
+                      <Check /> {c.label}
+                    </span>
+                  ))}
+              </div>
             </div>
             {mismatch && (
-              <p className="equipment-note" role="status">
+              <p className="equipment-install-warning" role="status">
                 {fr
                   ? `Cet appareil ne fournit pas « ${categoryLabel} ». Vous pouvez l’installer pour ses fonctions reconnues ; cette catégorie restera non configurée.`
                   : `This device does not provide ${categoryLabel}. You can install its recognized functions; this category will remain unconfigured.`}
               </p>
             )}
             {modelMatch === false && (
-              <p className="equipment-note" role="status">
+              <p className="equipment-install-warning" role="status">
                 {fr
                   ? `Modèle différent détecté : vous aviez choisi « ${product?.model} », mais Élise reconnaît « ${device.model} ». Vous pouvez continuer si les fonctions affichées correspondent à votre besoin.`
                   : `Different model detected: you selected ${product?.model}, but Élise recognizes ${device.model}. You can continue if the displayed functions meet your needs.`}
               </p>
             )}
             {modelMatch === null && product && (
-              <p className="equipment-note" role="status">
+              <p className="equipment-install-warning" role="status">
                 {fr
                   ? `Élise n’a pas pu confirmer la référence « ${product.model} ». Vérifiez le modèle inscrit sur le capteur avant de continuer.`
                   : `Élise could not confirm model ${product.model}. Check the model printed on the sensor before continuing.`}
               </p>
             )}
-            <label className="equipment-field">
-              {fr ? 'Nom du capteur' : 'Sensor name'}
-              <input
-                autoComplete="off"
-                maxLength={120}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </label>
-            {initialRoomId ? (
-              <p className="equipment-room-binding">
-                <MapPin />
-                {room?.name}
-              </p>
-            ) : (
+            <section className="equipment-install-form">
+              <div className="equipment-install-form-heading">
+                <Sparkles />
+                <div>
+                  <h4>{fr ? 'Finaliser l’installation' : 'Finish installation'}</h4>
+                  <p>
+                    {fr
+                      ? 'Choisissez simplement sa pièce et son nom.'
+                      : 'Simply choose its room and name.'}
+                  </p>
+                </div>
+              </div>
+              {initialRoomId ? (
+                <div className="equipment-room-choice is-selected">
+                  <MapPin />
+                  <span>
+                    <small>{fr ? 'Pièce' : 'Room'}</small>
+                    <strong>{room?.name}</strong>
+                  </span>
+                  <Check />
+                </div>
+              ) : (
+                <label className="equipment-field">
+                  {fr ? 'Dans quelle pièce ?' : 'Which room?'}
+                  <select value={roomId} onChange={(e) => setRoomId(e.target.value)}>
+                    <option value="">{fr ? 'Choisir une pièce' : 'Choose a room'}</option>
+                    {[...rooms]
+                      .sort((a, b) => (a.floor ?? 0) - (b.floor ?? 0))
+                      .map((candidateRoom) => (
+                        <option key={candidateRoom.id} value={candidateRoom.id}>
+                          {candidateRoom.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
               <label className="equipment-field">
-                {fr ? 'Pièce' : 'Room'}
-                <select
-                  value={roomId}
-                  onChange={(e) => {
-                    setRoomId(e.target.value);
-                    setTarget(null);
-                  }}
-                >
-                  <option value="">{fr ? 'Sans pièce' : 'Unassigned'}</option>
-                  {[...rooms]
-                    .sort((a, b) => (a.floor ?? 0) - (b.floor ?? 0))
-                    .map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                </select>
+                {fr ? 'Nom du capteur' : 'Sensor name'}
+                <input
+                  autoComplete="off"
+                  maxLength={120}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
               </label>
-            )}
-            <label className="equipment-field">
-              {fr ? 'Emplacement (facultatif)' : 'Location (optional)'}
-              <input
-                maxLength={500}
-                value={note}
-                placeholder={fr ? 'Par exemple : fenêtre gauche' : 'For example: left window'}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </label>
-            {!!targets.length && (
-              <label className="equipment-field">
-                {fr
-                  ? 'Associer à une ouverture ou un escalier (facultatif)'
-                  : 'Link to an opening or stairs (optional)'}
-                <select
-                  value={target ? `${target.type}:${target.id}` : ''}
-                  onChange={(e) =>
-                    setTarget(
-                      targets.find((t) => `${t.target.type}:${t.target.id}` === e.target.value)
-                        ?.target ?? null,
-                    )
-                  }
-                >
-                  <option value="">{fr ? 'Dans la pièce' : 'In the room'}</option>
-                  {targets.map((t) => (
-                    <option
-                      key={`${t.target.type}:${t.target.id}`}
-                      value={`${t.target.type}:${t.target.id}`}
-                    >
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
+            </section>
             <footer className="equipment-dialog-footer">
               <button
                 className="equipment-primary"
-                disabled={busy || !name.trim() || (!!initialRoomId && !room)}
+                disabled={busy || !name.trim() || !room || !!(initialTarget && mismatch)}
                 onClick={() => void finish()}
               >
                 <Check />
@@ -497,11 +457,11 @@ export function SensorOnboardingDialog({
                       ? `Installer dans ${room.name}`
                       : `Install in ${room.name}`
                     : fr
-                      ? 'Enregistrer sans pièce'
-                      : 'Save without room'}
+                      ? 'Choisir une pièce'
+                      : 'Choose a room'}
               </button>
             </footer>
-          </>
+          </div>
         )}
         {error && (
           <p className="equipment-error" role="alert">

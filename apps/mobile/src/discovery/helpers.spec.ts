@@ -1,10 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeUrl, parseDiscoveryInfo, subnetCandidates, subnetPrefix } from './helpers';
+import {
+  normalizeUrl,
+  parseDiscoveryInfo,
+  remoteUrlFromDeepLink,
+  subnetCandidates,
+  subnetPrefix,
+} from './helpers';
 
 describe('Michel discovery helpers', () => {
   it('normalizes manual local addresses', () => {
     expect(normalizeUrl('192.168.1.50:8080/')).toBe('http://192.168.1.50:8080');
     expect(normalizeUrl('http://michel.local:8080/')).toBe('http://michel.local:8080');
+    expect(normalizeUrl('elise.example.ts.net:8443/')).toBe('https://elise.example.ts.net:8443');
+  });
+
+  it('reads the private address from an Élise app link', () => {
+    expect(
+      remoteUrlFromDeepLink('michel://connect?url=https%3A%2F%2Felise.example.ts.net%3A8443'),
+    ).toBe('https://elise.example.ts.net:8443');
+    expect(remoteUrlFromDeepLink('michel://settings')).toBe('');
+    expect(remoteUrlFromDeepLink('michel://connect?url=https%3A%2F%2Fevil.example%3A8443')).toBe(
+      '',
+    );
   });
 
   it('derives the local IPv4 subnet', () => {

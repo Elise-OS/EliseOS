@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID}" -ne 0 ]]; then exec sudo -E "$0" "$@"; fi
+
+ELISE_ROOT="${ELISE_ROOT:-/opt/elise}"
+ELISE_STATE="${ELISE_STATE:-/var/lib/elise}"
+ELISE_ENV="${ELISE_ENV:-/etc/elise/elise.env}"
+COMPOSE=(docker compose --project-name michel-os --env-file "$ELISE_ENV" -f "$ELISE_ROOT/current/compose.yaml" -f "$ELISE_ROOT/current/compose.release.yaml")
+if [[ -f "$ELISE_ROOT/current/compose.raspberry.yaml" && "$(uname -m)" == aarch64 ]]; then
+  COMPOSE+=(-f "$ELISE_ROOT/current/compose.raspberry.yaml" -f "$ELISE_ROOT/current/compose.raspberry.release.yaml")
+fi
+
+usage() {
+  echo "Usage: elise {status|logs|update|backup|restore|uninstall}"
+}
+
+case "${1:-}" in
+  status)
+    "${COMPOSE[@]}" ps
+    echo
+    tailscale status 2>/dev/null || true
+    ;;
+  logs)
+    shift
+    "${COMPOSE[@]}" logs --tail="${ELISE_LOG_LINES:-200}" "$@"
+    ;;
+  update)
+    shift
+    curl -fsSL https://github.com/Elise-OS/EliseOS/releases/latest/download/install-elise.sh | bash -s -- --update "$@"
+    ;;
+  backup)
+    destination="${2:-$ELISE_STATE/backups}"
+    recipient="$(sed -n 's/^MICHEL_BACKUP_RECIPIENT=//p' "$ELISE_ENV" | tail -1)"
+    compose_files='compose.yaml:compose.release.yaml'
+    [[ "$(uname -m)" == aarch64 ]] && compose_files+=':compose.raspberry.yaml:compose.raspberry.release.yaml'
+    (cd "$ELISE_ROOT/current" && MICHEL_BACKUP_RECIPIENT="$recipient" COMPOSE_PROJECT_NAME=michel-os COMPOSE_FILE="$compose_files" COMPOSE_ENV_FILES="$ELISE_ENV" ./scripts/backup.sh "$destination")
+    ;;
+  restore)
+    archive="${2:-}"
+    [[ -f "$archive" ]] || { echo "Indiquez une sauvegarde existante." >&2; exit 2; }
+    [[ "${3:-}" == --confirm ]] || { echo "Ajoutez --confirm pour restaurer cette sauvegarde." >&2; exit 2; }
+    compose_files='compose.yaml:compose.release.yaml'
+    [[ "$(uname -m)" == aarch64 ]] && compose_files+=':compose.raspberry.yaml:compose.raspberry.release.yaml'
+    (cd "$ELISE_ROOT/current" && COMPOSE_PROJECT_NAME=michel-os COMPOSE_FILE="$compose_files" COMPOSE_ENV_FILES="$ELISE_ENV" ./scripts/restore.sh "$archive")
+    echo "Sauvegarde restaurée."
+    ;;
+  uninstall)
+    "${COMPOSE[@]}" down
+    systemctl disable --now elise-firstboot.service elise-preparation.service elise-remote-access-agent.service elise-tailscale-firewall.service 2>/dev/null || true
+    if [[ "${2:-}" == --purge ]]; then
+      [[ "$ELISE_ROOT" == /opt/elise && "$ELISE_STATE" == /var/lib/elise && "$ELISE_ENV" == /etc/elise/elise.env ]] || {
+        echo "Suppression refusée : chemins Élise non standards." >&2
+        exit 2
+      }
+      "${COMPOSE[@]}" down --volumes
+      rm -rf -- "$ELISE_ROOT" "$ELISE_STATE" /etc/elise
+      echo "Élise et ses données ont été supprimées. L’identité Tailscale de la machine est conservée."
+    else
+      echo "Élise est arrêtée. Données, sauvegardes, secrets et identité Tailscale sont conservés."
+    fi
+    ;;
+  *) usage; exit 2 ;;
+esac

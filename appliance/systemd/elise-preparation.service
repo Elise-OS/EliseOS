@@ -1,0 +1,12 @@
+[Unit]
+Description=Élise preparation page
+ConditionPathExists=!/var/lib/elise/.firstboot-complete
+After=network.target
+
+[Service]
+ExecStart=/usr/lib/elise/elise-preparation.py
+Restart=always
+RuntimeDirectory=elise-preparation
+
+[Install]
+WantedBy=multi-user.target

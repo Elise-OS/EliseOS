@@ -54,4 +54,4 @@ CMD ["node", "dist/main.js"]
 FROM caddy:2.10-alpine AS dashboard
 COPY --from=dashboard-builder /workspace/apps/dashboard/dist /srv
 COPY docker/dashboard/Caddyfile /etc/caddy/Caddyfile
-EXPOSE 8080
+EXPOSE 8080 8081

@@ -81,7 +81,7 @@ describe('Élise first startup', () => {
       <Setup locale="fr" onLocaleChange={() => undefined} onCompleted={() => undefined} />,
     );
     expect(html).toContain('Préparons Élise pour une personne qui compte');
-    expect(html).toContain('Étape 1 sur 6');
+    expect(html).toContain('Étape 1 sur 7');
     expect(html).toContain('Vos données restent stockées localement');
     expect(html).toContain('Français');
     expect(html).not.toContain('Téléphone');
@@ -93,7 +93,7 @@ describe('Élise first startup', () => {
     );
     expect(html).toContain('Set up Élise for someone who matters');
     expect(html).toContain('Start setup');
-    expect(html).toContain('Step 1 of 6 · Welcome');
+    expect(html).toContain('Step 1 of 7 · Welcome');
     expect(html).toContain('Draft saved on this device');
     expect(html).not.toContain('Préparons Élise pour une personne qui compte');
   });
@@ -175,6 +175,9 @@ describe('Élise alert rule design', () => {
       />,
     );
     expect(html).toContain('Situations à signaler');
+    expect(html).toContain('<details');
+    expect(html).toContain('settings-disclosure-chevron');
+    expect(html).not.toContain('<details open=""');
     expect(html).toContain('Évite de confondre une panne avec une absence d’activité');
     expect(html).toContain('Enregistrer les repères');
     expect(html).not.toContain('MQTT');

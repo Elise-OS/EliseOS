@@ -1,0 +1,4 @@
+services:
+  mdns:
+    image: ${ELISE_MDNS_IMAGE:-ghcr.io/elise-os/eliseos-mdns:${MICHEL_VERSION}}
+    build: !reset null

@@ -1,0 +1,391 @@
+.coverage-card-trigger {
+  display: block;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.coverage-card-trigger:hover {
+  border-color: #80aaba;
+  box-shadow: 0 10px 28px #163b6012;
+}
+.coverage-card-trigger:focus-visible {
+  outline: 3px solid #247fa4;
+  outline-offset: 4px;
+}
+.coverage-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.coverage-card-title strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 1.25rem;
+}
+.coverage-card-hint {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 18px;
+  color: #326e8b;
+  font-size: 0.875rem;
+}
+.coverage-card-hint svg {
+  width: 18px;
+}
+.coverage-explorer {
+  padding: 24px 28px 30px;
+  color: #17364f;
+  font-size: 1rem;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+.equipment-dialog:has(.coverage-explorer) {
+  width: min(1100px, 100%);
+  height: min(820px, calc(100dvh - 48px));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.equipment-dialog:has(.coverage-explorer) > .coverage-explorer {
+  flex: 1;
+}
+.coverage-explorer-intro {
+  margin-bottom: 18px;
+}
+.coverage-explorer-intro h2 {
+  font:
+    500 1.8rem/1.2 'Source Serif 4',
+    Georgia,
+    serif;
+  margin: 0 0 5px;
+}
+.coverage-explorer-intro p {
+  color: #63798b;
+  margin: 0;
+}
+.coverage-steps {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  color: #82919b;
+  font-size: 0.875rem;
+}
+.coverage-steps span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.coverage-steps b,
+.coverage-section-title > span,
+.coverage-heading-number {
+  display: inline-grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: #eaf1f4;
+  color: #557083;
+  font-size: 0.75rem;
+}
+.coverage-steps .is-active {
+  color: #1f5b79;
+  font-weight: 650;
+}
+.coverage-steps .is-active b,
+.coverage-section-title > span,
+.coverage-heading-number {
+  color: #fff;
+  background: #1f6688;
+}
+.coverage-steps i {
+  width: 38px;
+  height: 1px;
+  background: #d5e0e6;
+}
+.coverage-family-list {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.coverage-family-list button {
+  min-height: 62px;
+  padding: 10px 12px;
+  border: 1px solid #dce6eb;
+  border-radius: 13px;
+  background: #fff;
+  color: #496678;
+  text-align: left;
+}
+.coverage-family-list button[aria-pressed='true'] {
+  color: #174f6d;
+  border-color: #7cabbf;
+  background: #edf6f8;
+  box-shadow: inset 0 0 0 1px #7cabbf;
+}
+.coverage-family-list strong,
+.coverage-family-list small {
+  display: block;
+  line-height: 1.25;
+}
+.coverage-family-list strong {
+  font-size: 0.875rem;
+}
+.coverage-family-list small {
+  margin-top: 4px;
+  color: #8a632b;
+}
+.coverage-explorer-layout {
+  display: block;
+}
+.coverage-type-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+.coverage-type-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 13px;
+  border: 1px solid #dce6eb;
+  border-radius: 999px;
+  background: #fff;
+  text-align: left;
+  color: #214b67;
+}
+.coverage-type-list button[aria-pressed='true'] {
+  color: #fff;
+  background: #1e5f80;
+  border-color: #1e5f80;
+}
+.coverage-type-list button[aria-pressed='true'] .coverage-state {
+  color: #d9edf5;
+}
+.coverage-type-list strong {
+  font-size: 0.9375rem;
+  margin-right: 5px;
+}
+.coverage-state {
+  font-size: 0.8125rem;
+  color: #6c7d87;
+}
+.state-covered {
+  color: #277558;
+}
+.state-missing {
+  color: #8a632b;
+}
+.state-no_product {
+  color: #697687;
+}
+.coverage-type-detail {
+  min-width: 0;
+}
+.coverage-type-detail > header h3 {
+  font:
+    500 1.8rem/1.2 'Source Serif 4',
+    Georgia,
+    serif;
+  margin: 8px 0;
+}
+.coverage-type-detail > header p {
+  color: #63798b;
+}
+.coverage-section-title {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 24px 0 12px;
+}
+.coverage-section-title h4,
+.coverage-section-title p {
+  margin: 0 !important;
+}
+.coverage-section-title p {
+  color: #728592;
+  font-size: 0.8125rem;
+}
+.coverage-room-needs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+.coverage-room-needs > button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px;
+  text-align: left;
+  color: #214b67;
+  border: 1px solid #dee7ec;
+  border-radius: 14px;
+  background: #fff;
+}
+.coverage-room-needs > button.is-selected {
+  border-color: #347d9b;
+  background: #eff8fa;
+  box-shadow: inset 0 0 0 1px #347d9b;
+}
+.coverage-room-needs > button > span:nth-child(2) {
+  flex: 1;
+}
+.coverage-room-needs strong {
+  display: block;
+  font-size: 1rem;
+}
+.coverage-room-needs small {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  margin-top: 3px;
+  color: #627a8a;
+}
+.coverage-room-needs small svg {
+  width: 14px;
+  height: 14px;
+}
+.coverage-room-symbol {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 13px;
+  background: #edf4f7;
+}
+.coverage-room-symbol svg {
+  width: 22px;
+}
+.coverage-room-choice {
+  flex: 0 0 auto !important;
+  color: #246e8d;
+  font-size: 0.8125rem;
+  font-weight: 650;
+}
+.coverage-room-choice svg {
+  width: 18px;
+}
+.coverage-advice {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #eff6f7;
+  font-size: 0.875rem;
+  color: #436c7c;
+}
+.coverage-product-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+.coverage-product-heading h4 {
+  margin: 0 !important;
+}
+.coverage-product-heading > span {
+  border-radius: 8px;
+  padding: 2px 8px;
+  background: #eef3f6;
+}
+.coverage-product {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.coverage-product .equipment-product-card {
+  flex: 1;
+  width: 100%;
+}
+.coverage-product > p {
+  font-size: 0.875rem;
+  color: #63798b;
+}
+.coverage-product > a {
+  font-size: 0.875rem;
+  margin-bottom: 14px;
+}
+.coverage-empty-products {
+  margin-top: 14px;
+  padding: 24px;
+  border: 1px dashed #c8d7df;
+  border-radius: 16px;
+  background: #f7fafb;
+  color: #496678;
+}
+.coverage-empty-products p {
+  margin: 5px 0 0 !important;
+}
+.coverage-product-sheet {
+  padding: 24px 28px 30px;
+}
+.coverage-product-specs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0 24px;
+}
+.coverage-product-specs > div {
+  display: grid;
+  gap: 3px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  background: #f2f6f8;
+}
+.coverage-product-specs small {
+  color: #718390;
+}
+.coverage-explorer-note {
+  font-size: 0.875rem;
+  color: #63798b;
+  padding-top: 20px;
+  border-top: 1px solid #e3eaf0;
+  margin-top: 24px !important;
+}
+.coverage-explorer-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid #e3eaf0;
+  padding-top: 24px;
+  margin-top: 24px;
+}
+.coverage-explorer-state {
+  padding: 40px 0;
+  text-align: center;
+}
+@media (max-width: 760px) {
+  .coverage-explorer {
+    padding: 18px;
+  }
+  .equipment-dialog:has(.coverage-explorer) {
+    height: calc(100dvh - 24px);
+  }
+  .coverage-family-list {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 3px;
+  }
+  .coverage-family-list button {
+    min-width: 150px;
+  }
+  .coverage-explorer-intro h2 {
+    font-size: 1.6rem;
+  }
+  .coverage-explorer-footer {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 430px) {
+  .coverage-room-needs {
+    grid-template-columns: 1fr;
+  }
+  .coverage-explorer .equipment-product-grid {
+    grid-template-columns: 1fr;
+  }
+}

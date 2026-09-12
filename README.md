@@ -15,9 +15,10 @@ This repository contains the first end-to-end product slice:
 - a responsive French/English family dashboard and a React Native/Expo app with local discovery and push notifications;
 - optional local RTSP/ONVIF cameras through go2rtc, with encrypted credentials, WebRTC viewing, privacy mode and 24-hour alert snapshots;
 - automatic secrets, retention, encrypted backup support and CI checks;
-- multi-stage ARM64/AMD64 containers ready for the future Raspberry Pi image pipeline.
+- images conteneur ARM64/AMD64, image Raspberry Pi 4/5 et installateur Ubuntu 24.04 ;
+- accès distant privé Tailscale sur un port dédié, sans publication Internet.
 
-The flashable appliance image, Wi-Fi captive onboarding and signed OTA channel are later release milestones; they are intentionally not represented as complete in V0.
+Chaque version publie l’image flashable, ses sommes et signatures, le catalogue Raspberry Pi Imager, l’installateur et un manifeste de conteneurs épinglés par digest.
 
 Any sensor made available to Home Assistant can appear in Élise. Recognized device classes work automatically; unknown entities remain visible to administrators and can be assigned a safe, bounded capability mapping without adding model-specific code. Camera person events use the same universal mapping. Live video requires a local RTSP stream, while two-way audio remains a model-level validated capability.
 
@@ -108,6 +109,8 @@ configured in `config/nas-deploy.env`.
 
 Useful references:
 
+- [Installation Raspberry Pi et Ubuntu](docs/installation.md)
+- [Accès à distance privé](docs/acces-distant-prive.md)
 - [NAS deployment and clean reset (French)](README-NAS.md)
 - [Architecture and safety invariants](docs/architecture.md)
 - [Development, secrets and backups](docs/development.md)

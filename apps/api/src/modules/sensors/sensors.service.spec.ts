@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment -- Vitest asymmetric matchers use `any`. */
 import { describe, expect, it, vi } from 'vitest';
 import { SensorsService } from './sensors.service';
 
@@ -69,6 +70,21 @@ const detectedDevice = (now = new Date('2026-08-21T10:00:00.000Z')) => ({
 });
 
 describe('SensorsService physical device views', () => {
+  it('uses a friendly name for a presence sensor instead of a technical entity name', () => {
+    const base = detectedDevice();
+    const service = new SensorsService({} as never, {} as never);
+    const result = (
+      service as unknown as { deviceView(device: unknown): { name: string } }
+    ).deviceView({
+      ...base,
+      name: 'Tvoc alert enable',
+      model: 'Multi-function smart presence sensor R3',
+      sensors: [{ ...base.sensors[0], capability: 'occupancy', sourceName: 'Occupancy' }],
+    });
+
+    expect(result.name).toBe('Capteur de présence');
+  });
+
   it('unpairs a Zigbee sensor before removing it from Élise', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 2 });
     const deleteDevice = vi.fn().mockResolvedValue(undefined);
@@ -290,6 +306,21 @@ describe('SensorsService physical device views', () => {
                 classificationConfirmedAt: null,
                 events: [{ payload: { value: 82 } }],
               },
+              {
+                id: 'tvoc-alert-enable',
+                entityId: 'switch.air_tvoc_alert_enable',
+                capability: 'switch',
+                sourceName: 'TVOC alert enable',
+                status: 'OFFLINE',
+                unit: null,
+                lastSeenAt: now,
+                analysisEnabled: true,
+                classificationSource: 'METADATA',
+                classificationConfidence: 1,
+                classificationReason: 'domain',
+                classificationConfirmedAt: null,
+                events: [],
+              },
             ],
           },
         ]),
@@ -302,10 +333,15 @@ describe('SensorsService physical device views', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ name: 'Air sensor', batteryPercent: 82 });
-    expect(result[0]?.capabilities).toHaveLength(2);
+    expect(result[0]?.capabilities).toHaveLength(3);
     expect(
       result[0]?.capabilities.find((item: { capability: string }) => item.capability === 'battery')
         ?.primary,
+    ).toBe(false);
+    expect(
+      result[0]?.capabilities.find(
+        (item: { entityId: string }) => item.entityId === 'switch.air_tvoc_alert_enable',
+      )?.primary,
     ).toBe(false);
   });
 

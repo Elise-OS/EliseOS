@@ -41,6 +41,14 @@ function isBridgeControlLabel(value: string | null | undefined) {
   return (value ?? '').toLowerCase().replaceAll('_', ' ').includes('permit join');
 }
 
+function isSecondarySensor(
+  sensor: Pick<SensorWithEvents, 'capability' | 'entityId' | 'sourceName'>,
+) {
+  if (SECONDARY_CAPABILITIES.has(sensor.capability)) return true;
+  const label = `${sensor.entityId} ${sensor.sourceName ?? ''}`.toLowerCase().replaceAll('_', ' ');
+  return sensor.capability === 'switch' && /\balert\s+enable\b/.test(label);
+}
+
 type SensorWithRoomAndEvents = Prisma.SensorGetPayload<{
   include: { room: true; events: true };
 }>;
@@ -798,14 +806,24 @@ export class SensorsService {
         !latest || (sensor.lastSeenAt && sensor.lastSeenAt > latest) ? sensor.lastSeenAt : latest,
       null,
     );
-    const uncertain = userSensors.some(
+    const primarySensors = userSensors.filter((sensor) => !isSecondarySensor(sensor));
+    const sensorsDeterminingState = primarySensors.length > 0 ? primarySensors : userSensors;
+    const uncertain = sensorsDeterminingState.some(
       (sensor) => !sensor.analysisEnabled || sensor.classificationConfidence < 0.8,
     );
     const capabilityNames = new Set(userSensors.map((sensor) => sensor.capability));
     const inferredName =
       capabilityNames.has('temperature') && capabilityNames.has('humidity')
         ? 'Capteur température et humidité'
-        : device.name;
+        : capabilityNames.has('person_presence') || capabilityNames.has('occupancy')
+          ? 'Capteur de présence'
+          : capabilityNames.has('motion')
+            ? 'Détecteur de mouvement'
+            : capabilityNames.has('contact') || capabilityNames.has('dry_contact')
+              ? 'Détecteur d’ouverture'
+              : capabilityNames.has('water_leak')
+                ? 'Détecteur de fuite d’eau'
+                : device.name;
     const status = !device.enabled
       ? 'DISABLED'
       : networkDisconnected
@@ -873,7 +891,7 @@ export class SensorsService {
       entityId: sensor.entityId,
       capability: sensor.capability,
       label: capabilityLabel(sensor.capability),
-      primary: !SECONDARY_CAPABILITIES.has(sensor.capability),
+      primary: !isSecondarySensor(sensor),
       lastSeenAt:
         sensor.events[0]?.occurredAt?.toISOString() ?? sensor.lastSeenAt?.toISOString() ?? null,
       status: networkDisconnected ? 'OFFLINE' : sensor.status,

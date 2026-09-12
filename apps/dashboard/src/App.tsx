@@ -18,6 +18,7 @@ import {
   Footprints,
   HeartHandshake,
   Home,
+  Languages,
   KeyRound,
   LogOut,
   Mail,
@@ -49,8 +50,11 @@ import { copy, type Locale } from './i18n';
 import { resizeResidentPhoto, Setup } from './Setup';
 import { SensorsPanel } from './SensorsPanel';
 import { HomePlanEditor } from './HomePlanEditor';
-import { HomeOverview } from './HomeOverview';
+import { HomeOverview, homeRealtimeEventAction } from './HomeOverview';
 import { GuidedTour, type GuidedTourMode } from './GuidedTour';
+import { DataLoadingScreen } from './DataLoadingScreen';
+import { FRFlag, GBFlag } from './FlagIcons';
+import { RemoteAccessCard } from './RemoteAccessCard';
 
 interface Overview {
   onboardingRequired: boolean;
@@ -397,13 +401,15 @@ export function SidebarNavigation({
         return (
           <button
             key={label}
+            type="button"
+            aria-current={active === index ? 'page' : undefined}
             data-tour-target={`nav-${index}`}
             className={active === index ? 'nav-item nav-item--active' : 'nav-item'}
             onClick={() => onSelect(index)}
           >
             <Icon size={18} />
             <span>{label}</span>
-            {index === 2 && <b>{openAlerts}</b>}
+            {index === 2 && openAlerts > 0 && <b>{openAlerts}</b>}
           </button>
         );
       })}
@@ -423,9 +429,9 @@ export function SidebarBehaviorSetting({
   onChange: (enabled: boolean) => void;
 }) {
   return (
-    <Card className="settings-card sidebar-behavior-settings">
-      <div className="settings-card-heading">
-        <span className="settings-icon">
+    <article className="settings-option-row sidebar-behavior-settings">
+      <div className="settings-option-copy">
+        <span className="settings-option-icon settings-option-icon--blue">
           <PanelLeftClose />
         </span>
         <div>
@@ -456,7 +462,7 @@ export function SidebarBehaviorSetting({
           <span className="config-toggle-handle" />
         </button>
       </div>
-    </Card>
+    </article>
   );
 }
 
@@ -816,9 +822,9 @@ export function SimulationPanel({
   onRun: (scenario: string) => void;
 }) {
   return (
-    <Card className="settings-card simulation-card">
-      <div className="settings-card-heading">
-        <span className="settings-icon">
+    <article className="settings-option-row settings-demo-row simulation-card">
+      <div className="settings-option-copy">
+        <span className="settings-option-icon settings-option-icon--purple">
           <Radar />
         </span>
         <div>
@@ -851,7 +857,7 @@ export function SimulationPanel({
           <CircleCheck /> {notice}
         </p>
       )}
-    </Card>
+    </article>
   );
 }
 
@@ -871,9 +877,9 @@ export function AlertRulesPanel({
   const toggle = (key: keyof AlertRuleSettings, enabled: boolean) =>
     onChange({ ...rules, [key]: { ...rules[key], enabled } });
   return (
-    <Card className="settings-card alert-rules-card">
-      <div className="settings-card-heading">
-        <span className="settings-icon">
+    <details className="michel-card settings-section-card settings-disclosure settings-landmarks-card alert-rules-card">
+      <summary className="settings-section-heading">
+        <span className="settings-section-icon settings-section-icon--amber">
           <Bell />
         </span>
         <div>
@@ -884,7 +890,10 @@ export function AlertRulesPanel({
             proposer une vérification.
           </p>
         </div>
-      </div>
+        <span className="settings-disclosure-chevron" aria-hidden="true">
+          <ChevronRight />
+        </span>
+      </summary>
       <div className="alert-rule-list">
         <label className="alert-rule-row">
           <span>
@@ -1124,7 +1133,7 @@ export function AlertRulesPanel({
           </p>
         )}
       </div>
-    </Card>
+    </details>
   );
 }
 
@@ -1902,6 +1911,18 @@ const personRoleLabel = (role: Person['role'], locale: Locale) => {
       : 'No access';
 };
 
+const personRoleIcon = (role: Person['role']) => {
+  const Icon =
+    role === 'CAREGIVER'
+      ? HeartHandshake
+      : role === 'OWNER' || role === 'ADMINISTRATOR'
+        ? ShieldCheck
+        : role === 'VIEWER'
+          ? Eye
+          : UserRound;
+  return <Icon aria-hidden="true" />;
+};
+
 export function PeoplePanel({
   locale,
   currentRole,
@@ -2099,9 +2120,6 @@ export function PeoplePanel({
     <section className="section-view people-page">
       <div className="people-hero">
         <div className="people-title-row">
-          <span className="people-title-icon">
-            <UsersRound />
-          </span>
           <div>
             <span className="eyebrow">
               {locale === 'fr' ? 'Cercle de confiance' : 'Care circle'}
@@ -2195,12 +2213,8 @@ export function PeoplePanel({
               className={`people-card role-card-${person.role ?? 'NONE'}${person.accessDisabled || person.archived ? ' is-disabled' : ''}`}
               key={person.id}
             >
-              <div className="people-card-accent" />
               <div className="people-card-top">
-                <span className="people-avatar">
-                  {person.firstName[0]}
-                  {person.lastName[0]}
-                </span>
+                <span className="people-avatar">{personRoleIcon(person.role)}</span>
                 <div>
                   <h3>
                     {person.firstName} {person.lastName}
@@ -2222,6 +2236,7 @@ export function PeoplePanel({
               </div>
               <div className="people-badges">
                 <span className={`people-role role-${person.role ?? 'NONE'}`}>
+                  {personRoleIcon(person.role)}
                   {personRoleLabel(person.role, locale)}
                 </span>
                 {person.isEmergency && (
@@ -2271,6 +2286,7 @@ export function PeoplePanel({
                   <div className="people-actions">
                     <button className="people-edit" onClick={() => edit(person)}>
                       {locale === 'fr' ? 'Voir la fiche' : 'View profile'}
+                      <ChevronRight aria-hidden="true" />
                     </button>
                     <details className="people-action-menu">
                       <summary aria-label={locale === 'fr' ? 'Plus d’actions' : 'More actions'}>
@@ -2578,18 +2594,6 @@ export function App() {
   const [initialTourHandled, setInitialTourHandled] = useState(false);
   const [homeSetupPreview, setHomeSetupPreview] = useState(false);
   const tourReturnActive = useRef(8);
-  const [contactDraft, setContactDraft] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    email: '',
-    relation: '',
-    role: 'proche' as 'proche' | 'administrateur' | 'urgence',
-    username: '',
-    temporaryPassword: '',
-    confirmation: '',
-  });
-  const [contactError, setContactError] = useState('');
   const previewSetup =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('setup') === '1';
@@ -2746,9 +2750,13 @@ export function App() {
   useEffect(() => {
     if (authRequired || passwordChangeRequired || entryState !== 'app') return;
     const events = new EventSource('/api/v1/events');
-    events.onmessage = refresh;
+    events.onmessage = (event) => {
+      const action = homeRealtimeEventAction(String(event.data));
+      if (action === 'IGNORE' || (action === 'PRESENCE' && active === 3)) return;
+      void refresh();
+    };
     return () => events.close();
-  }, [authRequired, passwordChangeRequired, entryState, refresh]);
+  }, [active, authRequired, passwordChangeRequired, entryState, refresh]);
 
   useEffect(() => {
     if (
@@ -2867,77 +2875,6 @@ export function App() {
     if (!resident) return;
     const response = await fetch(`/api/v1/residents/${resident.id}/photo`, { method: 'DELETE' });
     if (response.ok) await refresh();
-  };
-  const addContactAfterSetup = async (event: FormEvent) => {
-    event.preventDefault();
-    setContactError('');
-    if (
-      !contactDraft.firstName ||
-      !contactDraft.lastName ||
-      (!contactDraft.phone && !contactDraft.email)
-    ) {
-      setContactError(
-        locale === 'fr'
-          ? 'Indiquez le nom et au moins un moyen de contact.'
-          : 'Enter a name and at least one contact method.',
-      );
-      return;
-    }
-    if (
-      contactDraft.role === 'administrateur' &&
-      (contactDraft.temporaryPassword.length < 12 ||
-        contactDraft.temporaryPassword !== contactDraft.confirmation ||
-        !contactDraft.username)
-    ) {
-      setContactError(
-        locale === 'fr'
-          ? 'L’administrateur a besoin d’un identifiant et d’un mot de passe temporaire confirmé de 12 caractères.'
-          : 'The administrator needs a username and a confirmed 12-character temporary password.',
-      );
-      return;
-    }
-    const response = await fetch('/api/v1/household/people', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        id: `contact-${Date.now()}`,
-        firstName: contactDraft.firstName,
-        lastName: contactDraft.lastName,
-        phone: contactDraft.phone,
-        email: contactDraft.email,
-        relation: contactDraft.relation,
-        isEmergency: contactDraft.role === 'urgence',
-        ...(contactDraft.role === 'administrateur'
-          ? {
-              access: {
-                role: 'ADMINISTRATOR',
-                username: contactDraft.username,
-                temporaryPassword: contactDraft.temporaryPassword,
-              },
-            }
-          : {}),
-      }),
-    });
-    if (!response.ok) {
-      setContactError(
-        locale === 'fr'
-          ? 'Ce proche n’a pas pu être ajouté. Vérifiez notamment que l’identifiant est unique.'
-          : 'This contact could not be added. Check that the username is unique.',
-      );
-      return;
-    }
-    setContactDraft({
-      firstName: '',
-      lastName: '',
-      phone: '',
-      email: '',
-      relation: '',
-      role: 'proche',
-      username: '',
-      temporaryPassword: '',
-      confirmation: '',
-    });
-    await refresh();
   };
   const configureCamera = async (event: FormEvent) => {
     event.preventDefault();
@@ -3216,12 +3153,12 @@ export function App() {
 
   if (entryState === 'loading') {
     return (
-      <main className="boot-screen">
-        <span className="boot-mark">
-          <img src="/logo.png" alt="" />
-        </span>
-        <b>Élise</b>
-        <i />
+      <main className="data-loading-page">
+        <DataLoadingScreen
+          locale={locale}
+          message={locale === 'fr' ? 'Préparation de votre espace…' : 'Preparing your space…'}
+          fullPage
+        />
       </main>
     );
   }
@@ -3284,12 +3221,12 @@ export function App() {
 
   if (!overview) {
     return (
-      <main className="boot-screen">
-        <span className="boot-mark">
-          <img src="/logo.png" alt="" />
-        </span>
-        <b>Élise</b>
-        <i />
+      <main className="data-loading-page">
+        <DataLoadingScreen
+          locale={locale}
+          message={locale === 'fr' ? 'Chargement de vos données…' : 'Loading your data…'}
+          fullPage
+        />
       </main>
     );
   }
@@ -3806,8 +3743,6 @@ export function App() {
                 setHomeSection('EDITOR');
               }}
               onOpenLivePlan={() => setHomeSection('LIVE_PLAN')}
-              onOpenSensors={() => setActive(4)}
-              onOpenCameras={() => setActive(9)}
             />
           ) : (
             <HomePlanEditor
@@ -4231,100 +4166,124 @@ export function App() {
           </section>
         ) : active === 8 ? (
           <section className="section-view settings-page">
-            <div className="page-heading">
-              <span className="eyebrow">Élise OS</span>
-              <h2>{t.nav[8]}</h2>
-            </div>
-            <Card className="settings-card">
-              <div className="settings-card-heading">
-                <span className="settings-icon">
+            <header className="settings-hero">
+              <div className="settings-hero-copy">
+                <span className="eyebrow">Élise OS</span>
+                <h2>{t.nav[8]}</h2>
+                <p>
+                  {locale === 'fr'
+                    ? 'Adaptez Élise à votre quotidien et choisissez les situations qui méritent votre attention.'
+                    : 'Adapt Élise to your daily life and choose which situations deserve your attention.'}
+                </p>
+              </div>
+              <span className="settings-hero-icon" aria-hidden="true">
+                <Settings />
+              </span>
+            </header>
+
+            <details className="michel-card settings-section-card settings-disclosure settings-general-card">
+              <summary className="settings-section-heading">
+                <span className="settings-section-icon">
                   <Settings />
                 </span>
                 <div>
-                  <h2>{locale === 'fr' ? 'Langue de l’interface' : 'Interface language'}</h2>
-                  <p>
-                    {locale === 'fr'
-                      ? 'Choisissez la langue utilisée par Élise sur cet appareil.'
-                      : 'Choose the language Élise uses on this device.'}
-                  </p>
-                </div>
-              </div>
-              <div className="settings-language-options" role="group" aria-label="Language">
-                <button
-                  className={locale === 'fr' ? 'is-selected' : ''}
-                  onClick={() => changeLocale('fr')}
-                  aria-pressed={locale === 'fr'}
-                >
-                  <span>FR</span>
-                  <strong>Français</strong>
-                  {locale === 'fr' && <CircleCheck />}
-                </button>
-                <button
-                  className={locale === 'en' ? 'is-selected' : ''}
-                  onClick={() => changeLocale('en')}
-                  aria-pressed={locale === 'en'}
-                >
-                  <span>EN</span>
-                  <strong>English</strong>
-                  {locale === 'en' && <CircleCheck />}
-                </button>
-              </div>
-            </Card>
-            <SidebarBehaviorSetting
-              locale={locale}
-              enabled={sidebarAutoHide}
-              disabled={sidebarAutoHideLocked}
-              onChange={changeSidebarAutoHide}
-            />
-            <Card className="settings-card guided-tour-settings">
-              <div className="settings-card-heading">
-                <span className="settings-icon">
-                  <Sparkles />
-                </span>
-                <div>
-                  <h2>{locale === 'fr' ? 'Visite guidée' : 'Guided tour'}</h2>
-                  <p>
-                    {locale === 'fr'
-                      ? 'Redécouvrez les espaces essentiels de l’application, sans modifier votre logement.'
-                      : 'Rediscover the essential areas of the application without changing your home.'}
-                  </p>
-                </div>
-                <Button
-                  className="button-secondary"
-                  onClick={() => {
-                    tourReturnActive.current = active;
-                    setHomeSetupPreview(false);
-                    setTourMode('replay');
-                  }}
-                >
-                  {locale === 'fr' ? 'Revoir la visite' : 'Replay the tour'}
-                </Button>
-              </div>
-            </Card>
-            {household && (
-              <Card className="settings-card">
-                <div className="settings-card-heading">
-                  <span className="settings-icon">
-                    <Home />
+                  <span className="eyebrow">
+                    {locale === 'fr' ? 'Préférences de l’application' : 'Application preferences'}
                   </span>
-                  <div>
-                    <h2>{household.home.name}</h2>
-                    <p>
-                      {household.home.type} · {household.home.floorCount}{' '}
-                      {locale === 'fr' ? 'niveau(x)' : 'floor(s)'} · {household.home.timezone}
-                    </p>
-                    {household.home.address && <p>{household.home.address}</p>}
-                  </div>
+                  <h2>{locale === 'fr' ? 'Général' : 'General'}</h2>
+                  <p>
+                    {locale === 'fr'
+                      ? 'Les réglages essentiels de cet appareil, réunis au même endroit.'
+                      : 'Essential settings for this device, all in one place.'}
+                  </p>
                 </div>
-              </Card>
-            )}
-            {simulationScenarios.length > 0 && (
-              <SimulationPanel
-                scenarios={simulationScenarios}
-                running={runningSimulation}
-                notice={simulationNotice}
-                onRun={(scenario) => void runSimulation(scenario)}
-              />
+                <span className="settings-disclosure-chevron" aria-hidden="true">
+                  <ChevronRight />
+                </span>
+              </summary>
+
+              <div className="settings-option-list">
+                <article className="settings-option-row settings-language-row">
+                  <div className="settings-option-copy">
+                    <span className="settings-option-icon settings-option-icon--sage">
+                      <Languages />
+                    </span>
+                    <div>
+                      <h3>{locale === 'fr' ? 'Langue de l’interface' : 'Interface language'}</h3>
+                      <p>
+                        {locale === 'fr'
+                          ? 'Choisissez la langue utilisée par Élise sur cet appareil.'
+                          : 'Choose the language Élise uses on this device.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="settings-language-options" role="group" aria-label="Language">
+                    <button
+                      className={locale === 'fr' ? 'is-selected' : ''}
+                      onClick={() => changeLocale('fr')}
+                      aria-pressed={locale === 'fr'}
+                    >
+                      <FRFlag />
+                      <strong>Français</strong>
+                      {locale === 'fr' && <CircleCheck />}
+                    </button>
+                    <button
+                      className={locale === 'en' ? 'is-selected' : ''}
+                      onClick={() => changeLocale('en')}
+                      aria-pressed={locale === 'en'}
+                    >
+                      <GBFlag />
+                      <strong>English</strong>
+                      {locale === 'en' && <CircleCheck />}
+                    </button>
+                  </div>
+                </article>
+
+                <SidebarBehaviorSetting
+                  locale={locale}
+                  enabled={sidebarAutoHide}
+                  disabled={sidebarAutoHideLocked}
+                  onChange={changeSidebarAutoHide}
+                />
+
+                <article className="settings-option-row guided-tour-settings">
+                  <div className="settings-option-copy">
+                    <span className="settings-option-icon settings-option-icon--amber">
+                      <Sparkles />
+                    </span>
+                    <div>
+                      <h3>{locale === 'fr' ? 'Visite guidée' : 'Guided tour'}</h3>
+                      <p>
+                        {locale === 'fr'
+                          ? 'Redécouvrez les espaces essentiels de l’application, sans modifier votre logement.'
+                          : 'Rediscover the essential areas of the application without changing your home.'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    className="button-secondary"
+                    onClick={() => {
+                      tourReturnActive.current = active;
+                      setHomeSetupPreview(false);
+                      setTourMode('replay');
+                    }}
+                  >
+                    {locale === 'fr' ? 'Revoir la visite' : 'Replay the tour'}
+                  </Button>
+                </article>
+
+                {simulationScenarios.length > 0 && (
+                  <SimulationPanel
+                    scenarios={simulationScenarios}
+                    running={runningSimulation}
+                    notice={simulationNotice}
+                    onRun={(scenario) => void runSimulation(scenario)}
+                  />
+                )}
+              </div>
+            </details>
+            {currentAccess.capabilities.includes('configuration:manage') && (
+              <RemoteAccessCard locale={locale} />
             )}
             {alertRules && (
               <AlertRulesPanel
@@ -4335,144 +4294,6 @@ export function App() {
                 onSave={() => void saveAlertRules()}
               />
             )}
-            <Card className="settings-card">
-              <div className="settings-card-heading">
-                <span className="settings-icon">
-                  <UsersRound />
-                </span>
-                <div>
-                  <h2>{locale === 'fr' ? 'Ajouter un proche' : 'Add a contact'}</h2>
-                  <p>
-                    {locale === 'fr'
-                      ? 'Un administrateur reçoit un mot de passe temporaire qu’il devra remplacer à sa première connexion.'
-                      : 'An administrator receives a temporary password that must be changed at first sign-in.'}
-                  </p>
-                </div>
-              </div>
-              <form
-                className="settings-contact-form"
-                onSubmit={(event) => void addContactAfterSetup(event)}
-              >
-                <label>
-                  {locale === 'fr' ? 'Prénom' : 'First name'}
-                  <input
-                    value={contactDraft.firstName}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({ ...current, firstName: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  {locale === 'fr' ? 'Nom' : 'Last name'}
-                  <input
-                    value={contactDraft.lastName}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({ ...current, lastName: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  {locale === 'fr' ? 'Téléphone' : 'Phone'}
-                  <input
-                    type="tel"
-                    value={contactDraft.phone}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({ ...current, phone: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  Email
-                  <input
-                    type="email"
-                    value={contactDraft.email}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({ ...current, email: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  {locale === 'fr' ? 'Lien avec le résident' : 'Relationship'}
-                  <input
-                    value={contactDraft.relation}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({ ...current, relation: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  {locale === 'fr' ? 'Rôle' : 'Role'}
-                  <select
-                    value={contactDraft.role}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({
-                        ...current,
-                        role: event.target.value as typeof current.role,
-                      }))
-                    }
-                  >
-                    <option value="proche">{locale === 'fr' ? 'Proche' : 'Relative'}</option>
-                    <option value="urgence">
-                      {locale === 'fr' ? 'Contact d’urgence' : 'Emergency contact'}
-                    </option>
-                    <option value="administrateur">
-                      {locale === 'fr' ? 'Administrateur' : 'Administrator'}
-                    </option>
-                  </select>
-                </label>
-                {contactDraft.role === 'administrateur' && (
-                  <>
-                    <label>
-                      {locale === 'fr' ? 'Identifiant' : 'Username'}
-                      <input
-                        autoComplete="off"
-                        value={contactDraft.username}
-                        onChange={(event) =>
-                          setContactDraft((current) => ({
-                            ...current,
-                            username: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      {locale === 'fr' ? 'Mot de passe temporaire' : 'Temporary password'}
-                      <input
-                        type="password"
-                        minLength={12}
-                        autoComplete="new-password"
-                        value={contactDraft.temporaryPassword}
-                        onChange={(event) =>
-                          setContactDraft((current) => ({
-                            ...current,
-                            temporaryPassword: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      {locale === 'fr' ? 'Confirmer' : 'Confirm'}
-                      <input
-                        type="password"
-                        minLength={12}
-                        autoComplete="new-password"
-                        value={contactDraft.confirmation}
-                        onChange={(event) =>
-                          setContactDraft((current) => ({
-                            ...current,
-                            confirmation: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                  </>
-                )}
-                {contactError && <p className="form-error">{contactError}</p>}
-                <Button type="submit">
-                  {locale === 'fr' ? 'Ajouter ce proche' : 'Add contact'}
-                </Button>
-              </form>
-            </Card>
           </section>
         ) : active !== 0 ? (
           <section className="placeholder-view">
@@ -4837,15 +4658,6 @@ export function App() {
             </section>
           </>
         )}
-        <footer>
-          <ShieldCheck />
-          <span>
-            {locale === 'fr'
-              ? 'Aucune caméra. Aucune écoute. Juste l’essentiel.'
-              : 'No cameras. No listening. Only what matters.'}
-          </span>
-          <HeartHandshake />
-        </footer>
       </main>
       {tourMode && (
         <GuidedTour

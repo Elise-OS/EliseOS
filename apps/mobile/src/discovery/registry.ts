@@ -28,6 +28,18 @@ export class ServerRegistry {
   }
 
   static async save(server: DiscoveredServer): Promise<SavedServer> {
+    const servers = await this.list();
+    const previous = servers.find((item) => item.instanceId === server.instanceId);
+    const urls = [
+      ...new Set(
+        [
+          server.url,
+          ...(previous?.urls ?? [previous?.url].filter((value): value is string => Boolean(value))),
+          server.localUrl,
+          server.remoteUrl,
+        ].filter((value): value is string => Boolean(value)),
+      ),
+    ];
     const saved: SavedServer = {
       id: server.instanceId,
       instanceId: server.instanceId,
@@ -38,10 +50,15 @@ export class ServerRegistry {
       supportsMobile: true,
       setupRequired: server.setupRequired,
       url: server.url,
+      urls,
+      localUrl: server.localUrl ?? previous?.localUrl ?? null,
+      remoteUrl:
+        server.remoteUrl ??
+        (server.url.startsWith('https://') ? server.url : previous?.remoteUrl) ??
+        null,
       source: server.source,
       lastConnectedAt: new Date().toISOString(),
     };
-    const servers = await this.list();
     await AsyncStorage.setItem(
       SERVERS_KEY,
       JSON.stringify([saved, ...servers.filter((item) => item.instanceId !== saved.instanceId)]),

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Linking from 'expo-linking';
 import eliseLogo from '../assets/logo.png';
 import {
   ActivityIndicator,
@@ -22,6 +23,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { mobileApi, type AlertItem, type Overview } from '../src/api';
 import { ServerRegistry } from '../src/discovery/registry';
 import { discoveryService } from '../src/discovery/service';
+import { remoteUrlFromDeepLink } from '../src/discovery/helpers';
 import type { DiscoveredServer, SavedServer } from '../src/discovery/types';
 import { DashboardApp } from '../src/dashboard/DashboardApp';
 import { registerPushNotifications } from '../src/notifications';
@@ -42,6 +44,8 @@ const setupPreviewServer: DiscoveredServer = {
   serverTime: new Date().toISOString(),
   supportsMobile: true,
   setupRequired: true,
+  localUrl: null,
+  remoteUrl: null,
   url: 'http://elise-demo.local:8090',
   host: 'elise-demo.local',
   port: 8090,
@@ -81,6 +85,7 @@ const asDiscovered = (server: SavedServer): DiscoveredServer => {
 };
 
 export default function HomeScreen() {
+  const incomingUrl = Linking.useURL();
   const [stage, setStage] = useState<Stage>('boot');
   const [locale, setLocale] = useState<Locale>('fr');
   const [servers, setServers] = useState<DiscoveredServer[]>([]);
@@ -100,6 +105,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [offline, setOffline] = useState(false);
   const radar = useRef(new Animated.Value(0)).current;
+  const handledDeepLink = useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -212,6 +218,7 @@ export default function HomeScreen() {
         setSetupPreview(true);
         setServer({
           ...candidate,
+          urls: [candidate.url],
           lastConnectedAt: candidate.lastSeenAt,
         });
         setStage('setup');
@@ -250,13 +257,32 @@ export default function HomeScreen() {
     } catch {
       setError(
         locale === 'fr'
-          ? 'Adresse introuvable. Vérifiez qu’Élise est allumée et sur le même Wi-Fi.'
-          : 'Address not found. Check that Élise is on and connected to the same Wi-Fi.',
+          ? 'Adresse introuvable. Vérifiez le réseau local ou que Tailscale est actif.'
+          : 'Address not found. Check the local network or make sure Tailscale is active.',
       );
     } finally {
       setBusy(false);
     }
   };
+
+  useEffect(() => {
+    if (!incomingUrl || handledDeepLink.current === incomingUrl) return;
+    const value = remoteUrlFromDeepLink(incomingUrl);
+    if (!value) return;
+    handledDeepLink.current = incomingUrl;
+    setManualUrl(value);
+    setStage('discovery');
+    void discoveryService
+      .manual(value)
+      .then(chooseServer)
+      .catch(() =>
+        setError(
+          locale === 'fr'
+            ? 'Le lien Élise est valide, mais Tailscale ne répond pas encore.'
+            : 'The Élise link is valid, but Tailscale is not responding yet.',
+        ),
+      );
+  }, [incomingUrl]);
 
   const login = async () => {
     if (!server) return;

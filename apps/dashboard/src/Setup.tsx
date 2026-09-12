@@ -31,6 +31,7 @@ import {
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { FRFlag, GBFlag } from './FlagIcons';
 import type { Locale } from './i18n';
+import { RemoteAccessCard } from './RemoteAccessCard';
 
 interface SetupProps {
   locale: Locale;
@@ -100,11 +101,11 @@ export function createBootstrapPayload(
 }
 
 const steps: Record<Locale, string[]> = {
-  fr: ['Bienvenue', 'Vous', 'Résident', 'Quotidien', 'Habitudes', 'Apprentissage'],
-  en: ['Welcome', 'You', 'Resident', 'Daily life', 'Routines', 'Learning'],
+  fr: ['Bienvenue', 'Vous', 'Résident', 'Quotidien', 'Apprentissage', 'Accès privé', 'Terminé'],
+  en: ['Welcome', 'You', 'Resident', 'Daily life', 'Learning', 'Private access', 'Done'],
 };
 
-const setupFlow = [0, 1, 2, 3, 8, 11] as const;
+const setupFlow = [0, 1, 2, 3, 8, 12, 11] as const;
 
 const defaultDraft: SetupDraft = {
   caregiver: {
@@ -392,7 +393,7 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
         }
       }
       window.localStorage.removeItem('elise_setup_draft');
-      setStep(11);
+      setStep(12);
     } catch {
       setError('Impossible de joindre Élise. Vérifiez votre connexion au réseau local.');
     } finally {
@@ -1231,6 +1232,27 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
                   installation.
                 </small>
               </div>
+            </div>
+          </StepShell>
+        );
+      case 12:
+        return (
+          <StepShell
+            eyebrow={tr('Option recommandée', 'Recommended option')}
+            title={tr('Retrouvez Élise, même à distance', 'Reach Élise while away from home')}
+            text={tr(
+              'L’accès passe par votre espace privé Tailscale. Il peut être activé maintenant ou plus tard depuis les réglages.',
+              'Access uses your private Tailscale network. Enable it now or later from settings.',
+            )}
+          >
+            <RemoteAccessCard locale={locale} compact />
+            <div className="elise-remote-nav">
+              <button className="elise-back" type="button" onClick={() => setStep(11)}>
+                {tr('Configurer plus tard', 'Set up later')}
+              </button>
+              <button className="elise-primary" type="button" onClick={() => setStep(11)}>
+                {tr('Continuer', 'Continue')} <ArrowRight />
+              </button>
             </div>
           </StepShell>
         );

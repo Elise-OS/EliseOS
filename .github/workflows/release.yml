@@ -1,0 +1,125 @@
+name: Release Élise OS
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.10.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: pip }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm typecheck && pnpm test && pnpm build
+      - run: python -m pip install -e './apps/ai[dev]' && ruff check apps/ai && pytest apps/ai
+      - run: bash scripts/test-distribution.sh
+      - run: docker compose config --quiet
+
+  containers:
+    needs: validate
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - { name: api, file: docker/Dockerfile.node, target: api }
+          - { name: worker, file: docker/Dockerfile.node, target: worker }
+          - { name: dashboard, file: docker/Dockerfile.node, target: dashboard }
+          - { name: ai, file: docker/Dockerfile.ai, target: '' }
+          - { name: mdns, file: docker/mdns/Dockerfile, target: '' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/elise-os/eliseos-${{ matrix.name }}:${{ github.ref_name }}
+            ghcr.io/elise-os/eliseos-${{ matrix.name }}:latest
+      - uses: sigstore/cosign-installer@v3
+      - run: cosign sign --yes "ghcr.io/elise-os/eliseos-${{ matrix.name }}@${{ steps.build.outputs.digest }}"
+
+  artifacts:
+    needs: containers
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create runtime and digest manifest
+        run: |
+          mkdir -p dist runtime
+          rsync -a --relative compose.yaml compose.release.yaml compose.raspberry.yaml compose.raspberry.release.yaml .env.example docker scripts appliance install runtime/
+          tar -czf "dist/elise-runtime-${GITHUB_REF_NAME}.tar.gz" -C runtime .
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          owner = os.environ['GITHUB_REPOSITORY'].split('/', 1)[0].lower()
+          version = os.environ['GITHUB_REF_NAME']
+          images = {}
+          for name in ('api', 'worker', 'dashboard', 'ai', 'mdns'):
+              image = f'ghcr.io/{owner}/eliseos-{name}:{version}'
+              manifest = subprocess.check_output(['docker', 'buildx', 'imagetools', 'inspect', '--raw', image])
+              digest = 'sha256:' + hashlib.sha256(manifest).hexdigest()
+              images[name] = {'name': image.rsplit(':', 1)[0], 'digest': digest, 'platforms': ['linux/amd64', 'linux/arm64']}
+          base = json.loads(subprocess.check_output(['docker', 'compose', '-f', 'compose.yaml', 'config', '--format', 'json'], text=True))
+          for name in ('bootstrap', 'postgres', 'mosquitto', 'zigbee2mqtt', 'homeassistant', 'go2rtc'):
+              image = base['services'][name]['image']
+              manifest = subprocess.check_output(['docker', 'buildx', 'imagetools', 'inspect', '--raw', image])
+              digest = 'sha256:' + hashlib.sha256(manifest).hexdigest()
+              images[name] = {'name': image.rsplit(':', 1)[0], 'digest': digest, 'platforms': ['linux/amd64', 'linux/arm64']}
+          json.dump({'version': version, 'images': images}, open('dist/release-manifest.json', 'w'), indent=2)
+          PY
+          (cd dist && sha256sum elise-runtime-*.tar.gz > "elise-runtime-${GITHUB_REF_NAME}.tar.gz.sha256")
+          (cd dist && sha256sum release-manifest.json > release-manifest.json.sha256)
+          sed "s/__ELISE_VERSION__/${GITHUB_REF_NAME}/g" install/install-elise.sh > dist/install-elise.sh
+          chmod +x dist/install-elise.sh
+      - name: Install image builder dependencies
+        run: sudo apt-get update && sudo apt-get install -y qemu-user-static parted rsync
+      - name: Build Raspberry Pi image
+        run: sudo appliance/build-raspberry-image.sh "$GITHUB_REF_NAME" "$PWD/dist/elise-os-${GITHUB_REF_NAME}-raspberry-pi-arm64.img.xz"
+      - name: Describe Raspberry Pi image
+        run: |
+          image="dist/elise-os-${GITHUB_REF_NAME}-raspberry-pi-arm64.img.xz"
+          (cd dist && sha256sum "${image##*/}" > "${image##*/}.sha256")
+          download_sha="$(sha256sum "$image" | cut -d' ' -f1)"
+          download_size="$(stat -c %s "$image")"
+          extract_sha="$(xz -dc "$image" | sha256sum | cut -d' ' -f1)"
+          extract_size="$(xz -dc "$image" | wc -c)"
+          sed -e "s/{{VERSION}}/${GITHUB_REF_NAME}/g" -e "s/{{DATE}}/$(date -u +%F)/g" -e "s/{{DOWNLOAD_SHA256}}/$download_sha/g" -e "s/22222222222/$download_size/g" -e "s/11111111111/$extract_size/g" -e "s/{{EXTRACT_SHA256}}/$extract_sha/g" appliance/os_list.template.json > dist/os_list.json
+      - uses: sigstore/cosign-installer@v3
+      - name: Sign release files
+        run: |
+          for file in dist/*.tar.gz dist/*.img.xz dist/release-manifest.json dist/install-elise.sh dist/os_list.json; do
+            cosign sign-blob --yes --bundle "$file.sigstore.json" "$file"
+          done
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

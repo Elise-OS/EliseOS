@@ -383,10 +383,37 @@ export const discoveryInfoSchema = z.object({
   serverTime: z.iso.datetime(),
   supportsMobile: z.literal(true),
   setupRequired: z.boolean(),
+  localUrl: z.string().url().nullable().default(null),
+  remoteUrl: z.string().url().nullable().default(null),
 });
 
 export type SetupState = z.infer<typeof setupStateSchema>;
 export type DiscoveryInfo = z.infer<typeof discoveryInfoSchema>;
+
+export const remoteAccessStateSchema = z.enum([
+  'UNAVAILABLE',
+  'SIGNED_OUT',
+  'AUTHORIZING',
+  'CONFIGURING',
+  'READY',
+  'DEGRADED',
+]);
+
+export const remoteAccessStatusSchema = z.object({
+  state: remoteAccessStateSchema,
+  installed: z.boolean(),
+  remoteUrl: z.string().url().nullable(),
+  hostname: z.string().nullable(),
+  servePort: z.literal(8443),
+  keyExpiresAt: z.iso.datetime().nullable(),
+  httpsAvailable: z.boolean(),
+  webrtcAvailable: z.boolean(),
+  authUrl: z.string().url().nullable(),
+  actionRequired: z.enum(['NONE', 'AUTHENTICATE', 'ENABLE_HTTPS', 'RETRY']),
+});
+
+export type RemoteAccessState = z.infer<typeof remoteAccessStateSchema>;
+export type RemoteAccessStatus = z.infer<typeof remoteAccessStatusSchema>;
 
 export const membershipRoleSchema = z.enum(['OWNER', 'ADMINISTRATOR', 'CAREGIVER', 'VIEWER']);
 export const accessCapabilitySchema = z.enum([

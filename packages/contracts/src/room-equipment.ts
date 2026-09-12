@@ -162,6 +162,7 @@ const STILL_PRESENCE_MODELS = new Set([
   'FP1E',
   'PS-S02D',
 ]);
+const STILL_PRESENCE_MODEL_NAMES = ['SMARTPRESENCESENSORR3', 'MULTIFUNCTIONSMARTPRESENCESENSORR3'];
 const MOTION_MODELS = new Set(['SNZB-03P', 'SNZB-03', '3RMS16BZ', '3RMS16BZ-NEW', '3RSM0147Z']);
 export type CategoryDevice = { model: string | null; capabilities: Array<{ capability: string }> };
 export function deviceSupportsCategory(
@@ -170,11 +171,14 @@ export function deviceSupportsCategory(
 ): boolean {
   const values = new Set(device.capabilities.map(({ capability }) => capability));
   const model = device.model?.trim().toUpperCase() ?? '';
+  const normalizedModel = model.replace(/[^A-Z0-9]/g, '');
+  const stillPresenceModel =
+    STILL_PRESENCE_MODELS.has(model) ||
+    STILL_PRESENCE_MODEL_NAMES.some((name) => normalizedModel.includes(name));
   if (category === 'presence')
     return (
       !MOTION_MODELS.has(model) &&
-      (values.has('person_presence') ||
-        (STILL_PRESENCE_MODELS.has(model) && values.has('occupancy')))
+      (values.has('person_presence') || (stillPresenceModel && values.has('occupancy')))
     );
   if (category === 'motion')
     return values.has('motion') || (MOTION_MODELS.has(model) && values.has('occupancy'));
@@ -187,6 +191,13 @@ export function deviceSupportsCategory(
 }
 
 export type SensorProduct = {
+  recommendation?: {
+    mode: 'ROOM' | 'DETECTION' | 'TARGET' | 'APPLIANCE' | 'HOME';
+    detectionDistanceM?: number;
+    advice: string;
+    adviceEn: string;
+    sourceUrl: string;
+  };
   id: string;
   brand: string;
   model: string;
