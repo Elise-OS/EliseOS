@@ -47,7 +47,7 @@ jobs:
       - run: bash scripts/test-distribution.sh
       - run: docker compose config --quiet
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile.node
@@ -55,7 +55,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: false
           tags: michel-os/api:ci
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/Dockerfile.ai
