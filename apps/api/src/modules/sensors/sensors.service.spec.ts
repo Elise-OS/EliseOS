@@ -345,6 +345,35 @@ describe('SensorsService physical device views', () => {
     ).toBe(false);
   });
 
+  it('starts a short verification and asks the bridge for a fresh inventory', async () => {
+    const now = Date.now();
+    const create = vi
+      .fn()
+      .mockImplementation(({ data }: { data: { status: string; expiresAt: Date } }) => ({
+        id: 'test-short',
+        deviceId: 'device-sonoff',
+        sensorId: null,
+        status: data.status,
+        startedAt: new Date(now),
+        expiresAt: data.expiresAt,
+        observedAt: null,
+      }));
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      device: { findFirst: vi.fn().mockResolvedValue({ id: 'device-sonoff' }) },
+      sensorVerificationSession: { create },
+    };
+    const mqtt = { requestInventory: vi.fn() };
+    const service = new SensorsService(prisma as never, mqtt as never);
+
+    const result = await service.startVerification('user-1', 'device-sonoff');
+
+    expect(result.status).toBe('PENDING');
+    expect(Date.parse(result.expiresAt) - now).toBeGreaterThanOrEqual(19_000);
+    expect(Date.parse(result.expiresAt) - now).toBeLessThanOrEqual(21_000);
+    expect(mqtt.requestInventory).toHaveBeenCalledWith('home-1');
+  });
+
   it('keeps waiting when no new event has been received since the test started', async () => {
     const session = {
       id: 'test-1',
@@ -360,6 +389,8 @@ describe('SensorsService physical device views', () => {
     };
     const prisma = {
       home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      device: { findFirst: vi.fn().mockResolvedValue(null) },
+      equipmentSyncState: { findUnique: vi.fn().mockResolvedValue(null) },
       observationEvent: { findFirst: vi.fn().mockResolvedValue(null) },
       sensorVerificationSession: {
         findFirst: vi.fn().mockResolvedValue(session),
@@ -373,6 +404,101 @@ describe('SensorsService physical device views', () => {
     const service = new SensorsService(prisma as never, {} as never);
 
     const result = await service.verification('user-1', 'test-1');
+
+    expect(result.status).toBe('WAITING_FOR_DEVICE');
+  });
+
+  it('confirms an online Zigbee sensor from the live bridge inventory without waiting for motion', async () => {
+    const session = {
+      id: 'test-zigbee-online',
+      homeId: 'home-1',
+      deviceId: 'device-presence',
+      sensorId: null,
+      requestedById: 'user-1',
+      status: 'PENDING',
+      startedAt: new Date(),
+      expiresAt: new Date(Date.now() + 20_000),
+      observedAt: null,
+      errorCode: null,
+    };
+    const update = vi
+      .fn()
+      .mockImplementation(
+        ({ data }: { data: { status: string; observedAt: Date; errorCode: null } }) => ({
+          ...session,
+          ...data,
+        }),
+      );
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      observationEvent: { findFirst: vi.fn().mockResolvedValue(null) },
+      device: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'device-presence',
+          enabled: true,
+          protocol: 'zigbee',
+          networkIdentifier: '0x00124b0023456789',
+          sensors: [{ available: true, status: 'ONLINE' }],
+        }),
+      },
+      equipmentSyncState: {
+        findUnique: vi.fn().mockResolvedValue({ inventorySeenAt: new Date(Date.now() + 1000) }),
+      },
+      sensorVerificationSession: {
+        findFirst: vi.fn().mockResolvedValue(session),
+        update,
+      },
+    };
+    const mqtt = {
+      zigbeeStatus: vi.fn().mockReturnValue({ online: true }),
+      isZigbeeDeviceJoined: vi.fn().mockReturnValue(true),
+    };
+    const service = new SensorsService(prisma as never, mqtt as never);
+
+    const result = await service.verification('user-1', session.id);
+
+    expect(result.status).toBe('COMPLETED');
+    expect(mqtt.isZigbeeDeviceJoined).toHaveBeenCalledWith('0x00124b0023456789');
+  });
+
+  it('does not accept an old cached inventory as proof of a current connection', async () => {
+    const session = {
+      id: 'test-stale',
+      homeId: 'home-1',
+      deviceId: 'device-presence',
+      sensorId: null,
+      status: 'PENDING',
+      startedAt: new Date(),
+      expiresAt: new Date(Date.now() + 20_000),
+    };
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      observationEvent: { findFirst: vi.fn().mockResolvedValue(null) },
+      device: {
+        findFirst: vi.fn().mockResolvedValue({
+          enabled: true,
+          protocol: 'zigbee',
+          networkIdentifier: '0x00124b0023456789',
+          sensors: [{ available: true, status: 'ONLINE' }],
+        }),
+      },
+      equipmentSyncState: {
+        findUnique: vi.fn().mockResolvedValue({ inventorySeenAt: new Date(Date.now() - 60_000) }),
+      },
+      sensorVerificationSession: {
+        findFirst: vi.fn().mockResolvedValue(session),
+        update: vi.fn().mockResolvedValue({ ...session, status: 'WAITING_FOR_DEVICE' }),
+      },
+    };
+    const mqtt = {
+      zigbeeStatus: vi.fn().mockReturnValue({ online: true }),
+      isZigbeeDeviceJoined: vi.fn().mockReturnValue(true),
+    };
+
+    const result = await new SensorsService(prisma as never, mqtt as never).verification(
+      'user-1',
+      session.id,
+    );
 
     expect(result.status).toBe('WAITING_FOR_DEVICE');
   });
@@ -411,7 +537,7 @@ describe('SensorsService physical device views', () => {
     expect(result.observedAt).toBe(observedAt.toISOString());
   });
 
-  it('expires a verification that received no new event during its five-minute window', async () => {
+  it('expires a verification that received no response during its short verification window', async () => {
     const session = {
       id: 'test-expired',
       homeId: 'home-1',

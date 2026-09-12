@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, CheckCircle2, LoaderCircle, Radio, RefreshCw } from 'lucide-react';
+import { Check, CheckCircle2, LoaderCircle, Radio, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import type { Locale } from './i18n';
-import { sensorJson, sensorRequest, type SensorUiDevice } from './sensor-ui';
+import { sensorRequest, type SensorUiDevice } from './sensor-ui';
 
 type Guide = {
   title: string;
@@ -55,7 +55,12 @@ export function SensorInstallationGuide({
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
   const [busy, setBusy] = useState(false);
-  const [test, setTest] = useState<{ id: string; status: string } | null>(null);
+  const [test, setTest] = useState<{
+    id: string;
+    status: string;
+    expiresAt?: string;
+    observedAt?: string | null;
+  } | null>(null);
   const alive = useRef(true);
   const changed = useRef(onChanged);
   changed.current = onChanged;
@@ -82,19 +87,36 @@ export function SensorInstallationGuide({
     if (!test || !['PENDING', 'WAITING_FOR_DEVICE'].includes(test.status)) return;
     const controller = new AbortController();
     let timer: number;
+    const serverDeadline = test.expiresAt ? Date.parse(test.expiresAt) : Number.NaN;
+    const deadline = Number.isFinite(serverDeadline)
+      ? Math.min(serverDeadline, Date.now() + 20_000)
+      : Date.now() + 20_000;
+    const deadlineTimer = window.setTimeout(
+      () => {
+        controller.abort();
+        setTest((current) =>
+          current?.id === test.id ? { ...current, status: 'EXPIRED' } : current,
+        );
+      },
+      Math.max(0, deadline - Date.now()),
+    );
     const poll = async () => {
       try {
-        const result = await sensorRequest<{ id: string; status: string }>(
-          `/api/v1/sensor-devices/verification-sessions/${test.id}`,
-          { signal: controller.signal },
-        );
+        const result = await sensorRequest<{
+          id: string;
+          status: string;
+          expiresAt?: string;
+          observedAt?: string | null;
+        }>(`/api/v1/sensor-devices/verification-sessions/${test.id}`, {
+          signal: controller.signal,
+        });
         if (controller.signal.aborted) return;
         if (['COMPLETED', 'FAILED', 'EXPIRED', 'CANCELLED'].includes(result.status)) {
           setTest({ ...result, id: test.id });
           if (result.status === 'COMPLETED') await changed.current();
         } else timer = window.setTimeout(() => void poll(), 1500);
       } catch (err) {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && Date.now() < deadline) {
           setError((err as Error).message);
           setTest({ ...test, status: 'FAILED' });
         }
@@ -104,29 +126,36 @@ export function SensorInstallationGuide({
     return () => {
       controller.abort();
       window.clearTimeout(timer);
+      window.clearTimeout(deadlineTimer);
     };
   }, [test]);
-  const run = async (action: 'PLACE' | 'TEST') => {
+  const runTest = async () => {
     setBusy(true);
     setError('');
     try {
-      if (action === 'PLACE') {
-        await sensorRequest(
-          `/api/v1/sensor-devices/${encodeURIComponent(device.id)}`,
-          sensorJson('PATCH', { placementConfirmed: true }),
-        );
-        await changed.current();
-      } else {
-        const targetId = verificationTargetId(device);
-        const result = await sensorRequest<{ id: string; status: string }>(
-          `/api/v1/sensor-devices/${encodeURIComponent(targetId)}/verification-sessions`,
-          { method: 'POST' },
-        );
-        if (alive.current) setTest({ ...result, status: result.status ?? 'PENDING' });
-        if (result.status === 'COMPLETED') await changed.current();
-      }
+      const targetId = verificationTargetId(device);
+      const result = await sensorRequest<{
+        id: string;
+        status: string;
+        expiresAt?: string;
+        observedAt?: string | null;
+      }>(`/api/v1/sensor-devices/${encodeURIComponent(targetId)}/verification-sessions`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (alive.current) setTest({ ...result, status: result.status ?? 'PENDING' });
+      if (result.status === 'COMPLETED') await changed.current();
     } catch (err) {
-      if (alive.current) setError((err as Error).message);
+      if (alive.current) {
+        const timedOut = (err as Error).name === 'TimeoutError';
+        setError(
+          timedOut
+            ? fr
+              ? 'La box ne répond pas. Vérifiez sa connexion, puis réessayez.'
+              : 'The hub did not respond. Check its connection and try again.'
+            : (err as Error).message,
+        );
+      }
     } finally {
       if (alive.current) setBusy(false);
     }
@@ -162,36 +191,94 @@ export function SensorInstallationGuide({
             </div>
           )}
           {guide.safetyNote && <p className="equipment-muted">{guide.safetyNote}</p>}
-          <button
-            className="equipment-secondary"
-            disabled={busy || !device.room}
-            onClick={() => void run('PLACE')}
-          >
-            <Check />{' '}
-            {device.placementConfirmedAt
-              ? fr
-                ? 'Emplacement confirmé'
-                : 'Placement confirmed'
-              : fr
-                ? 'J’ai positionné le capteur'
-                : 'I placed the sensor'}
-          </button>
         </>
       )}
-      <section className="equipment-test">
-        <Radio />
-        <div>
-          <h3>{fr ? 'Vérifier la connexion' : 'Check connection'}</h3>
-          <p>{guide?.testInstruction}</p>
-          {!device.room && (
+      <section className={`equipment-test ${testing ? 'is-testing' : ''}`}>
+        <div className="equipment-test-heading">
+          <span className="equipment-test-icon" aria-hidden="true">
+            {test?.status === 'COMPLETED' ? (
+              <Wifi />
+            ) : test && ['FAILED', 'EXPIRED', 'CANCELLED'].includes(test.status) ? (
+              <WifiOff />
+            ) : (
+              <Radio />
+            )}
+          </span>
+          <div>
+            <span className="equipment-kicker">
+              {fr ? 'Connexion du capteur' : 'Sensor connection'}
+            </span>
+            <h3>{fr ? 'Installer et vérifier' : 'Install and check'}</h3>
             <p>
+              {fr
+                ? 'Élise demande un état récent à la box et vérifie la liaison du capteur.'
+                : 'Élise requests a fresh status from the hub and checks the sensor link.'}
+            </p>
+          </div>
+        </div>
+        <div className="equipment-test-body">
+          {guide?.testInstruction && (
+            <p className="equipment-test-instruction">{guide.testInstruction}</p>
+          )}
+          {!device.room && (
+            <p className="equipment-test-warning">
               {fr ? 'Associez une pièce avant de lancer le test.' : 'Assign a room before testing.'}
             </p>
           )}
+          <div
+            className={`equipment-test-status status-${test?.status?.toLowerCase() ?? 'idle'}`}
+            role="status"
+          >
+            {testing ? (
+              <LoaderCircle className="is-spinning" />
+            ) : test?.status === 'COMPLETED' ? (
+              <CheckCircle2 />
+            ) : test && ['FAILED', 'EXPIRED', 'CANCELLED'].includes(test.status) ? (
+              <WifiOff />
+            ) : (
+              <Radio />
+            )}
+            <span>
+              <strong>
+                {testing
+                  ? fr
+                    ? 'Vérification en cours'
+                    : 'Checking connection'
+                  : test?.status === 'COMPLETED'
+                    ? fr
+                      ? 'Capteur en ligne'
+                      : 'Sensor online'
+                    : test && ['FAILED', 'EXPIRED', 'CANCELLED'].includes(test.status)
+                      ? fr
+                        ? 'Capteur non confirmé'
+                        : 'Sensor not confirmed'
+                      : fr
+                        ? 'Prêt pour la vérification'
+                        : 'Ready to check'}
+              </strong>
+              <small>
+                {testing
+                  ? fr
+                    ? 'Cela prend généralement quelques secondes.'
+                    : 'This usually takes a few seconds.'
+                  : test?.status === 'COMPLETED'
+                    ? fr
+                      ? 'Le capteur est présent et disponible dans le dernier état de la box.'
+                      : 'The sensor is present and available in the latest hub status.'
+                    : test && ['FAILED', 'EXPIRED', 'CANCELLED'].includes(test.status)
+                      ? fr
+                        ? 'Aucune réponse reçue. Réveillez le capteur puis réessayez.'
+                        : 'No response received. Wake the sensor and try again.'
+                      : fr
+                        ? 'Le test s’arrête automatiquement après 20 secondes.'
+                        : 'The check stops automatically after 20 seconds.'}
+              </small>
+            </span>
+          </div>
           <button
-            className="equipment-secondary"
+            className="equipment-test-action"
             disabled={busy || !!testing || !device.room}
-            onClick={() => void run('TEST')}
+            onClick={() => void runTest()}
           >
             <RefreshCw className={testing ? 'is-spinning' : ''} />{' '}
             {testing
@@ -199,21 +286,13 @@ export function SensorInstallationGuide({
                 ? 'Test en cours…'
                 : 'Testing…'
               : fr
-                ? 'Tester le capteur'
-                : 'Test sensor'}
+                ? test && ['FAILED', 'EXPIRED', 'CANCELLED'].includes(test.status)
+                  ? 'Réessayer'
+                  : 'Vérifier maintenant'
+                : test && ['FAILED', 'EXPIRED', 'CANCELLED'].includes(test.status)
+                  ? 'Try again'
+                  : 'Check now'}
           </button>
-          {test?.status === 'COMPLETED' && (
-            <p className="equipment-success" role="status">
-              <CheckCircle2 /> {fr ? 'Signal reçu par la box.' : 'Signal received by the hub.'}
-            </p>
-          )}
-          {test && ['FAILED', 'EXPIRED', 'CANCELLED'].includes(test.status) && (
-            <p role="status">
-              {fr
-                ? 'Aucun signal confirmé. Vous pouvez réessayer.'
-                : 'No signal confirmed. You can retry.'}
-            </p>
-          )}
         </div>
       </section>
       {error && (

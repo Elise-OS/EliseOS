@@ -606,9 +606,10 @@ export class SensorsService {
         deviceId: id.startsWith('sensor:') ? null : id,
         sensorId: id.startsWith('sensor:') ? id.slice(7) : null,
         status: 'PENDING',
-        expiresAt: new Date(Date.now() + 5 * 60_000),
+        expiresAt: new Date(Date.now() + 20_000),
       },
     });
+    this.mqtt.requestInventory(home.id);
     return this.verificationView(session);
   }
 
@@ -642,6 +643,18 @@ export class SensorsService {
         );
       }
       const expired = session.expiresAt <= new Date();
+      if (!expired && (await this.verificationTargetOnline(home.id, session))) {
+        return this.verificationView(
+          await this.prisma.sensorVerificationSession.update({
+            where: { id: session.id },
+            data: {
+              status: 'COMPLETED',
+              observedAt: new Date(),
+              errorCode: null,
+            },
+          }),
+        );
+      }
       return this.verificationView(
         await this.prisma.sensorVerificationSession.update({
           where: { id: session.id },
@@ -653,6 +666,52 @@ export class SensorsService {
       );
     }
     return this.verificationView(session);
+  }
+
+  private async verificationTargetOnline(homeId: string, session: SensorVerificationSession) {
+    if (session.sensorId) {
+      const sensor = await this.prisma.sensor.findFirst({
+        where: { id: session.sensorId, homeId, removedAt: null },
+        include: { device: true },
+      });
+      if (!sensor || !sensor.available || sensor.status === 'OFFLINE') return false;
+      if (sensor.device?.protocol !== 'zigbee')
+        return this.inventoryConfirmedAfter(homeId, session.startedAt);
+      const bridge = this.mqtt.zigbeeStatus();
+      const joined = sensor.device.networkIdentifier
+        ? this.mqtt.isZigbeeDeviceJoined(sensor.device.networkIdentifier)
+        : null;
+      return (
+        bridge.online && joined === true && this.inventoryConfirmedAfter(homeId, session.startedAt)
+      );
+    }
+    if (!session.deviceId) return false;
+    const device = await this.prisma.device.findFirst({
+      where: { id: session.deviceId, homeId },
+      include: { sensors: { where: { removedAt: null } } },
+    });
+    if (
+      !device?.enabled ||
+      !device.sensors.some(({ available, status }) => available && status !== 'OFFLINE')
+    )
+      return false;
+    if (device.protocol !== 'zigbee')
+      return this.inventoryConfirmedAfter(homeId, session.startedAt);
+    const bridge = this.mqtt.zigbeeStatus();
+    const joined = device.networkIdentifier
+      ? this.mqtt.isZigbeeDeviceJoined(device.networkIdentifier)
+      : null;
+    return (
+      bridge.online && joined === true && this.inventoryConfirmedAfter(homeId, session.startedAt)
+    );
+  }
+
+  private async inventoryConfirmedAfter(homeId: string, startedAt: Date) {
+    const sync = await this.prisma.equipmentSyncState.findUnique({
+      where: { homeId },
+      select: { inventorySeenAt: true },
+    });
+    return Boolean(sync?.inventorySeenAt && sync.inventorySeenAt >= startedAt);
   }
 
   private async homeFor(userId: string, administrator = true) {

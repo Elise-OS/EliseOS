@@ -1295,30 +1295,111 @@
   color: #63798b;
 }
 .equipment-test {
-  display: flex;
-  gap: 14px;
   margin-top: 25px;
-  padding: 18px;
-  border: 1px solid #dde7ed;
-  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #d7e5eb;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #f8fbfc, #f1f7f9);
+  box-shadow: 0 12px 32px #1b4e6820;
 }
-.equipment-test > svg {
-  flex: 0 0 23px;
-  color: #4382a4;
-  margin-top: 6px;
+.equipment-test-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 21px 22px;
+  border-bottom: 1px solid #dce8ed;
+  background: #fff9;
+}
+.equipment-test-icon {
+  flex: 0 0 48px;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  color: #176b8d;
+  background: #dceff6;
+}
+.equipment-test-icon svg {
+  width: 24px;
+  height: 24px;
 }
 .equipment-test h3 {
-  margin: 0 0 8px;
+  margin: 2px 0 3px;
+  color: #113b59;
+  font-size: 1.2rem;
 }
-.equipment-test p {
+.equipment-test-heading p {
+  margin: 0;
   font-size: 0.875rem;
   color: #657b8c;
 }
-.equipment-test .equipment-success {
-  color: #328366;
+.equipment-test-body {
+  padding: 20px 22px 22px;
+}
+.equipment-test-instruction {
+  margin: 0 0 15px;
+  color: #526f82;
+  font-size: 0.875rem;
+}
+.equipment-test-status {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 13px;
+  min-height: 66px;
+  padding: 13px 15px;
+  border: 1px solid #d9e4e9;
+  border-radius: 14px;
+  color: #3b708a;
+  background: #fff;
+}
+.equipment-test-status > svg {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+}
+.equipment-test-status > span {
+  display: grid;
+  line-height: 1.35;
+}
+.equipment-test-status small {
+  margin-top: 2px;
+  color: #708391;
+}
+.equipment-test-status.status-completed {
+  border-color: #b9dece;
+  color: #28745b;
+  background: #f0faf5;
+}
+.equipment-test-status.status-failed,
+.equipment-test-status.status-expired,
+.equipment-test-status.status-cancelled {
+  border-color: #efd4c9;
+  color: #a05239;
+  background: #fff7f3;
+}
+.equipment-test-action {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 13px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 13px;
+  color: #fff;
+  background: #176b8d;
+  font-weight: 700;
+  box-shadow: 0 8px 20px #176b8d35;
+}
+.equipment-test-action:hover:not(:disabled) {
+  background: #125b79;
+  transform: translateY(-1px);
+}
+.equipment-test-warning {
+  color: #9a583f;
 }
 .equipment-success svg {
   width: 18px;
