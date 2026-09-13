@@ -352,6 +352,11 @@
   color: #6d7e8c;
   font-size: 0.8125rem;
 }
+.room-sensor-card-value .room-sensor-reading-detail {
+  color: #243f52;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
 .room-sensor-battery {
   display: inline-flex;
   align-items: center;
@@ -946,6 +951,10 @@
 }
 .equipment-device-value {
   font-weight: 650;
+}
+.equipment-device-reading-detail {
+  color: #243f52 !important;
+  font-weight: 600;
 }
 .equipment-device-row .equipment-device-attention {
   color: #926521;

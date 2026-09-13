@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { deviceSupportsCategory, type HomePlan, type SensorDevice } from '@michel/contracts';
 import {
   RoomEquipmentPage,
+  illuminanceLevel,
   lastReadingLabel,
   mainEntranceDevices,
   otherConnectedDevices,
@@ -53,7 +54,7 @@ const capability = (name: string, value: Record<string, unknown> | null = { valu
   primary: true,
   status: 'ONLINE' as const,
   value,
-  unit: name === 'temperature' ? '°C' : '%',
+  unit: name === 'temperature' ? '°C' : name === 'illuminance' ? 'lx' : '%',
   lastSeenAt: new Date().toISOString(),
   classification: { source: 'METADATA' as const, confidence: 1, reason: null, confirmedAt: null },
 });
@@ -63,6 +64,31 @@ describe('room equipment cards', () => {
     const multi = device([capability('temperature'), capability('humidity')]);
     expect(roomCategoryDevices(plan, 'room', [multi], 'temperature')).toEqual([multi]);
     expect(roomCategoryDevices(plan, 'room', [multi], 'humidity')).toEqual([multi]);
+  });
+
+  it('uses one R3 installation for presence, illuminance and air quality', () => {
+    const r3 = device(
+      [
+        capability('person_presence', { active: true }),
+        capability('illuminance', { value: 420 }),
+        capability('voc', { value: 28 }),
+      ],
+      { manufacturer: 'Third Reality', model: 'Multi-function smart presence sensor R3' },
+    );
+    expect(roomCategoryDevices(plan, 'room', [r3], 'presence')).toEqual([r3]);
+    expect(roomCategoryDevices(plan, 'room', [r3], 'illuminance')).toEqual([r3]);
+    expect(roomCategoryDevices(plan, 'room', [r3], 'air_quality')).toEqual([r3]);
+  });
+
+  it('describes illuminance and keeps the exact lux value as secondary text', () => {
+    expect(illuminanceLevel(20, true)).toBe('Très faible');
+    expect(illuminanceLevel(100, true)).toBe('Faible');
+    expect(illuminanceLevel(220, true)).toBe('Confortable');
+    expect(illuminanceLevel(420, true)).toBe('Lumineux');
+    expect(illuminanceLevel(1_200, true)).toBe('Très lumineux');
+    expect(
+      roomSensorReading(device([capability('illuminance', { value: 420 })]), 'illuminance', true),
+    ).toMatchObject({ reading: 'Lumineux', detail: '420 lx' });
   });
 
   it('counts a compatible connected sensor even when it is already in the selected room', () => {

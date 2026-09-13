@@ -201,9 +201,14 @@ export function roomSensorReading(
             : null;
   const value = capability?.value;
   let reading = '—';
-  if (typeof value?.value === 'number')
-    reading = `${new Intl.NumberFormat(fr ? 'fr-FR' : 'en', { maximumFractionDigits: 1 }).format(value.value)}${capability?.unit ? ` ${capability.unit}` : ''}`;
-  else {
+  let detail: string | null = null;
+  if (typeof value?.value === 'number') {
+    const formatted = `${new Intl.NumberFormat(fr ? 'fr-FR' : 'en', { maximumFractionDigits: 1 }).format(value.value)}${capability?.unit ? ` ${capability.unit}` : ''}`;
+    if (category === 'illuminance') {
+      reading = illuminanceLevel(value.value, fr);
+      detail = formatted;
+    } else reading = formatted;
+  } else {
     const active =
       category === 'contact' && typeof value?.open === 'boolean'
         ? value.open
@@ -244,10 +249,19 @@ export function roomSensorReading(
     reading = `${capability.label} · ${reading}`;
   return {
     reading,
+    detail,
     status,
     lastSeenAt,
     outdated: stale || capability?.status !== 'ONLINE' || !device.enabled,
   };
+}
+
+export function illuminanceLevel(lux: number, fr: boolean) {
+  if (lux < 50) return fr ? 'Très faible' : 'Very dim';
+  if (lux < 150) return fr ? 'Faible' : 'Dim';
+  if (lux < 300) return fr ? 'Confortable' : 'Comfortable';
+  if (lux < 1_000) return fr ? 'Lumineux' : 'Bright';
+  return fr ? 'Très lumineux' : 'Very bright';
 }
 
 export function lastReadingLabel(
@@ -706,8 +720,11 @@ export function RoomEquipmentPage({
                       <strong className={reading.outdated ? 'is-outdated' : ''}>
                         {reading.reading}
                       </strong>
+                      {reading.detail && (
+                        <small className="room-sensor-reading-detail">{reading.detail}</small>
+                      )}
                       {reading.status && <small>{reading.status}</small>}
-                      <small>{lastReadingLabel(reading.lastSeenAt, fr, now, category!)}</small>
+                      <small>{lastReadingLabel(reading.lastSeenAt, fr, now, id)}</small>
                       {items[0]!.batteryPercent !== null && (
                         <small className="room-sensor-battery">
                           <BatteryMedium />
@@ -1137,6 +1154,11 @@ export function RoomEquipmentPage({
                             >
                               {reading.reading}
                             </span>
+                            {reading.detail && (
+                              <small className="equipment-device-reading-detail">
+                                {reading.detail}
+                              </small>
+                            )}
                             {reading.status && (
                               <small className="equipment-device-attention">{reading.status}</small>
                             )}
