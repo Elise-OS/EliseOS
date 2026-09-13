@@ -82,7 +82,7 @@ export class HomePlanService {
 
     const sensors = await this.prisma.sensor.findMany({
       where: { homeId: home.id },
-      select: { id: true, deviceId: true },
+      select: { id: true, deviceId: true, roomId: true, removedAt: true },
     });
     const devices = await this.prisma.device.findMany({
       where: { homeId: home.id },
@@ -125,6 +125,31 @@ export class HomePlanService {
             candidate.equipmentId === placement.equipmentId,
         ) === index,
     );
+    const placedSensorDevices = new Set(
+      next.placements
+        .filter(
+          (placement) => placement.kind === 'SENSOR' && placement.equipmentRefKind === 'DEVICE',
+        )
+        .map((placement) => placement.equipmentId),
+    );
+    const placedStandaloneSensors = new Set(
+      next.placements
+        .filter(
+          (placement) =>
+            placement.kind === 'SENSOR' && placement.equipmentRefKind === 'SENSOR_ENTITY',
+        )
+        .map((placement) => placement.equipmentId),
+    );
+    if (
+      devices.some(({ id, roomId }) => roomId && !placedSensorDevices.has(id)) ||
+      sensors.some(
+        ({ id, deviceId, roomId, removedAt }) =>
+          roomId && !deviceId && !removedAt && !placedStandaloneSensors.has(id),
+      )
+    )
+      throw new UnprocessableEntityException(
+        'Déplacez ou retirez les capteurs installés avant de supprimer leur emplacement.',
+      );
     const placedDeviceIds = new Set<string>();
     for (const placement of next.placements) {
       if (!roomIds.has(placement.roomId))
@@ -243,11 +268,11 @@ export class HomePlanService {
     const home = await this.homeFor(userId, VIEW_ROLES);
     const [devices, standalone] = await Promise.all([
       this.prisma.device.findMany({
-        where: { homeId: home.id, sensors: { some: { removedAt: null } } },
+        where: { homeId: home.id, roomId: { not: null }, sensors: { some: { removedAt: null } } },
         include: { sensors: { where: { removedAt: null } } },
       }),
       this.prisma.sensor.findMany({
-        where: { homeId: home.id, deviceId: null, removedAt: null },
+        where: { homeId: home.id, roomId: { not: null }, deviceId: null, removedAt: null },
       }),
     ]);
     return equipmentCoverage(plan, [

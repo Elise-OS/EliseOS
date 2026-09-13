@@ -191,6 +191,7 @@ export function SensorOnboardingDialog({
   };
   const finish = async () => {
     if (!session?.detectedDevice || !name.trim() || !roomId) return;
+    if (category && !deviceSupportsCategory(session.detectedDevice, category)) return;
     if (initialTarget && !deviceSupportsCategory(session.detectedDevice, 'contact')) return;
     setBusy(true);
     setError('');
@@ -200,6 +201,7 @@ export function SensorOnboardingDialog({
         sensorJson('POST', {
           name: name.trim(),
           roomId,
+          category,
           target: initialTarget ?? null,
           buttonRole: 'ASSISTANCE',
         }),
@@ -362,8 +364,8 @@ export function SensorOnboardingDialog({
             {mismatch && (
               <p className="equipment-install-warning" role="status">
                 {fr
-                  ? `Cet appareil ne fournit pas « ${categoryLabel} ». Vous pouvez l’installer pour ses fonctions reconnues ; cette catégorie restera non configurée.`
-                  : `This device does not provide ${categoryLabel}. You can install its recognized functions; this category will remain unconfigured.`}
+                  ? `Cet appareil ne fournit pas « ${categoryLabel} ». Fermez cette installation et choisissez le type correspondant aux fonctions détectées.`
+                  : `This device does not provide ${categoryLabel}. Close this installation and choose the type matching its detected functions.`}
               </p>
             )}
             {modelMatch === false && (
@@ -429,7 +431,7 @@ export function SensorOnboardingDialog({
             <footer className="equipment-dialog-footer">
               <button
                 className="equipment-primary"
-                disabled={busy || !name.trim() || !room || !!(initialTarget && mismatch)}
+                disabled={busy || !name.trim() || !room || Boolean(mismatch)}
                 onClick={() => void finish()}
               >
                 <Check />

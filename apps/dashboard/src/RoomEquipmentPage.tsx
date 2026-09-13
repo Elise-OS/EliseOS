@@ -252,10 +252,7 @@ export function lastReadingLabel(
   });
   const stateful = category && ['presence', 'motion', 'contact'].includes(category);
   const frenchLabel = stateful ? 'Dernier changement reçu' : 'Dernière mesure reçue';
-  if (fr)
-    return sameDay
-      ? `${frenchLabel} à ${time}`
-      : `${frenchLabel} le ${date} à ${time}`;
+  if (fr) return sameDay ? `${frenchLabel} à ${time}` : `${frenchLabel} le ${date} à ${time}`;
   return sameDay
     ? `Latest ${stateful ? 'change' : 'reading'} received at ${time}`
     : `Latest ${stateful ? 'change' : 'reading'} received on ${date} at ${time}`;
@@ -449,15 +446,6 @@ export function RoomEquipmentPage({
       setAssigning(null);
       setCategory(null);
       setGuideId(id);
-      await onRefresh();
-    });
-  const detach = (device: SensorUiDevice) =>
-    run(async () => {
-      await sensorRequest(
-        `/api/v1/sensor-devices/${encodeURIComponent(device.id)}`,
-        sensorJson('PATCH', { roomId: null }),
-      );
-      setAssigning(null);
       await onRefresh();
     });
   const rooms = plan.levels.flatMap((level) =>
@@ -922,15 +910,6 @@ export function RoomEquipmentPage({
                   />
                 </label>
                 <footer className="equipment-dialog-footer">
-                  {selectedDevices.some(({ id }) => id === assigning.id) && (
-                    <button
-                      className="equipment-text-button"
-                      disabled={busy}
-                      onClick={() => void detach(assigning)}
-                    >
-                      {fr ? 'Détacher de la pièce' : 'Unassign from room'}
-                    </button>
-                  )}
                   <button
                     className="equipment-primary"
                     disabled={busy || !name.trim()}

@@ -21,7 +21,6 @@ import {
   Eye,
   Footprints,
   Home,
-  MapPin,
   Plus,
   Radio,
   ShieldCheck,
@@ -593,7 +592,6 @@ export function HomeOverview({
   const lastPresenceLocation = plan
     ? locatePlanRoom(plan, presence?.confirmedRoomId ?? presence?.roomId)
     : null;
-  const unassignedDevices = devices.filter(({ room }) => !room).length;
   const unassignedCameras = cameras.filter(({ room }) => !room).length;
   const essentialMissing = coverage.recommendations.filter(
     ({ priority, fulfilledByPlacementId }) => priority === 'ESSENTIAL' && !fulfilledByPlacementId,
@@ -608,11 +606,7 @@ export function HomeOverview({
   const deviceProblems = (metrics?.offline ?? 0) + (metrics?.degraded ?? 0);
   const equipmentProblems = deviceProblems + cameraProblems;
   const completionProblems =
-    unassignedDevices +
-    unassignedCameras +
-    essentialMissing +
-    structuralIssues +
-    (planNeedsSetup ? 1 : 0);
+    unassignedCameras + essentialMissing + structuralIssues + (planNeedsSetup ? 1 : 0);
   const overallStatus = equipmentProblems
     ? fr
       ? 'Équipements à vérifier'
@@ -843,13 +837,6 @@ export function HomeOverview({
                     {fr ? 'Caméras disponibles' : 'Available cameras'}
                   </span>
                   <strong>{metrics.onlineCameras}</strong>
-                </div>
-                <div className="equipment-state-row">
-                  <span>
-                    <MapPin />
-                    {fr ? 'Non attribués' : 'Unassigned'}
-                  </span>
-                  <strong>{unassignedDevices + unassignedCameras}</strong>
                 </div>
                 <div className="zigbee-state">
                   <Radio />

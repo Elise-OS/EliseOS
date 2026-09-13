@@ -1215,11 +1215,22 @@ export function HomePlanEditor({
 
   const deleteRoom = () => {
     if (
+      selectedRoom &&
+      plan?.placements.some(
+        (placement) => placement.roomId === selectedRoom.id && placement.kind === 'SENSOR',
+      )
+    ) {
+      window.alert(
+        locale === 'fr'
+          ? 'Déplacez ou retirez les capteurs de cette pièce avant de la supprimer.'
+          : 'Move or remove the sensors in this room before deleting it.',
+      );
+      return;
+    }
+    if (
       !selectedRoom ||
       !window.confirm(
-        locale === 'fr'
-          ? `Supprimer « ${selectedRoom.name} » ? Ses équipements redeviendront non attribués.`
-          : `Delete “${selectedRoom.name}”? Its devices will become unassigned.`,
+        locale === 'fr' ? `Supprimer « ${selectedRoom.name} » ?` : `Delete “${selectedRoom.name}”?`,
       )
     )
       return;

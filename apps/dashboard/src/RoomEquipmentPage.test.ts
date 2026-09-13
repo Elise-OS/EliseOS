@@ -111,6 +111,16 @@ describe('room equipment cards', () => {
     expect(roomCategoryDevices(plan, 'room', [pir], 'presence')).toEqual([]);
   });
 
+  it('recognizes the generic Third Reality motion model name returned by Home Assistant', () => {
+    const product = SENSOR_PRODUCTS.find(({ model }) => model === '3RMS16BZ')!;
+    const detectedModel = 'Wireless motion sensor';
+    const detected = { model: detectedModel, capabilities: [{ capability: 'occupancy' }] };
+
+    expect(productMatchesDetectedModel(product, detectedModel)).toBe(true);
+    expect(deviceSupportsCategory(detected, 'motion')).toBe(true);
+    expect(deviceSupportsCategory(detected, 'presence')).toBe(false);
+  });
+
   it('keeps an old value visible but clearly marks it as old', () => {
     const old = device([{ ...capability('temperature'), lastSeenAt: '2026-01-01T00:00:00.000Z' }]);
     expect(

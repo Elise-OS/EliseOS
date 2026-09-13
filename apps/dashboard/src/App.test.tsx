@@ -21,12 +21,13 @@ describe('Élise copy', () => {
     expect(copy.fr.nav).toContain('Médicaments');
   });
 
-  it('hides medications and journal from the sidebar in both languages', () => {
+  it('hides the removed sensors page, medications and journal from the sidebar', () => {
     for (const labels of [copy.fr.nav, copy.en.nav]) {
       const html = renderToStaticMarkup(
         <SidebarNavigation labels={labels} active={0} openAlerts={0} onSelect={() => undefined} />,
       );
 
+      expect(html).not.toContain(labels[4]);
       expect(html).not.toContain(labels[5]);
       expect(html).not.toContain(labels[6]);
     }
@@ -224,34 +225,5 @@ describe('Élise medication design', () => {
     expect(html).toContain('Un oubli est possible');
     expect(html).toContain('Confirmer la prise');
     expect(html).not.toContain('n’a pas été pris');
-  });
-});
-
-describe('Élise sensors panel design', () => {
-  it('renders modern reassuring sensor management with room groupings and quick filters', async () => {
-    const { SensorsPanel } = await import('./SensorsPanel');
-    const html = renderToStaticMarkup(
-      <SensorsPanel
-        locale="fr"
-        rooms={[
-          { id: 'living-room', name: 'Salon', kind: 'LIVING_ROOM' },
-          { id: 'kitchen', name: 'Cuisine', kind: 'KITCHEN' },
-        ]}
-      />,
-    );
-
-    expect(html).toContain('Capteurs &amp; Équipements');
-    expect(html).toContain('Protection &amp; Sérénité du domicile');
-    expect(html).toContain('Tous les capteurs');
-    expect(html).toContain('Opérationnels');
-    expect(html).toContain('À installer / poser');
-    expect(html).toContain('Piles faibles');
-    expect(html).toContain('Par pièces');
-    expect(html).toContain('Ajouter un capteur');
-    expect(html).toContain('Vérification de la clé');
-    expect(html).toContain('Jumeler un équipement');
-    expect(html).toContain('Le domicile, pièce par pièce');
-    expect(html).not.toContain('Aucun capteur dans cette pièce');
-    expect(html).not.toContain('class="sensors-room-section"');
   });
 });

@@ -92,6 +92,41 @@ describe('SensorsService physical device views', () => {
     expect(result.name).toBe('Capteur de présence');
   });
 
+  it('presents the Third Reality Wireless motion sensor as movement', () => {
+    const base = detectedDevice();
+    const service = new SensorsService({} as never, {} as never);
+    const result = (
+      service as unknown as {
+        deviceView(device: unknown): {
+          name: string;
+          capabilities: Array<{ capability: string; label: string; primary: boolean }>;
+        };
+      }
+    ).deviceView({
+      ...base,
+      name: 'Occupancy',
+      manufacturer: 'Third Reality',
+      model: 'Wireless motion sensor',
+      sensors: [
+        { ...base.sensors[0], capability: 'occupancy', sourceName: 'Occupancy' },
+        {
+          ...base.sensors[1],
+          capability: 'voltage',
+          sourceName: 'Voltage',
+          entityId: 'sensor.third_reality_voltage',
+        },
+      ],
+    });
+
+    expect(result.name).toBe('Détecteur de mouvement');
+    expect(result.capabilities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ capability: 'motion', label: 'Mouvement', primary: true }),
+        expect.objectContaining({ capability: 'voltage', primary: false }),
+      ]),
+    );
+  });
+
   it('unpairs a Zigbee sensor before removing it from Élise', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 2 });
     const deleteDevice = vi.fn().mockResolvedValue(undefined);
@@ -147,6 +182,7 @@ describe('SensorsService physical device views', () => {
       home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
       sensorOnboardingSession: {
         updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        findMany: vi.fn().mockResolvedValue([]),
         create,
       },
       equipmentSyncState: { upsert: vi.fn().mockResolvedValue(undefined) },
@@ -193,6 +229,7 @@ describe('SensorsService physical device views', () => {
       home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
       sensorOnboardingSession: {
         findFirst: vi.fn().mockResolvedValue(cancelledSession),
+        findMany: vi.fn().mockResolvedValue([]),
         update: vi.fn().mockResolvedValue(cancelledSession),
       },
       equipmentSyncState: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
@@ -212,6 +249,126 @@ describe('SensorsService physical device views', () => {
     await service.cancelOnboarding('user-1', cancelledSession.id);
 
     expect(mqtt.setZigbeePairing).not.toHaveBeenCalled();
+  });
+
+  it('unpairs and removes a provisional sensor when step 3 is cancelled', async () => {
+    const createdAt = new Date('2026-09-13T15:00:00.000Z');
+    const device = {
+      ...detectedDevice(),
+      id: 'device-provisional',
+      roomId: null,
+      createdAt: new Date(createdAt.getTime() + 5_000),
+      networkIdentifier: '0xb40e060fffe70ddc',
+    };
+    const session = {
+      id: 'onboarding-provisional',
+      homeId: 'home-1',
+      deviceId: device.id,
+      requestedById: 'user-1',
+      protocol: 'zigbee',
+      status: 'DEVICE_FOUND',
+      step: 'CLASSIFICATION',
+      errorCode: null,
+      errorMessage: null,
+      expiresAt: new Date('2099-09-13T15:15:00.000Z'),
+      createdAt,
+      updatedAt: createdAt,
+      device,
+    };
+    const removeDevice = vi.fn().mockResolvedValue(undefined);
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      sensorOnboardingSession: {
+        findFirst: vi.fn().mockResolvedValue(session),
+        findMany: vi.fn().mockResolvedValue([{ ...session, status: 'CANCELLED' }]),
+        count: vi.fn().mockResolvedValue(0),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      sensor: { updateMany: vi.fn().mockResolvedValue({ count: 2 }) },
+      deviceEntity: { updateMany: vi.fn().mockResolvedValue({ count: 2 }) },
+      device: { delete: removeDevice },
+      $transaction: vi.fn(async (actions: Promise<unknown>[]) => Promise.all(actions)),
+    };
+    const mqtt = {
+      zigbeeStatus: vi.fn().mockReturnValue({ online: true, pairingOpen: false }),
+      removeZigbeeDevice: vi.fn(),
+    };
+
+    await new SensorsService(prisma as never, mqtt as never).cancelOnboarding('user-1', session.id);
+
+    expect(mqtt.removeZigbeeDevice).toHaveBeenCalledWith(device.networkIdentifier);
+    expect(removeDevice).toHaveBeenCalledWith({ where: { id: device.id } });
+    expect(prisma.sensor.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { deviceId: device.id } }),
+    );
+  });
+
+  it('expires an abandoned step 3 and removes its provisional device', async () => {
+    const device = {
+      ...detectedDevice(),
+      id: 'device-expired',
+      roomId: null,
+      networkIdentifier: '0xb40e060fffe848a9',
+    };
+    const expiredAt = new Date(Date.now() - 1_000);
+    const session = {
+      id: 'onboarding-expired',
+      homeId: 'home-1',
+      deviceId: device.id,
+      protocol: 'zigbee',
+      status: 'DEVICE_FOUND',
+      expiresAt: expiredAt,
+      createdAt: new Date(expiredAt.getTime() - 15 * 60_000),
+      device,
+    };
+    const expire = vi.fn().mockResolvedValue({ count: 1 });
+    const removeDevice = vi.fn().mockResolvedValue(undefined);
+    const prisma = {
+      sensorOnboardingSession: {
+        findMany: vi.fn().mockResolvedValue([session]),
+        updateMany: expire,
+        count: vi.fn().mockResolvedValue(0),
+      },
+      equipmentSyncState: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      sensor: { updateMany: vi.fn().mockResolvedValue({ count: 2 }) },
+      deviceEntity: { updateMany: vi.fn().mockResolvedValue({ count: 2 }) },
+      device: { delete: removeDevice },
+      $transaction: vi.fn(async (actions: Promise<unknown>[]) => Promise.all(actions)),
+    };
+    const mqtt = {
+      zigbeeStatus: vi.fn().mockReturnValue({ online: true }),
+      setZigbeePairing: vi.fn(),
+      removeZigbeeDevice: vi.fn(),
+    };
+    const service = new SensorsService(prisma as never, mqtt as never);
+
+    await (
+      service as unknown as { cleanupAbandonedOnboardings(): Promise<void> }
+    ).cleanupAbandonedOnboardings();
+
+    expect(expire).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'EXPIRED', errorCode: 'SESSION_EXPIRED' } }),
+    );
+    expect(mqtt.removeZigbeeDevice).toHaveBeenCalledWith(device.networkIdentifier);
+    expect(removeDevice).toHaveBeenCalledWith({ where: { id: device.id } });
+  });
+
+  it('never lists an unconfirmed device before room assignment', async () => {
+    const findDevices = vi.fn().mockResolvedValue([]);
+    const findSensors = vi.fn().mockResolvedValue([]);
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      device: { findMany: findDevices },
+      sensor: { findMany: findSensors },
+    };
+
+    expect(await new SensorsService(prisma as never, {} as never).list('user-1')).toEqual([]);
+    expect(findDevices).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ roomId: { not: null } }) }),
+    );
+    expect(findSensors).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ roomId: { not: null } }) }),
+    );
   });
 
   it('attaches a re-paired sensor that existed before the current session', async () => {
@@ -718,7 +875,7 @@ describe('SensorsService physical device views', () => {
       step: 'CLASSIFICATION',
       errorCode: null,
       errorMessage: null,
-      expiresAt: new Date('2026-08-21T10:03:00.000Z'),
+      expiresAt: new Date('2099-08-21T10:03:00.000Z'),
       createdAt: now,
       updatedAt: now,
       device,
@@ -746,24 +903,21 @@ describe('SensorsService physical device views', () => {
     const mqtt = { setZigbeePairing: vi.fn() };
     const service = new SensorsService(prisma as never, mqtt as never);
 
+    await expect(
+      service.completeOnboarding('user-1', session.id, {
+        name: 'Température chambre',
+        roomId: null,
+      }),
+    ).rejects.toThrow('Choisissez une pièce');
+    expect(transactionDeviceUpdate).not.toHaveBeenCalled();
+
     const result = await service.completeOnboarding('user-1', session.id, {
       name: 'Température chambre',
-      roomId: null,
+      roomId: 'room-1',
     });
 
-    const deviceUpdate = transactionDeviceUpdate.mock.calls[0]?.[0] as {
-      data: { displayName: string; roomId: string | null; installationStatus: string };
-    };
-    expect(deviceUpdate.data).toMatchObject({
-      displayName: 'Température chambre',
-      roomId: null,
-      installationStatus: 'NEEDS_PLACEMENT',
-      placementConfirmedAt: null,
-    });
     expect(transactionSensorUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { roomId: null },
-      }),
+      expect.objectContaining({ data: { roomId: 'room-1' } }),
     );
     const sessionUpdate = transactionSessionUpdate.mock.calls[0]?.[0] as {
       data: { status: string; step: string };
@@ -772,10 +926,6 @@ describe('SensorsService physical device views', () => {
     expect(mqtt.setZigbeePairing).toHaveBeenCalledWith(false, 0);
     expect(result.sessionId).toBe(session.id);
 
-    await service.completeOnboarding('user-1', session.id, {
-      name: 'Température chambre',
-      roomId: 'room-1',
-    });
     expect(transactionDeviceUpdate).toHaveBeenLastCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

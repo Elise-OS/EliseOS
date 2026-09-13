@@ -164,6 +164,7 @@ const STILL_PRESENCE_MODELS = new Set([
 ]);
 const STILL_PRESENCE_MODEL_NAMES = ['SMARTPRESENCESENSORR3', 'MULTIFUNCTIONSMARTPRESENCESENSORR3'];
 const MOTION_MODELS = new Set(['SNZB-03P', 'SNZB-03', '3RMS16BZ', '3RMS16BZ-NEW', '3RSM0147Z']);
+const MOTION_MODEL_NAMES = ['WIRELESSMOTIONSENSOR'];
 export type CategoryDevice = { model: string | null; capabilities: Array<{ capability: string }> };
 export function deviceSupportsCategory(
   device: CategoryDevice,
@@ -175,13 +176,15 @@ export function deviceSupportsCategory(
   const stillPresenceModel =
     STILL_PRESENCE_MODELS.has(model) ||
     STILL_PRESENCE_MODEL_NAMES.some((name) => normalizedModel.includes(name));
+  const motionModel =
+    MOTION_MODELS.has(model) || MOTION_MODEL_NAMES.some((name) => normalizedModel.includes(name));
   if (category === 'presence')
     return (
-      !MOTION_MODELS.has(model) &&
+      !motionModel &&
       (values.has('person_presence') || (stillPresenceModel && values.has('occupancy')))
     );
   if (category === 'motion')
-    return values.has('motion') || (MOTION_MODELS.has(model) && values.has('occupancy'));
+    return values.has('motion') || (motionModel && values.has('occupancy'));
   if (category === 'contact') return values.has('contact') || values.has('dry_contact');
   if (category === 'air_quality')
     return ['co2', 'voc', 'total_volatile_organic_compounds', 'pm25', 'air_quality'].some((value) =>

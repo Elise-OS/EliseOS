@@ -48,7 +48,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { copy, type Locale } from './i18n';
 import { resizeResidentPhoto, Setup } from './Setup';
-import { SensorsPanel } from './SensorsPanel';
 import { HomePlanEditor } from './HomePlanEditor';
 import { HomeOverview, homeRealtimeEventAction } from './HomeOverview';
 import { GuidedTour, type GuidedTourMode } from './GuidedTour';
@@ -3775,8 +3774,6 @@ export function App() {
               onSaved={() => void refresh()}
             />
           )
-        ) : active === 4 ? (
-          <SensorsPanel locale={locale} rooms={household?.rooms ?? []} />
         ) : active === 5 ? (
           <MedicationPanel
             locale={locale}

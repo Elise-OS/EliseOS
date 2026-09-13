@@ -50,6 +50,37 @@ export function sensorInventoryOnly(inventory: HomeAssistantInventory): HomeAssi
   };
 }
 
+export function activeZigbeeInventoryOnly(
+  inventory: HomeAssistantInventory,
+  joinedIdentifiers: ReadonlySet<string>,
+): HomeAssistantInventory {
+  const identifier = (value: string) => value.toLowerCase().match(/0x[0-9a-f]{16}/)?.[0];
+  const deviceIdentifiers = new Map<string, string>();
+  for (const entity of inventory.entities) {
+    const ieee = identifier(entity.entityId);
+    if (entity.deviceId && ieee) deviceIdentifiers.set(entity.deviceId, ieee);
+  }
+  const absentDeviceIds = new Set(
+    inventory.devices
+      .filter((device) => {
+        const ieee =
+          (device.networkIdentifier && identifier(device.networkIdentifier)) ||
+          deviceIdentifiers.get(device.deviceId);
+        return ieee && !joinedIdentifiers.has(ieee);
+      })
+      .map((device) => device.deviceId),
+  );
+  return {
+    ...inventory,
+    devices: inventory.devices.filter((device) => !absentDeviceIds.has(device.deviceId)),
+    entities: inventory.entities.filter((entity) => {
+      if (entity.deviceId && absentDeviceIds.has(entity.deviceId)) return false;
+      const ieee = identifier(entity.entityId);
+      return !ieee || joinedIdentifiers.has(ieee);
+    }),
+  };
+}
+
 @Injectable()
 export class EquipmentService {
   public constructor(
@@ -57,8 +88,14 @@ export class EquipmentService {
     private readonly ingestion: IngestionService,
   ) {}
 
-  public async ingestInventory(payload: unknown): Promise<void> {
-    const fullInventory = homeAssistantInventorySchema.parse(payload);
+  public async ingestInventory(
+    payload: unknown,
+    joinedZigbeeIdentifiers?: ReadonlySet<string>,
+  ): Promise<void> {
+    const received = homeAssistantInventorySchema.parse(payload);
+    const fullInventory = joinedZigbeeIdentifiers
+      ? activeZigbeeInventoryOnly(received, joinedZigbeeIdentifiers)
+      : received;
     const inventory = sensorInventoryOnly(fullInventory);
     const home = await this.prisma.home.findUnique({
       where: { id: fullInventory.homeId },

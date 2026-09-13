@@ -504,11 +504,6 @@ export class ActivityService {
             },
           },
         },
-        sensors: {
-          where: { roomId: null },
-          orderBy: { entityId: 'asc' },
-          include: { device: true, events: { orderBy: { occurredAt: 'desc' }, take: 1 } },
-        },
       },
     });
     if (!home) throw new ForbiddenException('Access denied');
@@ -519,7 +514,7 @@ export class ActivityService {
       },
       orderBy: [{ isPrimary: 'desc' }, { user: { displayName: 'asc' } }],
     });
-    const sensorView = (sensor: (typeof home.sensors)[number]) => {
+    const sensorView = (sensor: (typeof home.rooms)[number]['sensors'][number]) => {
       const live = sensor.available && sensor.status === 'ONLINE';
       return {
         id: sensor.id,
@@ -559,7 +554,7 @@ export class ActivityService {
         sortOrder: room.sortOrder,
         sensors: room.sensors.map(sensorView),
       })),
-      unassignedSensors: home.sensors.map(sensorView),
+      unassignedSensors: [],
       residents: home.residents.map((resident) => ({
         id: resident.id,
         displayName: resident.displayName,
@@ -651,6 +646,7 @@ export class ActivityService {
   }
 
   public async assignSensor(userId: string, sensorId: string, roomId: string | null) {
+    if (!roomId) throw new ForbiddenException('Un capteur installé doit appartenir à une pièce.');
     const home = await this.prisma.home.findFirst({
       where: {
         organization: {

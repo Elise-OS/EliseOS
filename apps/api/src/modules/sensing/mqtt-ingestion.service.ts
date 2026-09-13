@@ -201,7 +201,10 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
         topic === MQTT_TOPICS.entityStates
           ? this.equipment.ingestMappedState(parsed)
           : topic === MQTT_TOPICS.inventory
-            ? this.equipment.ingestInventory(parsed)
+            ? this.equipment.ingestInventory(
+                parsed,
+                this.zigbeeInventoryReceived ? new Set(this.joinedZigbeeDevices) : undefined,
+              )
             : this.equipment.bridgeStatus(parsed);
       void action
         .then(async () => {

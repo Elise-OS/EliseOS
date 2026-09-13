@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { EquipmentService, sensorInventoryOnly } from './equipment.service';
+import {
+  activeZigbeeInventoryOnly,
+  EquipmentService,
+  sensorInventoryOnly,
+} from './equipment.service';
 
 const state = {
   schemaVersion: '1.0',
@@ -47,6 +51,43 @@ describe('EquipmentService manual mappings', () => {
 });
 
 describe('sensorInventoryOnly', () => {
+  it('does not recreate a removed Zigbee capteur from stale Home Assistant inventory', () => {
+    const inventory = {
+      schemaVersion: '1.0',
+      homeId: 'home-1',
+      generatedAt: '2026-09-13T15:30:00.000Z',
+      full: true,
+      devices: [
+        { deviceId: 'removed', name: 'Motion', networkIdentifier: '0xb40e060fffe70ddc' },
+        { deviceId: 'installed', name: 'R3', networkIdentifier: '0x7c3e82d7648b0000' },
+      ],
+      entities: [
+        {
+          entityId: 'binary_sensor.0xb40e060fffe70ddc_occupancy',
+          deviceId: 'removed',
+          name: 'Occupancy',
+          domain: 'binary_sensor',
+          available: false,
+          actions: [],
+          compatibility: 'RECOGNIZED',
+        },
+        {
+          entityId: 'binary_sensor.0x7c3e82d7648b0000_occupancy',
+          deviceId: 'installed',
+          name: 'Occupancy',
+          domain: 'binary_sensor',
+          available: true,
+          actions: [],
+          compatibility: 'RECOGNIZED',
+        },
+      ],
+    } as Parameters<typeof activeZigbeeInventoryOnly>[0];
+
+    const result = activeZigbeeInventoryOnly(inventory, new Set(['0x7c3e82d7648b0000']));
+    expect(result.devices.map(({ deviceId }) => deviceId)).toEqual(['installed']);
+    expect(result.entities.map(({ deviceId }) => deviceId)).toEqual(['installed']);
+  });
+
   it('hides Home Assistant internal services and their orphan devices', () => {
     const filtered = sensorInventoryOnly({
       schemaVersion: '1.0',

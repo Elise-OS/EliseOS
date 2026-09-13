@@ -2,11 +2,16 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  OnModuleDestroy,
+  OnModuleInit,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   capabilitySchema,
+  deviceSupportsCategory,
+  roomSensorCategorySchema,
   sensorOnboardingCompletionSchema,
   sensorProtocolSchema,
   type HomePlan,
@@ -26,7 +31,7 @@ import { capabilityLabel, placementGuide } from './sensor-guidance';
 import { assignSensorToPlan } from './sensor-assignment';
 
 const ADMIN_ROLES = rolesFor('configuration:manage');
-const SECONDARY_CAPABILITIES = new Set(['battery', 'signal_strength']);
+const SECONDARY_CAPABILITIES = new Set(['battery', 'signal_strength', 'voltage']);
 const CAPABILITY_DISPLAY_ORDER = new Map([
   ['temperature', 0],
   ['humidity', 1],
@@ -40,6 +45,14 @@ const CAPABILITY_DISPLAY_ORDER = new Map([
 
 function isBridgeControlLabel(value: string | null | undefined) {
   return (value ?? '').toLowerCase().replaceAll('_', ' ').includes('permit join');
+}
+
+function isPirMotionModel(model: string | null | undefined) {
+  const normalized = (model ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return (
+    ['SNZB03P', 'SNZB03', '3RMS16BZ', '3RMS16BZNEW', '3RSM0147Z'].includes(normalized) ||
+    normalized.includes('WIRELESSMOTIONSENSOR')
+  );
 }
 
 function isSecondarySensor(
@@ -80,17 +93,36 @@ const commandSchema = z.object({
 });
 
 @Injectable()
-export class SensorsService {
+export class SensorsService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(SensorsService.name);
+  private cleanupTimer: NodeJS.Timeout | undefined;
+  private cleanupTask: Promise<void> | null = null;
+
   public constructor(
     private readonly prisma: PrismaService,
     private readonly mqtt: MqttIngestionService,
   ) {}
 
+  public onModuleInit(): void {
+    void this.cleanupAbandonedOnboardings().catch((error: unknown) =>
+      this.logger.error('Unable to clean abandoned sensor installations', error),
+    );
+    this.cleanupTimer = setInterval(() => {
+      void this.cleanupAbandonedOnboardings().catch((error: unknown) =>
+        this.logger.error('Unable to clean abandoned sensor installations', error),
+      );
+    }, 30_000);
+  }
+
+  public onModuleDestroy(): void {
+    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
+  }
+
   public async list(userId: string) {
     const home = await this.homeFor(userId, false);
     const [devices, standalone] = await Promise.all([
       this.prisma.device.findMany({
-        where: { homeId: home.id, sensors: { some: { removedAt: null } } },
+        where: { homeId: home.id, roomId: { not: null }, sensors: { some: { removedAt: null } } },
         include: {
           room: true,
           sensors: {
@@ -101,7 +133,7 @@ export class SensorsService {
         orderBy: { name: 'asc' },
       }),
       this.prisma.sensor.findMany({
-        where: { homeId: home.id, deviceId: null, removedAt: null },
+        where: { homeId: home.id, roomId: { not: null }, deviceId: null, removedAt: null },
         include: { room: true },
         orderBy: [{ sourceName: 'asc' }, { entityId: 'asc' }],
       }),
@@ -195,6 +227,7 @@ export class SensorsService {
       },
       data: { status: 'CANCELLED', errorCode: 'REPLACED_BY_NEW_SESSION' },
     });
+    await this.cleanupAbandonedOnboardings();
     const session = await this.prisma.sensorOnboardingSession.create({
       data: {
         homeId: home.id,
@@ -238,14 +271,15 @@ export class SensorsService {
     if (!session) throw new NotFoundException('Session d’installation introuvable.');
     if (
       session.expiresAt <= new Date() &&
-      ['PENDING', 'WAITING_FOR_DEVICE'].includes(session.status)
+      ['PENDING', 'WAITING_FOR_DEVICE', 'DEVICE_FOUND'].includes(session.status)
     ) {
       if (session.protocol === 'zigbee') await this.closeZigbeePairing(home.id);
       const expired = await this.prisma.sensorOnboardingSession.update({
         where: { id },
         data: { status: 'EXPIRED', errorCode: 'SESSION_EXPIRED' },
       });
-      return this.sessionView(expired);
+      await this.cleanupAbandonedOnboardings();
+      return this.sessionView({ ...expired, deviceId: null });
     }
     const zigbee = this.mqtt.zigbeeStatus();
     if (
@@ -300,7 +334,12 @@ export class SensorsService {
         if (session.protocol === 'zigbee') await this.closeZigbeePairing(home.id);
         const found = await this.prisma.sensorOnboardingSession.update({
           where: { id },
-          data: { status: 'DEVICE_FOUND', step: 'CLASSIFICATION', deviceId: device.id },
+          data: {
+            status: 'DEVICE_FOUND',
+            step: 'CLASSIFICATION',
+            deviceId: device.id,
+            expiresAt: new Date(Date.now() + 15 * 60_000),
+          },
         });
         return this.sessionView(found);
       }
@@ -314,16 +353,99 @@ export class SensorsService {
       where: { id, homeId: home.id },
     });
     if (!session) throw new NotFoundException('Session d’installation introuvable.');
+    if (!['PENDING', 'WAITING_FOR_DEVICE', 'DEVICE_FOUND'].includes(session.status))
+      return this.sessionView(session);
+    const claimed = await this.prisma.sensorOnboardingSession.updateMany({
+      where: { id, homeId: home.id, status: session.status },
+      data: { status: 'CANCELLED' },
+    });
+    if (claimed.count !== 1) {
+      const current = await this.prisma.sensorOnboardingSession.findFirst({
+        where: { id, homeId: home.id },
+      });
+      return this.sessionView(current ?? session);
+    }
     const pairingWasActive = ['PENDING', 'WAITING_FOR_DEVICE'].includes(session.status);
     if (session.protocol === 'zigbee' && pairingWasActive) {
       await this.closeZigbeePairing(home.id);
     }
-    return this.sessionView(
-      await this.prisma.sensorOnboardingSession.update({
-        where: { id },
-        data: { status: 'CANCELLED' },
-      }),
-    );
+    await this.cleanupAbandonedOnboardings();
+    return this.sessionView({ ...session, status: 'CANCELLED', deviceId: null });
+  }
+
+  private async cleanupAbandonedOnboardings(): Promise<void> {
+    if (this.cleanupTask) {
+      await this.cleanupTask;
+      return this.cleanupAbandonedOnboardings();
+    }
+    const task = this.removeAbandonedOnboardings();
+    this.cleanupTask = task;
+    try {
+      await task;
+    } finally {
+      if (this.cleanupTask === task) this.cleanupTask = null;
+    }
+  }
+
+  private async removeAbandonedOnboardings(): Promise<void> {
+    const now = new Date();
+    const sessions = await this.prisma.sensorOnboardingSession.findMany({
+      where: {
+        OR: [
+          { status: { in: ['CANCELLED', 'EXPIRED', 'FAILED'] }, deviceId: { not: null } },
+          {
+            status: { in: ['PENDING', 'WAITING_FOR_DEVICE', 'DEVICE_FOUND'] },
+            expiresAt: { lte: now },
+          },
+        ],
+      },
+      include: { device: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const removed = new Set<string>();
+    for (const session of sessions) {
+      if (['PENDING', 'WAITING_FOR_DEVICE', 'DEVICE_FOUND'].includes(session.status)) {
+        const expired = await this.prisma.sensorOnboardingSession.updateMany({
+          where: { id: session.id, status: session.status, expiresAt: { lte: now } },
+          data: { status: 'EXPIRED', errorCode: 'SESSION_EXPIRED' },
+        });
+        if (expired.count !== 1) continue;
+        const anotherActive = await this.prisma.sensorOnboardingSession.count({
+          where: {
+            homeId: session.homeId,
+            id: { not: session.id },
+            status: { in: ['PENDING', 'WAITING_FOR_DEVICE'] },
+          },
+        });
+        if (session.protocol === 'zigbee' && !anotherActive)
+          await this.closeZigbeePairing(session.homeId);
+      }
+      const device = session.device;
+      if (!device || removed.has(device.id)) continue;
+      // A rejoin of an already installed device must never be unpaired on cancellation.
+      if (device.roomId) continue;
+      const completed = await this.prisma.sensorOnboardingSession.count({
+        where: { deviceId: device.id, status: 'COMPLETED' },
+      });
+      if (completed) continue;
+      if (session.protocol === 'zigbee') {
+        if (!this.mqtt.zigbeeStatus().online || !device.networkIdentifier) continue;
+        this.mqtt.removeZigbeeDevice(device.networkIdentifier);
+      }
+      const removedAt = new Date();
+      await this.prisma.$transaction([
+        this.prisma.sensor.updateMany({
+          where: { deviceId: device.id },
+          data: { removedAt, available: false, analysisEnabled: false, status: 'OFFLINE' },
+        }),
+        this.prisma.deviceEntity.updateMany({
+          where: { deviceId: device.id },
+          data: { removedAt, available: false },
+        }),
+        this.prisma.device.delete({ where: { id: device.id } }),
+      ]);
+      removed.add(device.id);
+    }
   }
 
   private async applyAssignment(
@@ -357,18 +479,33 @@ export class SensorsService {
   }
 
   public async completeOnboarding(userId: string, id: string, body: unknown) {
-    const input = sensorOnboardingCompletionSchema.parse(body);
+    const input = sensorOnboardingCompletionSchema
+      .extend({ category: roomSensorCategorySchema.optional() })
+      .parse(body);
+    if (!input.roomId)
+      throw new UnprocessableEntityException('Choisissez une pièce avant de valider le capteur.');
     const home = await this.homeFor(userId);
     const session = await this.prisma.sensorOnboardingSession.findFirst({
       where: { id, homeId: home.id },
       include: { device: { include: { sensors: { where: { removedAt: null } } } } },
     });
-    if (!session?.device || session.status !== 'DEVICE_FOUND')
+    if (!session?.device || session.status !== 'DEVICE_FOUND' || session.expiresAt <= new Date())
       throw new UnprocessableEntityException('Aucun nouveau capteur ne peut être installé.');
+    if (
+      input.category &&
+      !deviceSupportsCategory(
+        {
+          model: session.device.model,
+          capabilities: session.device.sensors.map(({ capability }) => ({ capability })),
+        },
+        input.category,
+      )
+    )
+      throw new UnprocessableEntityException('Ce capteur ne fournit pas la fonction choisie.');
     await this.prisma.$transaction(async (tx) => {
       // Claim the session before modifying the device; concurrent completion rolls back.
       const claimed = await tx.sensorOnboardingSession.updateMany({
-        where: { id, homeId: home.id, status: 'DEVICE_FOUND' },
+        where: { id, homeId: home.id, status: 'DEVICE_FOUND', expiresAt: { gt: new Date() } },
         data: { status: 'COMPLETED', step: 'COMPLETE', errorCode: null, errorMessage: null },
       });
       if (claimed.count !== 1)
@@ -415,6 +552,8 @@ export class SensorsService {
 
   public async update(userId: string, id: string, body: unknown) {
     const input = updateSchema.parse(body);
+    if (input.roomId === null)
+      throw new UnprocessableEntityException('Un capteur installé doit appartenir à une pièce.');
     const home = await this.homeFor(userId);
     const standalone = id.startsWith('sensor:');
     const equipmentId = standalone ? id.slice(7) : id;
@@ -806,13 +945,14 @@ export class SensorsService {
     });
   }
 
-  private detectedType(capabilities: string[]) {
+  private detectedType(capabilities: string[], model?: string | null) {
     const values = new Set(capabilities);
     if (values.has('temperature') && values.has('humidity')) return 'TEMPERATURE_HUMIDITY';
     if (values.has('temperature')) return 'TEMPERATURE';
     if (values.has('water_leak')) return 'WATER_LEAK';
     if (values.has('smoke') || values.has('carbon_monoxide')) return 'SAFETY';
     if (values.has('contact')) return 'CONTACT';
+    if (values.has('occupancy') && isPirMotionModel(model)) return 'MOTION';
     if (values.has('person_presence') || values.has('occupancy')) return 'PRESENCE';
     if (values.has('motion') || values.has('vibration')) return 'MOTION';
     if (values.has('power') || values.has('energy') || values.has('switch')) return 'SMART_PLUG';
@@ -900,9 +1040,13 @@ export class SensorsService {
           (CAPABILITY_DISPLAY_ORDER.get(right.capability) ?? 50),
       );
     const userSensors = recognizedSensors.length > 0 ? recognizedSensors : device.sensors;
-    const capabilities = userSensors.map((sensor) =>
-      this.capabilityView(sensor, networkDisconnected),
-    );
+    const capabilities = userSensors.map((sensor) => {
+      const displayCapability =
+        sensor.capability === 'occupancy' && isPirMotionModel(device.model)
+          ? 'motion'
+          : sensor.capability;
+      return this.capabilityView(sensor, networkDisconnected, displayCapability);
+    });
     const batteryPayload = userSensors.find((sensor) => sensor.capability === 'battery')?.events[0]
       ?.payload;
     const battery = this.recordValue(batteryPayload);
@@ -920,15 +1064,17 @@ export class SensorsService {
     const inferredName =
       capabilityNames.has('temperature') && capabilityNames.has('humidity')
         ? 'Capteur température et humidité'
-        : capabilityNames.has('person_presence') || capabilityNames.has('occupancy')
-          ? 'Capteur de présence'
-          : capabilityNames.has('motion')
-            ? 'Détecteur de mouvement'
-            : capabilityNames.has('contact') || capabilityNames.has('dry_contact')
-              ? 'Détecteur d’ouverture'
-              : capabilityNames.has('water_leak')
-                ? 'Détecteur de fuite d’eau'
-                : device.name;
+        : capabilityNames.has('occupancy') && isPirMotionModel(device.model)
+          ? 'Détecteur de mouvement'
+          : capabilityNames.has('person_presence') || capabilityNames.has('occupancy')
+            ? 'Capteur de présence'
+            : capabilityNames.has('motion')
+              ? 'Détecteur de mouvement'
+              : capabilityNames.has('contact') || capabilityNames.has('dry_contact')
+                ? 'Détecteur d’ouverture'
+                : capabilityNames.has('water_leak')
+                  ? 'Détecteur de fuite d’eau'
+                  : device.name;
     const status = !device.enabled
       ? 'DISABLED'
       : networkDisconnected
@@ -990,12 +1136,16 @@ export class SensorsService {
     };
   }
 
-  private capabilityView(sensor: SensorWithEvents, networkDisconnected = false) {
+  private capabilityView(
+    sensor: SensorWithEvents,
+    networkDisconnected = false,
+    displayCapability = sensor.capability,
+  ) {
     return {
       sensorId: sensor.id,
       entityId: sensor.entityId,
-      capability: sensor.capability,
-      label: capabilityLabel(sensor.capability),
+      capability: displayCapability,
+      label: capabilityLabel(displayCapability),
       primary: !isSecondarySensor(sensor),
       lastSeenAt:
         sensor.events[0]?.occurredAt?.toISOString() ?? sensor.lastSeenAt?.toISOString() ?? null,
@@ -1050,7 +1200,10 @@ export class SensorsService {
     const detectedDevice = device
       ? {
           ...this.deviceView(device),
-          detectedType: this.detectedType(device.sensors.map(({ capability }) => capability)),
+          detectedType: this.detectedType(
+            device.sensors.map(({ capability }) => capability),
+            device.model,
+          ),
         }
       : null;
     return {

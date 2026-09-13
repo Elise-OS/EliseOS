@@ -539,6 +539,7 @@ export function productsForCategory(category: RoomSensorCategory, outdoor: boole
 const normalizedModel = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
 const detectedModelAliases: Record<string, string[]> = {
   '3RPL01084Z': ['SMARTPRESENCESENSORR3', 'MULTIFUNCTIONSMARTPRESENCESENSORR3'],
+  '3RMS16BZ': ['WIRELESSMOTIONSENSOR'],
 };
 
 export function productMatchesDetectedModel(product: SensorProduct, detectedModel?: string | null) {
