@@ -14,6 +14,7 @@ import { isDosePastConfirmationWindow, missedDoseCopy } from './medication-rules
 import {
   countNightActivity,
   isDoorOpenTooLong,
+  isSensorConnectionStale,
   isStale,
   numericPayload,
   persistentTemperatureViolation,
@@ -461,14 +462,17 @@ async function evaluateSensorRules(): Promise<void> {
       name: string;
       capability: string;
       status: string;
+      available: boolean;
       lastSeenAt: Date | null;
+      deviceLastSeenAt: Date | null;
       roomId: string | null;
       roomName: string | null;
       payload: unknown;
       occurredAt: Date | null;
     }>(
       `SELECT s.id, s."entityId", COALESCE(d.name, s."entityId") AS name, s.capability,
-        s.status, s."lastSeenAt", r.id AS "roomId", r.name AS "roomName", latest.payload, latest."occurredAt"
+        s.status, s.available, s."lastSeenAt", d."lastSeenAt" AS "deviceLastSeenAt",
+        r.id AS "roomId", r.name AS "roomName", latest.payload, latest."occurredAt"
        FROM "Sensor" s
        LEFT JOIN "Device" d ON d.id = s."deviceId"
        LEFT JOIN "Room" r ON r.id = s."roomId"
@@ -482,9 +486,22 @@ async function evaluateSensorRules(): Promise<void> {
     );
     for (const sensor of sensors.rows) {
       const stale = isStale(sensor.lastSeenAt, now, rules.sensorOffline.minutes);
-      if (stale && sensor.status !== 'OFFLINE') {
+      const offline =
+        !sensor.available ||
+        isSensorConnectionStale(
+          sensor.lastSeenAt,
+          sensor.deviceLastSeenAt,
+          now,
+          rules.sensorOffline.minutes,
+        );
+      if (offline && sensor.status !== 'OFFLINE') {
         await pool.query(
           `UPDATE "Sensor" SET status = 'OFFLINE', "updatedAt" = NOW() WHERE id = $1`,
+          [sensor.id],
+        );
+      } else if (!offline && sensor.status === 'OFFLINE') {
+        await pool.query(
+          `UPDATE "Sensor" SET status = 'ONLINE', "updatedAt" = NOW() WHERE id = $1`,
           [sensor.id],
         );
       }
@@ -494,7 +511,7 @@ async function evaluateSensorRules(): Promise<void> {
         ruleKey: `sensor-offline:${sensor.id}`,
         type: 'SENSOR_OFFLINE',
         severity: 'ATTENTION',
-        active: rules.sensorOffline.enabled && stale,
+        active: rules.sensorOffline.enabled && offline,
         title: `${sensor.name} ne répond plus`,
         explanation: `${sensor.roomName ?? 'Ce capteur'} n’a transmis aucune donnée depuis plus de ${rules.sensorOffline.minutes} minutes. Élise suspend les conclusions qui en dépendent.`,
       });

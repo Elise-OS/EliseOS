@@ -12,6 +12,19 @@ export function isStale(lastSeenAt: Date | null, now: Date, minutes: number): bo
   return !lastSeenAt || elapsedMinutes(lastSeenAt, now) >= minutes;
 }
 
+export function isSensorConnectionStale(
+  sensorLastSeenAt: Date | null,
+  deviceLastSeenAt: Date | null,
+  now: Date,
+  minutes: number,
+): boolean {
+  const lastContact =
+    deviceLastSeenAt && (!sensorLastSeenAt || deviceLastSeenAt > sensorLastSeenAt)
+      ? deviceLastSeenAt
+      : sensorLastSeenAt;
+  return isStale(lastContact, now, minutes);
+}
+
 export type SensorCoverageState = 'UNCONFIGURED' | 'OUTAGE' | 'READY';
 
 export function sensorCoverageState(
