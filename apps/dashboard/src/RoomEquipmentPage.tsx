@@ -22,6 +22,7 @@ import {
   ShieldAlert,
   Sun,
   Thermometer,
+  Trash2,
   UserRound,
   Wind,
 } from 'lucide-react';
@@ -36,7 +37,7 @@ import {
 import { EquipmentDialog } from './EquipmentDialog';
 import { SensorOnboardingDialog } from './SensorOnboardingDialog';
 import { SensorInstallationGuide } from './SensorInstallationGuide';
-import { productsForCategory } from './sensor-products';
+import { productsForCategory, sensorDevicePhoto } from './sensor-products';
 import {
   connectedDevicesForCategory,
   sensorJson,
@@ -59,6 +60,20 @@ const categoryIcons = {
   air_quality: Wind,
   illuminance: Sun,
 };
+
+function DevicePhoto({ device }: { device: SensorUiDevice }) {
+  const [failed, setFailed] = useState(false);
+  const photo = sensorDevicePhoto(device);
+  return (
+    <span className="equipment-device-photo">
+      {photo && !failed ? (
+        <img src={photo} alt="" loading="lazy" onError={() => setFailed(true)} />
+      ) : (
+        <span>{device.manufacturer?.slice(0, 2) ?? device.name.slice(0, 2)}</span>
+      )}
+    </span>
+  );
+}
 const roomLabels: Record<string, [string, string]> = {
   LIVING_ROOM: ['Salon', 'Living room'],
   BEDROOM: ['Chambre', 'Bedroom'],
@@ -151,11 +166,14 @@ export function roomSensorReading(
   const capability = capabilities.find((c) => c.value !== null) ?? capabilities[0];
   const lastSeenAt = capability?.lastSeenAt ?? device.lastSeenAt;
   const lastSeen = lastSeenAt ? Date.parse(lastSeenAt) : NaN;
-  // Binary states can remain unchanged while the physical device keeps reporting.
+  // A value can stay unchanged while another function of the same device reports.
   const stateful = ['presence', 'motion', 'contact'].includes(category);
   const deviceSeen = device.lastSeenAt ? Date.parse(device.lastSeenAt) : NaN;
-  const freshness = stateful && Number.isFinite(deviceSeen) ? deviceSeen : lastSeen;
-  const stale = !Number.isFinite(freshness) || now - freshness > 60 * 60 * 1000;
+  const freshness = Math.max(
+    Number.isFinite(lastSeen) ? lastSeen : -Infinity,
+    Number.isFinite(deviceSeen) ? deviceSeen : -Infinity,
+  );
+  const stale = !Number.isFinite(freshness) || now - freshness > 120 * 60 * 1000;
   const status = !device.enabled
     ? fr
       ? 'Désactivé'
@@ -293,6 +311,7 @@ export function RoomEquipmentPage({
   const [installationTargetId, setInstallationTargetId] = useState<string | undefined>();
   const [guideId, setGuideId] = useState<string | null>(null);
   const [assigning, setAssigning] = useState<SensorUiDevice | null>(null);
+  const [confirmRemoval, setConfirmRemoval] = useState(false);
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -422,6 +441,7 @@ export function RoomEquipmentPage({
     });
   const editDevice = (device: SensorUiDevice) => {
     setAssigning(device);
+    setConfirmRemoval(false);
     setName(device.name);
     const placement = plan.placements.find(
       (p) =>
@@ -447,6 +467,21 @@ export function RoomEquipmentPage({
       setCategory(null);
       setGuideId(id);
       await onRefresh();
+    });
+  const removeDevice = () =>
+    run(async () => {
+      if (!assigning || assigning.protocol !== 'zigbee') return;
+      await sensorRequest(`/api/v1/sensor-devices/${encodeURIComponent(assigning.id)}`, {
+        method: 'DELETE',
+      });
+      setConfirmRemoval(false);
+      setAssigning(null);
+      setCategory(null);
+      void onRefresh().catch(() =>
+        setError(
+          fr ? 'Actualisation indisponible. Réessayez.' : 'Refresh unavailable. Please retry.',
+        ),
+      );
     });
   const rooms = plan.levels.flatMap((level) =>
     level.rooms.map((r) => ({ id: r.id, name: r.name, kind: r.kind, floor: level.floor })),
@@ -777,12 +812,21 @@ export function RoomEquipmentPage({
                     <h3>{fr ? 'Capteur associé' : 'Assigned sensor'}</h3>
                     {entranceDevices.map((device) => (
                       <article className="equipment-device-row" key={device.id}>
-                        <span className="equipment-device-icon">
-                          <Radio />
-                        </span>
+                        <DevicePhoto device={device} />
                         <div>
                           <strong>{device.name}</strong>
                           <p>{roomSensorReading(device, 'contact', fr, now).reading}</p>
+                        </div>
+                        <div className="equipment-device-actions">
+                          <button
+                            onClick={() => {
+                              setMainEntranceOpen(false);
+                              setCategory('contact');
+                              editDevice(device);
+                            }}
+                          >
+                            {fr ? 'Gérer' : 'Manage'}
+                          </button>
                         </div>
                       </article>
                     ))}
@@ -877,6 +921,7 @@ export function RoomEquipmentPage({
           onClose={() => {
             setCategory(null);
             setAssigning(null);
+            setConfirmRemoval(false);
             setError('');
           }}
           busy={busy}
@@ -884,7 +929,13 @@ export function RoomEquipmentPage({
           <div className="equipment-category-content">
             {assigning ? (
               <>
-                <button className="equipment-text-button" onClick={() => setAssigning(null)}>
+                <button
+                  className="equipment-text-button"
+                  onClick={() => {
+                    setAssigning(null);
+                    setConfirmRemoval(false);
+                  }}
+                >
                   <ArrowLeft />
                   {fr ? 'Retour aux capteurs' : 'Back to sensors'}
                 </button>
@@ -925,6 +976,54 @@ export function RoomEquipmentPage({
                         : `Assign to ${room.name}`}
                   </button>
                 </footer>
+                {assigning.protocol === 'zigbee' && (
+                  <div className="equipment-removal">
+                    {confirmRemoval ? (
+                      <div
+                        className="equipment-removal-confirmation"
+                        role="group"
+                        aria-label={fr ? 'Confirmer la suppression' : 'Confirm removal'}
+                      >
+                        <strong>
+                          {fr
+                            ? 'Retirer ce capteur du réseau ?'
+                            : 'Remove this sensor from the network?'}
+                        </strong>
+                        <p>
+                          {fr
+                            ? 'Il sera supprimé de cette pièce et du réseau Zigbee. Pour le réinstaller ailleurs, remettez-le en mode appairage.'
+                            : 'It will be removed from this room and the Zigbee network. To install it elsewhere, put it in pairing mode again.'}
+                        </p>
+                        <div>
+                          <button
+                            className="equipment-secondary"
+                            disabled={busy}
+                            onClick={() => setConfirmRemoval(false)}
+                          >
+                            {fr ? 'Annuler' : 'Cancel'}
+                          </button>
+                          <button
+                            className="equipment-delete-confirm"
+                            disabled={busy}
+                            onClick={() => void removeDevice()}
+                          >
+                            <Trash2 />
+                            {fr ? 'Supprimer du réseau' : 'Remove from network'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className="equipment-delete-trigger"
+                        disabled={busy}
+                        onClick={() => setConfirmRemoval(true)}
+                      >
+                        <Trash2 />
+                        {fr ? 'Supprimer du réseau' : 'Remove from network'}
+                      </button>
+                    )}
+                  </div>
+                )}
               </>
             ) : product ? (
               <>
@@ -1024,9 +1123,7 @@ export function RoomEquipmentPage({
                       const reading = roomSensorReading(device, category!, fr, now);
                       return (
                         <article className="equipment-device-row" key={device.id}>
-                          <span className="equipment-device-icon">
-                            <Radio />
-                          </span>
+                          <DevicePhoto device={device} />
                           <div>
                             <strong>{device.name}</strong>
                             <p>
@@ -1242,7 +1339,13 @@ export function RoomEquipmentPage({
       {busy && (
         <div className="equipment-working" role="status">
           <LoaderCircle className="is-spinning" />
-          {fr ? 'Enregistrement…' : 'Saving…'}
+          {confirmRemoval
+            ? fr
+              ? 'Suppression du capteur…'
+              : 'Removing sensor…'
+            : fr
+              ? 'Enregistrement…'
+              : 'Saving…'}
         </div>
       )}
     </section>

@@ -15,6 +15,7 @@ import {
   TEST_HARDWARE_COUNT,
   productMatchesDetectedModel,
   productsForCategory,
+  sensorDevicePhoto,
 } from './sensor-products';
 import { connectedDevicesForCategory } from './sensor-ui';
 
@@ -121,11 +122,69 @@ describe('room equipment cards', () => {
     expect(deviceSupportsCategory(detected, 'presence')).toBe(false);
   });
 
-  it('keeps an old value visible but clearly marks it as old', () => {
-    const old = device([{ ...capability('temperature'), lastSeenAt: '2026-01-01T00:00:00.000Z' }]);
+  it('uses each known device photo, including the Sonoff generic model name', () => {
     expect(
-      roomSensorReading(old, 'temperature', true, Date.parse('2026-01-01T02:00:00.000Z')),
+      sensorDevicePhoto(
+        device([capability('temperature'), capability('humidity')], {
+          model: 'Temperature and humidity sensor',
+        }),
+      ),
+    ).toBe('/sensor-products/SNZB-02P.png');
+    expect(
+      sensorDevicePhoto(
+        device([capability('motion')], {
+          manufacturer: 'Third Reality',
+          model: 'Wireless motion sensor',
+        }),
+      ),
+    ).toBe('/sensor-products/3RMS16BZ.png');
+    expect(
+      sensorDevicePhoto(
+        device([capability('occupancy')], {
+          manufacturer: 'Third Reality',
+          model: 'Multi-function smart presence sensor R3',
+        }),
+      ),
+    ).toBe('/sensor-products/3RPL01084Z.png');
+  });
+
+  it('keeps an old value visible but clearly marks it as old', () => {
+    const old = device([{ ...capability('temperature'), lastSeenAt: '2026-01-01T00:00:00.000Z' }], {
+      lastSeenAt: '2026-01-01T00:00:00.000Z',
+    });
+    expect(
+      roomSensorReading(old, 'temperature', true, Date.parse('2026-01-01T02:01:00.000Z')),
     ).toMatchObject({ reading: '21,5 °C', status: 'Mesure ancienne', outdated: true });
+  });
+
+  it('shows an unchanged temperature normally while humidity keeps the Sonoff connected', () => {
+    const now = Date.parse('2026-09-13T18:10:00.000Z');
+    const temperature = {
+      ...capability('temperature', { value: 25.2 }),
+      lastSeenAt: '2026-09-13T16:02:29.686Z',
+    };
+    const humidity = {
+      ...capability('humidity', { value: 44 }),
+      lastSeenAt: '2026-09-13T17:45:51.090Z',
+    };
+    const sonoff = device([temperature, humidity], {
+      lastSeenAt: '2026-09-13T18:05:41.309Z',
+    });
+
+    expect(roomSensorReading(sonoff, 'temperature', true, now)).toMatchObject({
+      reading: '25,2 °C',
+      status: null,
+      outdated: false,
+      lastSeenAt: temperature.lastSeenAt,
+    });
+    expect(
+      roomSensorReading(
+        device([{ ...temperature, status: 'OFFLINE' }], { lastSeenAt: sonoff.lastSeenAt }),
+        'temperature',
+        true,
+        now,
+      ),
+    ).toMatchObject({ status: 'Hors ligne', outdated: true });
   });
 
   it('keeps a steady presence current when the device has reported recently', () => {

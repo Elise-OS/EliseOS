@@ -553,3 +553,28 @@ export function productMatchesDetectedModel(product: SensorProduct, detectedMode
     (detectedModelAliases[product.model] ?? []).some((alias) => detected.includes(alias))
   );
 }
+
+export function sensorDevicePhoto(device: {
+  manufacturer: string | null;
+  model: string | null;
+  capabilities: Array<{ capability: string }>;
+}): string | null {
+  const manufacturer = normalizedModel(device.manufacturer ?? '');
+  const model = normalizedModel(device.model ?? '');
+  const documented = SENSOR_PRODUCTS.find(
+    (product) =>
+      normalizedModel(product.brand) === manufacturer &&
+      productMatchesDetectedModel(product, device.model) === true,
+  );
+  if (documented) return documented.image;
+  // Home Assistant gives this Sonoff its generic name; Zigbee2MQTT identifies
+  // the paired temperature/humidity hardware as SNZB-02P.
+  if (
+    manufacturer === 'SONOFF' &&
+    ['SNZB02P', 'TEMPERATUREANDHUMIDITYSENSOR'].includes(model) &&
+    device.capabilities.some(({ capability }) => capability === 'temperature') &&
+    device.capabilities.some(({ capability }) => capability === 'humidity')
+  )
+    return '/sensor-products/SNZB-02P.png';
+  return null;
+}

@@ -672,17 +672,24 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
           'La clé Zigbee doit être connectée pour désappairer complètement ce capteur.',
         );
       }
-      const identifier = device.networkIdentifier?.trim() || device.name;
-      this.mqtt.removeZigbeeDevice(identifier);
+      const identifier = device.networkIdentifier?.trim();
+      if (!identifier)
+        throw new UnprocessableEntityException('Identifiant Zigbee introuvable pour ce capteur.');
+      await this.mqtt.removeZigbeeDeviceConfirmed(identifier);
     }
 
-    await this.prisma.$transaction([
-      this.prisma.sensor.updateMany({
+    await this.prisma.$transaction(async (tx) => {
+      await this.applyAssignment(tx, home.id, device.id, false, device.sensors, { roomId: null });
+      await tx.sensor.updateMany({
         where: { deviceId: device.id, homeId: home.id },
         data: { removedAt, available: false, analysisEnabled: false, status: 'OFFLINE' },
-      }),
-      this.prisma.device.delete({ where: { id: device.id } }),
-    ]);
+      });
+      await tx.deviceEntity.updateMany({
+        where: { deviceId: device.id, homeId: home.id },
+        data: { removedAt, available: false },
+      });
+      await tx.device.delete({ where: { id: device.id } });
+    });
     return { removed: true, unpaired: isZigbee };
   }
 

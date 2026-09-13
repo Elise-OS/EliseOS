@@ -48,6 +48,23 @@ describe('EquipmentService manual mappings', () => {
 
     expect(ingestion.ingest).not.toHaveBeenCalled();
   });
+
+  it('ignores a late state from a sensor removed from the Zigbee network', async () => {
+    const prisma = {
+      deviceEntity: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      sensor: {
+        findUnique: vi.fn().mockResolvedValue({
+          removedAt: new Date(),
+          mapping: { enabled: true, capability: 'occupancy', transform: 'ON_OFF' },
+        }),
+      },
+    };
+    const ingestion = { ingest: vi.fn() };
+
+    await new EquipmentService(prisma as never, ingestion as never).ingestMappedState(state);
+
+    expect(ingestion.ingest).not.toHaveBeenCalled();
+  });
 });
 
 describe('sensorInventoryOnly', () => {

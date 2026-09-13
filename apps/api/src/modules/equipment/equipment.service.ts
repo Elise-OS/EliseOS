@@ -283,7 +283,7 @@ export class EquipmentService {
       where: { homeId_entityId: { homeId: state.homeId, entityId: state.entityId } },
       include: { mapping: true, device: true },
     });
-    if (!sensor?.mapping?.enabled) return;
+    if (!sensor || sensor.removedAt || !sensor.mapping?.enabled) return;
     const transformed = this.transform(
       sensor.mapping.capability as Capability,
       sensor.mapping.transform,

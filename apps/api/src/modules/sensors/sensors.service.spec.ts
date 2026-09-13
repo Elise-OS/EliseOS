@@ -130,6 +130,18 @@ describe('SensorsService physical device views', () => {
   it('unpairs a Zigbee sensor before removing it from Élise', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 2 });
     const deleteDevice = vi.fn().mockResolvedValue(undefined);
+    const removeZigbeeDeviceConfirmed = vi.fn().mockResolvedValue(undefined);
+    const updatePlan = vi.fn().mockResolvedValue({ count: 1 });
+    const placement = (id: string, equipmentId: string) => ({
+      id,
+      kind: 'SENSOR',
+      equipmentId,
+      equipmentRefKind: 'DEVICE',
+      roomId: 'room-1',
+      floorId: 'floor-1',
+      x: 50,
+      y: 50,
+    });
     const prisma = {
       home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
       device: {
@@ -140,17 +152,46 @@ describe('SensorsService physical device views', () => {
         delete: deleteDevice,
       },
       sensor: { updateMany },
-      $transaction: vi.fn(async (actions: Array<Promise<unknown>>) => Promise.all(actions)),
+      deviceEntity: { updateMany: vi.fn().mockResolvedValue({ count: 2 }) },
+      homePlan: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'plan-1',
+          revision: 1,
+          data: {
+            schemaVersion: 1,
+            revision: 1,
+            configured: true,
+            levels: [
+              {
+                id: 'floor-1',
+                name: 'Ground',
+                floor: 0,
+                order: 0,
+                width: 500,
+                height: 500,
+                rooms: [],
+                openings: [],
+                stairs: [],
+                items: [],
+              },
+            ],
+            placements: [placement('sonoff', 'device-sonoff'), placement('other', 'other-device')],
+            connections: [],
+          },
+        }),
+        updateMany: updatePlan,
+      },
+      $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback(prisma)),
     };
     const mqtt = {
       zigbeeStatus: vi.fn().mockReturnValue({ online: true }),
-      removeZigbeeDevice: vi.fn(),
+      removeZigbeeDeviceConfirmed,
     };
     const service = new SensorsService(prisma as never, mqtt as never);
 
     const result = await service.remove('user-1', 'device-sonoff');
 
-    expect(mqtt.removeZigbeeDevice).toHaveBeenCalledWith('0x00124b0023456789');
+    expect(removeZigbeeDeviceConfirmed).toHaveBeenCalledWith('0x00124b0023456789');
     expect(updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { deviceId: 'device-sonoff', homeId: 'home-1' },
@@ -158,7 +199,44 @@ describe('SensorsService physical device views', () => {
       }),
     );
     expect(deleteDevice).toHaveBeenCalledWith({ where: { id: 'device-sonoff' } });
+    expect(prisma.deviceEntity.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { deviceId: 'device-sonoff', homeId: 'home-1' } }),
+    );
+    expect(updatePlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          data: expect.objectContaining({
+            placements: [expect.objectContaining({ equipmentId: 'other-device' })],
+          }),
+        }),
+      }),
+    );
     expect(result).toEqual({ removed: true, unpaired: true });
+  });
+
+  it('keeps a sensor in Élise if Zigbee refuses to remove it', async () => {
+    const deleteDevice = vi.fn();
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      device: {
+        findFirst: vi.fn().mockResolvedValue({
+          ...detectedDevice(),
+          networkIdentifier: '0x00124b0023456789',
+        }),
+        delete: deleteDevice,
+      },
+      $transaction: vi.fn(),
+    };
+    const mqtt = {
+      zigbeeStatus: vi.fn().mockReturnValue({ online: true }),
+      removeZigbeeDeviceConfirmed: vi.fn().mockRejectedValue(new Error('Removal failed')),
+    };
+
+    await expect(
+      new SensorsService(prisma as never, mqtt as never).remove('user-1', 'device-sonoff'),
+    ).rejects.toThrow('Removal failed');
+    expect(deleteDevice).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('chooses the available connection automatically without asking the user', async () => {
