@@ -13,6 +13,7 @@ import {
   type SensorOnboardingCompletion,
 } from '@michel/contracts';
 import {
+  type ObservationEvent,
   Prisma,
   type SensorOnboardingSession,
   type SensorVerificationSession,
@@ -49,15 +50,14 @@ function isSecondarySensor(
   return sensor.capability === 'switch' && /\balert\s+enable\b/.test(label);
 }
 
-type SensorWithRoomAndEvents = Prisma.SensorGetPayload<{
-  include: { room: true; events: true };
-}>;
-
-type SensorWithEvents = Prisma.SensorGetPayload<{ include: { events: true } }>;
-
-type DeviceWithSensors = Prisma.DeviceGetPayload<{
-  include: { room: true; sensors: { include: { events: true } } };
-}>;
+type SensorWithEvents = Prisma.SensorGetPayload<object> & { events: ObservationEvent[] };
+type SensorWithRoomAndEvents = Prisma.SensorGetPayload<{ include: { room: true } }> & {
+  events: ObservationEvent[];
+};
+type DeviceWithSensors = Omit<
+  Prisma.DeviceGetPayload<{ include: { room: true; sensors: true } }>,
+  'sensors'
+> & { sensors: SensorWithEvents[] };
 
 const updateSchema = z.object({
   target: sensorOnboardingCompletionSchema.shape.target,
@@ -95,7 +95,6 @@ export class SensorsService {
           room: true,
           sensors: {
             where: { removedAt: null },
-            include: { events: { orderBy: { occurredAt: 'desc' }, take: 1 } },
             orderBy: { sourceName: 'asc' },
           },
         },
@@ -103,9 +102,13 @@ export class SensorsService {
       }),
       this.prisma.sensor.findMany({
         where: { homeId: home.id, deviceId: null, removedAt: null },
-        include: { room: true, events: { orderBy: { occurredAt: 'desc' }, take: 1 } },
+        include: { room: true },
         orderBy: [{ sourceName: 'asc' }, { entityId: 'asc' }],
       }),
+    ]);
+    const latest = await this.latestEvents([
+      ...devices.flatMap((device) => device.sensors.map((sensor) => sensor.id)),
+      ...standalone.map((sensor) => sensor.id),
     ]);
     return [
       ...devices
@@ -117,13 +120,18 @@ export class SensorsService {
                 isBridgeControlLabel(sensor.sourceName) || isBridgeControlLabel(sensor.entityId),
             ),
         )
-        .map((device) => this.deviceView(device)),
+        .map((device) =>
+          this.deviceView({
+            ...device,
+            sensors: device.sensors.map((sensor) => this.withLatestEvent(sensor, latest)),
+          }),
+        ),
       ...standalone
         .filter(
           (sensor) =>
             !isBridgeControlLabel(sensor.sourceName) && !isBridgeControlLabel(sensor.entityId),
         )
-        .map((sensor) => this.standaloneView(sensor)),
+        .map((sensor) => this.standaloneView(this.withLatestEvent(sensor, latest))),
     ];
   }
 
@@ -258,11 +266,22 @@ export class SensorsService {
       return this.sessionView(failed);
     }
     if (session.status === 'WAITING_FOR_DEVICE') {
+      const pairedIdentifiers =
+        session.protocol === 'zigbee' ? this.mqtt.zigbeeDevicesJoinedSince(session.createdAt) : [];
       const device = await this.prisma.device.findFirst({
         where: {
           homeId: home.id,
-          updatedAt: { gte: session.createdAt },
-          ...(session.protocol ? { OR: [{ protocol: session.protocol }, { protocol: null }] } : {}),
+          AND: [
+            { OR: [{ protocol: session.protocol }, { protocol: null }] },
+            {
+              OR: [
+                { createdAt: { gte: session.createdAt } },
+                ...(pairedIdentifiers.length > 0
+                  ? [{ networkIdentifier: { in: pairedIdentifiers } }]
+                  : []),
+              ],
+            },
+          ],
           sensors: {
             some: {
               removedAt: null,
@@ -275,7 +294,7 @@ export class SensorsService {
             },
           },
         },
-        orderBy: { updatedAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
       });
       if (device) {
         if (session.protocol === 'zigbee') await this.closeZigbeePairing(home.id);
@@ -744,13 +763,39 @@ export class SensorsService {
         room: true,
         sensors: {
           where: { removedAt: null },
-          include: { events: { orderBy: { occurredAt: 'desc' }, take: 1 } },
           orderBy: { sourceName: 'asc' },
         },
       },
     });
     if (!device) throw new NotFoundException('Capteur introuvable.');
-    return device;
+    const latest = await this.latestEvents(device.sensors.map((sensor) => sensor.id));
+    return {
+      ...device,
+      sensors: device.sensors.map((sensor) => this.withLatestEvent(sensor, latest)),
+    };
+  }
+
+  private async latestEvents(sensorIds: string[]): Promise<Map<string, ObservationEvent>> {
+    if (sensorIds.length === 0) return new Map();
+    const events = await this.prisma.$queryRaw<ObservationEvent[]>`
+      SELECT latest.*
+      FROM unnest(ARRAY[${Prisma.join(sensorIds)}]::text[]) AS target(id)
+      JOIN LATERAL (
+        SELECT * FROM "ObservationEvent" AS event
+        WHERE event."sensorId" = target.id
+        ORDER BY event."occurredAt" DESC
+        LIMIT 1
+      ) AS latest ON true
+    `;
+    return new Map(events.flatMap((event) => (event.sensorId ? [[event.sensorId, event]] : [])));
+  }
+
+  private withLatestEvent<T extends { id: string }>(
+    sensor: T,
+    latest: Map<string, ObservationEvent>,
+  ): T & { events: ObservationEvent[] } {
+    const event = latest.get(sensor.id);
+    return { ...sensor, events: event ? [event] : [] };
   }
 
   private async closeZigbeePairing(homeId: string) {

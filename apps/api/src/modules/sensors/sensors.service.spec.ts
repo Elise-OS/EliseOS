@@ -69,6 +69,13 @@ const detectedDevice = (now = new Date('2026-08-21T10:00:00.000Z')) => ({
   ],
 });
 
+const latestReadings = (device: ReturnType<typeof detectedDevice>) =>
+  device.sensors.flatMap((sensor) =>
+    sensor.events[0]
+      ? [{ sensorId: sensor.id, payload: sensor.events[0].payload, occurredAt: sensor.lastSeenAt }]
+      : [],
+  );
+
 describe('SensorsService physical device views', () => {
   it('uses a friendly name for a presence sensor instead of a technical entity name', () => {
     const base = detectedDevice();
@@ -223,7 +230,11 @@ describe('SensorsService physical device views', () => {
       createdAt: sessionStartedAt,
       updatedAt: sessionStartedAt,
     };
-    const device = detectedDevice(new Date('2026-08-21T10:00:05.000Z'));
+    const device = {
+      ...detectedDevice(new Date('2026-08-21T10:00:05.000Z')),
+      createdAt: new Date('2026-08-20T10:00:00.000Z'),
+      networkIdentifier: '0x00124b0023456789',
+    };
     const foundSession = {
       ...waitingSession,
       deviceId: device.id,
@@ -233,6 +244,7 @@ describe('SensorsService physical device views', () => {
     const findFirst = vi.fn().mockResolvedValueOnce(device).mockResolvedValueOnce(device);
     const prisma = {
       home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      $queryRaw: vi.fn().mockResolvedValue(latestReadings(device)),
       device: { findFirst },
       sensorOnboardingSession: {
         findFirst: vi.fn().mockResolvedValue(waitingSession),
@@ -242,6 +254,7 @@ describe('SensorsService physical device views', () => {
     };
     const mqtt = {
       zigbeeStatus: vi.fn().mockReturnValue({ pairingError: null }),
+      zigbeeDevicesJoinedSince: vi.fn().mockReturnValue(['0x00124b0023456789']),
       setZigbeePairing: vi.fn(),
     };
     const service = new SensorsService(prisma as never, mqtt as never);
@@ -249,18 +262,91 @@ describe('SensorsService physical device views', () => {
     const result = await service.onboarding('user-1', waitingSession.id);
 
     const detectionQuery = findFirst.mock.calls[0]?.[0] as {
-      where: { updatedAt: { gte: Date }; NOT: unknown };
+      where: { AND: unknown[]; NOT: unknown };
     };
-    expect(detectionQuery.where.updatedAt.gte).toEqual(sessionStartedAt);
+    expect(detectionQuery.where.AND).toContainEqual({
+      OR: [
+        { createdAt: { gte: sessionStartedAt } },
+        { networkIdentifier: { in: ['0x00124b0023456789'] } },
+      ],
+    });
     expect(detectionQuery.where.NOT).toBeDefined();
+    expect(mqtt.zigbeeDevicesJoinedSince).toHaveBeenCalledWith(sessionStartedAt);
     expect(result.status).toBe('DEVICE_FOUND');
     expect(result.detectedDevice?.detectedType).toBe('TEMPERATURE_HUMIDITY');
   });
 
-  it('groups several measurements and exposes battery as secondary information', async () => {
-    const now = new Date('2026-08-17T12:00:00.000Z');
+  it('does not mistake a reporting installed sensor for the new sensor', async () => {
+    const startedAt = new Date('2026-08-21T10:00:00.000Z');
+    const session = {
+      id: 'onboarding-new',
+      homeId: 'home-1',
+      protocol: 'zigbee',
+      status: 'WAITING_FOR_DEVICE',
+      createdAt: startedAt,
+      expiresAt: new Date('2099-08-21T10:04:00.000Z'),
+    };
+    const oldR3 = {
+      ...detectedDevice(new Date('2026-08-21T10:00:05.000Z')),
+      createdAt: new Date('2026-08-20T10:00:00.000Z'),
+      updatedAt: new Date('2026-08-21T10:00:05.000Z'),
+      networkIdentifier: '0x00124b0023456789',
+    };
+    const findFirst = vi.fn().mockImplementation(
+      ({
+        where,
+      }: {
+        where: {
+          AND: Array<{
+            OR: Array<{ createdAt?: { gte: Date }; networkIdentifier?: { in: string[] } }>;
+          }>;
+        };
+      }) => {
+        const evidence = where.AND[1]?.OR ?? [];
+        return evidence.some(
+          (condition) =>
+            (condition.createdAt && oldR3.createdAt >= condition.createdAt.gte) ||
+            (condition.networkIdentifier &&
+              condition.networkIdentifier.in.includes(oldR3.networkIdentifier)),
+        )
+          ? oldR3
+          : null;
+      },
+    );
     const prisma = {
       home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      device: { findFirst },
+      sensorOnboardingSession: { findFirst: vi.fn().mockResolvedValue(session) },
+    };
+    const mqtt = {
+      zigbeeStatus: vi.fn().mockReturnValue({ pairingError: null, pairingOpen: true }),
+      zigbeeDevicesJoinedSince: vi.fn().mockReturnValue([]),
+      setZigbeePairing: vi.fn(),
+    };
+    const service = new SensorsService(prisma as never, mqtt as never);
+
+    const result = await service.onboarding('user-1', session.id);
+
+    expect(result.status).toBe('WAITING_FOR_DEVICE');
+    expect(result.detectedDevice).toBeNull();
+    const query = findFirst.mock.calls[0]?.[0] as {
+      where: { AND: unknown[] };
+    };
+    expect(query.where.AND[1]).toEqual({
+      OR: [{ createdAt: { gte: startedAt } }],
+    });
+    expect(mqtt.setZigbeePairing).not.toHaveBeenCalled();
+  });
+
+  it('groups several measurements and exposes battery as secondary information', async () => {
+    const now = new Date('2026-08-17T12:00:00.000Z');
+    const latestQuery = vi.fn().mockResolvedValue([
+      { sensorId: 'temperature', payload: { value: 21.5 }, occurredAt: now },
+      { sensorId: 'battery', payload: { value: 82 }, occurredAt: now },
+    ]);
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      $queryRaw: latestQuery,
       device: {
         findMany: vi.fn().mockResolvedValue([
           {
@@ -332,6 +418,7 @@ describe('SensorsService physical device views', () => {
     const result = await service.list('user-1');
 
     expect(result).toHaveLength(1);
+    expect(latestQuery).toHaveBeenCalledTimes(1);
     expect(result[0]).toMatchObject({ name: 'Air sensor', batteryPercent: 82 });
     expect(result[0]?.capabilities).toHaveLength(3);
     expect(
@@ -587,6 +674,7 @@ describe('SensorsService physical device views', () => {
     };
     const prisma = {
       home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      $queryRaw: vi.fn().mockResolvedValue(latestReadings(detectedDevice())),
       sensorOnboardingSession: { findFirst: vi.fn().mockResolvedValue(session) },
       device: { findFirst: vi.fn().mockResolvedValue(detectedDevice()) },
       equipmentSyncState: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
@@ -640,6 +728,7 @@ describe('SensorsService physical device views', () => {
     const transactionSessionUpdate = vi.fn().mockResolvedValue({ count: 1 });
     const prisma = {
       home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      $queryRaw: vi.fn().mockResolvedValue(latestReadings(device)),
       sensorOnboardingSession: { findFirst: vi.fn().mockResolvedValue(session) },
       homePlan: { findUnique: vi.fn().mockResolvedValue(null) },
       device: { findFirst: vi.fn().mockResolvedValue(device) },

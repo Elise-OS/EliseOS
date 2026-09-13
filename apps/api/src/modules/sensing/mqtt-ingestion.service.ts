@@ -19,6 +19,8 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
   };
   private zigbeeInventoryReceived = false;
   private readonly joinedZigbeeDevices = new Set<string>();
+  private readonly zigbeePairingJoins = new Map<string, Date>();
+  private eventIngestion = Promise.resolve();
   private rejoinedDeviceInventoryTimer: NodeJS.Timeout | undefined;
   private readonly pendingDiscoveryCommands = new Map<
     string,
@@ -122,7 +124,9 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
           type?: unknown;
           data?: { ieee_address?: unknown };
         };
-        if (event.type === 'device_leave' && typeof event.data?.ieee_address === 'string') {
+        if (event.type === 'device_joined' && typeof event.data?.ieee_address === 'string') {
+          this.zigbeePairingJoins.set(event.data.ieee_address.toLowerCase(), new Date());
+        } else if (event.type === 'device_leave' && typeof event.data?.ieee_address === 'string') {
           this.joinedZigbeeDevices.delete(event.data.ieee_address.toLowerCase());
           void this.equipment
             .markZigbeeDeviceOffline(event.data.ieee_address)
@@ -184,14 +188,21 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
           return;
         }
       }
+      if (topic === MQTT_TOPICS.events) {
+        // A burst of sensor reports must not start more Prisma transactions than
+        // the pool can serve. Keep event order and let a failed event release the queue.
+        this.eventIngestion = this.eventIngestion
+          .then(() => this.ingestion.ingest(parsed))
+          .then(() => undefined)
+          .catch((error: unknown) => this.logger.error(`Rejected MQTT message on ${topic}`, error));
+        return;
+      }
       const action =
-        topic === MQTT_TOPICS.events
-          ? this.ingestion.ingest(parsed)
-          : topic === MQTT_TOPICS.entityStates
-            ? this.equipment.ingestMappedState(parsed)
-            : topic === MQTT_TOPICS.inventory
-              ? this.equipment.ingestInventory(parsed)
-              : this.equipment.bridgeStatus(parsed);
+        topic === MQTT_TOPICS.entityStates
+          ? this.equipment.ingestMappedState(parsed)
+          : topic === MQTT_TOPICS.inventory
+            ? this.equipment.ingestInventory(parsed)
+            : this.equipment.bridgeStatus(parsed);
       void action
         .then(async () => {
           if (topic === MQTT_TOPICS.inventory && this.zigbeeInventoryReceived) {
@@ -238,6 +249,14 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
   public isZigbeeDeviceJoined(identifier: string): boolean | null {
     if (!this.zigbeeInventoryReceived) return null;
     return this.joinedZigbeeDevices.has(identifier.toLowerCase());
+  }
+
+  public zigbeeDevicesJoinedSince(startedAt: Date): string[] {
+    const cutoff = startedAt.getTime();
+    for (const [identifier, joinedAt] of this.zigbeePairingJoins) {
+      if (joinedAt.getTime() < cutoff) this.zigbeePairingJoins.delete(identifier);
+    }
+    return [...this.zigbeePairingJoins.keys()];
   }
 
   public executeHomeAssistantCommand(command: {

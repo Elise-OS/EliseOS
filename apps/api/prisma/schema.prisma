@@ -704,6 +704,7 @@ model ObservationEvent {
   @@index([homeId, occurredAt(sort: Desc)])
   @@index([homeId, roomId, occurredAt(sort: Desc)])
   @@index([capability, occurredAt])
+  @@index([sensorId, occurredAt(sort: Desc)])
 }
 
 model RoomPresenceSession {
