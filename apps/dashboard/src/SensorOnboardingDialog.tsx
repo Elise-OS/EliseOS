@@ -195,24 +195,32 @@ export function SensorOnboardingDialog({
     if (initialTarget && !deviceSupportsCategory(session.detectedDevice, 'contact')) return;
     setBusy(true);
     setError('');
+    const sessionUrl = `/api/v1/sensor-devices/onboarding-sessions/${session.id}`;
     try {
-      await sensorRequest(
-        `/api/v1/sensor-devices/onboarding-sessions/${session.id}/complete`,
-        sensorJson('POST', {
-          name: name.trim(),
-          roomId,
-          category,
-          target: initialTarget ?? null,
-          buttonRole: 'ASSISTANCE',
-        }),
-      );
-      if (!alive.current) return;
       try {
-        await onChanged.current();
-      } catch {
-        // The installation is complete even if refreshing the list fails temporarily.
+        await sensorRequest(`${sessionUrl}/complete`, {
+          ...sensorJson('POST', {
+            name: name.trim(),
+            roomId,
+            category,
+            target: initialTarget ?? null,
+            buttonRole: 'ASSISTANCE',
+          }),
+          signal: AbortSignal.timeout(15_000),
+        });
+      } catch (requestError) {
+        // A lost response can follow a committed installation. Check the session
+        // before offering another attempt, which would report a false failure.
+        const confirmed = await sensorRequest<Session>(sessionUrl, {
+          signal: AbortSignal.timeout(8_000),
+        }).catch(() => null);
+        if (confirmed?.status !== 'COMPLETED') throw requestError;
       }
+      if (!alive.current) return;
+      const refresh = onChanged.current;
       onClose();
+      // The installation is complete; a slow page refresh must not hold the dialog open.
+      void refresh().catch(() => undefined);
     } catch (err) {
       if (alive.current) setError((err as Error).message);
     } finally {
