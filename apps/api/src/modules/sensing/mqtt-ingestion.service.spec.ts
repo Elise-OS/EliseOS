@@ -52,6 +52,54 @@ describe('MqttIngestionService Zigbee pairing', () => {
     );
   });
 
+  it('waits for Zigbee2MQTT to confirm removal of an abandoned sensor', async () => {
+    const { client, service } = connectedService();
+    const removal = service.removeZigbeeDeviceConfirmed('0x00124b0023456789');
+    const publish = (client as unknown as { publish: ReturnType<typeof vi.fn> }).publish;
+    const request = JSON.parse(publish.mock.lastCall?.[1] as string) as {
+      transaction: string;
+      id: string;
+    };
+    expect(request.id).toBe('0x00124b0023456789');
+    client.emit(
+      'message',
+      'zigbee2mqtt/bridge/response/device/remove',
+      Buffer.from(
+        JSON.stringify({
+          status: 'ok',
+          data: { id: request.id },
+          transaction: request.transaction,
+        }),
+      ),
+    );
+
+    await expect(removal).resolves.toBeUndefined();
+    service.onModuleDestroy();
+  });
+
+  it('keeps a provisional sensor when Zigbee2MQTT refuses removal', async () => {
+    const { client, service } = connectedService();
+    const removal = service.removeZigbeeDeviceConfirmed('0x00124b0023456789');
+    const publish = (client as unknown as { publish: ReturnType<typeof vi.fn> }).publish;
+    const request = JSON.parse(publish.mock.lastCall?.[1] as string) as {
+      transaction: string;
+    };
+    client.emit(
+      'message',
+      'zigbee2mqtt/bridge/response/device/remove',
+      Buffer.from(
+        JSON.stringify({
+          status: 'error',
+          error: 'Removal failed',
+          transaction: request.transaction,
+        }),
+      ),
+    );
+
+    await expect(removal).rejects.toThrow('Removal failed');
+    service.onModuleDestroy();
+  });
+
   it('does not claim membership before Zigbee2MQTT inventory is received', () => {
     const service = new MqttIngestionService({} as never, {} as never);
 

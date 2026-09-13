@@ -430,7 +430,14 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
       if (completed) continue;
       if (session.protocol === 'zigbee') {
         if (!this.mqtt.zigbeeStatus().online || !device.networkIdentifier) continue;
-        this.mqtt.removeZigbeeDevice(device.networkIdentifier);
+        try {
+          await this.mqtt.removeZigbeeDeviceConfirmed(device.networkIdentifier);
+        } catch (error) {
+          this.logger.warn(
+            `Unable to unpair abandoned Zigbee device ${device.id}; will retry: ${String(error)}`,
+          );
+          continue;
+        }
       }
       const removedAt = new Date();
       await this.prisma.$transaction([

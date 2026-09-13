@@ -30,6 +30,10 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
       timer: NodeJS.Timeout;
     }
   >();
+  private readonly pendingZigbeeRemovals = new Map<
+    string,
+    { resolve: () => void; reject: (error: Error) => void; timer: NodeJS.Timeout }
+  >();
 
   public constructor(
     private readonly ingestion: IngestionService,
@@ -57,6 +61,7 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
           'zigbee2mqtt/bridge/devices',
           'zigbee2mqtt/bridge/event',
           'zigbee2mqtt/bridge/response/permit_join',
+          'zigbee2mqtt/bridge/response/device/remove',
           'michel/v1/discovery',
           'michel/v1/discovery/results/#',
         ],
@@ -164,6 +169,25 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
           response.data.time > 0;
         return;
       }
+      if (topic === 'zigbee2mqtt/bridge/response/device/remove') {
+        const response = parsed as { transaction?: unknown; status?: unknown; error?: unknown };
+        const transaction = typeof response.transaction === 'string' ? response.transaction : '';
+        const pending = this.pendingZigbeeRemovals.get(transaction);
+        if (pending) {
+          clearTimeout(pending.timer);
+          this.pendingZigbeeRemovals.delete(transaction);
+          if (response.status === 'ok') pending.resolve();
+          else
+            pending.reject(
+              new Error(
+                typeof response.error === 'string'
+                  ? response.error
+                  : 'Zigbee2MQTT a refusé le désappairage.',
+              ),
+            );
+        }
+        return;
+      }
       if (
         this.zigbeeInventoryReceived &&
         (topic === MQTT_TOPICS.events || topic === MQTT_TOPICS.entityStates)
@@ -239,6 +263,33 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  public removeZigbeeDeviceConfirmed(identifier: string): Promise<void> {
+    const normalized = identifier.toLowerCase();
+    if (this.zigbeeInventoryReceived && !this.joinedZigbeeDevices.has(normalized))
+      return Promise.resolve();
+    const client = this.client;
+    if (!client) return Promise.reject(new Error('Le réseau Zigbee ne répond pas.'));
+    const transaction = randomUUID();
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingZigbeeRemovals.delete(transaction);
+        reject(new Error('Le désappairage Zigbee a dépassé le délai attendu.'));
+      }, 20_000);
+      this.pendingZigbeeRemovals.set(transaction, { resolve, reject, timer });
+      client.publish(
+        'zigbee2mqtt/bridge/request/device/remove',
+        JSON.stringify({ id: identifier, force: true, block: false, transaction }),
+        { qos: 1 },
+        (error) => {
+          if (!error) return;
+          clearTimeout(timer);
+          this.pendingZigbeeRemovals.delete(transaction);
+          reject(error);
+        },
+      );
+    });
+  }
+
   public zigbeeStatus() {
     return {
       online: this.zigbee.online,
@@ -304,6 +355,11 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
       pending.reject(new Error('Service arrêté.'));
     }
     this.pendingDiscoveryCommands.clear();
+    for (const pending of this.pendingZigbeeRemovals.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error('Service arrêté.'));
+    }
+    this.pendingZigbeeRemovals.clear();
     this.client?.end();
   }
 }

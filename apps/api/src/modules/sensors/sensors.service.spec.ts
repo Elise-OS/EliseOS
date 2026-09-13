@@ -291,12 +291,12 @@ describe('SensorsService physical device views', () => {
     };
     const mqtt = {
       zigbeeStatus: vi.fn().mockReturnValue({ online: true, pairingOpen: false }),
-      removeZigbeeDevice: vi.fn(),
+      removeZigbeeDeviceConfirmed: vi.fn().mockResolvedValue(undefined),
     };
 
     await new SensorsService(prisma as never, mqtt as never).cancelOnboarding('user-1', session.id);
 
-    expect(mqtt.removeZigbeeDevice).toHaveBeenCalledWith(device.networkIdentifier);
+    expect(mqtt.removeZigbeeDeviceConfirmed).toHaveBeenCalledWith(device.networkIdentifier);
     expect(removeDevice).toHaveBeenCalledWith({ where: { id: device.id } });
     expect(prisma.sensor.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { deviceId: device.id } }),
@@ -338,7 +338,7 @@ describe('SensorsService physical device views', () => {
     const mqtt = {
       zigbeeStatus: vi.fn().mockReturnValue({ online: true }),
       setZigbeePairing: vi.fn(),
-      removeZigbeeDevice: vi.fn(),
+      removeZigbeeDeviceConfirmed: vi.fn().mockResolvedValue(undefined),
     };
     const service = new SensorsService(prisma as never, mqtt as never);
 
@@ -349,7 +349,7 @@ describe('SensorsService physical device views', () => {
     expect(expire).toHaveBeenCalledWith(
       expect.objectContaining({ data: { status: 'EXPIRED', errorCode: 'SESSION_EXPIRED' } }),
     );
-    expect(mqtt.removeZigbeeDevice).toHaveBeenCalledWith(device.networkIdentifier);
+    expect(mqtt.removeZigbeeDeviceConfirmed).toHaveBeenCalledWith(device.networkIdentifier);
     expect(removeDevice).toHaveBeenCalledWith({ where: { id: device.id } });
   });
 
