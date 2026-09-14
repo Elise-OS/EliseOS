@@ -150,7 +150,7 @@ describe('documented sensor coverage', () => {
     expect(coverageNeeds('motion', coverage, plan, [])[0]?.target.type).toBe('STAIR');
   });
   it('keeps all matching products, local photos and documented advice without fabricated ranges', () => {
-    expect(coverageProducts('temperature')).toHaveLength(2);
+    expect(coverageProducts('temperature')).toHaveLength(3);
     expect(coverageProducts('energy')).toHaveLength(2);
     expect(coverageProducts('temperature', true)).toEqual([]);
     for (const p of coverageProducts('presence')) {

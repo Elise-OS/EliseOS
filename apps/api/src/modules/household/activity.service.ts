@@ -2,11 +2,43 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import {
   alertRuleSettingsSchema,
   DEFAULT_ALERT_RULE_SETTINGS,
+  homePlanSchema,
   type DashboardPeriod,
+  type HomePlan,
 } from '@michel/contracts';
+import { Prisma, type ObservationEvent } from '@prisma/client';
 import { PrismaService } from '../../platform/prisma.service';
 
 const ACTIVITY_CAPABILITIES = ['motion', 'occupancy', 'person_presence', 'contact', 'button'];
+const LIFE_CAPABILITIES = new Set(['motion', 'occupancy', 'person_presence', 'contact']);
+const ENVIRONMENT_CAPABILITIES = new Set([
+  'temperature',
+  'humidity',
+  'power',
+  'energy',
+  'switch',
+  'current',
+  'voltage',
+  'battery',
+  'co2',
+  'voc',
+  'pm25',
+  'air_quality',
+  'illuminance',
+  'signal_strength',
+]);
+const SAFETY_CAPABILITIES = new Set([
+  'button',
+  'water_leak',
+  'smoke',
+  'carbon_monoxide',
+  'fall_detection',
+  'vibration',
+]);
+const SEQUENCE_CAPABILITIES = new Set([...LIFE_CAPABILITIES, ...SAFETY_CAPABILITIES]);
+const MAX_SEQUENCE_EVENTS = 500;
+const MAX_EVENTS_PER_SEQUENCE = 30;
+const SEQUENCE_GAP_MS = 20 * 60_000;
 
 function median(values: number[]): number {
   if (values.length === 0) return 0;
@@ -35,6 +67,123 @@ function localDateKey(value: Date, timezone: string): string {
     day: '2-digit',
     timeZone: timezone,
   }).format(value);
+}
+
+function shiftDateKey(value: string, days: number): string {
+  const [year, month, day] = value.split('-').map(Number);
+  const shifted = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) + days));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`;
+}
+
+function zonedMidnight(value: string, timezone: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  const desired = Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1);
+  let timestamp = desired;
+  for (let iteration = 0; iteration < 4; iteration += 1) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+      timeZone: timezone,
+    }).formatToParts(new Date(timestamp));
+    const number = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+    const represented = Date.UTC(
+      number('year'),
+      number('month') - 1,
+      number('day'),
+      number('hour'),
+      number('minute'),
+      number('second'),
+    );
+    const difference = desired - represented;
+    timestamp += difference;
+    if (difference === 0) break;
+  }
+  return new Date(timestamp);
+}
+
+function activityWindow(
+  period: DashboardPeriod,
+  selectedDate: string | undefined,
+  timezone: string,
+  now: Date,
+) {
+  const today = localDateKey(now, timezone);
+  const endDate = selectedDate ?? today;
+  const dayCount = period === '24h' ? 1 : period === '7d' ? 7 : 28;
+  const fromDate = shiftDateKey(endDate, -(dayCount - 1));
+  const from = zonedMidnight(fromDate, timezone);
+  const selectedEnd = zonedMidnight(shiftDateKey(endDate, 1), timezone);
+  const to = endDate === today ? now : selectedEnd;
+  const buckets: Array<{ start: Date; end: Date; label: string }> = [];
+
+  if (period === '24h') {
+    for (let start = from; start < to; start = new Date(start.getTime() + 3_600_000)) {
+      const end = new Date(Math.min(to.getTime(), start.getTime() + 3_600_000));
+      buckets.push({
+        start,
+        end,
+        label: new Intl.DateTimeFormat('fr-FR', {
+          hour: '2-digit',
+          timeZone: timezone,
+        }).format(start),
+      });
+    }
+  } else {
+    for (let index = 0; index < dayCount; index += 1) {
+      const key = shiftDateKey(fromDate, index);
+      const start = zonedMidnight(key, timezone);
+      const next = zonedMidnight(shiftDateKey(key, 1), timezone);
+      if (start >= to) break;
+      buckets.push({
+        start,
+        end: new Date(Math.min(to.getTime(), next.getTime())),
+        label: new Intl.DateTimeFormat('fr-FR', {
+          weekday: 'short',
+          timeZone: timezone,
+        }).format(start),
+      });
+    }
+  }
+
+  return { from, to, buckets };
+}
+
+function payloadRecord(payload: unknown): Record<string, unknown> {
+  return payload && typeof payload === 'object' && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>)
+    : {};
+}
+
+function numericPayload(payload: unknown): number | null {
+  const record = payloadRecord(payload);
+  const raw = record.value ?? record.state;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw === 'string' && raw.trim() && Number.isFinite(Number(raw))) return Number(raw);
+  return null;
+}
+
+function displayPayload(payload: unknown): string {
+  const record = payloadRecord(payload);
+  const raw = record.value ?? record.state;
+  if (raw === null || raw === undefined) return '—';
+  if (typeof raw === 'boolean') return raw ? 'Actif' : 'Inactif';
+  if (typeof raw === 'string' || typeof raw === 'number') return String(raw);
+  return '—';
+}
+
+function mergeIntervals(intervals: Array<[number, number]>): Array<[number, number]> {
+  const merged: Array<[number, number]> = [];
+  for (const interval of intervals.sort((left, right) => left[0] - right[0])) {
+    const previous = merged.at(-1);
+    if (previous && interval[0] <= previous[1]) previous[1] = Math.max(previous[1], interval[1]);
+    else merged.push([...interval] as [number, number]);
+  }
+  return merged;
 }
 
 @Injectable()
@@ -195,7 +344,7 @@ export class ActivityService {
     });
   }
 
-  public async summary(userId: string, period: DashboardPeriod) {
+  public async summary(userId: string, period: DashboardPeriod, selectedDate?: string) {
     const home = await this.homeFor(userId);
     if (!home)
       return {
@@ -206,19 +355,29 @@ export class ActivityService {
         buckets: [],
         byRoom: [],
         byCapability: [],
+        dwellByRoom: [],
+        unknownSeconds: 0,
+        reliableBuckets: [],
+        observedSeconds: 0,
+        unobservedSeconds: 0,
+        lastReliableActivity: null,
+        rooms: [],
+        sequences: [],
+        hasMoreSequences: false,
       };
-    const to = new Date();
-    const periodHours = period === '24h' ? 24 : period === '7d' ? 7 * 24 : 28 * 24;
-    const from = new Date(to.getTime() - periodHours * 3_600_000);
-    const [events, sessions] = await Promise.all([
+    const {
+      from,
+      to,
+      buckets: bucketWindows,
+    } = activityWindow(period, selectedDate, home.timezone, new Date());
+    const [events, sessions, sensors, cameras, storedPlan] = await Promise.all([
       this.prisma.observationEvent.findMany({
         where: {
           homeId: home.id,
           occurredAt: { gte: from, lte: to },
-          capability: { in: ACTIVITY_CAPABILITIES },
         },
         orderBy: { occurredAt: 'asc' },
-        include: { sensor: { include: { room: true } } },
+        include: { room: true, sensor: { include: { room: true, device: true } } },
       }),
       this.prisma.roomPresenceSession.findMany({
         where: {
@@ -229,38 +388,99 @@ export class ActivityService {
         include: { room: true },
         orderBy: { startedAt: 'asc' },
       }),
+      this.prisma.sensor.findMany({
+        where: { homeId: home.id, analysisEnabled: true, removedAt: null },
+        include: { room: true, device: true },
+      }),
+      this.prisma.camera.findMany({
+        where: { homeId: home.id },
+        select: { personEntityId: true, deviceId: true },
+      }),
+      this.prisma.homePlan.findUnique({ where: { homeId: home.id } }),
     ]);
-    const bucketCount = period === '24h' ? 24 : period === '7d' ? 7 : 28;
-    const bucketMs = period === '24h' ? 3_600_000 : 86_400_000;
-    const buckets = Array.from({ length: bucketCount }, (_, index) => {
-      const start = new Date(from.getTime() + index * bucketMs);
-      const end = new Date(start.getTime() + bucketMs);
-      return {
-        start: start.toISOString(),
-        label:
-          period === '24h'
-            ? new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', timeZone: home.timezone }).format(
-                start,
-              )
-            : new Intl.DateTimeFormat('fr-FR', {
-                weekday: 'short',
-                timeZone: home.timezone,
-              }).format(start),
-        count: events.filter((event) => event.occurredAt >= start && event.occurredAt < end).length,
-      };
+    const parsedPlan = storedPlan ? homePlanSchema.safeParse(storedPlan.data) : null;
+    const plan: HomePlan | null = parsedPlan?.success ? parsedPlan.data : null;
+    const cameraEntityIds = new Set(cameras.flatMap(({ personEntityId }) => personEntityId ?? []));
+    const cameraDeviceIds = new Set(cameras.flatMap(({ deviceId }) => deviceId ?? []));
+    const roomNames = new Map(home.rooms.map((room) => [room.id, room.name]));
+    const levels = plan?.levels ?? [];
+    const stairs = new Map(
+      levels.flatMap((level) => level.stairs).map((stair) => [stair.id, stair] as const),
+    );
+    const levelNames = new Map(levels.map((level) => [level.id, level.name] as const));
+    const placements = plan?.placements.filter(({ kind }) => kind === 'SENSOR') ?? [];
+    const targetTypes = new Set(['ROOM', 'ITEM', 'OPENING', 'STAIR']);
+
+    const normalizedEvents = events.flatMap((event) => {
+      if (
+        cameraEntityIds.has(event.sensor?.entityId ?? '') ||
+        cameraDeviceIds.has(event.sensor?.deviceId ?? '')
+      )
+        return [];
+      const payload = payloadRecord(event.payload);
+      const context = payloadRecord(payload.context);
+      const roomId =
+        event.room?.id ??
+        event.roomId ??
+        event.sensor?.room?.id ??
+        (typeof context.roomId === 'string' ? context.roomId : null);
+      if (!roomId || !roomNames.has(roomId)) return [];
+      const rawTargetType = typeof context.targetType === 'string' ? context.targetType : null;
+      const targetType = rawTargetType && targetTypes.has(rawTargetType) ? rawTargetType : null;
+      const targetId = typeof context.targetId === 'string' ? context.targetId : null;
+      const stair = targetType === 'STAIR' && targetId ? stairs.get(targetId) : null;
+      const passage = stair
+        ? {
+            fromLevelId: stair.fromFloorId,
+            fromLevelName: levelNames.get(stair.fromFloorId) ?? stair.fromFloorId,
+            toLevelId: stair.toFloorId,
+            toLevelName: levelNames.get(stair.toFloorId) ?? stair.toFloorId,
+          }
+        : null;
+      return [
+        {
+          id: event.id,
+          occurredAt: event.occurredAt.toISOString(),
+          capability: event.capability,
+          quality: event.quality,
+          payload: event.payload,
+          roomId,
+          roomName: roomNames.get(roomId)!,
+          sensorId: event.sensorId ?? event.sensor?.id ?? null,
+          sensorName:
+            event.sensor?.device?.displayName ??
+            event.sensor?.device?.name ??
+            event.sensor?.sourceName ??
+            null,
+          sensorStatus: event.sensor?.status ?? null,
+          unit: event.sensor?.unit ?? (typeof payload.unit === 'string' ? payload.unit : null),
+          targetType: targetType as 'ROOM' | 'ITEM' | 'OPENING' | 'STAIR' | null,
+          targetId,
+          passage,
+        },
+      ];
     });
+    const usefulEvents = normalizedEvents.filter(({ capability }) =>
+      ACTIVITY_CAPABILITIES.includes(capability),
+    );
+    const buckets = bucketWindows.map(({ start, end, label }) => ({
+      start: start.toISOString(),
+      label,
+      count: usefulEvents.filter(({ occurredAt }) => {
+        const timestamp = new Date(occurredAt);
+        return timestamp >= start && timestamp < end;
+      }).length,
+    }));
     const roomCounts = new Map<string, { id: string | null; name: string; count: number }>();
     const capabilityCounts = new Map<string, number>();
-    for (const event of events) {
-      const room = event.sensor?.room;
-      const key = room?.id ?? 'unassigned';
-      const current = roomCounts.get(key) ?? {
-        id: room?.id ?? null,
-        name: room?.name ?? 'Maison',
+    for (const event of usefulEvents) {
+      const current = roomCounts.get(event.roomId) ?? {
+        id: event.roomId,
+        name: event.roomName,
         count: 0,
       };
       current.count += 1;
-      roomCounts.set(key, current);
+      roomCounts.set(event.roomId, current);
       capabilityCounts.set(event.capability, (capabilityCounts.get(event.capability) ?? 0) + 1);
     }
     const dwell = new Map<
@@ -275,7 +495,9 @@ export class ActivityService {
       }
     >();
     const intervals: Array<[number, number]> = [];
-    for (const session of sessions) {
+    const reliableIntervals: Array<{ start: number; end: number; roomId: string }> = [];
+    const sensorSessions = sessions.filter((session) => session.source !== 'CAMERA');
+    for (const session of sensorSessions) {
       const start = Math.max(from.getTime(), session.startedAt.getTime());
       const end = Math.min(to.getTime(), session.endedAt?.getTime() ?? to.getTime());
       if (end <= start) continue;
@@ -298,24 +520,233 @@ export class ActivityService {
       ) {
         current.durations.push(seconds);
         current.reliableSessions += 1;
+        reliableIntervals.push({ start, end, roomId: session.roomId });
       }
       dwell.set(session.roomId, current);
     }
-    const merged: Array<[number, number]> = [];
-    for (const interval of intervals.sort((a, b) => a[0] - b[0])) {
-      const last = merged.at(-1);
-      if (last && interval[0] <= last[1]) last[1] = Math.max(last[1], interval[1]);
-      else merged.push([...interval] as [number, number]);
-    }
-    const knownSeconds = merged.reduce(
+    const knownSeconds = mergeIntervals(intervals).reduce(
       (sum, [start, end]) => sum + Math.round((end - start) / 1_000),
       0,
     );
+    const observedSeconds = mergeIntervals(
+      reliableIntervals.map(({ start, end }) => [start, end]),
+    ).reduce((sum, [start, end]) => sum + Math.round((end - start) / 1_000), 0);
+    const reliableBuckets = bucketWindows.map(({ start, end, label }) => {
+      const overlaps = reliableIntervals
+        .map(({ start: intervalStart, end: intervalEnd, roomId }) => ({
+          start: Math.max(intervalStart, start.getTime()),
+          end: Math.min(intervalEnd, end.getTime()),
+          roomId,
+        }))
+        .filter(({ start: intervalStart, end: intervalEnd }) => intervalEnd > intervalStart);
+      const roomIds = new Set(overlaps.map(({ roomId }) => roomId));
+      const byRoom = Object.fromEntries(
+        [...roomIds].map((roomId) => [
+          roomId,
+          mergeIntervals(
+            overlaps
+              .filter((interval) => interval.roomId === roomId)
+              .map((interval) => [interval.start, interval.end]),
+          ).reduce(
+            (sum, [intervalStart, intervalEnd]) =>
+              sum + Math.round((intervalEnd - intervalStart) / 1_000),
+            0,
+          ),
+        ]),
+      );
+      return {
+        start: start.toISOString(),
+        label,
+        seconds: mergeIntervals(overlaps.map((interval) => [interval.start, interval.end])).reduce(
+          (sum, [intervalStart, intervalEnd]) =>
+            sum + Math.round((intervalEnd - intervalStart) / 1_000),
+          0,
+        ),
+        byRoom,
+      };
+    });
+
+    const environmentByRoom = new Map<string, Map<string, typeof normalizedEvents>>();
+    for (const event of normalizedEvents) {
+      if (!ENVIRONMENT_CAPABILITIES.has(event.capability)) continue;
+      const byCapability =
+        environmentByRoom.get(event.roomId) ?? new Map<string, typeof normalizedEvents>();
+      const readings = byCapability.get(event.capability) ?? [];
+      readings.push(event);
+      byCapability.set(event.capability, readings);
+      environmentByRoom.set(event.roomId, byCapability);
+    }
+    const environmentForRoom = (roomId: string) =>
+      [...(environmentByRoom.get(roomId)?.entries() ?? [])].map(([capability, readings]) => {
+        const latest = readings.at(-1)!;
+        const numeric = readings
+          .map((event) => ({ event, value: numericPayload(event.payload) }))
+          .filter(
+            (item): item is { event: (typeof readings)[number]; value: number } =>
+              item.value !== null,
+          );
+        const step = Math.max(1, Math.ceil(numeric.length / 24));
+        const points = numeric
+          .filter((_, index) => index % step === 0 || index === numeric.length - 1)
+          .map(({ event, value }) => ({ occurredAt: event.occurredAt, value }));
+        const values = numeric.map(({ value }) => value);
+        return {
+          capability,
+          latestValue: displayPayload(latest.payload),
+          numericValue: numericPayload(latest.payload),
+          unit: latest.unit,
+          minimum: values.length ? Math.min(...values) : null,
+          maximum: values.length ? Math.max(...values) : null,
+          points,
+        };
+      });
+
+    const placementRoom = (sensor: (typeof sensors)[number]) =>
+      placements.find(
+        (placement) =>
+          placement.equipmentId === sensor.id ||
+          (placement.equipmentRefKind === 'DEVICE' && placement.equipmentId === sensor.deviceId),
+      )?.roomId ?? sensor.roomId;
+    const sensorsByRoom = new Map<string, typeof sensors>();
+    for (const sensor of sensors) {
+      if (cameraEntityIds.has(sensor.entityId) || cameraDeviceIds.has(sensor.deviceId ?? ''))
+        continue;
+      const roomId = placementRoom(sensor);
+      if (!roomId || !roomNames.has(roomId)) continue;
+      const items = sensorsByRoom.get(roomId) ?? [];
+      items.push(sensor);
+      sensorsByRoom.set(roomId, items);
+    }
+    const learningDays = home.learningStartedAt
+      ? Math.max(0, Math.floor((Date.now() - home.learningStartedAt.getTime()) / 86_400_000))
+      : 0;
+    const lifeByRoom = new Map<string, typeof normalizedEvents>();
+    const safetyByRoom = new Map<string, typeof normalizedEvents>();
+    for (const event of normalizedEvents) {
+      if (LIFE_CAPABILITIES.has(event.capability)) {
+        const values = lifeByRoom.get(event.roomId) ?? [];
+        values.push(event);
+        lifeByRoom.set(event.roomId, values);
+      }
+      if (SAFETY_CAPABILITIES.has(event.capability)) {
+        const values = safetyByRoom.get(event.roomId) ?? [];
+        values.push(event);
+        safetyByRoom.set(event.roomId, values);
+      }
+    }
+    const roomOverviews = [...home.rooms]
+      .sort((left, right) => left.floor - right.floor || left.sortOrder - right.sortOrder)
+      .map((room) => {
+        const roomSensors = sensorsByRoom.get(room.id) ?? [];
+        const lifeSensors = roomSensors.filter((sensor) =>
+          LIFE_CAPABILITIES.has(sensor.capability),
+        );
+        const environmentSensors = roomSensors.filter((sensor) =>
+          ENVIRONMENT_CAPABILITIES.has(sensor.capability),
+        );
+        const roomLife = lifeByRoom.get(room.id) ?? [];
+        const safety = safetyByRoom.get(room.id) ?? [];
+        const latestSafety = [
+          ...new Map(safety.map((event) => [event.capability, event])).values(),
+        ];
+        const equipmentIssue = lifeSensors.some(
+          (sensor) =>
+            !sensor.available || sensor.status !== 'ONLINE' || sensor.device?.enabled === false,
+        );
+        const state =
+          lifeSensors.length === 0
+            ? ('NOT_EQUIPPED' as const)
+            : equipmentIssue
+              ? ('EQUIPMENT_ISSUE' as const)
+              : learningDays < 14
+                ? ('LEARNING' as const)
+                : roomLife.length === 0
+                  ? ('NO_ACTIVITY' as const)
+                  : ('OBSERVED' as const);
+        const environmentIssue = environmentSensors.some(
+          (sensor) =>
+            !sensor.available || sensor.status !== 'ONLINE' || sensor.device?.enabled === false,
+        );
+        const environment = environmentForRoom(room.id);
+        const environmentState =
+          environmentSensors.length === 0
+            ? ('NOT_EQUIPPED' as const)
+            : environmentIssue
+              ? ('EQUIPMENT_ISSUE' as const)
+              : environment.length === 0
+                ? ('NO_ACTIVITY' as const)
+                : ('OBSERVED' as const);
+        return {
+          id: room.id,
+          name: room.name,
+          kind: room.kind,
+          floor: room.floor,
+          state,
+          environmentState,
+          sensorCount: roomSensors.length,
+          lastActivity: roomLife.at(-1) ?? null,
+          environment,
+          safety: latestSafety,
+        };
+      });
+
+    const sequenceEvents = normalizedEvents.filter(({ capability }) =>
+      SEQUENCE_CAPABILITIES.has(capability),
+    );
+    const hasMoreSequences = sequenceEvents.length > MAX_SEQUENCE_EVENTS;
+    const recentSequenceEvents = sequenceEvents.slice(-MAX_SEQUENCE_EVENTS);
+    const groups: Array<typeof normalizedEvents> = [];
+    for (const event of recentSequenceEvents) {
+      const current = groups.at(-1);
+      const previous = current?.at(-1);
+      if (
+        !current ||
+        !previous ||
+        new Date(event.occurredAt).getTime() - new Date(previous.occurredAt).getTime() >
+          SEQUENCE_GAP_MS
+      )
+        groups.push([event]);
+      else current.push(event);
+    }
+    const sequences = groups
+      .map((group) => {
+        const shownEvents = group.slice(-MAX_EVENTS_PER_SEQUENCE);
+        const rooms = group
+          .map(({ roomId, roomName }) => ({ roomId, roomName }))
+          .filter((room, index, items) => index === 0 || room.roomId !== items[index - 1]?.roomId);
+        const passageMap = new Map(
+          group
+            .flatMap(({ passage }) => (passage ? [passage] : []))
+            .map((passage) => [`${passage.fromLevelId}:${passage.toLevelId}`, passage] as const),
+        );
+        const startedAt = group[0]!.occurredAt;
+        const endedAt = group.at(-1)!.occurredAt;
+        return {
+          id: `sequence-${group[0]!.id}`,
+          startedAt,
+          endedAt,
+          durationSeconds: Math.max(
+            0,
+            Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1_000),
+          ),
+          roomIds: rooms.map(({ roomId }) => roomId),
+          roomNames: rooms.map(({ roomName }) => roomName),
+          passages: [...passageMap.values()],
+          totalEventCount: group.length,
+          hiddenEventCount: Math.max(0, group.length - shownEvents.length),
+          events: shownEvents,
+        };
+      })
+      .reverse();
+    const reliableActivity = normalizedEvents
+      .filter(({ capability, quality }) => LIFE_CAPABILITIES.has(capability) && quality === 'good')
+      .at(-1);
+    const windowSeconds = Math.max(0, Math.round((to.getTime() - from.getTime()) / 1_000));
     return {
       period,
       from: from.toISOString(),
       to: to.toISOString(),
-      total: events.length,
+      total: usefulEvents.length,
       buckets,
       byRoom: [...roomCounts.values()].sort((a, b) => b.count - a.count),
       byCapability: [...capabilityCounts.entries()]
@@ -332,16 +763,23 @@ export class ActivityService {
               )
             : 0,
           medianSeconds: median(item.durations),
-          sessions: sessions.filter((session) => session.roomId === item.id).length,
+          sessions: sensorSessions.filter((session) => session.roomId === item.id).length,
           reliableSessions: item.reliableSessions,
           ambiguousSeconds: item.ambiguousSeconds,
-          confidenceRate: sessions.filter((session) => session.roomId === item.id).length
+          confidenceRate: sensorSessions.filter((session) => session.roomId === item.id).length
             ? item.reliableSessions /
-              sessions.filter((session) => session.roomId === item.id).length
+              sensorSessions.filter((session) => session.roomId === item.id).length
             : 0,
         }))
         .sort((a, b) => b.totalSeconds - a.totalSeconds),
-      unknownSeconds: Math.max(0, periodHours * 3_600 - knownSeconds),
+      unknownSeconds: Math.max(0, windowSeconds - knownSeconds),
+      reliableBuckets,
+      observedSeconds,
+      unobservedSeconds: Math.max(0, windowSeconds - observedSeconds),
+      lastReliableActivity: reliableActivity ?? null,
+      rooms: roomOverviews,
+      sequences,
+      hasMoreSequences,
     };
   }
 
@@ -361,7 +799,7 @@ export class ActivityService {
       };
     }
     const from = new Date(now.getTime() - 28 * 86_400_000);
-    const [sessions, sensors, revision] = await Promise.all([
+    const [sessions, sensors, revision, cameras] = await Promise.all([
       this.prisma.roomPresenceSession.findMany({
         where: { homeId: home.id, startedAt: { gte: from } },
         include: { room: true },
@@ -373,12 +811,16 @@ export class ActivityService {
           analysisEnabled: true,
           capability: { in: ['motion', 'occupancy', 'person_presence'] },
         },
-        select: { status: true },
+        select: { status: true, entityId: true, deviceId: true },
       }),
       this.prisma.configurationRevision.findFirst({
         where: { homeId: home.id },
         orderBy: { version: 'desc' },
         select: { settings: true },
+      }),
+      this.prisma.camera.findMany({
+        where: { homeId: home.id },
+        select: { personEntityId: true, deviceId: true },
       }),
     ]);
     const settings = revision?.settings as Record<string, unknown> | undefined;
@@ -387,11 +829,17 @@ export class ActivityService {
     const learningDays = home.learningStartedAt
       ? Math.max(0, Math.floor((now.getTime() - home.learningStartedAt.getTime()) / 86_400_000))
       : 0;
+    const cameraEntities = new Set(cameras.flatMap(({ personEntityId }) => personEntityId ?? []));
+    const cameraDevices = new Set(cameras.flatMap(({ deviceId }) => deviceId ?? []));
+    const householdSensors = sensors.filter(
+      (sensor) => !cameraEntities.has(sensor.entityId) && !cameraDevices.has(sensor.deviceId ?? ''),
+    );
+    const sensorSessions = sessions.filter((session) => session.source !== 'CAMERA');
     const coverageSufficient =
-      sensors.length > 0 && sensors.every((sensor) => sensor.status === 'ONLINE');
+      householdSensors.length > 0 && householdSensors.every((sensor) => sensor.status === 'ONLINE');
     const today = localDateKey(now, home.timezone);
     const roomRoutines = home.rooms.map((room) => {
-      const roomSessions = sessions.filter((session) => session.roomId === room.id);
+      const roomSessions = sensorSessions.filter((session) => session.roomId === room.id);
       const reliable = roomSessions.filter(
         (session) =>
           session.durationSeconds !== null &&
@@ -500,22 +948,26 @@ export class ActivityService {
           include: {
             sensors: {
               orderBy: { entityId: 'asc' },
-              include: { device: true, events: { orderBy: { occurredAt: 'desc' }, take: 1 } },
+              include: { device: true },
             },
           },
         },
       },
     });
     if (!home) throw new ForbiddenException('Access denied');
-    const caregivers = await this.prisma.caregiverProfile.findMany({
-      where: { resident: { homeId: home.id } },
-      include: {
-        user: { include: { memberships: { where: { organizationId: home.organizationId } } } },
-      },
-      orderBy: [{ isPrimary: 'desc' }, { user: { displayName: 'asc' } }],
-    });
+    const [caregivers, latestSensorEvents] = await Promise.all([
+      this.prisma.caregiverProfile.findMany({
+        where: { resident: { homeId: home.id } },
+        include: {
+          user: { include: { memberships: { where: { organizationId: home.organizationId } } } },
+        },
+        orderBy: [{ isPrimary: 'desc' }, { user: { displayName: 'asc' } }],
+      }),
+      this.latestEvents(home.rooms.flatMap((room) => room.sensors.map((sensor) => sensor.id))),
+    ]);
     const sensorView = (sensor: (typeof home.rooms)[number]['sensors'][number]) => {
       const live = sensor.available && sensor.status === 'ONLINE';
+      const latestEvent = latestSensorEvents.get(sensor.id);
       return {
         id: sensor.id,
         entityId: sensor.entityId,
@@ -524,7 +976,7 @@ export class ActivityService {
         compatibility: sensor.compatibility,
         lastSeenAt: sensor.lastSeenAt?.toISOString() ?? null,
         lastValue: live
-          ? ((sensor.events[0]?.payload as Record<string, unknown> | undefined) ?? null)
+          ? ((latestEvent?.payload as Record<string, unknown> | undefined) ?? null)
           : null,
         device: sensor.device
           ? {
@@ -721,6 +1173,21 @@ export class ActivityService {
       take: Math.min(limit, 100),
       include: { sensor: { include: { room: true } } },
     });
+  }
+
+  private async latestEvents(sensorIds: string[]): Promise<Map<string, ObservationEvent>> {
+    if (sensorIds.length === 0) return new Map();
+    const events = await this.prisma.$queryRaw<ObservationEvent[]>`
+      SELECT latest.*
+      FROM unnest(ARRAY[${Prisma.join(sensorIds)}]::text[]) AS target(id)
+      JOIN LATERAL (
+        SELECT * FROM "ObservationEvent" AS event
+        WHERE event."sensorId" = target.id
+        ORDER BY event."occurredAt" DESC
+        LIMIT 1
+      ) AS latest ON true
+    `;
+    return new Map(events.flatMap((event) => (event.sensorId ? [[event.sensorId, event]] : [])));
   }
 
   public async activityFeed(userId: string, limit: number, cursor?: string) {

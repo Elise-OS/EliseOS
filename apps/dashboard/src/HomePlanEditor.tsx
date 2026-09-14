@@ -48,6 +48,7 @@ import {
   type HomeSetupDetails,
 } from './HomeSetupOnboarding';
 import { RoomEquipmentPage } from './RoomEquipmentPage';
+import { StairEquipmentPage } from './StairEquipmentPage';
 import { retireFurniture } from '@michel/contracts';
 import { sensorRequest } from './sensor-ui';
 import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';
@@ -556,6 +557,7 @@ export function HomePlanEditor({
   readOnly = false,
   initialMode = 'EDIT',
   initialRoomId = null,
+  initialStairId = null,
   onBack,
   setupPreview = false,
   onSetupPreviewClose,
@@ -578,6 +580,7 @@ export function HomePlanEditor({
   readOnly?: boolean;
   initialMode?: Mode;
   initialRoomId?: string | null;
+  initialStairId?: string | null;
   onBack?: () => void;
   setupPreview?: boolean;
   onSetupPreviewClose?: () => void;
@@ -736,7 +739,9 @@ export function HomePlanEditor({
       setPlan(loaded);
       const requestedFloor = initialRoomId
         ? loaded.levels.find(({ rooms }) => rooms.some(({ id }) => id === initialRoomId))
-        : undefined;
+        : initialStairId
+          ? loaded.levels.find(({ stairs }) => stairs.some(({ id }) => id === initialStairId))
+          : undefined;
       setFloorId(requestedFloor?.id ?? loaded.levels[0]?.id ?? '');
       setSelectedRoomId(requestedFloor ? initialRoomId : null);
       setEditingRoomId(!readOnly && requestedFloor ? initialRoomId : null);
@@ -752,7 +757,7 @@ export function HomePlanEditor({
         locale === 'fr' ? 'Le plan ne peut pas être chargé.' : 'The plan cannot be loaded.',
       );
     }
-  }, [initialRoomId, locale, readOnly, setupPreview]);
+  }, [initialRoomId, initialStairId, locale, readOnly, setupPreview]);
 
   useEffect(() => void load(), [load]);
   useEffect(() => {
@@ -1780,6 +1785,19 @@ export function HomePlanEditor({
         onBack={moveSetupBack}
         onBeginDrawing={beginSetupDrawing}
         onClosePreview={onSetupPreviewClose}
+      />
+    );
+  }
+
+  if (initialStairId && !readOnly && !setupDraft) {
+    return (
+      <StairEquipmentPage
+        stairId={initialStairId}
+        plan={plan}
+        devices={sensorDevices}
+        locale={locale}
+        onBack={() => onBack?.()}
+        onRefresh={load}
       />
     );
   }

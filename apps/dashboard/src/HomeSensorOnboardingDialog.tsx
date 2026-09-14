@@ -102,6 +102,9 @@ export function HomeSensorOnboardingDialog({
   initialRoomId,
   initialCategory,
   initialProduct,
+  initialTarget,
+  initialTargetLabel,
+  allowedCategories,
   onClose,
   onInstalled,
 }: {
@@ -112,6 +115,9 @@ export function HomeSensorOnboardingDialog({
   initialRoomId?: string;
   initialCategory?: RoomSensorCategory | undefined;
   initialProduct?: SensorProduct;
+  initialTarget?: { type: 'OPENING' | 'STAIR'; id: string };
+  initialTargetLabel?: string;
+  allowedCategories?: RoomSensorCategory[];
   onClose: () => void;
   onInstalled: () => Promise<void>;
 }) {
@@ -144,7 +150,7 @@ export function HomeSensorOnboardingDialog({
     setProduct(initialProduct);
     setAssigning(null);
     setError('');
-  }, [open, initialRoomId, initialCategory, initialProduct]);
+  }, [open, initialRoomId, initialCategory, initialProduct, initialTarget?.id]);
 
   if (!open) return null;
 
@@ -165,6 +171,7 @@ export function HomeSensorOnboardingDialog({
         locale={locale}
         rooms={rooms}
         initialRoomId={roomId}
+        initialTarget={initialTarget}
         category={category}
         product={product}
         onClose={onClose}
@@ -195,6 +202,7 @@ export function HomeSensorOnboardingDialog({
         sensorJson('PATCH', {
           roomId,
           name: name.trim(),
+          target: initialTarget ?? null,
           placementNote: note.trim() || null,
           buttonRole: 'ASSISTANCE',
         }),
@@ -217,9 +225,9 @@ export function HomeSensorOnboardingDialog({
             : 'Choose a room'
           : step === 'CATEGORY'
             ? fr
-              ? `Ajouter dans ${selectedRoom?.name ?? 'la pièce'}`
-              : `Add to ${selectedRoom?.name ?? 'the room'}`
-            : `${selectedCategory?.[fr ? 'label' : 'labelEn'] ?? (fr ? 'Capteur' : 'Sensor')} · ${selectedRoom?.name ?? ''}`
+              ? `Ajouter dans ${initialTargetLabel ?? selectedRoom?.name ?? 'la pièce'}`
+              : `Add to ${initialTargetLabel ?? selectedRoom?.name ?? 'the room'}`
+            : `${selectedCategory?.[fr ? 'label' : 'labelEn'] ?? (fr ? 'Capteur' : 'Sensor')} · ${initialTargetLabel ?? selectedRoom?.name ?? ''}`
       }
       onClose={onClose}
       busy={busy}
@@ -308,7 +316,9 @@ export function HomeSensorOnboardingDialog({
               </div>
             </div>
             <div className="equipment-category-picker home-sensor-category-picker">
-              {ROOM_SENSOR_CATEGORIES.map((definition) => {
+              {ROOM_SENSOR_CATEGORIES.filter(
+                ({ id }) => !allowedCategories || allowedCategories.includes(id),
+              ).map((definition) => {
                 const Icon = categoryIcons[definition.id];
                 return (
                   <button

@@ -9,27 +9,16 @@ import type {
 import {
   AlertTriangle,
   ArrowRight,
-  Bath,
-  BedDouble,
-  Boxes,
   Camera,
+  ChartNoAxesCombined as Stairs,
   ChevronDown,
   ChevronUp,
   CircleDot,
-  CookingPot,
-  DoorOpen,
   Eye,
-  Footprints,
   Home,
   Plus,
   Radio,
   ShieldCheck,
-  Sofa,
-  Sun,
-  Toilet,
-  Trees,
-  Utensils,
-  Warehouse,
   Wifi,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -38,6 +27,9 @@ import { COVERAGE_FAMILIES, coverageNeeds } from './coverage-model';
 import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';
 import { sensorDeviceHealthStatus } from './sensor-ui';
 import { DataLoadingScreen } from './DataLoadingScreen';
+import { roomIcon, roomKindLabel } from './home-visuals';
+
+export { roomIconKey } from './home-visuals';
 
 type HomeInfo = {
   name: string;
@@ -79,62 +71,11 @@ const emptyCoverage: EquipmentCoverage = {
   },
 };
 
-const roomKindLabels: Record<string, string> = {
-  LIVING_ROOM: 'Salon',
-  KITCHEN: 'Cuisine',
-  BEDROOM: 'Chambre',
-  BATHROOM: 'Salle de bain',
-  TOILET: 'Toilettes',
-  ENTRANCE: 'Entrée',
-  HALLWAY: 'Couloir',
-  DINING_ROOM: 'Salle à manger',
-  OTHER: 'Autre',
-};
-
 const homeTypeLabels: Record<string, string> = {
   HOUSE: 'Maison',
   APARTMENT: 'Appartement',
   SENIOR_RESIDENCE: 'Résidence',
 };
-
-const roomIcons: Record<string, typeof Home> = {
-  LIVING_ROOM: Sofa,
-  KITCHEN: CookingPot,
-  BEDROOM: BedDouble,
-  BATHROOM: Bath,
-  TOILET: Toilet,
-  ENTRANCE: DoorOpen,
-  HALLWAY: Footprints,
-  DINING_ROOM: Utensils,
-  GARAGE: Warehouse,
-  GARDEN: Trees,
-  TERRACE: Sun,
-};
-
-export const roomIconKey = (room: Pick<PlanRoom, 'kind' | 'name'>) => {
-  if (room.kind !== 'OTHER' && roomIcons[room.kind]) return room.kind;
-
-  const name = room.name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-  if (/salon|sejour/.test(name)) return 'LIVING_ROOM';
-  if (/cuisine/.test(name)) return 'KITCHEN';
-  if (/chambre/.test(name)) return 'BEDROOM';
-  if (/salle de bain|sdb|douche/.test(name)) return 'BATHROOM';
-  if (/toilette|\bwc\b/.test(name)) return 'TOILET';
-  if (/entree|vestibule/.test(name)) return 'ENTRANCE';
-  if (/couloir|degagement|palier/.test(name)) return 'HALLWAY';
-  if (/salle a manger/.test(name)) return 'DINING_ROOM';
-  if (/garage/.test(name)) return 'GARAGE';
-  if (/jardin/.test(name)) return 'GARDEN';
-  if (/terrasse|balcon/.test(name)) return 'TERRACE';
-  if (/cagibi|cellier|rangement|placard|reserve/.test(name)) return 'STORAGE';
-  return 'OTHER';
-};
-
-const roomIcon = (room: Pick<PlanRoom, 'kind' | 'name'>) =>
-  roomIconKey(room) === 'STORAGE' ? Boxes : (roomIcons[roomIconKey(room)] ?? Home);
 
 export const roomAreaM2 = (room: PlanRoom) =>
   room.areaM2 ??
@@ -482,6 +423,7 @@ export function HomeOverview({
   cameras,
   canManage,
   onManage,
+  onManageStair,
   onOpenLivePlan,
 }: {
   locale: 'fr' | 'en';
@@ -489,6 +431,7 @@ export function HomeOverview({
   cameras: CameraItem[];
   canManage: boolean;
   onManage: (roomId?: string) => void;
+  onManageStair: (stairId: string) => void;
   onOpenLivePlan: () => void;
 }) {
   const fr = locale === 'fr';
@@ -502,6 +445,7 @@ export function HomeOverview({
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   const [floorId, setFloorId] = useState('');
+  const [showStairs, setShowStairs] = useState(false);
   const [coverageOpen, setCoverageOpen] = useState(false);
   const [sensorFlowOpen, setSensorFlowOpen] = useState(false);
 
@@ -631,6 +575,17 @@ export function HomeOverview({
           : 'Explore',
     };
   });
+  const stairs = plan
+    ? [
+        ...new Map(
+          plan.levels.flatMap(({ stairs: items }) => items).map((stair) => [stair.id, stair]),
+        ).values(),
+      ]
+    : [];
+  const roomById = new Map(
+    plan?.levels.flatMap((level) => level.rooms.map((room) => [room.id, room] as const)) ?? [],
+  );
+  const levelById = new Map(plan?.levels.map((level) => [level.id, level] as const) ?? []);
 
   if (loading)
     return (
@@ -711,93 +666,177 @@ export function HomeOverview({
                   .map((level) => (
                     <button
                       key={level.id}
-                      className={floor?.id === level.id ? 'active' : ''}
+                      className={!showStairs && floor?.id === level.id ? 'active' : ''}
                       onClick={() => {
+                        setShowStairs(false);
                         setFloorId(level.id);
                       }}
                     >
                       {level.name}
                     </button>
                   ))}
+                <button className={showStairs ? 'active' : ''} onClick={() => setShowStairs(true)}>
+                  {fr ? 'Escaliers' : 'Stairs'}
+                </button>
               </div>
-              <div className="home-overview-plan-layout">
-                {floor && (
-                  <MiniPlan floor={floor} plan={plan} presence={presence} onSelect={onManage} />
-                )}
-              </div>
-              <footer className="home-overview-legend">
-                {activePresenceLocation ? (
-                  <button
-                    type="button"
-                    className="presence-active"
-                    onClick={() => setFloorId(activePresenceLocation.level.id)}
-                  >
-                    <CircleDot />
-                    {fr ? 'Présence probable' : 'Probable presence'} ·{' '}
-                    {activePresenceLocation.room.name}
-                  </button>
-                ) : lastPresenceLocation ? (
-                  <span className="presence-stale">
-                    <CircleDot />
-                    {fr ? 'Dernière présence connue' : 'Last known presence'} ·{' '}
-                    {lastPresenceLocation.room.name}
-                  </span>
-                ) : (
-                  <span className="presence-empty">
-                    <CircleDot />
-                    {fr ? 'Aucune présence récente' : 'No recent presence'}
-                  </span>
-                )}
-              </footer>
+              {!showStairs && (
+                <div className="home-overview-plan-layout">
+                  {floor && (
+                    <MiniPlan floor={floor} plan={plan} presence={presence} onSelect={onManage} />
+                  )}
+                </div>
+              )}
+              {!showStairs && (
+                <footer className="home-overview-legend">
+                  {activePresenceLocation ? (
+                    <button
+                      type="button"
+                      className="presence-active"
+                      onClick={() => setFloorId(activePresenceLocation.level.id)}
+                    >
+                      <CircleDot />
+                      {fr ? 'Présence probable' : 'Probable presence'} ·{' '}
+                      {activePresenceLocation.room.name}
+                    </button>
+                  ) : lastPresenceLocation ? (
+                    <span className="presence-stale">
+                      <CircleDot />
+                      {fr ? 'Dernière présence connue' : 'Last known presence'} ·{' '}
+                      {lastPresenceLocation.room.name}
+                    </span>
+                  ) : (
+                    <span className="presence-empty">
+                      <CircleDot />
+                      {fr ? 'Aucune présence récente' : 'No recent presence'}
+                    </span>
+                  )}
+                </footer>
+              )}
 
               <section className="home-overview-rooms">
                 <header>
                   <div>
-                    <span className="eyebrow">{fr ? 'Pièce par pièce' : 'Room by room'}</span>
-                    <h3>{fr ? 'Le détail de ce niveau' : 'Details for this level'}</h3>
+                    <span className="eyebrow">
+                      {showStairs
+                        ? fr
+                          ? 'Passage entre les niveaux'
+                          : 'Between floors'
+                        : fr
+                          ? 'Pièce par pièce'
+                          : 'Room by room'}
+                    </span>
+                    <h3>
+                      {showStairs
+                        ? fr
+                          ? 'Les escaliers du logement'
+                          : 'Stairs in this home'
+                        : fr
+                          ? 'Le détail de ce niveau'
+                          : 'Details for this level'}
+                    </h3>
                   </div>
                   <span>
-                    {floor?.rooms.length ?? 0} {fr ? 'pièces' : 'rooms'}
+                    {showStairs ? stairs.length : (floor?.rooms.length ?? 0)}{' '}
+                    {showStairs
+                      ? fr
+                        ? `escalier${stairs.length > 1 ? 's' : ''}`
+                        : `stair${stairs.length === 1 ? '' : 's'}`
+                      : fr
+                        ? 'pièces'
+                        : 'rooms'}
                   </span>
                 </header>
                 <div className="home-overview-room-cards">
-                  {floor?.rooms.map((room) => {
-                    const placedDeviceIds = new Set(
-                      plan.placements
-                        .filter(({ roomId, kind }) => roomId === room.id && kind === 'SENSOR')
-                        .map(({ equipmentId }) => equipmentId),
-                    );
-                    const sensorCount = devices.filter(
-                      (device) => device.room?.id === room.id || placedDeviceIds.has(device.id),
-                    ).length;
-                    const cameraCount = cameras.filter(
-                      ({ room: cameraRoom }) => cameraRoom?.id === room.id,
-                    ).length;
-                    const RoomIcon = roomIcon(room);
-                    return (
-                      <button key={room.id} onClick={() => onManage(room.id)}>
-                        <span
-                          className="room-card-color"
-                          style={{ background: room.geometry.color }}
-                        >
-                          <RoomIcon aria-hidden="true" />
-                        </span>
-                        <span className="room-card-copy">
-                          <strong>{room.name}</strong>
-                          <small>
-                            {roomKindLabels[room.kind] ?? room.kind} · {roomAreaM2(room).toFixed(1)}{' '}
-                            m²
-                          </small>
-                          <i>
-                            {sensorCount} {fr ? 'capteurs' : 'sensors'} · {cameraCount}{' '}
-                            {fr ? 'caméras' : 'cameras'}
-                          </i>
-                        </span>
-                        <ArrowRight />
-                      </button>
-                    );
-                  })}
+                  {showStairs
+                    ? stairs.map((stair) => {
+                        const fromRoom = roomById.get(stair.fromRoomId);
+                        const toRoom = roomById.get(stair.toRoomId);
+                        const fromLevel = levelById.get(stair.fromFloorId);
+                        const toLevel = levelById.get(stair.toFloorId);
+                        const placements = plan.placements.filter(
+                          ({ kind, targetType, targetId }) =>
+                            kind === 'SENSOR' && targetType === 'STAIR' && targetId === stair.id,
+                        );
+                        const placedIds = new Set(placements.map(({ equipmentId }) => equipmentId));
+                        const sensorCount = devices.filter(
+                          (device) =>
+                            placedIds.has(device.id) ||
+                            device.capabilities.some(({ sensorId }) => placedIds.has(sensorId)),
+                        ).length;
+                        return (
+                          <button key={stair.id} onClick={() => onManageStair(stair.id)}>
+                            <span className="room-card-color stair-card-color">
+                              <Stairs aria-hidden="true" />
+                            </span>
+                            <span className="room-card-copy">
+                              <strong>
+                                {fr ? 'Escalier' : 'Stairs'} · {fromRoom?.name ?? '—'} ↔{' '}
+                                {toRoom?.name ?? '—'}
+                              </strong>
+                              <small>
+                                {fromLevel?.name ?? '—'} → {toLevel?.name ?? '—'}
+                              </small>
+                              <i>
+                                {sensorCount} {fr ? 'capteurs' : 'sensors'} ·{' '}
+                                {fr ? 'Mouvement et présence' : 'Motion and presence'}
+                              </i>
+                            </span>
+                            <ArrowRight />
+                          </button>
+                        );
+                      })
+                    : floor?.rooms.map((room) => {
+                        const placedDeviceIds = new Set(
+                          plan.placements
+                            .filter(({ roomId, kind }) => roomId === room.id && kind === 'SENSOR')
+                            .map(({ equipmentId }) => equipmentId),
+                        );
+                        const sensorCount = devices.filter(
+                          (device) => device.room?.id === room.id || placedDeviceIds.has(device.id),
+                        ).length;
+                        const cameraCount = cameras.filter(
+                          ({ room: cameraRoom }) => cameraRoom?.id === room.id,
+                        ).length;
+                        const RoomIcon = roomIcon(room);
+                        return (
+                          <button key={room.id} onClick={() => onManage(room.id)}>
+                            <span
+                              className="room-card-color"
+                              style={{ background: room.geometry.color }}
+                            >
+                              <RoomIcon aria-hidden="true" />
+                            </span>
+                            <span className="room-card-copy">
+                              <strong>{room.name}</strong>
+                              <small>
+                                {roomKindLabel(room.kind, locale)} · {roomAreaM2(room).toFixed(1)}{' '}
+                                m²
+                              </small>
+                              <i>
+                                {sensorCount} {fr ? 'capteurs' : 'sensors'} · {cameraCount}{' '}
+                                {fr ? 'caméras' : 'cameras'}
+                              </i>
+                            </span>
+                            <ArrowRight />
+                          </button>
+                        );
+                      })}
                 </div>
+                {showStairs && !stairs.length && (
+                  <div className="home-overview-stairs-empty">
+                    <Stairs aria-hidden="true" />
+                    <p>
+                      {fr
+                        ? 'Aucun escalier n’est encore défini dans le plan.'
+                        : 'No stairs have been added to the floor plan yet.'}
+                    </p>
+                    {canManage && (
+                      <button onClick={() => onManage()}>
+                        <Plus /> {fr ? 'Ajouter un escalier au plan' : 'Add stairs to the plan'}
+                      </button>
+                    )}
+                  </div>
+                )}
               </section>
             </article>
 

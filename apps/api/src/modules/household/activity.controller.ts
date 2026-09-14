@@ -17,7 +17,13 @@ const feedQuerySchema = z.object({
   cursor: z.string().min(1).optional(),
 });
 
-const summaryQuerySchema = z.object({ period: z.enum(['24h', '7d', '28d']).default('24h') });
+const summaryQuerySchema = z.object({
+  period: z.enum(['24h', '7d', '28d']).default('24h'),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+});
 const contactPrioritiesSchema = z.object({
   orderedIds: z.array(z.string().min(1)).min(1).max(100),
 });
@@ -65,9 +71,13 @@ export class ActivityController {
   }
 
   @Get('analytics/activity')
-  public summary(@Req() request: AuthenticatedRequest, @Query('period') period?: string) {
-    const query = parseRequest(summaryQuerySchema, { period: period ?? '24h' });
-    return this.activity.summary(request.userId, query.period);
+  public summary(
+    @Req() request: AuthenticatedRequest,
+    @Query('period') period?: string,
+    @Query('date') date?: string,
+  ) {
+    const query = parseRequest(summaryQuerySchema, { period: period ?? '24h', date });
+    return this.activity.summary(request.userId, query.period, query.date);
   }
 
   @Get('analytics/routines')

@@ -224,6 +224,46 @@ const documentedProducts: SensorProduct[] = [
     eliseValidated: false,
   },
   {
+    id: 'sonoff-climate',
+    brand: 'SONOFF',
+    model: 'SNZB-02P',
+    name: 'Capteur de température et d’humidité',
+    nameEn: 'Temperature and humidity sensor',
+    kind: 'ROOM_SENSOR',
+    testQuantity: 1,
+    categories: ['temperature', 'humidity'],
+    protocol: 'zigbee',
+    image: image('SNZB-02P'),
+    sourceUrl:
+      'https://sonoff.tech/en-eu/products/sonoff-zigbee-temperature-and-humidity-sensor-snzb-02p',
+    manualUrl: 'https://support.sonoff.tech/snzb-02p-usermanual/',
+    integrationUrl: zigbee('SNZB-02P'),
+    power: 'Pile CR2477 · 3 V',
+    powerEn: 'CR2477 battery · 3 V',
+    features: ['Température', 'Humidité relative', 'Niveau de batterie'],
+    featuresEn: ['Temperature', 'Relative humidity', 'Battery level'],
+    preparation: [
+      'Installez la pile puis rapprochez le capteur de la box Élise.',
+      'Maintenez le bouton pendant 5 secondes : le voyant clignote lentement pendant l’association.',
+    ],
+    preparationEn: [
+      'Install the battery, then bring the sensor close to the Élise hub.',
+      'Hold the button for 5 seconds: the indicator flashes slowly during pairing.',
+    ],
+    placement: [
+      'Placez-le dans une zone représentative et bien ventilée de la pièce.',
+      'Éloignez-le du soleil, des radiateurs, des fenêtres et de la vapeur.',
+    ],
+    placementEn: [
+      'Place it in a representative, well-ventilated area of the room.',
+      'Keep it away from sunlight, radiators, windows and steam.',
+    ],
+    outdoor: false,
+    compatibility: 'DOCUMENTED',
+    verifiedAt: '2026-09-13',
+    eliseValidated: false,
+  },
+  {
     id: 'thirdreality-smart-plug-e2-eu',
     brand: 'Third Reality',
     model: '3RSPE01044BZ',
@@ -539,6 +579,7 @@ export function productsForCategory(category: RoomSensorCategory, outdoor: boole
 const normalizedModel = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
 const detectedModelAliases: Record<string, string[]> = {
   '3RPL01084Z': ['SMARTPRESENCESENSORR3', 'MULTIFUNCTIONSMARTPRESENCESENSORR3'],
+  '3RDS17BZ': ['DOORSENSOR'],
   '3RMS16BZ': ['WIRELESSMOTIONSENSOR'],
 };
 

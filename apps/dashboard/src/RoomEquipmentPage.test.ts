@@ -148,6 +148,12 @@ describe('room equipment cards', () => {
     expect(deviceSupportsCategory(detected, 'presence')).toBe(false);
   });
 
+  it('recognizes the generic Third Reality door model name returned by Home Assistant', () => {
+    const product = SENSOR_PRODUCTS.find(({ model }) => model === '3RDS17BZ')!;
+
+    expect(productMatchesDetectedModel(product, 'Door sensor')).toBe(true);
+  });
+
   it('uses each known device photo, including the Sonoff generic model name', () => {
     expect(
       sensorDevicePhoto(
@@ -156,6 +162,14 @@ describe('room equipment cards', () => {
         }),
       ),
     ).toBe('/sensor-products/SNZB-02P.png');
+    expect(
+      sensorDevicePhoto(
+        device([capability('contact')], {
+          manufacturer: 'Third Reality',
+          model: 'Door sensor',
+        }),
+      ),
+    ).toBe('/sensor-products/3RDS17BZ.png');
     expect(
       sensorDevicePhoto(
         device([capability('motion')], {
@@ -240,6 +254,7 @@ describe('room equipment cards', () => {
       '3RMS16BZ',
       '3RTHS0224Z',
       '3RWS18BZ',
+      'SNZB-02P',
       '3RSPE01044BZ',
       '3RSB22BZ',
       'SDO-4-1-00',
@@ -247,7 +262,7 @@ describe('room equipment cards', () => {
       'SDC-4-1-00',
       'SEM-4-1-00',
     ]);
-    expect(TEST_HARDWARE_COUNT).toBe(18);
+    expect(TEST_HARDWARE_COUNT).toBe(19);
     expect(SENSOR_PRODUCTS.every(({ image }) => image.startsWith('/sensor-products/'))).toBe(true);
     expect(
       SENSOR_PRODUCTS.every(
@@ -262,6 +277,12 @@ describe('room equipment cards', () => {
     expect(SENSOR_PRODUCTS.find(({ model }) => model === '3RTHS0224Z')?.manualUrl).toBe(
       'https://tr-common-us-prod.s3.us-west-1.amazonaws.com/product/manual/TemperatureandHumiditySensorGen2.pdf',
     );
+    expect(SENSOR_PRODUCTS.find(({ model }) => model === 'SNZB-02P')).toMatchObject({
+      brand: 'SONOFF',
+      image: '/sensor-products/SNZB-02P.png',
+      categories: ['temperature', 'humidity'],
+      compatibility: 'DOCUMENTED',
+    });
     expect(productsForCategory('contact', false).map(({ model }) => model)).toEqual([
       '3RDS17BZ',
       'SDO-4-1-00',

@@ -54,6 +54,7 @@ import { GuidedTour, type GuidedTourMode } from './GuidedTour';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import { FRFlag, GBFlag } from './FlagIcons';
 import { RemoteAccessCard } from './RemoteAccessCard';
+import { ActivityPage } from './ActivityPage';
 
 interface Overview {
   onboardingRequired: boolean;
@@ -324,43 +325,6 @@ interface MedicationDraft {
   time: string;
   daysOfWeek: number[];
   graceMinutes: number;
-}
-
-interface ActivitySummary {
-  period: '24h' | '7d' | '28d';
-  from: string;
-  to: string;
-  total: number;
-  buckets: Array<{ start: string; label: string; count: number }>;
-  byRoom: Array<{ id: string | null; name: string; count: number }>;
-  byCapability: Array<{ capability: string; count: number }>;
-  dwellByRoom: Array<{
-    id: string;
-    name: string;
-    totalSeconds: number;
-    averageSeconds: number;
-    medianSeconds: number;
-    sessions: number;
-    reliableSessions: number;
-    ambiguousSeconds: number;
-    confidenceRate: number;
-  }>;
-  unknownSeconds: number;
-}
-
-interface RoutinesSummary {
-  learningDays: number;
-  requiredLearningDays: number;
-  progress: number;
-  coverageSufficient: boolean;
-  behavioralAlertsEnabled: boolean;
-  changes: Array<{
-    roomId: string;
-    roomName: string;
-    direction: 'LOWER' | 'HIGHER';
-    observedSeconds: number;
-    baselineSeconds: number;
-  }>;
 }
 
 interface ScheduleItem {
@@ -648,14 +612,6 @@ function relativeTime(value: string, locale: Locale): string {
   if (minutes < 60) return locale === 'fr' ? `il y a ${minutes} min` : `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
   return locale === 'fr' ? `il y a ${hours} h` : `${hours}h ago`;
-}
-
-function readableDuration(seconds: number, locale: Locale): string {
-  const minutes = Math.max(0, Math.round(seconds / 60));
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return `${hours} ${locale === 'fr' ? 'h' : 'hr'}${rest ? ` ${rest} min` : ''}`;
 }
 
 function formatMinute(value: number | null): string {
@@ -2532,18 +2488,9 @@ export function App() {
     capabilities: [],
   });
   const [dataError, setDataError] = useState(false);
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
-  const [activityCursor, setActivityCursor] = useState<string | null>(null);
-  const [activityDay, setActivityDay] = useState('');
-  const [activityRoom, setActivityRoom] = useState('');
-  const [activityType, setActivityType] = useState('');
-  const [loadingMoreActivity, setLoadingMoreActivity] = useState(false);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [alertFilter, setAlertFilter] = useState<'ALL' | AlertItem['status']>('ALL');
   const [journal, setJournal] = useState<JournalItem[]>([]);
-  const [analyticsPeriod, setAnalyticsPeriod] = useState<'24h' | '7d' | '28d'>('24h');
-  const [analytics, setAnalytics] = useState<ActivitySummary | null>(null);
-  const [routines, setRoutines] = useState<RoutinesSummary | null>(null);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [medications, setMedications] = useState<MedicationItem[]>([]);
   const [medicationDoses, setMedicationDoses] = useState<MedicationDoseItem[]>([]);
@@ -2580,6 +2527,7 @@ export function App() {
   const [active, setActive] = useState(0);
   const [homeSection, setHomeSection] = useState<'OVERVIEW' | 'EDITOR' | 'LIVE_PLAN'>('OVERVIEW');
   const [homeEditorRoomId, setHomeEditorRoomId] = useState<string | null>(null);
+  const [homeEditorStairId, setHomeEditorStairId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [sidebarAutoHide, setSidebarAutoHide] = useState(() => {
     if (typeof window === 'undefined') return true;
@@ -2593,6 +2541,9 @@ export function App() {
   const [initialTourHandled, setInitialTourHandled] = useState(false);
   const [homeSetupPreview, setHomeSetupPreview] = useState(false);
   const tourReturnActive = useRef(8);
+  const refreshInFlight = useRef<Promise<void> | null>(null);
+  const refreshPending = useRef(false);
+  const realtimeRefreshTimer = useRef<number | null>(null);
   const previewSetup =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('setup') === '1';
@@ -2612,7 +2563,7 @@ export function App() {
     window.localStorage.setItem('elise_sidebar_auto_hide', String(enabled));
   };
 
-  const refresh = useCallback(async () => {
+  const refreshOnce = useCallback(async () => {
     try {
       const response = await fetch('/api/v1/overview');
       if (response.status === 401) {
@@ -2638,7 +2589,6 @@ export function App() {
       const historyStart = new Date(now.getTime() - 7 * 86_400_000);
       const historyEnd = new Date(now.getTime() + 86_400_000);
       const [
-        activityResponse,
         alertsResponse,
         journalResponse,
         householdResponse,
@@ -2646,13 +2596,10 @@ export function App() {
         rulesResponse,
         medicationsResponse,
         dosesResponse,
-        analyticsResponse,
         scheduleResponse,
         equipmentCandidatesResponse,
         camerasResponse,
-        routinesResponse,
       ] = await Promise.all([
-        fetch('/api/v1/activity/feed?limit=30'),
         fetch('/api/v1/alerts'),
         fetch('/api/v1/journal'),
         fetch('/api/v1/household'),
@@ -2660,22 +2607,12 @@ export function App() {
         fetch('/api/v1/alerts/rules'),
         fetch('/api/v1/medications'),
         fetch(`/api/v1/medications/doses?from=${dateKey(historyStart)}&to=${dateKey(historyEnd)}`),
-        fetch(`/api/v1/analytics/activity?period=${analyticsPeriod}`),
         fetch(
           `/api/v1/schedule?from=${encodeURIComponent(now.toISOString())}&to=${encodeURIComponent(new Date(now.getTime() + 90 * 86_400_000).toISOString())}`,
         ),
         fetch('/api/v1/equipment/candidates'),
         fetch('/api/v1/cameras'),
-        fetch('/api/v1/analytics/routines'),
       ]);
-      if (activityResponse.ok) {
-        const feed = (await activityResponse.json()) as {
-          items: ActivityItem[];
-          nextCursor: string | null;
-        };
-        setActivity(feed.items);
-        setActivityCursor(feed.nextCursor);
-      }
       if (alertsResponse.ok) setAlerts((await alertsResponse.json()) as AlertItem[]);
       if (journalResponse.ok) setJournal((await journalResponse.json()) as JournalItem[]);
       if (householdResponse.ok) setHousehold((await householdResponse.json()) as Household);
@@ -2687,18 +2624,41 @@ export function App() {
         setMedications((await medicationsResponse.json()) as MedicationItem[]);
       if (dosesResponse.ok)
         setMedicationDoses((await dosesResponse.json()) as MedicationDoseItem[]);
-      if (analyticsResponse.ok) setAnalytics((await analyticsResponse.json()) as ActivitySummary);
       if (scheduleResponse.ok) setSchedule((await scheduleResponse.json()) as ScheduleItem[]);
       if (equipmentCandidatesResponse.ok)
         setEquipmentCandidates((await equipmentCandidatesResponse.json()) as EquipmentCandidate[]);
       if (camerasResponse.ok) setCameras((await camerasResponse.json()) as CameraItem[]);
-      if (routinesResponse.ok) setRoutines((await routinesResponse.json()) as RoutinesSummary);
       setAuthRequired(false);
       setDataError(false);
     } catch {
       setDataError(true);
     }
-  }, [analyticsPeriod]);
+  }, []);
+
+  const refresh = useCallback(() => {
+    if (refreshInFlight.current) {
+      refreshPending.current = true;
+      return refreshInFlight.current;
+    }
+
+    const run = async () => {
+      do {
+        refreshPending.current = false;
+        await refreshOnce();
+      } while (refreshPending.current);
+    };
+    const promise = run();
+    refreshInFlight.current = promise;
+    void promise.then(
+      () => {
+        if (refreshInFlight.current === promise) refreshInFlight.current = null;
+      },
+      () => {
+        if (refreshInFlight.current === promise) refreshInFlight.current = null;
+      },
+    );
+    return promise;
+  }, [refreshOnce]);
 
   const logout = async () => {
     if (loggingOut) return;
@@ -2752,9 +2712,14 @@ export function App() {
     events.onmessage = (event) => {
       const action = homeRealtimeEventAction(String(event.data));
       if (action === 'IGNORE' || (action === 'PRESENCE' && active === 3)) return;
-      void refresh();
+      if (realtimeRefreshTimer.current) window.clearTimeout(realtimeRefreshTimer.current);
+      realtimeRefreshTimer.current = window.setTimeout(() => void refresh(), 500);
     };
-    return () => events.close();
+    return () => {
+      events.close();
+      if (realtimeRefreshTimer.current) window.clearTimeout(realtimeRefreshTimer.current);
+      realtimeRefreshTimer.current = null;
+    };
   }, [active, authRequired, passwordChangeRequired, entryState, refresh]);
 
   useEffect(() => {
@@ -2818,14 +2783,6 @@ export function App() {
       const priority = { URGENT: 0, ATTENTION: 1, INFO: 2 } as const;
       return priority[left.severity] - priority[right.severity];
     })[0];
-  const filteredActivity = activity.filter((item) => {
-    const room = item.sensor?.room?.name ?? item.room ?? 'Maison';
-    return (
-      (!activityDay || dateKey(new Date(item.occurredAt)) === activityDay) &&
-      (!activityRoom || room === activityRoom) &&
-      (!activityType || item.capability === activityType)
-    );
-  });
   const filteredAlerts = alerts.filter(
     (alert) => alertFilter === 'ALL' || alert.status === alertFilter,
   );
@@ -2840,25 +2797,6 @@ export function App() {
       body: JSON.stringify({ status }),
     });
     if (response.ok) await refresh();
-  };
-  const loadMoreActivity = async () => {
-    if (!activityCursor) return;
-    setLoadingMoreActivity(true);
-    const response = await fetch(
-      `/api/v1/activity/feed?limit=30&cursor=${encodeURIComponent(activityCursor)}`,
-    );
-    if (response.ok) {
-      const feed = (await response.json()) as {
-        items: ActivityItem[];
-        nextCursor: string | null;
-      };
-      setActivity((current) => [
-        ...current,
-        ...feed.items.filter((item) => !current.some((existing) => existing.id === item.id)),
-      ]);
-      setActivityCursor(feed.nextCursor);
-    }
-    setLoadingMoreActivity(false);
   };
   const replaceResidentPhoto = async (file: File) => {
     if (!resident) return;
@@ -3357,240 +3295,28 @@ export function App() {
         )}
 
         {active === 1 ? (
-          <section className="section-view activity-insights-page">
-            <div className="page-heading activity-page-heading">
-              <div>
-                <span className="eyebrow">
-                  {locale === 'fr' ? 'Lecture du quotidien' : 'Daily overview'}
-                </span>
-                <h2>{t.nav[1]}</h2>
-                <p>
-                  {locale === 'fr'
-                    ? 'Une synthèse factuelle des événements reçus par les capteurs.'
-                    : 'A factual summary of events received from the sensors.'}
-                </p>
-              </div>
-              <div className="period-switch" role="group" aria-label="Période d’analyse">
-                {(['24h', '7d', '28d'] as const).map((period) => (
-                  <button
-                    type="button"
-                    key={period}
-                    aria-pressed={analyticsPeriod === period}
-                    onClick={() => setAnalyticsPeriod(period)}
-                  >
-                    {period === '24h' ? '24 h' : period === '7d' ? '7 jours' : '28 jours'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="analytics-grid">
-              <Card className="activity-chart-card">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">
-                      {locale === 'fr' ? 'Rythme observé' : 'Observed rhythm'}
-                    </span>
-                    <h2>
-                      {analytics?.total ?? 0}{' '}
-                      {locale === 'fr' ? 'événements utiles' : 'useful events'}
-                    </h2>
-                  </div>
-                  <StatusPill>
-                    {analyticsPeriod === '24h' ? '24 h' : analyticsPeriod === '7d' ? '7 j' : '28 j'}
-                  </StatusPill>
-                </div>
-                <div className="activity-bars" aria-label="Répartition des événements">
-                  {analytics?.buckets.map((bucket) => {
-                    const maximum = Math.max(1, ...analytics.buckets.map((item) => item.count));
-                    return (
-                      <div key={bucket.start}>
-                        <span
-                          style={{ height: `${Math.max(4, (bucket.count / maximum) * 100)}%` }}
-                          title={`${bucket.label} · ${bucket.count}`}
-                        />
-                        <small>{bucket.label}</small>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-              <Card className="deterministic-summary-card">
-                <span className="eyebrow">{locale === 'fr' ? 'En bref' : 'At a glance'}</span>
-                <h2>{locale === 'fr' ? 'Ce qu’il faut retenir' : 'What matters'}</h2>
-                <p>
-                  {analytics?.total
-                    ? locale === 'fr'
-                      ? `${analytics.total} événements utiles ont été reçus. ${analytics.byRoom[0]?.name ?? 'Le domicile'} concentre le plus d’activité. ${overview.sensors?.offline ? `${overview.sensors.offline} capteur(s) ne répond(ent) plus.` : 'La couverture capteurs ne signale pas de coupure.'}`
-                      : `${analytics.total} useful events were received. ${analytics.byRoom[0]?.name ?? 'The home'} has the most activity. ${overview.sensors?.offline ? `${overview.sensors.offline} sensor(s) are not responding.` : 'Sensor coverage shows no outage.'}`
-                    : locale === 'fr'
-                      ? 'Aucun événement utile sur cette période. Vérifiez la couverture avant toute conclusion.'
-                      : 'No useful event in this period. Check sensor coverage before drawing a conclusion.'}
-                </p>
-                <div className="analytics-breakdown">
-                  {analytics?.byRoom.slice(0, 3).map((room) => (
-                    <span key={room.id ?? room.name}>
-                      <strong>{room.count}</strong> {room.name}
-                    </span>
-                  ))}
-                  {analytics?.byCapability.slice(0, 3).map((item) => (
-                    <span key={item.capability}>
-                      <strong>{item.count}</strong> {capabilityLabel(item.capability, locale)}
-                    </span>
-                  ))}
-                </div>
-                <small>
-                  {locale === 'fr'
-                    ? 'Résumé produit par des règles locales déterministes.'
-                    : 'Summary produced by deterministic local rules.'}
-                </small>
-              </Card>
-            </div>
-
-            <Card className="timeline-card activity-page">
-              <div className="section-heading">
-                <div>
-                  <span className="eyebrow">
-                    {locale === 'fr' ? 'Habitudes locales' : 'Local routines'}
-                  </span>
-                  <h2>{locale === 'fr' ? 'Temps passé par pièce' : 'Time spent by room'}</h2>
-                </div>
-                <StatusPill>
-                  {routines
-                    ? `${Math.min(routines.learningDays, routines.requiredLearningDays)}/${routines.requiredLearningDays} j`
-                    : '—'}
-                </StatusPill>
-              </div>
-              <p>
-                {routines?.coverageSufficient
-                  ? locale === 'fr'
-                    ? `Apprentissage local à ${Math.round(routines.progress * 100)} %. Les périodes ambiguës sont exclues.`
-                    : `Local learning is ${Math.round(routines.progress * 100)}% complete. Ambiguous periods are excluded.`
-                  : locale === 'fr'
-                    ? 'Couverture insuffisante : Élise affiche les données sans en tirer de conclusion.'
-                    : 'Insufficient coverage: data is shown without drawing a conclusion.'}
-              </p>
-              <div className="analytics-breakdown">
-                {analytics?.dwellByRoom.map((room) => (
-                  <span key={room.id}>
-                    <strong>{readableDuration(room.totalSeconds, locale)}</strong> {room.name}
-                    <small>
-                      {locale === 'fr' ? 'médiane' : 'median'}{' '}
-                      {readableDuration(room.medianSeconds, locale)} · {room.reliableSessions}/
-                      {room.sessions} {locale === 'fr' ? 'fiables' : 'reliable'}
-                    </small>
-                  </span>
-                ))}
-              </div>
-              {!analytics?.dwellByRoom.length && (
-                <small>
-                  {locale === 'fr'
-                    ? 'Aucune session fiable sur cette période.'
-                    : 'No reliable session in this period.'}
-                </small>
-              )}
-              {routines?.changes.map((change) => (
-                <p key={change.roomId}>
-                  {locale === 'fr'
-                    ? `${change.roomName} : temps ${change.direction === 'HIGHER' ? 'supérieur' : 'inférieur'} à l’habitude aujourd’hui (${readableDuration(change.observedSeconds, locale)} contre ${readableDuration(change.baselineSeconds, locale)}).`
-                    : `${change.roomName}: time is ${change.direction === 'HIGHER' ? 'higher' : 'lower'} than usual today (${readableDuration(change.observedSeconds, locale)} versus ${readableDuration(change.baselineSeconds, locale)}).`}
-                </p>
-              ))}
-            </Card>
-
-            <Card className="timeline-card activity-page">
-              <div className="section-heading timeline-heading">
-                <div>
-                  <span className="eyebrow">Timeline</span>
-                  <h2>{locale === 'fr' ? 'Événements du domicile' : 'Home events'}</h2>
-                </div>
-                <div className="activity-filters">
-                  <label>
-                    <span>{locale === 'fr' ? 'Jour' : 'Day'}</span>
-                    <input
-                      type="date"
-                      value={activityDay}
-                      onChange={(event) => setActivityDay(event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    <span>{locale === 'fr' ? 'Pièce' : 'Room'}</span>
-                    <select
-                      value={activityRoom}
-                      onChange={(event) => setActivityRoom(event.target.value)}
-                    >
-                      <option value="">{locale === 'fr' ? 'Toutes' : 'All'}</option>
-                      {household?.rooms.map((room) => (
-                        <option key={room.id} value={room.name}>
-                          {room.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span>{locale === 'fr' ? 'Type' : 'Type'}</span>
-                    <select
-                      value={activityType}
-                      onChange={(event) => setActivityType(event.target.value)}
-                    >
-                      <option value="">{locale === 'fr' ? 'Tous' : 'All'}</option>
-                      {[
-                        'motion',
-                        'occupancy',
-                        'person_presence',
-                        'contact',
-                        'temperature',
-                        'humidity',
-                        'battery',
-                        'power',
-                        'energy',
-                        'button',
-                      ].map((capability) => (
-                        <option key={capability} value={capability}>
-                          {capabilityLabel(capability, locale)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </div>
-              <div className="timeline">
-                {filteredActivity.map((item) => (
-                  <div className="timeline-item" key={item.id}>
-                    <time>{time(item.occurredAt)}</time>
-                    <i></i>
-                    <div>
-                      <strong>{item.sensor?.room?.name ?? item.room ?? 'Maison'}</strong>
-                      <span>{activityDescription(item, locale)}</span>
-                      <small>{relativeTime(item.occurredAt, locale)}</small>
-                    </div>
-                  </div>
-                ))}
-                {filteredActivity.length === 0 && (
-                  <p className="empty-state">
-                    {locale === 'fr'
-                      ? 'Aucun événement ne correspond à ces filtres.'
-                      : 'No event matches these filters.'}
-                  </p>
-                )}
-              </div>
-              {activityCursor && (
-                <Button
-                  className="button-secondary load-more-button"
-                  disabled={loadingMoreActivity}
-                  onClick={() => void loadMoreActivity()}
-                >
-                  {loadingMoreActivity
-                    ? locale === 'fr'
-                      ? 'Chargement…'
-                      : 'Loading…'
-                    : locale === 'fr'
-                      ? 'Afficher les événements précédents'
-                      : 'Show earlier events'}
-                </Button>
-              )}
-            </Card>
-          </section>
+          <ActivityPage
+            locale={locale}
+            homeName={household?.home.name ?? overview.home?.name ?? 'Élise'}
+            timeZone={household?.home.timezone ?? 'Europe/Paris'}
+            residentName={residentName}
+            reassurance={overview.reassurance ?? 'INSUFFICIENT_DATA'}
+            openAlerts={overview.openAlerts ?? 0}
+            canManage={currentAccess.role === 'OWNER' || currentAccess.role === 'ADMINISTRATOR'}
+            onOpenAlerts={() => setActive(2)}
+            onOpenRoom={(roomId) => {
+              setHomeEditorRoomId(roomId);
+              setHomeEditorStairId(null);
+              setHomeSection('EDITOR');
+              setActive(3);
+            }}
+            onOpenStair={(stairId) => {
+              setHomeEditorRoomId(null);
+              setHomeEditorStairId(stairId);
+              setHomeSection('EDITOR');
+              setActive(3);
+            }}
+          />
         ) : active === 2 ? (
           <section className="section-view">
             <div className="page-heading alert-page-heading">
@@ -3739,6 +3465,12 @@ export function App() {
               canManage={currentAccess.role === 'OWNER' || currentAccess.role === 'ADMINISTRATOR'}
               onManage={(roomId) => {
                 setHomeEditorRoomId(roomId ?? null);
+                setHomeEditorStairId(null);
+                setHomeSection('EDITOR');
+              }}
+              onManageStair={(stairId) => {
+                setHomeEditorRoomId(null);
+                setHomeEditorStairId(stairId);
                 setHomeSection('EDITOR');
               }}
               onOpenLivePlan={() => setHomeSection('LIVE_PLAN')}
@@ -3756,15 +3488,18 @@ export function App() {
               readOnly={homeSection === 'LIVE_PLAN'}
               initialMode={homeSection === 'LIVE_PLAN' ? 'LIVE' : 'EDIT'}
               initialRoomId={homeSection === 'EDITOR' ? homeEditorRoomId : null}
+              initialStairId={homeSection === 'EDITOR' ? homeEditorStairId : null}
               setupPreview={homeSetupPreview}
               onSetupPreviewClose={() => {
                 setHomeSetupPreview(false);
                 setHomeEditorRoomId(null);
+                setHomeEditorStairId(null);
                 setHomeSection('OVERVIEW');
                 setActive(tourReturnActive.current);
               }}
               onBack={() => {
                 setHomeEditorRoomId(null);
+                setHomeEditorStairId(null);
                 setHomeSection('OVERVIEW');
               }}
               onOpenCamera={(cameraId) => {

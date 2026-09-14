@@ -914,6 +914,79 @@ export const roomDwellSchema = z.object({
   confidenceRate: z.number().min(0).max(1),
 });
 
+export const activityRoomStateSchema = z.enum([
+  'NOT_EQUIPPED',
+  'EQUIPMENT_ISSUE',
+  'LEARNING',
+  'NO_ACTIVITY',
+  'OBSERVED',
+]);
+
+export const activityEventSchema = z.object({
+  id: z.string(),
+  occurredAt: z.iso.datetime(),
+  capability: capabilitySchema,
+  quality: z.string(),
+  payload: z.unknown(),
+  roomId: z.string(),
+  roomName: z.string(),
+  sensorId: z.string().nullable(),
+  sensorName: z.string().nullable(),
+  sensorStatus: z.string().nullable(),
+  unit: z.string().nullable(),
+  targetType: z.enum(['ROOM', 'ITEM', 'OPENING', 'STAIR']).nullable(),
+  targetId: z.string().nullable(),
+  passage: z
+    .object({
+      fromLevelId: z.string(),
+      fromLevelName: z.string(),
+      toLevelId: z.string(),
+      toLevelName: z.string(),
+    })
+    .nullable(),
+});
+
+export const activitySequenceSchema = z.object({
+  id: z.string(),
+  startedAt: z.iso.datetime(),
+  endedAt: z.iso.datetime(),
+  durationSeconds: z.number().int().nonnegative(),
+  roomIds: z.array(z.string()),
+  roomNames: z.array(z.string()),
+  passages: z.array(activityEventSchema.shape.passage.unwrap()),
+  totalEventCount: z.number().int().nonnegative(),
+  hiddenEventCount: z.number().int().nonnegative(),
+  events: z.array(activityEventSchema),
+});
+
+export const activityEnvironmentReadingSchema = z.object({
+  capability: capabilitySchema,
+  latestValue: z.string(),
+  numericValue: z.number().finite().nullable(),
+  unit: z.string().nullable(),
+  minimum: z.number().finite().nullable(),
+  maximum: z.number().finite().nullable(),
+  points: z.array(
+    z.object({
+      occurredAt: z.iso.datetime(),
+      value: z.number().finite(),
+    }),
+  ),
+});
+
+export const activityRoomOverviewSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  kind: z.string(),
+  floor: z.number().int(),
+  state: activityRoomStateSchema,
+  environmentState: activityRoomStateSchema,
+  sensorCount: z.number().int().nonnegative(),
+  lastActivity: activityEventSchema.nullable(),
+  environment: z.array(activityEnvironmentReadingSchema),
+  safety: z.array(activityEventSchema),
+});
+
 export const activitySummarySchema = z.object({
   period: dashboardPeriodSchema,
   from: z.iso.datetime(),
@@ -928,6 +1001,22 @@ export const activitySummarySchema = z.object({
   byCapability: z.array(z.object({ capability: capabilitySchema, count: z.number().int() })),
   dwellByRoom: z.array(roomDwellSchema).default([]),
   unknownSeconds: z.number().int().nonnegative().default(0),
+  reliableBuckets: z
+    .array(
+      z.object({
+        start: z.iso.datetime(),
+        label: z.string(),
+        seconds: z.number().int().nonnegative(),
+        byRoom: z.record(z.string(), z.number().int().nonnegative()).default({}),
+      }),
+    )
+    .default([]),
+  observedSeconds: z.number().int().nonnegative().default(0),
+  unobservedSeconds: z.number().int().nonnegative().default(0),
+  lastReliableActivity: activityEventSchema.nullable().default(null),
+  rooms: z.array(activityRoomOverviewSchema).default([]),
+  sequences: z.array(activitySequenceSchema).default([]),
+  hasMoreSequences: z.boolean().default(false),
 });
 
 export const routineRoomSchema = z.object({
@@ -1220,6 +1309,9 @@ export const realtimeEventSchema = z.object({
 
 export type DashboardPeriod = z.infer<typeof dashboardPeriodSchema>;
 export type ActivitySummary = z.infer<typeof activitySummarySchema>;
+export type ActivityEvent = z.infer<typeof activityEventSchema>;
+export type ActivitySequence = z.infer<typeof activitySequenceSchema>;
+export type ActivityRoomOverview = z.infer<typeof activityRoomOverviewSchema>;
 export type RoomDwell = z.infer<typeof roomDwellSchema>;
 export type RoutinesSummary = z.infer<typeof routinesSummarySchema>;
 export type SensorDetail = z.infer<typeof sensorDetailSchema>;

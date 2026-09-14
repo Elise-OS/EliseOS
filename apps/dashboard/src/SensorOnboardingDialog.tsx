@@ -38,7 +38,7 @@ export function SensorOnboardingDialog({
   locale: Locale;
   rooms: SensorRoom[];
   initialRoomId?: string;
-  initialTarget?: { type: 'OPENING'; id: string } | undefined;
+  initialTarget?: { type: 'OPENING' | 'STAIR'; id: string } | undefined;
   category?: RoomSensorCategory | undefined;
   product?: SensorProduct | undefined;
   onClose: () => void;
@@ -192,7 +192,18 @@ export function SensorOnboardingDialog({
   const finish = async () => {
     if (!session?.detectedDevice || !name.trim() || !roomId) return;
     if (category && !deviceSupportsCategory(session.detectedDevice, category)) return;
-    if (initialTarget && !deviceSupportsCategory(session.detectedDevice, 'contact')) return;
+    if (
+      initialTarget?.type === 'OPENING' &&
+      !deviceSupportsCategory(session.detectedDevice, 'contact')
+    )
+      return;
+    if (
+      initialTarget?.type === 'STAIR' &&
+      !(['motion', 'presence'] as RoomSensorCategory[]).some((id) =>
+        deviceSupportsCategory(session.detectedDevice!, id),
+      )
+    )
+      return;
     setBusy(true);
     setError('');
     const sessionUrl = `/api/v1/sensor-devices/onboarding-sessions/${session.id}`;
