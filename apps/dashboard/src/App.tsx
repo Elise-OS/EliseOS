@@ -57,6 +57,7 @@ import { DataLoadingScreen } from './DataLoadingScreen';
 import { FRFlag, GBFlag } from './FlagIcons';
 import { RemoteAccessCard } from './RemoteAccessCard';
 import { ActivityPage } from './ActivityPage';
+import { GoogleAccountSettings } from './GoogleAccountSettings';
 
 interface Overview {
   onboardingRequired: boolean;
@@ -2540,6 +2541,7 @@ export function App() {
   });
   const [active, setActive] = useState(0);
   const [homeSection, setHomeSection] = useState<'OVERVIEW' | 'EDITOR' | 'LIVE_PLAN'>('OVERVIEW');
+  const [settingsTab, setSettingsTab] = useState<'general' | 'google' | 'rules'>('general');
   const [homeEditorRoomId, setHomeEditorRoomId] = useState<string | null>(null);
   const [homeEditorStairId, setHomeEditorStairId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -3929,111 +3931,146 @@ export function App() {
               </span>
             </header>
 
-            <details className="michel-card settings-section-card settings-disclosure settings-general-card">
-              <summary className="settings-section-heading">
-                <span className="settings-section-icon">
-                  <Settings />
-                </span>
-                <div>
-                  <span className="eyebrow">
-                    {locale === 'fr' ? 'Préférences de l’application' : 'Application preferences'}
+            <nav
+              className="settings-tabs"
+              aria-label={locale === 'fr' ? 'Rubriques des réglages' : 'Settings sections'}
+            >
+              <button
+                type="button"
+                className={settingsTab === 'general' ? 'is-selected' : ''}
+                aria-selected={settingsTab === 'general'}
+                onClick={() => setSettingsTab('general')}
+              >
+                <Settings aria-hidden="true" /> {locale === 'fr' ? 'Général' : 'General'}
+              </button>
+              <button
+                type="button"
+                className={settingsTab === 'google' ? 'is-selected' : ''}
+                aria-selected={settingsTab === 'google'}
+                onClick={() => setSettingsTab('google')}
+              >
+                <KeyRound aria-hidden="true" />{' '}
+                {locale === 'fr' ? 'Compte Google' : 'Google account'}
+              </button>
+              <button
+                type="button"
+                className={settingsTab === 'rules' ? 'is-selected' : ''}
+                aria-selected={settingsTab === 'rules'}
+                onClick={() => setSettingsTab('rules')}
+              >
+                <Bell aria-hidden="true" /> {locale === 'fr' ? 'Règles' : 'Rules'}
+              </button>
+            </nav>
+
+            {settingsTab === 'general' && (
+              <details className="michel-card settings-section-card settings-disclosure settings-general-card">
+                <summary className="settings-section-heading">
+                  <span className="settings-section-icon">
+                    <Settings />
                   </span>
-                  <h2>{locale === 'fr' ? 'Général' : 'General'}</h2>
-                  <p>
-                    {locale === 'fr'
-                      ? 'Les réglages essentiels de cet appareil, réunis au même endroit.'
-                      : 'Essential settings for this device, all in one place.'}
-                  </p>
-                </div>
-                <span className="settings-disclosure-chevron" aria-hidden="true">
-                  <ChevronRight />
-                </span>
-              </summary>
-
-              <div className="settings-option-list">
-                <article className="settings-option-row settings-language-row">
-                  <div className="settings-option-copy">
-                    <span className="settings-option-icon settings-option-icon--sage">
-                      <Languages />
+                  <div>
+                    <span className="eyebrow">
+                      {locale === 'fr' ? 'Préférences de l’application' : 'Application preferences'}
                     </span>
-                    <div>
-                      <h3>{locale === 'fr' ? 'Langue de l’interface' : 'Interface language'}</h3>
-                      <p>
-                        {locale === 'fr'
-                          ? 'Choisissez la langue utilisée par Élise sur cet appareil.'
-                          : 'Choose the language Élise uses on this device.'}
-                      </p>
+                    <h2>{locale === 'fr' ? 'Général' : 'General'}</h2>
+                    <p>
+                      {locale === 'fr'
+                        ? 'Les réglages essentiels de cet appareil, réunis au même endroit.'
+                        : 'Essential settings for this device, all in one place.'}
+                    </p>
+                  </div>
+                  <span className="settings-disclosure-chevron" aria-hidden="true">
+                    <ChevronRight />
+                  </span>
+                </summary>
+
+                <div className="settings-option-list">
+                  <article className="settings-option-row settings-language-row">
+                    <div className="settings-option-copy">
+                      <span className="settings-option-icon settings-option-icon--sage">
+                        <Languages />
+                      </span>
+                      <div>
+                        <h3>{locale === 'fr' ? 'Langue de l’interface' : 'Interface language'}</h3>
+                        <p>
+                          {locale === 'fr'
+                            ? 'Choisissez la langue utilisée par Élise sur cet appareil.'
+                            : 'Choose the language Élise uses on this device.'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="settings-language-options" role="group" aria-label="Language">
-                    <button
-                      className={locale === 'fr' ? 'is-selected' : ''}
-                      onClick={() => changeLocale('fr')}
-                      aria-pressed={locale === 'fr'}
-                    >
-                      <FRFlag />
-                      <strong>Français</strong>
-                      {locale === 'fr' && <CircleCheck />}
-                    </button>
-                    <button
-                      className={locale === 'en' ? 'is-selected' : ''}
-                      onClick={() => changeLocale('en')}
-                      aria-pressed={locale === 'en'}
-                    >
-                      <GBFlag />
-                      <strong>English</strong>
-                      {locale === 'en' && <CircleCheck />}
-                    </button>
-                  </div>
-                </article>
-
-                <SidebarBehaviorSetting
-                  locale={locale}
-                  enabled={sidebarAutoHide}
-                  disabled={sidebarAutoHideLocked}
-                  onChange={changeSidebarAutoHide}
-                />
-
-                <article className="settings-option-row guided-tour-settings">
-                  <div className="settings-option-copy">
-                    <span className="settings-option-icon settings-option-icon--amber">
-                      <Sparkles />
-                    </span>
-                    <div>
-                      <h3>{locale === 'fr' ? 'Visite guidée' : 'Guided tour'}</h3>
-                      <p>
-                        {locale === 'fr'
-                          ? 'Redécouvrez les espaces essentiels de l’application, sans modifier votre logement.'
-                          : 'Rediscover the essential areas of the application without changing your home.'}
-                      </p>
+                    <div className="settings-language-options" role="group" aria-label="Language">
+                      <button
+                        className={locale === 'fr' ? 'is-selected' : ''}
+                        onClick={() => changeLocale('fr')}
+                        aria-pressed={locale === 'fr'}
+                      >
+                        <FRFlag />
+                        <strong>Français</strong>
+                        {locale === 'fr' && <CircleCheck />}
+                      </button>
+                      <button
+                        className={locale === 'en' ? 'is-selected' : ''}
+                        onClick={() => changeLocale('en')}
+                        aria-pressed={locale === 'en'}
+                      >
+                        <GBFlag />
+                        <strong>English</strong>
+                        {locale === 'en' && <CircleCheck />}
+                      </button>
                     </div>
-                  </div>
-                  <Button
-                    className="button-secondary"
-                    onClick={() => {
-                      tourReturnActive.current = active;
-                      setHomeSetupPreview(false);
-                      setTourMode('replay');
-                    }}
-                  >
-                    {locale === 'fr' ? 'Revoir la visite' : 'Replay the tour'}
-                  </Button>
-                </article>
+                  </article>
 
-                {simulationScenarios.length > 0 && (
-                  <SimulationPanel
-                    scenarios={simulationScenarios}
-                    running={runningSimulation}
-                    notice={simulationNotice}
-                    onRun={(scenario) => void runSimulation(scenario)}
+                  <SidebarBehaviorSetting
+                    locale={locale}
+                    enabled={sidebarAutoHide}
+                    disabled={sidebarAutoHideLocked}
+                    onChange={changeSidebarAutoHide}
                   />
-                )}
-              </div>
-            </details>
-            {currentAccess.capabilities.includes('configuration:manage') && (
-              <RemoteAccessCard locale={locale} />
+
+                  <article className="settings-option-row guided-tour-settings">
+                    <div className="settings-option-copy">
+                      <span className="settings-option-icon settings-option-icon--amber">
+                        <Sparkles />
+                      </span>
+                      <div>
+                        <h3>{locale === 'fr' ? 'Visite guidée' : 'Guided tour'}</h3>
+                        <p>
+                          {locale === 'fr'
+                            ? 'Redécouvrez les espaces essentiels de l’application, sans modifier votre logement.'
+                            : 'Rediscover the essential areas of the application without changing your home.'}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      className="button-secondary"
+                      onClick={() => {
+                        tourReturnActive.current = active;
+                        setHomeSetupPreview(false);
+                        setTourMode('replay');
+                      }}
+                    >
+                      {locale === 'fr' ? 'Revoir la visite' : 'Replay the tour'}
+                    </Button>
+                  </article>
+
+                  {simulationScenarios.length > 0 && (
+                    <SimulationPanel
+                      scenarios={simulationScenarios}
+                      running={runningSimulation}
+                      notice={simulationNotice}
+                      onRun={(scenario) => void runSimulation(scenario)}
+                    />
+                  )}
+                </div>
+              </details>
             )}
-            {alertRules && (
+            {settingsTab === 'general' &&
+              currentAccess.capabilities.includes('configuration:manage') && (
+                <RemoteAccessCard locale={locale} />
+              )}
+            {settingsTab === 'google' && <GoogleAccountSettings locale={locale} />}
+            {settingsTab === 'rules' && alertRules && (
               <AlertRulesPanel
                 rules={alertRules}
                 saving={savingRules}

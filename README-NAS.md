@@ -152,10 +152,15 @@ personnelles. Dans Google Cloud, activez **YouTube Data API v3**, créez un iden
 https://toquehub.tail0ffd40.ts.net:8443/api/v1/screen/youtube/callback
 ```
 
-Renseignez ensuite `YOUTUBE_CLIENT_ID` et `YOUTUBE_CLIENT_SECRET` dans le `.env` du NAS
-(ou utilisez `YOUTUBE_REDIRECT_URI` si l’URL publique diffère), puis redéployez l’API.
-La connexion se fait depuis **Médias → YouTube → Connecter Google**. Les jetons de renouvellement
-sont chiffrés avant d’être enregistrés et peuvent être révoqués avec **Déconnecter**.
+Les identifiants peuvent être renseignés directement dans **Réglages → Compte Google** :
+collez le Client ID, le secret client et vérifiez l’URI de redirection, puis enregistrez.
+Ces valeurs servent à la fois à **Affichage TV → YouTube** et au futur module **Calendrier →
+Google Calendar**. La connexion au compte se fait ensuite depuis **Affichage TV → Médias →
+YouTube → Connecter Google**. Les jetons de renouvellement sont chiffrés avant d’être enregistrés
+et peuvent être révoqués avec **Déconnecter**.
+
+Pour une configuration automatisée, `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` et
+`YOUTUBE_REDIRECT_URI` restent aussi acceptés dans le `.env` du NAS.
 
 ## 3. Travailler uniquement sur le frontend depuis le Mac
 

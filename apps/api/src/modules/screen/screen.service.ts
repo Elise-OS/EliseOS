@@ -80,6 +80,14 @@ export interface YouTubePlaylistResult {
   itemCount: number;
   thumbnailUrl: string | null;
 }
+export interface GoogleSettingsResult {
+  configured: boolean;
+  clientId: string;
+  redirectUri: string | null;
+  youtubeEnabled: boolean;
+  calendarEnabled: boolean;
+  youtubeConnected: boolean;
+}
 
 export function cityFromAddress(address: string | null | undefined): string | null {
   if (!address?.trim()) return null;
@@ -661,7 +669,11 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       throw new ConflictException('Le catalogue des radios est momentanément indisponible.');
     }
   }
-  private youtubeConfig(): { clientId: string; clientSecret: string; redirectUri: string } | null {
+  private envGoogleConfig(): {
+    clientId: string;
+    clientSecret: string;
+    redirectUri: string;
+  } | null {
     const clientId = process.env.YOUTUBE_CLIENT_ID?.trim();
     const clientSecret = process.env.YOUTUBE_CLIENT_SECRET?.trim();
     const configuredRedirect = process.env.YOUTUBE_REDIRECT_URI?.trim();
@@ -673,13 +685,110 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     if (!clientId || !clientSecret || !redirectUri) return null;
     return { clientId, clientSecret, redirectUri };
   }
-  youtubeAccountConfigured(): boolean {
-    return this.youtubeConfig() !== null;
+  private async googleConfig(userId: string) {
+    const { home } = await this.access(userId, 'control');
+    const integration = await this.prisma.googleIntegration.findUnique({
+      where: { homeId: home.id },
+    });
+    if (integration) {
+      return {
+        clientId: integration.clientId,
+        clientSecret: decryptCameraSecret(integration.clientSecretEncrypted),
+        redirectUri: integration.redirectUri || this.defaultGoogleRedirectUri(),
+        youtubeEnabled: integration.youtubeEnabled,
+        calendarEnabled: integration.calendarEnabled,
+      };
+    }
+    const env = this.envGoogleConfig();
+    return env ? { ...env, youtubeEnabled: true, calendarEnabled: true } : null;
+  }
+  private defaultGoogleRedirectUri(): string | null {
+    const publicUrl =
+      process.env.MICHEL_REMOTE_URL?.trim() || process.env.MICHEL_PUBLIC_URL?.trim();
+    if (!publicUrl) return null;
+    return new URL('/api/v1/screen/youtube/callback', publicUrl).toString();
+  }
+  async googleSettings(userId: string): Promise<GoogleSettingsResult> {
+    const { home } = await this.access(userId, 'administer');
+    const [integration, connection] = await Promise.all([
+      this.prisma.googleIntegration.findUnique({ where: { homeId: home.id } }),
+      this.prisma.youTubeConnection.findUnique({ where: { homeId: home.id } }),
+    ]);
+    const env = this.envGoogleConfig();
+    return {
+      configured: !!integration || !!env,
+      clientId: integration?.clientId ?? env?.clientId ?? '',
+      redirectUri: integration?.redirectUri ?? env?.redirectUri ?? this.defaultGoogleRedirectUri(),
+      youtubeEnabled: integration?.youtubeEnabled ?? true,
+      calendarEnabled: integration?.calendarEnabled ?? true,
+      youtubeConnected: !!connection,
+    };
+  }
+  async saveGoogleSettings(
+    userId: string,
+    input: {
+      clientId: string;
+      clientSecret?: string | undefined;
+      redirectUri?: string | undefined;
+      youtubeEnabled: boolean;
+      calendarEnabled: boolean;
+    },
+  ): Promise<GoogleSettingsResult> {
+    const { home } = await this.access(userId, 'administer');
+    const existing = await this.prisma.googleIntegration.findUnique({ where: { homeId: home.id } });
+    const clientId = input.clientId.trim();
+    const clientSecret = input.clientSecret?.trim();
+    if (!clientId || clientId.length > 300)
+      throw new BadRequestException('Client ID Google invalide.');
+    if (!existing && !clientSecret)
+      throw new BadRequestException('Saisissez le secret client Google.');
+    if (clientSecret && clientSecret.length > 500)
+      throw new BadRequestException('Secret Google invalide.');
+    const redirectUri = input.redirectUri?.trim() || null;
+    if (redirectUri) {
+      try {
+        const parsed = new URL(redirectUri);
+        if (
+          parsed.protocol !== 'https:' &&
+          !(parsed.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(parsed.hostname))
+        )
+          throw new Error();
+      } catch {
+        throw new BadRequestException('URI de redirection Google invalide.');
+      }
+    }
+    await this.prisma.googleIntegration.upsert({
+      where: { homeId: home.id },
+      create: {
+        homeId: home.id,
+        clientId,
+        clientSecretEncrypted: encryptCameraSecret(clientSecret!),
+        redirectUri,
+        youtubeEnabled: input.youtubeEnabled,
+        calendarEnabled: input.calendarEnabled,
+      },
+      update: {
+        clientId,
+        ...(clientSecret ? { clientSecretEncrypted: encryptCameraSecret(clientSecret) } : {}),
+        redirectUri,
+        youtubeEnabled: input.youtubeEnabled,
+        calendarEnabled: input.calendarEnabled,
+      },
+    });
+    return this.googleSettings(userId);
+  }
+  async removeGoogleSettings(userId: string): Promise<GoogleSettingsResult> {
+    const { home } = await this.access(userId, 'administer');
+    await this.prisma.$transaction([
+      this.prisma.youTubeConnection.deleteMany({ where: { homeId: home.id } }),
+      this.prisma.googleIntegration.deleteMany({ where: { homeId: home.id } }),
+    ]);
+    return this.googleSettings(userId);
   }
   async youtubeAuthorization(userId: string): Promise<string> {
     await this.access(userId, 'control');
-    const config = this.youtubeConfig();
-    if (!config)
+    const config = await this.googleConfig(userId);
+    if (!config || !config.youtubeEnabled || !config.redirectUri)
       throw new ConflictException(
         'YouTube doit être configuré par l’administrateur avant de connecter un compte.',
       );
@@ -703,8 +812,9 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     if (state) youtubeOAuthStates.delete(state);
     if (!pending || pending.expiresAt < Date.now() || !code)
       throw new BadRequestException('Connexion YouTube expirée ou refusée.');
-    const config = this.youtubeConfig();
-    if (!config) throw new ConflictException('YouTube n’est pas configuré.');
+    const config = await this.googleConfig(pending.userId);
+    if (!config || !config.youtubeEnabled || !config.redirectUri)
+      throw new ConflictException('YouTube n’est pas configuré.');
     const tokenResponse = await fetch(YOUTUBE_TOKEN_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -766,8 +876,9 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
   }
   async youtubeAccount(userId: string): Promise<YouTubeAccountResult> {
     const connection = await this.youtubeConnection(userId);
+    const config = await this.googleConfig(userId);
     return {
-      configured: this.youtubeAccountConfigured(),
+      configured: !!config && config.youtubeEnabled,
       connected: !!connection,
       email: connection?.googleAccountEmail ?? null,
       channelTitle: connection?.channelTitle ?? null,
@@ -785,8 +896,8 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     userId: string,
   ): Promise<{ accessToken: string; homeId: string }> {
     const connection = await this.youtubeConnection(userId);
-    const config = this.youtubeConfig();
-    if (!config || !connection)
+    const config = await this.googleConfig(userId);
+    if (!config || !config.youtubeEnabled || !connection)
       throw new ConflictException('Connectez d’abord votre compte YouTube.');
     const refreshToken = decryptCameraSecret(connection.refreshTokenEncrypted);
     const response = await fetch(YOUTUBE_TOKEN_URL, {

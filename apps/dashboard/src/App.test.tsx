@@ -12,6 +12,7 @@ import {
   SimulationPanel,
 } from './App';
 import { createBootstrapPayload, Setup } from './Setup';
+import { GoogleAccountSettings } from './GoogleAccountSettings';
 
 describe('Élise copy', () => {
   it('ships complete reassurance copy in both languages', () => {
@@ -184,6 +185,15 @@ describe('Élise alert rule design', () => {
     expect(html).toContain('Évite de confondre une panne avec une absence d’activité');
     expect(html).toContain('Enregistrer les repères');
     expect(html).not.toContain('MQTT');
+  });
+});
+
+describe('Google account setup', () => {
+  it('exposes a dedicated Google account section', () => {
+    const html = renderToStaticMarkup(<GoogleAccountSettings locale="fr" />);
+    expect(html).toContain('Compte Google');
+    expect(html).toContain('Un seul réglage pour vos playlists YouTube');
+    expect(html).toContain('À configurer');
   });
 });
 

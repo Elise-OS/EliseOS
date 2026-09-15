@@ -6075,6 +6075,46 @@ p {
   padding: 8px 4px 64px;
   color: #12385f;
 }
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: -3px 0 18px;
+  padding: 5px;
+  border: 1px solid #e0e7e7;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 78%);
+}
+.settings-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+.settings-tabs button svg {
+  width: 16px;
+  height: 16px;
+}
+.settings-tabs button:hover {
+  color: var(--navy);
+  background: #f3f7f8;
+}
+.settings-tabs button.is-selected {
+  border-color: #d3e1e8;
+  color: #24577e;
+  background: #fff;
+  box-shadow: 0 3px 10px rgb(31 67 91 / 8%);
+}
 .settings-hero {
   position: relative;
   display: flex;
@@ -6603,6 +6643,228 @@ p {
 .settings-option-icon--purple {
   color: #675a91;
   background: #efedf7;
+}
+.google-account-settings {
+  overflow: hidden;
+  border-color: #d8e4ed;
+  background: linear-gradient(145deg, #ffffff 0%, #f7fafc 100%);
+}
+.google-account-heading {
+  position: relative;
+}
+.settings-section-icon--google {
+  background: #e9f0ff;
+  color: #3f65b4;
+}
+.google-account-status {
+  align-self: flex-start;
+  padding: 6px 10px;
+  border: 1px solid #eadfca;
+  border-radius: 999px;
+  color: #8b6c38;
+  background: #fff9ec;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.google-account-status.is-ready {
+  border-color: #c7e5d6;
+  color: #2f7a53;
+  background: #effaf4;
+}
+.google-account-body {
+  display: grid;
+  gap: 22px;
+  padding: 0 28px 28px;
+}
+.google-account-loading,
+.google-account-message {
+  margin: 0;
+  padding: 0 28px 28px;
+  color: var(--muted);
+}
+.google-account-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: google-steps;
+}
+.google-account-steps li {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 154px;
+  padding: 17px 15px 14px;
+  border: 1px solid #e1e9ef;
+  border-radius: 15px;
+  background: #fff;
+  counter-increment: google-steps;
+}
+.google-account-steps li::before {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  margin-bottom: 4px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #4f79b9;
+  content: counter(google-steps);
+  font-size: 12px;
+  font-weight: 900;
+}
+.google-account-steps strong {
+  color: var(--navy);
+  font-size: 13px;
+}
+.google-account-steps span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.google-account-steps a,
+.google-account-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  color: #376ca9;
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: none;
+}
+.google-account-steps a:hover,
+.google-account-links a:hover {
+  text-decoration: underline;
+}
+.google-account-steps a svg {
+  width: 13px;
+  height: 13px;
+}
+.google-account-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.google-account-links a svg {
+  width: 14px;
+  height: 14px;
+}
+.google-account-callback,
+.google-account-fields,
+.google-account-services {
+  display: grid;
+  gap: 10px;
+}
+.google-account-callback label,
+.google-account-fields label {
+  display: grid;
+  gap: 6px;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 800;
+}
+.google-account-callback label > div {
+  display: flex;
+  gap: 7px;
+}
+.google-account-callback input,
+.google-account-fields input {
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #d6e1e9;
+  border-radius: 10px;
+  color: var(--navy);
+  background: #fff;
+  font: inherit;
+}
+.google-account-callback input {
+  flex: 1;
+}
+.google-account-callback button {
+  display: grid;
+  width: 42px;
+  place-items: center;
+  border: 1px solid #d6e1e9;
+  border-radius: 10px;
+  color: #376ca9;
+  background: #f7fafc;
+  cursor: pointer;
+}
+.google-account-callback button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.google-account-callback small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.google-account-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.google-account-services {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.google-account-services label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid #e1e9ef;
+  border-radius: 12px;
+  color: #3f65b4;
+  background: #fff;
+}
+.google-account-services label > input {
+  accent-color: #4f79b9;
+}
+.google-account-services label > svg {
+  width: 20px;
+  height: 20px;
+}
+.google-account-services label > span {
+  display: grid;
+  gap: 3px;
+}
+.google-account-services strong {
+  color: var(--navy);
+  font-size: 12px;
+}
+.google-account-services small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.google-account-notice,
+.google-account-error {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+.google-account-notice {
+  color: #2f7a53;
+}
+.google-account-error {
+  color: #ad4a42;
+}
+.google-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.google-account-actions .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.google-account-actions svg {
+  width: 15px;
+  height: 15px;
 }
 .settings-card {
   padding: 28px;
@@ -12726,6 +12988,47 @@ textarea:focus-visible {
   .sidebar-behavior-settings .config-toggle-btn {
     grid-column: 1 / -1;
     justify-self: end;
+  }
+}
+
+@media (max-width: 900px) {
+  .google-account-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .settings-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .settings-tabs button {
+    padding: 0 6px;
+    font-size: 11px;
+  }
+  .settings-tabs button svg {
+    width: 14px;
+    height: 14px;
+  }
+  .google-account-body {
+    padding: 0 18px 20px;
+  }
+  .google-account-loading,
+  .google-account-message {
+    padding: 0 18px 20px;
+  }
+  .google-account-heading {
+    align-items: flex-start;
+  }
+  .google-account-status {
+    margin-left: auto;
+  }
+  .google-account-steps,
+  .google-account-fields,
+  .google-account-services {
+    grid-template-columns: 1fr;
+  }
+  .google-account-steps li {
+    min-height: 0;
   }
 }
 

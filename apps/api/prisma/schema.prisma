@@ -263,6 +263,7 @@ model Home {
   presenceDecisions          PresenceTransitionDecision[]
   residentScreen             ResidentScreen?
   youtubeConnection           YouTubeConnection?
+  googleIntegration           GoogleIntegration?
 
   @@index([organizationId])
 }
@@ -1094,4 +1095,17 @@ model YouTubeConnection {
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
   home                     Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+}
+
+model GoogleIntegration {
+  id                     String   @id @default(cuid())
+  homeId                 String   @unique
+  clientId               String
+  clientSecretEncrypted  String
+  redirectUri            String?
+  youtubeEnabled         Boolean  @default(true)
+  calendarEnabled        Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  home                   Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
 }

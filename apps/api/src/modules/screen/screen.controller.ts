@@ -144,6 +144,27 @@ export class ScreenController {
   @Delete('youtube/account') youtubeDisconnect(@Req() r: AuthenticatedRequest) {
     return this.screens.youtubeDisconnect(r.userId);
   }
+  @Get('google') googleSettings(@Req() r: AuthenticatedRequest) {
+    return this.screens.googleSettings(r.userId);
+  }
+  @Patch('google') googleSettingsUpdate(@Req() r: AuthenticatedRequest, @Body() b: unknown) {
+    return this.screens.saveGoogleSettings(
+      r.userId,
+      parseRequest(
+        z.object({
+          clientId: z.string().trim().min(1).max(300),
+          clientSecret: z.string().max(500).optional(),
+          redirectUri: z.string().max(2048).optional(),
+          youtubeEnabled: z.boolean().default(true),
+          calendarEnabled: z.boolean().default(true),
+        }),
+        b,
+      ),
+    );
+  }
+  @Delete('google') googleSettingsRemove(@Req() r: AuthenticatedRequest) {
+    return this.screens.removeGoogleSettings(r.userId);
+  }
   @Post('commands') command(@Req() r: AuthenticatedRequest, @Body() b: unknown) {
     return this.screens.command(r.userId, b);
   }
