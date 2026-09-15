@@ -27,6 +27,14 @@ import type { AuthenticatedRequest } from '../auth/authenticated-request';
 import { ScreenService } from './screen.service';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+function requestOrigin(request: AuthenticatedRequest): string | undefined {
+  const host = request.get('host');
+  if (!host) return undefined;
+  const forwarded = request.header('x-forwarded-proto')?.split(',')[0]?.trim();
+  const protocol = forwarded === 'https' || forwarded === 'http' ? forwarded : request.protocol;
+  return protocol === 'https' || protocol === 'http' ? `${protocol}://${host}` : undefined;
+}
+
 @Controller('screen')
 @UseGuards(SessionGuard)
 export class ScreenController {
@@ -145,7 +153,7 @@ export class ScreenController {
     return this.screens.youtubeDisconnect(r.userId);
   }
   @Get('google') googleSettings(@Req() r: AuthenticatedRequest) {
-    return this.screens.googleSettings(r.userId);
+    return this.screens.googleSettings(r.userId, requestOrigin(r));
   }
   @Patch('google') googleSettingsUpdate(@Req() r: AuthenticatedRequest, @Body() b: unknown) {
     return this.screens.saveGoogleSettings(
@@ -160,6 +168,7 @@ export class ScreenController {
         }),
         b,
       ),
+      requestOrigin(r),
     );
   }
   @Delete('google') googleSettingsRemove(@Req() r: AuthenticatedRequest) {

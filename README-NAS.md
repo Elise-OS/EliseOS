@@ -146,14 +146,15 @@ open http://192.168.1.55:8090
 
 La carte « Médias » peut se connecter à un compte Google en OAuth et importer ses playlists
 personnelles. Dans Google Cloud, activez **YouTube Data API v3**, créez un identifiant OAuth
-« Application Web », puis ajoutez exactement cette URI de redirection :
+« Application Web », puis copiez dans Google Cloud l’URI générée automatiquement dans
+**Réglages → Compte Google** (bouton Copier). Sur le NAS de test, elle est :
 
 ```text
 https://toquehub.tail0ffd40.ts.net:8443/api/v1/screen/youtube/callback
 ```
 
 Les identifiants peuvent être renseignés directement dans **Réglages → Compte Google** :
-collez le Client ID, le secret client et vérifiez l’URI de redirection, puis enregistrez.
+collez le Client ID et le secret client, puis enregistrez.
 Ces valeurs servent à la fois à **Affichage TV → YouTube** et au futur module **Calendrier →
 Google Calendar**. La connexion au compte se fait ensuite depuis **Affichage TV → Médias →
 YouTube → Connecter Google**. Les jetons de renouvellement sont chiffrés avant d’être enregistrés

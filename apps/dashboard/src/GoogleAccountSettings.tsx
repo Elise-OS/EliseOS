@@ -228,13 +228,13 @@ export function GoogleAccountSettings({ locale }: { locale: 'fr' | 'en' }) {
             <label>
               <span>
                 {french
-                  ? 'URI de redirection à déclarer dans Google Cloud'
-                  : 'Redirect URI to add in Google Cloud'}
+                  ? 'URI de redirection générée automatiquement'
+                  : 'Automatically generated redirect URI'}
               </span>
               <div>
                 <input
                   value={redirectUri}
-                  onChange={(event) => setRedirectUri(event.target.value)}
+                  readOnly
                   placeholder="https://…/api/v1/screen/youtube/callback"
                 />
                 <button
@@ -249,8 +249,8 @@ export function GoogleAccountSettings({ locale }: { locale: 'fr' | 'en' }) {
             </label>
             <small>
               {french
-                ? 'Elle doit correspondre exactement à celle enregistrée dans Google Cloud.'
-                : 'It must exactly match the URI registered in Google Cloud.'}
+                ? 'Elle est calculée depuis l’adresse actuelle d’Élise. Copiez-la dans Google Cloud, sans la modifier.'
+                : 'It is calculated from Élise’s current address. Copy it to Google Cloud without changing it.'}
             </small>
           </div>
 

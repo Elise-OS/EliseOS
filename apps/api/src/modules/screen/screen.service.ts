@@ -702,13 +702,15 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     const env = this.envGoogleConfig();
     return env ? { ...env, youtubeEnabled: true, calendarEnabled: true } : null;
   }
-  private defaultGoogleRedirectUri(): string | null {
+  private defaultGoogleRedirectUri(requestOrigin?: string): string | null {
     const publicUrl =
-      process.env.MICHEL_REMOTE_URL?.trim() || process.env.MICHEL_PUBLIC_URL?.trim();
+      process.env.MICHEL_REMOTE_URL?.trim() ||
+      process.env.MICHEL_PUBLIC_URL?.trim() ||
+      requestOrigin;
     if (!publicUrl) return null;
     return new URL('/api/v1/screen/youtube/callback', publicUrl).toString();
   }
-  async googleSettings(userId: string): Promise<GoogleSettingsResult> {
+  async googleSettings(userId: string, requestOrigin?: string): Promise<GoogleSettingsResult> {
     const { home } = await this.access(userId, 'administer');
     const [integration, connection] = await Promise.all([
       this.prisma.googleIntegration.findUnique({ where: { homeId: home.id } }),
@@ -718,7 +720,10 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     return {
       configured: !!integration || !!env,
       clientId: integration?.clientId ?? env?.clientId ?? '',
-      redirectUri: integration?.redirectUri ?? env?.redirectUri ?? this.defaultGoogleRedirectUri(),
+      redirectUri:
+        integration?.redirectUri ??
+        env?.redirectUri ??
+        this.defaultGoogleRedirectUri(requestOrigin),
       youtubeEnabled: integration?.youtubeEnabled ?? true,
       calendarEnabled: integration?.calendarEnabled ?? true,
       youtubeConnected: !!connection,
@@ -733,6 +738,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       youtubeEnabled: boolean;
       calendarEnabled: boolean;
     },
+    requestOrigin?: string,
   ): Promise<GoogleSettingsResult> {
     const { home } = await this.access(userId, 'administer');
     const existing = await this.prisma.googleIntegration.findUnique({ where: { homeId: home.id } });
@@ -744,7 +750,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException('Saisissez le secret client Google.');
     if (clientSecret && clientSecret.length > 500)
       throw new BadRequestException('Secret Google invalide.');
-    const redirectUri = input.redirectUri?.trim() || null;
+    const redirectUri = input.redirectUri?.trim() || this.defaultGoogleRedirectUri(requestOrigin);
     if (redirectUri) {
       try {
         const parsed = new URL(redirectUri);
@@ -775,7 +781,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
         calendarEnabled: input.calendarEnabled,
       },
     });
-    return this.googleSettings(userId);
+    return this.googleSettings(userId, requestOrigin);
   }
   async removeGoogleSettings(userId: string): Promise<GoogleSettingsResult> {
     const { home } = await this.access(userId, 'administer');
