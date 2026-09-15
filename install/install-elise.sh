@@ -137,6 +137,9 @@ install -m 0755 "$release_dir/install/elise" /usr/local/bin/elise
 install -m 0644 "$release_dir/appliance/systemd/elise-remote-access-agent.service" /etc/systemd/system/
 install -m 0755 "$release_dir/appliance/elise-tailscale-firewall.sh" /usr/lib/elise/elise-tailscale-firewall.sh
 install -m 0644 "$release_dir/appliance/systemd/elise-tailscale-firewall.service" /etc/systemd/system/
+install -m 0755 "$release_dir/appliance/elise-screen-setup.sh" /usr/lib/elise/elise-screen-setup
+install -m 0644 "$release_dir/appliance/systemd/elise-screen-setup.service" /etc/systemd/system/
+install -m 0644 "$release_dir/appliance/systemd/elise-screen-setup.timer" /etc/systemd/system/
 printf 'ELISE_AGENT_GID=%s\n' "$AGENT_GID" > "$ELISE_CONFIG/agent.env"
 
 if [[ ! -f "$ELISE_CONFIG/elise.env" ]]; then
@@ -202,6 +205,15 @@ until curl --fail --silent "http://127.0.0.1:$(sed -n 's/^MICHEL_HTTP_PORT=//p' 
 done
 
 if [[ -n "$rollback_dump" ]]; then rm -f -- "$rollback_dump"; fi
+
+if [[ "$(sed -n 's/^ELISE_SCREEN_ENABLED=//p' "$ELISE_CONFIG/elise.env" | tail -1)" == true ]]; then
+  progress "Planification de l’écran et de Jitsi"
+  systemctl enable --now elise-screen-setup.timer
+  # Do not block the core installation if private-network pairing still awaits the user.
+  systemctl start --no-block elise-screen-setup.service || true
+else
+  systemctl disable --now elise-screen-setup.timer 2>/dev/null || true
+fi
 
 progress "Élise est prête"
 echo "✓ Ouvrez http://${hostname_value:-elise}.local${local_suffix}"

@@ -68,10 +68,12 @@ export async function assignSensorToPlan(tx: Prisma.TransactionClient, assignmen
         sensorId: sensor.id,
         capability: sensor.capability,
         role:
-          previous?.capabilityBindings.find(({ sensorId }) => sensorId === sensor.id)?.role ??
-          (sensor.capability === 'button'
-            ? (input.buttonRole ?? 'ASSISTANCE')
-            : sensor.capability.toUpperCase()),
+          ['contact', 'dry_contact'].includes(sensor.capability) && input.contactRole
+            ? input.contactRole
+            : (previous?.capabilityBindings.find(({ sensorId }) => sensorId === sensor.id)?.role ??
+              (sensor.capability === 'button'
+                ? (input.buttonRole ?? 'ASSISTANCE')
+                : sensor.capability.toUpperCase())),
       })),
       ...at,
       rotation: previous?.rotation ?? 0,

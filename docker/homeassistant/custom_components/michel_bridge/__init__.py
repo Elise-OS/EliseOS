@@ -66,6 +66,9 @@ CAPABILITIES = {
     ("binary_sensor", "presence"): "person_presence",
     ("binary_sensor", "door"): "contact",
     ("binary_sensor", "opening"): "contact",
+    ("binary_sensor", "window"): "contact",
+    ("binary_sensor", "garage_door"): "contact",
+    ("camera", ""): "camera",
     ("sensor", "temperature"): "temperature",
     ("sensor", "humidity"): "humidity",
     ("sensor", "power"): "power",
@@ -87,7 +90,7 @@ CAPABILITIES = {
     ("switch", ""): "switch",
 }
 
-SENSOR_ENTITY_DOMAINS = {"binary_sensor", "event", "sensor", "switch"}
+SENSOR_ENTITY_DOMAINS = {"binary_sensor", "event", "sensor", "switch", "camera"}
 INTERNAL_HOME_ASSISTANT_INTEGRATIONS = {
     "analytics",
     "backup",

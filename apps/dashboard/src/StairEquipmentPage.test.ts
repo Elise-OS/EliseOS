@@ -1,6 +1,6 @@
 import type { HomePlan, SensorDevice } from '@michel/contracts';
 import { describe, expect, it } from 'vitest';
-import { stairCategoryDevices } from './StairEquipmentPage';
+import { otherStairConnectedDevices, stairCategoryDevices } from './StairEquipmentPage';
 
 describe('stair equipment', () => {
   it('only counts compatible devices placed directly on the selected stair', () => {
@@ -55,5 +55,22 @@ describe('stair equipment', () => {
     } as SensorDevice;
 
     expect(stairCategoryDevices(plan, 'stairs-1', [device], 'presence')).toEqual([device]);
+  });
+
+  it('keeps assigned stair devices out of the other-connected list', () => {
+    const assigned = {
+      id: 'assigned',
+      model: '3RMS16BZ',
+      capabilities: [{ sensorId: 'assigned-motion', capability: 'occupancy' }],
+    } as SensorDevice;
+    const available = {
+      id: 'available',
+      model: '3RMS16BZ',
+      capabilities: [{ sensorId: 'available-motion', capability: 'occupancy' }],
+    } as SensorDevice;
+
+    expect(otherStairConnectedDevices([assigned, available], 'motion', [assigned])).toEqual([
+      available,
+    ]);
   });
 });

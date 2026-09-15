@@ -1,4 +1,5 @@
 const LABELS: Record<string, string> = {
+  camera: 'Caméra',
   motion: 'Mouvement',
   occupancy: 'Présence',
   person_presence: 'Présence humaine',

@@ -2,6 +2,7 @@ import { ProductPhoto, SensorProductCard } from './SensorProductCard';
 import { useEffect, useRef, useState } from 'react';
 import {
   Activity,
+  Camera,
   ArrowLeft,
   ArrowRight,
   Bell,
@@ -27,6 +28,9 @@ import {
   Wind,
 } from 'lucide-react';
 import {
+  CONTACT_TYPES,
+  contactRoleSchema,
+  type ContactRole,
   ROOM_SENSOR_CATEGORIES,
   deviceSupportsCategory,
   visibleRoomCategories,
@@ -59,9 +63,10 @@ const categoryIcons = {
   carbon_monoxide: Wind,
   air_quality: Wind,
   illuminance: Sun,
+  camera: Camera,
 };
 
-function DevicePhoto({ device }: { device: SensorUiDevice }) {
+export function DevicePhoto({ device }: { device: SensorUiDevice }) {
   const [failed, setFailed] = useState(false);
   const photo = sensorDevicePhoto(device);
   return (
@@ -98,17 +103,44 @@ export function roomCategoryDevices(
   const placements = plan.placements.filter(
     (placement) => placement.roomId === roomId && placement.kind === 'SENSOR',
   );
-  return devices.filter(
-    (device) =>
-      deviceSupportsCategory(device, category) &&
-      (device.room?.id === roomId ||
-        (!device.room &&
-          placements.some((placement) =>
-            placement.equipmentRefKind === 'DEVICE'
-              ? placement.equipmentId === device.id
-              : device.capabilities.some(({ sensorId }) => sensorId === placement.equipmentId),
-          ))),
+  const stairPlacements = plan.placements.filter(
+    (placement) => placement.kind === 'SENSOR' && placement.targetType === 'STAIR',
   );
+  const mainEntrancePlacements = plan.placements.filter(
+    (placement) =>
+      placement.kind === 'SENSOR' &&
+      (placement.capabilityBindings ?? []).some(({ role }) => role === 'MAIN_ENTRANCE'),
+  );
+  return devices.filter((device) => {
+    const matches = (placement: HomePlan['placements'][number]) =>
+      placement.equipmentRefKind === 'DEVICE'
+        ? placement.equipmentId === device.id
+        : device.capabilities.some(({ sensorId }) => sensorId === placement.equipmentId);
+    // A stair uses one adjacent room as a technical anchor in the persisted plan.
+    // Its device must nevertheless belong exclusively to the stair in the UI.
+    if (stairPlacements.some(matches)) return false;
+    // The main entrance has its own card and must not be duplicated in "Opening".
+    if (category === 'contact' && mainEntrancePlacements.some(matches)) return false;
+    return (
+      deviceSupportsCategory(device, category) &&
+      (device.room?.id === roomId || (!device.room && placements.some(matches)))
+    );
+  });
+}
+
+export function deviceContactType(plan: HomePlan, device: SensorUiDevice): ContactRole | undefined {
+  const placement = plan.placements.find(
+    (p) =>
+      p.kind === 'SENSOR' &&
+      (p.equipmentRefKind === 'DEVICE'
+        ? p.equipmentId === device.id
+        : device.capabilities.some(({ sensorId }) => sensorId === p.equipmentId)),
+  );
+  const role = placement?.capabilityBindings.find(({ capability }) =>
+    ['contact', 'dry_contact'].includes(capability),
+  )?.role;
+  const parsed = contactRoleSchema.safeParse(role);
+  return parsed.success ? parsed.data : undefined;
 }
 
 export function otherConnectedDevices(
@@ -127,7 +159,6 @@ export function mainEntranceDevices(plan: HomePlan, roomId: string, devices: Sen
   const opening = plan.levels
     .flatMap(({ openings }) => openings)
     .find(({ isMainEntrance, roomIds }) => isMainEntrance && roomIds.includes(roomId));
-  if (!opening) return [];
   return devices.filter(
     (device) =>
       deviceSupportsCategory(device, 'contact') &&
@@ -135,8 +166,8 @@ export function mainEntranceDevices(plan: HomePlan, roomId: string, devices: Sen
         (placement) =>
           placement.kind === 'SENSOR' &&
           placement.roomId === roomId &&
-          placement.targetType === 'OPENING' &&
-          placement.targetId === opening.id &&
+          ((opening && placement.targetType === 'OPENING' && placement.targetId === opening.id) ||
+            (placement.capabilityBindings ?? []).some(({ role }) => role === 'MAIN_ENTRANCE')) &&
           (placement.equipmentRefKind === 'DEVICE'
             ? placement.equipmentId === device.id
             : device.capabilities.some(({ sensorId }) => sensorId === placement.equipmentId)),
@@ -245,6 +276,7 @@ export function roomSensorReading(
     else if (typeof value?.action === 'string')
       reading = fr ? 'Dernier appui reçu' : 'Last press received';
   }
+  if (category === 'camera') reading = status ?? (fr ? 'Connectée' : 'Connected');
   if (category === 'air_quality' && capability && reading !== '—')
     reading = `${capability.label} · ${reading}`;
   return {
@@ -296,7 +328,6 @@ export function RoomEquipmentPage({
   devices,
   locale,
   onBack,
-  onEditPlan,
   onRefresh,
   onPlanSaved,
 }: {
@@ -305,7 +336,7 @@ export function RoomEquipmentPage({
   devices: SensorUiDevice[];
   locale: Locale;
   onBack: () => void;
-  onEditPlan: () => void;
+  onEditPlan?: () => void;
   onRefresh: () => Promise<void>;
   onPlanSaved: (plan: HomePlan) => void;
 }) {
@@ -313,7 +344,6 @@ export function RoomEquipmentPage({
   const floor = plan.levels.find(({ rooms }) => rooms.some(({ id }) => id === roomId));
   const room = floor?.rooms.find(({ id }) => id === roomId);
   const [category, setCategory] = useState<RoomSensorCategory | null>(null);
-  const [mainEntranceOpen, setMainEntranceOpen] = useState(false);
   const [tab, setTab] = useState<'PRODUCTS' | 'CONNECTED'>('PRODUCTS');
   const [more, setMore] = useState(false);
   const [product, setProduct] = useState<SensorProduct | null>(null);
@@ -322,7 +352,10 @@ export function RoomEquipmentPage({
     RoomSensorCategory | undefined
   >();
   const [installationProduct, setInstallationProduct] = useState<SensorProduct | undefined>();
-  const [installationTargetId, setInstallationTargetId] = useState<string | undefined>();
+  const [installationContactRole, setInstallationContactRole] = useState<ContactRole | undefined>();
+  const [openingType, setOpeningType] = useState<ContactRole | ''>('');
+  const [contactFilter, setContactFilter] = useState<ContactRole | undefined>();
+  const [editingMainEntrance, setEditingMainEntrance] = useState(false);
   const [guideId, setGuideId] = useState<string | null>(null);
   const [assigning, setAssigning] = useState<SensorUiDevice | null>(null);
   const [confirmRemoval, setConfirmRemoval] = useState(false);
@@ -366,19 +399,29 @@ export function RoomEquipmentPage({
     ({ id }) => id,
   );
   const visible = visibleRoomCategories(room.kind, room.sensorPreferences, equipped);
-  const mainEntrance = floor.openings.find(
-    ({ isMainEntrance, roomIds }) => isMainEntrance && roomIds.includes(roomId),
-  );
   const entranceDevices = mainEntranceDevices(plan, roomId, devices);
-  const availableEntranceDevices = devices.filter((device) =>
-    deviceSupportsCategory(device, 'contact'),
-  );
   const selected = ROOM_SENSOR_CATEGORIES.find(({ id }) => id === category);
-  const selectedDevices = category ? categoryDevices(category) : [];
-  const availableConnected = category
-    ? otherConnectedDevices(devices, category, roomId, selectedDevices)
+  const selectedDevices = category
+    ? editingMainEntrance
+      ? entranceDevices
+      : categoryDevices(category).filter(
+          (device) =>
+            category !== 'contact' ||
+            !contactFilter ||
+            deviceContactType(plan, device) === contactFilter,
+        )
     : [];
-  const count = new Set(equipped.flatMap((id) => categoryDevices(id).map(({ id }) => id))).size;
+  const availableConnected = category
+    ? editingMainEntrance
+      ? connectedDevicesForCategory(devices, category).filter(
+          (device) => !selectedDevices.some(({ id }) => id === device.id),
+        )
+      : otherConnectedDevices(devices, category, roomId, selectedDevices)
+    : [];
+  const count = new Set([
+    ...equipped.flatMap((id) => categoryDevices(id).map(({ id }) => id)),
+    ...entranceDevices.map(({ id }) => id),
+  ]).size;
   const outdoor = ['GARDEN', 'TERRACE'].includes(room.kind);
   const products = category ? productsForCategory(category, outdoor) : [];
   const shownGuide = devices.find(({ id }) => id === guideId);
@@ -413,9 +456,21 @@ export function RoomEquipmentPage({
       onPlanSaved(saved);
       setMore(false);
     });
-  const openCategory = (id: RoomSensorCategory) => {
-    setMainEntranceOpen(false);
+  const openCategory = (id: RoomSensorCategory, type?: ContactRole) => {
+    setContactFilter(type);
+    setOpeningType(type ?? '');
+    setEditingMainEntrance(false);
     setCategory(id);
+    setProduct(null);
+    setAssigning(null);
+    setTab('PRODUCTS');
+    setError('');
+  };
+  const openMainEntrance = () => {
+    setOpeningType('MAIN_ENTRANCE');
+    setContactFilter(undefined);
+    setEditingMainEntrance(true);
+    setCategory('contact');
     setProduct(null);
     setAssigning(null);
     setTab('PRODUCTS');
@@ -426,34 +481,18 @@ export function RoomEquipmentPage({
       await onRefresh();
       setInstallationCategory(category ?? undefined);
       setInstallationProduct(chosen);
-      setInstallationTargetId(undefined);
+      setInstallationContactRole(category === 'contact' ? openingType || undefined : undefined);
       setCategory(null);
       setProduct(null);
+      setEditingMainEntrance(false);
       setInstalling(true);
-    });
-  const installEntranceSensor = () =>
-    run(async () => {
-      await onRefresh();
-      setInstallationCategory('contact');
-      setInstallationProduct(undefined);
-      setInstallationTargetId(mainEntrance?.id);
-      setMainEntranceOpen(false);
-      setInstalling(true);
-    });
-  const bindEntranceSensor = (device: SensorUiDevice) =>
-    run(async () => {
-      if (!mainEntrance) return;
-      await sensorRequest(
-        `/api/v1/sensor-devices/${encodeURIComponent(device.id)}`,
-        sensorJson('PATCH', {
-          roomId,
-          target: { type: 'OPENING', id: mainEntrance.id },
-        }),
-      );
-      await onRefresh();
-      setMainEntranceOpen(false);
     });
   const editDevice = (device: SensorUiDevice) => {
+    if (category === 'contact')
+      setOpeningType(
+        deviceContactType(plan, device) ??
+          (editingMainEntrance ? 'MAIN_ENTRANCE' : openingType || contactFilter || ''),
+      );
     setAssigning(device);
     setConfirmRemoval(false);
     setName(device.name);
@@ -474,11 +513,27 @@ export function RoomEquipmentPage({
           name: name.trim(),
           placementNote: note.trim() || null,
           buttonRole: 'ASSISTANCE',
+          ...(category === 'contact'
+            ? {
+                contactRole: openingType || undefined,
+                ...(deviceContactType(plan, assigning) === 'MAIN_ENTRANCE' &&
+                openingType !== 'MAIN_ENTRANCE'
+                  ? { target: { type: 'ROOM', id: roomId } }
+                  : {}),
+              }
+            : {}),
+          ...(editingMainEntrance
+            ? {
+                target: { type: 'ROOM', id: roomId },
+                contactRole: openingType || undefined,
+              }
+            : {}),
         }),
       );
       const id = assigning.id;
       setAssigning(null);
       setCategory(null);
+      setEditingMainEntrance(false);
       setGuideId(id);
       await onRefresh();
     });
@@ -586,11 +641,11 @@ export function RoomEquipmentPage({
         </div>
       )}
       <div className="room-equipment-grid">
-        {room.kind === 'ENTRANCE' && (
+        {(room.kind === 'ENTRANCE' || entranceDevices.length > 0) && (
           <article
             className={`room-sensor-card category-main-entrance ${entranceDevices.length ? 'is-configured' : ''}`}
           >
-            <button className="room-sensor-card-main" onClick={() => setMainEntranceOpen(true)}>
+            <button className="room-sensor-card-main" onClick={openMainEntrance}>
               <span className="room-sensor-card-top">
                 <span className="room-sensor-icon">
                   <DoorOpen />
@@ -652,15 +707,7 @@ export function RoomEquipmentPage({
                 ) : (
                   <>
                     <span className="room-sensor-empty-line">—</span>
-                    <small>
-                      {mainEntrance
-                        ? fr
-                          ? 'Aucun capteur associé'
-                          : 'No sensor assigned'
-                        : fr
-                          ? 'Porte principale à définir sur le plan'
-                          : 'Define the main door on the floor plan'}
-                    </small>
+                    <small>{fr ? 'Aucun capteur associé' : 'No sensor assigned'}</small>
                   </>
                 )}
               </div>
@@ -670,116 +717,146 @@ export function RoomEquipmentPage({
                     ? fr
                       ? 'Gérer la porte principale'
                       : 'Manage main door'
-                    : mainEntrance
-                      ? fr
-                        ? 'Associer un capteur'
-                        : 'Assign a sensor'
-                      : fr
-                        ? 'Définir la porte'
-                        : 'Define the door'}
+                    : fr
+                      ? 'Associer un capteur'
+                      : 'Assign a sensor'}
                 </span>
                 {entranceDevices.length ? <ArrowRight /> : <Plus />}
               </span>
             </button>
           </article>
         )}
-        {visible.map((id) => {
-          const definition = ROOM_SENSOR_CATEGORIES.find((c) => c.id === id)!;
-          const items = categoryDevices(id);
-          const Icon = categoryIcons[id];
-          const reading = items.length === 1 ? roomSensorReading(items[0]!, id, fr, now) : null;
-          const problems = items.filter(
-            (device) => roomSensorReading(device, id, fr, now).status,
-          ).length;
-          return (
-            <article
-              key={id}
-              className={`room-sensor-card category-${id} ${items.length ? 'is-configured' : ''}`}
-            >
-              <button className="room-sensor-card-main" onClick={() => openCategory(id)}>
-                <span className="room-sensor-card-top">
-                  <span className="room-sensor-icon">
-                    <Icon />
-                  </span>
-                  <span className={`room-sensor-status ${items.length ? 'is-configured' : ''}`}>
-                    {items.length ? <CheckCircle2 /> : <span className="room-sensor-status-dot" />}
-                    {items.length
-                      ? fr
-                        ? 'Configuré'
-                        : 'Configured'
-                      : fr
-                        ? 'Non configuré'
-                        : 'Not configured'}
-                  </span>
-                </span>
-                <h3>{definition[fr ? 'label' : 'labelEn']}</h3>
-                <p>{definition[fr ? 'description' : 'descriptionEn']}</p>
-                <div className="room-sensor-card-value">
-                  {reading ? (
-                    <>
-                      <strong className={reading.outdated ? 'is-outdated' : ''}>
-                        {reading.reading}
-                      </strong>
-                      {reading.detail && (
-                        <small className="room-sensor-reading-detail">{reading.detail}</small>
+        {visible
+          .flatMap<{ id: RoomSensorCategory; type: ContactRole | undefined }>((id) => {
+            if (id !== 'contact') return [{ id, type: undefined as ContactRole | undefined }];
+            const types = CONTACT_TYPES.filter(
+              ({ id: type }) =>
+                type !== 'MAIN_ENTRANCE' &&
+                categoryDevices('contact').some(
+                  (device) => deviceContactType(plan, device) === type,
+                ),
+            );
+            return [
+              { id, type: undefined as ContactRole | undefined },
+              ...types.map(({ id: type }) => ({ id, type })),
+            ];
+          })
+          .map(({ id, type }) => {
+            const definition = ROOM_SENSOR_CATEGORIES.find((c) => c.id === id)!;
+            const items = categoryDevices(id).filter(
+              (device) =>
+                id !== 'contact' ||
+                (type
+                  ? deviceContactType(plan, device) === type
+                  : !deviceContactType(plan, device)),
+            );
+            const Icon = categoryIcons[id];
+            const reading = items.length === 1 ? roomSensorReading(items[0]!, id, fr, now) : null;
+            const problems = items.filter(
+              (device) => roomSensorReading(device, id, fr, now).status,
+            ).length;
+            return (
+              <article
+                key={`${id}-${type ?? 'general'}`}
+                className={`room-sensor-card category-${id} ${items.length ? 'is-configured' : ''}`}
+              >
+                <button className="room-sensor-card-main" onClick={() => openCategory(id, type)}>
+                  <span className="room-sensor-card-top">
+                    <span className="room-sensor-icon">
+                      <Icon />
+                    </span>
+                    <span className={`room-sensor-status ${items.length ? 'is-configured' : ''}`}>
+                      {items.length ? (
+                        <CheckCircle2 />
+                      ) : (
+                        <span className="room-sensor-status-dot" />
                       )}
-                      {reading.status && <small>{reading.status}</small>}
-                      <small>{lastReadingLabel(reading.lastSeenAt, fr, now, id)}</small>
-                      {items[0]!.batteryPercent !== null && (
-                        <small className="room-sensor-battery">
-                          <BatteryMedium />
-                          {fr ? 'Batterie' : 'Battery'} {items[0]!.batteryPercent} %
+                      {items.length
+                        ? fr
+                          ? 'Configuré'
+                          : 'Configured'
+                        : fr
+                          ? 'Non configuré'
+                          : 'Not configured'}
+                    </span>
+                  </span>
+                  <h3>
+                    {definition[fr ? 'label' : 'labelEn']}
+                    {type
+                      ? ` · ${CONTACT_TYPES.find((item) => item.id === type)?.[fr ? 'label' : 'labelEn']}`
+                      : ''}
+                  </h3>
+                  <p>
+                    {items.length === 1
+                      ? items[0]!.name
+                      : definition[fr ? 'description' : 'descriptionEn']}
+                  </p>
+                  <div className="room-sensor-card-value">
+                    {reading ? (
+                      <>
+                        <strong className={reading.outdated ? 'is-outdated' : ''}>
+                          {reading.reading}
+                        </strong>
+                        {reading.detail && (
+                          <small className="room-sensor-reading-detail">{reading.detail}</small>
+                        )}
+                        {reading.status && <small>{reading.status}</small>}
+                        <small>{lastReadingLabel(reading.lastSeenAt, fr, now, id)}</small>
+                        {items[0]!.batteryPercent !== null && (
+                          <small className="room-sensor-battery">
+                            <BatteryMedium />
+                            {fr ? 'Batterie' : 'Battery'} {items[0]!.batteryPercent} %
+                          </small>
+                        )}
+                      </>
+                    ) : items.length > 1 ? (
+                      <>
+                        <strong>
+                          {items.length} <span>{fr ? 'capteurs' : 'sensors'}</span>
+                        </strong>
+                        <small>
+                          {problems
+                            ? fr
+                              ? `${problems} à vérifier`
+                              : `${problems} to check`
+                            : fr
+                              ? 'Voir les mesures'
+                              : 'View readings'}
                         </small>
-                      )}
-                    </>
-                  ) : items.length > 1 ? (
-                    <>
-                      <strong>
-                        {items.length} <span>{fr ? 'capteurs' : 'sensors'}</span>
-                      </strong>
-                      <small>
-                        {problems
-                          ? fr
-                            ? `${problems} à vérifier`
-                            : `${problems} to check`
-                          : fr
-                            ? 'Voir les mesures'
-                            : 'View readings'}
-                      </small>
-                    </>
-                  ) : (
-                    <>
-                      <span className="room-sensor-empty-line">—</span>
-                      <small>{fr ? 'Aucun capteur associé' : 'No sensor assigned'}</small>
-                    </>
-                  )}
-                </div>
-                <span className="room-sensor-card-footer">
-                  <span>
-                    {items.length
-                      ? fr
-                        ? `${items.length} appareil${items.length > 1 ? 's' : ''} · Gérer`
-                        : `${items.length} device${items.length > 1 ? 's' : ''} · Manage`
-                      : fr
-                        ? 'Ajouter un capteur'
-                        : 'Add a sensor'}
+                      </>
+                    ) : (
+                      <>
+                        <span className="room-sensor-empty-line">—</span>
+                        <small>{fr ? 'Aucun capteur associé' : 'No sensor assigned'}</small>
+                      </>
+                    )}
+                  </div>
+                  <span className="room-sensor-card-footer">
+                    <span>
+                      {items.length
+                        ? fr
+                          ? `${items.length} appareil${items.length > 1 ? 's' : ''} · Gérer`
+                          : `${items.length} device${items.length > 1 ? 's' : ''} · Manage`
+                        : fr
+                          ? 'Ajouter un capteur'
+                          : 'Add a sensor'}
+                    </span>
+                    {items.length ? <ArrowRight /> : <Plus />}
                   </span>
-                  {items.length ? <ArrowRight /> : <Plus />}
-                </span>
-              </button>
-              {!items.length && (
-                <button
-                  className="room-sensor-hide"
-                  disabled={busy}
-                  onClick={() => void preference(id, true)}
-                  aria-label={`${fr ? 'Masquer' : 'Hide'} ${definition[fr ? 'label' : 'labelEn']}`}
-                >
-                  <EyeOff />
                 </button>
-              )}
-            </article>
-          );
-        })}
+                {!items.length && (
+                  <button
+                    className="room-sensor-hide"
+                    disabled={busy}
+                    onClick={() => void preference(id, true)}
+                    aria-label={`${fr ? 'Masquer' : 'Hide'} ${definition[fr ? 'label' : 'labelEn']}`}
+                  >
+                    <EyeOff />
+                  </button>
+                )}
+              </article>
+            );
+          })}
       </div>
       {!visible.length && (
         <p className="equipment-note">
@@ -792,107 +869,6 @@ export function RoomEquipmentPage({
           ? 'Un même appareil peut remplir plusieurs fonctions dans la pièce.'
           : 'One device can provide several functions in the room.'}
       </p>
-
-      {mainEntranceOpen && (
-        <EquipmentDialog
-          title={fr ? `Ouverture principale · ${room.name}` : `Main entrance · ${room.name}`}
-          onClose={() => setMainEntranceOpen(false)}
-          busy={busy}
-        >
-          <div className="equipment-category-content">
-            <p className="equipment-note">
-              {fr
-                ? 'Le capteur de cette porte aide à repérer un passage vers l’extérieur. Une ouverture seule ne confirme pas que la personne est sortie.'
-                : 'This door sensor helps detect a passage outside. An opening alone does not confirm that the person has left.'}
-            </p>
-            {!mainEntrance ? (
-              <>
-                <p>
-                  {fr
-                    ? 'Définissez d’abord la porte principale sur le plan du logement.'
-                    : 'First define the main door on the home floor plan.'}
-                </p>
-                <button
-                  className="equipment-primary"
-                  onClick={() => {
-                    setMainEntranceOpen(false);
-                    onEditPlan();
-                  }}
-                >
-                  <DoorOpen /> {fr ? 'Ouvrir le plan' : 'Open floor plan'}
-                </button>
-              </>
-            ) : (
-              <>
-                {!!entranceDevices.length && (
-                  <section className="equipment-assigned">
-                    <h3>{fr ? 'Capteur associé' : 'Assigned sensor'}</h3>
-                    {entranceDevices.map((device) => (
-                      <article className="equipment-device-row" key={device.id}>
-                        <DevicePhoto device={device} />
-                        <div>
-                          <strong>{device.name}</strong>
-                          <p>{roomSensorReading(device, 'contact', fr, now).reading}</p>
-                        </div>
-                        <div className="equipment-device-actions">
-                          <button
-                            onClick={() => {
-                              setMainEntranceOpen(false);
-                              setCategory('contact');
-                              editDevice(device);
-                            }}
-                          >
-                            {fr ? 'Gérer' : 'Manage'}
-                          </button>
-                        </div>
-                      </article>
-                    ))}
-                  </section>
-                )}
-                <h3>{fr ? 'Associer un capteur d’ouverture' : 'Assign an opening sensor'}</h3>
-                {availableEntranceDevices
-                  .filter((device) => !entranceDevices.some(({ id }) => id === device.id))
-                  .map((device) => (
-                    <button
-                      className="equipment-connected-choice"
-                      key={device.id}
-                      disabled={busy}
-                      onClick={() => void bindEntranceSensor(device)}
-                    >
-                      <Radio />
-                      <span>
-                        <strong>{device.name}</strong>
-                        <small>{device.room?.name ?? (fr ? 'Sans pièce' : 'Unassigned')}</small>
-                      </span>
-                      <Plus />
-                    </button>
-                  ))}
-                <button
-                  className="equipment-connected-choice"
-                  disabled={busy}
-                  onClick={() => void installEntranceSensor()}
-                >
-                  <Plus />
-                  <span>
-                    <strong>{fr ? 'Installer un nouveau capteur' : 'Install a new sensor'}</strong>
-                    <small>
-                      {fr
-                        ? 'Capteur de contact pour la porte principale'
-                        : 'Contact sensor for the main door'}
-                    </small>
-                  </span>
-                  <ArrowRight />
-                </button>
-                {error && (
-                  <p className="equipment-error" role="alert">
-                    {error}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-        </EquipmentDialog>
-      )}
 
       {more && (
         <EquipmentDialog
@@ -933,17 +909,36 @@ export function RoomEquipmentPage({
 
       {selected && (
         <EquipmentDialog
-          title={`${selected[fr ? 'label' : 'labelEn']} · ${room.name}`}
+          title={`${editingMainEntrance ? (fr ? 'Porte principale' : 'Main entrance') : selected[fr ? 'label' : 'labelEn']} · ${room.name}`}
           wide
           onClose={() => {
             setCategory(null);
             setAssigning(null);
             setConfirmRemoval(false);
+            setEditingMainEntrance(false);
             setError('');
           }}
           busy={busy}
         >
           <div className="equipment-category-content">
+            {category === 'contact' && (
+              <label className="equipment-field">
+                {fr ? 'À quoi correspond cette ouverture ?' : 'What does this opening monitor?'}
+                <select
+                  value={openingType}
+                  onChange={(e) => setOpeningType(e.target.value as ContactRole)}
+                >
+                  <option value="">
+                    {fr ? 'Choisir un type d’ouverture' : 'Choose an opening type'}
+                  </option>
+                  {CONTACT_TYPES.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type[fr ? 'label' : 'labelEn']}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {assigning ? (
               <>
                 <button
@@ -980,17 +975,21 @@ export function RoomEquipmentPage({
                 <footer className="equipment-dialog-footer">
                   <button
                     className="equipment-primary"
-                    disabled={busy || !name.trim()}
+                    disabled={busy || !name.trim() || (category === 'contact' && !openingType)}
                     onClick={() => void associate()}
                   >
                     <Check />
-                    {assigning.room?.id === roomId
+                    {editingMainEntrance
                       ? fr
-                        ? 'Enregistrer'
-                        : 'Save'
-                      : fr
-                        ? `Associer à ${room.name}`
-                        : `Assign to ${room.name}`}
+                        ? 'Définir comme porte principale'
+                        : 'Set as main entrance'
+                      : assigning.room?.id === roomId
+                        ? fr
+                          ? 'Enregistrer'
+                          : 'Save'
+                        : fr
+                          ? `Associer à ${room.name}`
+                          : `Assign to ${room.name}`}
                   </button>
                 </footer>
                 {assigning.protocol === 'zigbee' && (
@@ -1123,7 +1122,11 @@ export function RoomEquipmentPage({
                 <footer className="equipment-dialog-footer">
                   <button
                     className="equipment-primary"
-                    disabled={busy || product.compatibility !== 'DOCUMENTED'}
+                    disabled={
+                      busy ||
+                      (category === 'contact' && !openingType) ||
+                      product.compatibility !== 'DOCUMENTED'
+                    }
                     onClick={() => void startInstall(product)}
                   >
                     {fr ? 'Installer ce capteur' : 'Install this sensor'}
@@ -1135,7 +1138,15 @@ export function RoomEquipmentPage({
               <>
                 {!!selectedDevices.length && (
                   <section className="equipment-assigned">
-                    <h3>{fr ? 'Dans cette pièce' : 'In this room'}</h3>
+                    <h3>
+                      {editingMainEntrance
+                        ? fr
+                          ? 'Porte principale'
+                          : 'Main entrance'
+                        : fr
+                          ? 'Dans cette pièce'
+                          : 'In this room'}
+                    </h3>
                     {selectedDevices.map((device) => {
                       const reading = roomSensorReading(device, category!, fr, now);
                       return (
@@ -1241,13 +1252,17 @@ export function RoomEquipmentPage({
                     </div>
                     {!products.length && (
                       <p className="equipment-note">
-                        {outdoor
+                        {category === 'camera'
                           ? fr
-                            ? 'Aucun modèle pour l’extérieur n’est disponible dans le matériel de test actuel.'
-                            : 'No outdoor model is available in the current test hardware.'
-                          : fr
-                            ? 'Aucun modèle de votre matériel de test ne fournit cette fonction. Vous pouvez tout de même associer un appareil déjà reconnu ou lancer la détection automatique.'
-                            : 'None of your current test devices provides this function. You can still assign an already recognized device or use automatic detection.'}
+                            ? 'Aucun produit caméra documenté pour l’instant. Vous pouvez ajouter une caméra Zigbee par détection automatique ou associer une caméra déjà reconnue.'
+                            : 'No documented camera products yet. Add a Zigbee camera with automatic detection or assign a recognized camera.'
+                          : outdoor
+                            ? fr
+                              ? 'Aucun modèle pour l’extérieur n’est disponible dans le matériel de test actuel.'
+                              : 'No outdoor model is available in the current test hardware.'
+                            : fr
+                              ? 'Aucun modèle de votre matériel de test ne fournit cette fonction. Vous pouvez tout de même associer un appareil déjà reconnu ou lancer la détection automatique.'
+                              : 'None of your current test devices provides this function. You can still assign an already recognized device or use automatic detection.'}
                       </p>
                     )}
                   </div>
@@ -1305,7 +1320,7 @@ export function RoomEquipmentPage({
                 )}
                 <button
                   className="equipment-unlisted"
-                  disabled={busy}
+                  disabled={busy || (category === 'contact' && !openingType)}
                   onClick={() => void startInstall()}
                 >
                   <Radio />
@@ -1350,9 +1365,7 @@ export function RoomEquipmentPage({
         locale={locale}
         rooms={rooms}
         initialRoomId={roomId}
-        initialTarget={
-          installationTargetId ? { type: 'OPENING', id: installationTargetId } : undefined
-        }
+        contactRole={installationContactRole}
         category={installationCategory}
         product={installationProduct}
         onClose={() => setInstalling(false)}

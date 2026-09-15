@@ -22,7 +22,17 @@ Chaque version publie l’image flashable, ses sommes et signatures, le catalogu
 
 Any sensor made available to Home Assistant can appear in Élise. Recognized device classes work automatically; unknown entities remain visible to administrators and can be assigned a safe, bounded capability mapping without adding model-specific code. Camera person events use the same universal mapping. Live video requires a local RTSP stream, while two-way audio remains a model-level validated capability.
 
-## Quick start
+## Installation complète
+
+Sur Ubuntu Server 24.04, une seule commande installe Docker et tous les composants Élise, y compris l’affichage TV, Chromium, Jitsi et les permissions caméra/micro :
+
+```bash
+curl -fsSL https://github.com/Elise-OS/EliseOS/releases/latest/download/install-elise.sh | sudo bash
+```
+
+Depuis une copie locale du dépôt, utilisez `bash scripts/install-complete.sh`. L’image Raspberry Pi 4/5 lance ce même parcours au premier démarrage. Si Tailscale attend encore son association, le paquet TV se termine automatiquement dès que celle-ci est effectuée.
+
+## Démarrage pour le développement
 
 Requirements: Docker Engine 23+ with Docker Compose. The full contributor toolchain uses Node.js 22–24, pnpm 11 and Python 3.12.
 

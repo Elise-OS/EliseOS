@@ -1,20 +1,34 @@
-import type { HomePlan, RoomSensorCategory, SensorDevice } from '@michel/contracts';
+import type { HomePlan, RoomSensorCategory, SensorDevice, SensorProduct } from '@michel/contracts';
 import { deviceSupportsCategory, ROOM_SENSOR_CATEGORIES } from '@michel/contracts';
 import {
   Activity,
   ArrowLeft,
   ArrowRight,
+  BatteryMedium,
+  Check,
   ChartNoAxesCombined as Stairs,
   CheckCircle2,
   ChevronRight,
   Plus,
   Radio,
+  Trash2,
   UserRound,
 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
+import { EquipmentDialog } from './EquipmentDialog';
 import { HomeSensorOnboardingDialog } from './HomeSensorOnboardingDialog';
 import type { Locale } from './i18n';
-import { lastReadingLabel, roomSensorReading } from './RoomEquipmentPage';
+import { DevicePhoto, lastReadingLabel, roomSensorReading } from './RoomEquipmentPage';
+import { ProductPhoto, SensorProductCard } from './SensorProductCard';
+import { SensorInstallationGuide } from './SensorInstallationGuide';
+import { SensorOnboardingDialog } from './SensorOnboardingDialog';
+import { productsForCategory } from './sensor-products';
+import {
+  connectedDevicesForCategory,
+  sensorJson,
+  sensorRequest,
+  type SensorUiDevice,
+} from './sensor-ui';
 
 type StairSensorCategory = 'motion' | 'presence';
 
@@ -47,6 +61,15 @@ export function stairCategoryDevices(
   );
 }
 
+export function otherStairConnectedDevices(
+  devices: SensorUiDevice[],
+  category: RoomSensorCategory,
+  assignedDevices: SensorUiDevice[],
+) {
+  const assignedIds = new Set(assignedDevices.map(({ id }) => id));
+  return connectedDevicesForCategory(devices, category).filter(({ id }) => !assignedIds.has(id));
+}
+
 export function StairEquipmentPage({
   stairId,
   plan,
@@ -66,6 +89,18 @@ export function StairEquipmentPage({
   const stair = plan.levels.flatMap(({ stairs }) => stairs).find(({ id }) => id === stairId);
   const [category, setCategory] = useState<RoomSensorCategory | undefined>();
   const [flowOpen, setFlowOpen] = useState(false);
+  const [tab, setTab] = useState<'PRODUCTS' | 'CONNECTED'>('PRODUCTS');
+  const [product, setProduct] = useState<SensorProduct | null>(null);
+  const [assigning, setAssigning] = useState<SensorUiDevice | null>(null);
+  const [installing, setInstalling] = useState(false);
+  const [installationCategory, setInstallationCategory] = useState<RoomSensorCategory>();
+  const [installationProduct, setInstallationProduct] = useState<SensorProduct | undefined>();
+  const [guideId, setGuideId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [note, setNote] = useState('');
+  const [confirmRemoval, setConfirmRemoval] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   const now = useRef(Date.now()).current;
   const context = useMemo(() => {
     if (!stair) return null;
@@ -94,9 +129,97 @@ export function StairEquipmentPage({
     STAIR_SENSOR_CATEGORIES.flatMap((id) => devicesByCategory(id).map(({ id: key }) => key)),
   ).size;
   const openCategory = (id?: RoomSensorCategory) => {
+    if (!id) {
+      setCategory(undefined);
+      setFlowOpen(true);
+      return;
+    }
     setCategory(id);
-    setFlowOpen(true);
+    setTab('PRODUCTS');
+    setProduct(null);
+    setAssigning(null);
+    setConfirmRemoval(false);
+    setError('');
   };
+  const selected = ROOM_SENSOR_CATEGORIES.find(({ id }) => id === category);
+  const selectedDevices = category ? devicesByCategory(category) : [];
+  const availableConnected = category
+    ? otherStairConnectedDevices(devices, category, selectedDevices)
+    : [];
+  const products = category ? productsForCategory(category, false) : [];
+  const shownGuide = devices.find(({ id }) => id === guideId);
+  const rooms = plan.levels.flatMap((level) =>
+    level.rooms.map((room) => ({
+      id: room.id,
+      name: room.name,
+      kind: room.kind,
+      floor: level.floor,
+    })),
+  );
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true);
+    setError('');
+    try {
+      await action();
+    } catch (caught) {
+      setError((caught as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const editDevice = (device: SensorUiDevice) => {
+    setAssigning(device);
+    setConfirmRemoval(false);
+    setName(device.name);
+    const placement = plan.placements.find(
+      (item) =>
+        item.kind === 'SENSOR' &&
+        item.targetType === 'STAIR' &&
+        item.targetId === stair.id &&
+        (item.equipmentId === device.id ||
+          device.capabilities.some(({ sensorId }) => sensorId === item.equipmentId)),
+    );
+    setNote(device.placementNote ?? placement?.placementNote ?? '');
+  };
+  const associate = () =>
+    run(async () => {
+      if (!assigning) return;
+      await sensorRequest(
+        `/api/v1/sensor-devices/${encodeURIComponent(assigning.id)}`,
+        sensorJson('PATCH', {
+          roomId: stair.fromRoomId,
+          name: name.trim(),
+          placementNote: note.trim() || null,
+          target: { type: 'STAIR', id: stair.id },
+          buttonRole: 'ASSISTANCE',
+        }),
+      );
+      const id = assigning.id;
+      setAssigning(null);
+      setCategory(undefined);
+      setGuideId(id);
+      await onRefresh();
+    });
+  const startInstall = (chosen?: SensorProduct) =>
+    run(async () => {
+      await onRefresh();
+      setInstallationCategory(category);
+      setInstallationProduct(chosen);
+      setProduct(null);
+      setCategory(undefined);
+      setInstalling(true);
+    });
+  const removeDevice = () =>
+    run(async () => {
+      if (!assigning || assigning.protocol !== 'zigbee') return;
+      await sensorRequest(`/api/v1/sensor-devices/${encodeURIComponent(assigning.id)}`, {
+        method: 'DELETE',
+      });
+      setConfirmRemoval(false);
+      setAssigning(null);
+      setCategory(undefined);
+      await onRefresh();
+    });
 
   return (
     <section className="room-equipment-page stair-equipment-page">
@@ -225,6 +348,314 @@ export function StairEquipmentPage({
           ? 'Ces capteurs sont associés directement à cet escalier.'
           : 'These sensors are assigned directly to these stairs.'}
       </p>
+
+      {selected && category && (
+        <EquipmentDialog
+          title={`${selected[fr ? 'label' : 'labelEn']} · ${stairName}`}
+          wide
+          busy={busy}
+          onClose={() => {
+            setCategory(undefined);
+            setAssigning(null);
+            setConfirmRemoval(false);
+            setError('');
+          }}
+        >
+          <div className="equipment-category-content">
+            {assigning ? (
+              <>
+                <button
+                  className="equipment-text-button"
+                  onClick={() => {
+                    setAssigning(null);
+                    setConfirmRemoval(false);
+                  }}
+                >
+                  <ArrowLeft /> {fr ? 'Retour aux capteurs' : 'Back to sensors'}
+                </button>
+                <h3>{assigning.name}</h3>
+                {!selectedDevices.some(({ id }) => id === assigning.id) && assigning.room && (
+                  <p className="equipment-note">
+                    {fr
+                      ? `Cet appareil sera déplacé de « ${assigning.room.name} » vers « ${stairName} », avec toutes ses mesures.`
+                      : `This device and all its readings will move from ${assigning.room.name} to ${stairName}.`}
+                  </p>
+                )}
+                <label className="equipment-field">
+                  {fr ? 'Nom' : 'Name'}
+                  <input
+                    value={name}
+                    maxLength={120}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                </label>
+                <label className="equipment-field">
+                  {fr ? 'Emplacement (facultatif)' : 'Location (optional)'}
+                  <input
+                    value={note}
+                    maxLength={500}
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder={
+                      fr ? 'Par exemple : milieu de l’escalier' : 'For example: midway up'
+                    }
+                  />
+                </label>
+                <footer className="equipment-dialog-footer">
+                  <button
+                    className="equipment-primary"
+                    disabled={busy || !name.trim()}
+                    onClick={() => void associate()}
+                  >
+                    <Check />
+                    {selectedDevices.some(({ id }) => id === assigning.id)
+                      ? fr
+                        ? 'Enregistrer'
+                        : 'Save'
+                      : fr
+                        ? 'Associer à cet escalier'
+                        : 'Assign to these stairs'}
+                  </button>
+                </footer>
+                {assigning.protocol === 'zigbee' && (
+                  <div className="equipment-removal">
+                    {confirmRemoval ? (
+                      <div className="equipment-removal-confirmation" role="group">
+                        <strong>
+                          {fr
+                            ? 'Retirer ce capteur du réseau ?'
+                            : 'Remove this sensor from the network?'}
+                        </strong>
+                        <p>
+                          {fr
+                            ? 'Il sera supprimé de cet escalier et du réseau Zigbee.'
+                            : 'It will be removed from these stairs and the Zigbee network.'}
+                        </p>
+                        <div>
+                          <button
+                            className="equipment-secondary"
+                            disabled={busy}
+                            onClick={() => setConfirmRemoval(false)}
+                          >
+                            {fr ? 'Annuler' : 'Cancel'}
+                          </button>
+                          <button
+                            className="equipment-delete-confirm"
+                            disabled={busy}
+                            onClick={() => void removeDevice()}
+                          >
+                            <Trash2 /> {fr ? 'Supprimer du réseau' : 'Remove from network'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className="equipment-delete-trigger"
+                        disabled={busy}
+                        onClick={() => setConfirmRemoval(true)}
+                      >
+                        <Trash2 /> {fr ? 'Supprimer du réseau' : 'Remove from network'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : product ? (
+              <>
+                <button className="equipment-text-button" onClick={() => setProduct(null)}>
+                  <ArrowLeft /> {fr ? 'Tous les produits' : 'All products'}
+                </button>
+                <div className="equipment-product-detail">
+                  <ProductPhoto product={product} />
+                  <div>
+                    <span className="equipment-kicker">{product.brand}</span>
+                    <h3>{fr ? product.name : product.nameEn}</h3>
+                    <p>{product.model}</p>
+                    <span className="equipment-product-badge">
+                      {fr ? 'Compatibilité documentée' : 'Documented compatibility'}
+                    </span>
+                  </div>
+                </div>
+                <h4>{fr ? 'Où le placer' : 'Where to place it'}</h4>
+                <ul>
+                  {(fr ? product.placement : product.placementEn).map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ul>
+                <footer className="equipment-dialog-footer">
+                  <button className="equipment-primary" onClick={() => void startInstall(product)}>
+                    {fr ? 'Installer ce capteur' : 'Install this sensor'} <ChevronRight />
+                  </button>
+                </footer>
+              </>
+            ) : (
+              <>
+                {!!selectedDevices.length && (
+                  <section className="equipment-assigned">
+                    <h3>{fr ? 'Dans cet escalier' : 'On these stairs'}</h3>
+                    {selectedDevices.map((device) => {
+                      const reading = roomSensorReading(device, category, fr, now);
+                      return (
+                        <article className="equipment-device-row" key={device.id}>
+                          <DevicePhoto device={device} />
+                          <div>
+                            <strong>{device.name}</strong>
+                            <p>
+                              {device.placementNote ||
+                                [device.manufacturer, device.model].filter(Boolean).join(' · ')}
+                            </p>
+                            <span
+                              className={
+                                reading.outdated ? 'equipment-muted' : 'equipment-device-value'
+                              }
+                            >
+                              {reading.reading}
+                            </span>
+                            {reading.status && (
+                              <small className="equipment-device-attention">{reading.status}</small>
+                            )}
+                            {reading.lastSeenAt && (
+                              <small>
+                                {lastReadingLabel(reading.lastSeenAt, fr, now, category)}
+                              </small>
+                            )}
+                            {device.batteryPercent !== null && (
+                              <small>
+                                <BatteryMedium /> {fr ? 'Batterie' : 'Battery'}{' '}
+                                {device.batteryPercent} %
+                              </small>
+                            )}
+                          </div>
+                          <div className="equipment-device-actions">
+                            <button onClick={() => editDevice(device)}>
+                              {fr ? 'Gérer' : 'Manage'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setGuideId(device.id);
+                                setCategory(undefined);
+                              }}
+                            >
+                              {fr ? 'Guide et test' : 'Guide and test'}
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </section>
+                )}
+                <h3>{fr ? 'Ajouter un capteur' : 'Add a sensor'}</h3>
+                <div className="equipment-catalog-tabs" role="tablist">
+                  <button
+                    role="tab"
+                    aria-selected={tab === 'PRODUCTS'}
+                    onClick={() => setTab('PRODUCTS')}
+                  >
+                    {fr ? 'Produits documentés' : 'Documented products'}
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={tab === 'CONNECTED'}
+                    onClick={() => setTab('CONNECTED')}
+                  >
+                    {fr ? 'Autres capteurs connectés' : 'Other connected sensors'}
+                  </button>
+                </div>
+                {tab === 'PRODUCTS' ? (
+                  <div className="equipment-product-grid">
+                    {products.map((item) => (
+                      <SensorProductCard
+                        key={item.id}
+                        product={item}
+                        fr={fr}
+                        onSelect={() => setProduct(item)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div>
+                    {availableConnected.map((device) => (
+                      <button
+                        className="equipment-connected-choice"
+                        key={device.id}
+                        onClick={() => editDevice(device)}
+                      >
+                        <Radio />
+                        <span>
+                          <strong>{device.name}</strong>
+                          <small>{device.room?.name ?? (fr ? 'Sans pièce' : 'Unassigned')}</small>
+                        </span>
+                        <Plus />
+                      </button>
+                    ))}
+                    {!availableConnected.length && (
+                      <div className="equipment-connected-empty" role="status">
+                        <Radio />
+                        <strong>
+                          {fr ? 'Aucun autre capteur à ajouter' : 'No other sensor to add'}
+                        </strong>
+                        <p>
+                          {fr
+                            ? 'Les capteurs de cet escalier sont déjà affichés plus haut.'
+                            : 'Sensors on these stairs are already shown above.'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <button
+                  className="equipment-unlisted"
+                  disabled={busy}
+                  onClick={() => void startInstall()}
+                >
+                  <Radio />
+                  <span>
+                    {fr ? 'Mon modèle n’est pas dans la liste' : 'My model is not listed'}
+                    <small>
+                      {fr ? 'Lancer la détection automatique' : 'Start automatic detection'}
+                    </small>
+                  </span>
+                  <ArrowRight />
+                </button>
+              </>
+            )}
+            {error && (
+              <p className="equipment-error" role="alert">
+                {error}
+              </p>
+            )}
+          </div>
+        </EquipmentDialog>
+      )}
+
+      {guideId && (
+        <EquipmentDialog
+          title={shownGuide?.name ?? (fr ? 'Guide du capteur' : 'Sensor guide')}
+          onClose={() => setGuideId(null)}
+        >
+          {shownGuide ? (
+            <SensorInstallationGuide
+              device={shownGuide}
+              locale={locale}
+              onChanged={onRefresh}
+              onDone={() => setGuideId(null)}
+            />
+          ) : (
+            <p>{fr ? 'Le capteur n’est plus disponible.' : 'Sensor no longer available.'}</p>
+          )}
+        </EquipmentDialog>
+      )}
+
+      <SensorOnboardingDialog
+        open={installing}
+        locale={locale}
+        rooms={rooms}
+        initialRoomId={stair.fromRoomId}
+        initialTarget={{ type: 'STAIR', id: stair.id }}
+        category={installationCategory}
+        product={installationProduct}
+        onClose={() => setInstalling(false)}
+        onInstalled={onRefresh}
+      />
 
       <HomeSensorOnboardingDialog
         open={flowOpen}

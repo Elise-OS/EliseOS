@@ -5,7 +5,15 @@ import { PrismaService } from '../../platform/prisma.service';
 
 interface DatabaseNotification {
   homeId: string;
-  type: 'activity' | 'alerts' | 'household' | 'journal' | 'schedule' | 'medications' | 'presence';
+  type:
+    | 'activity'
+    | 'alerts'
+    | 'household'
+    | 'journal'
+    | 'schedule'
+    | 'medications'
+    | 'presence'
+    | 'screen';
   entityId?: string;
 }
 

@@ -13,8 +13,27 @@ export const roomSensorCategorySchema = z.enum([
   'carbon_monoxide',
   'air_quality',
   'illuminance',
+  'camera',
 ]);
 export type RoomSensorCategory = z.infer<typeof roomSensorCategorySchema>;
+
+export const contactRoleSchema = z.enum([
+  'MAIN_ENTRANCE',
+  'FRIDGE',
+  'DOOR',
+  'WINDOW',
+  'VERANDA',
+  'OTHER',
+]);
+export type ContactRole = z.infer<typeof contactRoleSchema>;
+export const CONTACT_TYPES: Array<{ id: ContactRole; label: string; labelEn: string }> = [
+  { id: 'MAIN_ENTRANCE', label: 'Ouverture principale', labelEn: 'Main entrance' },
+  { id: 'FRIDGE', label: 'Frigo', labelEn: 'Fridge' },
+  { id: 'DOOR', label: 'Porte', labelEn: 'Door' },
+  { id: 'WINDOW', label: 'Fenêtre', labelEn: 'Window' },
+  { id: 'VERANDA', label: 'Véranda', labelEn: 'Veranda' },
+  { id: 'OTHER', label: 'Autre', labelEn: 'Other' },
+];
 
 export const ROOM_SENSOR_CATEGORIES: Array<{
   id: RoomSensorCategory;
@@ -69,8 +88,15 @@ export const ROOM_SENSOR_CATEGORIES: Array<{
     id: 'contact',
     label: 'Ouverture',
     labelEn: 'Contact',
-    description: 'Les portes et les fenêtres',
+    description: 'Les portes, fenêtres et autres ouvrants',
     descriptionEn: 'Doors and windows',
+  },
+  {
+    id: 'camera',
+    label: 'Caméras',
+    labelEn: 'Cameras',
+    description: 'Les caméras de la pièce',
+    descriptionEn: 'Room cameras',
   },
   {
     id: 'water_leak',
@@ -133,8 +159,8 @@ export const ROOM_SENSOR_PRESETS: Record<string, readonly RoomSensorCategory[]> 
 };
 
 export const roomSensorPreferencesSchema = z.object({
-  added: z.array(roomSensorCategorySchema).max(12).default([]),
-  hidden: z.array(roomSensorCategorySchema).max(12).default([]),
+  added: z.array(roomSensorCategorySchema).max(13).default([]),
+  hidden: z.array(roomSensorCategorySchema).max(13).default([]),
 });
 export type RoomSensorPreferences = z.infer<typeof roomSensorPreferencesSchema>;
 

@@ -4,6 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SensorOnboardingDialog } from './SensorOnboardingDialog';
+import { SENSOR_PRODUCTS } from './sensor-products';
 
 const session = {
   id: 'session-1',
@@ -66,19 +67,76 @@ describe('sensor installation confirmation', () => {
     });
   }
 
+  it('requires an opening type and sends it with the installation', async () => {
+    const openingSession = {
+      ...session,
+      detectedDevice: {
+        ...session.detectedDevice,
+        capabilities: [
+          { sensorId: 'contact-1', capability: 'contact', label: 'Ouverture', primary: true },
+        ],
+      },
+    };
+    const fetchMock = vi.fn().mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(url.endsWith('/complete') ? {} : openingSession),
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await openDialog(vi.fn(), vi.fn().mockResolvedValue(undefined));
+    const button = Array.from(document.body.querySelectorAll('button')).find((item) =>
+      item.textContent?.includes('Installer dans Salon'),
+    )!;
+    expect(button.disabled).toBe(true);
+    const select = document.body.querySelector('select')!;
+    await act(async () => {
+      select.value = 'FRIDGE';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(button.disabled).toBe(false);
+    await install();
+    const request = fetchMock.mock.calls.find(([url]) => url.endsWith('/complete'))!;
+    expect(JSON.parse(request[1].body)).toMatchObject({ contactRole: 'FRIDGE', roomId: 'salon' });
+  });
+
+  it('shows the selected sensor photo during the preparation step', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(null) }),
+    );
+    const product = SENSOR_PRODUCTS[0]!;
+
+    await act(async () => {
+      root.render(
+        <SensorOnboardingDialog
+          open
+          locale="fr"
+          rooms={[{ id: 'salon', name: 'Salon', kind: 'LIVING_ROOM' }]}
+          product={product}
+          onClose={() => undefined}
+          onInstalled={() => Promise.resolve()}
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    const photo = document.querySelector('.equipment-onboarding-product-photo img');
+    expect(photo?.getAttribute('src')).toBe(product.image);
+    expect(document.querySelector('.equipment-onboarding-intro > svg')).toBeNull();
+  });
+
   it('closes after confirmation even if refreshing the page never finishes', async () => {
     const onClose = vi.fn();
     const onInstalled = vi.fn(() => new Promise<void>(() => undefined));
     vi.stubGlobal(
       'fetch',
-      vi
-        .fn()
-        .mockImplementation((url: string) =>
-          Promise.resolve({
-            ok: true,
-            json: () => Promise.resolve(url.endsWith('/complete') ? {} : session),
-          }),
-        ),
+      vi.fn().mockImplementation((url: string) =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(url.endsWith('/complete') ? {} : session),
+        }),
+      ),
     );
 
     await openDialog(onClose, onInstalled);

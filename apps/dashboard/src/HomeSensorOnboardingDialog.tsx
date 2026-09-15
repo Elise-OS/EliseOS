@@ -3,6 +3,7 @@ import type { HomePlan, RoomSensorCategory, SensorProduct } from '@michel/contra
 import { ROOM_SENSOR_CATEGORIES } from '@michel/contracts';
 import {
   Activity,
+  Camera,
   ArrowLeft,
   Bath,
   BedDouble,
@@ -54,6 +55,7 @@ const categoryIcons: Record<RoomSensorCategory, typeof Thermometer> = {
   carbon_monoxide: Wind,
   air_quality: Wind,
   illuminance: Sun,
+  camera: Camera,
 };
 
 const roomIcons: Record<string, typeof House> = {

@@ -1,3 +1,4 @@
+import { ScreenPanel } from './ScreenPanel';
 import * as Progress from '@radix-ui/react-progress';
 import { Button, Card, Metric, StatusPill } from '@michel/ui';
 import {
@@ -39,6 +40,7 @@ import {
   Sparkles,
   Thermometer,
   Trash2,
+  Tv,
   UsersRound,
   UserRound,
   Video,
@@ -337,7 +339,19 @@ interface ScheduleItem {
   notes: string | null;
 }
 
-const navIcons = [Home, Activity, Bell, Sofa, Radar, Pill, BookOpen, UsersRound, Settings, Video];
+const navIcons = [
+  Home,
+  Activity,
+  Bell,
+  Sofa,
+  Radar,
+  Pill,
+  BookOpen,
+  UsersRound,
+  Settings,
+  Video,
+  Tv,
+];
 export const sidebarHiddenNavIndexes = new Set([4, 5, 6, 9]);
 const roomIcons: Record<string, typeof Sofa> = {
   LIVING_ROOM: Sofa,
@@ -3567,6 +3581,8 @@ export function App() {
             onTalkStop={() => void stopTalking()}
           />
         ) : active === 10 ? (
+          <ScreenPanel />
+        ) : active === 11 ? (
           <section className="section-view resident-page">
             <header className="resident-hero">
               <div>
@@ -4258,7 +4274,7 @@ export function App() {
                       {locale === 'fr' ? 'information(s) importante(s)' : 'important item(s)'}
                     </p>
                   </div>
-                  <Button className="button-secondary" onClick={() => setActive(10)}>
+                  <Button className="button-secondary" onClick={() => setActive(11)}>
                     {locale === 'fr' ? 'Voir la fiche résident' : 'View resident profile'}
                   </Button>
                 </Card>

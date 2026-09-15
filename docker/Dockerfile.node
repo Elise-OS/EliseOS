@@ -18,13 +18,13 @@ COPY packages/mqtt/package.json ./packages/mqtt/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY packages/ui/package.json ./packages/ui/package.json
 RUN --mount=type=cache,id=michel-pnpm-store,target=/pnpm/store \
-  pnpm install --frozen-lockfile --store-dir /pnpm/store
+  pnpm install --frozen-lockfile --store-dir /pnpm/store --network-concurrency=8
 COPY . .
 
 FROM dependencies AS builder
 RUN pnpm db:generate && pnpm build \
-  && pnpm --filter @michel/api deploy --prod /deploy/api \
-  && pnpm --filter @michel/worker deploy --prod /deploy/worker
+  && node scripts/package-runtime.cjs apps/api /deploy/api \
+  && node scripts/package-runtime.cjs apps/worker /deploy/worker
 
 FROM dependencies AS dashboard-builder
 COPY . .

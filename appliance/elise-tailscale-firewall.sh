@@ -6,14 +6,14 @@ nft -f - <<'EOF'
 table inet elise_remote {
   chain input {
     type filter hook input priority -5; policy accept;
-    iifname "tailscale0" tcp dport { 8443, 8555 } accept
-    iifname "tailscale0" udp dport 8555 accept
+    iifname "tailscale0" tcp dport { 8443, 8444, 8555 } accept
+    iifname "tailscale0" udp dport { 8555, 10000 } accept
     iifname "tailscale0" reject
   }
   chain forward {
     type filter hook forward priority -5; policy accept;
     iifname "tailscale0" tcp dport 8555 accept
-    iifname "tailscale0" udp dport 8555 accept
+    iifname "tailscale0" udp dport { 8555, 10000 } accept
     iifname "tailscale0" reject
   }
 }

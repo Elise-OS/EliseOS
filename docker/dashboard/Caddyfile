@@ -3,8 +3,8 @@
     X-Content-Type-Options nosniff
     X-Frame-Options SAMEORIGIN
     Referrer-Policy no-referrer
-    Permissions-Policy "camera=(), microphone=(self), geolocation=()"
-    Content-Security-Policy "default-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data: blob:; media-src 'self' blob:; frame-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'"
+    Permissions-Policy "camera=(self \"{$ELISE_JITSI_URL:https://jitsi.invalid}\"), microphone=(self \"{$ELISE_JITSI_URL:https://jitsi.invalid}\"), geolocation=()"
+    Content-Security-Policy "default-src 'self'; connect-src 'self' ws: wss: https:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; frame-src 'self' https://*.ts.net:8444 https://www.youtube.com; style-src 'self' 'unsafe-inline'; script-src 'self' https://*.ts.net:8444 https://www.youtube.com https://s.ytimg.com; worker-src 'self' blob:; font-src 'self'"
   }
 }
 

@@ -31,6 +31,7 @@ export const COVERAGE_FAMILIES: { label: string; labelEn: string; types: Coverag
     types: ['temperature', 'humidity', 'air_quality', 'illuminance'],
   },
   { label: 'Ouvertures', labelEn: 'Openings', types: ['contact'] },
+  { label: 'Caméras', labelEn: 'Cameras', types: ['camera'] },
   {
     label: 'Eau et sécurité',
     labelEn: 'Water and safety',

@@ -19,6 +19,7 @@ describe('Élise copy', () => {
     expect(copy.en.normal).toBeTruthy();
     expect(copy.fr.nav).toHaveLength(copy.en.nav.length);
     expect(copy.fr.nav).toContain('Médicaments');
+    expect(copy.fr.nav).toContain('Affichage TV');
   });
 
   it('hides the removed sensors page, medications and journal from the sidebar', () => {
@@ -30,6 +31,7 @@ describe('Élise copy', () => {
       expect(html).not.toContain(labels[4]);
       expect(html).not.toContain(labels[5]);
       expect(html).not.toContain(labels[6]);
+      expect(html).toContain(labels[10]);
     }
   });
 

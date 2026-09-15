@@ -1,3 +1,10 @@
+import { ScreenService } from './modules/screen/screen.service';
+import {
+  ScreenController,
+  ScreenDeviceController,
+  ScreenMediaController,
+  ScreenDeviceMediaController,
+} from './modules/screen/screen.controller';
 import { Module } from '@nestjs/common';
 import { AlertsController } from './modules/alerts/alerts.controller';
 import { AlertsService } from './modules/alerts/alerts.service';
@@ -38,6 +45,10 @@ import { RemoteAccessAgentClient } from './modules/remote-access/remote-access-a
 
 @Module({
   controllers: [
+    ScreenController,
+    ScreenDeviceController,
+    ScreenMediaController,
+    ScreenDeviceMediaController,
     SystemController,
     AuthController,
     ActivityController,
@@ -56,6 +67,7 @@ import { RemoteAccessAgentClient } from './modules/remote-access/remote-access-a
     RemoteAccessController,
   ],
   providers: [
+    ScreenService,
     PrismaService,
     SeedService,
     AuthService,

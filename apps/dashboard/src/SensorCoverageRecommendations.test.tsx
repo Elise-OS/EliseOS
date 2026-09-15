@@ -125,8 +125,8 @@ describe('documented sensor coverage', () => {
       host.remove();
     }
   });
-  it('exposes all 13 functions including types with no documented product', () => {
-    expect(COVERAGE_TYPES).toHaveLength(13);
+  it('exposes all 14 functions including types with no documented product', () => {
+    expect(COVERAGE_TYPES).toHaveLength(14);
     expect(coverageState('smoke', coverage, plan, [])).toBe('NO_PRODUCT');
     expect(coverageState('carbon_monoxide', coverage, plan, [])).toBe('NO_PRODUCT');
     expect(coverageState('fall_detection', coverage, plan, [])).toBe('NO_PRODUCT');

@@ -1,0 +1,10 @@
+[Unit]
+Description=Private Elise Jitsi network access
+After=tailscaled.service elise-tailscale-firewall.service
+PartOf=elise-tailscale-firewall.service
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/elise/elise-jitsi-firewall.sh
+RemainAfterExit=yes
+[Install]
+WantedBy=multi-user.target elise-tailscale-firewall.service

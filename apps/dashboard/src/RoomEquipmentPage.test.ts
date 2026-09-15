@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { deviceSupportsCategory, type HomePlan, type SensorDevice } from '@michel/contracts';
+import {
+  deviceSupportsCategory,
+  visibleRoomCategories,
+  type HomePlan,
+  type SensorDevice,
+} from '@michel/contracts';
 import {
   RoomEquipmentPage,
+  deviceContactType,
   illuminanceLevel,
   lastReadingLabel,
   mainEntranceDevices,
@@ -21,7 +27,7 @@ import {
 import { connectedDevicesForCategory } from './sensor-ui';
 
 const plan = {
-  levels: [{ rooms: [{ id: 'room', name: 'Salon', kind: 'LIVING_ROOM' }] }],
+  levels: [{ rooms: [{ id: 'room', name: 'Salon', kind: 'LIVING_ROOM' }], openings: [] }],
   placements: [],
 } as unknown as HomePlan;
 const device = (
@@ -66,6 +72,52 @@ describe('room equipment cards', () => {
     expect(roomCategoryDevices(plan, 'room', [multi], 'humidity')).toEqual([multi]);
   });
 
+  it('does not also show a stair device in its technical anchor room', () => {
+    const stairDevice = device([capability('motion', { active: true })], {
+      model: 'SNZB-03P',
+    });
+    const stairPlan = {
+      ...plan,
+      placements: [
+        {
+          kind: 'SENSOR',
+          equipmentId: stairDevice.id,
+          equipmentRefKind: 'DEVICE',
+          roomId: 'room',
+          targetType: 'STAIR',
+          targetId: 'stairs-1',
+        },
+      ],
+    } as HomePlan;
+
+    expect(roomCategoryDevices(stairPlan, 'room', [stairDevice], 'motion')).toEqual([]);
+  });
+
+  it('keeps a logical main-entrance sensor on its dedicated card without a drawn door', () => {
+    const contact = device([capability('contact', { open: false })], {
+      model: '3RDS17BZ',
+    });
+    const entrancePlan = {
+      ...plan,
+      placements: [
+        {
+          kind: 'SENSOR',
+          equipmentId: contact.id,
+          equipmentRefKind: 'DEVICE',
+          roomId: 'room',
+          targetType: 'ROOM',
+          targetId: 'room',
+          capabilityBindings: [
+            { sensorId: 'contact', capability: 'contact', role: 'MAIN_ENTRANCE' },
+          ],
+        },
+      ],
+    } as HomePlan;
+
+    expect(mainEntranceDevices(entrancePlan, 'room', [contact])).toEqual([contact]);
+    expect(roomCategoryDevices(entrancePlan, 'room', [contact], 'contact')).toEqual([]);
+  });
+
   it('uses one R3 installation for presence, illuminance and air quality', () => {
     const r3 = device(
       [
@@ -78,6 +130,13 @@ describe('room equipment cards', () => {
     expect(roomCategoryDevices(plan, 'room', [r3], 'presence')).toEqual([r3]);
     expect(roomCategoryDevices(plan, 'room', [r3], 'illuminance')).toEqual([r3]);
     expect(roomCategoryDevices(plan, 'room', [r3], 'air_quality')).toEqual([r3]);
+    expect(
+      visibleRoomCategories(
+        'LIVING_ROOM',
+        { added: [], hidden: ['presence', 'illuminance', 'air_quality'] },
+        ['presence', 'illuminance', 'air_quality'],
+      ),
+    ).toEqual(expect.arrayContaining(['presence', 'illuminance', 'air_quality']));
   });
 
   it('describes illuminance and keeps the exact lux value as secondary text', () => {
@@ -152,6 +211,12 @@ describe('room equipment cards', () => {
     const product = SENSOR_PRODUCTS.find(({ model }) => model === '3RDS17BZ')!;
 
     expect(productMatchesDetectedModel(product, 'Door sensor')).toBe(true);
+  });
+
+  it('recognizes the generic Third Reality climate model name returned by Home Assistant', () => {
+    const product = SENSOR_PRODUCTS.find(({ model }) => model === '3RTHS0224Z')!;
+
+    expect(productMatchesDetectedModel(product, 'Temperature and humidity sensor lite')).toBe(true);
   });
 
   it('uses each known device photo, including the Sonoff generic model name', () => {
@@ -296,6 +361,39 @@ describe('room equipment cards', () => {
     expect(roomSensorReading(dryContact, 'contact', true).reading).toBe('Ouvert');
   });
 
+  it('shows the custom sensor name on its configured card', () => {
+    const markup = renderToStaticMarkup(
+      createElement(RoomEquipmentPage, {
+        roomId: 'room',
+        plan: {
+          ...plan,
+          levels: [
+            {
+              name: 'Rez-de-chaussée',
+              floor: 0,
+              rooms: [{ id: 'room', name: 'Cuisine', kind: 'KITCHEN' }],
+              openings: [],
+            },
+          ],
+        } as unknown as HomePlan,
+        devices: [
+          device([capability('contact', { open: false })], {
+            name: 'Frigo',
+            manufacturer: 'Third Reality',
+            model: '3RDS17BZ',
+          }),
+        ],
+        locale: 'fr',
+        onBack: () => {},
+        onRefresh: async () => {},
+        onPlanSaved: () => {},
+      }),
+    );
+
+    expect(markup).toContain('<p>Frigo</p>');
+    expect(markup).not.toContain('<p>Les portes et les fenêtres</p>');
+  });
+
   it('only marks a contact sensor on the main entrance as configured', () => {
     const entrancePlan = {
       levels: [
@@ -360,5 +458,49 @@ describe('room equipment cards', () => {
     expect(renderRoom('ENTRANCE')).toContain('Ouverture principale');
     expect(renderRoom('ENTRANCE')).toContain('Ouverture');
     expect(renderRoom('LIVING_ROOM')).not.toContain('Ouverture principale');
+  });
+});
+
+describe('camera and opening types', () => {
+  it('recognizes cameras independently of motion sensors, with no invented products', () => {
+    const camera = device([capability('camera', null)]);
+    expect(deviceSupportsCategory(camera, 'camera')).toBe(true);
+    expect(deviceSupportsCategory(device([capability('motion')]), 'camera')).toBe(false);
+    expect(roomCategoryDevices(plan, 'room', [camera], 'camera')).toEqual([camera]);
+    expect(visibleRoomCategories('LIVING_ROOM', { added: ['camera'], hidden: [] })).toContain(
+      'camera',
+    );
+    expect(productsForCategory('camera', false)).toEqual([]);
+  });
+
+  it('shows distinct opening cards using persisted contact roles', () => {
+    const fridge = device([capability('contact', { open: false })], { id: 'fridge' });
+    const window = device([capability('contact', { open: true })], { id: 'window' });
+    const typedPlan = {
+      ...plan,
+      placements: [fridge, window].map((item, index) => ({
+        kind: 'SENSOR',
+        equipmentId: item.id,
+        equipmentRefKind: 'DEVICE',
+        roomId: 'room',
+        capabilityBindings: [
+          { sensorId: 'contact', capability: 'contact', role: index ? 'WINDOW' : 'FRIDGE' },
+        ],
+      })),
+    } as HomePlan;
+    expect(deviceContactType(typedPlan, fridge)).toBe('FRIDGE');
+    const markup = renderToStaticMarkup(
+      createElement(RoomEquipmentPage, {
+        roomId: 'room',
+        plan: typedPlan,
+        devices: [fridge, window],
+        locale: 'fr',
+        onBack: () => undefined,
+        onRefresh: async () => undefined,
+        onPlanSaved: () => undefined,
+      }),
+    );
+    expect(markup).toContain('Ouverture · Frigo');
+    expect(markup).toContain('Ouverture · Fenêtre');
   });
 });

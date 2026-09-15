@@ -1817,7 +1817,6 @@ export function HomePlanEditor({
           }
           setEditingRoomId(null);
         }}
-        onEditPlan={() => setEditingRoomId(null)}
         onPlanSaved={(saved) => {
           setPlan(normalizePlan(saved));
           setHistory([]);

@@ -117,6 +117,7 @@ export const SENSOR_PROFILES: SensorProfile[] = [
 ];
 
 const CAPABILITY_TARGETS: Record<string, EquipmentTarget['type'][]> = {
+  camera: ['ROOM'],
   motion: ['ROOM', 'STAIR'],
   occupancy: ['ROOM', 'STAIR'],
   person_presence: ['ROOM'],

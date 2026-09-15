@@ -786,13 +786,25 @@ export function HomeOverview({
                         );
                       })
                     : floor?.rooms.map((room) => {
+                        const stairPlacedDeviceIds = new Set(
+                          plan.placements
+                            .filter(
+                              ({ kind, targetType }) => kind === 'SENSOR' && targetType === 'STAIR',
+                            )
+                            .map(({ equipmentId }) => equipmentId),
+                        );
                         const placedDeviceIds = new Set(
                           plan.placements
-                            .filter(({ roomId, kind }) => roomId === room.id && kind === 'SENSOR')
+                            .filter(
+                              ({ roomId, kind, targetType }) =>
+                                roomId === room.id && kind === 'SENSOR' && targetType !== 'STAIR',
+                            )
                             .map(({ equipmentId }) => equipmentId),
                         );
                         const sensorCount = devices.filter(
-                          (device) => device.room?.id === room.id || placedDeviceIds.has(device.id),
+                          (device) =>
+                            !stairPlacedDeviceIds.has(device.id) &&
+                            (device.room?.id === room.id || placedDeviceIds.has(device.id)),
                         ).length;
                         const cameraCount = cameras.filter(
                           ({ room: cameraRoom }) => cameraRoom?.id === room.id,

@@ -11,6 +11,7 @@ Prévoyez un modèle avec au moins 4 Go de mémoire et un stockage de 32 Go. Un 
 3. Dans les réglages d’Imager, indiquez le nom `elise`, votre Wi-Fi, le pays, le fuseau horaire et, si nécessaire, votre clé SSH.
 4. Écrivez l’image, placez le stockage dans le Raspberry Pi et démarrez-le.
 5. Ouvrez [http://elise.local](http://elise.local). La page « Préparation d’Élise » affiche les téléchargements puis laisse automatiquement place à l’assistant.
+6. Associez Tailscale depuis l’assistant. Jitsi, Chromium plein écran, la sortie HDMI/DisplayPort et les permissions caméra/micro se terminent alors automatiquement, sans seconde commande.
 
 Une coupure d’Internet n’empêche pas le Raspberry Pi de démarrer. La page locale indique le problème et l’installation reprend automatiquement quand Internet revient.
 
@@ -23,6 +24,14 @@ curl -fsSL https://github.com/Elise-OS/EliseOS/releases/latest/download/install-
 ```
 
 L’installateur vérifie la machine, installe Docker, Tailscale et Avahi, vérifie le manifeste de version, télécharge les images adaptées à l’architecture et attend que les services soient sains. Il conserve une installation déjà présente, ses secrets, volumes, sauvegardes et son identité Tailscale.
+
+Cette commande installe également tout le paquet TV et appels vidéo. Si Tailscale n’est pas encore associé, un service local reprend automatiquement la préparation chaque minute et la termine dès que l’accès privé est prêt.
+
+Depuis une copie locale du dépôt, la commande complète équivalente est :
+
+```bash
+bash scripts/install-complete.sh
+```
 
 Commandes utiles :
 

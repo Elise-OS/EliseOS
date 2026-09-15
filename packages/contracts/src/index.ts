@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { roomSensorPreferencesSchema } from './room-equipment.js';
+import { contactRoleSchema, roomSensorPreferencesSchema } from './room-equipment.js';
 export * from './room-equipment.js';
 export * from './retire-furniture.js';
 
@@ -27,6 +27,7 @@ export const capabilitySchema = z.enum([
   'illuminance',
   'vibration',
   'fall_detection',
+  'camera',
   'signal_strength',
 ]);
 
@@ -1146,6 +1147,7 @@ export const sensorOnboardingCompletionSchema = z.object({
   roomId: z.string().min(1).nullable().default(null),
   placementNote: z.string().trim().max(500).nullable().optional(),
   buttonRole: z.enum(['ASSISTANCE', 'CONFIRMATION', 'LIGHT', 'CUSTOM_ROUTINE']).optional(),
+  contactRole: contactRoleSchema.optional(),
   target: z
     .object({
       type: z.enum(['ROOM', 'ITEM', 'OPENING', 'STAIR']),
@@ -1328,3 +1330,5 @@ export const MQTT_TOPICS = {
   commands: 'michel/v1/commands',
   commandResults: 'michel/v1/commands/results',
 } as const;
+
+export * from './screen.js';

@@ -1,3 +1,4 @@
+import { MobileScreenPanel } from '../screen/MobileScreenPanel';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   ActivitySummary,
@@ -2408,6 +2409,7 @@ function HouseTab({
       ) : null}
       {section === 'people' ? (
         <>
+          <MobileScreenPanel server={server} token={token} />
           <View style={styles.card}>
             <SectionTitle eyebrow="RÉSIDENTS" title="Personnes accompagnées" />
             {household?.residents.map((resident) => (

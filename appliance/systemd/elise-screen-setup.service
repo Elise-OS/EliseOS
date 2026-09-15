@@ -1,0 +1,11 @@
+[Unit]
+Description=Élise complete resident TV and Jitsi setup
+After=network-online.target docker.service tailscaled.service
+Wants=network-online.target docker.service tailscaled.service
+ConditionPathExists=/etc/elise/elise.env
+ConditionPathExists=!/var/lib/elise/.screen-setup-complete
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/elise/elise-screen-setup
+TimeoutStartSec=20min

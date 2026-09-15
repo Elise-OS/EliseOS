@@ -47,7 +47,15 @@ case "${1:-}" in
     ;;
   uninstall)
     "${COMPOSE[@]}" down
-    systemctl disable --now elise-firstboot.service elise-preparation.service elise-remote-access-agent.service elise-tailscale-firewall.service 2>/dev/null || true
+    if [[ -f /var/lib/elise/jitsi/jitsi.env && -f "$ELISE_ROOT/current/docker/jitsi/compose.yaml" ]]; then
+      docker compose --project-name elise-jitsi \
+        --env-file /var/lib/elise/jitsi/jitsi.env \
+        -f "$ELISE_ROOT/current/docker/jitsi/compose.yaml" down || true
+    fi
+    systemctl disable --now \
+      elise-firstboot.service elise-preparation.service elise-remote-access-agent.service \
+      elise-tailscale-firewall.service elise-screen-setup.timer elise-screen-setup.service \
+      elise-screen-agent.service elise-jitsi-firewall.service 2>/dev/null || true
     if [[ "${2:-}" == --purge ]]; then
       [[ "$ELISE_ROOT" == /opt/elise && "$ELISE_STATE" == /var/lib/elise && "$ELISE_ENV" == /etc/elise/elise.env ]] || {
         echo "Suppression refusée : chemins Élise non standards." >&2

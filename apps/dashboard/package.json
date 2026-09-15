@@ -14,6 +14,7 @@
     "@michel/contracts": "workspace:*",
     "@michel/ui": "workspace:*",
     "@radix-ui/react-progress": "^1.1.7",
+    "hls.js": "^1.7.3",
     "lucide-react": "^0.536.0",
     "qrcode": "^1.5.4",
     "react": "19.1.0",
@@ -21,9 +22,9 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.11",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "~19.1.17",
     "@types/react-dom": "19.1.7",
-    "@types/qrcode": "^1.5.5",
     "@vitejs/plugin-react": "^4.7.0",
     "jsdom": "^26.1.0",
     "tailwindcss": "^4.1.11",

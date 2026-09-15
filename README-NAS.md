@@ -62,6 +62,8 @@ MICHEL_NAS_URL=http://192.168.1.55:8090
 MICHEL_NAS_HTTP_PORT=8090
 ```
 
+Le réglage facultatif `MICHEL_NAS_BUILDER` sélectionne un constructeur Docker dédié pour les déploiements. Sur ce NAS, `michel-deploy` utilise des serveurs DNS accessibles depuis les étapes de construction, afin d’éviter les délais du résolveur Tailscale. Le constructeur est sélectionné uniquement pour ce projet, sans changer celui des autres applications.
+
 Ce fichier est ignoré par Git. Le script conserve également le `.env`, les secrets,
 les sauvegardes et les volumes Docker présents sur le NAS.
 

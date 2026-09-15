@@ -18,6 +18,9 @@ if [[ "$(pwd -P)" != "${REMOTE_PATH%/}" ]]; then
 fi
 
 docker compose ps -a
+if [[ -f /var/lib/elise/jitsi/jitsi.env ]]; then
+ docker compose --project-name elise-jitsi --env-file /var/lib/elise/jitsi/jitsi.env -f docker/jitsi/compose.yaml ps
+fi
 echo
 if curl --fail --silent --show-error "http://127.0.0.1:${REMOTE_PORT}/api/v1/system/health"; then
   echo

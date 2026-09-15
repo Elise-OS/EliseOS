@@ -261,6 +261,7 @@ model Home {
   equipmentDiscoveries       EquipmentDiscovery[]
   presenceTracking           PresenceTrackingState?
   presenceDecisions          PresenceTransitionDecision[]
+  residentScreen             ResidentScreen?
 
   @@index([organizationId])
 }
@@ -1015,6 +1016,7 @@ model Visit {
 }
 
 model Appointment {
+  pictogram String    @default("calendar")
   id        String    @id @default(cuid())
   homeId    String
   title     String
@@ -1065,4 +1067,18 @@ model OutboxMessage {
   home        Home         @relation(fields: [homeId], references: [id], onDelete: Cascade)
 
   @@index([status, availableAt])
+}
+
+model ResidentScreen {
+  id String @id @default(cuid())
+  homeId String @unique
+  home Home @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  state Json
+  tokenHash String? @unique
+  pairingHash String? @unique
+  pairingExpiresAt DateTime?
+  lastSeenAt DateTime?
+  capabilities Json @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

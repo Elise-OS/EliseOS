@@ -75,6 +75,7 @@ type DeviceWithSensors = Omit<
 const updateSchema = z.object({
   target: sensorOnboardingCompletionSchema.shape.target,
   buttonRole: sensorOnboardingCompletionSchema.shape.buttonRole,
+  contactRole: sensorOnboardingCompletionSchema.shape.contactRole,
   name: z.string().trim().min(1).max(120).optional(),
   roomId: z.string().min(1).nullable().optional(),
   enabled: z.boolean().optional(),

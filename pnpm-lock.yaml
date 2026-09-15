@@ -147,6 +147,9 @@ importers:
       '@radix-ui/react-progress':
         specifier: ^1.1.7
         version: 1.1.16(@types/react-dom@19.1.7(@types/react@19.1.17))(@types/react@19.1.17)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      hls.js:
+        specifier: ^1.7.3
+        version: 1.7.3
       lucide-react:
         specifier: ^0.536.0
         version: 0.536.0(react@19.1.0)
@@ -4192,6 +4195,9 @@ packages:
 
   hermes-parser@0.32.0:
     resolution: {integrity: sha512-g4nBOWFpuiTqjR3LZdRxKUkij9iyveWeuks7INEsMX741f3r9xxrOe8TeQfUxtda0eXmiIFiMQzoeSQEno33Hw==}
+
+  hls.js@1.7.3:
+    resolution: {integrity: sha512-MsPlx6yVW4Qv4C7mEVou4/gk/5cN2dVxOTnrNjPSmyH2f0Ln+/UkG10Ax1PE6OvrmTVPKgQYozTtBaPOuCzq7A==}
 
   hosted-git-info@7.0.2:
     resolution: {integrity: sha512-puUZAUKT5m8Zzvs72XWy3HtvVbTWljRE66cP60bxJzAqf2DgICo7lYTY2IHUmLnNpjYvw5bvmoHvPc0QO2a62w==}
@@ -10874,6 +10880,8 @@ snapshots:
   hermes-parser@0.32.0:
     dependencies:
       hermes-estree: 0.32.0
+
+  hls.js@1.7.3: {}
 
   hosted-git-info@7.0.2:
     dependencies:

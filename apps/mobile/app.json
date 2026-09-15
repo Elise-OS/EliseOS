@@ -28,11 +28,12 @@
       "bundleIdentifier": "org.michel.mobile",
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "Michel utilise le réseau local pour détecter votre serveur à domicile.",
-        "NSMicrophoneUsageDescription": "Élise utilise le microphone uniquement lorsque vous maintenez le bouton de l’interphone.",
+        "NSMicrophoneUsageDescription": "Élise utilise le microphone pendant vos appels au résident ou lorsque vous utilisez l’interphone.",
         "NSBonjourServices": ["_michel._tcp"],
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "NSCameraUsageDescription": "Élise utilise la caméra lorsque vous appelez le résident en visioconférence."
       }
     },
     "android": {
@@ -42,7 +43,8 @@
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.ACCESS_WIFI_STATE",
         "android.permission.CHANGE_WIFI_MULTICAST_STATE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
       ]
     },
     "experiments": {

@@ -581,6 +581,7 @@ const detectedModelAliases: Record<string, string[]> = {
   '3RPL01084Z': ['SMARTPRESENCESENSORR3', 'MULTIFUNCTIONSMARTPRESENCESENSORR3'],
   '3RDS17BZ': ['DOORSENSOR'],
   '3RMS16BZ': ['WIRELESSMOTIONSENSOR'],
+  '3RTHS0224Z': ['TEMPERATUREANDHUMIDITYSENSORLITE'],
 };
 
 export function productMatchesDetectedModel(product: SensorProduct, detectedModel?: string | null) {

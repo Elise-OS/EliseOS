@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, LoaderCircle, MapPin, Radio, RadioTower, RefreshCw, Sparkles } from 'lucide-react';
 import {
+  CONTACT_TYPES,
+  type ContactRole,
   deviceSupportsCategory,
   ROOM_SENSOR_CATEGORIES,
   type RoomSensorCategory,
@@ -8,6 +10,7 @@ import {
 } from '@michel/contracts';
 import type { Locale } from './i18n';
 import { EquipmentDialog } from './EquipmentDialog';
+import { ProductPhoto } from './SensorProductCard';
 import { sensorJson, sensorRequest, type SensorRoom, type SensorUiDevice } from './sensor-ui';
 import { productMatchesDetectedModel } from './sensor-products';
 
@@ -28,6 +31,7 @@ export function SensorOnboardingDialog({
   rooms,
   initialRoomId,
   initialTarget,
+  contactRole,
   category,
   product,
   onClose,
@@ -39,6 +43,7 @@ export function SensorOnboardingDialog({
   rooms: SensorRoom[];
   initialRoomId?: string;
   initialTarget?: { type: 'OPENING' | 'STAIR'; id: string } | undefined;
+  contactRole?: ContactRole | undefined;
   category?: RoomSensorCategory | undefined;
   product?: SensorProduct | undefined;
   onClose: () => void;
@@ -50,6 +55,7 @@ export function SensorOnboardingDialog({
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [roomId, setRoomId] = useState(initialRoomId ?? '');
   const [name, setName] = useState('');
+  const [openingType, setOpeningType] = useState<ContactRole | ''>(contactRole ?? '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
@@ -82,6 +88,7 @@ export function SensorOnboardingDialog({
     if (open) {
       setRoomId(initialRoomId ?? '');
       setName('');
+      setOpeningType(contactRole ?? '');
       setStep(1);
       setSession(null);
     }
@@ -105,7 +112,7 @@ export function SensorOnboardingDialog({
       }
     })();
     return () => controller.abort();
-  }, [open, initialRoomId, initialTarget?.id, onResume, product, fr]);
+  }, [open, initialRoomId, initialTarget?.id, onResume, product, fr, contactRole]);
 
   useEffect(() => {
     if (!open || !session || !['PENDING', 'WAITING_FOR_DEVICE'].includes(session.status)) return;
@@ -162,7 +169,7 @@ export function SensorOnboardingDialog({
         });
       const next = await sensorRequest<Session>(
         '/api/v1/sensor-devices/onboarding-sessions',
-        sensorJson('POST', product ? { protocol: product.protocol } : {}),
+        sensorJson('POST', { protocol: product?.protocol ?? 'zigbee' }),
       );
       if (alive.current) adopt(next);
     } catch (err) {
@@ -204,6 +211,7 @@ export function SensorOnboardingDialog({
       )
     )
       return;
+    if (deviceSupportsCategory(session.detectedDevice, 'contact') && !openingType) return;
     setBusy(true);
     setError('');
     const sessionUrl = `/api/v1/sensor-devices/onboarding-sessions/${session.id}`;
@@ -215,6 +223,7 @@ export function SensorOnboardingDialog({
             roomId,
             category,
             target: initialTarget ?? null,
+            contactRole: openingType || undefined,
             buttonRole: 'ASSISTANCE',
           }),
           signal: AbortSignal.timeout(15_000),
@@ -281,7 +290,13 @@ export function SensorOnboardingDialog({
         {ready && step === 1 && (
           <>
             <div className="equipment-onboarding-intro">
-              <RadioTower />
+              {product ? (
+                <div className="equipment-onboarding-product-photo">
+                  <ProductPhoto product={product} />
+                </div>
+              ) : (
+                <RadioTower />
+              )}
               <h3>
                 {product
                   ? `${product.brand} ${fr ? product.name : product.nameEn}`
@@ -437,6 +452,24 @@ export function SensorOnboardingDialog({
                   </select>
                 </label>
               )}
+              {deviceSupportsCategory(device, 'contact') && (
+                <label className="equipment-field">
+                  {fr ? 'À quoi correspond cette ouverture ?' : 'What does this opening monitor?'}
+                  <select
+                    value={openingType}
+                    onChange={(e) => setOpeningType(e.target.value as ContactRole)}
+                  >
+                    <option value="">
+                      {fr ? 'Choisir un type d’ouverture' : 'Choose an opening type'}
+                    </option>
+                    {CONTACT_TYPES.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type[fr ? 'label' : 'labelEn']}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className="equipment-field">
                 {fr ? 'Nom du capteur' : 'Sensor name'}
                 <input
@@ -450,7 +483,13 @@ export function SensorOnboardingDialog({
             <footer className="equipment-dialog-footer">
               <button
                 className="equipment-primary"
-                disabled={busy || !name.trim() || !room || Boolean(mismatch)}
+                disabled={
+                  busy ||
+                  !name.trim() ||
+                  !room ||
+                  Boolean(mismatch) ||
+                  (deviceSupportsCategory(device, 'contact') && !openingType)
+                }
                 onClick={() => void finish()}
               >
                 <Check />
