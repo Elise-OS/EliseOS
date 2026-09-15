@@ -65,6 +65,19 @@ type RadioStation = {
   bitrate: number;
   artworkUrl?: string;
 };
+type YouTubeAccount = {
+  configured: boolean;
+  connected: boolean;
+  email: string | null;
+  channelTitle: string | null;
+};
+type YouTubePlaylist = {
+  id: string;
+  title: string;
+  description: string;
+  itemCount: number;
+  thumbnailUrl: string | null;
+};
 export async function screenRequest<T>(
   path: string,
   body?: unknown,
@@ -193,6 +206,9 @@ export function ScreenPanel() {
   const [playlistLinks, setPlaylistLinks] = useState('');
   const [radioQuery, setRadioQuery] = useState('');
   const [radioResults, setRadioResults] = useState<RadioStation[]>([]);
+  const [youtubeAccount, setYoutubeAccount] = useState<YouTubeAccount>();
+  const [youtubePlaylists, setYoutubePlaylists] = useState<YouTubePlaylist[]>([]);
+  const [youtubePlaylistBusy, setYoutubePlaylistBusy] = useState<string>();
   const automaticDisplaySetup = useRef(false);
   useEffect(() => {
     if (snapshot?.grant.administer)
@@ -233,6 +249,35 @@ export function ScreenPanel() {
     if (snapshot?.grant.control)
       void refreshAppointments().catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [snapshot?.grant.control, refreshAppointments]);
+  const refreshYoutube = useCallback(async () => {
+    const account = await screenRequest<YouTubeAccount>('screen/youtube/account', undefined, 'GET');
+    setYoutubeAccount(account);
+    if (account.connected)
+      setYoutubePlaylists(
+        await screenRequest<YouTubePlaylist[]>('screen/youtube/playlists', undefined, 'GET'),
+      );
+    else setYoutubePlaylists([]);
+  }, []);
+  useEffect(() => {
+    if (snapshot?.grant.control && mediaTab === 'youtube')
+      void refreshYoutube().catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }, [mediaTab, refreshYoutube, snapshot?.grant.control]);
+  useEffect(() => {
+    const onYouTubeMessage = (event: MessageEvent<unknown>) => {
+      const data = event.data;
+      const type =
+        typeof data === 'object' && data !== null && 'type' in data && typeof data.type === 'string'
+          ? data.type
+          : '';
+      if (
+        event.origin === window.location.origin &&
+        (type === 'youtube-connected' || type === 'youtube-error')
+      )
+        void refreshYoutube().catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    };
+    window.addEventListener('message', onYouTubeMessage);
+    return () => window.removeEventListener('message', onYouTubeMessage);
+  }, [refreshYoutube]);
   useEffect(() => {
     if (
       automaticDisplaySetup.current ||
@@ -287,6 +332,38 @@ export function ScreenPanel() {
         });
       await screenRequest('screen/commands', { action: 'play', mediaId });
     });
+  const connectYouTube = () => {
+    setError('');
+    const popup = window.open(
+      '/api/v1/screen/youtube/connect',
+      'elise-youtube-connect',
+      'popup,width=520,height=720,resizable=yes,scrollbars=yes',
+    );
+    if (!popup)
+      setError('La fenêtre Google a été bloquée. Autorisez les fenêtres popup puis réessayez.');
+  };
+  const importYouTubePlaylist = (playlistId: string) =>
+    void (async () => {
+      setYoutubePlaylistBusy(playlistId);
+      try {
+        await run(async () => {
+          const result = await screenRequest<{
+            media?: { id: string };
+            importedCount: number;
+            truncated: boolean;
+          }>(
+            `screen/youtube/playlists/${encodeURIComponent(playlistId)}/import`,
+            undefined,
+            'POST',
+          );
+          if (result.media?.id)
+            await screenRequest('screen/commands', { action: 'play', mediaId: result.media.id });
+        });
+        await refreshYoutube();
+      } finally {
+        setYoutubePlaylistBusy(undefined);
+      }
+    })();
   if (!snapshot || !settings)
     return (
       <section className="screen-panel">
@@ -894,66 +971,187 @@ export function ScreenPanel() {
                   className="screen-medias-source screen-playlist-card"
                 >
                   <h4>Vos playlists YouTube</h4>
-                  <p>
-                    Un lien par ligne, jusqu’à 50 vidéos. Elles s’enchaînent dans l’ordre choisi.
-                  </p>
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      const links = playlistLinks
-                        .split(/\r?\n/)
-                        .map((link) => link.trim())
-                        .filter(Boolean);
-                      if (
-                        !links.length ||
-                        links.length > 50 ||
-                        links.some((link) => !youtubeVideoId(link))
-                      ) {
-                        setError(
-                          'Ajoutez entre 1 et 50 liens vidéo YouTube valides, un par ligne.',
-                        );
-                        return;
-                      }
-                      void run(async () => {
-                        await screenRequest('screen/media', {
-                          id: crypto.randomUUID(),
-                          title: playlistTitle.trim(),
-                          kind: 'youtube',
-                          url: links[0],
-                          playlistUrls: links,
+                  <p>Connectez votre compte Google pour retrouver vos playlists automatiquement.</p>
+                  <div className="screen-youtube-account">
+                    <span className="screen-youtube-account__logo">
+                      <Youtube aria-hidden="true" />
+                    </span>
+                    <div className="screen-youtube-account__copy">
+                      <strong>
+                        {youtubeAccount?.connected
+                          ? youtubeAccount.channelTitle || youtubeAccount.email || 'Compte connecté'
+                          : 'Compte YouTube'}
+                      </strong>
+                      <small>
+                        {youtubeAccount?.connected
+                          ? youtubeAccount.email || 'Playlists personnelles disponibles'
+                          : youtubeAccount?.configured
+                            ? 'Vos playlists personnelles, en toute sécurité'
+                            : 'Connexion à configurer par l’administrateur'}
+                      </small>
+                    </div>
+                    {youtubeAccount?.connected ? (
+                      <div className="screen-youtube-account__actions">
+                        <button
+                          type="button"
+                          className="screen-button screen-button--secondary"
+                          disabled={busy}
+                          onClick={() =>
+                            void refreshYoutube().catch((e) =>
+                              setError(e instanceof Error ? e.message : String(e)),
+                            )
+                          }
+                        >
+                          Actualiser
+                        </button>
+                        <button
+                          type="button"
+                          className="screen-button screen-button--ghost"
+                          disabled={busy}
+                          onClick={() =>
+                            void run(async () => {
+                              await screenRequest('screen/youtube/account', undefined, 'DELETE');
+                              setYoutubeAccount({
+                                configured: youtubeAccount.configured,
+                                connected: false,
+                                email: null,
+                                channelTitle: null,
+                              });
+                              setYoutubePlaylists([]);
+                            })
+                          }
+                        >
+                          Déconnecter
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="screen-button screen-button--primary"
+                        disabled={busy || youtubeAccount?.configured === false}
+                        onClick={connectYouTube}
+                      >
+                        Connecter Google
+                      </button>
+                    )}
+                  </div>
+                  {youtubeAccount?.configured === false && (
+                    <p className="screen-youtube-hint">
+                      L’administrateur doit renseigner les identifiants OAuth YouTube du NAS une
+                      seule fois.
+                    </p>
+                  )}
+                  {youtubeAccount?.connected && (
+                    <div className="screen-youtube-cloud-playlists">
+                      <div className="screen-youtube-cloud-heading">
+                        <strong>Playlists de votre compte</strong>
+                        <span>{youtubePlaylists.length} disponibles</span>
+                      </div>
+                      {youtubePlaylists.length ? (
+                        <div className="screen-youtube-cloud-list">
+                          {youtubePlaylists.map((playlist) => {
+                            const imported = state.media.find(
+                              (media) => media.youtubePlaylistId === playlist.id,
+                            );
+                            return (
+                              <article key={playlist.id}>
+                                {playlist.thumbnailUrl ? (
+                                  <img src={playlist.thumbnailUrl} alt="" loading="lazy" />
+                                ) : (
+                                  <span className="screen-youtube-cloud-placeholder">
+                                    <Youtube aria-hidden="true" />
+                                  </span>
+                                )}
+                                <div>
+                                  <strong>{playlist.title}</strong>
+                                  <small>{playlist.itemCount} vidéo(s)</small>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="screen-button"
+                                  disabled={
+                                    busy || !snapshot.online || youtubePlaylistBusy === playlist.id
+                                  }
+                                  onClick={() => importYouTubePlaylist(playlist.id)}
+                                >
+                                  {youtubePlaylistBusy === playlist.id
+                                    ? 'Chargement…'
+                                    : imported
+                                      ? 'Relancer'
+                                      : 'Ajouter et lancer'}
+                                </button>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="screen-empty-library">
+                          Aucune playlist disponible sur ce compte.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <div className="screen-youtube-manual">
+                    <strong>Ajouter des vidéos par lien</strong>
+                    <p>Un lien par ligne, jusqu’à 50 vidéos.</p>
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        const links = playlistLinks
+                          .split(/\r?\n/)
+                          .map((link) => link.trim())
+                          .filter(Boolean);
+                        if (
+                          !links.length ||
+                          links.length > 50 ||
+                          links.some((link) => !youtubeVideoId(link))
+                        ) {
+                          setError(
+                            'Ajoutez entre 1 et 50 liens vidéo YouTube valides, un par ligne.',
+                          );
+                          return;
+                        }
+                        void run(async () => {
+                          await screenRequest('screen/media', {
+                            id: crypto.randomUUID(),
+                            title: playlistTitle.trim(),
+                            kind: 'youtube',
+                            url: links[0],
+                            playlistUrls: links,
+                          });
+                          setPlaylistLinks('');
                         });
-                        setPlaylistLinks('');
-                      });
-                    }}
-                  >
-                    <label>
-                      Nom de la playlist
-                      <input
-                        value={playlistTitle}
-                        maxLength={120}
-                        required
-                        onChange={(event) => setPlaylistTitle(event.target.value)}
-                      />
-                    </label>
-                    <label>
-                      Liens YouTube
-                      <textarea
-                        value={playlistLinks}
-                        rows={5}
-                        required
-                        placeholder={'https://www.youtube.com/watch?v=…\nhttps://youtu.be/…'}
-                        onChange={(event) => setPlaylistLinks(event.target.value)}
-                      />
-                    </label>
-                    <button
-                      className="screen-button"
-                      disabled={
-                        busy || !grant.control || !playlistTitle.trim() || !playlistLinks.trim()
-                      }
+                      }}
                     >
-                      Enregistrer la playlist
-                    </button>
-                  </form>
+                      <label>
+                        Nom de la playlist
+                        <input
+                          value={playlistTitle}
+                          maxLength={120}
+                          required
+                          onChange={(event) => setPlaylistTitle(event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        Liens YouTube
+                        <textarea
+                          value={playlistLinks}
+                          rows={5}
+                          required
+                          placeholder={'https://www.youtube.com/watch?v=…\nhttps://youtu.be/…'}
+                          onChange={(event) => setPlaylistLinks(event.target.value)}
+                        />
+                      </label>
+                      <button
+                        className="screen-button"
+                        disabled={
+                          busy || !grant.control || !playlistTitle.trim() || !playlistLinks.trim()
+                        }
+                      >
+                        Enregistrer la playlist
+                      </button>
+                    </form>
+                  </div>
                   <div className="screen-playlists">
                     {state.media
                       .filter((media) => media.kind === 'youtube')

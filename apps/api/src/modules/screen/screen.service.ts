@@ -33,6 +33,7 @@ import {
 } from '@michel/contracts';
 import { PrismaService } from '../../platform/prisma.service';
 import { parseRequest } from '../../platform/zod-validation';
+import { decryptCameraSecret, encryptCameraSecret } from '../cameras/camera-crypto';
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 const json = (s: unknown) => JSON.parse(JSON.stringify(s)) as Prisma.InputJsonValue;
@@ -53,6 +54,10 @@ const adminRights: ScreenGrant = {
 const mediaRoot = path.resolve(process.env.MEDIA_ROOT ?? '/var/lib/elise/media', 'screen');
 type CityWeather = ScreenSnapshot['weather'];
 const weatherCache = new Map<string, { expiresAt: number; value: Promise<CityWeather> }>();
+const youtubeOAuthStates = new Map<string, { userId: string; expiresAt: number }>();
+const YOUTUBE_SCOPE = 'openid email profile https://www.googleapis.com/auth/youtube.readonly';
+const YOUTUBE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3';
 export interface RadioStationResult {
   id: string;
   name: string;
@@ -61,6 +66,19 @@ export interface RadioStationResult {
   codec: string;
   bitrate: number;
   artworkUrl?: string;
+}
+export interface YouTubeAccountResult {
+  configured: boolean;
+  connected: boolean;
+  email: string | null;
+  channelTitle: string | null;
+}
+export interface YouTubePlaylistResult {
+  id: string;
+  title: string;
+  description: string;
+  itemCount: number;
+  thumbnailUrl: string | null;
 }
 
 export function cityFromAddress(address: string | null | undefined): string | null {
@@ -642,6 +660,262 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     } catch {
       throw new ConflictException('Le catalogue des radios est momentanément indisponible.');
     }
+  }
+  private youtubeConfig(): { clientId: string; clientSecret: string; redirectUri: string } | null {
+    const clientId = process.env.YOUTUBE_CLIENT_ID?.trim();
+    const clientSecret = process.env.YOUTUBE_CLIENT_SECRET?.trim();
+    const configuredRedirect = process.env.YOUTUBE_REDIRECT_URI?.trim();
+    const publicUrl =
+      process.env.MICHEL_REMOTE_URL?.trim() || process.env.MICHEL_PUBLIC_URL?.trim();
+    const redirectUri =
+      configuredRedirect ||
+      (publicUrl ? new URL('/api/v1/screen/youtube/callback', publicUrl).toString() : undefined);
+    if (!clientId || !clientSecret || !redirectUri) return null;
+    return { clientId, clientSecret, redirectUri };
+  }
+  youtubeAccountConfigured(): boolean {
+    return this.youtubeConfig() !== null;
+  }
+  async youtubeAuthorization(userId: string): Promise<string> {
+    await this.access(userId, 'control');
+    const config = this.youtubeConfig();
+    if (!config)
+      throw new ConflictException(
+        'YouTube doit être configuré par l’administrateur avant de connecter un compte.',
+      );
+    const state = randomBytes(32).toString('base64url');
+    youtubeOAuthStates.set(state, { userId, expiresAt: Date.now() + 10 * 60 * 1000 });
+    for (const [key, value] of youtubeOAuthStates)
+      if (value.expiresAt < Date.now()) youtubeOAuthStates.delete(key);
+    const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    url.searchParams.set('client_id', config.clientId);
+    url.searchParams.set('redirect_uri', config.redirectUri);
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('scope', YOUTUBE_SCOPE);
+    url.searchParams.set('access_type', 'offline');
+    url.searchParams.set('include_granted_scopes', 'true');
+    url.searchParams.set('prompt', 'consent');
+    url.searchParams.set('state', state);
+    return url.toString();
+  }
+  async youtubeCallback(state: string | undefined, code: string | undefined): Promise<void> {
+    const pending = state ? youtubeOAuthStates.get(state) : undefined;
+    if (state) youtubeOAuthStates.delete(state);
+    if (!pending || pending.expiresAt < Date.now() || !code)
+      throw new BadRequestException('Connexion YouTube expirée ou refusée.');
+    const config = this.youtubeConfig();
+    if (!config) throw new ConflictException('YouTube n’est pas configuré.');
+    const tokenResponse = await fetch(YOUTUBE_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
+        redirect_uri: config.redirectUri,
+        grant_type: 'authorization_code',
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!tokenResponse.ok)
+      throw new ConflictException('Google n’a pas validé la connexion YouTube.');
+    const token = (await tokenResponse.json()) as {
+      access_token?: string;
+      refresh_token?: string;
+      scope?: string;
+    };
+    if (!token.access_token) throw new ConflictException('Jeton YouTube absent.');
+    const current = await this.youtubeConnection(pending.userId);
+    const refreshToken =
+      token.refresh_token ?? (current ? decryptCameraSecret(current.refreshTokenEncrypted) : '');
+    if (!refreshToken)
+      throw new ConflictException('Google n’a pas fourni de jeton de renouvellement.');
+    const [profile, channel] = await Promise.all([
+      this.googleJson<{ email?: string }>(
+        'https://www.googleapis.com/oauth2/v3/userinfo',
+        token.access_token,
+      ).catch(() => ({ email: undefined })),
+      this.googleJson<{ items?: Array<{ snippet?: { title?: string } }> }>(
+        `${YOUTUBE_API_URL}/channels?part=snippet&mine=true`,
+        token.access_token,
+      ),
+    ]);
+    const home = (await this.access(pending.userId, 'control')).home;
+    await this.prisma.youTubeConnection.upsert({
+      where: { homeId: home.id },
+      create: {
+        homeId: home.id,
+        googleAccountEmail: profile.email?.trim() || null,
+        channelTitle: channel.items?.[0]?.snippet?.title?.trim() || null,
+        refreshTokenEncrypted: encryptCameraSecret(refreshToken),
+        scope: token.scope ?? YOUTUBE_SCOPE,
+      },
+      update: {
+        googleAccountEmail: profile.email?.trim() || null,
+        channelTitle: channel.items?.[0]?.snippet?.title?.trim() || null,
+        ...(token.refresh_token
+          ? { refreshTokenEncrypted: encryptCameraSecret(refreshToken) }
+          : {}),
+        scope: token.scope ?? YOUTUBE_SCOPE,
+      },
+    });
+  }
+  private async youtubeConnection(userId: string) {
+    const { home } = await this.access(userId, 'control');
+    return this.prisma.youTubeConnection.findUnique({ where: { homeId: home.id } });
+  }
+  async youtubeAccount(userId: string): Promise<YouTubeAccountResult> {
+    const connection = await this.youtubeConnection(userId);
+    return {
+      configured: this.youtubeAccountConfigured(),
+      connected: !!connection,
+      email: connection?.googleAccountEmail ?? null,
+      channelTitle: connection?.channelTitle ?? null,
+    };
+  }
+  private async googleJson<T>(url: string, accessToken: string): Promise<T> {
+    const response = await fetch(url, {
+      headers: { authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) throw new ConflictException('YouTube est momentanément indisponible.');
+    return (await response.json()) as T;
+  }
+  private async youtubeAccessToken(
+    userId: string,
+  ): Promise<{ accessToken: string; homeId: string }> {
+    const connection = await this.youtubeConnection(userId);
+    const config = this.youtubeConfig();
+    if (!config || !connection)
+      throw new ConflictException('Connectez d’abord votre compte YouTube.');
+    const refreshToken = decryptCameraSecret(connection.refreshTokenEncrypted);
+    const response = await fetch(YOUTUBE_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) throw new ConflictException('Reconnectez votre compte YouTube.');
+    const token = (await response.json()) as { access_token?: string };
+    if (!token.access_token) throw new ConflictException('Jeton YouTube absent.');
+    return { accessToken: token.access_token, homeId: connection.homeId };
+  }
+  async youtubePlaylists(userId: string): Promise<YouTubePlaylistResult[]> {
+    const { accessToken } = await this.youtubeAccessToken(userId);
+    const rows: YouTubePlaylistResult[] = [];
+    let pageToken = '';
+    do {
+      const url = new URL(`${YOUTUBE_API_URL}/playlists`);
+      url.searchParams.set('part', 'snippet,contentDetails');
+      url.searchParams.set('mine', 'true');
+      url.searchParams.set('maxResults', '50');
+      if (pageToken) url.searchParams.set('pageToken', pageToken);
+      const response = await this.googleJson<{
+        items?: Array<{
+          id?: string;
+          snippet?: {
+            title?: string;
+            description?: string;
+            thumbnails?: { medium?: { url?: string } };
+          };
+          contentDetails?: { itemCount?: number };
+        }>;
+        nextPageToken?: string;
+      }>(url.toString(), accessToken);
+      for (const item of response.items ?? []) {
+        if (!item.id || !item.snippet?.title) continue;
+        const thumbnail = item.snippet.thumbnails?.medium?.url;
+        rows.push({
+          id: item.id,
+          title: item.snippet.title.slice(0, 120),
+          description: (item.snippet.description ?? '').slice(0, 300),
+          itemCount: item.contentDetails?.itemCount ?? 0,
+          thumbnailUrl: thumbnail?.startsWith('https://') ? thumbnail : null,
+        });
+      }
+      pageToken = response.nextPageToken ?? '';
+    } while (pageToken && rows.length < 200);
+    return rows.slice(0, 200);
+  }
+  async youtubeImportPlaylist(userId: string, playlistId: string) {
+    if (!/^[A-Za-z0-9_-]{5,150}$/.test(playlistId))
+      throw new BadRequestException('Playlist invalide.');
+    const { accessToken } = await this.youtubeAccessToken(userId);
+    const playlist = await this.googleJson<{
+      items?: Array<{ snippet?: { title?: string; thumbnails?: { medium?: { url?: string } } } }>;
+    }>(
+      `${YOUTUBE_API_URL}/playlists?part=snippet&id=${encodeURIComponent(playlistId)}`,
+      accessToken,
+    );
+    const details = playlist.items?.[0]?.snippet;
+    if (!details?.title) throw new NotFoundException('Playlist YouTube introuvable.');
+    const videoIds: string[] = [];
+    let pageToken = '';
+    do {
+      const url = new URL(`${YOUTUBE_API_URL}/playlistItems`);
+      url.searchParams.set('part', 'snippet,contentDetails');
+      url.searchParams.set('playlistId', playlistId);
+      url.searchParams.set('maxResults', '50');
+      if (pageToken) url.searchParams.set('pageToken', pageToken);
+      const response = await this.googleJson<{
+        items?: Array<{
+          contentDetails?: { videoId?: string };
+          snippet?: { resourceId?: { videoId?: string } };
+        }>;
+        nextPageToken?: string;
+      }>(url.toString(), accessToken);
+      for (const item of response.items ?? []) {
+        const id = item.contentDetails?.videoId ?? item.snippet?.resourceId?.videoId;
+        if (id && /^[A-Za-z0-9_-]{11}$/.test(id)) videoIds.push(id);
+        if (videoIds.length >= 50) break;
+      }
+      pageToken = videoIds.length >= 50 ? '' : (response.nextPageToken ?? '');
+    } while (pageToken);
+    if (!videoIds.length)
+      throw new ConflictException('Cette playlist ne contient aucune vidéo lisible.');
+    const { state } = await this.access(userId, 'control');
+    const existing = state.media.find((media) => media.youtubePlaylistId === playlistId);
+    const mediaId = existing?.id ?? randomUUID();
+    const snapshot = await this.media(userId, {
+      id: mediaId,
+      title: details.title.slice(0, 120),
+      kind: 'youtube',
+      url: `https://www.youtube.com/watch?v=${videoIds[0]}`,
+      playlistUrls: videoIds.map((id) => `https://www.youtube.com/watch?v=${id}`),
+      youtubePlaylistId: playlistId,
+      ...(details.thumbnails?.medium?.url?.startsWith('https://')
+        ? { artworkUrl: details.thumbnails.medium.url }
+        : {}),
+    });
+    return {
+      media: snapshot.state.media.find((media) => media.id === mediaId),
+      importedCount: videoIds.length,
+      truncated: !!pageToken,
+    };
+  }
+  async youtubeDisconnect(userId: string): Promise<YouTubeAccountResult> {
+    const connection = await this.youtubeConnection(userId);
+    if (connection) {
+      try {
+        await fetch('https://oauth2.googleapis.com/revoke', {
+          method: 'POST',
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            token: decryptCameraSecret(connection.refreshTokenEncrypted),
+          }),
+          signal: AbortSignal.timeout(5000),
+        });
+      } catch {
+        // Removing the local connection still prevents any further API access.
+      }
+      await this.prisma.youTubeConnection.delete({ where: { homeId: connection.homeId } });
+    }
+    return this.youtubeAccount(userId);
   }
   async command(userId: string, body: unknown) {
     const { home, row } = await this.access(userId, 'control');

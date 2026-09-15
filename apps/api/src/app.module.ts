@@ -4,6 +4,7 @@ import {
   ScreenDeviceController,
   ScreenMediaController,
   ScreenDeviceMediaController,
+  ScreenYoutubeCallbackController,
 } from './modules/screen/screen.controller';
 import { Module } from '@nestjs/common';
 import { AlertsController } from './modules/alerts/alerts.controller';
@@ -49,6 +50,7 @@ import { RemoteAccessAgentClient } from './modules/remote-access/remote-access-a
     ScreenDeviceController,
     ScreenMediaController,
     ScreenDeviceMediaController,
+    ScreenYoutubeCallbackController,
     SystemController,
     AuthController,
     ActivityController,

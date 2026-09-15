@@ -123,6 +123,27 @@ export class ScreenController {
   @Get('radio/search') radioSearch(@Req() r: AuthenticatedRequest, @Query('q') query: string) {
     return this.screens.searchRadio(r.userId, query);
   }
+  @Get('youtube/connect') async youtubeConnect(
+    @Req() r: AuthenticatedRequest,
+    @Res() res: Response,
+  ) {
+    res.redirect(await this.screens.youtubeAuthorization(r.userId));
+  }
+  @Get('youtube/account') youtubeAccount(@Req() r: AuthenticatedRequest) {
+    return this.screens.youtubeAccount(r.userId);
+  }
+  @Get('youtube/playlists') youtubePlaylists(@Req() r: AuthenticatedRequest) {
+    return this.screens.youtubePlaylists(r.userId);
+  }
+  @Post('youtube/playlists/:id/import') youtubeImportPlaylist(
+    @Req() r: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.screens.youtubeImportPlaylist(r.userId, id);
+  }
+  @Delete('youtube/account') youtubeDisconnect(@Req() r: AuthenticatedRequest) {
+    return this.screens.youtubeDisconnect(r.userId);
+  }
   @Post('commands') command(@Req() r: AuthenticatedRequest, @Body() b: unknown) {
     return this.screens.command(r.userId, b);
   }
@@ -149,6 +170,35 @@ export class ScreenController {
   }
   @Post('calls/:id/join') join(@Req() r: AuthenticatedRequest, @Param('id') id: string) {
     return this.screens.join(r.userId, undefined, id);
+  }
+}
+
+@Controller('screen/youtube')
+export class ScreenYoutubeCallbackController {
+  constructor(private readonly screens: ScreenService) {}
+  @Get('callback') async callback(
+    @Query('state') state: string | undefined,
+    @Query('code') code: string | undefined,
+    @Query('error') error: string | undefined,
+    @Res() res: Response,
+  ) {
+    try {
+      if (error) throw new BadRequestException('Connexion YouTube refusée.');
+      await this.screens.youtubeCallback(state, code);
+      res
+        .type('html')
+        .send(
+          '<!doctype html><meta charset="utf-8"><title>YouTube connecté</title><p>Compte YouTube connecté. Vous pouvez fermer cette fenêtre.</p><script>window.opener?.postMessage({type:"youtube-connected"}, window.location.origin); window.close();</script>',
+        );
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Connexion YouTube impossible.';
+      res
+        .status(400)
+        .type('html')
+        .send(
+          `<!doctype html><meta charset="utf-8"><title>Connexion YouTube</title><p>${message.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c] ?? c)}</p><script>window.opener?.postMessage({type:"youtube-error"}, window.location.origin);</script>`,
+        );
+    }
   }
 }
 @Controller('screen-device')

@@ -262,6 +262,7 @@ model Home {
   presenceTracking           PresenceTrackingState?
   presenceDecisions          PresenceTransitionDecision[]
   residentScreen             ResidentScreen?
+  youtubeConnection           YouTubeConnection?
 
   @@index([organizationId])
 }
@@ -1081,4 +1082,16 @@ model ResidentScreen {
   capabilities Json @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model YouTubeConnection {
+  id                       String   @id @default(cuid())
+  homeId                   String   @unique
+  googleAccountEmail       String?
+  channelTitle             String?
+  refreshTokenEncrypted    String
+  scope                    String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  home                     Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
 }

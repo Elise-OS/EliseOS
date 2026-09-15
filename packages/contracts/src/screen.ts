@@ -42,6 +42,7 @@ export const screenMediaSchema = z
       .min(1)
       .max(50)
       .optional(),
+    youtubePlaylistId: z.string().trim().max(150).optional(),
     artworkUrl: z.string().url().max(2048).optional(),
     mimeType: z
       .enum([

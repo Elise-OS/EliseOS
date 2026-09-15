@@ -142,6 +142,21 @@ curl --fail http://192.168.1.55:8090/api/v1/system/health
 open http://192.168.1.55:8090
 ```
 
+### Connecter YouTube
+
+La carte « Médias » peut se connecter à un compte Google en OAuth et importer ses playlists
+personnelles. Dans Google Cloud, activez **YouTube Data API v3**, créez un identifiant OAuth
+« Application Web », puis ajoutez exactement cette URI de redirection :
+
+```text
+https://toquehub.tail0ffd40.ts.net:8443/api/v1/screen/youtube/callback
+```
+
+Renseignez ensuite `YOUTUBE_CLIENT_ID` et `YOUTUBE_CLIENT_SECRET` dans le `.env` du NAS
+(ou utilisez `YOUTUBE_REDIRECT_URI` si l’URL publique diffère), puis redéployez l’API.
+La connexion se fait depuis **Médias → YouTube → Connecter Google**. Les jetons de renouvellement
+sont chiffrés avant d’être enregistrés et peuvent être révoqués avec **Déconnecter**.
+
 ## 3. Travailler uniquement sur le frontend depuis le Mac
 
 Le script suivant lance seulement Vite et le dashboard React sur le Mac. Il ne lance ni
