@@ -23,7 +23,6 @@ import {
   ShieldAlert,
   Sun,
   Thermometer,
-  Trash2,
   UserRound,
   Wind,
 } from 'lucide-react';
@@ -33,6 +32,7 @@ import {
   type ContactRole,
   ROOM_SENSOR_CATEGORIES,
   deviceSupportsCategory,
+  roomSupportsCategory,
   visibleRoomCategories,
   type HomePlan,
   type RoomSensorCategory,
@@ -53,6 +53,7 @@ import type { Locale } from './i18n';
 const categoryIcons = {
   temperature: Thermometer,
   humidity: Droplets,
+  shower: Droplets,
   motion: Activity,
   presence: UserRound,
   fall_detection: ShieldAlert,
@@ -192,7 +193,9 @@ export function roomSensorReading(
             ? ['co2', 'pm25', 'voc', 'total_volatile_organic_compounds', 'air_quality'].includes(
                 capability,
               )
-            : capability === category,
+            : category === 'shower'
+              ? capability === 'humidity'
+              : capability === category,
   );
   const capability = capabilities.find((c) => c.value !== null) ?? capabilities[0];
   const lastSeenAt = capability?.lastSeenAt ?? device.lastSeenAt;
@@ -358,7 +361,6 @@ export function RoomEquipmentPage({
   const [editingMainEntrance, setEditingMainEntrance] = useState(false);
   const [guideId, setGuideId] = useState<string | null>(null);
   const [assigning, setAssigning] = useState<SensorUiDevice | null>(null);
-  const [confirmRemoval, setConfirmRemoval] = useState(false);
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -457,12 +459,27 @@ export function RoomEquipmentPage({
       setMore(false);
     });
   const openCategory = (id: RoomSensorCategory, type?: ContactRole) => {
+    const matchingDevices = categoryDevices(id).filter(
+      (device) =>
+        id !== 'contact' ||
+        (type ? deviceContactType(plan, device) === type : !deviceContactType(plan, device)),
+    );
     setContactFilter(type);
     setOpeningType(type ?? '');
     setEditingMainEntrance(false);
     setCategory(id);
     setProduct(null);
-    setAssigning(null);
+    if (matchingDevices.length === 1) {
+      const device = matchingDevices[0]!;
+      setAssigning(device);
+      setName(device.name);
+      const placement = plan.placements.find(
+        (item) =>
+          item.equipmentId === device.id ||
+          device.capabilities.some(({ sensorId }) => sensorId === item.equipmentId),
+      );
+      setNote(device.placementNote ?? placement?.placementNote ?? '');
+    } else setAssigning(null);
     setTab('PRODUCTS');
     setError('');
   };
@@ -472,7 +489,17 @@ export function RoomEquipmentPage({
     setEditingMainEntrance(true);
     setCategory('contact');
     setProduct(null);
-    setAssigning(null);
+    if (entranceDevices.length === 1) {
+      const device = entranceDevices[0]!;
+      setAssigning(device);
+      setName(device.name);
+      const placement = plan.placements.find(
+        (item) =>
+          item.equipmentId === device.id ||
+          device.capabilities.some(({ sensorId }) => sensorId === item.equipmentId),
+      );
+      setNote(device.placementNote ?? placement?.placementNote ?? '');
+    } else setAssigning(null);
     setTab('PRODUCTS');
     setError('');
   };
@@ -494,7 +521,6 @@ export function RoomEquipmentPage({
           (editingMainEntrance ? 'MAIN_ENTRANCE' : openingType || contactFilter || ''),
       );
     setAssigning(device);
-    setConfirmRemoval(false);
     setName(device.name);
     const placement = plan.placements.find(
       (p) =>
@@ -536,21 +562,6 @@ export function RoomEquipmentPage({
       setEditingMainEntrance(false);
       setGuideId(id);
       await onRefresh();
-    });
-  const removeDevice = () =>
-    run(async () => {
-      if (!assigning || assigning.protocol !== 'zigbee') return;
-      await sensorRequest(`/api/v1/sensor-devices/${encodeURIComponent(assigning.id)}`, {
-        method: 'DELETE',
-      });
-      setConfirmRemoval(false);
-      setAssigning(null);
-      setCategory(null);
-      void onRefresh().catch(() =>
-        setError(
-          fr ? 'Actualisation indisponible. Réessayez.' : 'Refresh unavailable. Please retry.',
-        ),
-      );
     });
   const rooms = plan.levels.flatMap((level) =>
     level.rooms.map((r) => ({ id: r.id, name: r.name, kind: r.kind, floor: level.floor })),
@@ -877,7 +888,9 @@ export function RoomEquipmentPage({
           busy={busy}
         >
           <div className="equipment-category-picker">
-            {ROOM_SENSOR_CATEGORIES.filter(({ id }) => !visible.includes(id)).map((definition) => {
+            {ROOM_SENSOR_CATEGORIES.filter(
+              ({ id }) => roomSupportsCategory(room.kind, id) && !visible.includes(id),
+            ).map((definition) => {
               const Icon = categoryIcons[definition.id];
               return (
                 <button
@@ -911,10 +924,10 @@ export function RoomEquipmentPage({
         <EquipmentDialog
           title={`${editingMainEntrance ? (fr ? 'Porte principale' : 'Main entrance') : selected[fr ? 'label' : 'labelEn']} · ${room.name}`}
           wide
+          sidePanel
           onClose={() => {
             setCategory(null);
             setAssigning(null);
-            setConfirmRemoval(false);
             setEditingMainEntrance(false);
             setError('');
           }}
@@ -945,13 +958,66 @@ export function RoomEquipmentPage({
                   className="equipment-text-button"
                   onClick={() => {
                     setAssigning(null);
-                    setConfirmRemoval(false);
                   }}
                 >
                   <ArrowLeft />
                   {fr ? 'Retour aux capteurs' : 'Back to sensors'}
                 </button>
-                <h3>{assigning.name}</h3>
+                <section className="equipment-sensor-profile">
+                  <div className="equipment-sensor-profile-photo">
+                    <DevicePhoto device={assigning} />
+                  </div>
+                  <div className="equipment-sensor-profile-copy">
+                    <span className="equipment-sensor-profile-status">
+                      <span aria-hidden="true" />
+                      {assigning.enabled
+                        ? fr
+                          ? 'Capteur actif'
+                          : 'Active sensor'
+                        : fr
+                          ? 'Capteur hors ligne'
+                          : 'Sensor offline'}
+                    </span>
+                    <h3>{assigning.name}</h3>
+                    <p className="equipment-sensor-model">
+                      {[assigning.manufacturer, assigning.model].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                </section>
+                <section className="equipment-sensor-purpose">
+                  <span className={`room-sensor-icon category-${category}`}>
+                    {(() => {
+                      const Icon = categoryIcons[category!];
+                      return <Icon />;
+                    })()}
+                  </span>
+                  <div>
+                    <span>{fr ? 'À quoi sert ce capteur ?' : 'What is this sensor for?'}</span>
+                    <strong>
+                      {editingMainEntrance
+                        ? fr
+                          ? 'Il surveille l’ouverture de la porte principale du logement.'
+                          : 'It monitors the opening of the home’s main door.'
+                        : selected[fr ? 'description' : 'descriptionEn']}
+                    </strong>
+                  </div>
+                </section>
+                <div className="equipment-sensor-glance">
+                  <div>
+                    <span>{fr ? 'Mesure actuelle' : 'Current reading'}</span>
+                    <strong>{roomSensorReading(assigning, category!, fr, now).reading}</strong>
+                  </div>
+                  <div>
+                    <span>{fr ? 'Batterie' : 'Battery'}</span>
+                    <strong>
+                      {assigning.batteryPercent !== null
+                        ? `${assigning.batteryPercent} %`
+                        : fr
+                          ? 'Non indiquée'
+                          : 'Not reported'}
+                    </strong>
+                  </div>
+                </div>
                 {assigning.room && assigning.room.id !== roomId && (
                   <p className="equipment-note">
                     {fr
@@ -959,8 +1025,11 @@ export function RoomEquipmentPage({
                       : `This device and all its readings will move from ${assigning.room.name} to ${room.name}.`}
                   </p>
                 )}
+                <h4 className="equipment-sensor-settings-title">
+                  {fr ? 'Personnalisation' : 'Personalisation'}
+                </h4>
                 <label className="equipment-field">
-                  {fr ? 'Nom' : 'Name'}
+                  {fr ? 'Nom du capteur' : 'Sensor name'}
                   <input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
                 </label>
                 <label className="equipment-field">
@@ -992,54 +1061,6 @@ export function RoomEquipmentPage({
                           : `Assign to ${room.name}`}
                   </button>
                 </footer>
-                {assigning.protocol === 'zigbee' && (
-                  <div className="equipment-removal">
-                    {confirmRemoval ? (
-                      <div
-                        className="equipment-removal-confirmation"
-                        role="group"
-                        aria-label={fr ? 'Confirmer la suppression' : 'Confirm removal'}
-                      >
-                        <strong>
-                          {fr
-                            ? 'Retirer ce capteur du réseau ?'
-                            : 'Remove this sensor from the network?'}
-                        </strong>
-                        <p>
-                          {fr
-                            ? 'Il sera supprimé de cette pièce et du réseau Zigbee. Pour le réinstaller ailleurs, remettez-le en mode appairage.'
-                            : 'It will be removed from this room and the Zigbee network. To install it elsewhere, put it in pairing mode again.'}
-                        </p>
-                        <div>
-                          <button
-                            className="equipment-secondary"
-                            disabled={busy}
-                            onClick={() => setConfirmRemoval(false)}
-                          >
-                            {fr ? 'Annuler' : 'Cancel'}
-                          </button>
-                          <button
-                            className="equipment-delete-confirm"
-                            disabled={busy}
-                            onClick={() => void removeDevice()}
-                          >
-                            <Trash2 />
-                            {fr ? 'Supprimer du réseau' : 'Remove from network'}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        className="equipment-delete-trigger"
-                        disabled={busy}
-                        onClick={() => setConfirmRemoval(true)}
-                      >
-                        <Trash2 />
-                        {fr ? 'Supprimer du réseau' : 'Remove from network'}
-                      </button>
-                    )}
-                  </div>
-                )}
               </>
             ) : product ? (
               <>
@@ -1374,13 +1395,7 @@ export function RoomEquipmentPage({
       {busy && (
         <div className="equipment-working" role="status">
           <LoaderCircle className="is-spinning" />
-          {confirmRemoval
-            ? fr
-              ? 'Suppression du capteur…'
-              : 'Removing sensor…'
-            : fr
-              ? 'Enregistrement…'
-              : 'Saving…'}
+          {fr ? 'Enregistrement…' : 'Saving…'}
         </div>
       )}
     </section>

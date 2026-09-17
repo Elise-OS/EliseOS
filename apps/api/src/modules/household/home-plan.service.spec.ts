@@ -262,6 +262,122 @@ describe('HomePlanService geometry', () => {
   });
 });
 
+describe('HomePlanService live presence', () => {
+  it('prefers an active R3 presence over an expired toilet motion pulse', async () => {
+    const now = Date.now();
+    const salonAt = new Date(now - 15 * 60_000);
+    const toiletAt = new Date(now - 10 * 60_000);
+    const toiletOffAt = new Date(now - 9 * 60_000);
+    const prisma = {
+      home: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'home',
+          plan: null,
+          rooms: [
+            { id: 'salon', name: 'Salon' },
+            { id: 'toilettes', name: 'Toilettes' },
+          ],
+          sensors: [],
+          cameras: [],
+        }),
+      },
+      presenceTrackingState: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'tracking',
+          status: 'CONFIRMED',
+          confirmedRoomId: 'toilettes',
+          candidateRoomId: null,
+          confirmedRoom: { name: 'Toilettes' },
+          candidateRoom: null,
+          pathRoomIds: [],
+          confidenceScore: 0.72,
+          reasonCodes: [],
+          evidenceSummary: [
+            {
+              eventId: 'toilet-on',
+              sensorId: 'toilet-sensor',
+              roomId: 'toilettes',
+              capability: 'motion',
+              occurredAt: toiletAt.toISOString(),
+              observed: true,
+            },
+          ],
+          lastEvidenceAt: toiletAt,
+          transitionStartedAt: null,
+          residentId: 'resident',
+          trackingDegraded: false,
+        }),
+      },
+      sensor: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'salon-sensor',
+            deviceId: 'salon-device',
+            roomId: 'salon',
+            capability: 'occupancy',
+            status: 'ONLINE',
+            available: true,
+            unit: null,
+            device: { model: 'Multi-function smart presence sensor R3' },
+            events: [
+              {
+                id: 'salon-on',
+                sensorId: 'salon-sensor',
+                roomId: 'salon',
+                capability: 'occupancy',
+                payload: { active: true },
+                quality: 'good',
+                occurredAt: salonAt,
+              },
+            ],
+          },
+          {
+            id: 'toilet-sensor',
+            deviceId: 'toilet-device',
+            roomId: 'toilettes',
+            capability: 'occupancy',
+            status: 'ONLINE',
+            available: true,
+            unit: null,
+            device: { model: 'Wireless motion sensor' },
+            events: [
+              {
+                id: 'toilet-off',
+                sensorId: 'toilet-sensor',
+                roomId: 'toilettes',
+                capability: 'occupancy',
+                payload: { active: false },
+                quality: 'good',
+                occurredAt: toiletOffAt,
+              },
+              {
+                id: 'toilet-on',
+                sensorId: 'toilet-sensor',
+                roomId: 'toilettes',
+                capability: 'occupancy',
+                payload: { active: true },
+                quality: 'good',
+                occurredAt: toiletAt,
+              },
+            ],
+          },
+        ]),
+      },
+    };
+
+    const result = await new HomePlanService(prisma as never).presence('user');
+
+    expect(result).toMatchObject({
+      state: 'OPEN',
+      roomId: 'salon',
+      confirmedRoomId: 'salon',
+      trackingState: 'CONFIRMED',
+      reasonCodes: ['ACTIVE_SENSOR_CURRENT'],
+      confidence: 'HIGH',
+    });
+  });
+});
+
 describe('HomePlanService first home completion', () => {
   const prismaForDraft = () => {
     const tx = {

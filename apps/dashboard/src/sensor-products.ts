@@ -571,8 +571,9 @@ export const TEST_HARDWARE_COUNT = SENSOR_PRODUCTS.reduce(
 );
 
 export function productsForCategory(category: RoomSensorCategory, outdoor: boolean) {
+  const hardwareCategory = category === 'shower' ? 'humidity' : category;
   return SENSOR_PRODUCTS.filter(
-    (product) => product.categories.includes(category) && (!outdoor || product.outdoor),
+    (product) => product.categories.includes(hardwareCategory) && (!outdoor || product.outdoor),
   );
 }
 

@@ -1,3 +1,4 @@
+import { presenceCapabilityForDevice } from '@michel/contracts';
 import type { PresenceConfidence, PresenceSource, Prisma } from '@prisma/client';
 
 const PRESENCE_CAPABILITIES = new Set(['motion', 'occupancy', 'person_presence']);
@@ -173,6 +174,7 @@ export class PresenceSessionService {
           sensor: { analysisEnabled: true },
         },
         orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+        include: { sensor: { include: { device: { select: { model: true } } } } },
       }),
       tx.homePlan.findUnique({ where: { homeId }, select: { data: true } }),
     ]);
@@ -185,7 +187,7 @@ export class PresenceSessionService {
         residentId: home?.primaryResidentId ?? null,
         roomId: event.roomId,
         sensorId: event.sensorId,
-        capability: event.capability,
+        capability: presenceCapabilityForDevice(event.capability, event.sensor?.device?.model),
         active: typeof payload.active === 'boolean' ? payload.active : null,
         occurredAt: event.occurredAt,
         confidence: event.roomConfidence ?? 'LOW',

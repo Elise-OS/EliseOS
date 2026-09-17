@@ -37,6 +37,7 @@ function fixture() {
     },
     residentScreen: {
       upsert: vi.fn().mockResolvedValue(row),
+      findMany: vi.fn().mockResolvedValue([row]),
       findUniqueOrThrow: vi.fn().mockResolvedValue(row),
       update: vi.fn().mockResolvedValue(row),
       findUnique: vi.fn().mockResolvedValue(row),
@@ -52,7 +53,10 @@ function fixture() {
         .mockImplementation(({ data }) => Promise.resolve({ id: 'appointment1', ...data })),
     },
     observationEvent: { findFirst: vi.fn().mockResolvedValue(null) },
-    membership: { findMany: vi.fn().mockResolvedValue([membership]) },
+    membership: {
+      findMany: vi.fn().mockResolvedValue([membership]),
+      findFirst: vi.fn().mockResolvedValue(membership),
+    },
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn(),
     $transaction: vi.fn(),
@@ -65,6 +69,35 @@ describe('Resident display policy', () => {
     expect(cityFromAddress('12 rue de la Paix, 45000 Orléans, France')).toBe('Orléans');
     expect(cityFromAddress('Orléans')).toBe('Orléans');
     expect(cityFromAddress('12 rue de la Paix')).toBeNull();
+  });
+  it('returns French city suggestions for weather autocomplete', async () => {
+    const { service } = fixture();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          results: [
+            {
+              name: 'Orléans',
+              admin1: 'Centre-Val de Loire',
+              country: 'France',
+              latitude: 47.9029,
+              longitude: 1.9039,
+            },
+          ],
+        }),
+      }),
+    );
+    await expect(service.searchWeatherCities('user1', 'Orl')).resolves.toEqual([
+      {
+        name: 'Orléans',
+        label: 'Orléans, Centre-Val de Loire, France',
+        latitude: 47.9029,
+        longitude: 1.9039,
+      },
+    ]);
+    vi.unstubAllGlobals();
   });
   it('handles midnight and DST using household wall time', () => {
     const s = initialScreenState();
@@ -256,6 +289,38 @@ describe('TV messages and appointment pictograms', () => {
     ).rejects.toThrow();
     expect(state.messages).toEqual(['Bonjour']);
   });
+  it('stores, executes and clears scheduled messages and photos', async () => {
+    const { service, state } = fixture();
+    const photoId = '550e8400-e29b-41d4-a716-446655440000';
+    state.media.push({
+      id: photoId,
+      title: 'Souvenir en famille',
+      kind: 'photo',
+      url: `/api/v1/screen-media/home1/${photoId}`,
+      mimeType: 'image/jpeg',
+    });
+    const future = new Date(Date.now() + 60_000);
+    await service.scheduleContent('user1', {
+      kind: 'message',
+      scheduledAt: future,
+      messages: ['Bonne journée ❤️'],
+      messageIntervalSeconds: 20,
+    });
+    await service.scheduleContent('user1', {
+      kind: 'photo',
+      scheduledAt: future,
+      mediaId: photoId,
+    });
+    expect(state.scheduledContent).toHaveLength(2);
+
+    for (const item of state.scheduledContent ?? []) item.scheduledAt = Date.now() - 1;
+    await (service as unknown as { tick: () => Promise<void> }).tick();
+
+    expect(state.scheduledContent).toEqual([]);
+    expect(state.message).toBe('Bonne journée ❤️');
+    expect(state.playback.mediaId).toBe(photoId);
+    expect(state.commands.at(-1)).toMatchObject({ action: 'play', status: 'pending' });
+  });
   it('stores the chosen pictogram and includes it in the resident agenda', async () => {
     const { service, db } = fixture();
     const startsAt = new Date(Date.now() + 3600000);
@@ -296,5 +361,15 @@ describe('TV messages and appointment pictograms', () => {
       service.updateAppointmentPictogram('user1', 'appointment1', 'medical'),
     ).rejects.toThrow();
     expect(db.appointment.updateMany).not.toHaveBeenCalled();
+  });
+  it('only requests future items for the resident agenda', async () => {
+    const { service, db } = fixture();
+    await service.snapshot('user1');
+    const now = Date.now();
+    for (const query of [db.visit.findMany, db.appointment.findMany]) {
+      const start = query.mock.calls[0]?.[0]?.where?.startsAt?.gte as Date;
+      expect(start).toBeInstanceOf(Date);
+      expect(Math.abs(start.getTime() - now)).toBeLessThan(2000);
+    }
   });
 });

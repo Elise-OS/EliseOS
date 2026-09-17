@@ -9,6 +9,7 @@ export function EquipmentDialog({
   onClose,
   busy = false,
   wide = false,
+  sidePanel = false,
   closeLabel = 'Fermer',
 }: {
   title: string;
@@ -16,6 +17,7 @@ export function EquipmentDialog({
   onClose: () => void;
   busy?: boolean;
   wide?: boolean;
+  sidePanel?: boolean;
   closeLabel?: string;
 }) {
   const titleId = useId();
@@ -76,7 +78,7 @@ export function EquipmentDialog({
       }}
     >
       <div
-        className={`equipment-dialog ${wide ? 'is-wide' : ''}`}
+        className={`equipment-dialog ${wide ? 'is-wide' : ''} ${sidePanel ? 'is-side-panel' : ''}`}
         ref={root}
         tabIndex={-1}
         role="dialog"

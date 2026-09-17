@@ -33,6 +33,7 @@ describe('Élise copy', () => {
       expect(html).not.toContain(labels[5]);
       expect(html).not.toContain(labels[6]);
       expect(html).toContain(labels[10]);
+      expect(html.indexOf(labels[10])).toBeLessThan(html.indexOf(labels[3]));
     }
   });
 
@@ -76,6 +77,18 @@ describe('Élise copy', () => {
         'fr',
       ),
     ).toBe('Fermeture détectée');
+    expect(
+      activityDescription(
+        {
+          id: 'light-1',
+          occurredAt: '2026-08-09T08:00:00.000Z',
+          capability: 'illuminance',
+          room: 'Cuisine',
+          payload: {},
+        },
+        'fr',
+      ),
+    ).toBe('Luminosité mesurée');
   });
 });
 

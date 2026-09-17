@@ -18,16 +18,12 @@ import {
   CircleX,
   ExternalLink,
   Heart,
-  House,
   MessageCircleHeart,
   Mic,
-  MoonStar,
   Pause,
   Phone,
   ImagePlus,
   Play,
-  Power,
-  RotateCcw,
   Radio,
   Youtube,
   Square,
@@ -42,20 +38,19 @@ import {
   Volume2,
   Wifi,
   WifiOff,
-  type LucideIcon,
 } from 'lucide-react';
 import './screen.css';
 
 const messageEmojis = ['❤️', '😊', '🥰', '😘', '🌸', '☀️', '🎂', '👏', '💐', '👋', '✨', '☕'];
-const remoteActions: Array<[string, string, LucideIcon]> = [
-  ['wake', 'Réveiller', Power],
-  ['sleep', 'Mettre au repos', MoonStar],
-  ['pause', 'Pause', Pause],
-  ['resume', 'Reprendre', Play],
-  ['next', 'Suivant', SkipForward],
-  ['stop', 'Accueil', House],
-  ['planning', 'Reprendre le planning', RotateCcw],
-];
+const favoriteMessages = [
+  { emoji: '☀️', label: 'Bonne journée', message: 'Bonne journée ! On pense fort à toi ❤️' },
+  {
+    emoji: '📅',
+    label: 'Rendez-vous',
+    message: 'N’oublie pas ton rendez-vous. Tout est bien prévu 😊',
+  },
+  { emoji: '🏡', label: 'On arrive bientôt', message: 'On arrive bientôt ! À tout de suite 👋' },
+] as const;
 type RadioStation = {
   id: string;
   name: string;
@@ -64,6 +59,12 @@ type RadioStation = {
   codec: string;
   bitrate: number;
   artworkUrl?: string;
+};
+type WeatherCity = {
+  name: string;
+  label: string;
+  latitude: number;
+  longitude: number;
 };
 type YouTubeAccount = {
   configured: boolean;
@@ -175,12 +176,35 @@ export function JitsiFrame({
     </div>
   );
 }
-export function ScreenPanel() {
+export function ScreenPanel({
+  initialSection = 'display',
+}: {
+  initialSection?: 'call' | 'messages' | 'display' | 'photos' | 'planning';
+} = {}) {
   const [snapshot, setSnapshot] = useState<ScreenSnapshot>();
+  const initialSectionOpened = useRef(false);
+  useEffect(() => {
+    if (!snapshot || initialSectionOpened.current) return;
+    initialSectionOpened.current = true;
+    const selectors = {
+      messages: '.screen-message-card',
+      photos: '.screen-media-card',
+      call: '.screen-button--call',
+      planning: '.screen-appointment-form',
+      display: '.screen-panel__hero',
+    };
+    const target = document.querySelector<HTMLElement>(selectors[initialSection]);
+    target?.scrollIntoView({ block: 'start' });
+    if (initialSection === 'call') target?.focus({ preventScroll: true });
+    if (initialSection === 'messages') {
+      target?.querySelector('textarea')?.focus({ preventScroll: true });
+    }
+  }, [snapshot, initialSection]);
   const [error, setError] = useState('');
   const [messages, setMessages] = useState<string[]>(['']);
   const [messageIndex, setMessageIndex] = useState(0);
   const [messageIntervalSeconds, setMessageIntervalSeconds] = useState(20);
+  const [messageScheduleAt, setMessageScheduleAt] = useState('');
   const message = messages[messageIndex] ?? '';
   const setMessage = (value: string | ((current: string) => string)) =>
     setMessages((current) =>
@@ -192,6 +216,7 @@ export function ScreenPanel() {
   const [join, setJoin] = useState<ScreenJoin>();
   const [photo, setPhoto] = useState<File>();
   const [photoCaption, setPhotoCaption] = useState('');
+  const [photoScheduleAt, setPhotoScheduleAt] = useState('');
   const [busy, setBusy] = useState(false);
   const [host, setHost] = useState<Record<string, unknown>>();
   const [appointments, setAppointments] = useState<
@@ -206,6 +231,7 @@ export function ScreenPanel() {
   const [playlistLinks, setPlaylistLinks] = useState('');
   const [radioQuery, setRadioQuery] = useState('');
   const [radioResults, setRadioResults] = useState<RadioStation[]>([]);
+  const [weatherCities, setWeatherCities] = useState<WeatherCity[]>([]);
   const [youtubeAccount, setYoutubeAccount] = useState<YouTubeAccount>();
   const [youtubePlaylists, setYoutubePlaylists] = useState<YouTubePlaylist[]>([]);
   const [youtubePlaylistBusy, setYoutubePlaylistBusy] = useState<string>();
@@ -214,6 +240,32 @@ export function ScreenPanel() {
     if (snapshot?.grant.administer)
       void screenRequest<Record<string, unknown>>('screen/host', undefined, 'GET').then(setHost);
   }, [snapshot?.grant.administer]);
+  useEffect(() => {
+    const query = settings?.weatherCity?.trim() ?? '';
+    if (!snapshot?.grant.administer || query.length < 2) {
+      setWeatherCities([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void fetch(`/api/v1/screen/weather/cities?q=${encodeURIComponent(query)}`, {
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          if (!response.ok) throw new Error('Recherche de villes indisponible.');
+          return response.json() as Promise<WeatherCity[]>;
+        })
+        .then(setWeatherCities)
+        .catch((cause) => {
+          if (cause instanceof DOMException && cause.name === 'AbortError') return;
+          setWeatherCities([]);
+        });
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [settings?.weatherCity, snapshot?.grant.administer]);
   const refresh = useCallback(async () => {
     const s = await screenRequest<ScreenSnapshot>('screen', undefined, 'GET');
     setSnapshot(s);
@@ -413,6 +465,7 @@ export function ScreenPanel() {
     : snapshot.paired
       ? 'Écran hors ligne'
       : 'Écran en préparation';
+  const residentFirstName = snapshot.resident.trim().split(/\s+/)[0] || snapshot.resident;
   return (
     <section className="screen-panel">
       <header className="screen-panel__hero">
@@ -429,23 +482,41 @@ export function ScreenPanel() {
             </span>
           </div>
         </div>
-        <div className="screen-panel__hero-actions">
-          <a
-            className="screen-button screen-button--secondary"
-            href="/resident-screen"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Voir l’écran <ExternalLink aria-hidden="true" />
-          </a>
-          {grant.call && (
-            <button
-              className="screen-button screen-button--call"
-              disabled={busy || !snapshot.online || !!call || !state.settings.consent}
-              onClick={() => void run(() => screenRequest('screen/calls'))}
+        <div className="screen-panel__hero-side">
+          <div className="screen-panel__hero-actions">
+            <a
+              className="screen-button screen-button--secondary"
+              href="/resident-screen"
+              target="_blank"
+              rel="noreferrer"
             >
-              <Phone aria-hidden="true" /> Appeler {snapshot.resident}
-            </button>
+              Voir l’écran <ExternalLink aria-hidden="true" />
+            </a>
+            {grant.call && (
+              <button
+                className="screen-button screen-button--call"
+                disabled={busy || !snapshot.online || !!call || !state.settings.consent}
+                onClick={() => void run(() => screenRequest('screen/calls'))}
+              >
+                <Phone aria-hidden="true" /> Appeler {residentFirstName}
+              </button>
+            )}
+          </div>
+          {grant.administer && (
+            <div className="screen-capabilities" aria-label="État des équipements de l’écran">
+              <span className={snapshot.capabilities.camera ? 'is-ready' : ''}>
+                <Camera aria-hidden="true" />
+                Caméra {snapshot.capabilities.camera ? 'prête' : 'à tester'}
+              </span>
+              <span className={snapshot.capabilities.microphone ? 'is-ready' : ''}>
+                <Mic aria-hidden="true" />
+                Micro {snapshot.capabilities.microphone ? 'prêt' : 'à tester'}
+              </span>
+              <span className={snapshot.online ? 'is-ready' : ''}>
+                <Tv aria-hidden="true" />
+                Image TV {snapshot.online ? 'disponible' : 'à vérifier'}
+              </span>
+            </div>
           )}
         </div>
       </header>
@@ -479,229 +550,6 @@ export function ScreenPanel() {
           </div>
         )
       )}
-      {grant.administer && (
-        <details className="screen-details screen-device-card">
-          <summary>
-            <Settings aria-hidden="true" /> Écran branché à cet ordinateur{' '}
-            <ChevronRight aria-hidden="true" />
-          </summary>
-          {Array.isArray(host?.buttons) && (
-            <label>
-              Bouton USB
-              <select
-                defaultValue=""
-                onChange={(e) =>
-                  void run(() => screenRequest('screen/host/button', { path: e.target.value }))
-                }
-              >
-                <option value="">Choisir un bouton</option>
-                {(host.buttons as string[]).map((path) => (
-                  <option key={path} value={path}>
-                    {path.split('/').at(-1)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {host?.installed === true && (
-            <button onClick={() => void run(() => screenRequest('screen/host/pair'))}>
-              Relancer la page résident sur la TV
-            </button>
-          )}
-          <p>Élise publie automatiquement la page résident sur la sortie HDMI ou DisplayPort.</p>
-          <div className="screen-capabilities">
-            <span className={snapshot.capabilities.camera ? 'is-ready' : ''}>
-              <Camera /> Caméra {snapshot.capabilities.camera ? 'prête' : 'à tester'}
-            </span>
-            <span className={snapshot.capabilities.microphone ? 'is-ready' : ''}>
-              <Mic /> Micro {snapshot.capabilities.microphone ? 'prêt' : 'à tester'}
-            </span>
-            <span className={snapshot.capabilities.cec ? 'is-ready' : ''}>
-              <Tv /> TV {snapshot.capabilities.cec ? 'pilotable' : 'image uniquement'}
-            </span>
-          </div>
-        </details>
-      )}
-      {(grant.administer || grant.control) && (
-        <div className="screen-context-grid">
-          {grant.administer && (
-            <section className="screen-card screen-context-card">
-              <div className="screen-card__heading">
-                <span>
-                  <CloudSun aria-hidden="true" />
-                </span>
-                <div>
-                  <h3>Météo sur la TV</h3>
-                  <p>Température extérieure de la ville choisie.</p>
-                </div>
-              </div>
-              {snapshot.weather && (
-                <p className="screen-weather-preview">
-                  <strong>{Math.round(snapshot.weather.temperature)}°C</strong>
-                  <span>
-                    {snapshot.weather.city} · min.{' '}
-                    {snapshot.weather.minimum === null
-                      ? '—'
-                      : `${Math.round(snapshot.weather.minimum)}°`}{' '}
-                    · max.{' '}
-                    {snapshot.weather.maximum === null
-                      ? '—'
-                      : `${Math.round(snapshot.weather.maximum)}°`}
-                  </span>
-                </p>
-              )}
-              <div className="screen-context-form">
-                <label>
-                  <span>Ville</span>
-                  <input
-                    value={settings.weatherCity ?? ''}
-                    placeholder="Ex. Orléans"
-                    onChange={(event) =>
-                      setSettings({ ...settings, weatherCity: event.target.value })
-                    }
-                  />
-                </label>
-                <button
-                  className="screen-button screen-button--primary"
-                  disabled={busy || !(settings.weatherCity ?? '').trim()}
-                  onClick={() =>
-                    void run(() => screenRequest('screen/settings', settings, 'PATCH'))
-                  }
-                >
-                  Afficher cette météo
-                </button>
-              </div>
-            </section>
-          )}
-          {grant.control && (
-            <section className="screen-card screen-context-card">
-              <div className="screen-card__heading">
-                <span>
-                  <CalendarPlus aria-hidden="true" />
-                </span>
-                <div>
-                  <h3>Rendez-vous sur la TV</h3>
-                  <p>Les prochains rendez-vous apparaissent dans le bandeau, à côté de la météo.</p>
-                </div>
-              </div>
-              <div className="screen-appointment-form">
-                <label>
-                  <span>Rendez-vous</span>
-                  <input
-                    value={appointmentTitle}
-                    maxLength={150}
-                    placeholder="Médecin, coiffeur…"
-                    onChange={(event) => setAppointmentTitle(event.target.value)}
-                  />
-                </label>
-                <label>
-                  <span>Date et heure</span>
-                  <input
-                    type="datetime-local"
-                    value={appointmentDate}
-                    onChange={(event) => setAppointmentDate(event.target.value)}
-                  />
-                </label>
-                <label>
-                  <span>Pictogramme</span>
-                  <select
-                    value={appointmentPictogram}
-                    onChange={(event) =>
-                      setAppointmentPictogram(event.target.value as AppointmentPictogram)
-                    }
-                  >
-                    {appointmentPictograms.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.emoji} {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  className="screen-button screen-button--primary"
-                  disabled={busy || !appointmentTitle.trim() || !appointmentDate}
-                  onClick={() =>
-                    void run(async () => {
-                      await screenRequest('screen/appointments', {
-                        title: appointmentTitle.trim(),
-                        pictogram: appointmentPictogram,
-                        startsAt: new Date(appointmentDate).toISOString(),
-                      });
-                      setAppointmentTitle('');
-                      setAppointmentDate('');
-                      await refreshAppointments();
-                    })
-                  }
-                >
-                  Ajouter
-                </button>
-              </div>
-              {appointments.length ? (
-                <ul className="screen-appointment-list">
-                  {appointments.map((appointment) => (
-                    <li key={appointment.id}>
-                      <label className="screen-appointment-pictogram">
-                        <span className="sr-only">Pictogramme pour {appointment.title}</span>
-                        <select
-                          aria-label={`Pictogramme pour ${appointment.title}`}
-                          disabled={busy}
-                          value={appointment.pictogram ?? 'calendar'}
-                          onChange={(event) =>
-                            void run(async () => {
-                              await screenRequest(
-                                `screen/appointments/${appointment.id}`,
-                                { pictogram: event.target.value },
-                                'PATCH',
-                              );
-                              await refreshAppointments();
-                            })
-                          }
-                        >
-                          {appointmentPictograms.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.emoji} {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <span>
-                        <strong>{appointment.title}</strong>
-                        <small>
-                          {new Date(appointment.startsAt).toLocaleString('fr-FR', {
-                            weekday: 'long',
-                            day: 'numeric',
-                            month: 'long',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </small>
-                      </span>
-                      <button
-                        className="screen-icon-button"
-                        aria-label={`Supprimer ${appointment.title}`}
-                        onClick={() =>
-                          void run(async () => {
-                            await screenRequest(
-                              `screen/appointments/${appointment.id}`,
-                              undefined,
-                              'DELETE',
-                            );
-                            await refreshAppointments();
-                          })
-                        }
-                      >
-                        <Trash2 />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="screen-empty-library">Aucun rendez-vous à venir.</p>
-              )}
-            </section>
-          )}
-        </div>
-      )}
       {grant.message && (
         <section className="screen-card screen-message-card">
           <div className="screen-card__heading">
@@ -714,6 +562,21 @@ export function ScreenPanel() {
                 Vos messages restent au premier plan et se succèdent dans le grand bandeau
                 supérieur.
               </p>
+            </div>
+          </div>
+          <div className="screen-message-favorites">
+            <span>Messages favoris</span>
+            <div>
+              {favoriteMessages.map((favorite) => (
+                <button
+                  key={favorite.label}
+                  type="button"
+                  onClick={() => setMessage(favorite.message)}
+                >
+                  <span aria-hidden="true">{favorite.emoji}</span>
+                  {favorite.label}
+                </button>
+              ))}
             </div>
           </div>
           <div className="screen-message-tabs" aria-label="Messages à afficher">
@@ -785,6 +648,39 @@ export function ScreenPanel() {
                 : 'Ajoutez plusieurs messages pour activer la rotation.'}
             </small>
           </div>
+          <div className={`screen-schedule-control${messageScheduleAt ? ' is-active' : ''}`}>
+            <span className="screen-schedule-control__icon">
+              <CalendarClock aria-hidden="true" />
+            </span>
+            <label>
+              <span>Programmer pour plus tard</span>
+              <input
+                type="datetime-local"
+                value={messageScheduleAt}
+                onChange={(event) => setMessageScheduleAt(event.target.value)}
+              />
+            </label>
+            <p>
+              {messageScheduleAt
+                ? `Affichage prévu ${new Date(messageScheduleAt).toLocaleString('fr-FR', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}`
+                : 'Laissez vide pour afficher le message maintenant.'}
+            </p>
+            {messageScheduleAt && (
+              <button
+                type="button"
+                className="screen-schedule-clear"
+                onClick={() => setMessageScheduleAt('')}
+              >
+                Maintenant
+              </button>
+            )}
+          </div>
           <div className="screen-message-actions">
             <small>
               {message.length}/1000 · {messages.length}/20 messages
@@ -823,48 +719,268 @@ export function ScreenPanel() {
                 messages.some((text) => !text.trim()) ||
                 !Number.isInteger(messageIntervalSeconds) ||
                 messageIntervalSeconds < 5 ||
-                messageIntervalSeconds > 600
+                messageIntervalSeconds > 600 ||
+                (!!messageScheduleAt && new Date(messageScheduleAt).getTime() <= Date.now())
               }
               onClick={() =>
-                void run(() =>
-                  screenRequest('screen/message', { messages, messageIntervalSeconds }, 'PATCH'),
-                )
+                void run(async () => {
+                  if (messageScheduleAt) {
+                    await screenRequest('screen/scheduled-content', {
+                      kind: 'message',
+                      scheduledAt: new Date(messageScheduleAt).toISOString(),
+                      messages,
+                      messageIntervalSeconds,
+                    });
+                    setMessageScheduleAt('');
+                    return;
+                  }
+                  await screenRequest(
+                    'screen/message',
+                    { messages, messageIntervalSeconds },
+                    'PATCH',
+                  );
+                })
               }
             >
-              <Heart /> Afficher sur la TV
+              {messageScheduleAt ? <CalendarClock /> : <Heart />}
+              {messageScheduleAt ? 'Programmer le message' : 'Afficher sur la TV'}
             </button>
           </div>
         </section>
       )}
+      {(grant.administer || grant.control) && (
+        <div className="screen-context-grid">
+          {grant.administer && (
+            <section className="screen-card screen-context-card">
+              <div className="screen-card__heading">
+                <span>
+                  <CloudSun aria-hidden="true" />
+                </span>
+                <div>
+                  <h3>Météo sur la TV</h3>
+                  <p>Température extérieure de la ville choisie.</p>
+                </div>
+              </div>
+              {snapshot.weather && (
+                <p className="screen-weather-preview">
+                  <strong>{Math.round(snapshot.weather.temperature)}°C</strong>
+                  <span>
+                    {snapshot.weather.city} · min.{' '}
+                    {snapshot.weather.minimum === null
+                      ? '—'
+                      : `${Math.round(snapshot.weather.minimum)}°`}{' '}
+                    · max.{' '}
+                    {snapshot.weather.maximum === null
+                      ? '—'
+                      : `${Math.round(snapshot.weather.maximum)}°`}
+                  </span>
+                </p>
+              )}
+              <div className="screen-context-form">
+                <label>
+                  <span>Ville</span>
+                  <input
+                    list="screen-weather-cities"
+                    autoComplete="off"
+                    value={settings.weatherCity ?? ''}
+                    placeholder="Ex. Orléans"
+                    onChange={(event) =>
+                      setSettings({ ...settings, weatherCity: event.target.value })
+                    }
+                  />
+                  <datalist id="screen-weather-cities">
+                    {weatherCities.map((city) => (
+                      <option
+                        key={`${city.label}-${city.latitude}-${city.longitude}`}
+                        value={city.name}
+                        label={city.label}
+                      />
+                    ))}
+                  </datalist>
+                </label>
+                <button
+                  className="screen-button screen-button--primary"
+                  disabled={busy || !(settings.weatherCity ?? '').trim()}
+                  onClick={() =>
+                    void run(() => screenRequest('screen/settings', settings, 'PATCH'))
+                  }
+                >
+                  Afficher cette météo
+                </button>
+              </div>
+            </section>
+          )}
+          {grant.control && (
+            <section className="screen-card screen-context-card">
+              <div className="screen-card__heading">
+                <span>
+                  <CalendarPlus aria-hidden="true" />
+                </span>
+                <div>
+                  <h3>Rendez-vous sur la TV</h3>
+                  <p>Les prochains rendez-vous apparaissent dans le bandeau, à côté de la météo.</p>
+                </div>
+              </div>
+              <div className="screen-appointment-form">
+                <label>
+                  <span>Rendez-vous</span>
+                  <input
+                    value={appointmentTitle}
+                    maxLength={150}
+                    placeholder="Médecin, coiffeur…"
+                    onChange={(event) => setAppointmentTitle(event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>Date et heure</span>
+                  <input
+                    type="datetime-local"
+                    value={appointmentDate}
+                    onChange={(event) => setAppointmentDate(event.target.value)}
+                  />
+                </label>
+                <button
+                  className="screen-button screen-button--primary"
+                  disabled={busy || !appointmentTitle.trim() || !appointmentDate}
+                  onClick={() =>
+                    void run(async () => {
+                      await screenRequest('screen/appointments', {
+                        title: appointmentTitle.trim(),
+                        pictogram: appointmentPictogram,
+                        startsAt: new Date(appointmentDate).toISOString(),
+                      });
+                      setAppointmentTitle('');
+                      setAppointmentDate('');
+                      await refreshAppointments();
+                    })
+                  }
+                >
+                  Ajouter
+                </button>
+                <fieldset className="screen-appointment-pictograms">
+                  <legend>Pictogramme</legend>
+                  <div>
+                    {appointmentPictograms.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={appointmentPictogram === option.value}
+                        aria-label={`Choisir le pictogramme ${option.label}`}
+                        onClick={() => setAppointmentPictogram(option.value)}
+                      >
+                        <span aria-hidden="true">{option.emoji}</span>
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+              </div>
+              {appointments.length ? (
+                <ul className="screen-appointment-list">
+                  {appointments.map((appointment) => (
+                    <li key={appointment.id}>
+                      <span className="screen-appointment-pictogram" aria-hidden="true">
+                        {appointmentPictograms.find(
+                          (option) => option.value === (appointment.pictogram ?? 'calendar'),
+                        )?.emoji ?? '📅'}
+                      </span>
+                      <span>
+                        <strong>{appointment.title}</strong>
+                        <small>
+                          {new Date(appointment.startsAt).toLocaleString('fr-FR', {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'long',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </small>
+                      </span>
+                      <button
+                        className="screen-icon-button"
+                        aria-label={`Supprimer ${appointment.title}`}
+                        onClick={() =>
+                          void run(async () => {
+                            await screenRequest(
+                              `screen/appointments/${appointment.id}`,
+                              undefined,
+                              'DELETE',
+                            );
+                            await refreshAppointments();
+                          })
+                        }
+                      >
+                        <Trash2 />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="screen-empty-library">Aucun rendez-vous à venir.</p>
+              )}
+            </section>
+          )}
+        </div>
+      )}
+      {(state.scheduledContent ?? []).length > 0 && (
+        <section className="screen-card screen-scheduled-card">
+          <div className="screen-card__heading">
+            <span>
+              <CalendarClock aria-hidden="true" />
+            </span>
+            <div>
+              <h3>Prochaines diffusions</h3>
+              <p>Messages et photos seront affichés automatiquement à l’heure prévue.</p>
+            </div>
+            <strong className="screen-scheduled-count">
+              {state.scheduledContent?.length} programmé
+              {(state.scheduledContent?.length ?? 0) > 1 ? 's' : ''}
+            </strong>
+          </div>
+          <ul className="screen-scheduled-list">
+            {[...(state.scheduledContent ?? [])]
+              .sort((left, right) => left.scheduledAt - right.scheduledAt)
+              .map((item) => (
+                <li key={item.id}>
+                  <span className="screen-scheduled-kind">
+                    {item.kind === 'message' ? (
+                      <MessageCircleHeart aria-hidden="true" />
+                    ) : (
+                      <ImagePlus aria-hidden="true" />
+                    )}
+                  </span>
+                  <span>
+                    <strong>{item.title}</strong>
+                    <small>
+                      {new Date(item.scheduledAt).toLocaleString('fr-FR', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}{' '}
+                      · {item.kind === 'message' ? 'Message' : 'Photo'}
+                    </small>
+                  </span>
+                  <button
+                    className="screen-icon-button"
+                    aria-label={`Annuler la programmation de ${item.title}`}
+                    disabled={busy}
+                    onClick={() =>
+                      void run(() =>
+                        screenRequest(`screen/scheduled-content/${item.id}`, undefined, 'DELETE'),
+                      )
+                    }
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+          </ul>
+        </section>
+      )}
       {grant.control && (
         <>
-          <section className="screen-card screen-remote-card">
-            <div className="screen-card__heading">
-              <span>
-                <Tv aria-hidden="true" />
-              </span>
-              <div>
-                <h3>Télécommande</h3>
-                <p>Pilotez ce que voit et entend {snapshot.resident}.</p>
-              </div>
-            </div>
-            <div className="screen-remote-grid">
-              {remoteActions.map(([action, label, Icon]) => (
-                <button
-                  key={action}
-                  className={`screen-remote-button screen-remote-button--${action}`}
-                  disabled={!snapshot.online || busy}
-                  onClick={() => void command(action)}
-                >
-                  <span>
-                    <Icon aria-hidden="true" />
-                  </span>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </section>
-
           <section className="screen-card screen-medias">
             <div className="screen-card__heading screen-medias-heading">
               <span>
@@ -1187,9 +1303,9 @@ export function ScreenPanel() {
                       ))}
                   </div>
                   <p>
-                    Les vidéos s’enchaînent automatiquement. Utilisez Pause, Reprendre, Suivant ou
-                    Accueil dans la télécommande. Certaines vidéos peuvent refuser la lecture
-                    intégrée.
+                    Les vidéos s’enchaînent automatiquement. Utilisez les commandes du lecteur pour
+                    mettre en pause, reprendre ou passer à la suivante. Certaines vidéos peuvent
+                    refuser la lecture intégrée.
                   </p>
                 </div>
                 <div
@@ -1489,12 +1605,36 @@ export function ScreenPanel() {
                 />
                 <small>{photoCaption.length}/120</small>
               </label>
+            </div>
+            <div className={`screen-photo-scheduling${photoScheduleAt ? ' is-active' : ''}`}>
+              <span className="screen-schedule-control__icon">
+                <CalendarClock aria-hidden="true" />
+              </span>
+              <label>
+                <span>Afficher cette photo plus tard</span>
+                <input
+                  type="datetime-local"
+                  value={photoScheduleAt}
+                  onChange={(event) => setPhotoScheduleAt(event.target.value)}
+                />
+              </label>
+              <p>
+                {photoScheduleAt
+                  ? 'La photo sera ajoutée à l’album et affichée automatiquement.'
+                  : 'Laissez vide pour simplement ajouter la photo à l’album.'}
+              </p>
               <button
                 className="screen-button screen-button--primary"
-                disabled={!photo || !photoCaption.trim() || busy}
+                disabled={
+                  !photo ||
+                  !photoCaption.trim() ||
+                  busy ||
+                  (!!photoScheduleAt && new Date(photoScheduleAt).getTime() <= Date.now())
+                }
                 onClick={() =>
                   void run(async () => {
                     if (!photo) return;
+                    const caption = photoCaption.trim();
                     const body = new FormData();
                     body.append('file', photo);
                     const response = await fetch('/api/v1/screen/upload', { method: 'POST', body });
@@ -1503,13 +1643,25 @@ export function ScreenPanel() {
                     const media = uploaded.state.media.at(-1);
                     if (!media || media.kind !== 'photo')
                       throw new Error('Photo introuvable après l’envoi.');
-                    await screenRequest('screen/media', { ...media, title: photoCaption.trim() });
+                    await screenRequest('screen/media', { ...media, title: caption });
+                    if (photoScheduleAt)
+                      await screenRequest('screen/scheduled-content', {
+                        kind: 'photo',
+                        mediaId: media.id,
+                        scheduledAt: new Date(photoScheduleAt).toISOString(),
+                      });
                     setPhoto(undefined);
                     setPhotoCaption('');
+                    setPhotoScheduleAt('');
                   })
                 }
               >
-                <ImagePlus aria-hidden="true" /> Ajouter à l’album
+                {photoScheduleAt ? (
+                  <CalendarClock aria-hidden="true" />
+                ) : (
+                  <ImagePlus aria-hidden="true" />
+                )}
+                {photoScheduleAt ? 'Programmer la photo' : 'Ajouter à l’album'}
               </button>
             </div>
             <div className="screen-slideshow-setting">
@@ -1582,107 +1734,110 @@ export function ScreenPanel() {
           </section>
         </>
       )}
-      <section className="screen-card screen-activity-card">
-        <div className="screen-card__heading">
-          <span>
+      <details className="screen-card screen-activity-card screen-activity-details" open>
+        <summary>
+          <span className="screen-activity-details__icon">
             <Activity aria-hidden="true" />
           </span>
-          <div>
-            <h3>Suivi de l’activité</h3>
-            <p>Historique des actions envoyées chez {snapshot.resident} et de leur résultat.</p>
-          </div>
-        </div>
-        <div className="screen-activity-summary">
-          <span>
-            <strong>
-              {
-                (state.activity ?? []).filter(
-                  (item) => item.createdAt >= new Date().setHours(0, 0, 0, 0),
-                ).length
-              }
-            </strong>{' '}
-            actions aujourd’hui
+          <span className="screen-activity-details__copy">
+            <strong>Suivi de l’activité</strong>
+            <small>Historique des actions envoyées chez {snapshot.resident}.</small>
           </span>
-          <span className="is-success">
-            <CircleCheck aria-hidden="true" />{' '}
-            {(state.activity ?? []).filter((item) => item.status === 'applied').length} confirmées
-          </span>
-          {(state.activity ?? []).some(
-            (item) => item.status === 'failed' || item.status === 'expired',
-          ) && (
-            <span className="is-error">
-              <CircleX aria-hidden="true" />{' '}
-              {
-                (state.activity ?? []).filter(
-                  (item) => item.status === 'failed' || item.status === 'expired',
-                ).length
-              }{' '}
-              non abouties
+          <ChevronRight className="screen-activity-details__chevron" aria-hidden="true" />
+        </summary>
+        <div className="screen-activity-details__body">
+          <div className="screen-activity-summary">
+            <span>
+              <strong>
+                {
+                  (state.activity ?? []).filter(
+                    (item) => item.createdAt >= new Date().setHours(0, 0, 0, 0),
+                  ).length
+                }
+              </strong>{' '}
+              actions aujourd’hui
             </span>
+            <span className="is-success">
+              <CircleCheck aria-hidden="true" />{' '}
+              {(state.activity ?? []).filter((item) => item.status === 'applied').length} confirmées
+            </span>
+            {(state.activity ?? []).some(
+              (item) => item.status === 'failed' || item.status === 'expired',
+            ) && (
+              <span className="is-error">
+                <CircleX aria-hidden="true" />{' '}
+                {
+                  (state.activity ?? []).filter(
+                    (item) => item.status === 'failed' || item.status === 'expired',
+                  ).length
+                }{' '}
+                non abouties
+              </span>
+            )}
+          </div>
+          {(state.activity ?? []).length ? (
+            <ol className="screen-activity-list">
+              {[...(state.activity ?? [])]
+                .slice(-30)
+                .reverse()
+                .map((item) => {
+                  const statusLabel =
+                    item.status === 'applied'
+                      ? 'Confirmée'
+                      : item.status === 'pending'
+                        ? 'En cours'
+                        : item.status === 'expired'
+                          ? 'Expirée'
+                          : 'Échec';
+                  const StatusIcon =
+                    item.status === 'applied'
+                      ? CircleCheck
+                      : item.status === 'pending'
+                        ? Clock3
+                        : CircleX;
+                  return (
+                    <li key={item.id}>
+                      <span className={`screen-activity-kind screen-activity-kind--${item.kind}`}>
+                        {item.kind === 'message' ? (
+                          <MessageCircleHeart aria-hidden="true" />
+                        ) : item.kind === 'call' ? (
+                          <Phone aria-hidden="true" />
+                        ) : item.kind === 'appointment' ? (
+                          <CalendarClock aria-hidden="true" />
+                        ) : item.kind === 'content' ? (
+                          <Play aria-hidden="true" />
+                        ) : (
+                          <Settings aria-hidden="true" />
+                        )}
+                      </span>
+                      <div>
+                        <strong>{item.title}</strong>
+                        {item.detail && <p>{item.detail}</p>}
+                        <small>
+                          {item.actor ? `${item.actor} · ` : ''}
+                          {new Date(item.createdAt).toLocaleString('fr-FR', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </small>
+                      </div>
+                      <span className={`screen-activity-status is-${item.status}`}>
+                        <StatusIcon aria-hidden="true" /> {statusLabel}
+                      </span>
+                    </li>
+                  );
+                })}
+            </ol>
+          ) : (
+            <p className="screen-empty-library">
+              Les prochaines actions envoyées à l’écran apparaîtront ici.
+            </p>
           )}
         </div>
-        {(state.activity ?? []).length ? (
-          <ol className="screen-activity-list">
-            {[...(state.activity ?? [])]
-              .slice(-30)
-              .reverse()
-              .map((item) => {
-                const statusLabel =
-                  item.status === 'applied'
-                    ? 'Confirmée'
-                    : item.status === 'pending'
-                      ? 'En cours'
-                      : item.status === 'expired'
-                        ? 'Expirée'
-                        : 'Échec';
-                const StatusIcon =
-                  item.status === 'applied'
-                    ? CircleCheck
-                    : item.status === 'pending'
-                      ? Clock3
-                      : CircleX;
-                return (
-                  <li key={item.id}>
-                    <span className={`screen-activity-kind screen-activity-kind--${item.kind}`}>
-                      {item.kind === 'message' ? (
-                        <MessageCircleHeart aria-hidden="true" />
-                      ) : item.kind === 'call' ? (
-                        <Phone aria-hidden="true" />
-                      ) : item.kind === 'appointment' ? (
-                        <CalendarClock aria-hidden="true" />
-                      ) : item.kind === 'content' ? (
-                        <Play aria-hidden="true" />
-                      ) : (
-                        <Settings aria-hidden="true" />
-                      )}
-                    </span>
-                    <div>
-                      <strong>{item.title}</strong>
-                      {item.detail && <p>{item.detail}</p>}
-                      <small>
-                        {item.actor ? `${item.actor} · ` : ''}
-                        {new Date(item.createdAt).toLocaleString('fr-FR', {
-                          weekday: 'short',
-                          day: 'numeric',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </small>
-                    </div>
-                    <span className={`screen-activity-status is-${item.status}`}>
-                      <StatusIcon aria-hidden="true" /> {statusLabel}
-                    </span>
-                  </li>
-                );
-              })}
-          </ol>
-        ) : (
-          <p className="screen-empty-library">
-            Les prochaines actions envoyées à l’écran apparaîtront ici.
-          </p>
-        )}
-      </section>
+      </details>
     </section>
   );
 }

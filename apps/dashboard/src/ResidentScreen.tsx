@@ -14,7 +14,6 @@ import {
   CloudRain,
   CloudSnow,
   CloudSun,
-  Heart,
   Image as ImageIcon,
   PhoneCall,
   Radio,
@@ -28,6 +27,15 @@ import type { ScreenSnapshot, ScreenJoin, ScreenMedia } from '@michel/contracts'
 import { JitsiFrame, screenRequest } from './ScreenPanel';
 import './screen.css';
 const key = 'elise-screen-token';
+export function hasPhysicalMicrophone(devices: MediaDeviceInfo[]): boolean {
+  return devices.some((device) => {
+    if (device.kind !== 'audioinput' || /^(default|communications)$/i.test(device.deviceId))
+      return false;
+    const label = device.label.trim();
+    if (!label || /monitor|loopback|stereo mix/i.test(label)) return false;
+    return /usb|webcam|camera|microphone|\bmic\b/i.test(label);
+  });
+}
 if ('serviceWorker' in navigator && window.isSecureContext)
   void navigator.serviceWorker.register('/screen-sw.js').catch(() => undefined);
 const bootstrapToken = new URLSearchParams(location.hash.slice(1)).get('token');
@@ -92,28 +100,54 @@ export function TVNotificationOverlay({
 
 function FamilyMessageBanner({ state, now }: { state: ScreenSnapshot['state']; now: number }) {
   const { text: message, index, count } = residentMessageAt(state, now);
+  const bannerRef = useRef<HTMLElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
+    const banner = bannerRef.current;
     const text = textRef.current;
-    if (!text) return;
-    text.scrollTop = 0;
-    if (text.scrollHeight <= text.clientHeight) return;
-    let frame = 0;
-    const started = performance.now();
-    const duration = (state.messageIntervalSeconds ?? 20) * 1000;
-    const scroll = () => {
-      const elapsed = (performance.now() - started) % duration;
-      const progress = Math.max(0, Math.min(1, (elapsed - 1500) / Math.max(1000, duration - 3000)));
-      text.scrollTop = progress * Math.max(0, text.scrollHeight - text.clientHeight);
-      frame = requestAnimationFrame(scroll);
+    if (!banner || !text || !message) return;
+    const fit = () => {
+      const bannerStyle = getComputedStyle(banner);
+      const verticalPadding =
+        Number.parseFloat(bannerStyle.paddingTop) + Number.parseFloat(bannerStyle.paddingBottom);
+      const gap = Number.parseFloat(bannerStyle.rowGap || bannerStyle.gap) || 0;
+      const meta = banner.querySelector<HTMLElement>('.tv-family-message-meta');
+      const availableHeight = Math.max(
+        24,
+        banner.clientHeight - verticalPadding - (meta?.offsetHeight ?? 0) - gap - 4,
+      );
+      const maximum = Math.min(
+        message.length <= 55 ? 62 : message.length <= 160 ? 50 : 40,
+        banner.clientWidth * (message.length <= 55 ? 0.04 : 0.03),
+      );
+      // Start from the largest comfortable size and keep reducing it until the
+      // complete message fits. Messages may contain up to 1,000 characters, so
+      // the previous 14px floor could still leave the last lines outside the
+      // fixed-height TV banner.
+      let lower = 4;
+      let upper = Math.max(lower, maximum);
+      while (upper - lower > 0.5) {
+        const candidate = (lower + upper) / 2;
+        text.style.fontSize = `${candidate}px`;
+        if (text.scrollHeight <= availableHeight + 1) lower = candidate;
+        else upper = candidate;
+      }
+      text.style.fontSize = `${lower}px`;
     };
-    frame = requestAnimationFrame(scroll);
-    return () => cancelAnimationFrame(frame);
-  }, [message, index, state.messageUpdatedAt, state.messageIntervalSeconds]);
+    fit();
+    const fontReady = document.fonts?.ready.then(fit);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(fit);
+    observer?.observe(banner);
+    window.addEventListener('resize', fit);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', fit);
+      void fontReady;
+    };
+  }, [message]);
   if (!message) return null;
   return (
-    <header className="tv-family-message">
-      <Heart aria-hidden="true" />
+    <header ref={bannerRef} className="tv-family-message">
       <p ref={textRef}>{message}</p>
       <div className="tv-family-message-meta">
         {state.messageAuthor && <span>— {state.messageAuthor}</span>}
@@ -544,7 +578,7 @@ export function ResidentScreen() {
         setCapabilities((c) => ({
           ...c,
           camera: devices.some((d) => d.kind === 'videoinput'),
-          microphone: devices.some((d) => d.kind === 'audioinput'),
+          microphone: hasPhysicalMicrophone(devices),
         })),
       )
       .catch(() => undefined);

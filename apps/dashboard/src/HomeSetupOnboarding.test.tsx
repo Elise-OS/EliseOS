@@ -41,7 +41,7 @@ describe('home creation onboarding', () => {
     expect(html).toContain('Which rooms are in the home?');
     expect(html).toContain('Living room');
     expect(html).toContain('See how to draw');
-    expect(html).toContain('src="/logo.png"');
+    expect(html).toContain('src="/logo-transparent.png"');
     expect(html).toContain('lucide-sofa');
     expect(html).toContain('lucide-cooking-pot');
   });

@@ -163,6 +163,33 @@ export const screenMessageSchema = z
   });
 export type ScreenMessageInput = z.infer<typeof screenMessageSchema>;
 
+export const screenScheduledContentInputSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('message'),
+    scheduledAt: z.coerce.date(),
+    messages: z.array(z.string().trim().min(1).max(1000)).min(1).max(20),
+    messageIntervalSeconds: z.number().int().min(5).max(600),
+  }),
+  z.object({
+    kind: z.literal('photo'),
+    scheduledAt: z.coerce.date(),
+    mediaId: z.string().uuid(),
+  }),
+]);
+export type ScreenScheduledContentInput = z.infer<typeof screenScheduledContentInputSchema>;
+
+export interface ScreenScheduledContent {
+  id: string;
+  kind: 'message' | 'photo';
+  scheduledAt: number;
+  createdAt: number;
+  actor: string;
+  title: string;
+  messages?: string[];
+  messageIntervalSeconds?: number;
+  mediaId?: string;
+}
+
 export interface ScreenState {
   settings: ScreenSettings;
   message: string;
@@ -176,6 +203,7 @@ export interface ScreenState {
   lastSlot: string;
   history: Array<{ id: string; name: string; startedAt: number; endedAt: number; result: string }>;
   activity: ScreenActivity[];
+  scheduledContent?: ScreenScheduledContent[];
   commands: Array<{
     id: string;
     action: string;
@@ -244,6 +272,7 @@ export const initialScreenState = (): ScreenState => ({
   lastSlot: '',
   history: [],
   activity: [],
+  scheduledContent: [],
   commands: [],
 });
 export function screenLocalTime(now: Date, timezone: string) {

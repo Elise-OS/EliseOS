@@ -1,0 +1,228 @@
+.home-plan-canvas.tool-connect {
+  touch-action: none;
+}
+.tool-connect .plan-room {
+  cursor: grab;
+}
+.tool-connect .plan-room.connection-source {
+  cursor: grabbing;
+}
+.tool-connect .plan-room polygon {
+  transition:
+    stroke 160ms ease,
+    filter 160ms ease;
+}
+.tool-connect .plan-room.connection-target polygon {
+  stroke-width: 7;
+  filter: drop-shadow(0 0 10px #36a56f40);
+}
+.connection-preview {
+  pointer-events: none;
+  color: #1676aa;
+}
+.connection-preview.is-valid {
+  color: #25936a;
+}
+.connection-preview.is-invalid {
+  color: #c4863e;
+}
+.connection-preview .connection-string-preview {
+  stroke: currentColor;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+.connection-preview circle {
+  fill: white;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+.home-plan-canvas .room-connection-string path {
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: none;
+}
+.home-plan-canvas .room-connection-string circle {
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.tool-connect .room-link-anchor .anchor-dot {
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.connection-confirmation {
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow: auto;
+  border: 1px solid #ffffffb3;
+  border-radius: 28px;
+  color: #18354a;
+  background: #fbf9f5;
+  box-shadow: 0 30px 100px rgb(24 53 74 / 22%);
+}
+.connection-confirmation::backdrop {
+  background: rgb(24 53 74 / 46%);
+  backdrop-filter: blur(7px);
+}
+.connection-confirmation-content {
+  position: relative;
+  padding: 32px;
+  background:
+    radial-gradient(circle at 95% 0%, rgb(111 143 122 / 15%), transparent 35%),
+    linear-gradient(180deg, #fbf9f5 0%, #fff 48%);
+  text-align: center;
+}
+.connection-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  color: #315f78;
+  background: #eef2ef;
+  cursor: pointer;
+}
+.connection-confirmation-icon {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 20px;
+  border: 1px solid #d4e2d8;
+  border-radius: 20px;
+  background: #edf3ee;
+  color: #6f8f7a;
+}
+.connection-eyebrow {
+  color: #315f78;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 1.8px;
+}
+.connection-confirmation h2 {
+  margin: 10px 0;
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.7px;
+}
+.connection-confirmation p {
+  margin: 0;
+  color: #61747f;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.connection-room-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr);
+  align-items: center;
+  margin: 25px 0 18px;
+}
+.connection-room-pair > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 105px;
+  padding: 16px 10px;
+  border: 1px solid #e0e6e2;
+  border-radius: 16px;
+  background: rgb(255 255 255 / 78%);
+}
+.connection-room-pair strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.connection-room-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 2px solid #fff;
+  border-radius: 13px;
+  color: #18354a;
+  box-shadow: 0 0 0 1px rgb(49 95 120 / 16%);
+}
+.connection-room-icon svg {
+  width: 20px;
+  height: 20px;
+}
+.connection-room-bridge {
+  display: grid;
+  place-items: center;
+  color: #6f8f7a;
+}
+.connection-confirmation .connection-explanation {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  text-align: left;
+  font-size: 12px;
+}
+.connection-explanation svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #6f8f7a;
+}
+.connection-confirmation footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 28px;
+}
+.connection-confirmation footer button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+.connection-cancel {
+  background: #eef2ef;
+  color: #315f78;
+}
+.connection-confirm {
+  flex: 1;
+  background: #18354a;
+  color: white;
+}
+.connection-confirm:hover {
+  background: #315f78;
+}
+.connection-cancel:hover,
+.connection-close:hover {
+  background: #e2eae6;
+}
+.connection-confirmation button:focus-visible {
+  outline: 3px solid #6f8f7a;
+  outline-offset: 3px;
+}
+@media (max-width: 480px) {
+  .connection-confirmation-content {
+    padding: 28px 20px 20px;
+  }
+  .connection-confirmation h2 {
+    font-size: 22px;
+  }
+  .connection-confirmation footer {
+    flex-direction: column-reverse;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tool-connect .plan-room polygon,
+  .connection-confirmation button {
+    transition: none;
+  }
+}

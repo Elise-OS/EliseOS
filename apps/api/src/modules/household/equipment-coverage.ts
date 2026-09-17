@@ -138,9 +138,11 @@ const CAPABILITY_TARGETS: Record<string, EquipmentTarget['type'][]> = {
 const capabilityMatches = (required: string, available: string) =>
   required === 'person_presence'
     ? ['person_presence', 'occupancy'].includes(available)
-    : required === 'contact'
-      ? ['contact', 'dry_contact'].includes(available)
-      : required === available;
+    : required === 'shower'
+      ? available === 'humidity'
+      : required === 'contact'
+        ? ['contact', 'dry_contact'].includes(available)
+        : required === available;
 
 export function profileFor(device: CoverageDevice): SensorProfile {
   const known = SENSOR_PROFILES.find((profile) =>

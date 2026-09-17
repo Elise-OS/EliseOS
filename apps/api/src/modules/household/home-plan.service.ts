@@ -15,6 +15,7 @@ import { Prisma, type MembershipRole } from '@prisma/client';
 import { parseRequest } from '../../platform/zod-validation';
 import { PrismaService } from '../../platform/prisma.service';
 import { equipmentCoverage } from './equipment-coverage';
+import { latestPresenceEvidence } from './home-summary';
 
 const VIEW_ROLES: MembershipRole[] = ['OWNER', 'ADMINISTRATOR', 'CAREGIVER', 'VIEWER'];
 const EDIT_ROLES: MembershipRole[] = ['OWNER', 'ADMINISTRATOR'];
@@ -306,15 +307,27 @@ export class HomePlanService {
       },
     });
     if (tracking) {
-      const age = tracking.lastEvidenceAt
-        ? Date.now() - tracking.lastEvidenceAt.getTime()
-        : Infinity;
-      const trackingState = age > 15 * 60_000 ? ('STALE' as const) : tracking.status;
+      // Stateful presence entities publish when their value changes. An active value therefore
+      // remains meaningful until an explicit inactive value is received or the worker detects
+      // that the device itself is no longer reporting.
+      const trackingState = tracking.status;
       const pathRoomIds = this.jsonStrings(tracking.pathRoomIds);
       const evidenceSummary = this.jsonEvidence(tracking.evidenceSummary);
+      const latestTrackingEvidence = evidenceSummary.at(-1);
+      const currentEvidence = await this.currentPresenceEvidence(home.id, new Date());
+      const activeOverride =
+        currentEvidence && currentEvidence.roomId !== tracking.confirmedRoomId
+          ? currentEvidence
+          : undefined;
+      const resolvedRoomId = activeOverride?.roomId ?? tracking.confirmedRoomId;
+      const resolvedAt = activeOverride?.occurredAt ?? tracking.lastEvidenceAt;
+      const resolvedRoomName =
+        home.rooms.find((room) => room.id === resolvedRoomId)?.name ??
+        tracking.confirmedRoom?.name ??
+        null;
       const explanation = this.presenceExplanation(
-        trackingState,
-        tracking.confirmedRoom?.name ?? null,
+        activeOverride ? 'CONFIRMED' : trackingState,
+        resolvedRoomName,
         tracking.candidateRoom?.name ?? null,
         pathRoomIds.length,
       );
@@ -327,19 +340,25 @@ export class HomePlanService {
       return {
         sessionId: tracking.id,
         state:
-          trackingState === 'CONFIRMED'
+          activeOverride || trackingState === 'CONFIRMED'
             ? ('OPEN' as const)
             : trackingState === 'IN_TRANSIT' || trackingState === 'AMBIGUOUS'
               ? ('AMBIGUOUS' as const)
               : ('CLOSED' as const),
-        since: (tracking.transitionStartedAt ?? tracking.lastEvidenceAt)?.toISOString() ?? null,
-        lastConfirmedAt: tracking.lastEvidenceAt?.toISOString() ?? null,
-        durationSeconds: tracking.lastEvidenceAt
-          ? Math.max(0, Math.round((Date.now() - tracking.lastEvidenceAt.getTime()) / 1_000))
+        since: activeOverride
+          ? activeOverride.occurredAt.toISOString()
+          : ((tracking.transitionStartedAt ?? tracking.lastEvidenceAt)?.toISOString() ?? null),
+        lastConfirmedAt: resolvedAt?.toISOString() ?? null,
+        durationSeconds: resolvedAt
+          ? Math.max(0, Math.round((Date.now() - resolvedAt.getTime()) / 1_000))
           : null,
-        roomId: trackingState === 'STALE' ? null : tracking.confirmedRoomId,
-        detectedAt: tracking.lastEvidenceAt?.toISOString() ?? null,
-        confidence,
+        roomId: activeOverride
+          ? activeOverride.roomId
+          : trackingState === 'STALE'
+            ? null
+            : tracking.confirmedRoomId,
+        detectedAt: resolvedAt?.toISOString() ?? null,
+        confidence: activeOverride ? ('HIGH' as const) : confidence,
         identifiedResidentId: tracking.residentId,
         source: evidenceSummary.some((item) => item.capability === 'person_presence')
           ? ('CAMERA' as const)
@@ -349,16 +368,32 @@ export class HomePlanService {
             ? null
             : !this.jsonStrings(tracking.reasonCodes).includes('IMPLAUSIBLE_TRANSITION'),
         ambiguousReason: this.jsonStrings(tracking.reasonCodes)[0] ?? null,
-        trackingState,
-        confirmedRoomId: tracking.confirmedRoomId,
-        candidateRoomId: tracking.candidateRoomId,
-        pathRoomIds,
-        confidenceScore: tracking.confidenceScore,
-        reasonCodes: this.jsonStrings(tracking.reasonCodes),
+        trackingState: activeOverride ? ('CONFIRMED' as const) : trackingState,
+        confirmedRoomId: resolvedRoomId,
+        candidateRoomId: activeOverride ? null : tracking.candidateRoomId,
+        pathRoomIds: activeOverride ? [] : pathRoomIds,
+        confidenceScore: activeOverride ? 0.9 : tracking.confidenceScore,
+        reasonCodes: activeOverride
+          ? ['ACTIVE_SENSOR_CURRENT']
+          : this.jsonStrings(tracking.reasonCodes),
         explanation,
-        lastEvidenceAt: tracking.lastEvidenceAt?.toISOString() ?? null,
-        evidenceSummary,
-        trackingDegraded: tracking.trackingDegraded,
+        lastEvidenceAt: resolvedAt?.toISOString() ?? null,
+        evidenceSummary: activeOverride
+          ? [
+              {
+                eventId:
+                  activeOverride.id ??
+                  latestTrackingEvidence?.eventId ??
+                  `${activeOverride.sensorId ?? 'sensor'}:${activeOverride.occurredAt.toISOString()}`,
+                sensorId: activeOverride.sensorId,
+                roomId: activeOverride.roomId,
+                capability: activeOverride.capability,
+                occurredAt: activeOverride.occurredAt.toISOString(),
+                observed: true,
+              },
+            ]
+          : evidenceSummary,
+        trackingDegraded: activeOverride ? false : tracking.trackingDegraded,
       };
     }
     const session = await this.prisma.roomPresenceSession.findFirst({
@@ -453,6 +488,29 @@ export class HomePlanService {
       })),
       nextCursor: hasMore ? (items[limit - 1]?.id ?? null) : null,
     };
+  }
+
+  private async currentPresenceEvidence(homeId: string, now: Date) {
+    const sensors = await this.prisma.sensor.findMany({
+      where: {
+        homeId,
+        analysisEnabled: true,
+        removedAt: null,
+        capability: { in: ['motion', 'occupancy', 'person_presence'] },
+      },
+      include: {
+        device: { select: { model: true, lastSeenAt: true } },
+        events: {
+          where: { quality: 'good', roomId: { not: null }, occurredAt: { lte: now } },
+          orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+          take: 10,
+        },
+      },
+    });
+    const events = sensors
+      .flatMap((sensor) => sensor.events)
+      .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
+    return latestPresenceEvidence(sensors, events, now);
   }
 
   private jsonStrings(value: Prisma.JsonValue): string[] {

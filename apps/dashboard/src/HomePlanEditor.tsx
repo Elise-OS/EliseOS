@@ -53,6 +53,9 @@ import { retireFurniture } from '@michel/contracts';
 import { sensorRequest } from './sensor-ui';
 import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';
 import { DataLoadingScreen } from './DataLoadingScreen';
+import { connectionBoundary, connectionCurve } from './plan-connections';
+import { ConnectionConfirmation } from './ConnectionConfirmation';
+import './plan-connections.css';
 
 type Sensor = {
   id: string;
@@ -380,28 +383,16 @@ const exteriorAnchorAt = (room: PlanRoom, at: Point) => {
     y: snap(wall.point.y + (dy / length) * 42),
   };
 };
-const roomEdgeToward = (room: PlanRoom, target: Point) => {
-  const box = bounds(room);
-  const at = center(room);
-  if (target.x > box.x + box.width) return { x: box.x + box.width, y: at.y };
-  if (target.x < box.x) return { x: box.x, y: at.y };
-  if (target.y > box.y + box.height) return { x: at.x, y: box.y + box.height };
-  return { x: at.x, y: box.y };
-};
+const roomEdgeToward = connectionBoundary;
 const roomConnectionAnchors = (room: PlanRoom) => {
   const box = bounds(room);
   return [
-    { id: 'N', x: box.x + box.width / 2, y: box.y - 25 },
-    { id: 'E', x: box.x + box.width + 25, y: box.y + box.height / 2 },
-    { id: 'S', x: box.x + box.width / 2, y: box.y + box.height + 25 },
-    { id: 'W', x: box.x - 25, y: box.y + box.height / 2 },
-  ];
+    { id: 'N', x: box.x + box.width / 2, y: box.y - 1 },
+    { id: 'E', x: box.x + box.width + 1, y: box.y + box.height / 2 },
+    { id: 'S', x: box.x + box.width / 2, y: box.y + box.height + 1 },
+    { id: 'W', x: box.x - 1, y: box.y + box.height / 2 },
+  ].map(({ id, ...point }) => ({ id, ...connectionBoundary(room, point) }));
 };
-const nearestConnectionAnchor = (room: PlanRoom, at: Point) =>
-  [...roomConnectionAnchors(room)].sort(
-    (first, second) =>
-      Math.hypot(first.x - at.x, first.y - at.y) - Math.hypot(second.x - at.x, second.y - at.y),
-  )[0]!;
 const pointInRoom = (point: Point, room: PlanRoom) => {
   const points = room.geometry.points;
   let inside = false;
@@ -904,7 +895,9 @@ export function HomePlanEditor({
     point.x = event.clientX;
     point.y = event.clientY;
     const transformed = point.matrixTransform(svg.getScreenCTM()?.inverse());
-    return { x: snap(transformed.x), y: snap(transformed.y) };
+    return tool === 'CONNECT'
+      ? { x: transformed.x, y: transformed.y }
+      : { x: snap(transformed.x), y: snap(transformed.y) };
   };
 
   const addRoom = (start: Point, end: Point, lShape = false, corridor = false) => {
@@ -1040,7 +1033,7 @@ export function HomePlanEditor({
           room,
           distance: pointInRoom(at, room) ? 0 : (closestWall(at, [room])?.distance ?? Infinity),
         }))
-        .filter(({ distance }) => distance <= 100)
+        .filter(({ distance }) => distance <= 24)
         .sort((first, second) => first.distance - second.distance)[0]?.room ?? null
     );
   };
@@ -1138,14 +1131,26 @@ export function HomePlanEditor({
   };
   const updateConnectionDrag = (sourceRoomId: string, at: Point) => {
     const target = connectionTargetAt(sourceRoomId, at);
-    const snapped = target ? nearestConnectionAnchor(target, at) : at;
+    const source = currentFloor?.rooms.find(({ id }) => id === sourceRoomId);
+    if (!source) return;
+    const start = roomEdgeToward(source, target ? center(target) : at);
+    const snapped = target ? roomEdgeToward(target, center(source)) : at;
+    const alreadyLinked =
+      target &&
+      currentFloor?.openings.some(
+        ({ kind, roomIds }) =>
+          (kind === 'DOOR' || kind === 'PASSAGE') &&
+          roomIds.includes(sourceRoomId) &&
+          roomIds.includes(target.id),
+      );
     setConnectionDrag((current) =>
       current
         ? {
             ...current,
+            start,
             current: snapped,
             targetRoomId: target?.id ?? null,
-            targetValid: Boolean(target),
+            targetValid: Boolean(target) && !alreadyLinked,
           }
         : current,
     );
@@ -1211,7 +1216,11 @@ export function HomePlanEditor({
       finishStairDrag();
       return;
     }
-    if (connectionDrag) return;
+    if (connectionDrag) {
+      finishConnectionDrag(connectionDrag.sourceRoomId, canvasPoint(event));
+      event.stopPropagation();
+      return;
+    }
     if (!drawStart || (tool !== 'ROOM' && tool !== 'ROOM_L' && tool !== 'CORRIDOR')) return;
     addRoom(drawStart, canvasPoint(event), tool === 'ROOM_L', tool === 'CORRIDOR');
     setDrawStart(null);
@@ -1996,7 +2005,7 @@ export function HomePlanEditor({
             onClick={() => {
               setTool('CONNECT');
               setMessage(
-                'Tirez un connecteur vers une pièce voisine. Toute la pièce sert de cible.',
+                'Glissez d’une pièce vers une autre. Relâchez quand la pièce cible devient verte.',
               );
             }}
           >
@@ -2071,42 +2080,6 @@ export function HomePlanEditor({
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#plan-grid)" data-plan-background="true" />
-            {currentFloor.openings
-              .filter(({ kind, roomIds }) => kind === 'PASSAGE' && roomIds.length === 2)
-              .map((opening) => {
-                const from = currentFloor.rooms.find(({ id }) => id === opening.roomIds[0]);
-                const to = currentFloor.rooms.find(({ id }) => id === opening.roomIds[1]);
-                if (!from || !to) return null;
-                const start = roomEdgeToward(from, center(to));
-                const end = roomEdgeToward(to, center(from));
-                const horizontal = Math.abs(end.x - start.x) >= Math.abs(end.y - start.y);
-                const bend = Math.max(
-                  45,
-                  (horizontal ? Math.abs(end.x - start.x) : Math.abs(end.y - start.y)) * 0.42,
-                );
-                return (
-                  <g
-                    className={`room-connection-string ${opening.kind.toLowerCase()}`}
-                    key={`link-${opening.id}`}
-                  >
-                    <path
-                      d={
-                        horizontal
-                          ? `M ${start.x} ${start.y} C ${start.x + Math.sign(end.x - start.x) * bend} ${start.y}, ${end.x - Math.sign(end.x - start.x) * bend} ${end.y}, ${end.x} ${end.y}`
-                          : `M ${start.x} ${start.y} C ${start.x} ${start.y + Math.sign(end.y - start.y) * bend}, ${end.x} ${end.y - Math.sign(end.y - start.y) * bend}, ${end.x} ${end.y}`
-                      }
-                    />
-                    <circle cx={start.x} cy={start.y} r="8" />
-                    <circle cx={end.x} cy={end.y} r="8" />
-                  </g>
-                );
-              })}
-            {connectionDrag && (
-              <path
-                className="connection-string-preview"
-                d={`M ${connectionDrag.start.x} ${connectionDrag.start.y} C ${connectionDrag.start.x + 70} ${connectionDrag.start.y - 55}, ${connectionDrag.current.x - 70} ${connectionDrag.current.y - 55}, ${connectionDrag.current.x} ${connectionDrag.current.y}`}
-              />
-            )}
             {drawStart && drawCurrent && (
               <polygon
                 className="room-drawing-preview"
@@ -2129,7 +2102,19 @@ export function HomePlanEditor({
                   data-room-id={room.id}
                   className={`plan-room ${selectedRoomId === room.id ? 'selected' : ''} ${activePresence ? 'has-presence' : ''} ${connectionDrag?.sourceRoomId === room.id ? 'connection-source' : ''} ${connectionDrag?.targetRoomId === room.id ? (connectionDrag.targetValid ? 'connection-target' : 'connection-target-invalid') : ''}`}
                   onPointerDown={(event) => {
-                    if (tool === 'CONNECT') return;
+                    if (tool === 'CONNECT' && mode === 'EDIT') {
+                      event.stopPropagation();
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      const at = canvasPoint(event);
+                      setConnectionDrag({
+                        sourceRoomId: room.id,
+                        start: roomEdgeToward(room, at),
+                        current: at,
+                        targetRoomId: null,
+                        targetValid: false,
+                      });
+                      return;
+                    }
                     if (tool !== 'SELECT') return;
                     event.stopPropagation();
                     if (mode === 'EDIT') {
@@ -2187,14 +2172,6 @@ export function HomePlanEditor({
                               targetValid: false,
                             });
                           }}
-                          onPointerMove={(event) => {
-                            if (event.buttons !== 1) return;
-                            updateConnectionDrag(room.id, canvasPoint(event));
-                          }}
-                          onPointerUp={(event) => {
-                            event.stopPropagation();
-                            finishConnectionDrag(room.id, canvasPoint(event));
-                          }}
                         />
                         <circle className="anchor-dot" cx={anchor.x} cy={anchor.y} r="7" />
                       </g>
@@ -2227,6 +2204,37 @@ export function HomePlanEditor({
                 </g>
               );
             })}
+            {currentFloor.openings
+              .filter(({ kind, roomIds }) => kind === 'PASSAGE' && roomIds.length === 2)
+              .map((opening) => {
+                const from = currentFloor.rooms.find(({ id }) => id === opening.roomIds[0]);
+                const to = currentFloor.rooms.find(({ id }) => id === opening.roomIds[1]);
+                if (!from || !to) return null;
+                const start = roomEdgeToward(from, center(to));
+                const end = roomEdgeToward(to, center(from));
+                return (
+                  <g
+                    className={`room-connection-string ${opening.kind.toLowerCase()}`}
+                    key={`link-${opening.id}`}
+                  >
+                    <path d={connectionCurve(start, end)} />
+                    <circle cx={start.x} cy={start.y} r="8" />
+                    <circle cx={end.x} cy={end.y} r="8" />
+                  </g>
+                );
+              })}
+            {connectionDrag && (
+              <g
+                className={`connection-preview ${connectionDrag.targetRoomId ? (connectionDrag.targetValid ? 'is-valid' : 'is-invalid') : ''}`}
+              >
+                <path
+                  className="connection-string-preview"
+                  d={connectionCurve(connectionDrag.start, connectionDrag.current)}
+                />
+                <circle cx={connectionDrag.start.x} cy={connectionDrag.start.y} r="8" />
+                <circle cx={connectionDrag.current.x} cy={connectionDrag.current.y} r="8" />
+              </g>
+            )}
             {tool !== 'CONNECT' &&
               plan.levels
                 .flatMap(({ stairs }) => stairs)
@@ -2369,7 +2377,7 @@ export function HomePlanEditor({
           )}
           {mode === 'EDIT' && tool === 'CONNECT' && (
             <div className="canvas-hint">
-              Tirez un connecteur vers une pièce voisine, puis relâchez n’importe où dessus.
+              Glissez d’une pièce vers une autre, puis relâchez sur la pièce en vert.
             </div>
           )}
         </div>
@@ -2508,30 +2516,12 @@ export function HomePlanEditor({
       </div>
 
       {pendingConnection && (
-        <div className="plan-confirm-backdrop" role="presentation">
-          <div className="plan-confirm-modal" role="dialog" aria-modal="true">
-            <span className="understanding-icon route">
-              <MoveHorizontal />
-            </span>
-            <div>
-              <span className="eyebrow">Compréhension du plan</span>
-              <h3>Relier ces deux pièces ?</h3>
-              <p>
-                {currentFloor.rooms.find(({ id }) => id === pendingConnection.sourceRoomId)?.name} →{' '}
-                {currentFloor.rooms.find(({ id }) => id === pendingConnection.targetRoomId)?.name}
-              </p>
-            </div>
-            <p>Élise saura simplement que ces deux pièces communiquent.</p>
-            <footer>
-              <button className="secondary" onClick={() => setPendingConnection(null)}>
-                Annuler
-              </button>
-              <button className="primary" onClick={confirmConnection}>
-                <Link2 /> Relier les pièces
-              </button>
-            </footer>
-          </div>
-        </div>
+        <ConnectionConfirmation
+          source={currentFloor.rooms.find(({ id }) => id === pendingConnection.sourceRoomId)!}
+          target={currentFloor.rooms.find(({ id }) => id === pendingConnection.targetRoomId)!}
+          onCancel={() => setPendingConnection(null)}
+          onConfirm={confirmConnection}
+        />
       )}
 
       {stairModalOpen && (

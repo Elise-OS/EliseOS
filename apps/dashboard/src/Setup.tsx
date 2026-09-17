@@ -1309,16 +1309,12 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
     <main className="elise-setup">
       <header className="elise-header">
         <div className="elise-brand">
-          <span>
-            <img src="/logo.png" alt="" />
-          </span>
+          <img src="/logo-transparent.png" width="46" height="46" alt="" />
           <div>
-            <strong>Élise</strong>
-            <small>
-              {step === 0
-                ? tr('OS · Installation locale', 'OS · Local setup')
-                : tr('Installation locale', 'Local setup')}
-            </small>
+            <span className="elise-wordmark">
+              élise<span className="brand-os">OS</span>
+            </span>
+            <small>{tr('Installation locale', 'Local setup')}</small>
           </div>
         </div>
         <div className="elise-header-right">
@@ -1559,7 +1555,7 @@ function Welcome({ locale, onStart }: { locale: Locale; onStart: () => void }) {
         <div className="elise-home-orbit one" />
         <div className="elise-home-orbit two" />
         <span className="elise-home-icon">
-          <img src="/logo.png" alt="" />
+          <img src="/logo-transparent.png" alt="" />
         </span>
         <div className="elise-signal signal-one">
           <Radar />

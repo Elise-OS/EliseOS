@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import { ResidentVideo } from './ResidentVideo';
+import { hasPhysicalMicrophone } from './ResidentScreen';
 import { ARTE_LIVE_URL, youtubeVideoId, type ScreenMedia } from '@michel/contracts';
 
 const hlsMocks = vi.hoisted(() => ({
@@ -22,6 +23,26 @@ vi.mock('hls.js', () => ({
     on() {}
   },
 }));
+
+describe('resident microphone detection', () => {
+  const device = (kind: MediaDeviceKind, deviceId: string, label: string) =>
+    ({ kind, deviceId, label, groupId: '', toJSON: () => ({}) }) as MediaDeviceInfo;
+
+  it('ignores virtual and built-in audio inputs when no physical microphone is attached', () => {
+    expect(
+      hasPhysicalMicrophone([
+        device('audioinput', 'default', 'Default'),
+        device('audioinput', 'analog-input', 'Built-in Audio Analog Stereo'),
+        device('audioinput', 'monitor', 'Monitor of HDMI Audio'),
+      ]),
+    ).toBe(false);
+  });
+
+  it('recognizes a USB microphone or a webcam microphone', () => {
+    expect(hasPhysicalMicrophone([device('audioinput', 'usb-1', 'USB Microphone')])).toBe(true);
+    expect(hasPhysicalMicrophone([device('audioinput', 'cam-1', 'HD Pro Webcam C920')])).toBe(true);
+  });
+});
 
 describe('resident video playback', () => {
   let host: HTMLDivElement;

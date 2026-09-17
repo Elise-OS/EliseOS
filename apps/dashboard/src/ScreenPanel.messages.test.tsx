@@ -98,14 +98,51 @@ describe('TV message and appointment editor', () => {
       'Bonjour',
     );
   });
-  it('allows changing the pictogram of an existing appointment', async () => {
-    await change(
-      host.querySelector<HTMLSelectElement>('select[aria-label="Pictogramme pour Coiffeur"]')!,
-      'hairdresser',
+  it('fills a favorite message and schedules it for later', async () => {
+    const favorite = Array.from(host.querySelectorAll('button')).find((element) =>
+      element.textContent?.includes('Bonne journée'),
+    )!;
+    await act(async () => favorite.click());
+    expect(host.querySelector<HTMLTextAreaElement>('.screen-message-input textarea')!.value).toBe(
+      'Bonne journée ! On pense fort à toi ❤️',
     );
-    expect(requests.find((row) => row.url.endsWith('/appointments/appointment1'))).toMatchObject({
-      method: 'PATCH',
-      body: { pictogram: 'hairdresser' },
+    await change(
+      host.querySelector<HTMLInputElement>('.screen-schedule-control input')!,
+      '2099-10-01T10:00',
+    );
+    await act(async () => button('Programmer le message').click());
+    expect(
+      requests.find((row) => row.url.endsWith('/screen/scheduled-content') && row.method === 'POST')
+        ?.body,
+    ).toMatchObject({
+      kind: 'message',
+      messages: ['Bonne journée ! On pense fort à toi ❤️'],
+      messageIntervalSeconds: 20,
     });
+  });
+  it('uses one visual pictogram picker when creating an appointment', async () => {
+    const pictogram = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Choisir le pictogramme Médecin / soins"]',
+    )!;
+    await act(async () => pictogram.click());
+    expect(pictogram.getAttribute('aria-pressed')).toBe('true');
+    expect(host.querySelector('select[aria-label^="Pictogramme pour"]')).toBeNull();
+
+    await change(
+      host.querySelector<HTMLInputElement>('input[placeholder="Médecin, coiffeur…"]')!,
+      'Médecin',
+    );
+    await change(
+      host.querySelector<HTMLInputElement>(
+        '.screen-appointment-form input[type="datetime-local"]',
+      )!,
+      '2026-10-01T10:00',
+    );
+    await act(async () => button('Ajouter').click());
+
+    expect(
+      requests.find((row) => row.url.endsWith('/screen/appointments') && row.method === 'POST')
+        ?.body,
+    ).toMatchObject({ title: 'Médecin', pictogram: 'medical' });
   });
 });

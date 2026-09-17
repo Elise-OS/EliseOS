@@ -4,9 +4,13 @@ import {
   DEFAULT_ALERT_RULE_SETTINGS,
   homePlanSchema,
   type DashboardPeriod,
+  type HomeSummary,
+  type PresenceEstimate,
   type HomePlan,
 } from '@michel/contracts';
 import { Prisma, type ObservationEvent } from '@prisma/client';
+import { buildEntranceSummary, ENTRANCE_WINDOW_MS } from './entrance-summary';
+import { buildHomeCards, latestPresenceEvidence } from './home-summary';
 import { PrismaService } from '../../platform/prisma.service';
 
 const ACTIVITY_CAPABILITIES = ['motion', 'occupancy', 'person_presence', 'contact', 'button'];
@@ -200,6 +204,114 @@ export class ActivityService {
     });
   }
 
+  public async homeSummary(userId: string, presence: PresenceEstimate): Promise<HomeSummary> {
+    const home = await this.homeFor(userId);
+    if (!home) throw new ForbiddenException();
+    const { from, to } = activityWindow('24h', undefined, home.timezone, new Date());
+    const lookback = new Date(from.getTime() - 2 * ENTRANCE_WINDOW_MS);
+    const [sensors, events, storedPlan, alerts, revision, priorStates] = await Promise.all([
+      this.prisma.sensor.findMany({
+        where: { homeId: home.id, analysisEnabled: true, removedAt: null },
+        include: {
+          device: { select: { model: true, lastSeenAt: true } },
+          events: { orderBy: { occurredAt: 'desc' }, take: 1, where: { occurredAt: { lte: to } } },
+        },
+      }),
+      this.prisma.observationEvent.findMany({
+        where: {
+          homeId: home.id,
+          occurredAt: { gte: lookback, lte: to },
+          sensor: { analysisEnabled: true, removedAt: null },
+        },
+        orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+      }),
+      this.prisma.homePlan.findUnique({ where: { homeId: home.id } }),
+      this.prisma.alert.findMany({
+        where: { homeId: home.id, status: { in: ['OPEN', 'ACKNOWLEDGED'] } },
+        orderBy: { openedAt: 'desc' },
+      }),
+      this.prisma.configurationRevision.findFirst({
+        where: { homeId: home.id },
+        orderBy: { version: 'desc' },
+        select: { settings: true },
+      }),
+      this.prisma.observationEvent.findMany({
+        where: {
+          homeId: home.id,
+          capability: 'contact',
+          occurredAt: { lt: lookback },
+          sensor: { analysisEnabled: true, removedAt: null },
+        },
+        distinct: ['sensorId'],
+        orderBy: { occurredAt: 'desc' },
+      }),
+    ]);
+    const parsed = homePlanSchema.safeParse(storedPlan?.data);
+    const settings = revision?.settings as Record<string, unknown> | undefined;
+    const parsedRules = alertRuleSettingsSchema.safeParse(settings?.alertRules);
+    const rules = parsedRules.success ? parsedRules.data : DEFAULT_ALERT_RULE_SETTINGS;
+    const facts = buildHomeCards(
+      sensors,
+      events.filter((e) => e.occurredAt >= from),
+      parsed.success ? parsed.data : null,
+      home.rooms,
+      rules,
+    );
+    const entrance = buildEntranceSummary(
+      sensors,
+      events,
+      parsed.success ? parsed.data : null,
+      to,
+      priorStates,
+    );
+    const latestPresenceEvent = latestPresenceEvidence(sensors, events, to);
+    const enabledIds = new Set(
+      sensors.filter((s) => s.available && s.status === 'ONLINE').map((s) => s.id),
+    );
+    const confirmedEvidence = presence.evidenceSummary
+      .filter((e) => e.roomId === presence.confirmedRoomId && e.observed !== false)
+      .sort((left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt))[0];
+    if (presence.trackingState === 'CONFIRMED' && confirmedEvidence?.sensorId) {
+      presence = {
+        ...presence,
+        trackingDegraded: !enabledIds.has(confirmedEvidence.sensorId),
+      };
+    } else if (presence.evidenceSummary.some((e) => e.sensorId && !enabledIds.has(e.sensorId))) {
+      presence = { ...presence, trackingDegraded: true };
+    }
+    const alert =
+      alerts.find((a) => a.severity === 'URGENT') ??
+      alerts.find((a) => a.severity === 'ATTENTION') ??
+      alerts[0];
+    return {
+      from: from.toISOString(),
+      to: to.toISOString(),
+      timezone: home.timezone,
+      residentName:
+        home.primaryResident?.preferredName ?? home.primaryResident?.displayName ?? 'Le résident',
+      presence,
+      rooms: home.rooms.map(({ id, name, kind }) => ({ id, name, kind })),
+      ...facts,
+      latestPresence: latestPresenceEvent
+        ? {
+            roomId: latestPresenceEvent.roomId!,
+            occurredAt: latestPresenceEvent.occurredAt.toISOString(),
+            capability: latestPresenceEvent.capability as
+              'motion' | 'occupancy' | 'person_presence',
+          }
+        : null,
+      entrance,
+      alert: alert
+        ? {
+            id: alert.id,
+            title: alert.title,
+            severity: alert.severity,
+            roomName: home.rooms.find((room) => room.id === alert.roomId)?.name ?? null,
+          }
+        : null,
+    };
+  }
+
   public async overview(userId: string) {
     const home = await this.homeFor(userId);
     if (!home) return { onboardingRequired: true };
@@ -221,7 +333,11 @@ export class ActivityService {
           orderBy: { lastSeenAt: 'desc' },
         }),
         this.prisma.observationEvent.findMany({
-          where: { homeId: home.id, sensor: { analysisEnabled: true } },
+          where: {
+            homeId: home.id,
+            capability: { not: 'illuminance' },
+            sensor: { analysisEnabled: true },
+          },
           orderBy: { occurredAt: 'desc' },
           take: 8,
           include: { sensor: { include: { room: true } } },

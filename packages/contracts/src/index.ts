@@ -1332,3 +1332,90 @@ export const MQTT_TOPICS = {
 } as const;
 
 export * from './screen.js';
+
+export const entranceSummarySchema = z.object({
+  state: z.enum([
+    'PENDING',
+    'ENTRY_LIKELY',
+    'EXIT_LIKELY',
+    'INSIDE_ACTIVITY',
+    'UNCERTAIN',
+    'UNAVAILABLE',
+    'NO_PASSAGE',
+  ]),
+  reason: z.enum([
+    'WAITING',
+    'FOLLOWED_BY_MOVEMENT',
+    'NO_MOVEMENT_AFTER_EXIT',
+    'LATER_ACTIVITY',
+    'INSUFFICIENT_SEQUENCE',
+    'SENSOR_UNAVAILABLE',
+    'NO_OPENING',
+  ]),
+  openedAt: z.iso.datetime().nullable(),
+  closedAt: z.iso.datetime().nullable(),
+  evidenceAt: z.iso.datetime().nullable(),
+  evaluateAfter: z.iso.datetime().nullable(),
+  windowSeconds: z.number().int().positive(),
+  roomName: z.string(),
+});
+export type EntranceSummary = z.infer<typeof entranceSummarySchema>;
+
+export const homeSummarySchema = z.object({
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  timezone: z.string(),
+  residentName: z.string(),
+  presence: presenceEstimateSchema,
+  rooms: z.array(z.object({ id: z.string(), name: z.string(), kind: z.string() })),
+  roomSummaries: z.array(
+    z.object({
+      roomId: z.string(),
+      name: z.string(),
+      kind: z.string(),
+      color: z.string().nullable(),
+      sensors: z.array(
+        z.object({
+          capability: z.string(),
+          value: z.union([z.string(), z.number(), z.boolean()]).nullable(),
+          unit: z.string().nullable(),
+          state: z.enum(['ACTIVE', 'INACTIVE', 'UNKNOWN']),
+          available: z.boolean(),
+          updatedAt: z.iso.datetime().nullable(),
+        }),
+      ),
+    }),
+  ),
+  latestPresence: z
+    .object({
+      roomId: z.string(),
+      occurredAt: z.iso.datetime(),
+      capability: z.enum(['motion', 'occupancy', 'person_presence']),
+    })
+    .nullable()
+    .optional(),
+  activityRooms: z.array(z.string()),
+  entrance: entranceSummarySchema.nullable().default(null),
+  cards: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      kind: z.enum(['FRIDGE', 'TOILET', 'OPENING', 'APPLIANCE', 'COMFORT', 'SAFETY', 'ROOM']),
+      available: z.boolean(),
+      observedToday: z.boolean(),
+      countToday: z.number().int().nonnegative(),
+      lastObservedAt: z.iso.datetime().nullable(),
+      state: z.enum(['ACTIVE', 'INACTIVE', 'UNKNOWN']),
+      updatedAt: z.iso.datetime().nullable(),
+    }),
+  ),
+  alert: z
+    .object({
+      id: z.string(),
+      title: z.string(),
+      severity: z.string(),
+      roomName: z.string().nullable().default(null),
+    })
+    .nullable(),
+});
+export type HomeSummary = z.infer<typeof homeSummarySchema>;

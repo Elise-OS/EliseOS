@@ -4,6 +4,7 @@ import type { Observable } from 'rxjs';
 import { z } from 'zod';
 import { parseRequest } from '../../platform/zod-validation';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
+import { HomePlanService } from './home-plan.service';
 import { ActivityService } from './activity.service';
 import { SessionGuard } from '../auth/session.guard';
 import { RealtimeService } from './realtime.service';
@@ -47,11 +48,18 @@ export class ActivityController {
   public constructor(
     private readonly activity: ActivityService,
     private readonly realtime: RealtimeService,
+    private readonly plans: HomePlanService,
   ) {}
 
   @Get('overview')
   public overview(@Req() request: AuthenticatedRequest) {
     return this.activity.overview(request.userId);
+  }
+
+  @Get('home-summary')
+  public async homeSummary(@Req() request: AuthenticatedRequest) {
+    const presence = await this.plans.presence(request.userId);
+    return this.activity.homeSummary(request.userId, presence);
   }
 
   @Get('activity')

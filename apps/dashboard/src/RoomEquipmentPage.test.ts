@@ -70,6 +70,30 @@ describe('room equipment cards', () => {
     const multi = device([capability('temperature'), capability('humidity')]);
     expect(roomCategoryDevices(plan, 'room', [multi], 'temperature')).toEqual([multi]);
     expect(roomCategoryDevices(plan, 'room', [multi], 'humidity')).toEqual([multi]);
+    expect(roomCategoryDevices(plan, 'room', [multi], 'shower')).toEqual([multi]);
+    expect(roomCategoryDevices(plan, 'room', [multi], 'water_leak')).toEqual([]);
+  });
+
+  it('uses the humidity reading for the shower function', () => {
+    const humiditySensor = device([capability('humidity', { value: 68 })]);
+
+    expect(roomSensorReading(humiditySensor, 'shower', true)).toMatchObject({
+      reading: '68 %',
+    });
+    expect(productsForCategory('shower', false).map(({ model }) => model)).toEqual(
+      productsForCategory('humidity', false).map(({ model }) => model),
+    );
+  });
+
+  it('offers shower instead of generic humidity by default in a bathroom', () => {
+    const categories = visibleRoomCategories('BATHROOM');
+
+    expect(categories).toContain('shower');
+    expect(categories).not.toContain('humidity');
+    expect(categories).toContain('water_leak');
+    expect(
+      visibleRoomCategories('BEDROOM', { added: ['shower'], hidden: [] }, ['shower']),
+    ).not.toContain('shower');
   });
 
   it('does not also show a stair device in its technical anchor room', () => {

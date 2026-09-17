@@ -14,7 +14,6 @@ import { isDosePastConfirmationWindow, missedDoseCopy } from './medication-rules
 import {
   countNightActivity,
   isDoorOpenTooLong,
-  isSensorConnectionStale,
   isStale,
   numericPayload,
   persistentTemperatureViolation,
@@ -464,14 +463,13 @@ async function evaluateSensorRules(): Promise<void> {
       status: string;
       available: boolean;
       lastSeenAt: Date | null;
-      deviceLastSeenAt: Date | null;
       roomId: string | null;
       roomName: string | null;
       payload: unknown;
       occurredAt: Date | null;
     }>(
       `SELECT s.id, s."entityId", COALESCE(d.name, s."entityId") AS name, s.capability,
-        s.status, s.available, s."lastSeenAt", d."lastSeenAt" AS "deviceLastSeenAt",
+        s.status, s.available, s."lastSeenAt",
         r.id AS "roomId", r.name AS "roomName", latest.payload, latest."occurredAt"
        FROM "Sensor" s
        LEFT JOIN "Device" d ON d.id = s."deviceId"
@@ -486,14 +484,9 @@ async function evaluateSensorRules(): Promise<void> {
     );
     for (const sensor of sensors.rows) {
       const stale = isStale(sensor.lastSeenAt, now, rules.sensorOffline.minutes);
-      const offline =
-        !sensor.available ||
-        isSensorConnectionStale(
-          sensor.lastSeenAt,
-          sensor.deviceLastSeenAt,
-          now,
-          rules.sensorOffline.minutes,
-        );
+      // Motion sensors can legitimately remain silent for hours. Home Assistant's
+      // availability is the connection signal; elapsed time since motion is not.
+      const offline = !sensor.available;
       if (offline && sensor.status !== 'OFFLINE') {
         await pool.query(
           `UPDATE "Sensor" SET status = 'OFFLINE', "updatedAt" = NOW() WHERE id = $1`,
@@ -513,7 +506,7 @@ async function evaluateSensorRules(): Promise<void> {
         severity: 'ATTENTION',
         active: rules.sensorOffline.enabled && offline,
         title: `${sensor.name} ne répond plus`,
-        explanation: `${sensor.roomName ?? 'Ce capteur'} n’a transmis aucune donnée depuis plus de ${rules.sensorOffline.minutes} minutes. Élise suspend les conclusions qui en dépendent.`,
+        explanation: `${sensor.roomName ?? 'Ce capteur'} est signalé comme indisponible par Home Assistant. Élise suspend les conclusions qui en dépendent.`,
       });
 
       if (sensor.capability === 'contact') {
@@ -974,12 +967,48 @@ async function maintainTopologicalPresence(): Promise<void> {
     }
   }
 
+  const activeStatefulSensor = `EXISTS (
+    SELECT 1
+    FROM "Sensor" s
+    LEFT JOIN "Device" d ON d.id = s."deviceId"
+    JOIN LATERAL (
+      SELECT e.payload
+      FROM "ObservationEvent" e
+      WHERE e."sensorId" = s.id
+        AND e.capability IN ('occupancy', 'person_presence')
+      ORDER BY e."occurredAt" DESC, e.id DESC
+      LIMIT 1
+    ) latest ON true
+    WHERE s."homeId" = tracking."homeId"
+      AND s."roomId" = tracking."confirmedRoomId"
+      AND s.capability IN ('occupancy', 'person_presence')
+      AND s."analysisEnabled" = true
+      AND s."removedAt" IS NULL
+      AND s.available = true
+      AND (s."deviceId" IS NULL OR (d.enabled = true AND d."installationStatus" = 'OPERATIONAL'))
+      AND COALESCE(d."lastSeenAt", s."lastSeenAt") >= NOW() - INTERVAL '5 minutes'
+      AND COALESCE((latest.payload->>'active')::boolean, false) = true
+  )`;
+
+  // Recover states that were made stale by the former fixed timeout. Presence/occupancy values
+  // are stateful: other measurements from the same fresh device prove that the active value is
+  // still current even when Home Assistant does not repeat it.
   await pool.query(
-    `UPDATE "PresenceTrackingState"
+    `UPDATE "PresenceTrackingState" tracking
+     SET status = 'CONFIRMED', "reasonCodes" = '[]'::jsonb,
+       "confidenceScore" = GREATEST("confidenceScore", 0.8), "updatedAt" = NOW()
+     WHERE status = 'STALE'
+       AND "reasonCodes" @> '["NO_RECENT_EVIDENCE"]'::jsonb
+       AND ${activeStatefulSensor}`,
+  );
+
+  await pool.query(
+    `UPDATE "PresenceTrackingState" tracking
      SET status = 'STALE', "reasonCodes" = '["NO_RECENT_EVIDENCE"]'::jsonb,
        "confidenceScore" = LEAST("confidenceScore", 0.45), "updatedAt" = NOW()
      WHERE status IN ('CONFIRMED', 'AMBIGUOUS')
-       AND "lastEvidenceAt" <= NOW() - INTERVAL '15 minutes'`,
+       AND "lastEvidenceAt" <= NOW() - INTERVAL '15 minutes'
+       AND NOT ${activeStatefulSensor}`,
   );
 }
 

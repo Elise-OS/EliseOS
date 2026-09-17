@@ -3,7 +3,6 @@ import {
   countNightActivity,
   isDoorOpenTooLong,
   isInMinuteWindow,
-  isSensorConnectionStale,
   isStale,
   numericPayload,
   persistentTemperatureViolation,
@@ -17,15 +16,6 @@ describe('deterministic alert rules', () => {
     expect(isStale(null, now, 120)).toBe(true);
     expect(isStale(new Date('2026-08-09T09:59:00.000Z'), now, 120)).toBe(true);
     expect(isStale(new Date('2026-08-09T11:30:00.000Z'), now, 120)).toBe(false);
-  });
-
-  it('keeps one multifunction device connected when another measurement reports', () => {
-    const oldTemperature = new Date('2026-08-09T09:00:00.000Z');
-    const recentHumidity = new Date('2026-08-09T11:45:00.000Z');
-    expect(isStale(oldTemperature, now, 120)).toBe(true);
-    expect(isSensorConnectionStale(oldTemperature, recentHumidity, now, 120)).toBe(false);
-    expect(isSensorConnectionStale(oldTemperature, null, now, 120)).toBe(true);
-    expect(isSensorConnectionStale(oldTemperature, oldTemperature, now, 120)).toBe(true);
   });
 
   it('requires a door to remain open for the configured duration', () => {

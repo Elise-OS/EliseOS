@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   homePlanSchema,
   normalizedEventSchema,
+  presenceCapabilityForDevice,
   type HomePlan,
   type NormalizedEvent,
 } from '@michel/contracts';
@@ -148,6 +149,7 @@ export class IngestionService {
       });
       if (!sensor.analysisEnabled) return { accepted: true, id: saved.id };
       if (['motion', 'occupancy', 'person_presence'].includes(event.capability)) {
+        const presenceCapability = presenceCapabilityForDevice(event.capability, device?.model);
         const camera =
           event.capability === 'person_presence'
             ? await tx.camera.findFirst({
@@ -168,7 +170,7 @@ export class IngestionService {
           residentId,
           roomId: eventRoomId,
           sensorId: sensor.id,
-          capability: event.capability,
+          capability: presenceCapability,
           active: typeof event.payload.active === 'boolean' ? event.payload.active : null,
           occurredAt: new Date(event.occurredAt),
           confidence: roomConfidence,
@@ -178,7 +180,7 @@ export class IngestionService {
           ...presenceEvidence,
           plan: parsedPlan?.success ? parsedPlan.data : null,
         });
-        if (tracking.acceptedForSession)
+        if (tracking.acceptedForSession) {
           await this.presenceSessions.process(tx, {
             ...presenceEvidence,
             confidence: tracking.confidence,
@@ -186,6 +188,14 @@ export class IngestionService {
               parsedPlan?.success ? parsedPlan.data : undefined,
             ),
           });
+          if (tracking.replacementEvidence)
+            await this.presenceSessions.process(tx, {
+              ...tracking.replacementEvidence,
+              connectedRoomIds: connectionsFromPlan(
+                parsedPlan?.success ? parsedPlan.data : undefined,
+              ),
+            });
+        }
       }
       if (event.capability === 'person_presence' && event.payload.active === true) {
         await tx.camera.updateMany({

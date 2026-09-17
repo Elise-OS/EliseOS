@@ -94,7 +94,7 @@ function harness() {
         return Promise.resolve(data);
       }),
     },
-    observationEvent: { findMany: vi.fn().mockResolvedValue([]) },
+    sensor: { findMany: vi.fn().mockResolvedValue([]) },
   };
   return { tx, decisions, state: () => state };
 }
@@ -135,27 +135,11 @@ describe('topological presence graph', () => {
 });
 
 describe('PresenceTrackingService', () => {
-  it('keeps the reliable room while a non-adjacent destination is pending', async () => {
-    const { tx, state } = harness();
-    const service = new PresenceTrackingService();
-    await service.process(tx as never, evidence('cuisine', 0));
-    const result = await service.process(tx as never, evidence('salon', 5));
-
-    expect(result.acceptedForSession).toBe(false);
-    expect(state()).toMatchObject({
-      status: 'IN_TRANSIT',
-      confirmedRoomId: 'cuisine',
-      candidateRoomId: 'salon',
-      pathRoomIds: ['cuisine', 'couloir', 'salon'],
-    });
-  });
-
-  it('confirms the destination after persistent evidence', async () => {
+  it('confirms a directly detected non-adjacent destination immediately', async () => {
     const { tx, state, decisions } = harness();
     const service = new PresenceTrackingService();
     await service.process(tx as never, evidence('cuisine', 0));
-    await service.process(tx as never, evidence('salon', 5));
-    const result = await service.process(tx as never, evidence('salon', 26));
+    const result = await service.process(tx as never, evidence('salon', 5));
 
     expect(result.acceptedForSession).toBe(true);
     expect(state()).toMatchObject({
@@ -165,11 +149,11 @@ describe('PresenceTrackingService', () => {
     });
     expect(decisions.at(-1)).toMatchObject({
       outcome: 'CONFIRMED',
-      reasonCodes: ['PERSISTENT_DESTINATION', 'INFERRED_PATH'],
+      reasonCodes: ['DIRECT_DETECTION', 'INFERRED_PATH'],
     });
   });
 
-  it('cancels a pending route when the origin is observed again', async () => {
+  it('lets every newer positive detection become the current room', async () => {
     const { tx, state, decisions } = harness();
     const service = new PresenceTrackingService();
     await service.process(tx as never, evidence('cuisine', 0));
@@ -182,8 +166,89 @@ describe('PresenceTrackingService', () => {
       candidateRoomId: null,
     });
     expect(decisions.at(-1)).toMatchObject({
-      outcome: 'CANCELLED',
-      reasonCodes: ['ORIGIN_RECONFIRMED'],
+      outcome: 'CONFIRMED',
+      reasonCodes: ['DIRECT_DETECTION', 'INFERRED_PATH'],
     });
+  });
+
+  it('confirms a direct detection even when the plan is disconnected', async () => {
+    const { tx, state, decisions } = harness();
+    const service = new PresenceTrackingService();
+    await service.process(tx as never, evidence('cuisine', 0));
+    const result = await service.process(tx as never, evidence('inconnue', 5));
+
+    expect(result.acceptedForSession).toBe(true);
+    expect(state()).toMatchObject({
+      status: 'CONFIRMED',
+      confirmedRoomId: 'inconnue',
+    });
+    expect(decisions.at(-1)).toMatchObject({
+      outcome: 'CONFIRMED',
+      reasonCodes: ['DIRECT_DETECTION', 'PLAN_DISCONNECTED'],
+    });
+  });
+
+  it('falls back to another sensor that is still active when the current room turns off', async () => {
+    const { tx, state, decisions } = harness();
+    const service = new PresenceTrackingService();
+    await service.process(tx as never, evidence('salon', 0));
+    await service.process(tx as never, evidence('cuisine', 100));
+    tx.sensor.findMany.mockResolvedValueOnce([
+      {
+        id: 'sensor-salon',
+        device: {
+          model: 'Multi-function smart presence sensor R3',
+          enabled: true,
+          installationStatus: 'OPERATIONAL',
+        },
+        events: [
+          {
+            id: 'event-salon-active',
+            roomId: 'salon',
+            capability: 'occupancy',
+            payload: { active: true },
+            occurredAt: evidence('salon', 0).occurredAt,
+            roomConfidence: 'HIGH',
+          },
+        ],
+      },
+    ]);
+
+    const result = await service.process(tx as never, evidence('cuisine', 120, { active: false }));
+
+    expect(state()).toMatchObject({
+      status: 'CONFIRMED',
+      confirmedRoomId: 'salon',
+      candidateRoomId: null,
+    });
+    expect(result.replacementEvidence).toMatchObject({ roomId: 'salon', active: true });
+    expect(decisions.at(-1)).toMatchObject({
+      outcome: 'CONFIRMED',
+      reasonCodes: ['ACTIVE_SENSOR_REMAINS'],
+    });
+  });
+
+  it('becomes stale when the current room turns off and no sensor remains active', async () => {
+    const { tx, state } = harness();
+    const service = new PresenceTrackingService();
+    await service.process(tx as never, evidence('salon', 0));
+    await service.process(tx as never, evidence('salon', 30, { active: false }));
+
+    expect(state()).toMatchObject({
+      status: 'STALE',
+      confirmedRoomId: 'salon',
+      candidateRoomId: null,
+      reasonCodes: ['EXPLICIT_ABSENCE'],
+    });
+  });
+
+  it('does not restore an older room when a different room turns off', async () => {
+    const { tx, state } = harness();
+    const service = new PresenceTrackingService();
+    await service.process(tx as never, evidence('salon', 0));
+    await service.process(tx as never, evidence('cuisine', 30, { active: false }));
+
+    expect(state()).toMatchObject({ status: 'CONFIRMED', confirmedRoomId: 'salon' });
+    expect(tx.sensor.findMany).not.toHaveBeenCalled();
   });
 });

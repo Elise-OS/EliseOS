@@ -1,6 +1,6 @@
+import { WelcomePage } from './WelcomePage';
 import { ScreenPanel } from './ScreenPanel';
-import * as Progress from '@radix-ui/react-progress';
-import { Button, Card, Metric, StatusPill } from '@michel/ui';
+import { Button, Card, StatusPill } from '@michel/ui';
 import {
   Accessibility,
   Activity,
@@ -12,8 +12,6 @@ import {
   ChevronRight,
   CircleCheck,
   Clock3,
-  CookingPot,
-  DoorOpen,
   Ear,
   Eye,
   Footprints,
@@ -38,7 +36,6 @@ import {
   ShieldCheck,
   Sofa,
   Sparkles,
-  Thermometer,
   Trash2,
   Tv,
   UsersRound,
@@ -47,7 +44,7 @@ import {
   VideoOff,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { copy, type Locale } from './i18n';
 import { resizeResidentPhoto, Setup } from './Setup';
 import { HomePlanEditor } from './HomePlanEditor';
@@ -330,16 +327,6 @@ interface MedicationDraft {
   graceMinutes: number;
 }
 
-interface ScheduleItem {
-  id: string;
-  type: 'VISIT' | 'APPOINTMENT';
-  title: string;
-  startsAt: string;
-  endsAt: string | null;
-  detail: string | null;
-  notes: string | null;
-}
-
 const navIcons = [
   Home,
   Activity,
@@ -354,12 +341,7 @@ const navIcons = [
   Tv,
 ];
 export const sidebarHiddenNavIndexes = new Set([4, 5, 6, 9]);
-const roomIcons: Record<string, typeof Sofa> = {
-  LIVING_ROOM: Sofa,
-  KITCHEN: CookingPot,
-  ENTRANCE: DoorOpen,
-};
-
+export const sidebarNavOrder = [0, 1, 2, 10, 3, 7, 8] as const;
 export function SidebarNavigation({
   labels,
   active,
@@ -373,7 +355,9 @@ export function SidebarNavigation({
 }) {
   return (
     <nav aria-label="Navigation principale">
-      {labels.map((label, index) => {
+      {sidebarNavOrder.map((index) => {
+        const label = labels[index];
+        if (!label) return null;
         if (sidebarHiddenNavIndexes.has(index)) return null;
         const Icon = navIcons[index]!;
         return (
@@ -382,7 +366,7 @@ export function SidebarNavigation({
             type="button"
             aria-current={active === index ? 'page' : undefined}
             data-tour-target={`nav-${index}`}
-            className={active === index ? 'nav-item nav-item--active' : 'nav-item'}
+            className={`nav-item nav-item--${index === 10 ? 'tv' : index === 3 ? 'home' : 'default'}${active === index ? ' nav-item--active' : ''}`}
             onClick={() => onSelect(index)}
           >
             <Icon size={18} />
@@ -741,6 +725,10 @@ export function activityDescription(item: ActivityItem, locale: Locale): string 
     humidity: [
       value ? `Humidité · ${value}` : 'Humidité relevée',
       value ? `Humidity · ${value}` : 'Humidity reading',
+    ],
+    illuminance: [
+      value ? `Luminosité · ${value}` : 'Luminosité mesurée',
+      value ? `Light level · ${value}` : 'Light level reading',
     ],
     battery: [
       value ? `Batterie · ${value}` : 'Niveau de batterie reçu',
@@ -2506,7 +2494,6 @@ export function App() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [alertFilter, setAlertFilter] = useState<'ALL' | AlertItem['status']>('ALL');
   const [journal, setJournal] = useState<JournalItem[]>([]);
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [medications, setMedications] = useState<MedicationItem[]>([]);
   const [medicationDoses, setMedicationDoses] = useState<MedicationDoseItem[]>([]);
   const [savingMedication, setSavingMedication] = useState(false);
@@ -2540,6 +2527,7 @@ export function App() {
     intimateSpaceConsent: false,
   });
   const [active, setActive] = useState(0);
+  const [screenSection, setScreenSection] = useState<'call' | 'messages' | 'display' | 'photos' | 'planning'>('display');
   const [homeSection, setHomeSection] = useState<'OVERVIEW' | 'EDITOR' | 'LIVE_PLAN'>('OVERVIEW');
   const [settingsTab, setSettingsTab] = useState<'general' | 'google' | 'rules'>('general');
   const [homeEditorRoomId, setHomeEditorRoomId] = useState<string | null>(null);
@@ -2612,7 +2600,6 @@ export function App() {
         rulesResponse,
         medicationsResponse,
         dosesResponse,
-        scheduleResponse,
         equipmentCandidatesResponse,
         camerasResponse,
       ] = await Promise.all([
@@ -2623,9 +2610,6 @@ export function App() {
         fetch('/api/v1/alerts/rules'),
         fetch('/api/v1/medications'),
         fetch(`/api/v1/medications/doses?from=${dateKey(historyStart)}&to=${dateKey(historyEnd)}`),
-        fetch(
-          `/api/v1/schedule?from=${encodeURIComponent(now.toISOString())}&to=${encodeURIComponent(new Date(now.getTime() + 90 * 86_400_000).toISOString())}`,
-        ),
         fetch('/api/v1/equipment/candidates'),
         fetch('/api/v1/cameras'),
       ]);
@@ -2640,7 +2624,6 @@ export function App() {
         setMedications((await medicationsResponse.json()) as MedicationItem[]);
       if (dosesResponse.ok)
         setMedicationDoses((await dosesResponse.json()) as MedicationDoseItem[]);
-      if (scheduleResponse.ok) setSchedule((await scheduleResponse.json()) as ScheduleItem[]);
       if (equipmentCandidatesResponse.ok)
         setEquipmentCandidates((await equipmentCandidatesResponse.json()) as EquipmentCandidate[]);
       if (camerasResponse.ok) setCameras((await camerasResponse.json()) as CameraItem[]);
@@ -2776,29 +2759,6 @@ export function App() {
     }
   }, [tourMode]);
 
-  const isLearning = overview?.reassurance === 'LEARNING';
-  const statusTitle =
-    overview?.reassurance === 'ATTENTION'
-      ? t.attention
-      : overview?.reassurance === 'INSUFFICIENT_DATA'
-        ? t.insufficient
-        : isLearning
-          ? t.learning
-          : t.normal;
-  const statusDetail =
-    overview?.reassurance === 'ATTENTION'
-      ? t.attentionDetail
-      : overview?.reassurance === 'INSUFFICIENT_DATA'
-        ? t.insufficientDetail
-        : isLearning
-          ? t.learningDetail
-          : t.normalDetail;
-  const currentAlert = [...alerts]
-    .filter((alert) => ['OPEN', 'ACKNOWLEDGED'].includes(alert.status))
-    .sort((left, right) => {
-      const priority = { URGENT: 0, ATTENTION: 1, INFO: 2 } as const;
-      return priority[left.severity] - priority[right.severity];
-    })[0];
   const filteredAlerts = alerts.filter(
     (alert) => alertFilter === 'ALL' || alert.status === alertFilter,
   );
@@ -3046,43 +3006,8 @@ export function App() {
     );
     if (response.ok) await refresh();
   };
-  const learningProgress = useMemo(
-    () => Math.min(100, ((overview?.learningDays ?? 0) / 14) * 100),
-    [overview?.learningDays],
-  );
-
   const resident = household?.residents.find((item) => item.primary) ?? household?.residents[0];
   const canEditResident = currentAccess.capabilities.includes('configuration:manage');
-  const configuredSensors = [
-    ...(household?.unassignedSensors.map((sensor) => ({
-      ...sensor,
-      roomId: null,
-      roomName: null,
-    })) ?? []),
-    ...(household?.rooms.flatMap((room) =>
-      room.sensors.map((sensor) => ({ ...sensor, roomId: room.id, roomName: room.name })),
-    ) ?? []),
-  ];
-  const lowBatterySensors = configuredSensors.filter((sensor) => {
-    if (sensor.capability !== 'battery') return false;
-    const value = Number(sensor.lastValue?.value);
-    return Number.isFinite(value) && value <= (alertRules?.lowBattery.percent ?? 15);
-  }).length;
-  const currentTemperatureSensor = configuredSensors
-    .filter((sensor) => {
-      if (sensor.capability !== 'temperature' || sensor.status === 'OFFLINE') return false;
-      return Number.isFinite(Number(sensor.lastValue?.value));
-    })
-    .sort(
-      (left, right) =>
-        new Date(right.lastSeenAt ?? 0).getTime() - new Date(left.lastSeenAt ?? 0).getTime(),
-    )[0];
-  const currentTemperature = currentTemperatureSensor
-    ? new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1,
-      }).format(Number(currentTemperatureSensor.lastValue?.value))
-    : null;
   const managerName = overview?.currentUser?.displayName ?? '';
   const managerInitials = managerName
     .split(/\s+/)
@@ -3091,19 +3016,6 @@ export function App() {
     .map((part) => part[0]?.toUpperCase())
     .join('');
   const residentName = overview?.resident?.preferredName ?? overview?.home?.resident ?? '';
-  const homeDose = [...medicationDoses]
-    .filter((dose) =>
-      dose.status === 'MISSED'
-        ? true
-        : dose.status === 'PENDING' && new Date(dose.scheduledFor).getTime() >= Date.now(),
-    )
-    .sort((left, right) => {
-      if (left.status === 'MISSED' && right.status !== 'MISSED') return -1;
-      if (right.status === 'MISSED' && left.status !== 'MISSED') return 1;
-      return new Date(left.scheduledFor).getTime() - new Date(right.scheduledFor).getTime();
-    })[0];
-  const nextScheduleItem = schedule[0] ?? overview?.nextSchedule;
-
   if (entryState === 'loading') {
     return (
       <main className="data-loading-page">
@@ -3188,12 +3100,9 @@ export function App() {
     <div className={`app-shell ${sidebarAutoHideActive ? 'app-shell--sidebar-auto-hide' : ''}`}>
       <aside className={`sidebar ${menuOpen ? 'sidebar--open' : ''}`}>
         <div className="brand">
-          <div className="brand-mark">
-            <img src="/logo.png" alt="" />
-          </div>
-          <span className="brand-copy">
-            <strong>Élise</strong>
-            <small>{locale === 'fr' ? 'Maison & sérénité' : 'Home & peace of mind'}</small>
+          <img src="/logo-transparent.png" width="46" height="46" alt="" />
+          <span>
+            élise<span className="brand-os">OS</span>
           </span>
         </div>
         <button
@@ -3205,7 +3114,7 @@ export function App() {
         </button>
         <div className="sidebar-navigation">
           <span className="sidebar-section-label">
-            {locale === 'fr' ? 'Navigation' : 'Navigation'}
+            {locale === 'fr' ? 'Espaces d’Élise' : 'Élise spaces'}
           </span>
           <SidebarNavigation
             labels={t.nav}
@@ -3262,7 +3171,7 @@ export function App() {
       </aside>
 
       <main>
-        <header className={`topbar${active === 0 ? '' : ' topbar--compact'}`}>
+        <header className="topbar topbar--compact">
           <button
             className="mobile-menu"
             onClick={() => setMenuOpen(true)}
@@ -3270,22 +3179,6 @@ export function App() {
           >
             <Menu />
           </button>
-          {active === 0 && (
-            <div>
-              <span className="eyebrow">{overview.home?.name ?? 'Élise OS'}</span>
-              <h1>
-                {locale === 'fr'
-                  ? `Bonjour ${overview.currentUser?.firstName ?? ''},`
-                  : `Hello ${overview.currentUser?.firstName ?? ''},`}
-                <br />
-                <em>
-                  {locale === 'fr'
-                    ? `Élise veille sur ${residentName}.`
-                    : `Élise is watching over ${residentName}.`}
-                </em>
-              </h1>
-            </div>
-          )}
           {active === 0 && (
             <div className="top-actions">
               <StatusPill>{t.local}</StatusPill>
@@ -3583,7 +3476,7 @@ export function App() {
             onTalkStop={() => void stopTalking()}
           />
         ) : active === 10 ? (
-          <ScreenPanel />
+          <ScreenPanel initialSection={screenSection} />
         ) : active === 11 ? (
           <section className="section-view resident-page">
             <header className="resident-hero">
@@ -4099,349 +3992,36 @@ export function App() {
             </Card>
           </section>
         ) : (
-          <>
-            <section className="hero-grid">
-              <Card className="reassurance-card">
-                <div className="reassurance-icon">
-                  <CircleCheck size={27} />
-                </div>
-                <div>
-                  <StatusPill
-                    tone={
-                      overview.reassurance === 'ATTENTION' ||
-                      overview.reassurance === 'INSUFFICIENT_DATA'
-                        ? 'attention'
-                        : 'neutral'
-                    }
-                  >
-                    {isLearning
-                      ? `${overview.learningDays ?? 0}/14`
-                      : locale === 'fr'
-                        ? 'Situation actuelle'
-                        : 'Current status'}
-                  </StatusPill>
-                  <h2>{statusTitle}</h2>
-                  <p>{statusDetail}</p>
-                  {isLearning && (
-                    <>
-                      <Progress.Root className="progress-root" value={learningProgress}>
-                        <Progress.Indicator
-                          className="progress-indicator"
-                          style={{ transform: `translateX(-${100 - learningProgress}%)` }}
-                        />
-                      </Progress.Root>
-                      <small>
-                        {t.learningProgress.replace('{day}', String(overview.learningDays ?? 0))}
-                      </small>
-                    </>
-                  )}
-                  <Button className="button-secondary" onClick={() => setActive(1)}>
-                    {t.allActivity}
-                  </Button>
-                </div>
-              </Card>
-              <div className="metrics-stack">
-                <Metric
-                  label={t.lastActivity}
-                  value={
-                    <>
-                      {overview.lastActivity?.room ?? '—'}
-                      <small>
-                        {overview.lastActivity
-                          ? `${capabilityLabel(overview.lastActivity.capability, locale)} · ${relativeTime(overview.lastActivity.occurredAt, locale)}`
-                          : ''}
-                      </small>
-                    </>
-                  }
-                  icon={<CookingPot />}
-                />
-                <Metric
-                  label={locale === 'fr' ? 'Couverture capteurs' : 'Sensor coverage'}
-                  value={
-                    <>
-                      {overview.sensors?.online ?? 0}/{overview.sensors?.total ?? 0}
-                      <small>
-                        {[
-                          overview.sensors?.offline
-                            ? locale === 'fr'
-                              ? `${overview.sensors.offline} hors ligne`
-                              : `${overview.sensors.offline} offline`
-                            : '',
-                          lowBatterySensors
-                            ? locale === 'fr'
-                              ? `${lowBatterySensors} batterie(s) faible(s)`
-                              : `${lowBatterySensors} low battery level(s)`
-                            : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' · ') ||
-                          (locale === 'fr' ? 'Couverture disponible' : 'Coverage available')}
-                      </small>
-                    </>
-                  }
-                  icon={<Radar />}
-                />
-                {currentTemperatureSensor && currentTemperature !== null && (
-                  <Metric
-                    label={locale === 'fr' ? 'Température' : 'Temperature'}
-                    value={
-                      <>
-                        {currentTemperature} °C
-                        <small>
-                          {currentTemperatureSensor.roomName ??
-                            (locale === 'fr' ? 'Pièce non renseignée' : 'Room not specified')}
-                        </small>
-                      </>
-                    }
-                    icon={<Thermometer />}
-                  />
-                )}
-              </div>
-            </section>
-
-            <section className="essentials-section">
-              <Card className="essentials-card">
-                <article className={homeDose?.status === 'MISSED' ? 'needs-attention' : ''}>
-                  <span className="essential-icon">
-                    <Pill />
-                  </span>
-                  <div>
-                    <span className="eyebrow">
-                      {homeDose?.status === 'MISSED'
-                        ? locale === 'fr'
-                          ? 'Prise à vérifier'
-                          : 'Dose to check'
-                        : locale === 'fr'
-                          ? 'Prochaine prise'
-                          : 'Next dose'}
-                    </span>
-                    <h2>
-                      {homeDose
-                        ? `${time(homeDose.scheduledFor)} · ${homeDose.schedule.medication.name}`
-                        : locale === 'fr'
-                          ? 'Aucune prise à venir'
-                          : 'No upcoming dose'}
-                    </h2>
-                    <p>
-                      {homeDose
-                        ? homeDose.status === 'MISSED'
-                          ? locale === 'fr'
-                            ? 'Confirmation non reçue ; un oubli est possible.'
-                            : 'No confirmation received; it may have been forgotten.'
-                          : homeDose.schedule.medication.dosage
-                        : locale === 'fr'
-                          ? 'Le pilulier est à jour pour aujourd’hui.'
-                          : 'The pillbox is up to date today.'}
-                    </p>
-                  </div>
-                  <button type="button" onClick={() => setActive(5)}>
-                    {locale === 'fr' ? 'Voir' : 'View'} <ChevronRight />
-                  </button>
-                </article>
-                <article className={currentAlert ? 'needs-attention' : ''}>
-                  <span className="essential-icon">
-                    <Bell />
-                  </span>
-                  <div>
-                    <span className="eyebrow">
-                      {locale === 'fr' ? 'Action immédiate' : 'Immediate action'}
-                    </span>
-                    <h2>{currentAlert?.title ?? t.noAlert}</h2>
-                    <p>
-                      {currentAlert
-                        ? alertSeverityLabel(currentAlert.severity, locale)
-                        : locale === 'fr'
-                          ? 'Aucune situation ouverte.'
-                          : 'No open situation.'}
-                    </p>
-                  </div>
-                  <button type="button" onClick={() => setActive(2)}>
-                    {locale === 'fr' ? 'Ouvrir' : 'Open'} <ChevronRight />
-                  </button>
-                </article>
-                <article>
-                  <span className="essential-icon">
-                    <UsersRound />
-                  </span>
-                  <div>
-                    <span className="eyebrow">
-                      {locale === 'fr' ? 'Prochaine visite' : 'Next visit'}
-                    </span>
-                    <h2>
-                      {nextScheduleItem?.title ??
-                        (locale === 'fr' ? 'Rien de planifié' : 'Nothing scheduled')}
-                    </h2>
-                    <p>
-                      {nextScheduleItem
-                        ? new Date(nextScheduleItem.startsAt).toLocaleString(locale, {
-                            weekday: 'long',
-                            day: 'numeric',
-                            month: 'long',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : locale === 'fr'
-                          ? 'Aucun rendez-vous ou visite à venir.'
-                          : 'No upcoming visit or appointment.'}
-                    </p>
-                  </div>
-                </article>
-              </Card>
-            </section>
-
-            {overview.resident && (
-              <section className="resident-summary-section">
-                <Card className="resident-summary-card">
-                  {overview.resident.photoUrl ? (
-                    <img src={overview.resident.photoUrl} alt="" />
-                  ) : (
-                    <div className="resident-photo-fallback">
-                      {overview.resident.preferredName[0]}
-                    </div>
-                  )}
-                  <div>
-                    <span className="eyebrow">
-                      {locale === 'fr' ? 'Personne accompagnée' : 'Resident'}
-                    </span>
-                    <h2>{overview.resident.displayName}</h2>
-                    <p>
-                      {overview.resident.knownHabits}{' '}
-                      {locale === 'fr' ? 'habitude(s) connue(s)' : 'known habit(s)'} ·{' '}
-                      {overview.resident.supportNeeds.length}{' '}
-                      {locale === 'fr' ? 'information(s) importante(s)' : 'important item(s)'}
-                    </p>
-                  </div>
-                  <Button className="button-secondary" onClick={() => setActive(11)}>
-                    {locale === 'fr' ? 'Voir la fiche résident' : 'View resident profile'}
-                  </Button>
-                </Card>
-              </section>
-            )}
-
-            <section className="content-grid">
-              <Card className="timeline-card">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">{locale === 'fr' ? 'Activité' : 'Activity'}</span>
-                    <h2>{t.summary}</h2>
-                  </div>
-                  <StatusPill>{t.today}</StatusPill>
-                </div>
-                <div className="timeline">
-                  {overview.activity?.slice(0, 5).map((item) => (
-                    <div className="timeline-item" key={item.id}>
-                      <time>{time(item.occurredAt)}</time>
-                      <i></i>
-                      <div>
-                        <strong>{item.room}</strong>
-                        <span>{activityDescription(item, locale)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <Button className="button-secondary" onClick={() => setActive(1)}>
-                  {t.allActivity}
-                </Button>
-              </Card>
-              <Card className="rooms-card">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">{locale === 'fr' ? 'Maison' : 'Home'}</span>
-                    <h2>{t.rooms}</h2>
-                  </div>
-                </div>
-                <div className="room-grid">
-                  {overview.rooms?.map((room) => {
-                    const Icon = roomIcons[room.kind] ?? Home;
-                    return (
-                      <button
-                        key={room.id}
-                        className="room"
-                        onClick={() => {
-                          setHomeSection('OVERVIEW');
-                          setActive(3);
-                        }}
-                      >
-                        <Icon />
-                        <span>
-                          <strong>{room.name}</strong>
-                          <small>
-                            {room.sensors} {locale === 'fr' ? 'capteurs' : 'sensors'}
-                          </small>
-                        </span>
-                        <ChevronRight />
-                      </button>
-                    );
-                  })}
-                </div>
-                <Button
-                  className="button-secondary"
-                  onClick={() => {
-                    setHomeSection('OVERVIEW');
-                    setActive(3);
-                  }}
-                >
-                  {t.allRooms}
-                </Button>
-              </Card>
-            </section>
-
-            <section className="lower-grid">
-              {currentAlert ? (
-                <Card className="alert-card">
-                  <div className="section-heading">
-                    <div>
-                      <span className="eyebrow">{t.nav[2]}</span>
-                      <h2>{currentAlert.title}</h2>
-                    </div>
-                    <StatusPill tone={currentAlert.severity === 'URGENT' ? 'urgent' : 'attention'}>
-                      {relativeTime(currentAlert.openedAt, locale)}
-                    </StatusPill>
-                  </div>
-                  <p>{currentAlert.explanation}</p>
-                  <div className="alert-actions">
-                    {currentAlert.status === 'OPEN' && (
-                      <Button onClick={() => void transitionAlert(currentAlert.id, 'ACKNOWLEDGED')}>
-                        {locale === 'fr' ? 'Prendre en charge' : 'Acknowledge'}
-                      </Button>
-                    )}
-                    <Button
-                      className="button-secondary"
-                      onClick={() => void transitionAlert(currentAlert.id, 'RESOLVED')}
-                    >
-                      {locale === 'fr' ? 'Résoudre' : 'Resolve'}
-                    </Button>
-                  </div>
-                </Card>
-              ) : (
-                <Card className="calm-card">
-                  <CircleCheck />
-                  <div>
-                    <span className="eyebrow">{t.nav[2]}</span>
-                    <h2>{t.noAlert}</h2>
-                    <p>{t.normalDetail}</p>
-                  </div>
-                </Card>
-              )}
-              <Card className="journal-card">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">{locale === 'fr' ? 'Suivi' : 'Follow-up'}</span>
-                    <h2>{t.dailyJournal}</h2>
-                  </div>
-                </div>
-                {journal.slice(0, 3).map((entry) => (
-                  <button className="journal-row" key={entry.id} onClick={() => setActive(6)}>
-                    <span>
-                      <strong>{new Date(entry.occurredAt).toLocaleDateString(locale)}</strong>
-                      <small>{entry.title}</small>
-                    </span>
-                    <ChevronRight size={18} />
-                  </button>
-                ))}
-              </Card>
-            </section>
-          </>
+          <WelcomePage
+            locale={locale}
+            caregiverFirstName={overview.currentUser?.firstName ?? ''}
+            residentName={residentName}
+            reassurance={overview.reassurance ?? 'INSUFFICIENT_DATA'}
+            events={(overview.activity ?? []).map((event) => ({
+              id: event.id, occurredAt: event.occurredAt, capability: event.capability,
+              label: `${activityDescription(event, locale)}${event.room ? ` · ${event.room}` : ''}`,
+            }))}
+            reminders={[
+              ...medicationDoses.filter(dose => dose.status === 'PENDING').map(dose => ({
+                title: locale === 'fr' ? 'Médicaments' : 'Medication', at: dose.scheduledFor, medication: true,
+              })),
+              ...(overview.nextSchedule ? [{ title: overview.nextSchedule.title, at: overview.nextSchedule.startsAt, medication: false }] : []),
+            ]}
+            onActivity={() => setActive(1)}
+            onSensors={() => { setHomeSection('OVERVIEW'); setActive(3); }}
+            onPlanning={(medication) => {
+              if (medication) setActive(5);
+              else { setScreenSection('planning'); setActive(10); }
+            }}
+            onScreen={(section) => { setScreenSection(section); setActive(10); }}
+            onAlerts={() => setActive(2)}
+            onOpenRoom={(roomId) => {
+              setHomeEditorRoomId(roomId);
+              setHomeEditorStairId(null);
+              setHomeSection('EDITOR');
+              setActive(3);
+            }}
+          />
         )}
       </main>
       {tourMode && (

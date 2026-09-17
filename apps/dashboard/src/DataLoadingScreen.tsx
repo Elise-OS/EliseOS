@@ -32,12 +32,9 @@ export function DataLoadingScreen({ locale, message, fullPage = false }: DataLoa
       </div>
       <div className="data-loading-content">
         <div className="data-loading-brand">
-          <span className="data-loading-logo">
-            <img src="/logo.png" alt="" />
-          </span>
-          <span>
-            <strong>Élise</strong>
-            <small>{fr ? 'Maison & sérénité' : 'Home & peace of mind'}</small>
+          <img className="data-loading-logo" src="/logo-transparent.png" alt="" />
+          <span className="data-loading-wordmark">
+            élise<span className="brand-os">OS</span>
           </span>
         </div>
         <p className="data-loading-eyebrow">{fr ? 'Un instant' : 'Just a moment'}</p>

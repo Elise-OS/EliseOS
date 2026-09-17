@@ -10,7 +10,8 @@ describe('DataLoadingScreen', () => {
 
     expect(html).toContain('role="status"');
     expect(html).toContain('data-loading-screen--full');
-    expect(html).toContain('/logo.png');
+    expect(html).toContain('/logo-transparent.png');
+    expect(html).toContain('data-loading-wordmark');
     expect(html).toContain('Votre espace prend vie');
     expect(html).toContain('Chargement du logement…');
     expect(html).toContain('Vos données restent chez vous.');

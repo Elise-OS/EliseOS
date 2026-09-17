@@ -1,11 +1,7 @@
-import type { HomePlan } from '@michel/contracts';
+import { presenceCapabilityForDevice, type HomePlan } from '@michel/contracts';
 import type { PresenceConfidence, PresenceSource, Prisma } from '@prisma/client';
 
-const CONFIRMATION_DELAY_MS = 20_000;
-const INCONSISTENCY_WINDOW_MS = 15 * 60_000;
-const RECOVERY_WINDOW_MS = 30 * 60_000;
-const CONCURRENT_PRESENCE_MS = 90_000;
-const STATEFUL_CAPABILITIES = new Set(['occupancy', 'person_presence']);
+const PRESENCE_CAPABILITIES = new Set(['motion', 'occupancy', 'person_presence']);
 
 type Transaction = Prisma.TransactionClient;
 
@@ -26,6 +22,7 @@ export interface TrackingEvidence {
 export interface TrackingResult {
   acceptedForSession: boolean;
   confidence: PresenceConfidence;
+  replacementEvidence?: TrackingEvidence;
 }
 
 interface EvidenceSummary {
@@ -39,12 +36,6 @@ interface EvidenceSummary {
 
 function json<T>(value: T): Prisma.InputJsonValue {
   return value as Prisma.InputJsonValue;
-}
-
-function asStrings(value: Prisma.JsonValue): string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === 'string')
-    : [];
 }
 
 function asEvidence(value: Prisma.JsonValue): EvidenceSummary[] {
@@ -185,7 +176,6 @@ export class PresenceTrackingService {
     }
 
     if (current.confirmedRoomId === evidence.roomId) {
-      const cancelled = current.status === 'IN_TRANSIT' && Boolean(current.candidateRoomId);
       const previousEvidence = asEvidence(current.evidenceSummary);
       await tx.presenceTrackingState.update({
         where: { id: current.id },
@@ -198,174 +188,34 @@ export class PresenceTrackingService {
           evidenceSummary: json([...previousEvidence, summary].slice(-5)),
           lastEvidenceAt: evidence.occurredAt,
           transitionStartedAt: null,
-          ...(this.hasRecovered(current.inconsistencyWindowAt, evidence.occurredAt)
-            ? { inconsistencyCount: 0, inconsistencyWindowAt: null, trackingDegraded: false }
-            : {}),
+          trackingDegraded: false,
+          inconsistencyCount: 0,
+          inconsistencyWindowAt: null,
         },
       });
-      if (cancelled)
-        await this.decision(
-          tx,
-          evidence,
-          current.confirmedRoomId,
-          current.candidateRoomId,
-          asStrings(current.pathRoomIds),
-          'CANCELLED',
-          score,
-          ['ORIGIN_RECONFIRMED'],
-          [summary],
-          `La présence a été reconfirmée dans ${roomName} ; le déplacement supposé est annulé.`,
-        );
       return { acceptedForSession: true, confidence: evidence.confidence };
     }
 
     const graph = presenceGraph(evidence.plan);
     const path = shortestPresencePath(graph, current.confirmedRoomId, evidence.roomId);
-    const adjacent = path?.length === 2;
-    if (await this.concurrentPresence(tx, evidence)) {
-      const reasons = ['SIMULTANEOUS_ROOMS', 'UNATTRIBUTED_PRESENCE'];
-      await tx.presenceTrackingState.update({
-        where: { id: current.id },
-        data: {
-          status: 'AMBIGUOUS',
-          candidateRoomId: evidence.roomId,
-          pathRoomIds: json(path ?? []),
-          confidenceScore: Math.min(score, 0.55),
-          reasonCodes: json(reasons),
-          evidenceSummary: json([...asEvidence(current.evidenceSummary), summary].slice(-5)),
-          lastEvidenceAt: evidence.occurredAt,
-        },
-      });
-      await this.decision(
-        tx,
-        evidence,
-        current.confirmedRoomId,
-        evidence.roomId,
-        path ?? [],
-        'AMBIGUOUS',
-        Math.min(score, 0.55),
-        reasons,
-        [summary],
-        'Plusieurs pièces restent occupées : la présence ne peut pas être attribuée au résident principal.',
-      );
-      return { acceptedForSession: false, confidence: 'LOW' };
-    }
-
-    if (adjacent) {
-      await this.confirmTransition(tx, current.id, evidence, score, summary);
-      await this.decision(
-        tx,
-        evidence,
-        current.confirmedRoomId,
-        evidence.roomId,
-        path,
-        'CONFIRMED',
-        score,
-        ['ADJACENT_TRANSITION'],
-        [summary],
-        `Déplacement confirmé vers ${roomName}.`,
-      );
-      return { acceptedForSession: true, confidence: evidence.confidence };
-    }
-
-    if (!path) {
-      const degradation = this.nextInconsistency(current, evidence.occurredAt);
-      const reasons = ['PLAN_DISCONNECTED', 'IMPLAUSIBLE_TRANSITION'];
-      await tx.presenceTrackingState.update({
-        where: { id: current.id },
-        data: {
-          status: 'AMBIGUOUS',
-          candidateRoomId: evidence.roomId,
-          pathRoomIds: json([]),
-          confidenceScore: Math.min(score, 0.4),
-          reasonCodes: json(reasons),
-          evidenceSummary: json([...asEvidence(current.evidenceSummary), summary].slice(-5)),
-          lastEvidenceAt: evidence.occurredAt,
-          ...degradation,
-        },
-      });
-      await this.decision(
-        tx,
-        evidence,
-        current.confirmedRoomId,
-        evidence.roomId,
-        [],
-        'AMBIGUOUS',
-        Math.min(score, 0.4),
-        reasons,
-        [summary],
-        `Aucun passage déclaré ne relie la dernière position fiable à ${roomName}.`,
-      );
-      return { acceptedForSession: false, confidence: 'LOW' };
-    }
-
-    const sameCandidate =
-      current.status === 'IN_TRANSIT' && current.candidateRoomId === evidence.roomId;
-    const elapsed =
-      sameCandidate && current.transitionStartedAt
-        ? evidence.occurredAt.getTime() - current.transitionStartedAt.getTime()
-        : 0;
-    const previousEvidence = asEvidence(current.evidenceSummary);
-    const independent = previousEvidence.some(
-      (item) =>
-        item.roomId === evidence.roomId && item.sensorId && item.sensorId !== evidence.sensorId,
+    const reasons = [
+      'DIRECT_DETECTION',
+      ...(!path ? ['PLAN_DISCONNECTED'] : path.length > 2 ? ['INFERRED_PATH'] : []),
+    ];
+    await this.confirmTransition(tx, current.id, evidence, score, summary);
+    await this.decision(
+      tx,
+      evidence,
+      current.confirmedRoomId,
+      evidence.roomId,
+      path ?? [],
+      'CONFIRMED',
+      score,
+      reasons,
+      [summary],
+      `Présence détectée directement dans ${roomName}.`,
     );
-    if (
-      sameCandidate &&
-      (elapsed >= CONFIRMATION_DELAY_MS || independent || evidence.capability === 'person_presence')
-    ) {
-      await this.confirmTransition(tx, current.id, evidence, Math.min(score, 0.82), summary);
-      await this.decision(
-        tx,
-        evidence,
-        current.confirmedRoomId,
-        evidence.roomId,
-        path,
-        'CONFIRMED',
-        Math.min(score, 0.82),
-        ['PERSISTENT_DESTINATION', 'INFERRED_PATH'],
-        [...previousEvidence.filter((item) => item.roomId === evidence.roomId), summary].slice(-5),
-        `Présence confirmée dans ${roomName} après un trajet probable.`,
-      );
-      return {
-        acceptedForSession: true,
-        confidence: evidence.confidence === 'LOW' ? 'LOW' : 'MEDIUM',
-      };
-    }
-
-    const degradation = sameCandidate ? {} : this.nextInconsistency(current, evidence.occurredAt);
-    const reasons = ['NON_ADJACENT_DETECTION', 'AWAITING_CONFIRMATION', 'INFERRED_PATH'];
-    await tx.presenceTrackingState.update({
-      where: { id: current.id },
-      data: {
-        status: 'IN_TRANSIT',
-        candidateRoomId: evidence.roomId,
-        pathRoomIds: json(path),
-        confidenceScore: Math.min(score, 0.65),
-        reasonCodes: json(reasons),
-        evidenceSummary: json([...previousEvidence, summary].slice(-5)),
-        lastEvidenceAt: evidence.occurredAt,
-        transitionStartedAt: sameCandidate ? current.transitionStartedAt : evidence.occurredAt,
-        ...degradation,
-      },
-    });
-    if (!sameCandidate)
-      await this.decision(
-        tx,
-        evidence,
-        current.confirmedRoomId,
-        evidence.roomId,
-        path,
-        'PENDING',
-        Math.min(score, 0.65),
-        reasons,
-        [summary],
-        `Déplacement probable vers ${roomName} par ${path
-          .slice(1, -1)
-          .map((id) => names.get(id) ?? 'une pièce intermédiaire')
-          .join(', ')} ; confirmation en attente.`,
-      );
-    return { acceptedForSession: false, confidence: 'LOW' };
+    return { acceptedForSession: true, confidence: evidence.confidence };
   }
 
   private confirmedData(evidence: TrackingEvidence, score: number, summary: EvidenceSummary) {
@@ -400,82 +250,113 @@ export class PresenceTrackingService {
     evidence: TrackingEvidence,
     current: Awaited<ReturnType<Transaction['presenceTrackingState']['findUnique']>>,
   ): Promise<TrackingResult> {
-    if (!current || !STATEFUL_CAPABILITIES.has(evidence.capability))
+    if (!current || current.confirmedRoomId !== evidence.roomId)
       return { acceptedForSession: true, confidence: evidence.confidence };
-    if (current.candidateRoomId === evidence.roomId && current.status === 'IN_TRANSIT') {
-      await tx.presenceTrackingState.update({
-        where: { id: current.id },
-        data: {
-          status: 'CONFIRMED',
-          candidateRoomId: null,
-          pathRoomIds: json([]),
-          reasonCodes: json(['CANDIDATE_ABSENT']),
-          transitionStartedAt: null,
-          lastEvidenceAt: evidence.occurredAt,
-        },
-      });
-    } else if (current.confirmedRoomId === evidence.roomId && current.status === 'CONFIRMED') {
-      await tx.presenceTrackingState.update({
-        where: { id: current.id },
-        data: {
-          status: 'STALE',
-          reasonCodes: json(['EXPLICIT_ABSENCE']),
-          lastEvidenceAt: evidence.occurredAt,
-          confidenceScore: Math.min(current.confidenceScore, 0.45),
-        },
-      });
+    const replacement = await this.latestActiveEvidence(tx, evidence);
+    if (replacement) {
+      const summary = evidenceSummary(replacement);
+      const score = scoreFor(replacement);
+      const path = shortestPresencePath(
+        presenceGraph(evidence.plan),
+        current.confirmedRoomId!,
+        replacement.roomId!,
+      );
+      await this.confirmTransition(tx, current.id, replacement, score, summary);
+      await this.decision(
+        tx,
+        replacement,
+        current.confirmedRoomId,
+        replacement.roomId,
+        path ?? [],
+        'CONFIRMED',
+        score,
+        ['ACTIVE_SENSOR_REMAINS'],
+        [summary],
+        'La pièce précédente est inactive ; une autre présence encore active devient la position courante.',
+      );
+      return {
+        acceptedForSession: true,
+        confidence: evidence.confidence,
+        replacementEvidence: replacement,
+      };
     }
+    await tx.presenceTrackingState.update({
+      where: { id: current.id },
+      data: {
+        status: 'STALE',
+        candidateRoomId: null,
+        pathRoomIds: json([]),
+        reasonCodes: json(['EXPLICIT_ABSENCE']),
+        transitionStartedAt: null,
+        lastEvidenceAt: evidence.occurredAt,
+        confidenceScore: Math.min(current.confidenceScore, 0.45),
+        trackingDegraded: false,
+      },
+    });
     return { acceptedForSession: true, confidence: evidence.confidence };
   }
 
-  private nextInconsistency(
-    current: { inconsistencyCount: number; inconsistencyWindowAt: Date | null },
-    now: Date,
-  ) {
-    const activeWindow =
-      current.inconsistencyWindowAt &&
-      now.getTime() - current.inconsistencyWindowAt.getTime() <= INCONSISTENCY_WINDOW_MS;
-    const inconsistencyCount = activeWindow ? current.inconsistencyCount + 1 : 1;
-    return {
-      inconsistencyCount,
-      inconsistencyWindowAt: activeWindow ? current.inconsistencyWindowAt : now,
-      trackingDegraded: inconsistencyCount >= 3,
-    };
-  }
-
-  private hasRecovered(windowAt: Date | null, now: Date): boolean {
-    return Boolean(windowAt && now.getTime() - windowAt.getTime() >= RECOVERY_WINDOW_MS);
-  }
-
-  private async concurrentPresence(tx: Transaction, evidence: TrackingEvidence): Promise<boolean> {
-    if (!STATEFUL_CAPABILITIES.has(evidence.capability)) return false;
-    const events = await tx.observationEvent.findMany({
+  private async latestActiveEvidence(
+    tx: Transaction,
+    evidence: TrackingEvidence,
+  ): Promise<TrackingEvidence | null> {
+    const sensors = await tx.sensor.findMany({
       where: {
         homeId: evidence.homeId,
-        roomId: { not: evidence.roomId },
-        sensorId: { not: null },
-        capability: { in: [...STATEFUL_CAPABILITIES] },
-        occurredAt: {
-          gte: new Date(evidence.occurredAt.getTime() - 15 * 60_000),
-          lte: evidence.occurredAt,
+        analysisEnabled: true,
+        removedAt: null,
+        available: true,
+        status: 'ONLINE',
+        capability: { in: [...PRESENCE_CAPABILITIES] },
+      },
+      include: {
+        device: {
+          select: { model: true, enabled: true, installationStatus: true },
+        },
+        events: {
+          where: {
+            quality: 'good',
+            roomId: { not: null },
+            occurredAt: { lte: evidence.occurredAt },
+          },
+          orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+          take: 1,
         },
       },
-      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
-      take: 100,
-      select: { sensorId: true, payload: true, occurredAt: true },
     });
-    const seen = new Set<string>();
-    for (const event of events) {
-      if (!event.sensorId || seen.has(event.sensorId)) continue;
-      seen.add(event.sensorId);
-      const payload = event.payload as Record<string, unknown>;
+    const active = sensors.flatMap((sensor) => {
       if (
-        payload.active === true &&
-        evidence.occurredAt.getTime() - event.occurredAt.getTime() >= CONCURRENT_PRESENCE_MS
+        sensor.device &&
+        (!sensor.device.enabled || sensor.device.installationStatus !== 'OPERATIONAL')
       )
-        return true;
-    }
-    return false;
+        return [];
+      const latest = sensor.events[0];
+      if (!latest?.roomId) return [];
+      const payload = latest.payload as Record<string, unknown>;
+      if (payload.active !== true) return [];
+      return [
+        {
+          detectedAt: latest.occurredAt,
+          evidence: {
+            eventId: latest.id,
+            homeId: evidence.homeId,
+            residentId: evidence.residentId,
+            roomId: latest.roomId,
+            sensorId: sensor.id,
+            capability: presenceCapabilityForDevice(latest.capability, sensor.device?.model),
+            active: true,
+            occurredAt: evidence.occurredAt,
+            confidence: latest.roomConfidence ?? 'LOW',
+            source: 'SENSOR' as const,
+            plan: evidence.plan,
+          },
+        },
+      ];
+    });
+    return (
+      active.sort((left, right) => left.detectedAt.getTime() - right.detectedAt.getTime()).at(-1)
+        ?.evidence ?? null
+    );
   }
 
   private async decision(

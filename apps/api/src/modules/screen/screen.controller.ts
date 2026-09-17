@@ -1,4 +1,8 @@
-import { appointmentPictogramSchema, screenMessageSchema } from '@michel/contracts';
+import {
+  appointmentPictogramSchema,
+  screenMessageSchema,
+  screenScheduledContentInputSchema,
+} from '@michel/contracts';
 import {
   Body,
   Controller,
@@ -97,6 +101,18 @@ export class ScreenController {
   @Patch('message') message(@Req() r: AuthenticatedRequest, @Body() b: unknown) {
     return this.screens.message(r.userId, parseRequest(screenMessageSchema, b));
   }
+  @Post('scheduled-content') scheduledContent(@Req() r: AuthenticatedRequest, @Body() b: unknown) {
+    return this.screens.scheduleContent(
+      r.userId,
+      parseRequest(screenScheduledContentInputSchema, b),
+    );
+  }
+  @Delete('scheduled-content/:id') cancelScheduledContent(
+    @Req() r: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.screens.cancelScheduledContent(r.userId, id);
+  }
   @Get('appointments') appointments(@Req() r: AuthenticatedRequest) {
     return this.screens.appointments(r.userId);
   }
@@ -130,6 +146,9 @@ export class ScreenController {
   }
   @Get('radio/search') radioSearch(@Req() r: AuthenticatedRequest, @Query('q') query: string) {
     return this.screens.searchRadio(r.userId, query);
+  }
+  @Get('weather/cities') weatherCities(@Req() r: AuthenticatedRequest, @Query('q') query: string) {
+    return this.screens.searchWeatherCities(r.userId, query);
   }
   @Get('youtube/connect') async youtubeConnect(
     @Req() r: AuthenticatedRequest,

@@ -2,7 +2,9 @@
 
 @font-face {
   font-family: Inter;
-  src: local('Inter');
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 100 900;
   font-display: swap;
 }
 
@@ -35,26 +37,22 @@
 .home-setup-topbar strong {
   font-size: 15px;
 }
+.home-setup-wordmark {
+  color: var(--navy-deep);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.07em;
+}
 .home-setup-topbar small {
   color: var(--muted);
   font-size: 10px;
 }
 .home-setup-mark {
-  display: grid;
-  width: 46px;
-  height: 46px;
-  overflow: hidden;
-  place-items: center;
-  border: 1px solid rgb(18 56 95 / 12%);
-  border-radius: 15px;
-  background: #fffaf3;
-  box-shadow: 0 8px 22px rgb(18 56 95 / 12%);
-}
-.home-setup-mark img {
   display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width: 48px;
+  height: 48px;
 }
 .home-setup-close,
 .home-setup-secondary {
@@ -2171,50 +2169,23 @@
 .data-loading-brand {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 30px;
   text-align: left;
 }
 .data-loading-logo {
-  position: relative;
-  display: grid;
-  width: 58px;
-  height: 58px;
-  padding: 3px;
-  overflow: hidden;
-  place-items: center;
-  border: 1px solid #d9e4e8;
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 12px 28px rgb(29 55 79 / 13%);
+  display: block;
+  width: 54px;
+  height: 54px;
 }
-.data-loading-logo::after {
-  position: absolute;
-  inset: -4px;
-  border: 1px solid rgb(82 155 181 / 34%);
-  border-radius: 21px;
-  content: '';
-  animation: loading-logo-pulse 2.2s ease-out infinite;
-}
-.data-loading-logo img {
-  width: 100%;
-  height: 100%;
-  border-radius: 14px;
-  object-fit: cover;
-}
-.data-loading-brand > span:last-child {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.data-loading-brand strong {
+.data-loading-wordmark {
   color: #0b3158;
-  font:
-    600 25px/1 'Source Serif 4',
-    Georgia,
-    serif;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.07em;
 }
-.data-loading-brand small,
 .data-loading-reassurance {
   color: #718091;
   font-size: 11px;
@@ -5352,7 +5323,10 @@
 }
 @font-face {
   font-family: 'Source Serif 4';
-  src: local('Source Serif 4');
+  src: url('@fontsource-variable/source-serif-4/files/source-serif-4-latin-wght-normal.woff2')
+    format('woff2');
+  font-style: normal;
+  font-weight: 200 900;
   font-display: swap;
 }
 
@@ -5394,18 +5368,18 @@ button {
   position: sticky;
   top: 0;
   height: 100vh;
-  padding: 28px 18px 18px;
+  padding: 22px 14px 16px;
   color: #12385f;
   background:
     radial-gradient(circle at 0% 0%, rgb(82 155 181 / 12%), transparent 38%),
-    linear-gradient(165deg, #fff 0%, #f5f9fa 100%);
-  border-right: 1px solid #d9e4e8;
+    linear-gradient(165deg, #fff 0%, #f3f7f7 100%);
+  border-right: 1px solid #d4e1e4;
   display: flex;
   flex-direction: column;
   z-index: 20;
   overflow-x: hidden;
   overflow-y: auto;
-  box-shadow: 6px 0 32px rgb(29 55 79 / 3%);
+  box-shadow: 8px 0 34px rgb(29 55 79 / 5%);
 }
 @media (min-width: 961px) {
   .app-shell--sidebar-auto-hide {
@@ -5423,11 +5397,27 @@ button {
   }
 }
 .brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  min-height: 56px;
-  padding: 0 8px 0 6px;
+  gap: 10px;
+  min-height: 58px;
+  padding: 0 10px 0 8px;
+  border: 1px solid #dce7e8;
+  border-radius: 18px;
+  background: rgb(255 255 255 / 76%);
+  box-shadow: 0 8px 22px rgb(29 55 79 / 5%);
+  flex-shrink: 0;
+}
+.brand > span {
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.07em;
+}
+.brand > img {
+  width: 46px;
+  height: 46px;
 }
 .brand-mark {
   width: 44px;
@@ -5443,25 +5433,13 @@ button {
 .brand-mark img {
   border-radius: 10px;
 }
-.brand-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.brand-copy strong {
-  color: #0b3158;
-  font-family: 'Source Serif 4', Georgia, serif;
-  font-size: 30px;
-  font-weight: 760;
-  line-height: 1;
-  letter-spacing: -0.035em;
-}
-.brand-copy small {
-  color: #687d8e;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
+.brand-os {
+  margin-left: 5px;
+  vertical-align: middle;
+  font:
+    500 10px/1 Inter,
+    sans-serif;
+  letter-spacing: 0.06em;
 }
 .brand-mark img,
 .boot-mark img,
@@ -5473,37 +5451,38 @@ button {
   object-fit: cover;
 }
 .sidebar-navigation {
-  margin-top: 42px;
-  margin-bottom: 32px;
+  margin-top: 30px;
+  margin-bottom: 24px;
 }
 .sidebar-section-label {
   display: block;
-  margin: 0 14px 14px;
-  color: #718493;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.14em;
+  margin: 0 12px 11px;
+  color: #6f8187;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 .sidebar nav {
   display: grid;
-  gap: 8px;
+  gap: 5px;
 }
 .nav-item {
-  min-height: 54px;
-  color: #526b80;
+  position: relative;
+  min-height: 50px;
+  color: #526c78;
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 16px;
-  padding: 9px 14px;
+  border-radius: 14px;
+  padding: 8px 12px;
   display: grid;
   grid-template-columns: 22px 1fr auto;
   text-align: left;
-  gap: 13px;
+  gap: 12px;
   cursor: pointer;
   align-items: center;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 650;
   transition:
     color 150ms ease,
     background 150ms ease,
@@ -5511,32 +5490,69 @@ button {
     transform 150ms ease;
 }
 .nav-item:hover {
-  color: #12385f;
-  border-color: #d9e4e8;
-  background: #eaf2f5;
+  color: #18354a;
+  border-color: #cbdde0;
+  background: #edf4f5;
+  transform: translateX(2px);
 }
 .nav-item--active,
 .nav-item--active:hover {
   color: #fff;
-  border-color: #17456f;
-  background: #17456f;
-  box-shadow: 0 8px 20px rgb(23 69 111 / 16%);
+  border-color: #18354a;
+  background: #18354a;
+  box-shadow: 0 8px 20px rgb(24 53 74 / 18%);
 }
 .nav-item > svg {
   width: 21px;
   height: 21px;
-  stroke-width: 1.7;
+  stroke-width: 1.8;
   color: currentColor;
 }
 .nav-item--active > svg {
-  color: #d7ebf4;
+  color: #d8e9e6;
+}
+.nav-item--tv {
+  margin-top: 7px;
+  color: #526c78;
+}
+.nav-item--tv::before {
+  position: absolute;
+  top: -5px;
+  right: 12px;
+  left: 12px;
+  height: 1px;
+  background: #dce7e4;
+  content: '';
+}
+.nav-item--tv.nav-item--active {
+  color: #fff;
+  border-color: #18354a;
+  background: #18354a;
+  box-shadow: 0 8px 20px rgb(24 53 74 / 18%);
+}
+.nav-item--home {
+  margin-top: 2px;
+}
+.nav-item--tv:not(.nav-item--active):not(:hover),
+.nav-item--home:not(.nav-item--active):not(:hover) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.nav-item--home.nav-item--active,
+.nav-item--home.nav-item--active:hover {
+  color: #fff;
+  border-color: #18354a;
+  background: #18354a;
+  box-shadow: 0 8px 20px rgb(24 53 74 / 18%);
 }
 .sidebar button:focus-visible {
   outline: 3px solid #529bb5;
   outline-offset: 3px;
 }
 .sidebar .nav-item[data-tour-target='nav-8'] {
-  margin-top: 18px;
+  margin-top: 12px;
+  border-top-color: #d8e3e5;
 }
 .nav-item b {
   min-width: 22px;
@@ -8266,6 +8282,16 @@ footer svg:last-child {
     radial-gradient(circle at 8% 12%, rgba(214, 169, 117, 0.18), transparent 28%),
     radial-gradient(circle at 92% 0%, rgba(82, 129, 151, 0.14), transparent 32%), #f7f3ed;
 }
+.elise-setup h1,
+.elise-setup h2,
+.elise-setup h3,
+.elise-setup h4,
+.home-setup-page h1,
+.home-setup-page h2,
+.home-setup-page h3,
+.home-setup-page h4 {
+  font-family: 'Source Serif 4', Georgia, serif;
+}
 .elise-header {
   min-height: 84px;
   max-width: 1180px;
@@ -8282,19 +8308,18 @@ footer svg:last-child {
   align-items: center;
   gap: 11px;
 }
-.elise-brand > span {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: 0 10px 24px rgba(24, 53, 74, 0.18);
-}
-.elise-brand strong {
+.elise-brand > img {
   display: block;
-  font:
-    600 25px/1 'Source Serif 4',
-    Georgia,
-    serif;
+  width: 46px;
+  height: 46px;
+}
+.elise-wordmark {
+  display: block;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.07em;
 }
 .elise-brand small {
   display: block;

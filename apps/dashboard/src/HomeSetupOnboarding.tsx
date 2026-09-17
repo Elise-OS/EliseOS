@@ -166,11 +166,11 @@ export function HomeSetupOnboarding({
     <section className="home-setup-page">
       <header className="home-setup-topbar">
         <div>
-          <span className="home-setup-mark">
-            <img src="/logo.png" alt="" />
-          </span>
+          <img className="home-setup-mark" src="/logo-transparent.png" alt="" />
           <span>
-            <strong>Élise</strong>
+            <span className="home-setup-wordmark">
+              élise<span className="brand-os">OS</span>
+            </span>
             <small>{fr ? 'Création du logement' : 'Home setup'}</small>
           </span>
         </div>

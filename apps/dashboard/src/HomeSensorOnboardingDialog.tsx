@@ -1,6 +1,6 @@
 import { ProductPhoto, SensorProductCard } from './SensorProductCard';
 import type { HomePlan, RoomSensorCategory, SensorProduct } from '@michel/contracts';
-import { ROOM_SENSOR_CATEGORIES } from '@michel/contracts';
+import { ROOM_SENSOR_CATEGORIES, roomSupportsCategory } from '@michel/contracts';
 import {
   Activity,
   Camera,
@@ -45,6 +45,7 @@ import {
 const categoryIcons: Record<RoomSensorCategory, typeof Thermometer> = {
   temperature: Thermometer,
   humidity: Droplets,
+  shower: Droplets,
   motion: Activity,
   presence: UserRound,
   fall_detection: ShieldAlert,
@@ -319,7 +320,9 @@ export function HomeSensorOnboardingDialog({
             </div>
             <div className="equipment-category-picker home-sensor-category-picker">
               {ROOM_SENSOR_CATEGORIES.filter(
-                ({ id }) => !allowedCategories || allowedCategories.includes(id),
+                ({ id }) =>
+                  (!selectedRoom || roomSupportsCategory(selectedRoom.kind, id)) &&
+                  (!allowedCategories || allowedCategories.includes(id)),
               ).map((definition) => {
                 const Icon = categoryIcons[definition.id];
                 return (

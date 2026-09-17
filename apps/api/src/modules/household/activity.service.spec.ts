@@ -376,6 +376,11 @@ describe('ActivityService analytics', () => {
     const result = await new ActivityService(prisma as never).overview('user-1');
 
     expect(result.reassurance).toBe('INSUFFICIENT_DATA');
+    expect(prisma.observationEvent.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ capability: { not: 'illuminance' } }),
+      }),
+    );
   });
 
   it('confirms a room routine only after coverage, 14 days and 10 reliable sessions', async () => {

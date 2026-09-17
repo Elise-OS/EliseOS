@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const roomSensorCategorySchema = z.enum([
   'temperature',
   'humidity',
+  'shower',
   'motion',
   'presence',
   'fall_detection',
@@ -55,6 +56,13 @@ export const ROOM_SENSOR_CATEGORIES: Array<{
     labelEn: 'Humidity',
     description: 'L’équilibre de l’air ambiant',
     descriptionEn: 'Indoor humidity',
+  },
+  {
+    id: 'shower',
+    label: 'Douche',
+    labelEn: 'Shower',
+    description: 'Repérer une douche grâce à la hausse d’humidité',
+    descriptionEn: 'Detect a shower from the rise in humidity',
   },
   {
     id: 'motion',
@@ -147,7 +155,7 @@ export const ROOM_SENSOR_PRESETS: Record<string, readonly RoomSensorCategory[]> 
   ],
   BEDROOM: ['temperature', 'humidity', 'motion', 'presence', 'fall_detection', 'button', 'contact'],
   KITCHEN: ['temperature', 'humidity', 'motion', 'water_leak', 'contact'],
-  BATHROOM: ['temperature', 'humidity', 'presence', 'fall_detection', 'button', 'water_leak'],
+  BATHROOM: ['temperature', 'shower', 'presence', 'fall_detection', 'button', 'water_leak'],
   TOILET: ['motion', 'presence', 'fall_detection', 'button', 'water_leak'],
   ENTRANCE: ['motion', 'contact', 'button'],
   HALLWAY: ['motion', 'smoke'],
@@ -159,10 +167,13 @@ export const ROOM_SENSOR_PRESETS: Record<string, readonly RoomSensorCategory[]> 
 };
 
 export const roomSensorPreferencesSchema = z.object({
-  added: z.array(roomSensorCategorySchema).max(13).default([]),
-  hidden: z.array(roomSensorCategorySchema).max(13).default([]),
+  added: z.array(roomSensorCategorySchema).max(14).default([]),
+  hidden: z.array(roomSensorCategorySchema).max(14).default([]),
 });
 export type RoomSensorPreferences = z.infer<typeof roomSensorPreferencesSchema>;
+
+export const roomSupportsCategory = (kind: string, category: RoomSensorCategory) =>
+  category !== 'shower' || kind === 'BATHROOM';
 
 export function visibleRoomCategories(
   kind: string,
@@ -175,7 +186,9 @@ export function visibleRoomCategories(
   ]);
   for (const category of preferences?.hidden ?? []) visible.delete(category);
   for (const category of equipped) visible.add(category);
-  return ROOM_SENSOR_CATEGORIES.filter(({ id }) => visible.has(id)).map(({ id }) => id);
+  return ROOM_SENSOR_CATEGORIES.filter(
+    ({ id }) => visible.has(id) && roomSupportsCategory(kind, id),
+  ).map(({ id }) => id);
 }
 
 // Occupancy is also emitted by PIR motion sensors. Only documented radar models
@@ -192,6 +205,20 @@ const STILL_PRESENCE_MODEL_NAMES = ['SMARTPRESENCESENSORR3', 'MULTIFUNCTIONSMART
 const MOTION_MODELS = new Set(['SNZB-03P', 'SNZB-03', '3RMS16BZ', '3RMS16BZ-NEW', '3RSM0147Z']);
 const MOTION_MODEL_NAMES = ['WIRELESSMOTIONSENSOR'];
 export type CategoryDevice = { model: string | null; capabilities: Array<{ capability: string }> };
+
+export function presenceCapabilityForDevice(
+  capability: string,
+  model: string | null | undefined,
+): string {
+  if (capability !== 'occupancy') return capability;
+  return deviceSupportsCategory(
+    { model: model ?? null, capabilities: [{ capability }] },
+    'motion',
+  )
+    ? 'motion'
+    : capability;
+}
+
 export function deviceSupportsCategory(
   device: CategoryDevice,
   category: RoomSensorCategory,
@@ -204,6 +231,9 @@ export function deviceSupportsCategory(
     STILL_PRESENCE_MODEL_NAMES.some((name) => normalizedModel.includes(name));
   const motionModel =
     MOTION_MODELS.has(model) || MOTION_MODEL_NAMES.some((name) => normalizedModel.includes(name));
+  // Shower activity is inferred from the humidity rise. A leak detector is
+  // deliberately not accepted: it must stay dry and reserved for abnormal water.
+  if (category === 'shower') return values.has('humidity');
   if (category === 'presence')
     return (
       !motionModel &&

@@ -28,7 +28,7 @@ export const COVERAGE_FAMILIES: { label: string; labelEn: string; types: Coverag
   {
     label: 'Confort et qualité de l’air',
     labelEn: 'Comfort and air quality',
-    types: ['temperature', 'humidity', 'air_quality', 'illuminance'],
+    types: ['temperature', 'humidity', 'shower', 'air_quality', 'illuminance'],
   },
   { label: 'Ouvertures', labelEn: 'Openings', types: ['contact'] },
   { label: 'Caméras', labelEn: 'Cameras', types: ['camera'] },
@@ -44,7 +44,9 @@ export const coverageProducts = (type: CoverageType, outdoor = false) =>
   SENSOR_PRODUCTS.filter(
     (p) =>
       p.compatibility === 'DOCUMENTED' &&
-      (type === 'energy' ? p.kind !== 'ROOM_SENSOR' : p.categories.includes(type)) &&
+      (type === 'energy'
+        ? p.kind !== 'ROOM_SENSOR'
+        : p.categories.includes(type === 'shower' ? 'humidity' : type)) &&
       (!outdoor || p.outdoor),
   );
 const matches = (capability: string, type: CoverageType) =>
@@ -56,9 +58,11 @@ const matches = (capability: string, type: CoverageType) =>
         )
       : type === 'contact'
         ? ['contact', 'dry_contact'].includes(capability)
-        : type === 'energy'
-          ? ['power', 'energy'].includes(capability)
-          : capability === type;
+        : type === 'shower'
+          ? capability === 'shower'
+          : type === 'energy'
+            ? ['power', 'energy'].includes(capability)
+            : capability === type;
 export function coverageNeeds(
   type: CoverageType,
   coverage: EquipmentCoverage,

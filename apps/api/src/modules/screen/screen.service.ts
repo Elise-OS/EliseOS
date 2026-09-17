@@ -3,6 +3,7 @@ import {
   screenMessageSchema,
   type ScreenMessageInput,
   type AppointmentPictogram,
+  type ScreenScheduledContentInput,
 } from '@michel/contracts';
 import { request as httpRequest } from 'node:http';
 import {
@@ -66,6 +67,12 @@ export interface RadioStationResult {
   codec: string;
   bitrate: number;
   artworkUrl?: string;
+}
+export interface WeatherCityResult {
+  name: string;
+  label: string;
+  latitude: number;
+  longitude: number;
 }
 export interface YouTubeAccountResult {
   configured: boolean;
@@ -168,6 +175,15 @@ async function fetchCityWeather(address: string | null | undefined): Promise<Cit
     }
   })();
   weatherCache.set(key, { expiresAt: Date.now() + 15 * 60 * 1000, value });
+  // A transient network failure must not make the weather unavailable for the
+  // whole cache window. Keep successful readings for 15 minutes, but retry a
+  // failed lookup on the next screen refresh.
+  void value.then((result) => {
+    if (result === null) {
+      const current = weatherCache.get(key);
+      if (current?.value === value) weatherCache.delete(key);
+    }
+  });
   return value;
 }
 @Injectable()
@@ -182,6 +198,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
         s.settings.weatherCity ??= '';
         s.settings.slideshowSeconds ??= 15;
         s.activity ??= [];
+        s.scheduledContent ??= [];
         this.finish(s, 'restart');
         s.commands.forEach((c) => {
           if (c.status === 'pending') {
@@ -362,7 +379,6 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     });
     const state = row.state as unknown as ScreenState;
     const now = new Date();
-    const rangeStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const rangeEnd = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
     const [nextVisit, visits, appointments, weather, membershipRows] = await Promise.all([
       this.prisma.visit.findFirst({
@@ -370,11 +386,11 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
         orderBy: { startsAt: 'asc' },
       }),
       this.prisma.visit.findMany({
-        where: { homeId, startsAt: { gte: rangeStart, lt: rangeEnd } },
+        where: { homeId, startsAt: { gte: now, lt: rangeEnd } },
         orderBy: { startsAt: 'asc' },
       }),
       this.prisma.appointment.findMany({
-        where: { homeId, startsAt: { gte: rangeStart, lt: rangeEnd } },
+        where: { homeId, startsAt: { gte: now, lt: rangeEnd } },
         orderBy: { startsAt: 'asc' },
       }),
       fetchCityWeather(state.settings.weatherCity || home.address),
@@ -413,6 +429,11 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     if (!userId) {
       state.history = [];
       state.activity = [];
+      state.scheduledContent = [];
+    } else {
+      state.scheduledContent = (state.scheduledContent ?? []).filter((item) =>
+        item.kind === 'message' ? grant.message : grant.control,
+      );
     }
     return {
       state,
@@ -523,6 +544,60 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
         actor: author.displayName,
         status: 'applied',
       });
+    });
+    return this.snapshot(userId);
+  }
+  async scheduleContent(userId: string, input: ScreenScheduledContentInput) {
+    const scheduledAt = input.scheduledAt.getTime();
+    if (scheduledAt <= Date.now())
+      throw new BadRequestException('Choisissez une date et une heure à venir.');
+    if (scheduledAt > Date.now() + 366 * 86400000)
+      throw new BadRequestException('La programmation est limitée à un an.');
+    const { home } = await this.access(userId, input.kind === 'message' ? 'message' : 'control');
+    const actor = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { displayName: true },
+    });
+    await this.mutate(home.id, (s) => {
+      s.scheduledContent ??= [];
+      if (s.scheduledContent.length >= 100)
+        throw new BadRequestException('Trop de contenus sont déjà programmés.');
+      if (input.kind === 'photo') {
+        const media = s.media.find((item) => item.id === input.mediaId && item.kind === 'photo');
+        if (!media) throw new NotFoundException('Photo introuvable.');
+        s.scheduledContent.push({
+          id: randomUUID(),
+          kind: 'photo',
+          mediaId: media.id,
+          title: media.title,
+          scheduledAt,
+          createdAt: Date.now(),
+          actor: actor.displayName,
+        });
+      } else {
+        s.scheduledContent.push({
+          id: randomUUID(),
+          kind: 'message',
+          messages: input.messages,
+          messageIntervalSeconds: input.messageIntervalSeconds,
+          title: input.messages[0]!.slice(0, 120),
+          scheduledAt,
+          createdAt: Date.now(),
+          actor: actor.displayName,
+        });
+      }
+      s.scheduledContent.sort((left, right) => left.scheduledAt - right.scheduledAt);
+    });
+    return this.snapshot(userId);
+  }
+  async cancelScheduledContent(userId: string, id: string) {
+    const { home, state, grant } = await this.access(userId);
+    const scheduled = (state.scheduledContent ?? []).find((item) => item.id === id);
+    if (!scheduled) throw new NotFoundException('Contenu programmé introuvable.');
+    if (scheduled.kind === 'message' ? !grant.message : !grant.control)
+      throw new ForbiddenException('Droit écran insuffisant.');
+    await this.mutate(home.id, (s) => {
+      s.scheduledContent = (s.scheduledContent ?? []).filter((item) => item.id !== id);
     });
     return this.snapshot(userId);
   }
@@ -667,6 +742,50 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
         .slice(0, 12);
     } catch {
       throw new ConflictException('Le catalogue des radios est momentanément indisponible.');
+    }
+  }
+  async searchWeatherCities(
+    userId: string,
+    rawQuery: string | undefined,
+  ): Promise<WeatherCityResult[]> {
+    await this.access(userId, 'administer');
+    const query = rawQuery?.trim() ?? '';
+    if (query.length < 2 || query.length > 80)
+      throw new BadRequestException('Saisissez au moins deux caractères.');
+    const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
+    url.searchParams.set('name', query);
+    url.searchParams.set('count', '8');
+    url.searchParams.set('language', 'fr');
+    url.searchParams.set('format', 'json');
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = (await response.json()) as {
+        results?: Array<{
+          name?: string;
+          admin1?: string;
+          country?: string;
+          latitude?: number;
+          longitude?: number;
+        }>;
+      };
+      const seen = new Set<string>();
+      return (payload.results ?? []).flatMap((city): WeatherCityResult[] => {
+        const name = city.name?.trim() ?? '';
+        const latitude = Number(city.latitude);
+        const longitude = Number(city.longitude);
+        const details = [city.admin1, city.country]
+          .filter((part): part is string => typeof part === 'string' && !!part.trim())
+          .map((part) => part.trim());
+        const label = [name, ...details].join(', ');
+        const key = `${label.toLocaleLowerCase('fr-FR')}:${latitude}:${longitude}`;
+        if (!name || !Number.isFinite(latitude) || !Number.isFinite(longitude) || seen.has(key))
+          return [];
+        seen.add(key);
+        return [{ name, label, latitude, longitude }];
+      });
+    } catch {
+      throw new ConflictException('La recherche de villes est momentanément indisponible.');
     }
   }
   private envGoogleConfig(): {
@@ -1231,6 +1350,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       );
       s.media = s.media.filter((m) => m.id !== id);
       s.settings.schedule = s.settings.schedule.filter((x) => x.mediaId !== id);
+      s.scheduledContent = (s.scheduledContent ?? []).filter((x) => x.mediaId !== id);
       if (s.playback.mediaId === id) s.playback.mediaId = null;
       if (removed)
         this.addActivity(s, {
@@ -1415,6 +1535,66 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
               s.playback = c.previousPlayback;
           }
         if (advanceScreenSchedule(s, new Date(), home.timezone)) this.finish(s, 'quiet');
+        s.scheduledContent ??= [];
+        const due = s.scheduledContent.filter((item) => item.scheduledAt <= now);
+        s.scheduledContent = s.scheduledContent.filter((item) => item.scheduledAt > now);
+        for (const item of due) {
+          if (item.kind === 'message') {
+            const messages = item.messages?.filter(Boolean) ?? [];
+            s.message = messages[0] ?? '';
+            s.messages = messages;
+            s.messageIntervalSeconds = item.messageIntervalSeconds ?? 20;
+            s.messageAuthor = item.actor;
+            s.messageUpdatedAt = now;
+            this.addActivity(s, {
+              id: randomUUID(),
+              kind: 'message',
+              title: 'Message programmé affiché sur la TV',
+              ...(s.message ? { detail: s.message.slice(0, 240) } : {}),
+              actor: item.actor,
+              status: 'applied',
+            });
+            continue;
+          }
+          const media = s.media.find(
+            (candidate) => candidate.id === item.mediaId && candidate.kind === 'photo',
+          );
+          if (!media) {
+            this.addActivity(s, {
+              id: randomUUID(),
+              kind: 'content',
+              title: 'Photo programmée introuvable',
+              detail: item.title,
+              actor: item.actor,
+              status: 'failed',
+            });
+            continue;
+          }
+          const id = randomUUID();
+          const previousPlayback = { ...s.playback };
+          s.playback.mediaId = media.id;
+          s.playback.paused = false;
+          s.playback.asleep = false;
+          s.playback.revision++;
+          s.commands.push({
+            id,
+            action: 'play',
+            previousPlayback,
+            revision: s.playback.revision,
+            createdAt: now,
+            expiresAt: now + 15000,
+            status: 'pending',
+          });
+          s.commands = s.commands.slice(-50);
+          this.addActivity(s, {
+            id,
+            kind: 'content',
+            title: 'Photo programmée affichée',
+            detail: media.title,
+            actor: item.actor,
+            status: 'pending',
+          });
+        }
         s.history = s.history.filter((h) => h.endedAt > now - 30 * 86400000);
       });
     }
