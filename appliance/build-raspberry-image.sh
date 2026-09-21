@@ -17,9 +17,9 @@ loop_device=""
 cleanup() {
   mountpoint -q "$work_dir/root/boot/firmware" && umount "$work_dir/root/boot/firmware" || true
   for directory in proc sys dev; do
-    mountpoint -q "$work_dir/root/$directory" && umount -R "$work_dir/root/$directory" || true
+    mountpoint -q "$work_dir/root/$directory" && umount -R -l "$work_dir/root/$directory" || true
   done
-  mountpoint -q "$work_dir/root" && umount "$work_dir/root" || true
+  mountpoint -q "$work_dir/root" && umount -l "$work_dir/root" || true
   [[ -n "$loop_device" ]] && losetup -d "$loop_device" || true
   rm -rf -- "$work_dir"
 }
@@ -48,7 +48,8 @@ done
 
 echo "→ Installing appliance packages"
 install -m 0755 "$(command -v qemu-aarch64-static)" "$work_dir/root/usr/bin/qemu-aarch64-static"
-cp /etc/resolv.conf "$work_dir/root/etc/resolv.conf"
+rm -f "$work_dir/root/etc/resolv.conf"
+cp --dereference /etc/resolv.conf "$work_dir/root/etc/resolv.conf"
 chroot "$work_dir/root" /bin/bash -euc '
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
@@ -93,8 +94,8 @@ touch "$work_dir/root/etc/machine-id"
 rm -f "$work_dir/root/usr/bin/qemu-aarch64-static"
 sync
 umount "$work_dir/root/boot/firmware"
-for directory in proc sys dev; do umount -R "$work_dir/root/$directory"; done
-umount "$work_dir/root"
+for directory in proc sys dev; do umount -R -l "$work_dir/root/$directory"; done
+umount -l "$work_dir/root"
 losetup -d "$loop_device"
 loop_device=""
 echo "→ Compressing $OUTPUT"
