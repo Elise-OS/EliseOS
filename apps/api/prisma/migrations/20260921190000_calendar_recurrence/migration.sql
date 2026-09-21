@@ -1,0 +1,10 @@
+ALTER TABLE "Visit" ADD COLUMN "seriesId" TEXT;
+ALTER TABLE "Visit" ADD COLUMN "recurrence" TEXT NOT NULL DEFAULT 'NONE';
+ALTER TABLE "Visit" ADD COLUMN "recurrenceUntil" TIMESTAMP(3);
+ALTER TABLE "Appointment" ADD COLUMN "seriesId" TEXT;
+ALTER TABLE "Appointment" ADD COLUMN "recurrence" TEXT NOT NULL DEFAULT 'NONE';
+ALTER TABLE "Appointment" ADD COLUMN "recurrenceUntil" TIMESTAMP(3);
+CREATE INDEX "Visit_homeId_startsAt_idx" ON "Visit"("homeId", "startsAt");
+CREATE INDEX "Visit_homeId_seriesId_idx" ON "Visit"("homeId", "seriesId");
+CREATE INDEX "Appointment_homeId_startsAt_idx" ON "Appointment"("homeId", "startsAt");
+CREATE INDEX "Appointment_homeId_seriesId_idx" ON "Appointment"("homeId", "seriesId");

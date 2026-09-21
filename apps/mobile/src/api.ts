@@ -1,4 +1,12 @@
 import type {
+  CalendarCreate,
+  CalendarPage,
+  CalendarUpdate,
+  LiaisonCreate,
+  LiaisonFilter,
+  LiaisonPage,
+} from '@michel/contracts';
+import type {
   ActivitySummary,
   DashboardPeriod,
   Household,
@@ -145,6 +153,26 @@ const query = (values: Record<string, string | undefined>) => {
 };
 
 export const mobileApi = {
+  liaison: (server: SavedServer, token: string, filter: LiaisonFilter, cursor?: string) =>
+    request<LiaisonPage>(server, `/liaison${query({ filter, cursor })}`, token),
+  createLiaison: (server: SavedServer, token: string, input: LiaisonCreate) =>
+    request(server, '/liaison', token, { method: 'POST', body: JSON.stringify(input) }),
+  completeLiaison: (
+    server: SavedServer,
+    token: string,
+    id: string,
+    completed: boolean,
+    visit = false,
+  ) =>
+    request(
+      server,
+      `/liaison/${visit ? 'visits/' : ''}${encodeURIComponent(id)}/completion`,
+      token,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ completed }),
+      },
+    ),
   loginOptions: (server: SavedServer) =>
     request<Array<{ id: string; displayName: string; identifier: string }>>(
       server,
@@ -205,6 +233,24 @@ export const mobileApi = {
     ),
   schedule: (server: SavedServer, token: string) =>
     request<ScheduleItem[]>(server, '/schedule', token),
+  calendar: (server: SavedServer, token: string, from?: string, to?: string) =>
+    request<CalendarPage>(server, `/calendar${query({ from, to })}`, token),
+  createCalendar: (server: SavedServer, token: string, input: CalendarCreate) =>
+    request(server, '/calendar', token, { method: 'POST', body: JSON.stringify(input) }),
+  updateCalendar: (server: SavedServer, token: string, id: string, input: CalendarUpdate) =>
+    request(server, `/calendar/${encodeURIComponent(id)}`, token, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+  deleteCalendar: (
+    server: SavedServer,
+    token: string,
+    id: string,
+    scope: 'ONE' | 'SERIES' = 'ONE',
+  ) =>
+    request<void>(server, `/calendar/${encodeURIComponent(id)}?scope=${scope}`, token, {
+      method: 'DELETE',
+    }),
   activity: (server: SavedServer, token: string, cursor?: string) =>
     request<Page<ActivityItem>>(server, `/activity/feed${query({ limit: '30', cursor })}`, token),
   alerts: (server: SavedServer, token: string, cursor?: string) =>

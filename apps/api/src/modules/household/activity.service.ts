@@ -256,6 +256,7 @@ export class ActivityService {
       parsed.success ? parsed.data : null,
       home.rooms,
       rules,
+      to,
     );
     const entrance = buildEntranceSummary(
       sensors,
@@ -1269,6 +1270,9 @@ export class ActivityService {
         endsAt: visit.endsAt,
         detail: null,
         notes: visit.notes,
+        seriesId: visit.seriesId,
+        recurrence: visit.recurrence,
+        recurrenceUntil: visit.recurrenceUntil,
       })),
       ...appointments.map((appointment) => ({
         id: appointment.id,
@@ -1278,6 +1282,9 @@ export class ActivityService {
         endsAt: appointment.endsAt,
         detail: appointment.location,
         notes: appointment.notes,
+        seriesId: appointment.seriesId,
+        recurrence: appointment.recurrence,
+        recurrenceUntil: appointment.recurrenceUntil,
       })),
     ].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
   }

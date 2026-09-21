@@ -9,6 +9,8 @@ import {
   presenceText,
   welcomeAlertTitle,
   latestPresenceText,
+  showerDetailText,
+  showerStatusText,
 } from './WelcomePage';
 const data: HomeSummary = {
   from: '2026-09-14T22:00:00.000Z',
@@ -35,6 +37,31 @@ const data: HomeSummary = {
   entrance: null,
 };
 describe('Accueil wording', () => {
+  it('shows shower detection state and duration', () => {
+    const shower = {
+      state: 'IN_PROGRESS' as const,
+      currentHumidity: 68,
+      baselineHumidity: 45,
+      risePercent: 23,
+      startedAt: '2026-09-15T10:00:00.000Z',
+      endedAt: null,
+      durationMinutes: 12,
+      updatedAt: '2026-09-15T10:12:00.000Z',
+    };
+    const humidity = {
+      capability: 'humidity',
+      value: 68,
+      unit: '%',
+      state: 'UNKNOWN' as const,
+      available: true,
+      updatedAt: shower.updatedAt,
+    };
+    expect(showerStatusText(shower, 'fr')).toBe('Douche en cours');
+    expect(
+      showerDetailText(shower, humidity, 'fr', 'Europe/Paris', new Date('2026-09-15T10:12:00Z')),
+    ).toContain('12 min');
+  });
+
   it('describes the resident location naturally', () => {
     expect(presenceText(data, 'fr')).toBe('Michel est dans le salon.');
   });

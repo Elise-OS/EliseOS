@@ -7,6 +7,7 @@ import {
   type HomeSummary,
   type EntranceSummary,
   type ScreenSnapshot,
+  type ShowerDetection,
 } from '@michel/contracts';
 import {
   Activity,
@@ -25,7 +26,6 @@ import {
   MessageSquare,
   Monitor,
   Phone,
-  Pill,
   PersonStanding,
   BatteryMedium,
   DoorOpen,
@@ -556,6 +556,55 @@ export function roomSensorValue(
   return sensor.unit ? `${sensor.value} ${sensor.unit}` : sensor.value;
 }
 
+function showerTime(value: string | null, locale: Locale, timezone: string) {
+  if (!value) return '—';
+  return new Date(value).toLocaleTimeString(locale, {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+export function showerStatusText(shower: ShowerDetection | null | undefined, locale: Locale) {
+  const fr = locale === 'fr';
+  if (!shower || shower.state === 'IDLE')
+    return fr ? 'Aucune douche détectée' : 'No shower detected';
+  if (shower.state === 'RISING') return fr ? 'Hausse d’humidité détectée' : 'Humidity rising';
+  if (shower.state === 'IN_PROGRESS') return fr ? 'Douche en cours' : 'Shower in progress';
+  if (shower.state === 'COMPLETED') return fr ? 'Douche détectée' : 'Shower detected';
+  return fr ? 'Indisponible' : 'Unavailable';
+}
+
+export function showerDetailText(
+  shower: ShowerDetection | null | undefined,
+  humidity: HomeSummary['roomSummaries'][number]['sensors'][number] | undefined,
+  locale: Locale,
+  timezone: string,
+  now = new Date(),
+) {
+  const fr = locale === 'fr';
+  if (!shower || shower.state === 'UNAVAILABLE' || !humidity?.available)
+    return fr ? 'Humidité non disponible' : 'Humidity unavailable';
+  const current = roomSensorValue(humidity, locale);
+  if (shower.state === 'RISING')
+    return fr
+      ? `Humidité ${current} · hausse +${Math.round(shower.risePercent ?? 0)} points`
+      : `Humidity ${current} · +${Math.round(shower.risePercent ?? 0)} points`;
+  if (shower.state === 'IN_PROGRESS') {
+    const elapsed = shower.startedAt
+      ? Math.max(1, Math.round((now.getTime() - Date.parse(shower.startedAt)) / 60_000))
+      : shower.durationMinutes;
+    return fr
+      ? `Depuis ${showerTime(shower.startedAt, locale, timezone)} · ${elapsed ?? 0} min · ${current}`
+      : `Since ${showerTime(shower.startedAt, locale, timezone)} · ${elapsed ?? 0} min · ${current}`;
+  }
+  if (shower.state === 'COMPLETED')
+    return fr
+      ? `Terminée à ${showerTime(shower.endedAt, locale, timezone)} · ${shower.durationMinutes ?? 0} min`
+      : `Ended at ${showerTime(shower.endedAt, locale, timezone)} · ${shower.durationMinutes ?? 0} min`;
+  return fr ? `Humidité ${current}` : `Humidity ${current}`;
+}
+
 export function welcomeAlertTitle(title: string, locale: Locale, roomName?: string | null) {
   if (/occupancy|presence/i.test(title))
     return locale === 'fr'
@@ -605,6 +654,7 @@ export function WelcomePage({
   residentName,
   events = [],
   reminders = [],
+  nextSchedule = null,
   onOpenRoom,
   onActivity,
   onSensors,
@@ -617,6 +667,7 @@ export function WelcomePage({
   reassurance?: 'NORMAL' | 'LEARNING' | 'ATTENTION' | 'INSUFFICIENT_DATA';
   events?: WelcomeEvent[];
   reminders?: WelcomeReminder[];
+  nextSchedule?: { title: string; startsAt: string } | null | undefined;
   onAlerts: () => void;
   onOpenRoom: (roomId: string) => void;
   onActivity: () => void;
@@ -637,6 +688,7 @@ export function WelcomePage({
   const [screenBusy, setScreenBusy] = useState(false);
   const [screenNotice, setScreenNotice] = useState('');
   const fr = locale === 'fr';
+  void reminders;
   const residentFirstName = residentName.trim().split(/\s+/)[0] || residentName;
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 15_000);
@@ -771,7 +823,9 @@ export function WelcomePage({
     .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))
     .slice(0, 5);
   const reminder = [
-    ...reminders,
+    ...(nextSchedule
+      ? [{ title: nextSchedule.title, at: nextSchedule.startsAt, medication: false }]
+      : []),
     ...(screen?.agenda ?? []).map((item) => ({
       title: item.title,
       at: item.startsAt,
@@ -928,6 +982,8 @@ export function WelcomePage({
   if (bathroom) {
     const humidity = bathroom.sensors.find((sensor) => sensor.capability === 'humidity');
     const configured = Boolean(humidity);
+    const shower = bathroom.shower;
+    const unavailable = !humidity?.available || shower?.state === 'UNAVAILABLE';
     usageSensors.push({
       key: `shower:${bathroom.roomId}`,
       title: fr ? 'Douche' : 'Shower',
@@ -935,25 +991,17 @@ export function WelcomePage({
         ? fr
           ? 'À configurer'
           : 'Setup required'
-        : humidity?.available
+        : unavailable
           ? fr
-            ? 'Suivi actif'
-            : 'Monitoring active'
-          : fr
             ? 'Indisponible'
-            : 'Unavailable',
+            : 'Unavailable'
+          : showerStatusText(shower, locale),
       detail: !configured
         ? fr
           ? 'Associer un capteur d’humidité'
           : 'Assign a humidity sensor'
-        : humidity?.available
-          ? fr
-            ? `Humidité ${roomSensorValue(humidity, locale)}`
-            : `Humidity ${roomSensorValue(humidity, locale)}`
-          : fr
-            ? 'Humidité non disponible'
-            : 'Humidity unavailable',
-      available: configured ? Boolean(humidity?.available) : null,
+        : showerDetailText(shower, humidity, locale, timezone, now),
+      available: configured ? !unavailable : null,
       roomId: bathroom.roomId,
       icon: ShowerHead,
       tone: 'shower',
@@ -1265,15 +1313,15 @@ export function WelcomePage({
         <article className="welcome-card welcome-reminder">
           <header className="welcome-card-heading">
             <h3>
-              <Pill />
-              {fr ? 'Prochain rappel' : 'Next reminder'}
+              <CalendarDays />
+              {fr ? 'Prochain rendez-vous' : 'Next appointment'}
             </h3>
           </header>
           <div className="welcome-reminder-detail">
-            <Pill aria-hidden="true" />
+            <CalendarDays aria-hidden="true" />
             <div>
               <strong>
-                {reminder?.title ?? (fr ? 'Aucun rappel prévu' : 'No upcoming reminder')}
+                {reminder?.title ?? (fr ? 'Aucun rendez-vous prévu' : 'No upcoming appointment')}
               </strong>
               {reminder && (
                 <p>
@@ -1291,8 +1339,8 @@ export function WelcomePage({
               )}
             </div>
           </div>
-          <WelcomeLink icon={CalendarDays} onClick={() => onPlanning(reminder?.medication ?? true)}>
-            {fr ? 'Voir le planning' : 'View schedule'}
+          <WelcomeLink icon={CalendarDays} onClick={() => onPlanning(false)}>
+            {fr ? 'Voir le calendrier' : 'View calendar'}
           </WelcomeLink>
         </article>
         <article className="welcome-card welcome-actions">

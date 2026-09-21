@@ -1,0 +1,621 @@
+.house-journal-page {
+  --journal-ink: #17345f;
+  --journal-copy: #516889;
+  --journal-line: #dce7e8;
+  width: 100%;
+  padding-top: 18px;
+  color: var(--journal-ink);
+}
+
+.house-journal-page button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.house-journal-page button:focus-visible {
+  outline: 3px solid #4d87bd;
+  outline-offset: 3px;
+}
+
+.house-journal-hero {
+  min-height: 132px;
+  padding: clamp(24px, 2.8vw, 34px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 30px;
+  border: 1px solid #e1ebef;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 77% 0%, rgb(207 237 249 / 58%), transparent 43%),
+    linear-gradient(112deg, #fff 0%, #fafdff 56%, #eaf7fb 100%);
+  box-shadow: 0 17px 44px rgb(37 61 91 / 8%);
+}
+
+.house-journal-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #5d7294;
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.house-journal-eyebrow svg {
+  color: #4274ab;
+}
+
+.house-journal-hero h1 {
+  margin: 0;
+  color: #112f5d;
+  font:
+    600 clamp(32px, 3.4vw, 48px) / 0.98 'Source Serif 4',
+    Georgia,
+    serif;
+  letter-spacing: -0.04em;
+}
+
+.house-journal-hero-copy > strong {
+  display: block;
+  margin-top: 10px;
+  color: #4d6388;
+  font:
+    600 clamp(24px, 2.1vw, 32px) / 1.05 'Source Serif 4',
+    Georgia,
+    serif;
+}
+
+.house-journal-hero-copy > p {
+  margin: 7px 0 0;
+  color: #52698d;
+  font:
+    500 clamp(16px, 1.4vw, 21px) / 1.3 'Source Serif 4',
+    Georgia,
+    serif;
+}
+
+.house-journal-hero-actions {
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.house-journal-hero-actions time {
+  display: grid;
+  justify-items: end;
+  color: #50678d;
+  text-align: right;
+}
+
+.house-journal-hero-actions time span {
+  text-transform: capitalize;
+  font-size: 15px;
+}
+
+.house-journal-hero-actions time strong {
+  margin-top: 4px;
+  color: #17396d;
+  font:
+    600 34px/1 'Source Serif 4',
+    Georgia,
+    serif;
+}
+
+.house-journal-back,
+.house-journal-empty-action {
+  min-height: 48px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid #b9cde1;
+  border-radius: 13px;
+  color: #1b477e;
+  background: rgb(255 255 255 / 72%);
+  font-weight: 750;
+}
+
+.house-journal-layout {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.house-journal-feed,
+.house-journal-aside {
+  min-width: 0;
+  border: 1px solid var(--journal-line);
+  border-radius: 22px;
+}
+
+.house-journal-feed {
+  min-height: 600px;
+  padding: clamp(22px, 2.4vw, 32px);
+  background:
+    radial-gradient(circle at 100% 100%, rgb(224 245 238 / 42%), transparent 44%),
+    linear-gradient(135deg, #faffff, #f5fcf9);
+}
+
+.house-journal-aside {
+  padding: clamp(22px, 2.4vw, 30px);
+  background: linear-gradient(150deg, #fffefd, #fffbf6);
+  border-color: #ebe3d7;
+}
+
+.house-journal-section-heading,
+.house-journal-aside-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.house-journal-aside-heading {
+  justify-content: flex-start;
+}
+
+.house-journal-section-heading > div,
+.house-journal-aside-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+}
+
+.house-journal-section-heading h2,
+.house-journal-aside-heading h2 {
+  margin: 0;
+  color: var(--journal-ink);
+  font:
+    600 clamp(25px, 2.2vw, 33px) / 1 'Source Serif 4',
+    Georgia,
+    serif;
+}
+
+.house-journal-section-heading p {
+  margin: 6px 0 0;
+  color: var(--journal-copy);
+  font-size: 13px;
+}
+
+.house-journal-count {
+  color: #5c6e8c;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.house-journal-dot {
+  width: 13px;
+  height: 13px;
+  margin-top: 7px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 4px rgb(255 255 255 / 80%);
+}
+
+.house-journal-dot--blue {
+  background: #4f91c9;
+}
+
+.house-journal-dot--amber {
+  background: #f2a12e;
+}
+
+.house-journal-filters {
+  margin: 24px 0 26px;
+  padding-bottom: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid rgb(207 224 224 / 72%);
+}
+
+.house-journal-filters button {
+  min-height: 35px;
+  padding: 0 14px;
+  border: 1px solid #cbdcdd;
+  border-radius: 999px;
+  color: #5b708d;
+  background: rgb(255 255 255 / 68%);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.house-journal-filters button.is-active {
+  border-color: #2d6ba5;
+  color: #fff;
+  background: #214d82;
+}
+
+.house-journal-timeline {
+  position: relative;
+}
+
+.house-journal-day + .house-journal-day {
+  margin-top: 28px;
+}
+
+.house-journal-day-heading {
+  margin-bottom: 11px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  color: #24466f;
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.house-journal-day-heading small {
+  color: #6f8099;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: none;
+}
+
+.house-journal-day-items {
+  position: relative;
+  display: grid;
+  gap: 10px;
+}
+
+.house-journal-day-items::before {
+  content: '';
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  left: 21px;
+  width: 1px;
+  background: #c8dadd;
+}
+
+.house-journal-entry {
+  min-height: 90px;
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 13px;
+  padding: 15px 17px 15px 9px;
+  border: 1px solid #d9e7e6;
+  border-radius: 15px;
+  background: rgb(255 255 255 / 82%);
+  box-shadow: 0 5px 15px rgb(33 76 83 / 3%);
+}
+
+.house-journal-entry-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  z-index: 1;
+  border-radius: 50%;
+}
+
+.house-journal-entry-icon--blue {
+  color: #28659a;
+  background: #e5f1ff;
+}
+
+.house-journal-entry-icon--green {
+  color: #26714e;
+  background: #e1f3e8;
+}
+
+.house-journal-entry-icon--amber {
+  color: #a7681c;
+  background: #fff0d7;
+}
+
+.house-journal-entry-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #6a7e9d;
+  font-size: 12px;
+}
+
+.house-journal-entry-meta span {
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #eef4f4;
+  color: #466b75;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.house-journal-entry h3 {
+  margin: 7px 0 0;
+  color: #1d3c68;
+  font:
+    600 20px/1.1 'Source Serif 4',
+    Georgia,
+    serif;
+}
+
+.house-journal-entry p {
+  margin: 5px 0 0;
+  color: #526987;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.house-journal-entry-chevron {
+  color: #607795;
+}
+
+.house-journal-empty {
+  min-height: 380px;
+  padding: 36px 24px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  text-align: center;
+}
+
+.house-journal-empty-icon {
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #2e699d;
+  background: #e6f2ff;
+  box-shadow: 0 0 0 10px rgb(230 242 255 / 44%);
+}
+
+.house-journal-empty h3 {
+  margin: 27px 0 0;
+  color: #1d3c68;
+  font:
+    600 29px/1.05 'Source Serif 4',
+    Georgia,
+    serif;
+}
+
+.house-journal-empty p {
+  max-width: 430px;
+  margin: 10px 0 22px;
+  color: #607491;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.house-journal-empty-action {
+  background: #e9f1fb;
+  border-color: #c5d8ec;
+}
+
+.house-journal-aside-heading {
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.house-journal-aside-heading .house-journal-dot {
+  margin-top: 0;
+}
+
+.house-journal-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px;
+}
+
+.house-journal-stat {
+  min-height: 135px;
+  padding: 17px;
+  display: grid;
+  align-content: space-between;
+  border: 1px solid transparent;
+  border-radius: 15px;
+}
+
+.house-journal-stat svg {
+  opacity: 0.8;
+}
+
+.house-journal-stat strong {
+  margin-top: 8px;
+  font:
+    600 34px/1 'Source Serif 4',
+    Georgia,
+    serif;
+}
+
+.house-journal-stat span {
+  color: #57708e;
+  font-size: 11px;
+}
+
+.house-journal-stat--blue {
+  border-color: #cde0f4;
+  color: #245f96;
+  background: #eff7ff;
+}
+
+.house-journal-stat--green {
+  border-color: #cde5d5;
+  color: #2d7755;
+  background: #effaf3;
+}
+
+.house-journal-info-card {
+  margin-top: 12px;
+  padding: 17px;
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  border: 1px solid #d4e3f0;
+  border-radius: 15px;
+  color: #2c6496;
+  background: #f1f8ff;
+}
+
+.house-journal-info-card--soft {
+  border-color: #d9e8dc;
+  color: #397255;
+  background: #f3faf4;
+}
+
+.house-journal-info-card strong {
+  color: #234b77;
+  font-size: 14px;
+}
+
+.house-journal-info-card p {
+  margin: 5px 0 0;
+  color: #637894;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.house-journal-tip {
+  margin-top: auto;
+  padding: 16px;
+  display: flex;
+  gap: 11px;
+  border: 1px solid #e5d9c5;
+  border-radius: 14px;
+  color: #a56b2a;
+  background: #fff8eb;
+}
+
+.house-journal-tip p {
+  margin: 0;
+  color: #765d3d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1050px) {
+  .house-journal-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .house-journal-aside {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .house-journal-aside-heading,
+  .house-journal-tip {
+    grid-column: 1 / -1;
+  }
+
+  .house-journal-stat-grid {
+    display: contents;
+  }
+
+  .house-journal-info-card {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .house-journal-page {
+    padding-top: 8px;
+  }
+
+  .house-journal-hero {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 22px;
+    padding: 24px 20px;
+  }
+
+  .house-journal-hero h1 {
+    font-size: 34px;
+  }
+
+  .house-journal-hero-actions {
+    width: 100%;
+    min-width: 0;
+    align-items: flex-start;
+    justify-items: start;
+  }
+
+  .house-journal-hero-actions time {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .house-journal-layout {
+    margin-top: 16px;
+  }
+
+  .house-journal-feed,
+  .house-journal-aside {
+    padding: 20px 16px;
+    border-radius: 18px;
+  }
+
+  .house-journal-section-heading,
+  .house-journal-aside-heading {
+    gap: 10px;
+  }
+
+  .house-journal-section-heading h2,
+  .house-journal-aside-heading h2 {
+    font-size: 27px;
+  }
+
+  .house-journal-section-heading p {
+    font-size: 12px;
+  }
+
+  .house-journal-count {
+    font-size: 12px;
+  }
+
+  .house-journal-entry {
+    grid-template-columns: 39px minmax(0, 1fr);
+    gap: 10px;
+    padding: 13px 12px 13px 8px;
+  }
+
+  .house-journal-entry-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .house-journal-entry-chevron {
+    display: none;
+  }
+
+  .house-journal-entry h3 {
+    font-size: 18px;
+  }
+
+  .house-journal-entry p {
+    font-size: 12px;
+  }
+
+  .house-journal-aside {
+    grid-template-columns: 1fr;
+  }
+
+  .house-journal-aside-heading,
+  .house-journal-tip {
+    grid-column: auto;
+  }
+
+  .house-journal-stat-grid {
+    display: grid;
+  }
+
+  .house-journal-info-card {
+    margin-top: 0;
+  }
+
+  .house-journal-tip {
+    margin-top: 0;
+  }
+}

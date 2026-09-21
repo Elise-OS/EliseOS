@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildHomeCards, latestPresenceEvidence } from './home-summary';
 const room = { id: 'wc', kind: 'TOILET', name: 'Toilettes' };
+const bathroom = { id: 'bathroom', kind: 'BATHROOM', name: 'Salle de bain' };
 const event = (active: boolean, hour = 10) => ({
   sensorId: 'pir',
   roomId: 'wc',
@@ -18,6 +19,27 @@ const sensor = {
   available: true,
   events: [event(false)],
 };
+const humidityAt = (minute: number) =>
+  new Date(`2026-09-15T10:${String(minute).padStart(2, '0')}:00Z`);
+const humidityEvent = (value: number, minute: number) => ({
+  sensorId: 'bath-humidity',
+  roomId: 'bathroom',
+  capability: 'humidity',
+  payload: { value, unit: '%' },
+  quality: 'good',
+  occurredAt: humidityAt(minute),
+});
+const humiditySensor = (latest: ReturnType<typeof humidityEvent>, extra = {}) => ({
+  id: 'bath-humidity',
+  deviceId: 'bath-device',
+  roomId: 'bathroom',
+  capability: 'humidity',
+  status: 'ONLINE',
+  available: true,
+  unit: '%',
+  events: [latest],
+  ...extra,
+});
 describe('home daily facts', () => {
   it('distinguishes a passage from a negative motion event', () => {
     expect(buildHomeCards([sensor], [event(false)], null, [room]).cards[0]?.observedToday).toBe(
@@ -114,6 +136,104 @@ describe('home daily facts', () => {
       value: 48,
       unit: '%',
     });
+  });
+
+  it('detects a confirmed humidity rise as a shower in progress', () => {
+    const readings = [
+      humidityEvent(45, 0),
+      humidityEvent(46, 5),
+      humidityEvent(55, 10),
+      humidityEvent(58, 15),
+    ];
+    const result = buildHomeCards(
+      [humiditySensor(readings.at(-1)!)],
+      readings,
+      null,
+      [bathroom],
+      undefined,
+      humidityAt(15),
+    );
+    expect(result.roomSummaries[0]?.shower).toMatchObject({
+      state: 'IN_PROGRESS',
+      currentHumidity: 58,
+      startedAt: humidityAt(10).toISOString(),
+    });
+    expect(result.roomSummaries[0]?.shower?.risePercent).toBeGreaterThanOrEqual(8);
+  });
+
+  it('closes the shower after humidity returns near its baseline', () => {
+    const readings = [
+      humidityEvent(45, 0),
+      humidityEvent(46, 5),
+      humidityEvent(55, 10),
+      humidityEvent(58, 15),
+      humidityEvent(60, 20),
+      humidityEvent(48, 30),
+      humidityEvent(47, 35),
+    ];
+    const result = buildHomeCards(
+      [humiditySensor(readings.at(-1)!)],
+      readings,
+      null,
+      [bathroom],
+      undefined,
+      humidityAt(35),
+    );
+    expect(result.roomSummaries[0]?.shower).toMatchObject({
+      state: 'COMPLETED',
+      startedAt: humidityAt(10).toISOString(),
+      endedAt: humidityAt(30).toISOString(),
+      durationMinutes: 20,
+    });
+  });
+
+  it('does not call a small humidity fluctuation a shower', () => {
+    const readings = [
+      humidityEvent(45, 0),
+      humidityEvent(46, 5),
+      humidityEvent(51, 10),
+      humidityEvent(47, 15),
+    ];
+    const result = buildHomeCards(
+      [humiditySensor(readings.at(-1)!)],
+      readings,
+      null,
+      [bathroom],
+      undefined,
+      humidityAt(15),
+    );
+    expect(result.roomSummaries[0]?.shower?.state).toBe('IDLE');
+  });
+
+  it('cancels an unconfirmed humidity spike when it falls back', () => {
+    const readings = [
+      humidityEvent(45, 0),
+      humidityEvent(46, 5),
+      humidityEvent(55, 10),
+      humidityEvent(49, 15),
+    ];
+    const result = buildHomeCards(
+      [humiditySensor(readings.at(-1)!)],
+      readings,
+      null,
+      [bathroom],
+      undefined,
+      humidityAt(15),
+    );
+    expect(result.roomSummaries[0]?.shower?.state).toBe('IDLE');
+  });
+
+  it('marks a shower detector unavailable when its humidity reading is stale', () => {
+    const latest = humidityEvent(58, 15);
+    const result = buildHomeCards(
+      [humiditySensor(latest)],
+      [humidityEvent(45, 0), humidityEvent(46, 5), humidityEvent(55, 10), latest],
+      null,
+      [bathroom],
+      undefined,
+      new Date('2026-09-15T11:00:00Z'),
+    );
+    expect(result.roomSummaries[0]?.shower?.state).toBe('UNAVAILABLE');
   });
 
   it('exposes the latest active movement as the current location evidence', async () => {

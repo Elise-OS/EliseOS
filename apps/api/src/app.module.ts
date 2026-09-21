@@ -1,3 +1,5 @@
+import { LiaisonController } from './modules/liaison/liaison.controller';
+import { LiaisonService } from './modules/liaison/liaison.service';
 import { ScreenService } from './modules/screen/screen.service';
 import {
   ScreenController,
@@ -43,9 +45,12 @@ import { PeopleService } from './modules/household/people.service';
 import { RemoteAccessController } from './modules/remote-access/remote-access.controller';
 import { RemoteAccessService } from './modules/remote-access/remote-access.service';
 import { RemoteAccessAgentClient } from './modules/remote-access/remote-access-agent.client';
+import { CalendarController } from './modules/calendar/calendar.controller';
+import { CalendarService } from './modules/calendar/calendar.service';
 
 @Module({
   controllers: [
+    LiaisonController,
     ScreenController,
     ScreenDeviceController,
     ScreenMediaController,
@@ -67,8 +72,10 @@ import { RemoteAccessAgentClient } from './modules/remote-access/remote-access-a
     HomePlanController,
     PeopleController,
     RemoteAccessController,
+    CalendarController,
   ],
   providers: [
+    LiaisonService,
     ScreenService,
     PrismaService,
     SeedService,
@@ -91,6 +98,7 @@ import { RemoteAccessAgentClient } from './modules/remote-access/remote-access-a
     PeopleService,
     RemoteAccessService,
     RemoteAccessAgentClient,
+    CalendarService,
   ],
 })
 export class AppModule {}

@@ -1,3 +1,6 @@
+import { LiaisonPage } from './LiaisonPage';
+import { JournalPage } from './JournalPage';
+import { CalendarPage } from './CalendarPage';
 import { WelcomePage } from './WelcomePage';
 import { ScreenPanel } from './ScreenPanel';
 import { Button, Card, StatusPill } from '@michel/ui';
@@ -339,9 +342,10 @@ const navIcons = [
   Settings,
   Video,
   Tv,
+  BookOpen,
 ];
 export const sidebarHiddenNavIndexes = new Set([4, 5, 6, 9]);
-export const sidebarNavOrder = [0, 1, 2, 10, 3, 7, 8] as const;
+export const sidebarNavOrder = [0, 1, 2, 11, 10, 3, 7, 8] as const;
 export function SidebarNavigation({
   labels,
   active,
@@ -703,7 +707,15 @@ export function activityDescription(item: ActivityItem, locale: Locale): string 
     item.payload && typeof item.payload === 'object'
       ? (item.payload as Record<string, unknown>)
       : {};
-  const rawValue = payload.value ?? payload.state;
+  const context =
+    payload.context && typeof payload.context === 'object'
+      ? (payload.context as Record<string, unknown>)
+      : {};
+  const contactRole = typeof context.role === 'string' ? context.role : null;
+  const rawValue =
+    item.capability === 'contact'
+      ? (payload.open ?? payload.value ?? payload.state)
+      : (payload.value ?? payload.state);
   const unit = typeof payload.unit === 'string' ? payload.unit : '';
   const value =
     typeof rawValue === 'number' || typeof rawValue === 'string'
@@ -715,9 +727,14 @@ export function activityDescription(item: ActivityItem, locale: Locale): string 
     motion: ['Mouvement détecté', 'Movement detected'],
     occupancy: ['Présence détectée', 'Presence detected'],
     person_presence: ['Personne détectée', 'Person detected'],
-    contact: contactOpen
-      ? ['Ouverture détectée', 'Opening detected']
-      : ['Fermeture détectée', 'Closing detected'],
+    contact:
+      contactRole === 'FRIDGE'
+        ? contactOpen
+          ? ['Frigo ouvert', 'Fridge open']
+          : ['Frigo fermé', 'Fridge closed']
+        : contactOpen
+          ? ['Ouverture détectée', 'Opening detected']
+          : ['Fermeture détectée', 'Closing detected'],
     temperature: [
       value ? `Température · ${value}` : 'Température relevée',
       value ? `Temperature · ${value}` : 'Temperature reading',
@@ -2527,7 +2544,9 @@ export function App() {
     intimateSpaceConsent: false,
   });
   const [active, setActive] = useState(0);
-  const [screenSection, setScreenSection] = useState<'call' | 'messages' | 'display' | 'photos' | 'planning'>('display');
+  const [screenSection, setScreenSection] = useState<
+    'call' | 'messages' | 'display' | 'photos' | 'planning'
+  >('display');
   const [homeSection, setHomeSection] = useState<'OVERVIEW' | 'EDITOR' | 'LIVE_PLAN'>('OVERVIEW');
   const [settingsTab, setSettingsTab] = useState<'general' | 'google' | 'rules'>('general');
   const [homeEditorRoomId, setHomeEditorRoomId] = useState<string | null>(null);
@@ -3016,6 +3035,17 @@ export function App() {
     .map((part) => part[0]?.toUpperCase())
     .join('');
   const residentName = overview?.resident?.preferredName ?? overview?.home?.resident ?? '';
+  const nextPendingDose = medicationDoses
+    .filter((dose) => dose.status === 'PENDING' && new Date(dose.scheduledFor) >= new Date())
+    .sort(
+      (left, right) =>
+        new Date(left.scheduledFor).getTime() - new Date(right.scheduledFor).getTime(),
+    )[0];
+  const liaisonAttention = alerts.find(
+    (alert) =>
+      ['OPEN', 'ACKNOWLEDGED'].includes(alert.status) &&
+      ['ATTENTION', 'URGENT'].includes(alert.severity),
+  );
   if (entryState === 'loading') {
     return (
       <main className="data-loading-page">
@@ -3429,26 +3459,28 @@ export function App() {
             onConfirm={(doseId) => void confirmMedicationDose(doseId, 'TAKEN')}
             onSkip={(doseId) => void confirmMedicationDose(doseId, 'SKIPPED')}
           />
+        ) : active === 12 ? (
+          <CalendarPage locale={locale} onBack={() => setActive(11)} />
+        ) : active === 11 ? (
+          <LiaisonPage
+            locale={locale}
+            pendingMedication={
+              nextPendingDose
+                ? {
+                    name: nextPendingDose.schedule.medication.name,
+                    dosage: nextPendingDose.schedule.medication.dosage,
+                    scheduledFor: nextPendingDose.scheduledFor,
+                  }
+                : null
+            }
+            attention={liaisonAttention ?? null}
+            onMedication={() => setActive(5)}
+            onAttention={() => setActive(2)}
+            onJournal={() => setActive(6)}
+            onCalendar={() => setActive(12)}
+          />
         ) : active === 6 ? (
-          <section className="section-view">
-            <div className="page-heading">
-              <span className="eyebrow">{overview.home?.name}</span>
-              <h2>{t.nav[6]}</h2>
-            </div>
-            <Card className="journal-card journal-page">
-              {journal.length === 0 ? (
-                <p>{locale === 'fr' ? 'Le journal est encore vide.' : 'The journal is empty.'}</p>
-              ) : (
-                journal.map((entry) => (
-                  <article className="journal-entry" key={entry.id}>
-                    <time>{new Date(entry.occurredAt).toLocaleDateString(locale)}</time>
-                    <h2>{entry.title}</h2>
-                    {entry.body && <p>{entry.body}</p>}
-                  </article>
-                ))
-              )}
-            </Card>
-          </section>
+          <JournalPage locale={locale} items={journal} onBack={() => setActive(11)} />
         ) : active === 7 ? (
           <PeoplePanel locale={locale} currentRole={currentAccess.role} />
         ) : active === 9 ? (
@@ -3996,24 +4028,45 @@ export function App() {
             locale={locale}
             caregiverFirstName={overview.currentUser?.firstName ?? ''}
             residentName={residentName}
+            nextSchedule={overview.nextSchedule}
             reassurance={overview.reassurance ?? 'INSUFFICIENT_DATA'}
             events={(overview.activity ?? []).map((event) => ({
-              id: event.id, occurredAt: event.occurredAt, capability: event.capability,
+              id: event.id,
+              occurredAt: event.occurredAt,
+              capability: event.capability,
               label: `${activityDescription(event, locale)}${event.room ? ` · ${event.room}` : ''}`,
             }))}
             reminders={[
-              ...medicationDoses.filter(dose => dose.status === 'PENDING').map(dose => ({
-                title: locale === 'fr' ? 'Médicaments' : 'Medication', at: dose.scheduledFor, medication: true,
-              })),
-              ...(overview.nextSchedule ? [{ title: overview.nextSchedule.title, at: overview.nextSchedule.startsAt, medication: false }] : []),
+              ...medicationDoses
+                .filter((dose) => dose.status === 'PENDING')
+                .map((dose) => ({
+                  title: locale === 'fr' ? 'Médicaments' : 'Medication',
+                  at: dose.scheduledFor,
+                  medication: true,
+                })),
+              ...(overview.nextSchedule
+                ? [
+                    {
+                      title: overview.nextSchedule.title,
+                      at: overview.nextSchedule.startsAt,
+                      medication: false,
+                    },
+                  ]
+                : []),
             ]}
             onActivity={() => setActive(1)}
-            onSensors={() => { setHomeSection('OVERVIEW'); setActive(3); }}
+            onSensors={() => {
+              setHomeSection('OVERVIEW');
+              setActive(3);
+            }}
             onPlanning={(medication) => {
               if (medication) setActive(5);
-              else { setScreenSection('planning'); setActive(10); }
+              else setActive(12);
             }}
-            onScreen={(section) => { setScreenSection(section); setActive(10); }}
+            onScreen={(section) => {
+              setScreenSection(section);
+              setActive(10);
+            }}
             onAlerts={() => setActive(2)}
             onOpenRoom={(roomId) => {
               setHomeEditorRoomId(roomId);

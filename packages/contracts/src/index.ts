@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { contactRoleSchema, roomSensorPreferencesSchema } from './room-equipment.js';
+import { calendarRecurrenceSchema } from './calendar.js';
+export * from './calendar.js';
 export * from './room-equipment.js';
 export * from './retire-furniture.js';
 
@@ -1292,6 +1294,9 @@ export const scheduleItemSchema = z.object({
   endsAt: z.iso.datetime().nullable(),
   detail: z.string().nullable(),
   notes: z.string().nullable(),
+  seriesId: z.string().nullable().default(null),
+  recurrence: calendarRecurrenceSchema.default('NONE'),
+  recurrenceUntil: z.iso.datetime().nullable().default(null),
 });
 
 export const realtimeEventSchema = z.object({
@@ -1361,6 +1366,18 @@ export const entranceSummarySchema = z.object({
 });
 export type EntranceSummary = z.infer<typeof entranceSummarySchema>;
 
+export const showerDetectionSchema = z.object({
+  state: z.enum(['IDLE', 'RISING', 'IN_PROGRESS', 'COMPLETED', 'UNAVAILABLE']),
+  currentHumidity: z.number().min(0).max(100).nullable(),
+  baselineHumidity: z.number().min(0).max(100).nullable(),
+  risePercent: z.number().nullable(),
+  startedAt: z.iso.datetime().nullable(),
+  endedAt: z.iso.datetime().nullable(),
+  durationMinutes: z.number().int().nonnegative().nullable(),
+  updatedAt: z.iso.datetime().nullable(),
+});
+export type ShowerDetection = z.infer<typeof showerDetectionSchema>;
+
 export const homeSummarySchema = z.object({
   from: z.iso.datetime(),
   to: z.iso.datetime(),
@@ -1374,6 +1391,7 @@ export const homeSummarySchema = z.object({
       name: z.string(),
       kind: z.string(),
       color: z.string().nullable(),
+      shower: showerDetectionSchema.nullable().optional(),
       sensors: z.array(
         z.object({
           capability: z.string(),
@@ -1419,3 +1437,5 @@ export const homeSummarySchema = z.object({
     .nullable(),
 });
 export type HomeSummary = z.infer<typeof homeSummarySchema>;
+
+export * from './liaison.js';

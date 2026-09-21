@@ -1,46 +1,41 @@
+import { homeSummarySchema } from '@michel/contracts';
 import type {
   ActivityEvent,
-  ActivityRoomOverview,
   ActivitySequence,
   ActivitySummary,
-  DashboardPeriod,
-  HomePlan,
-  RoutinesSummary,
+  HomeSummary,
 } from '@michel/contracts';
 import {
   Activity,
   AlertTriangle,
-  ArrowRight,
+  ArrowLeftRight,
   BatteryMedium,
   Bell,
   CalendarDays,
-  ChartNoAxesCombined,
   ChevronDown,
+  CircleCheck,
   CircleDashed,
-  CircleDot,
+  CircleHelp,
   Clock3,
   DoorOpen,
   Droplets,
   Flame,
   Footprints,
   Gauge,
+  Home,
   Leaf,
   Radio,
   RefreshCw,
   ShieldAlert,
-  ShieldCheck,
-  Sparkles,
   Sun,
   Thermometer,
   Wind,
   Zap,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DataLoadingScreen } from './DataLoadingScreen';
-import { roomIcon } from './home-visuals';
+import { presenceText } from './WelcomePage';
 import './activity-page.css';
-
-type ActivityMode = 'LIFE' | 'ENVIRONMENT';
 
 type ActivityPageProps = {
   locale: 'fr' | 'en';
@@ -113,15 +108,6 @@ function capabilityLabel(capability: string, locale: 'fr' | 'en') {
   return capabilityLabels[capability]?.[locale === 'fr' ? 0 : 1] ?? capability;
 }
 
-function currentDateKey(timeZone: string) {
-  return new Intl.DateTimeFormat('en-CA', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    timeZone,
-  }).format(new Date());
-}
-
 function clock(value: string, locale: 'fr' | 'en', timeZone: string) {
   return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
     hour: '2-digit',
@@ -146,6 +132,43 @@ function readableDuration(seconds: number, locale: 'fr' | 'en') {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return `${hours} ${locale === 'fr' ? 'h' : 'hr'}${rest ? ` ${rest} min` : ''}`;
+}
+
+function dayLabel(value: string, locale: 'fr' | 'en', timeZone: string) {
+  const formatted = new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone,
+  }).format(new Date(value));
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+function currentDateKey(timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone,
+  }).formatToParts(new Date());
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
+function shiftDateKey(value: string, days: number) {
+  const [year, month, day] = value.split('-').map(Number);
+  const shifted = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) + days));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`;
+}
+
+function dateKeyLabel(value: string, locale: 'fr' | 'en', timeZone: string) {
+  return dayLabel(`${value}T12:00:00.000Z`, locale, timeZone);
+}
+
+function comparisonDelta(value: number, unit: string, locale: 'fr' | 'en') {
+  if (value === 0) return locale === 'fr' ? 'Identique' : 'Same';
+  const sign = value > 0 ? '+' : '−';
+  return `${sign}${Math.abs(value)} ${unit}`;
 }
 
 function eventDescription(event: ActivityEvent, locale: 'fr' | 'en') {
@@ -180,71 +203,6 @@ function eventDescription(event: ActivityEvent, locale: 'fr' | 'en') {
     : capabilityLabel(event.capability, locale);
 }
 
-function roomStateCopy(
-  state: ActivityRoomOverview['state'],
-  locale: 'fr' | 'en',
-  mode: ActivityMode = 'LIFE',
-) {
-  const copy: Record<ActivityRoomOverview['state'], [string, string]> = {
-    NOT_EQUIPPED: ['Pas encore équipée', 'Not equipped yet'],
-    EQUIPMENT_ISSUE: ['Équipement à vérifier', 'Equipment to check'],
-    LEARNING: ['Apprentissage en cours', 'Learning in progress'],
-    NO_ACTIVITY: ['Aucune activité récente', 'No recent activity'],
-    OBSERVED: ['Activité observée', 'Activity observed'],
-  };
-  if (mode === 'ENVIRONMENT' && state === 'NO_ACTIVITY')
-    return locale === 'fr' ? 'Aucune mesure récente' : 'No recent reading';
-  if (mode === 'ENVIRONMENT' && state === 'OBSERVED')
-    return locale === 'fr' ? 'Mesures disponibles' : 'Readings available';
-  return copy[state][locale === 'fr' ? 0 : 1];
-}
-
-function statusContent(
-  reassurance: ActivityPageProps['reassurance'],
-  residentName: string,
-  locale: 'fr' | 'en',
-) {
-  if (reassurance === 'ATTENTION')
-    return {
-      title:
-        locale === 'fr'
-          ? `Une situation demande votre attention pour ${residentName}.`
-          : `A situation needs your attention for ${residentName}.`,
-      label: locale === 'fr' ? 'À vérifier' : 'Needs attention',
-      icon: AlertTriangle,
-      tone: 'attention',
-    };
-  if (reassurance === 'INSUFFICIENT_DATA')
-    return {
-      title:
-        locale === 'fr'
-          ? `Élise manque encore de données fiables pour ${residentName}.`
-          : `Élise still lacks reliable data for ${residentName}.`,
-      label: locale === 'fr' ? 'Données insuffisantes' : 'Insufficient data',
-      icon: CircleDashed,
-      tone: 'insufficient',
-    };
-  if (reassurance === 'LEARNING')
-    return {
-      title:
-        locale === 'fr'
-          ? `Élise apprend le rythme quotidien de ${residentName}.`
-          : `Élise is learning ${residentName}’s daily rhythm.`,
-      label: locale === 'fr' ? 'Apprentissage' : 'Learning',
-      icon: Sparkles,
-      tone: 'learning',
-    };
-  return {
-    title:
-      locale === 'fr'
-        ? `La journée de ${residentName} suit son rythme habituel.`
-        : `${residentName}’s day is following its usual rhythm.`,
-    label: locale === 'fr' ? 'Rythme habituel' : 'Usual rhythm',
-    icon: ShieldCheck,
-    tone: 'normal',
-  };
-}
-
 function sequenceSentence(sequence: ActivitySequence, locale: 'fr' | 'en') {
   const duration =
     sequence.durationSeconds >= 60 ? readableDuration(sequence.durationSeconds, locale) : '';
@@ -263,67 +221,37 @@ function sequenceSentence(sequence: ActivitySequence, locale: 'fr' | 'en') {
     : `Activity observed in ${room}${duration ? ` for ${duration}` : ''}.`;
 }
 
-function MiniTrend({ points, label }: { points: Array<{ value: number }>; label: string }) {
-  if (points.length < 2) return <span className="activity-trend-empty" aria-hidden="true" />;
-  const values = points.map(({ value }) => value);
-  const minimum = Math.min(...values);
-  const maximum = Math.max(...values);
-  const spread = Math.max(1, maximum - minimum);
-  const path = points
-    .map(({ value }, index) => {
-      const x = (index / Math.max(1, points.length - 1)) * 100;
-      const y = 25 - ((value - minimum) / spread) * 21;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(' ');
-  return (
-    <svg className="activity-mini-trend" viewBox="0 0 100 30" role="img" aria-label={label}>
-      <polyline points={path} fill="none" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-}
-
-export function ActivityPage({
-  locale,
-  homeName,
-  timeZone,
-  residentName,
-  reassurance,
-  openAlerts,
-  canManage,
-  onOpenAlerts,
-  onOpenRoom,
-  onOpenStair,
-}: ActivityPageProps) {
+export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
   const fr = locale === 'fr';
-  const [period, setPeriod] = useState<DashboardPeriod>('24h');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [mode, setMode] = useState<ActivityMode>('LIFE');
-  const [selectedLevelId, setSelectedLevelId] = useState('all');
-  const [selectedRoomId, setSelectedRoomId] = useState('');
+  const todayKey = currentDateKey(timeZone);
   const [summary, setSummary] = useState<ActivitySummary | null>(null);
-  const [plan, setPlan] = useState<HomePlan | null>(null);
-  const [routines, setRoutines] = useState<RoutinesSummary | null>(null);
+  const [homeSummary, setHomeSummary] = useState<HomeSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [visibleSequences, setVisibleSequences] = useState(8);
+  const [selectedDate, setSelectedDate] = useState(todayKey);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isComparing, setIsComparing] = useState(false);
+  const [comparisonDate, setComparisonDate] = useState('');
+  const [comparisonSummary, setComparisonSummary] = useState<ActivitySummary | null>(null);
+  const [comparisonLoading, setComparisonLoading] = useState(false);
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(
     async (showLoading = false) => {
       if (showLoading) setLoading(true);
-      const query = new URLSearchParams({ period });
-      if (selectedDate) query.set('date', selectedDate);
+      const query = new URLSearchParams({ period: '24h', date: selectedDate });
       try {
-        const [summaryResponse, planResponse, routinesResponse] = await Promise.all([
+        const [summaryResponse, homeResponse] = await Promise.all([
           fetch(`/api/v1/analytics/activity?${query}`, { cache: 'no-store' }),
-          fetch('/api/v1/household/plan', { cache: 'no-store' }),
-          fetch('/api/v1/analytics/routines', { cache: 'no-store' }),
+          fetch('/api/v1/home-summary', { cache: 'no-store' }),
         ]);
-        if (!summaryResponse.ok || !planResponse.ok) throw new Error('activity');
+        if (!summaryResponse.ok) throw new Error('activity');
         setSummary((await summaryResponse.json()) as ActivitySummary);
-        setPlan((await planResponse.json()) as HomePlan);
-        if (routinesResponse.ok) setRoutines((await routinesResponse.json()) as RoutinesSummary);
+        if (homeResponse.ok) {
+          const homeResult = homeSummarySchema.safeParse(await homeResponse.json());
+          if (homeResult.success) setHomeSummary(homeResult.data);
+        }
         setError(false);
       } catch {
         setError(true);
@@ -331,12 +259,47 @@ export function ActivityPage({
         setLoading(false);
       }
     },
-    [period, selectedDate],
+    [selectedDate],
   );
 
   useEffect(() => void refresh(true), [refresh]);
   useEffect(() => {
+    setVisibleSequences(8);
+  }, [selectedDate]);
+
+  useEffect(() => {
+    if (!isComparing || !comparisonDate) {
+      setComparisonSummary(null);
+      setComparisonLoading(false);
+      return;
+    }
+
+    let alive = true;
+    setComparisonLoading(true);
+    fetch(`/api/v1/analytics/activity?period=24h&date=${encodeURIComponent(comparisonDate)}`, {
+      cache: 'no-store',
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('comparison');
+        return (await response.json()) as ActivitySummary;
+      })
+      .then((value) => {
+        if (alive) setComparisonSummary(value);
+      })
+      .catch(() => {
+        if (alive) setComparisonSummary(null);
+      })
+      .finally(() => {
+        if (alive) setComparisonLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [comparisonDate, isComparing]);
+  useEffect(() => {
     const events = new EventSource('/api/v1/events');
+    const refreshInterval = setInterval(() => void refresh(false), 60_000);
     events.onmessage = (event) => {
       try {
         const type = (JSON.parse(String(event.data)) as { type?: string }).type;
@@ -350,77 +313,45 @@ export function ActivityPage({
     return () => {
       events.close();
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      clearInterval(refreshInterval);
     };
   }, [refresh]);
 
-  useEffect(() => setVisibleSequences(8), [period, selectedDate, selectedRoomId]);
-
-  const status = statusContent(reassurance, residentName, locale);
-  const StatusIcon = status.icon;
-  const summaryByRoom = useMemo(
-    () => new Map(summary?.rooms.map((room) => [room.id, room]) ?? []),
-    [summary],
-  );
-  const levels = useMemo(
-    () => [...(plan?.levels ?? [])].sort((left, right) => left.order - right.order),
-    [plan],
-  );
-  const roomEntries = useMemo(
-    () =>
-      levels.flatMap((level) =>
-        level.rooms.map((room) => ({
-          room,
-          level,
-          activity:
-            summaryByRoom.get(room.id) ??
-            ({
-              id: room.id,
-              name: room.name,
-              kind: room.kind,
-              floor: level.floor,
-              state: 'NOT_EQUIPPED',
-              environmentState: 'NOT_EQUIPPED',
-              sensorCount: 0,
-              lastActivity: null,
-              environment: [],
-              safety: [],
-            } satisfies ActivityRoomOverview),
-        })),
-      ),
-    [levels, summaryByRoom],
-  );
-  const visibleRooms = roomEntries.filter(
-    ({ level }) => selectedLevelId === 'all' || level.id === selectedLevelId,
-  );
-  const selectedRoom = selectedRoomId ? (summaryByRoom.get(selectedRoomId) ?? null) : null;
-  const selectedRoomState = selectedRoom
-    ? mode === 'LIFE'
-      ? selectedRoom.state
-      : selectedRoom.environmentState
-    : null;
-  const selectedRoomEntry = roomEntries.find(({ room }) => room.id === selectedRoomId) ?? null;
-  const dwell = summary?.dwellByRoom.find(({ id }) => id === selectedRoomId) ?? null;
-  const chartBuckets = summary?.reliableBuckets ?? [];
-  const chartValues = chartBuckets.map((bucket) =>
-    selectedRoomId ? (bucket.byRoom[selectedRoomId] ?? 0) : bucket.seconds,
-  );
-  const chartMaximum = Math.max(1, ...chartValues);
-  const filteredSequences = (summary?.sequences ?? []).filter(
-    (sequence) => !selectedRoomId || sequence.roomIds.includes(selectedRoomId),
-  );
-  const allStairs = [
-    ...new Map(levels.flatMap(({ stairs }) => stairs).map((stair) => [stair.id, stair])).values(),
-  ].filter(
-    (stair) =>
-      selectedLevelId === 'all' ||
-      stair.fromFloorId === selectedLevelId ||
-      stair.toFloorId === selectedLevelId,
-  );
-  const levelName = (id: string) => levels.find((level) => level.id === id)?.name ?? id;
-  const confirmedChanges =
-    routines?.coverageSufficient && routines.learningDays >= routines.requiredLearningDays
-      ? routines.changes.filter((change) => !selectedRoomId || change.roomId === selectedRoomId)
-      : [];
+  const allSequences = summary?.sequences ?? [];
+  const filteredSequences = allSequences;
+  const momentsCount = filteredSequences.length;
+  const usedRoomsCount = new Set(filteredSequences.flatMap((sequence) => sequence.roomNames)).size;
+  const activityDuration = readableDuration(summary?.observedSeconds ?? 0, locale);
+  const availableDates = Array.from({ length: 7 }, (_, index) => shiftDateKey(todayKey, -index));
+  const selectedDateLabel = dateKeyLabel(selectedDate, locale, timeZone);
+  const selectedDateTitle =
+    selectedDate === todayKey
+      ? `${fr ? 'Aujourd’hui' : 'Today'} · ${selectedDateLabel}`
+      : selectedDateLabel;
+  const comparisonSequences = comparisonSummary?.sequences ?? [];
+  const comparisonMomentsCount = comparisonSequences.length;
+  const comparisonRoomsCount = new Set(
+    comparisonSequences.flatMap((sequence) => sequence.roomNames),
+  ).size;
+  const currentDurationMinutes = Math.round((summary?.observedSeconds ?? 0) / 60);
+  const comparisonDurationMinutes = Math.round((comparisonSummary?.observedSeconds ?? 0) / 60);
+  const liveMoment =
+    selectedDate === todayKey && homeSummary ? presenceText(homeSummary, locale) : null;
+  const liveMomentAt =
+    selectedDate === todayKey
+      ? (homeSummary?.latestPresence?.occurredAt ??
+        homeSummary?.presence.lastEvidenceAt ??
+        homeSummary?.presence.lastConfirmedAt ??
+        homeSummary?.presence.detectedAt ??
+        null)
+      : null;
+  const lastReliableActivity = summary?.lastReliableActivity
+    ? fr
+      ? `La dernière activité fiable a été observée dans ${summary.lastReliableActivity.roomName} à ${clock(summary.lastReliableActivity.occurredAt, locale, timeZone)}.`
+      : `The latest reliable activity was observed in ${summary.lastReliableActivity.roomName} at ${clock(summary.lastReliableActivity.occurredAt, locale, timeZone)}.`
+    : fr
+      ? 'Aucune activité fiable ne permet encore de résumer cette période.'
+      : 'No reliable activity is available to summarize this period yet.';
 
   if (loading && !summary)
     return (
@@ -432,88 +363,13 @@ export function ActivityPage({
 
   return (
     <section className="activity-overview-page">
-      <header className={`activity-overview-hero activity-overview-hero--${status.tone}`}>
-        <div className="activity-overview-hero-copy">
-          <span className="activity-overview-status-icon" aria-hidden="true">
-            <StatusIcon />
-          </span>
-          <div>
-            <span className="eyebrow">{homeName}</span>
-            <h2>{status.title}</h2>
-            <div className="activity-overview-meta">
-              <span className={`activity-state-pill activity-state-pill--${status.tone}`}>
-                <CircleDot /> {status.label}
-              </span>
-              {summary?.lastReliableActivity ? (
-                <span className="activity-last-reliable">
-                  <Clock3 />
-                  <span>
-                    <strong>{summary.lastReliableActivity.roomName}</strong>
-                    {clock(summary.lastReliableActivity.occurredAt, locale, timeZone)} ·{' '}
-                    {relativeTime(summary.lastReliableActivity.occurredAt, locale)}
-                  </span>
-                </span>
-              ) : (
-                <span className="activity-last-reliable activity-last-reliable--empty">
-                  <CircleDashed />
-                  {fr ? 'Pas encore d’activité fiable' : 'No reliable activity yet'}
-                </span>
-              )}
-            </div>
+      <header className="activity-overview-hero">
+        <div className="activity-overview-hero-content">
+          <h2>{fr ? 'Activité' : 'Activity'}</h2>
+          <div className="activity-hero-last-activity" role="status">
+            <CircleCheck aria-hidden="true" />
+            <span>{lastReliableActivity}</span>
           </div>
-        </div>
-        <div className="activity-overview-hero-actions">
-          {openAlerts > 0 && (
-            <button className="activity-alert-link" onClick={onOpenAlerts}>
-              <AlertTriangle />
-              {fr
-                ? `${openAlerts} alerte${openAlerts > 1 ? 's' : ''} à consulter`
-                : `${openAlerts} alert${openAlerts > 1 ? 's' : ''} to review`}
-              <ArrowRight />
-            </button>
-          )}
-          <div
-            className="activity-period-switch"
-            role="group"
-            aria-label={fr ? 'Période d’analyse' : 'Analysis period'}
-          >
-            {(['24h', '7d', '28d'] as const).map((value) => (
-              <button
-                type="button"
-                key={value}
-                aria-pressed={period === value}
-                onClick={() => {
-                  setPeriod(value);
-                  if (value !== '24h') setSelectedDate('');
-                }}
-              >
-                {value === '24h'
-                  ? fr
-                    ? 'Aujourd’hui'
-                    : 'Today'
-                  : value === '7d'
-                    ? fr
-                      ? '7 jours'
-                      : '7 days'
-                    : fr
-                      ? '28 jours'
-                      : '28 days'}
-              </button>
-            ))}
-          </div>
-          <label className="activity-date-control">
-            <CalendarDays />
-            <span>{fr ? 'Autre jour' : 'Another day'}</span>
-            <input
-              type="date"
-              value={selectedDate}
-              max={currentDateKey(timeZone)}
-              onChange={(event) => {
-                setSelectedDate(event.target.value);
-                if (event.target.value) setPeriod('24h');
-              }}
-            />
-          </label>
         </div>
       </header>
 
@@ -531,435 +387,230 @@ export function ActivityPage({
         </div>
       )}
 
-      <div
-        className="activity-mode-tabs"
-        role="tablist"
-        aria-label={fr ? 'Type d’activité' : 'Activity view'}
-      >
-        <button role="tab" aria-selected={mode === 'LIFE'} onClick={() => setMode('LIFE')}>
-          <Footprints /> {fr ? 'Vie du domicile' : 'Home life'}
-        </button>
-        <button
-          role="tab"
-          aria-selected={mode === 'ENVIRONMENT'}
-          onClick={() => setMode('ENVIRONMENT')}
-        >
-          <Thermometer /> {fr ? 'Environnement & équipements' : 'Environment & equipment'}
-        </button>
-      </div>
-
-      <div className="activity-overview-main-grid">
-        <div className="activity-overview-primary">
-          <article className="activity-surface-card activity-rhythm-card">
-            <header className="activity-card-heading">
-              <div>
-                <span className="eyebrow">{fr ? 'Rythme observé' : 'Observed rhythm'}</span>
-                <h3>
-                  {selectedRoomEntry
-                    ? selectedRoomEntry.room.name
-                    : fr
-                      ? 'Présence fiable dans le logement'
-                      : 'Reliable presence in the home'}
-                </h3>
-              </div>
-              <span className="activity-duration-pill">
-                <Clock3 />{' '}
-                {readableDuration(
-                  selectedRoomId ? (dwell?.totalSeconds ?? 0) : (summary?.observedSeconds ?? 0),
-                  locale,
-                )}
-              </span>
-            </header>
-            <div
-              className="activity-rhythm-bars"
-              aria-label={fr ? 'Temps de présence fiable' : 'Reliable presence time'}
-            >
-              {chartBuckets.map((bucket, index) => {
-                const value = chartValues[index] ?? 0;
-                return (
-                  <div key={bucket.start}>
-                    <span className="activity-rhythm-track">
-                      <i
-                        style={{
-                          height: value ? `${Math.max(6, (value / chartMaximum) * 100)}%` : '3px',
-                        }}
-                        title={`${bucket.label} · ${readableDuration(value, locale)}`}
-                      />
-                    </span>
-                    <small>{bucket.label}</small>
-                  </div>
-                );
-              })}
-            </div>
-            <footer className="activity-rhythm-legend">
-              <span>
-                <i className="observed" /> {fr ? 'Présence fiable' : 'Reliable presence'}
-              </span>
-              {!selectedRoomId && (
-                <span>
-                  <i className="unknown" />{' '}
-                  {readableDuration(summary?.unobservedSeconds ?? 0, locale)}{' '}
-                  {fr ? 'sans donnée fiable' : 'without reliable data'}
-                </span>
-              )}
-            </footer>
-          </article>
-
-          <article className="activity-surface-card activity-spaces-card">
-            <header className="activity-card-heading activity-spaces-heading">
-              <div>
-                <span className="eyebrow">{fr ? 'Pièce par pièce' : 'Room by room'}</span>
-                <h3>{fr ? 'Tout le logement reste visible' : 'The whole home stays visible'}</h3>
-              </div>
-              {selectedRoomId && (
-                <button className="activity-clear-filter" onClick={() => setSelectedRoomId('')}>
-                  {fr ? 'Tout le logement' : 'Whole home'}
-                </button>
-              )}
-            </header>
-            <div
-              className="activity-floor-tabs"
-              role="tablist"
-              aria-label={fr ? 'Niveaux du logement' : 'Home levels'}
-            >
+      <article className="activity-surface-card activity-sequences-card">
+        <header className="activity-moments-header">
+          <div>
+            <h2>{fr ? 'Moments du quotidien' : 'Daily moments'}</h2>
+            <p>
+              {fr
+                ? 'Une vue d’ensemble des activités et déplacements au fil de la journée.'
+                : 'An overview of activity and movement throughout the day.'}
+            </p>
+          </div>
+          <div className="activity-moments-actions">
+            <div className="activity-date-picker">
               <button
-                aria-selected={selectedLevelId === 'all'}
-                onClick={() => {
-                  setSelectedLevelId('all');
-                  setSelectedRoomId('');
-                }}
+                className="activity-moments-date"
+                type="button"
+                aria-expanded={isDatePickerOpen}
+                aria-haspopup="listbox"
+                onClick={() => setIsDatePickerOpen((value) => !value)}
               >
-                {fr ? 'Tous les niveaux' : 'All levels'}
+                <CalendarDays />
+                <span>{selectedDateTitle}</span>
+                <ChevronDown />
               </button>
-              {levels.map((level) => (
-                <button
-                  key={level.id}
-                  aria-selected={selectedLevelId === level.id}
-                  onClick={() => {
-                    setSelectedLevelId(level.id);
-                    setSelectedRoomId('');
-                  }}
+              {isDatePickerOpen && (
+                <div
+                  className="activity-date-menu"
+                  role="listbox"
+                  aria-label={fr ? 'Choisir une journée' : 'Choose a day'}
                 >
-                  {level.name}
-                </button>
-              ))}
-            </div>
-            <div className="activity-room-grid">
-              {visibleRooms.map(({ room, level, activity: roomActivity }) => {
-                const RoomIcon = roomIcon(room);
-                const selected = selectedRoomId === room.id;
-                const primaryReading = roomActivity.environment[0];
-                const displayState =
-                  mode === 'LIFE' ? roomActivity.state : roomActivity.environmentState;
-                const needsAction = ['NOT_EQUIPPED', 'EQUIPMENT_ISSUE'].includes(displayState);
-                return (
-                  <article
-                    className={`activity-room-card${selected ? ' is-selected' : ''}`}
-                    key={room.id}
-                  >
+                  {availableDates.map((date) => (
                     <button
-                      className="activity-room-select"
-                      aria-pressed={selected}
-                      onClick={() => setSelectedRoomId(selected ? '' : room.id)}
+                      className={`activity-date-option${date === selectedDate ? ' is-selected' : ''}`}
+                      key={date}
+                      type="button"
+                      role="option"
+                      aria-selected={date === selectedDate}
+                      onClick={() => {
+                        setSelectedDate(date);
+                        setIsDatePickerOpen(false);
+                        if (date === comparisonDate) setComparisonDate('');
+                      }}
                     >
-                      <span
-                        className="activity-room-icon"
-                        style={{ background: room.geometry.color }}
-                      >
-                        <RoomIcon />
-                      </span>
-                      <span className="activity-room-copy">
-                        <strong>{room.name}</strong>
-                        <small>{level.name}</small>
-                        {mode === 'LIFE' ? (
-                          roomActivity.lastActivity ? (
-                            <span>
-                              {eventDescription(roomActivity.lastActivity, locale)} ·{' '}
-                              {clock(roomActivity.lastActivity.occurredAt, locale, timeZone)}
-                            </span>
-                          ) : (
-                            <span>{roomStateCopy(displayState, locale, mode)}</span>
-                          )
-                        ) : primaryReading ? (
-                          <span>
-                            {capabilityLabel(primaryReading.capability, locale)} ·{' '}
-                            {primaryReading.latestValue}
-                            {primaryReading.unit ? ` ${primaryReading.unit}` : ''}
-                          </span>
-                        ) : (
-                          <span>{fr ? 'Aucune mesure disponible' : 'No reading available'}</span>
-                        )}
-                      </span>
-                      <span
-                        className={`activity-room-state activity-room-state--${displayState.toLowerCase()}`}
-                      >
-                        {roomStateCopy(displayState, locale, mode)}
-                      </span>
-                    </button>
-                    {needsAction && canManage && (
-                      <button className="activity-room-manage" onClick={() => onOpenRoom(room.id)}>
-                        {displayState === 'NOT_EQUIPPED'
-                          ? fr
-                            ? 'Équiper cette pièce'
-                            : 'Equip this room'
-                          : fr
-                            ? 'Vérifier l’équipement'
-                            : 'Check equipment'}
-                        <ArrowRight />
-                      </button>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-
-            {allStairs.length > 0 && (
-              <div className="activity-passages">
-                <span className="eyebrow">
-                  {fr ? 'Passages entre niveaux' : 'Between-floor passages'}
-                </span>
-                <div>
-                  {allStairs.map((stair) => (
-                    <button
-                      key={stair.id}
-                      onClick={() => canManage && onOpenStair(stair.id)}
-                      disabled={!canManage}
-                    >
-                      <ChartNoAxesCombined />
                       <span>
                         <strong>
-                          {levelName(stair.fromFloorId)} ↔ {levelName(stair.toFloorId)}
+                          {date === todayKey
+                            ? fr
+                              ? 'Aujourd’hui'
+                              : 'Today'
+                            : dateKeyLabel(date, locale, timeZone)}
                         </strong>
-                        <small>{fr ? 'Passage entre niveaux' : 'Between-floor passage'}</small>
+                        <small>{date}</small>
                       </span>
-                      {canManage && <ArrowRight />}
+                      {date === selectedDate && <CircleCheck aria-hidden="true" />}
                     </button>
                   ))}
                 </div>
+              )}
+            </div>
+            <button
+              className={`activity-compare-toggle${isComparing ? ' is-active' : ''}`}
+              type="button"
+              aria-pressed={isComparing}
+              onClick={() => setIsComparing((value) => !value)}
+            >
+              <ArrowLeftRight />
+              <span>{fr ? 'Comparer' : 'Compare'}</span>
+            </button>
+          </div>
+        </header>
+
+        {isComparing && (
+          <div className="activity-comparison-panel">
+            <div className="activity-comparison-picker">
+              <ArrowLeftRight aria-hidden="true" />
+              <label htmlFor="activity-comparison-date">
+                {fr ? 'Comparer avec' : 'Compare with'}
+              </label>
+              <select
+                id="activity-comparison-date"
+                value={comparisonDate}
+                onChange={(event) => setComparisonDate(event.target.value)}
+              >
+                <option value="">{fr ? 'Choisir une journée' : 'Choose a day'}</option>
+                {availableDates
+                  .filter((date) => date !== selectedDate)
+                  .map((date) => (
+                    <option value={date} key={date}>
+                      {dateKeyLabel(date, locale, timeZone)}
+                    </option>
+                  ))}
+              </select>
+              <ChevronDown aria-hidden="true" />
+            </div>
+            {comparisonDate && (
+              <div className="activity-comparison-result" aria-live="polite">
+                {comparisonLoading ? (
+                  <span className="activity-comparison-loading">
+                    {fr ? 'Comparaison…' : 'Comparing…'}
+                  </span>
+                ) : comparisonSummary ? (
+                  <>
+                    <span className="activity-comparison-caption">
+                      {fr ? 'Écart avec' : 'Difference from'}{' '}
+                      {dateKeyLabel(comparisonDate, locale, timeZone)}
+                    </span>
+                    <div className="activity-comparison-stat">
+                      <strong>
+                        {comparisonDelta(
+                          momentsCount - comparisonMomentsCount,
+                          fr ? 'moments' : 'moments',
+                          locale,
+                        )}
+                      </strong>
+                      <small>{fr ? 'moments détectés' : 'detected moments'}</small>
+                    </div>
+                    <div className="activity-comparison-stat">
+                      <strong>
+                        {comparisonDelta(
+                          currentDurationMinutes - comparisonDurationMinutes,
+                          fr ? 'min' : 'min',
+                          locale,
+                        )}
+                      </strong>
+                      <small>{fr ? 'd’activité' : 'of activity'}</small>
+                    </div>
+                    <div className="activity-comparison-stat">
+                      <strong>
+                        {comparisonDelta(
+                          usedRoomsCount - comparisonRoomsCount,
+                          fr ? 'pièce(s)' : 'room(s)',
+                          locale,
+                        )}
+                      </strong>
+                      <small>{fr ? 'pièces utilisées' : 'rooms used'}</small>
+                    </div>
+                  </>
+                ) : (
+                  <span className="activity-comparison-loading">
+                    {fr
+                      ? 'Comparaison indisponible pour cette journée.'
+                      : 'Comparison unavailable for this day.'}
+                  </span>
+                )}
               </div>
             )}
+          </div>
+        )}
 
-            {selectedRoom && selectedRoomEntry && (
-              <section className="activity-room-detail">
-                <header>
-                  <div>
-                    <span className="eyebrow">{fr ? 'Détail de la pièce' : 'Room details'}</span>
-                    <h4>{selectedRoom.name}</h4>
-                  </div>
-                  {canManage && (
-                    <button onClick={() => onOpenRoom(selectedRoom.id)}>
-                      {fr ? 'Ouvrir dans Mon logement' : 'Open in My home'} <ArrowRight />
-                    </button>
-                  )}
-                </header>
-                <div className="activity-room-metrics">
-                  <span>
-                    <small>{fr ? 'Temps observé' : 'Observed time'}</small>
-                    <strong>{readableDuration(dwell?.totalSeconds ?? 0, locale)}</strong>
-                  </span>
-                  <span>
-                    <small>{fr ? 'Séjour médian' : 'Median stay'}</small>
-                    <strong>{readableDuration(dwell?.medianSeconds ?? 0, locale)}</strong>
-                  </span>
-                  <span>
-                    <small>{fr ? 'Sessions fiables' : 'Reliable sessions'}</small>
-                    <strong>{dwell ? `${dwell.reliableSessions}/${dwell.sessions}` : '—'}</strong>
-                  </span>
-                </div>
-                {mode === 'ENVIRONMENT' && (
-                  <div className="activity-environment-grid">
-                    {selectedRoom.environment.map((reading) => {
-                      const Icon = capabilityIcons[reading.capability] ?? Gauge;
-                      return (
-                        <article key={reading.capability}>
-                          <header>
-                            <Icon />
-                            <span>{capabilityLabel(reading.capability, locale)}</span>
-                          </header>
-                          <strong>
-                            {reading.latestValue}
-                            {reading.unit ? ` ${reading.unit}` : ''}
-                          </strong>
-                          <MiniTrend
-                            points={reading.points}
-                            label={`${capabilityLabel(reading.capability, locale)} · ${selectedRoom.name}`}
-                          />
-                          <small>
-                            {reading.minimum === null || reading.maximum === null
-                              ? fr
-                                ? 'Pas assez de recul'
-                                : 'Not enough history'
-                              : `${fr ? 'Min.' : 'Min'} ${reading.minimum}${reading.unit ? ` ${reading.unit}` : ''} · ${fr ? 'Max.' : 'Max'} ${reading.maximum}${reading.unit ? ` ${reading.unit}` : ''}`}
-                          </small>
-                        </article>
-                      );
-                    })}
-                    {!selectedRoom.environment.length && (
-                      <p className="activity-inline-empty">
-                        {fr
-                          ? 'Aucune mesure d’ambiance dans cette pièce.'
-                          : 'No environmental reading in this room.'}
-                      </p>
-                    )}
-                  </div>
-                )}
-                {selectedRoom.safety.length > 0 && (
-                  <div className="activity-safety-row">
-                    {selectedRoom.safety.map((event) => {
-                      const Icon = capabilityIcons[event.capability] ?? ShieldAlert;
-                      return (
-                        <span key={event.id}>
-                          <Icon /> {eventDescription(event, locale)}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-            )}
-          </article>
+        <div className="activity-moments-toolbar">
+          <div className="activity-moment-stat activity-moment-stat--blue">
+            <span className="activity-moment-stat-icon">
+              <Footprints />
+            </span>
+            <div>
+              <strong>{momentsCount}</strong>
+              <small>{fr ? 'moments détectés' : 'moments detected'}</small>
+            </div>
+            <CircleHelp />
+          </div>
+          <div className="activity-moment-stat activity-moment-stat--green">
+            <span className="activity-moment-stat-icon">
+              <Clock3 />
+            </span>
+            <div>
+              <strong>{activityDuration}</strong>
+              <small>{fr ? 'd’activité' : 'of activity'}</small>
+            </div>
+          </div>
+          <div className="activity-moment-stat activity-moment-stat--orange">
+            <span className="activity-moment-stat-icon">
+              <Home />
+            </span>
+            <div>
+              <strong>{usedRoomsCount}</strong>
+              <small>{fr ? 'pièces utilisées' : 'rooms used'}</small>
+            </div>
+          </div>
         </div>
 
-        <aside className="activity-overview-side-column">
-          <article className="activity-side-card activity-summary-card">
-            <header>
-              <div>
-                <span className="eyebrow">{fr ? 'En bref' : 'At a glance'}</span>
-                <h3>{fr ? 'Ce qu’il faut retenir' : 'What matters'}</h3>
-              </div>
-              <ShieldCheck />
-            </header>
-            <p>
-              {selectedRoom
-                ? selectedRoomState === 'NOT_EQUIPPED'
-                  ? fr
-                    ? mode === 'LIFE'
-                      ? `${selectedRoom.name} n’est pas encore équipée pour observer la vie du domicile. Élise ne peut pas interpréter son silence.`
-                      : `${selectedRoom.name} ne dispose pas encore de mesure d’environnement ou d’équipement.`
-                    : mode === 'LIFE'
-                      ? `${selectedRoom.name} is not equipped to observe home life yet. Élise cannot interpret its silence.`
-                      : `${selectedRoom.name} does not have environmental or equipment readings yet.`
-                  : selectedRoomState === 'EQUIPMENT_ISSUE'
-                    ? fr
-                      ? `Une donnée de ${selectedRoom.name} mérite d’être vérifiée avant toute conclusion.`
-                      : `Data from ${selectedRoom.name} should be checked before drawing a conclusion.`
-                    : mode === 'ENVIRONMENT'
-                      ? selectedRoom.environment.length > 0
-                        ? fr
-                          ? `Les dernières mesures utiles de ${selectedRoom.name} sont disponibles ci-contre.`
-                          : `The latest useful readings for ${selectedRoom.name} are available alongside.`
-                        : fr
-                          ? `Aucune mesure récente n’est disponible dans ${selectedRoom.name}, avec une couverture existante.`
-                          : `No recent reading is available in ${selectedRoom.name}, with coverage available.`
-                      : selectedRoom.lastActivity
-                        ? fr
-                          ? `La dernière activité fiable dans ${selectedRoom.name} a été observée à ${clock(selectedRoom.lastActivity.occurredAt, locale, timeZone)}.`
-                          : `The latest reliable activity in ${selectedRoom.name} was observed at ${clock(selectedRoom.lastActivity.occurredAt, locale, timeZone)}.`
-                        : fr
-                          ? `Aucune activité récente n’a été observée dans ${selectedRoom.name}, avec une couverture disponible.`
-                          : `No recent activity was observed in ${selectedRoom.name}, with coverage available.`
-                : summary?.lastReliableActivity
-                  ? fr
-                    ? `La dernière activité fiable a été observée dans ${summary.lastReliableActivity.roomName} à ${clock(summary.lastReliableActivity.occurredAt, locale, timeZone)}.`
-                    : `The latest reliable activity was observed in ${summary.lastReliableActivity.roomName} at ${clock(summary.lastReliableActivity.occurredAt, locale, timeZone)}.`
-                  : fr
-                    ? 'Aucune activité fiable ne permet encore de résumer cette période.'
-                    : 'No reliable activity is available to summarize this period yet.'}
-            </p>
-            {confirmedChanges.map((change) => (
-              <div className="activity-routine-change" key={change.roomId}>
-                <Sparkles />
-                <span>
-                  {fr
-                    ? `${change.roomName} est ${change.direction === 'HIGHER' ? 'plus active' : 'plus calme'} que d’habitude aujourd’hui.`
-                    : `${change.roomName} is ${change.direction === 'HIGHER' ? 'more active' : 'quieter'} than usual today.`}
+        <div className="activity-sequence-list activity-timeline">
+          {liveMoment && liveMomentAt && (
+            <article className="activity-sequence activity-current-sequence" role="status">
+              <div className="activity-current-sequence-summary">
+                <time className="activity-sequence-time">
+                  <strong>{clock(liveMomentAt, locale, timeZone)}</strong>
+                  <small>{fr ? 'En ce moment' : 'Right now'}</small>
+                </time>
+                <span className="activity-timeline-dot" aria-hidden="true" />
+                <span className="activity-sequence-summary-card activity-current-sequence-card">
+                  <span className="activity-sequence-summary-icon">
+                    <Footprints />
+                  </span>
+                  <span className="activity-sequence-copy">
+                    <strong>{liveMoment}</strong>
+                    <small>{fr ? 'Situation actuelle' : 'Current situation'}</small>
+                  </span>
+                  <span aria-hidden="true" />
                 </span>
               </div>
-            ))}
-          </article>
-
-          {routines && routines.learningDays < routines.requiredLearningDays ? (
-            <article className="activity-side-card activity-learning-card">
-              <header>
-                <div>
-                  <span className="eyebrow">{fr ? 'Habitudes locales' : 'Local routines'}</span>
-                  <h3>{fr ? 'Élise apprend progressivement' : 'Élise is learning gradually'}</h3>
-                </div>
-                <Sparkles />
-              </header>
-              <p>
-                {fr
-                  ? 'Les données restent visibles, mais Élise attend suffisamment de recul avant de comparer les habitudes.'
-                  : 'Data remains visible, but Élise waits for enough history before comparing routines.'}
-              </p>
-              <div
-                className="activity-learning-progress"
-                aria-label={`${routines.learningDays}/${routines.requiredLearningDays}`}
-              >
-                <i style={{ width: `${Math.round(routines.progress * 100)}%` }} />
-              </div>
-              <small>
-                {fr
-                  ? `Jour ${Math.min(routines.learningDays, routines.requiredLearningDays)} sur ${routines.requiredLearningDays}`
-                  : `Day ${Math.min(routines.learningDays, routines.requiredLearningDays)} of ${routines.requiredLearningDays}`}
-              </small>
-            </article>
-          ) : (
-            <article className="activity-side-card activity-coverage-card">
-              <header>
-                <div>
-                  <span className="eyebrow">{fr ? 'Couverture' : 'Coverage'}</span>
-                  <h3>{fr ? 'Lecture des pièces' : 'Room readings'}</h3>
-                </div>
-                <Radio />
-              </header>
-              {(['OBSERVED', 'NO_ACTIVITY', 'EQUIPMENT_ISSUE', 'NOT_EQUIPPED'] as const).map(
-                (state) => {
-                  const count =
-                    summary?.rooms.filter(
-                      (room) => (mode === 'LIFE' ? room.state : room.environmentState) === state,
-                    ).length ?? 0;
-                  return (
-                    <div key={state}>
-                      <span>{roomStateCopy(state, locale, mode)}</span>
-                      <strong>{count}</strong>
-                    </div>
-                  );
-                },
-              )}
             </article>
           )}
-        </aside>
-      </div>
-
-      <article className="activity-surface-card activity-sequences-card">
-        <header className="activity-card-heading">
-          <div>
-            <span className="eyebrow">{fr ? 'Moments du quotidien' : 'Daily moments'}</span>
-            <h3>{fr ? 'Ce qui s’est passé' : 'What happened'}</h3>
-          </div>
-          {selectedRoomEntry && (
-            <span className="activity-duration-pill">
-              <CircleDot /> {selectedRoomEntry.room.name}
-            </span>
-          )}
-        </header>
-        <div className="activity-sequence-list">
           {filteredSequences.slice(0, visibleSequences).map((sequence) => (
             <details className="activity-sequence" key={sequence.id}>
               <summary>
-                <time>{clock(sequence.startedAt, locale, timeZone)}</time>
-                <span className="activity-sequence-icon">
-                  <Footprints />
+                <time className="activity-sequence-time">
+                  <strong>{clock(sequence.startedAt, locale, timeZone)}</strong>
+                  <small>{relativeTime(sequence.startedAt, locale)}</small>
+                </time>
+                <span className="activity-timeline-dot" aria-hidden="true" />
+                <span className="activity-sequence-summary-card">
+                  <span className="activity-sequence-summary-icon">
+                    <Footprints />
+                  </span>
+                  <span className="activity-sequence-copy">
+                    <strong>{sequenceSentence(sequence, locale)}</strong>
+                    <small>
+                      {sequence.totalEventCount} {fr ? 'événements' : 'events'} ·{' '}
+                      {sequence.durationSeconds
+                        ? `${fr ? 'activité pendant' : 'activity for'} ${readableDuration(sequence.durationSeconds, locale)}`
+                        : relativeTime(sequence.startedAt, locale)}
+                    </small>
+                  </span>
+                  <ChevronDown />
                 </span>
-                <span className="activity-sequence-copy">
-                  <strong>{sequenceSentence(sequence, locale)}</strong>
-                  <small>
-                    {relativeTime(sequence.startedAt, locale)} · {sequence.totalEventCount}{' '}
-                    {fr ? 'événement(s)' : 'event(s)'}
-                  </small>
-                </span>
-                <ChevronDown />
               </summary>
               <div className="activity-sequence-events">
                 {sequence.hiddenEventCount > 0 && (
@@ -972,36 +623,39 @@ export function ActivityPage({
                 {sequence.events.map((event) => {
                   const Icon = capabilityIcons[event.capability] ?? Activity;
                   return (
-                    <div key={event.id}>
-                      <span>
+                    <div className="activity-event-row" key={event.id}>
+                      <time className="activity-event-time">
+                        {clock(event.occurredAt, locale, timeZone)}
+                      </time>
+                      <span className="activity-event-icon">
                         <Icon />
                       </span>
-                      <div>
+                      <div className="activity-event-copy">
                         <strong>{eventDescription(event, locale)}</strong>
                         <small>
                           {event.roomName} ·{' '}
                           {event.sensorName ?? (fr ? 'Capteur du logement' : 'Home sensor')}
                         </small>
                       </div>
-                      <time>
-                        {clock(event.occurredAt, locale, timeZone)}
-                        <small>
-                          {event.quality === 'good'
-                            ? fr
-                              ? 'Fiable'
-                              : 'Reliable'
-                            : fr
-                              ? 'À confirmer'
-                              : 'To confirm'}
-                        </small>
-                      </time>
+                      <span
+                        className={`activity-reliability-badge${event.quality === 'good' ? '' : ' is-muted'}`}
+                      >
+                        {event.quality === 'good' ? <CircleCheck /> : <CircleDashed />}
+                        {event.quality === 'good'
+                          ? fr
+                            ? 'Fiable'
+                            : 'Reliable'
+                          : fr
+                            ? 'À confirmer'
+                            : 'To confirm'}
+                      </span>
                     </div>
                   );
                 })}
               </div>
             </details>
           ))}
-          {!filteredSequences.length && (
+          {!filteredSequences.length && !liveMoment && (
             <div className="activity-sequences-empty">
               <CircleDashed />
               <p>

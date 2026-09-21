@@ -33,6 +33,7 @@ describe('Élise copy', () => {
       expect(html).not.toContain(labels[5]);
       expect(html).not.toContain(labels[6]);
       expect(html).toContain(labels[10]);
+      expect(html).toContain(labels[11]);
       expect(html.indexOf(labels[10])).toBeLessThan(html.indexOf(labels[3]));
     }
   });
@@ -77,6 +78,42 @@ describe('Élise copy', () => {
         'fr',
       ),
     ).toBe('Fermeture détectée');
+    expect(
+      activityDescription(
+        {
+          id: 'door-2',
+          occurredAt: '2026-08-09T08:05:00.000Z',
+          capability: 'contact',
+          room: 'Entrée',
+          payload: { open: true },
+        },
+        'fr',
+      ),
+    ).toBe('Ouverture détectée');
+    expect(
+      activityDescription(
+        {
+          id: 'fridge-1',
+          occurredAt: '2026-08-09T08:10:00.000Z',
+          capability: 'contact',
+          room: 'Cuisine',
+          payload: { open: true, context: { role: 'FRIDGE' } },
+        },
+        'fr',
+      ),
+    ).toBe('Frigo ouvert');
+    expect(
+      activityDescription(
+        {
+          id: 'fridge-2',
+          occurredAt: '2026-08-09T08:11:00.000Z',
+          capability: 'contact',
+          room: 'Cuisine',
+          payload: { open: false, context: { role: 'FRIDGE' } },
+        },
+        'fr',
+      ),
+    ).toBe('Frigo fermé');
     expect(
       activityDescription(
         {

@@ -9,6 +9,7 @@ interface DatabaseNotification {
     | 'activity'
     | 'alerts'
     | 'household'
+    | 'liaison'
     | 'journal'
     | 'schedule'
     | 'medications'

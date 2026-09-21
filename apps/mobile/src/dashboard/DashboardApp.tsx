@@ -1,3 +1,5 @@
+import { MobileLiaisonPanel } from './MobileLiaisonPanel';
+import { MobileCalendarPanel } from './MobileCalendarPanel';
 import { MobileScreenPanel } from '../screen/MobileScreenPanel';
 import { Ionicons } from '@expo/vector-icons';
 import type {
@@ -71,7 +73,7 @@ const tabs: Array<{ id: Tab; label: string; icon: IconName; active: IconName }> 
   { id: 'activity', label: 'Activité', icon: 'pulse-outline', active: 'pulse' },
   { id: 'alerts', label: 'Alertes', icon: 'notifications-outline', active: 'notifications' },
   { id: 'house', label: 'Maison', icon: 'grid-outline', active: 'grid' },
-  { id: 'journal', label: 'Journal', icon: 'book-outline', active: 'book' },
+  { id: 'journal', label: 'Liaison', icon: 'book-outline', active: 'book' },
 ];
 
 const capabilityMeta: Record<string, { label: string; icon: IconName }> = {
@@ -120,6 +122,8 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
   const queryClient = useQueryClient();
   const rootKey = useMemo(() => ['michel', server.id] as const, [server.id]);
   const [tab, setTab] = useState<Tab>('home');
+  const [legacyJournal, setLegacyJournal] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [period, setPeriod] = useState<DashboardPeriod>('24h');
   const [connected, setConnected] = useState(true);
 
@@ -204,9 +208,10 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
           const domains: Record<string, string[]> = {
             activity: ['overview', 'activity', 'summary', 'household', 'presence'],
             alerts: ['overview', 'alerts'],
-            household: ['overview', 'household', 'sensor-devices', 'home-plan'],
+            household: ['overview', 'household', 'sensor-devices', 'home-plan', 'liaison'],
+            liaison: ['liaison'],
             journal: ['journal'],
-            schedule: ['overview', 'schedule'],
+            schedule: ['overview', 'schedule', 'liaison'],
             presence: ['presence', 'presence-history'],
           };
           for (const domain of domains[event.type] ?? [])
@@ -347,15 +352,43 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
             onRefresh={invalidateAll}
           />
         )}
-        {tab === 'journal' && (
-          <JournalTab
-            items={journalItems}
-            schedule={schedule.data ?? []}
-            refreshing={journal.isRefetching}
-            onRefresh={invalidateAll}
-            onMore={() => void journal.fetchNextPage()}
-            hasMore={journal.hasNextPage}
+        {tab === 'journal' && calendarOpen && (
+          <MobileCalendarPanel
+            server={server}
+            token={token}
+            onBack={() => setCalendarOpen(false)}
           />
+        )}
+        {tab === 'journal' && !legacyJournal && !calendarOpen && (
+          <MobileLiaisonPanel
+            server={server}
+            token={token}
+            offline={offline}
+            schedule={schedule.data ?? []}
+            alerts={alertItems}
+            residentName={overview.data?.home?.resident ?? 'Élise'}
+            onJournal={() => setLegacyJournal(true)}
+            onCalendar={() => setCalendarOpen(true)}
+          />
+        )}
+        {tab === 'journal' && legacyJournal && (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setLegacyJournal(false)}
+              style={{ padding: 16 }}
+            >
+              <Text>← Retour au cahier de liaison</Text>
+            </Pressable>
+            <JournalTab
+              items={journalItems}
+              schedule={schedule.data ?? []}
+              refreshing={journal.isRefetching}
+              onRefresh={invalidateAll}
+              onMore={() => void journal.fetchNextPage()}
+              hasMore={journal.hasNextPage}
+            />
+          </>
         )}
       </View>
       <View style={styles.tabBar}>
@@ -371,7 +404,10 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               style={styles.tabButton}
-              onPress={() => setTab(item.id)}
+              onPress={() => {
+                setCalendarOpen(false);
+                setTab(item.id);
+              }}
             >
               <View>
                 <Ionicons

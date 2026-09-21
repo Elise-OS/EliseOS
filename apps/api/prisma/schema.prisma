@@ -241,6 +241,7 @@ model Home {
   models                     ModelArtifact[]
   evaluations                AnomalyEvaluation[]
   alerts                     Alert[]
+  liaisonEntries             LiaisonEntry[]
   journalEntries             JournalEntry[]
   visits                     Visit[]
   appointments               Appointment[]
@@ -311,6 +312,10 @@ model User {
   caregiver          CaregiverProfile?
   sessions           Session[]
   alertActions       AlertTransition[]
+  liaisonAuthored    LiaisonEntry[] @relation("LiaisonAuthor")
+  liaisonAssigned    LiaisonEntry[] @relation("LiaisonAssignee")
+  liaisonCompleted   LiaisonEntry[] @relation("LiaisonCompleter")
+  completedVisits    Visit[] @relation("VisitCompleter")
   journal            JournalEntry[]
   trustedContact     TrustedContact?
   confirmedDoses     MedicationDose[]
@@ -1007,14 +1012,23 @@ model JournalEntry {
 }
 
 model Visit {
+  completedAt DateTime?
+  completedById String?
+  completedBy User? @relation("VisitCompleter", fields: [completedById], references: [id], onDelete: SetNull)
   id          String    @id @default(cuid())
   homeId      String
   visitorName String
   startsAt    DateTime
   endsAt      DateTime?
   notes       String?
+  seriesId    String?
+  recurrence  String    @default("NONE")
+  recurrenceUntil DateTime?
   createdAt   DateTime  @default(now())
   home        Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@index([homeId, startsAt])
+  @@index([homeId, seriesId])
 }
 
 model Appointment {
@@ -1026,8 +1040,14 @@ model Appointment {
   endsAt    DateTime?
   location  String?
   notes     String?
+  seriesId  String?
+  recurrence String   @default("NONE")
+  recurrenceUntil DateTime?
   createdAt DateTime  @default(now())
   home      Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@index([homeId, startsAt])
+  @@index([homeId, seriesId])
 }
 
 model ConfigurationRevision {
@@ -1108,4 +1128,25 @@ model GoogleIntegration {
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
   home                   Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+}
+
+model LiaisonEntry {
+  id String @id @default(cuid())
+  homeId String
+  kind String
+  body String
+  tags String[] @default([])
+  authorId String?
+  assigneeId String?
+  dueOn String?
+  completedAt DateTime?
+  completedById String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  home Home @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  author User? @relation("LiaisonAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  assignee User? @relation("LiaisonAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  completedBy User? @relation("LiaisonCompleter", fields: [completedById], references: [id], onDelete: SetNull)
+  @@index([homeId, createdAt, id])
+  @@index([homeId, kind, completedAt])
 }
