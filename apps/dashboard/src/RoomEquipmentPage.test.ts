@@ -331,8 +331,12 @@ describe('room equipment cards', () => {
       status: null,
       outdated: false,
     });
+    const expectedTime = new Date('2026-09-12T18:15:32.000Z').toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
     expect(lastReadingLabel('2026-09-12T18:15:32.000Z', true, now, 'presence')).toBe(
-      'Dernier changement reçu à 20:15',
+      `Dernier changement reçu à ${expectedTime}`,
     );
   });
 
