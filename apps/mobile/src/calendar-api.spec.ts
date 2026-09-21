@@ -19,18 +19,16 @@ const server: SavedServer = {
 afterEach(() => vi.unstubAllGlobals());
 describe('Mobile calendar API', () => {
   it('loads a range with the authenticated session', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ items: [], timezone: 'Europe/Paris', canWrite: true }),
-      });
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ items: [], timezone: 'Europe/Paris', canWrite: true }),
+    });
     vi.stubGlobal('fetch', fetch);
     await mobileApi.calendar(server, 'session', '2026-09-01T00:00:00Z', '2026-10-01T00:00:00Z');
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/v1/calendar?from='),
       expect.objectContaining({
-        headers: expect.objectContaining({ authorization: 'Bearer session' }),
+        headers: expect.objectContaining({ authorization: 'Bearer session' }) as unknown,
       }),
     );
   });

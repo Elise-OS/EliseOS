@@ -23,3 +23,6 @@ services:
   dashboard:
     image: ${ELISE_DASHBOARD_IMAGE:-ghcr.io/elise-os/eliseos-dashboard:${MICHEL_VERSION}}
     build: !reset null
+  mdns:
+    image: ${ELISE_MDNS_IMAGE:-ghcr.io/elise-os/eliseos-mdns:${MICHEL_VERSION}}
+    build: !reset null

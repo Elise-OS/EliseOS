@@ -76,17 +76,18 @@ describe('Resident display policy', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({
-          results: [
-            {
-              name: 'Orléans',
-              admin1: 'Centre-Val de Loire',
-              country: 'France',
-              latitude: 47.9029,
-              longitude: 1.9039,
-            },
-          ],
-        }),
+        json: () =>
+          Promise.resolve({
+            results: [
+              {
+                name: 'Orléans',
+                admin1: 'Centre-Val de Loire',
+                country: 'France',
+                latitude: 47.9029,
+                longitude: 1.9039,
+              },
+            ],
+          }),
       }),
     );
     await expect(service.searchWeatherCities('user1', 'Orl')).resolves.toEqual([
@@ -367,7 +368,10 @@ describe('TV messages and appointment pictograms', () => {
     await service.snapshot('user1');
     const now = Date.now();
     for (const query of [db.visit.findMany, db.appointment.findMany]) {
-      const start = query.mock.calls[0]?.[0]?.where?.startsAt?.gte as Date;
+      const calls = query.mock.calls as unknown as Array<
+        [{ where?: { startsAt?: { gte?: Date } } }]
+      >;
+      const start = calls[0]?.[0]?.where?.startsAt?.gte as Date;
       expect(start).toBeInstanceOf(Date);
       expect(Math.abs(start.getTime() - now)).toBeLessThan(2000);
     }

@@ -7,6 +7,12 @@ ELISE_ROOT="${ELISE_ROOT:-/opt/elise}"
 ELISE_STATE="${ELISE_STATE:-/var/lib/elise}"
 ELISE_CONFIG="${ELISE_CONFIG:-/etc/elise}"
 SOURCE_DIR="${ELISE_SOURCE_DIR:-}"
+GITHUB_AUTH_FILE="${ELISE_GITHUB_AUTH_FILE:-$ELISE_CONFIG/github-auth}"
+GITHUB_API="${ELISE_GITHUB_API:-https://api.github.com}"
+GITHUB_USERNAME=""
+GITHUB_TOKEN=""
+docker_config_dir=""
+UPDATE_LOCK_FILE="${ELISE_UPDATE_LOCK_FILE:-/run/elise-update/update.lock}"
 
 fail() { echo "Erreur : $*" >&2; exit 1; }
 progress() {
@@ -16,7 +22,48 @@ progress() {
   fi
 }
 
+if [[ -f "$GITHUB_AUTH_FILE" ]]; then
+  GITHUB_USERNAME="$(sed -n 's/^username=//p' "$GITHUB_AUTH_FILE" | tail -1)"
+  GITHUB_TOKEN="$(sed -n 's/^token=//p' "$GITHUB_AUTH_FILE" | tail -1)"
+fi
+
+github_get() {
+  [[ -n "$GITHUB_TOKEN" ]] || fail "le compte bot GitHub doit être configuré dans Réglages"
+  curl -fsSL \
+    -H 'Accept: application/vnd.github+json' \
+    -H "Authorization: Bearer $GITHUB_TOKEN" \
+    -H 'X-GitHub-Api-Version: 2022-11-28' \
+    -H 'User-Agent: elise-os-installer' \
+    "$@"
+}
+
+download_release_asset() {
+  local release_json="$1"
+  local asset_name="$2"
+  local destination="$3"
+  local asset_id
+  asset_id="$(python3 - "$release_json" "$asset_name" <<'PY'
+import json, sys
+release = json.load(open(sys.argv[1], encoding='utf-8'))
+for asset in release.get('assets', []):
+    if asset.get('name') == sys.argv[2] and asset.get('state') == 'uploaded':
+        print(asset['id'])
+        break
+else:
+    raise SystemExit(f'asset absent: {sys.argv[2]}')
+PY
+)" || fail "asset GitHub absent : $asset_name"
+  github_get -H 'Accept: application/octet-stream' \
+    "$GITHUB_API/repos/$REPOSITORY/releases/assets/$asset_id" -o "$destination" \
+    || fail "téléchargement impossible : $asset_name"
+}
+
 [[ "${EUID}" -eq 0 ]] || fail "l’installation doit être lancée avec sudo"
+install -d -m 0755 "$(dirname "$UPDATE_LOCK_FILE")"
+if [[ "${ELISE_UPDATE_LOCK_HELD:-false}" != true ]]; then
+  exec 9>"$UPDATE_LOCK_FILE"
+  flock -n 9 || fail "une mise à jour est déjà en cours"
+fi
 [[ -r /etc/os-release ]] || fail "Ubuntu Server 24.04 est requis"
 . /etc/os-release
 [[ "${ID:-}" == ubuntu && "${VERSION_ID:-}" == 24.04 ]] || fail "Ubuntu Server 24.04 LTS est requis"
@@ -38,17 +85,19 @@ for port in "${http_port_preflight:-8080}" 18080 8555; do
   fi
 done
 
-progress "Installation de Docker, Tailscale et des services réseau"
-export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
-apt-get install -y -qq age ca-certificates curl gnupg avahi-daemon docker.io docker-compose-v2 nftables python3 xz-utils
-install -d -m 0755 /usr/share/keyrings
-if [[ ! -f /usr/share/keyrings/tailscale-archive-keyring.gpg ]]; then
-  curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg
-  curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list -o /etc/apt/sources.list.d/tailscale.list
+if [[ "${ELISE_SKIP_SYSTEM_PACKAGES:-false}" != true ]]; then
+  progress "Installation de Docker, Tailscale et des services réseau"
+  export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
+  apt-get install -y -qq age ca-certificates curl gnupg avahi-daemon docker.io docker-compose-v2 nftables python3 xz-utils
+  install -d -m 0755 /usr/share/keyrings
+  if [[ ! -f /usr/share/keyrings/tailscale-archive-keyring.gpg ]]; then
+    curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg
+    curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list -o /etc/apt/sources.list.d/tailscale.list
+    apt-get update -qq
+  fi
+  apt-get install -y -qq tailscale
 fi
-apt-get install -y -qq tailscale
 systemctl enable --now docker tailscaled avahi-daemon
 
 if ! command -v cosign >/dev/null; then
@@ -66,22 +115,33 @@ else
 fi
 
 work_dir="$(mktemp -d)"
-trap 'rm -rf -- "$work_dir"' EXIT
+cleanup() {
+  rm -rf -- "$work_dir"
+  [[ -z "$docker_config_dir" ]] || rm -rf -- "$docker_config_dir"
+}
+trap cleanup EXIT
 if [[ -n "$SOURCE_DIR" ]]; then
   VERSION="${ELISE_VERSION:-dev}"
   mkdir -p "$work_dir/runtime"
   cp -a "$SOURCE_DIR/." "$work_dir/runtime/"
 else
-  [[ "$VERSION" != __ELISE_VERSION__ ]] || VERSION="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPOSITORY/releases/latest" | sed 's#.*/tag/##')"
+  [[ "$VERSION" != __ELISE_VERSION__ ]] || VERSION="$(github_get "$GITHUB_API/repos/$REPOSITORY/releases/latest" | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
   asset="elise-runtime-${VERSION}.tar.gz"
-  base="https://github.com/$REPOSITORY/releases/download/${VERSION}"
   progress "Téléchargement d’Élise OS ${VERSION}"
-  curl -fL "$base/$asset" -o "$work_dir/$asset"
-  curl -fL "$base/$asset.sha256" -o "$work_dir/$asset.sha256"
-  curl -fL "$base/$asset.sigstore.json" -o "$work_dir/$asset.sigstore.json"
+  release_json="$work_dir/release.json"
+  github_get "$GITHUB_API/repos/$REPOSITORY/releases/tags/$VERSION" > "$release_json"
+  python3 - "$release_json" "$VERSION" <<'PY'
+import json, sys
+release = json.load(open(sys.argv[1], encoding='utf-8'))
+if release.get('tag_name') != sys.argv[2] or release.get('draft') or release.get('prerelease'):
+    raise SystemExit('La release demandée n’est pas une version stable publiée')
+PY
+  download_release_asset "$release_json" "$asset" "$work_dir/$asset"
+  download_release_asset "$release_json" "$asset.sha256" "$work_dir/$asset.sha256"
+  download_release_asset "$release_json" "$asset.sigstore.json" "$work_dir/$asset.sigstore.json"
   (cd "$work_dir" && sha256sum -c "$asset.sha256") || fail "archive Élise non valide"
   cosign verify-blob "$work_dir/$asset" --bundle "$work_dir/$asset.sigstore.json" \
-    --certificate-identity-regexp "^https://github.com/${REPOSITORY}/.github/workflows/release.yml@refs/tags/.*$" \
+    --certificate-identity-regexp "^https://github.com/${REPOSITORY}/.github/workflows/release.yml@refs/heads/main$" \
     --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null \
     || fail "signature de l’archive Élise non valide"
   mkdir "$work_dir/runtime"
@@ -89,13 +149,22 @@ else
 fi
 
 if [[ "$VERSION" != dev ]]; then
-  base="https://github.com/$REPOSITORY/releases/download/${VERSION}"
-  curl -fL "$base/release-manifest.json" -o "$work_dir/release-manifest.json"
-  curl -fL "$base/release-manifest.json.sha256" -o "$work_dir/release-manifest.json.sha256"
-  curl -fL "$base/release-manifest.json.sigstore.json" -o "$work_dir/release-manifest.json.sigstore.json"
+  [[ -n "${release_json:-}" ]] || {
+    release_json="$work_dir/release.json"
+    github_get "$GITHUB_API/repos/$REPOSITORY/releases/tags/$VERSION" > "$release_json"
+    python3 - "$release_json" "$VERSION" <<'PY'
+import json, sys
+release = json.load(open(sys.argv[1], encoding='utf-8'))
+if release.get('tag_name') != sys.argv[2] or release.get('draft') or release.get('prerelease'):
+    raise SystemExit('La release demandée n’est pas une version stable publiée')
+PY
+  }
+  download_release_asset "$release_json" release-manifest.json "$work_dir/release-manifest.json"
+  download_release_asset "$release_json" release-manifest.json.sha256 "$work_dir/release-manifest.json.sha256"
+  download_release_asset "$release_json" release-manifest.json.sigstore.json "$work_dir/release-manifest.json.sigstore.json"
   (cd "$work_dir" && sha256sum -c release-manifest.json.sha256) || fail "manifeste de version non valide"
   cosign verify-blob "$work_dir/release-manifest.json" --bundle "$work_dir/release-manifest.json.sigstore.json" \
-    --certificate-identity-regexp "^https://github.com/${REPOSITORY}/.github/workflows/release.yml@refs/tags/.*$" \
+    --certificate-identity-regexp "^https://github.com/${REPOSITORY}/.github/workflows/release.yml@refs/heads/main$" \
     --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null \
     || fail "signature du manifeste non valide"
 fi
@@ -133,8 +202,10 @@ restore_previous() {
 
 install -d -m 0755 /usr/lib/elise
 install -m 0755 "$release_dir/appliance/remote-access-agent.py" /usr/lib/elise/remote-access-agent.py
+install -m 0755 "$release_dir/appliance/elise-update-agent.py" /usr/lib/elise/elise-update-agent.py
 install -m 0755 "$release_dir/install/elise" /usr/local/bin/elise
 install -m 0644 "$release_dir/appliance/systemd/elise-remote-access-agent.service" /etc/systemd/system/
+install -m 0644 "$release_dir/appliance/systemd/elise-update-agent.service" /etc/systemd/system/
 install -m 0755 "$release_dir/appliance/elise-tailscale-firewall.sh" /usr/lib/elise/elise-tailscale-firewall.sh
 install -m 0644 "$release_dir/appliance/systemd/elise-tailscale-firewall.service" /etc/systemd/system/
 install -m 0755 "$release_dir/appliance/elise-screen-setup.sh" /usr/lib/elise/elise-screen-setup
@@ -168,7 +239,7 @@ PY
 fi
 
 systemctl daemon-reload
-systemctl enable --now elise-remote-access-agent.service elise-tailscale-firewall.service
+systemctl enable --now elise-remote-access-agent.service elise-update-agent.service elise-tailscale-firewall.service
 
 progress "Détection des équipements Zigbee"
 "$release_dir/scripts/detect-zigbee-adapter.sh" --write-env "$ELISE_CONFIG/elise.env" || true
@@ -177,8 +248,29 @@ compose=(docker compose --project-name michel-os --env-file "$ELISE_CONFIG/elise
 if [[ "$(dpkg --print-architecture)" == arm64 ]]; then
   compose+=(-f "$release_dir/compose.raspberry.yaml" -f "$release_dir/compose.raspberry.release.yaml")
 fi
-progress "Téléchargement des composants Élise"
-if ! "${compose[@]}" pull; then
+if [[ "$VERSION" == dev ]]; then
+  compose=(docker compose --project-name michel-os --env-file "$ELISE_CONFIG/elise.env" -f "$release_dir/compose.yaml")
+  if [[ "$(dpkg --print-architecture)" == arm64 ]]; then
+    compose+=(-f "$release_dir/compose.raspberry.yaml")
+  fi
+elif [[ -n "$GITHUB_TOKEN" ]]; then
+  docker_config_dir="$(mktemp -d "$ELISE_STATE/docker-auth-XXXXXXXX")"
+  chmod 700 "$docker_config_dir"
+  printf '%s' "$GITHUB_TOKEN" | DOCKER_CONFIG="$docker_config_dir" docker login ghcr.io \
+    --username "$GITHUB_USERNAME" --password-stdin >/dev/null \
+    || fail "authentification GHCR impossible avec le compte bot"
+  export DOCKER_CONFIG="$docker_config_dir"
+else
+  fail "le compte bot GitHub doit être configuré avant de télécharger les images privées"
+fi
+if [[ "$VERSION" == dev ]]; then
+  progress "Construction des composants Élise"
+  pull_or_build=(up -d --build)
+else
+  progress "Téléchargement des composants Élise"
+  pull_or_build=(pull)
+fi
+if ! "${compose[@]}" "${pull_or_build[@]}"; then
   if [[ -n "$previous" ]]; then
     ln -sfn "$previous" "$ELISE_ROOT/current"
     cp "$previous_env" "$ELISE_CONFIG/elise.env"

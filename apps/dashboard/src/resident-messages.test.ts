@@ -15,7 +15,8 @@ describe('Resident message rotation', () => {
     expect(residentMessageAt(state, 16000).text).toBe('Bonjour');
   });
   it('keeps rotation stable across refreshes and offline snapshots', () => {
-    expect(residentMessageAt(JSON.parse(JSON.stringify(state)), 26000).text).toBe('Bonne soirée');
+    const snapshot = { ...state, messages: [...state.messages] };
+    expect(residentMessageAt(snapshot, 26000).text).toBe('Bonne soirée');
     expect(residentMessageAt({ ...state, messageUpdatedAt: 26000 }, 26000).text).toBe('Bonjour');
   });
   it('supports older saved messages and clearing the banner', () => {

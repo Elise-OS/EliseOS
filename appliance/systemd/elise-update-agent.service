@@ -1,0 +1,30 @@
+[Unit]
+Description=Élise OS update agent
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/elise/elise-update-agent.py
+Environment=ELISE_UPDATE_AGENT_SOCKET=/run/elise-update/agent.sock
+Environment=ELISE_UPDATE_AUTH_FILE=/etc/elise/github-auth
+Environment=ELISE_UPDATE_STATUS_FILE=/var/lib/elise/update/status.json
+Environment=ELISE_UPDATE_LOCK_FILE=/run/elise-update/update.lock
+Environment=ELISE_CONFIG_FILE=/etc/elise/elise.env
+Environment=ELISE_VERSION_FILE=/usr/share/elise/version
+EnvironmentFile=-/etc/elise/agent.env
+RuntimeDirectory=elise-update
+RuntimeDirectoryMode=0755
+StateDirectory=elise/update
+StateDirectoryMode=0750
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/run/elise-update /etc/elise /var/lib/elise /opt/elise /usr/lib/elise /usr/local/bin /etc/systemd/system
+
+[Install]
+WantedBy=multi-user.target

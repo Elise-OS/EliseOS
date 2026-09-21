@@ -211,10 +211,7 @@ export function presenceCapabilityForDevice(
   model: string | null | undefined,
 ): string {
   if (capability !== 'occupancy') return capability;
-  return deviceSupportsCategory(
-    { model: model ?? null, capabilities: [{ capability }] },
-    'motion',
-  )
+  return deviceSupportsCategory({ model: model ?? null, capabilities: [{ capability }] }, 'motion')
     ? 'motion'
     : capability;
 }

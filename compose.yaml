@@ -237,6 +237,7 @@ services:
       ELISE_SCREEN_AGENT_SOCKET: /run/elise-screen/agent.sock
       ELISE_SCREEN_LOCAL_URL: http://127.0.0.1:${MICHEL_HTTP_PORT:-8080}
       ELISE_REMOTE_AGENT_SOCKET: /run/elise-remote-access/agent.sock
+      ELISE_UPDATE_AGENT_SOCKET: /run/elise-update/agent.sock
       ELISE_JITSI_URL: ${ELISE_JITSI_URL:-}
       ELISE_JITSI_SECRET: ${ELISE_JITSI_SECRET:-}
       MEDIA_ROOT: /var/lib/elise/media
@@ -254,6 +255,7 @@ services:
       - camera_media:/var/lib/elise/camera-media
       - /run/elise-screen:/run/elise-screen
       - ${ELISE_AGENT_RUN_DIR:-/run/elise-remote-access}:/run/elise-remote-access
+      - ${ELISE_UPDATE_AGENT_RUN_DIR:-/run/elise-update}:/run/elise-update
     group_add:
       - ${ELISE_AGENT_GID:-995}
     command:

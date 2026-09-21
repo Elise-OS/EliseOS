@@ -1,19 +1,57 @@
 name: Release Élise OS
 
 on:
-  push:
-    tags: ['v*']
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: write
   packages: write
   id-token: write
 
+concurrency:
+  group: elise-release-main
+  cancel-in-progress: false
+
 jobs:
+  version:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      sha: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          releases="$(gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name')"
+          version="$(printf '%s\n' "$releases" | python3 -c '
+          import re, sys
+          versions=[]
+          for value in sys.stdin:
+              value=value.strip()
+              match=re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", value)
+              if match: versions.append(tuple(map(int, match.groups())))
+          if not versions:
+              print("v0.1.0")
+          else:
+              major, minor, patch = max(versions)
+              print(f"v{major}.{minor}.{patch + 1}")
+          ')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
   validate:
+    needs: version
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+          submodules: false
       - uses: pnpm/action-setup@v4
         with: { version: 11.10.0 }
       - uses: actions/setup-node@v4
@@ -22,13 +60,17 @@ jobs:
         with: { python-version: '3.12', cache: pip }
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
-      - run: pnpm typecheck && pnpm test && pnpm build
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
       - run: python -m pip install -e './apps/ai[dev]' && ruff check apps/ai && pytest apps/ai
       - run: bash scripts/test-distribution.sh
       - run: docker compose config --quiet
 
   containers:
-    needs: validate
+    needs: [version, validate]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -40,6 +82,9 @@ jobs:
           - { name: mdns, file: docker/mdns/Dockerfile, target: '' }
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+          submodules: false
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
@@ -55,17 +100,20 @@ jobs:
           target: ${{ matrix.target }}
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ghcr.io/elise-os/eliseos-${{ matrix.name }}:${{ github.ref_name }}
-            ghcr.io/elise-os/eliseos-${{ matrix.name }}:latest
+          tags: ghcr.io/elise-os/eliseos-${{ matrix.name }}:${{ needs.version.outputs.version }}
       - uses: sigstore/cosign-installer@v3
       - run: cosign sign --yes "ghcr.io/elise-os/eliseos-${{ matrix.name }}@${{ steps.build.outputs.digest }}"
 
   artifacts:
-    needs: containers
+    needs: [version, containers]
     runs-on: ubuntu-24.04
+    env:
+      RELEASE_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+          submodules: false
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
@@ -74,14 +122,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Create runtime and digest manifest
+        env:
+          GH_REPOSITORY: ${{ github.repository }}
         run: |
           mkdir -p dist runtime
           rsync -a --relative compose.yaml compose.release.yaml compose.raspberry.yaml compose.raspberry.release.yaml .env.example docker scripts appliance install runtime/
-          tar -czf "dist/elise-runtime-${GITHUB_REF_NAME}.tar.gz" -C runtime .
+          tar -czf "dist/elise-runtime-${RELEASE_VERSION}.tar.gz" -C runtime .
           python3 - <<'PY'
           import hashlib, json, os, subprocess
-          owner = os.environ['GITHUB_REPOSITORY'].split('/', 1)[0].lower()
-          version = os.environ['GITHUB_REF_NAME']
+          owner = os.environ['GH_REPOSITORY'].split('/', 1)[0].lower()
+          version = os.environ['RELEASE_VERSION']
           images = {}
           for name in ('api', 'worker', 'dashboard', 'ai', 'mdns'):
               image = f'ghcr.io/{owner}/eliseos-{name}:{version}'
@@ -96,30 +146,58 @@ jobs:
               images[name] = {'name': image.rsplit(':', 1)[0], 'digest': digest, 'platforms': ['linux/amd64', 'linux/arm64']}
           json.dump({'version': version, 'images': images}, open('dist/release-manifest.json', 'w'), indent=2)
           PY
-          (cd dist && sha256sum elise-runtime-*.tar.gz > "elise-runtime-${GITHUB_REF_NAME}.tar.gz.sha256")
+          (cd dist && sha256sum "elise-runtime-${RELEASE_VERSION}.tar.gz" > "elise-runtime-${RELEASE_VERSION}.tar.gz.sha256")
           (cd dist && sha256sum release-manifest.json > release-manifest.json.sha256)
-          sed "s/__ELISE_VERSION__/${GITHUB_REF_NAME}/g" install/install-elise.sh > dist/install-elise.sh
+          sed "s/__ELISE_VERSION__/${RELEASE_VERSION}/g" install/install-elise.sh > dist/install-elise.sh
           chmod +x dist/install-elise.sh
       - name: Install image builder dependencies
         run: sudo apt-get update && sudo apt-get install -y qemu-user-static parted rsync
       - name: Build Raspberry Pi image
-        run: sudo appliance/build-raspberry-image.sh "$GITHUB_REF_NAME" "$PWD/dist/elise-os-${GITHUB_REF_NAME}-raspberry-pi-arm64.img.xz"
+        run: sudo appliance/build-raspberry-image.sh "$RELEASE_VERSION" "$PWD/dist/elise-os-${RELEASE_VERSION}-raspberry-pi-arm64.img.xz"
       - name: Describe Raspberry Pi image
         run: |
-          image="dist/elise-os-${GITHUB_REF_NAME}-raspberry-pi-arm64.img.xz"
+          image="dist/elise-os-${RELEASE_VERSION}-raspberry-pi-arm64.img.xz"
           (cd dist && sha256sum "${image##*/}" > "${image##*/}.sha256")
           download_sha="$(sha256sum "$image" | cut -d' ' -f1)"
           download_size="$(stat -c %s "$image")"
           extract_sha="$(xz -dc "$image" | sha256sum | cut -d' ' -f1)"
           extract_size="$(xz -dc "$image" | wc -c)"
-          sed -e "s/{{VERSION}}/${GITHUB_REF_NAME}/g" -e "s/{{DATE}}/$(date -u +%F)/g" -e "s/{{DOWNLOAD_SHA256}}/$download_sha/g" -e "s/22222222222/$download_size/g" -e "s/11111111111/$extract_size/g" -e "s/{{EXTRACT_SHA256}}/$extract_sha/g" appliance/os_list.template.json > dist/os_list.json
+          sed -e "s/{{VERSION}}/${RELEASE_VERSION}/g" -e "s/{{DATE}}/$(date -u +%F)/g" -e "s/{{DOWNLOAD_SHA256}}/$download_sha/g" -e "s/22222222222/$download_size/g" -e "s/11111111111/$extract_size/g" -e "s/{{EXTRACT_SHA256}}/$extract_sha/g" appliance/os_list.template.json > dist/os_list.json
       - uses: sigstore/cosign-installer@v3
       - name: Sign release files
         run: |
           for file in dist/*.tar.gz dist/*.img.xz dist/release-manifest.json dist/install-elise.sh dist/os_list.json; do
             cosign sign-blob --yes --bundle "$file.sigstore.json" "$file"
           done
+      - name: Verify release files
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          (cd dist && sha256sum -c "elise-runtime-${RELEASE_VERSION}.tar.gz.sha256" && sha256sum -c release-manifest.json.sha256)
+          for file in dist/*.tar.gz dist/*.img.xz dist/release-manifest.json dist/install-elise.sh dist/os_list.json; do
+            cosign verify-blob "$file" --bundle "$file.sigstore.json" \
+              --certificate-identity-regexp "^https://github.com/${REPOSITORY}/.github/workflows/release.yml@refs/heads/main$" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null
+          done
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.version.outputs.version }}
+          target_commitish: ${{ needs.version.outputs.sha }}
           files: dist/*
+          draft: true
           generate_release_notes: true
+      - name: Publish release and advance latest tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          gh release edit "$RELEASE_VERSION" --repo "$GH_REPOSITORY" --draft=false
+          for name in api worker dashboard ai mdns; do
+            docker buildx imagetools create --tag "ghcr.io/elise-os/eliseos-${name}:latest" "ghcr.io/elise-os/eliseos-${name}:${RELEASE_VERSION}"
+          done
+      - name: Remove an incomplete draft
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: gh release delete "$RELEASE_VERSION" --repo "$GH_REPOSITORY" --cleanup-tag --yes || true

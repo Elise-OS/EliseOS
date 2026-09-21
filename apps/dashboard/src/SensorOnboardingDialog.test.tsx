@@ -90,14 +90,19 @@ describe('sensor installation confirmation', () => {
     )!;
     expect(button.disabled).toBe(true);
     const select = document.body.querySelector('select')!;
-    await act(async () => {
+    act(() => {
       select.value = 'FRIDGE';
       select.dispatchEvent(new Event('change', { bubbles: true }));
     });
     expect(button.disabled).toBe(false);
     await install();
-    const request = fetchMock.mock.calls.find(([url]) => url.endsWith('/complete'))!;
-    expect(JSON.parse(request[1].body)).toMatchObject({ contactRole: 'FRIDGE', roomId: 'salon' });
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
+    const request = calls.find(([url]) => url.endsWith('/complete'));
+    const body = request?.[1]?.body;
+    expect(JSON.parse(typeof body === 'string' ? body : '')).toMatchObject({
+      contactRole: 'FRIDGE',
+      roomId: 'salon',
+    });
   });
 
   it('shows the selected sensor photo during the preparation step', async () => {

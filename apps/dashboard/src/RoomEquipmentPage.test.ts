@@ -520,7 +520,7 @@ describe('camera and opening types', () => {
         devices: [fridge, window],
         locale: 'fr',
         onBack: () => undefined,
-        onRefresh: async () => undefined,
+        onRefresh: () => Promise.resolve(),
         onPlanSaved: () => undefined,
       }),
     );

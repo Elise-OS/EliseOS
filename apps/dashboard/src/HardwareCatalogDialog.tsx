@@ -53,11 +53,7 @@ export function HardwareCatalogDialog({
     onClose();
   };
   return (
-    <EquipmentDialog
-      wide
-      title={fr ? 'Matériel de test' : 'Test hardware'}
-      onClose={close}
-    >
+    <EquipmentDialog wide title={fr ? 'Matériel de test' : 'Test hardware'} onClose={close}>
       <div className="equipment-category-content">
         {selected ? (
           <>

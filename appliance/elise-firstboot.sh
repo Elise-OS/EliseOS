@@ -17,6 +17,10 @@ if ! getent hosts github.com >/dev/null 2>&1; then
   printf '{"message":"Internet est indisponible. Élise réessaiera automatiquement ; vérifiez le câble ou le Wi-Fi."}\n' > "$status"
   exit 1
 fi
+if [[ ! -s /etc/elise/github-auth ]]; then
+  printf '{"message":"Configurez le compte bot GitHub dans /etc/elise/github-auth avant le premier démarrage."}\n' > "$status"
+  exit 1
+fi
 ELISE_SOURCE_DIR=/usr/share/elise/runtime ELISE_VERSION="$(cat /usr/share/elise/version)" ELISE_FIRST_BOOT=true /usr/lib/elise/install-elise.sh
 touch /var/lib/elise/.firstboot-complete
 trap - ERR

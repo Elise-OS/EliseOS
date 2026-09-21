@@ -19,8 +19,9 @@ describe('TV message and appointment editor', () => {
     state.messages = ['Bonjour'];
     vi.stubGlobal(
       'fetch',
-      vi.fn(async (url: string, init?: RequestInit) => {
-        const body = init?.body ? JSON.parse(String(init.body)) : {};
+      vi.fn((url: string, init?: RequestInit) => {
+        const body: Record<string, unknown> =
+          typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : {};
         requests.push({ url, body, method: init?.method ?? 'GET' });
         const response =
           url.endsWith('/appointments') && init?.method === 'GET'
@@ -49,16 +50,19 @@ describe('TV message and appointment editor', () => {
                   administer: false,
                 },
               };
-        return { ok: true, json: async () => response };
+        return { ok: true, json: () => Promise.resolve(response) };
       }),
     );
     host = document.createElement('div');
     document.body.append(host);
     root = createRoot(host);
-    await act(async () => root.render(<ScreenPanel />));
+    await act(async () => {
+      root.render(<ScreenPanel />);
+      await Promise.resolve();
+    });
   });
-  afterEach(async () => {
-    await act(async () => root.unmount());
+  afterEach(() => {
+    act(() => root.unmount());
     host.remove();
     vi.unstubAllGlobals();
   });
@@ -79,21 +83,31 @@ describe('TV message and appointment editor', () => {
       el.dispatchEvent(
         new Event(el instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }),
       );
+      await Promise.resolve();
     });
   };
   it('adds, edits and publishes several messages with a timer', async () => {
-    await act(async () => button('+ Ajouter un message').click());
+    await act(async () => {
+      button('+ Ajouter un message').click();
+      await Promise.resolve();
+    });
     await change(
       host.querySelector<HTMLTextAreaElement>('.screen-message-input textarea')!,
       'Paul vient demain ❤️',
     );
     await change(host.querySelector<HTMLInputElement>('.screen-message-timing input')!, '15');
-    await act(async () => button('Afficher sur la TV').click());
+    await act(async () => {
+      button('Afficher sur la TV').click();
+      await Promise.resolve();
+    });
     expect(requests.find((row) => row.url.endsWith('/screen/message'))?.body).toEqual({
       messages: ['Bonjour', 'Paul vient demain ❤️'],
       messageIntervalSeconds: 15,
     });
-    await act(async () => button('Retirer ce message').click());
+    await act(async () => {
+      button('Retirer ce message').click();
+      await Promise.resolve();
+    });
     expect(host.querySelector<HTMLTextAreaElement>('.screen-message-input textarea')!.value).toBe(
       'Bonjour',
     );
@@ -102,7 +116,10 @@ describe('TV message and appointment editor', () => {
     const favorite = Array.from(host.querySelectorAll('button')).find((element) =>
       element.textContent?.includes('Bonne journée'),
     )!;
-    await act(async () => favorite.click());
+    await act(async () => {
+      favorite.click();
+      await Promise.resolve();
+    });
     expect(host.querySelector<HTMLTextAreaElement>('.screen-message-input textarea')!.value).toBe(
       'Bonne journée ! On pense fort à toi ❤️',
     );
@@ -110,7 +127,10 @@ describe('TV message and appointment editor', () => {
       host.querySelector<HTMLInputElement>('.screen-schedule-control input')!,
       '2099-10-01T10:00',
     );
-    await act(async () => button('Programmer le message').click());
+    await act(async () => {
+      button('Programmer le message').click();
+      await Promise.resolve();
+    });
     expect(
       requests.find((row) => row.url.endsWith('/screen/scheduled-content') && row.method === 'POST')
         ?.body,
@@ -124,7 +144,10 @@ describe('TV message and appointment editor', () => {
     const pictogram = host.querySelector<HTMLButtonElement>(
       'button[aria-label="Choisir le pictogramme Médecin / soins"]',
     )!;
-    await act(async () => pictogram.click());
+    await act(async () => {
+      pictogram.click();
+      await Promise.resolve();
+    });
     expect(pictogram.getAttribute('aria-pressed')).toBe('true');
     expect(host.querySelector('select[aria-label^="Pictogramme pour"]')).toBeNull();
 
@@ -138,7 +161,10 @@ describe('TV message and appointment editor', () => {
       )!,
       '2026-10-01T10:00',
     );
-    await act(async () => button('Ajouter').click());
+    await act(async () => {
+      button('Ajouter').click();
+      await Promise.resolve();
+    });
 
     expect(
       requests.find((row) => row.url.endsWith('/screen/appointments') && row.method === 'POST')

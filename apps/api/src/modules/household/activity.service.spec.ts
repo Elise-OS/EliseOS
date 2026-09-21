@@ -378,7 +378,7 @@ describe('ActivityService analytics', () => {
     expect(result.reassurance).toBe('INSUFFICIENT_DATA');
     expect(prisma.observationEvent.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ capability: { not: 'illuminance' } }),
+        where: expect.objectContaining({ capability: { not: 'illuminance' } }) as unknown,
       }),
     );
   });

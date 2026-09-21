@@ -6,7 +6,13 @@ VERSION="${1:?Usage: build-raspberry-image.sh VERSION [OUTPUT]}"
 OUTPUT="${2:-elise-os-${VERSION}-raspberry-pi-arm64.img.xz}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASE_URL="${UBUNTU_PI_IMAGE_URL:-https://cdimage.ubuntu.com/releases/24.04/release/ubuntu-24.04.3-preinstalled-server-arm64+raspi.img.xz}"
-work_dir="$(mktemp -d)"
+ELISE_BUILD_WORKDIR="${ELISE_BUILD_WORKDIR:-}"
+if [[ -n "$ELISE_BUILD_WORKDIR" ]]; then
+  mkdir -p "$ELISE_BUILD_WORKDIR"
+  work_dir="$(mktemp -d "$ELISE_BUILD_WORKDIR/elise-image-build-XXXXXXXX")"
+else
+  work_dir="$(mktemp -d)"
+fi
 loop_device=""
 cleanup() {
   mountpoint -q "$work_dir/root/boot/firmware" && umount "$work_dir/root/boot/firmware" || true

@@ -58,6 +58,8 @@ import { FRFlag, GBFlag } from './FlagIcons';
 import { RemoteAccessCard } from './RemoteAccessCard';
 import { ActivityPage } from './ActivityPage';
 import { GoogleAccountSettings } from './GoogleAccountSettings';
+import { UpdateCard } from './UpdateCard';
+import type { UpdateStatus } from '@michel/contracts';
 
 interface Overview {
   onboardingRequired: boolean;
@@ -350,11 +352,13 @@ export function SidebarNavigation({
   labels,
   active,
   openAlerts,
+  updateAvailable = false,
   onSelect,
 }: {
   labels: readonly string[];
   active: number;
   openAlerts: number;
+  updateAvailable?: boolean;
   onSelect: (index: number) => void;
 }) {
   return (
@@ -376,6 +380,7 @@ export function SidebarNavigation({
             <Icon size={18} />
             <span>{label}</span>
             {index === 2 && openAlerts > 0 && <b>{openAlerts}</b>}
+            {index === 8 && updateAvailable && <b className="nav-update-badge">!</b>}
           </button>
         );
       })}
@@ -2549,6 +2554,8 @@ export function App() {
   >('display');
   const [homeSection, setHomeSection] = useState<'OVERVIEW' | 'EDITOR' | 'LIVE_PLAN'>('OVERVIEW');
   const [settingsTab, setSettingsTab] = useState<'general' | 'google' | 'rules'>('general');
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
   const [homeEditorRoomId, setHomeEditorRoomId] = useState<string | null>(null);
   const [homeEditorStairId, setHomeEditorStairId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -2677,6 +2684,90 @@ export function App() {
     );
     return promise;
   }, [refreshOnce]);
+
+  const refreshUpdate = useCallback(async (check = false): Promise<void> => {
+    try {
+      const response = await fetch(`/api/v1/system/update${check ? '/check' : ''}`, {
+        method: check ? 'POST' : 'GET',
+      });
+      if (response.ok) setUpdateStatus((await response.json()) as UpdateStatus);
+    } catch {
+      // Update availability is advisory and must never prevent the main dashboard from loading.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!['OWNER', 'ADMINISTRATOR'].includes(currentAccess.role)) return;
+    void refreshUpdate(true);
+    const timer = window.setInterval(() => void refreshUpdate(true), 6 * 60 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [currentAccess.role, refreshUpdate]);
+
+  useEffect(() => {
+    if (active === 8 && ['OWNER', 'ADMINISTRATOR'].includes(currentAccess.role)) {
+      void refreshUpdate(true);
+    }
+  }, [active, currentAccess.role, refreshUpdate]);
+
+  const saveUpdateCredentials = useCallback(async (username: string, token: string) => {
+    setUpdateBusy(true);
+    try {
+      const response = await fetch('/api/v1/system/update/credentials', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username, token }),
+      });
+      if (response.ok) setUpdateStatus((await response.json()) as UpdateStatus);
+    } finally {
+      setUpdateBusy(false);
+    }
+  }, []);
+
+  const deleteUpdateCredentials = useCallback(async () => {
+    setUpdateBusy(true);
+    try {
+      const response = await fetch('/api/v1/system/update/credentials', { method: 'DELETE' });
+      if (response.ok) setUpdateStatus((await response.json()) as UpdateStatus);
+    } finally {
+      setUpdateBusy(false);
+    }
+  }, []);
+
+  const checkForUpdate = useCallback(async () => {
+    setUpdateBusy(true);
+    try {
+      await refreshUpdate(true);
+    } finally {
+      setUpdateBusy(false);
+    }
+  }, [refreshUpdate]);
+
+  const installUpdate = useCallback(async (version: string) => {
+    setUpdateBusy(true);
+    try {
+      const response = await fetch('/api/v1/system/update/install', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ version }),
+      });
+      if (response.ok) setUpdateStatus((await response.json()) as UpdateStatus);
+      if (!response.ok) return;
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 3000));
+        try {
+          const statusResponse = await fetch('/api/v1/system/update');
+          if (!statusResponse.ok) continue;
+          const next = (await statusResponse.json()) as UpdateStatus;
+          setUpdateStatus(next);
+          if (['SUCCEEDED', 'ROLLED_BACK', 'FAILED'].includes(next.state)) break;
+        } catch {
+          // The API is expected to disappear briefly while the new release starts.
+        }
+      }
+    } finally {
+      setUpdateBusy(false);
+    }
+  }, []);
 
   const logout = async () => {
     if (loggingOut) return;
@@ -3150,6 +3241,7 @@ export function App() {
             labels={t.nav}
             active={active}
             openAlerts={overview.openAlerts ?? 0}
+            updateAvailable={updateStatus?.updateAvailable ?? false}
             onSelect={(index) => {
               if (index === 3) {
                 setHomeEditorRoomId(null);
@@ -3993,6 +4085,20 @@ export function App() {
             {settingsTab === 'general' &&
               currentAccess.capabilities.includes('configuration:manage') && (
                 <RemoteAccessCard locale={locale} />
+              )}
+            {settingsTab === 'general' &&
+              currentAccess.capabilities.includes('configuration:manage') && (
+                <UpdateCard
+                  locale={locale}
+                  status={updateStatus}
+                  busy={updateBusy}
+                  onCheck={() => void checkForUpdate()}
+                  onSaveCredentials={(username, token) =>
+                    void saveUpdateCredentials(username, token)
+                  }
+                  onDeleteCredentials={() => void deleteUpdateCredentials()}
+                  onInstall={(version) => void installUpdate(version)}
+                />
               )}
             {settingsTab === 'google' && <GoogleAccountSettings locale={locale} />}
             {settingsTab === 'rules' && alertRules && (

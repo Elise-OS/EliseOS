@@ -47,6 +47,7 @@ import { RemoteAccessService } from './modules/remote-access/remote-access.servi
 import { RemoteAccessAgentClient } from './modules/remote-access/remote-access-agent.client';
 import { CalendarController } from './modules/calendar/calendar.controller';
 import { CalendarService } from './modules/calendar/calendar.service';
+import { UpdateAgentClient } from './modules/system/update-agent.client';
 
 @Module({
   controllers: [
@@ -99,6 +100,7 @@ import { CalendarService } from './modules/calendar/calendar.service';
     RemoteAccessService,
     RemoteAccessAgentClient,
     CalendarService,
+    UpdateAgentClient,
   ],
 })
 export class AppModule {}

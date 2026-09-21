@@ -51,3 +51,18 @@ Les sauvegardes de production doivent être chiffrées. Ajoutez une clé publiqu
 ## Mise à jour sûre
 
 `elise update` télécharge une version signée, conserve la version précédente et vérifie la santé du dashboard et de l’API. Si le démarrage échoue, le lien `current`, le fichier d’environnement et les conteneurs reviennent à la version précédente.
+
+### Première installation depuis une release privée
+
+Les images et releases GitHub d’Élise OS sont privées. Créez un compte bot limité à la lecture
+du dépôt et des packages, puis un PAT classic avec `repo` et `read:packages`. Le fichier suivant
+doit être créé sur la machine avant le premier démarrage de l’image Raspberry Pi, avec les droits
+`root:root` et `0600` :
+
+```text
+username=elise-os-bot
+token=ghp_…
+```
+
+Sur une installation déjà démarrée, le compte peut être remplacé depuis **Réglages → Général**.
+Le jeton n’est jamais enregistré dans la base Élise ni inclus dans une image publiée.

@@ -20,6 +20,11 @@ This repository contains the first end-to-end product slice:
 
 Chaque version publie l’image flashable, ses sommes et signatures, le catalogue Raspberry Pi Imager, l’installateur et un manifeste de conteneurs épinglés par digest.
 
+Les releases et les images GHCR restent privées. Un compte bot GitHub en lecture seule
+(`repo` et `read:packages`) doit être provisionné dans **Réglages → Général → Mise à jour
+d’Élise OS** avant le premier téléchargement. Le secret est conservé uniquement par l’agent
+système root de la machine.
+
 Any sensor made available to Home Assistant can appear in Élise. Recognized device classes work automatically; unknown entities remain visible to administrators and can be assigned a safe, bounded capability mapping without adding model-specific code. Camera person events use the same universal mapping. Live video requires a local RTSP stream, while two-way audio remains a model-level validated capability.
 
 ## Installation complète
@@ -63,6 +68,10 @@ docker compose -f compose.yaml -f compose.raspberry.yaml up -d
 
 The Raspberry advertises `_michel._tcp.local` and the Michel mobile app verifies the discovered
 server through `/api/v1/discovery` before connecting.
+
+Les mises à jour sont recherchées au démarrage, toutes les six heures et lorsque la page
+Réglages est ouverte. Élise signale une nouvelle release par un badge ; l’installation est
+toujours confirmée manuellement et restaure la version précédente si le contrôle de santé échoue.
 
 ## Contributor workflow
 

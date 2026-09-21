@@ -27,7 +27,25 @@ case "${1:-}" in
     ;;
   update)
     shift
-    curl -fsSL https://github.com/Elise-OS/EliseOS/releases/latest/download/install-elise.sh | bash -s -- --update "$@"
+    requested_version="__ELISE_VERSION__"
+    while (($#)); do
+      case "$1" in
+        --version)
+          requested_version="${2:-}"
+          [[ "$requested_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || {
+            echo "Version invalide." >&2
+            exit 2
+          }
+          shift 2
+          ;;
+        *)
+          echo "Option inconnue : $1" >&2
+          exit 2
+          ;;
+      esac
+    done
+    ELISE_VERSION="$requested_version" ELISE_GITHUB_AUTH_FILE="${ELISE_GITHUB_AUTH_FILE:-/etc/elise/github-auth}" \
+      "$ELISE_ROOT/current/install/install-elise.sh"
     ;;
   backup)
     destination="${2:-$ELISE_STATE/backups}"
@@ -54,7 +72,7 @@ case "${1:-}" in
     fi
     systemctl disable --now \
       elise-firstboot.service elise-preparation.service elise-remote-access-agent.service \
-      elise-tailscale-firewall.service elise-screen-setup.timer elise-screen-setup.service \
+      elise-update-agent.service elise-tailscale-firewall.service elise-screen-setup.timer elise-screen-setup.service \
       elise-screen-agent.service elise-jitsi-firewall.service 2>/dev/null || true
     if [[ "${2:-}" == --purge ]]; then
       [[ "$ELISE_ROOT" == /opt/elise && "$ELISE_STATE" == /var/lib/elise && "$ELISE_ENV" == /etc/elise/elise.env ]] || {

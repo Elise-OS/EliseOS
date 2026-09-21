@@ -46,8 +46,9 @@ describe('shared calendar', () => {
       }),
     );
     expect(tx.visit.create).toHaveBeenCalledTimes(4);
-    expect(tx.visit.create.mock.calls.every((call) => call[0].data.seriesId)).toBe(true);
-    expect(new Set(tx.visit.create.mock.calls.map((call) => call[0].data.seriesId)).size).toBe(1);
+    const calls = tx.visit.create.mock.calls as unknown as Array<[{ data: { seriesId?: string } }]>;
+    expect(calls.every((call) => call[0].data.seriesId)).toBe(true);
+    expect(new Set(calls.map((call) => call[0].data.seriesId)).size).toBe(1);
   });
 
   it('refuses every write without the caregiver role', async () => {
@@ -74,11 +75,14 @@ describe('shared calendar', () => {
   it('isolates reads to the authenticated home and returns write capability', async () => {
     const { service, prisma } = fixture();
     await service.list('writer', new Date('2026-09-01'), new Date('2026-10-01'));
+    const homeQuery = {
+      where: expect.objectContaining({ homeId: 'home' }) as unknown,
+    };
     expect(prisma.visit.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ homeId: 'home' }) }),
+      expect.objectContaining(homeQuery) as unknown,
     );
     expect(prisma.appointment.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ homeId: 'home' }) }),
+      expect.objectContaining(homeQuery) as unknown,
     );
   });
 });

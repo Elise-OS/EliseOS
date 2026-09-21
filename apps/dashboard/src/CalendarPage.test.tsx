@@ -39,8 +39,8 @@ describe('Shared calendar web page', () => {
     document.body.append(host);
     root = createRoot(host);
   });
-  afterEach(async () => {
-    await act(async () => {
+  afterEach(() => {
+    act(() => {
       root.unmount();
     });
     host.remove();
@@ -51,7 +51,7 @@ describe('Shared calendar web page', () => {
       root.render(<CalendarPage onBack={() => undefined} />);
       await Promise.resolve();
     });
-    await act(async () => {
+    act(() => {
       (
         Array.from(host.querySelectorAll('button')).find(
           (button) => button.textContent === 'Liste',
@@ -59,7 +59,7 @@ describe('Shared calendar web page', () => {
       ).click();
     });
     expect(host.textContent).toContain('Aucun rendez-vous prévu');
-    await act(async () => {
+    act(() => {
       (
         Array.from(host.querySelectorAll('button')).find((button) =>
           button.textContent?.includes('Ajouter'),
@@ -73,14 +73,14 @@ describe('Shared calendar web page', () => {
       root.render(<CalendarPage onBack={() => undefined} />);
       await Promise.resolve();
     });
-    await act(async () => {
+    act(() => {
       (
         Array.from(host.querySelectorAll('button')).find((button) =>
           button.textContent?.includes('Ajouter'),
         ) as HTMLButtonElement
       ).click();
     });
-    const inputs = Array.from(host.querySelectorAll('input')) as HTMLInputElement[];
+    const inputs = Array.from(host.querySelectorAll('input'));
     const setValue = (element: HTMLInputElement, value: string) => {
       Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), 'value')!.set!.call(
         element,
