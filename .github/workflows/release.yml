@@ -44,13 +44,57 @@ jobs:
           ')"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-  validate:
+  sync_version:
     needs: version
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+    env:
+      RELEASE_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.version.outputs.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Synchronize release metadata
+        run: python3 scripts/sync-release-version.py "$RELEASE_VERSION"
+      - name: Commit synchronized metadata
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git add -- \
+            .env.example \
+            apps/ai/pyproject.toml \
+            apps/mobile/app.json \
+            apps/*/package.json \
+            packages/*/package.json \
+            package.json \
+            compose.yaml \
+            compose.raspberry.yaml \
+            docker/homeassistant/custom_components/michel_bridge/__init__.py \
+            docker/homeassistant/custom_components/michel_bridge/manifest.json
+          git diff --cached --check
+          git commit -m "chore(release): synchronize metadata to $RELEASE_VERSION [skip ci]"
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  validate:
+    needs: [version, sync_version]
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_version.outputs.sha }}
           submodules: false
       - uses: pnpm/action-setup@v4
         with: { version: 11.10.0 }
@@ -60,6 +104,7 @@ jobs:
         with: { python-version: '3.12', cache: pip }
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
+      - run: python3 scripts/sync-release-version.py --check "$RELEASE_VERSION"
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
@@ -70,7 +115,7 @@ jobs:
       - run: docker compose config --quiet
 
   containers:
-    needs: [version, validate]
+    needs: [version, sync_version, validate]
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -83,7 +128,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.version.outputs.sha }}
+          ref: ${{ needs.sync_version.outputs.sha }}
           submodules: false
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -105,14 +150,14 @@ jobs:
       - run: cosign sign --yes "ghcr.io/elise-os/eliseos-${{ matrix.name }}@${{ steps.build.outputs.digest }}"
 
   artifacts:
-    needs: [version, containers]
+    needs: [version, sync_version, containers]
     runs-on: ubuntu-24.04
     env:
       RELEASE_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.version.outputs.sha }}
+          ref: ${{ needs.sync_version.outputs.sha }}
           submodules: false
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -182,7 +227,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.version.outputs.version }}
-          target_commitish: ${{ needs.version.outputs.sha }}
+          target_commitish: ${{ needs.sync_version.outputs.sha }}
           files: dist/*
           draft: true
           generate_release_notes: true
