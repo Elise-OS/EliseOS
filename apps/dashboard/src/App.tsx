@@ -2036,7 +2036,10 @@ export function PeoplePanel({
     setEditor(null);
     await load();
   };
-  const access = async (person: Person, action: 'disable' | 'enable' | 'reset-password') => {
+  const access = async (
+    person: Person,
+    action: 'disable' | 'enable' | 'reset-password' | 'restore',
+  ) => {
     let body: Record<string, string> = { action };
     if (action === 'reset-password') {
       const password = window.prompt(
@@ -2048,7 +2051,13 @@ export function PeoplePanel({
       body = { action, temporaryPassword: password };
     } else if (
       !window.confirm(
-        locale === 'fr' ? 'Confirmer cette modification d’accès ?' : 'Confirm this access change?',
+        action === 'restore'
+          ? locale === 'fr'
+            ? 'Restaurer cette fiche ? L’accès restera suspendu jusqu’à sa réactivation.'
+            : 'Restore this profile? Access will remain suspended until it is enabled.'
+          : locale === 'fr'
+            ? 'Confirmer cette modification d’accès ?'
+            : 'Confirm this access change?',
       )
     )
       return;
@@ -2273,7 +2282,12 @@ export function PeoplePanel({
                         •••
                       </summary>
                       <div>
-                        {person.hasAccount && (
+                        {person.archived ? (
+                          <button onClick={() => void access(person, 'restore')}>
+                            <Archive />
+                            {locale === 'fr' ? 'Restaurer la fiche' : 'Restore profile'}
+                          </button>
+                        ) : person.hasAccount ? (
                           <button
                             onClick={() =>
                               void access(person, person.accessDisabled ? 'enable' : 'disable')
@@ -2288,17 +2302,19 @@ export function PeoplePanel({
                                 ? 'Suspendre l’accès'
                                 : 'Suspend access'}
                           </button>
-                        )}
-                        {person.hasAccount && !person.accessDisabled && (
+                        ) : null}
+                        {!person.archived && person.hasAccount && !person.accessDisabled && (
                           <button onClick={() => void access(person, 'reset-password')}>
                             <KeyRound />
                             {locale === 'fr' ? 'Réinitialiser le mot de passe' : 'Reset password'}
                           </button>
                         )}
-                        <button className="is-danger" onClick={() => void archive(person)}>
-                          <Archive />
-                          {locale === 'fr' ? 'Archiver la fiche' : 'Archive profile'}
-                        </button>
+                        {!person.archived && (
+                          <button className="is-danger" onClick={() => void archive(person)}>
+                            <Archive />
+                            {locale === 'fr' ? 'Archiver la fiche' : 'Archive profile'}
+                          </button>
+                        )}
                       </div>
                     </details>
                   </div>

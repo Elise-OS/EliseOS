@@ -12,6 +12,9 @@ import { Prisma, type ObservationEvent } from '@prisma/client';
 import { buildEntranceSummary, ENTRANCE_WINDOW_MS } from './entrance-summary';
 import { buildHomeCards, latestPresenceEvidence } from './home-summary';
 import { PrismaService } from '../../platform/prisma.service';
+import { activeMembership, rolesFor } from '../auth/access-policy';
+
+const HOME_EDIT_ROLES = rolesFor('configuration:manage');
 
 const ACTIVITY_CAPABILITIES = ['motion', 'occupancy', 'person_presence', 'contact', 'button'];
 const LIFE_CAPABILITIES = new Set(['motion', 'occupancy', 'person_presence', 'contact']);
@@ -194,9 +197,9 @@ function mergeIntervals(intervals: Array<[number, number]>): Array<[number, numb
 export class ActivityService {
   public constructor(private readonly prisma: PrismaService) {}
 
-  private async homeFor(userId: string) {
+  private async homeFor(userId: string, roles?: readonly (typeof HOME_EDIT_ROLES)[number][]) {
     return this.prisma.home.findFirst({
-      where: { organization: { memberships: { some: { userId, disabledAt: null } } } },
+      where: { organization: { memberships: { some: activeMembership(userId, roles) } } },
       include: {
         primaryResident: { include: { supportNeeds: true, habits: true } },
         rooms: true,
@@ -447,7 +450,7 @@ export class ActivityService {
     userId: string,
     input: { name: string; type: string; address: string; timezone: string },
   ) {
-    const home = await this.homeFor(userId);
+    const home = await this.homeFor(userId, HOME_EDIT_ROLES);
     if (!home) throw new ForbiddenException('Home unavailable');
     return this.prisma.home.update({
       where: { id: home.id },

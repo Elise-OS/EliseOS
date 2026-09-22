@@ -1,7 +1,7 @@
 import NetInfo from '@react-native-community/netinfo';
 import { Platform } from 'react-native';
 import Zeroconf, { ImplType, type ZeroconfService } from 'react-native-zeroconf';
-import { normalizeUrl, parseDiscoveryInfo, subnetCandidates } from './helpers';
+import { normalizeUrl, parseDiscoveryInfo, serverUrls, subnetCandidates } from './helpers';
 import type { DiscoveredServer } from './types';
 
 type Listener = (servers: DiscoveredServer[]) => void;
@@ -86,7 +86,15 @@ export class DiscoveryService {
   }
 
   async refreshServer(server: DiscoveredServer): Promise<DiscoveredServer> {
-    return this.probe(server.url, server.source, 5000);
+    let lastError: unknown;
+    for (const url of serverUrls(server)) {
+      try {
+        return await this.probe(url, server.source, 5000);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error('Serveur Élise introuvable');
   }
 
   private async handleResolved(service: ZeroconfService) {

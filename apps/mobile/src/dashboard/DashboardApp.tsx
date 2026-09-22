@@ -2,6 +2,7 @@ import { MobileLiaisonPanel } from './MobileLiaisonPanel';
 import { MobileCalendarPanel } from './MobileCalendarPanel';
 import { MobileScreenPanel } from '../screen/MobileScreenPanel';
 import { Ionicons } from '@expo/vector-icons';
+import NetInfo from '@react-native-community/netinfo';
 import type {
   ActivitySummary,
   DashboardPeriod,
@@ -35,6 +36,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Line, Polygon, Rect, Text as SvgText } from 'react-native-svg';
 import { WebView } from 'react-native-webview';
 import {
+  isMobileApiAuthError,
   mobileApi,
   type ActivityItem,
   type AlertItem,
@@ -45,7 +47,12 @@ import {
 } from '../api';
 import { caregiverPresenceCopy } from './presence-copy';
 import type { SavedServer } from '../discovery/types';
-import { activeServerUrl } from '../discovery/helpers';
+import {
+  activeServerUrl,
+  isTailscaleUrl,
+  preferredServerUrls,
+  rememberActiveServerUrl,
+} from '../discovery/helpers';
 import { subscribeNotificationNavigation } from '../notifications';
 import { friendlyValue, relativeTime, roomOf } from './formatters';
 
@@ -126,6 +133,8 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [period, setPeriod] = useState<DashboardPeriod>('24h');
   const [connected, setConnected] = useState(true);
+  const [networkAvailable, setNetworkAvailable] = useState(true);
+  const loggedOutForAuth = useRef(false);
 
   useEffect(() => subscribeNotificationNavigation(() => setTab('alerts')), []);
 
@@ -188,18 +197,65 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
   const invalidateAll = () => queryClient.invalidateQueries({ queryKey: rootKey });
 
   useEffect(() => {
+    let wasAvailable = true;
+    return NetInfo.addEventListener((state) => {
+      const available = state.isConnected !== false;
+      setNetworkAvailable(available);
+      if (available && !wasAvailable) {
+        void queryClient.refetchQueries({ queryKey: rootKey, type: 'active' });
+      }
+      wasAvailable = available;
+    });
+  }, [queryClient, rootKey]);
+
+  useEffect(() => {
     let stream: EventSource | null = null;
     let streamUrl = '';
-    const open = () => {
+    let endpointIndex = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let appActive = true;
+    let transportAvailable = true;
+    let disposed = false;
+    let generation = 0;
+    const clearReconnect = () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = undefined;
+    };
+    const open = (preferActive = true) => {
+      if (disposed || !appActive || !transportAvailable) return;
+      clearReconnect();
+      const urls = preferredServerUrls(server);
+      if (!urls.length) {
+        setConnected(false);
+        return;
+      }
+      if (preferActive) {
+        const activeIndex = urls.indexOf(activeServerUrl(server));
+        if (activeIndex >= 0) endpointIndex = activeIndex;
+      }
+      endpointIndex %= urls.length;
+      const url = urls[endpointIndex];
       stream?.close();
-      streamUrl = activeServerUrl(server);
-      stream = new EventSource(`${streamUrl}/api/v1/events`, {
+      streamUrl = url;
+      const currentGeneration = ++generation;
+      const current = new EventSource(`${url}/api/v1/events`, {
         headers: { Authorization: `Bearer ${token}` },
         pollingInterval: 3_000,
       });
-      stream.addEventListener('open', () => setConnected(true));
-      stream.addEventListener('error', () => setConnected(false));
-      stream.addEventListener('message', (message: MessageEvent) => {
+      stream = current;
+      current.addEventListener('open', () => {
+        if (currentGeneration !== generation) return;
+        rememberActiveServerUrl(server, url);
+        setConnected(true);
+      });
+      current.addEventListener('error', () => {
+        if (currentGeneration !== generation) return;
+        setConnected(false);
+        endpointIndex = (endpointIndex + 1) % urls.length;
+        reconnectTimer = setTimeout(() => open(false), 1_500);
+      });
+      current.addEventListener('message', (message: MessageEvent) => {
+        if (currentGeneration !== generation) return;
         if (!message.data) return;
         try {
           const event = JSON.parse(message.data) as { type: string };
@@ -227,18 +283,62 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
     }, 3_000);
     const state = AppState.addEventListener('change', (next) => {
       if (next === 'active') {
+        appActive = true;
         open();
-        void invalidateAll();
-      } else stream?.close();
+        void queryClient.refetchQueries({ queryKey: rootKey, type: 'active' });
+      } else {
+        appActive = false;
+        generation += 1;
+        clearReconnect();
+        stream?.close();
+        stream = null;
+        setConnected(false);
+      }
+    });
+    const network = NetInfo.addEventListener((next) => {
+      if (next.isConnected === false) {
+        transportAvailable = false;
+        setConnected(false);
+        generation += 1;
+        clearReconnect();
+        stream?.close();
+        stream = null;
+        return;
+      }
+      transportAvailable = true;
+      if (!stream || streamUrl !== activeServerUrl(server)) open();
     });
     return () => {
+      disposed = true;
+      generation += 1;
       clearInterval(endpointCheck);
+      clearReconnect();
       state.remove();
+      network();
       stream?.close();
     };
   }, [queryClient, rootKey, server, token]);
 
-  const offline = !connected || (overview.isError && Boolean(overview.data));
+  const authError = [
+    overview.error,
+    summary.error,
+    household.error,
+    homePlan.error,
+    activity.error,
+    alerts.error,
+    journal.error,
+    cameras.error,
+    sensorDevices.error,
+  ].find(isMobileApiAuthError);
+
+  useEffect(() => {
+    if (!authError || loggedOutForAuth.current) return;
+    loggedOutForAuth.current = true;
+    void onLogout();
+  }, [authError, onLogout]);
+
+  const offline = !networkAvailable || !connected || (overview.isError && Boolean(overview.data));
+  const remoteConnection = isTailscaleUrl(activeServerUrl(server));
   const lastUpdated = overview.dataUpdatedAt ? new Date(overview.dataUpdatedAt) : null;
   const activityItems = activity.data?.pages.flatMap((page) => page.items) ?? [];
   const alertItems = alerts.data?.pages.flatMap((page) => page.items) ?? [];
@@ -285,9 +385,21 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
         <View style={styles.offlineBanner}>
           <Ionicons name="cloud-offline-outline" color="#fff" size={17} />
           <Text style={styles.offlineText}>
-            Hors ligne · dernières données{' '}
+            {networkAvailable === false
+              ? 'Téléphone hors réseau'
+              : remoteConnection
+                ? 'Connexion interrompue · vérifiez Tailscale'
+                : 'Connexion interrompue · vérifiez le Wi-Fi local'}{' '}
+            · dernières données{' '}
             {lastUpdated ? relativeTime(lastUpdated.toISOString()).toLowerCase() : 'enregistrées'}
           </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Réessayer la connexion"
+            onPress={() => void invalidateAll()}
+          >
+            <Text style={styles.offlineRetry}>Réessayer</Text>
+          </Pressable>
         </View>
       ) : null}
       <View style={styles.content}>
@@ -2876,6 +2988,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.red,
   },
   offlineText: { flex: 1, color: '#fff', fontSize: 10, fontWeight: '700' },
+  offlineRetry: { color: '#fff', fontSize: 10, fontWeight: '800', textDecorationLine: 'underline' },
   scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 28, gap: 12 },
   tabBar: {
     minHeight: 66,

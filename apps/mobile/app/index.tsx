@@ -20,10 +20,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { mobileApi, type AlertItem, type Overview } from '../src/api';
+import { isMobileApiAuthError, mobileApi, type AlertItem, type Overview } from '../src/api';
 import { ServerRegistry } from '../src/discovery/registry';
 import { discoveryService } from '../src/discovery/service';
-import { remoteUrlFromDeepLink } from '../src/discovery/helpers';
+import { isTailscaleUrl, remoteUrlFromDeepLink } from '../src/discovery/helpers';
 import type { DiscoveredServer, SavedServer } from '../src/discovery/types';
 import { DashboardApp } from '../src/dashboard/DashboardApp';
 import { registerPushNotifications } from '../src/notifications';
@@ -39,7 +39,7 @@ const setupPreviewServer: DiscoveredServer = {
   id: SETUP_PREVIEW_ID,
   instanceId: SETUP_PREVIEW_ID,
   instanceName: 'Élise OS · Démo installation',
-  version: '0.1.0-demo',
+  version: '0.1.1-demo',
   apiVersion: 1,
   serverTime: new Date().toISOString(),
   supportsMobile: true,
@@ -79,7 +79,7 @@ const asDiscovered = (server: SavedServer): DiscoveredServer => {
   return {
     ...server,
     host: parsed.hostname,
-    port: Number(parsed.port || 80),
+    port: Number(parsed.port || (parsed.protocol === 'https:' ? 443 : 80)),
     lastSeenAt: server.lastConnectedAt,
   };
 };
@@ -137,9 +137,16 @@ export default function HomeScreen() {
         setToken(savedToken);
         setUserName(user.displayName);
         setStage('dashboard');
-      } catch {
-        await ServerRegistry.clearToken(last.id);
-        if (mounted) setStage('login');
+      } catch (error) {
+        if (isMobileApiAuthError(error)) {
+          await ServerRegistry.clearToken(last.id);
+          if (mounted) setStage('login');
+          return;
+        }
+        if (!mounted) return;
+        setToken(savedToken);
+        setOffline(true);
+        setStage('dashboard');
       }
     };
     void bootstrap();
@@ -307,7 +314,7 @@ export default function HomeScreen() {
   };
 
   const logout = async () => {
-    if (server && token) await mobileApi.logout(server, token).catch(() => undefined);
+    if (server && token) void mobileApi.logout(server, token).catch(() => undefined);
     if (server) await ServerRegistry.clearToken(server.id);
     setToken(null);
     setOverview(null);
@@ -546,8 +553,8 @@ export default function HomeScreen() {
             </Text>
             <Text style={styles.manualText}>
               {locale === 'fr'
-                ? 'Si Élise n’apparaît pas, saisissez son adresse locale.'
-                : 'If Élise does not appear, enter its local address.'}
+                ? 'Si Élise n’apparaît pas, saisissez son adresse locale ou son adresse Tailscale HTTPS.'
+                : 'If Élise does not appear, enter its local or Tailscale HTTPS address.'}
             </Text>
             <View style={styles.manualRow}>
               <TextInput
@@ -692,9 +699,13 @@ export default function HomeScreen() {
             <View style={styles.localNotice}>
               <Ionicons name="shield-checkmark-outline" size={18} color={colors.green} />
               <Text style={styles.localNoticeText}>
-                {locale === 'fr'
-                  ? 'Connexion directe à votre serveur local'
-                  : 'Direct connection to your local server'}
+                {isTailscaleUrl(server.url)
+                  ? locale === 'fr'
+                    ? 'Connexion privée sécurisée via Tailscale'
+                    : 'Secure private connection through Tailscale'
+                  : locale === 'fr'
+                    ? 'Connexion directe à votre serveur local'
+                    : 'Direct connection to your local server'}
               </Text>
             </View>
           </View>

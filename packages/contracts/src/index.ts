@@ -469,6 +469,7 @@ export const updatePersonAccessSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('role'), role: z.enum(['ADMINISTRATOR', 'CAREGIVER', 'VIEWER']) }),
   z.object({ action: z.literal('disable') }),
   z.object({ action: z.literal('enable') }),
+  z.object({ action: z.literal('restore') }),
   z.object({
     action: z.literal('reset-password'),
     temporaryPassword: z.string().min(12).max(256),

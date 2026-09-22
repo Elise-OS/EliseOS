@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActivityService } from './activity.service';
 
@@ -473,5 +474,75 @@ describe('ActivityService analytics', () => {
       orderBy: { entityId: 'asc' },
       include: { device: true },
     });
+  });
+});
+
+describe('ActivityService home permissions', () => {
+  it('only allows configuration managers to update home details', async () => {
+    const prisma = { home: { findFirst: vi.fn().mockResolvedValue(null) } };
+    const service = new ActivityService(prisma as never);
+
+    await expect(
+      service.updateHome('viewer-1', {
+        name: 'Maison',
+        type: 'HOUSE',
+        address: '',
+        timezone: 'Europe/Paris',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    const homeQuery = prisma.home.findFirst.mock.calls[0]?.[0] as {
+      where: {
+        organization: {
+          memberships: {
+            some: {
+              userId: string;
+              disabledAt: null;
+              systemRole: { in: string[] };
+            };
+          };
+        };
+      };
+    };
+    expect(homeQuery.where).toEqual({
+      organization: {
+        memberships: {
+          some: {
+            userId: 'viewer-1',
+            disabledAt: null,
+            systemRole: { in: ['OWNER', 'ADMINISTRATOR'] },
+          },
+        },
+      },
+    });
+  });
+
+  it('allows an administrator to update home details', async () => {
+    const updated = {
+      id: 'home-1',
+      name: 'Maison',
+      type: 'HOUSE',
+      address: null,
+      timezone: 'Europe/Paris',
+      floorCount: 1,
+    };
+    const prisma = {
+      home: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'home-1' }),
+        update: vi.fn().mockResolvedValue(updated),
+      },
+    };
+    const service = new ActivityService(prisma as never);
+
+    await expect(
+      service.updateHome('admin-1', {
+        name: 'Maison',
+        type: 'HOUSE',
+        address: '',
+        timezone: 'Europe/Paris',
+      }),
+    ).resolves.toEqual(updated);
+    expect(prisma.home.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'home-1' } }),
+    );
   });
 });

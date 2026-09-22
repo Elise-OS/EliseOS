@@ -112,6 +112,53 @@ export interface Page<T> {
   nextCursor: string | null;
 }
 
+export type MobileApiErrorCode = 'NETWORK' | 'TIMEOUT' | 'HTTP';
+
+export class MobileApiError extends Error {
+  constructor(
+    message: string,
+    readonly code: MobileApiErrorCode,
+    readonly status?: number,
+    readonly url?: string,
+  ) {
+    super(message);
+    this.name = 'MobileApiError';
+  }
+}
+
+export const isMobileApiNetworkError = (error: unknown): error is MobileApiError =>
+  error instanceof MobileApiError && (error.code === 'NETWORK' || error.code === 'TIMEOUT');
+
+export const isMobileApiAuthError = (error: unknown): error is MobileApiError =>
+  error instanceof MobileApiError && (error.status === 401 || error.status === 403);
+
+const REQUEST_TIMEOUT_MS = 8_000;
+
+const fetchWithTimeout = async (url: string, init: RequestInit): Promise<Response> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const parentSignal = init.signal;
+  const abortFromParent = () => controller.abort();
+  parentSignal?.addEventListener('abort', abortFromParent, { once: true });
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (parentSignal?.aborted) throw error;
+    if (controller.signal.aborted) {
+      throw new MobileApiError(
+        'Élise ne répond pas dans le délai attendu.',
+        'TIMEOUT',
+        undefined,
+        url,
+      );
+    }
+    throw new MobileApiError('Élise est momentanément injoignable.', 'NETWORK', undefined, url);
+  } finally {
+    clearTimeout(timeout);
+    parentSignal?.removeEventListener('abort', abortFromParent);
+  }
+};
+
 const request = async <T>(
   server: SavedServer,
   path: string,
@@ -122,7 +169,7 @@ const request = async <T>(
   let lastError: unknown;
   for (const baseUrl of preferredServerUrls(server)) {
     try {
-      response = await fetch(`${baseUrl}/api/v1${path}`, {
+      response = await fetchWithTimeout(`${baseUrl}/api/v1${path}`, {
         ...init,
         headers: {
           accept: 'application/json',
@@ -137,8 +184,14 @@ const request = async <T>(
       lastError = error;
     }
   }
-  if (!response) throw lastError instanceof Error ? lastError : new Error('Élise is unreachable');
-  if (!response.ok) throw new Error(String(response.status));
+  if (!response) {
+    throw lastError instanceof Error
+      ? lastError
+      : new MobileApiError('Élise est momentanément injoignable.', 'NETWORK');
+  }
+  if (!response.ok) {
+    throw new MobileApiError(`HTTP ${response.status}`, 'HTTP', response.status);
+  }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 };

@@ -9,6 +9,15 @@ export const normalizeUrl = (input: string) => {
     : `http://${value}`;
 };
 
+export const isTailscaleUrl = (input: string) => {
+  try {
+    const parsed = new URL(normalizeUrl(input));
+    return parsed.protocol === 'https:' && parsed.hostname.endsWith('.ts.net');
+  } catch {
+    return false;
+  }
+};
+
 export const serverUrls = (server: {
   url: string;
   urls?: string[];
@@ -18,7 +27,8 @@ export const serverUrls = (server: {
   ...new Set(
     [server.url, ...(server.urls ?? []), server.localUrl, server.remoteUrl]
       .filter((value): value is string => Boolean(value))
-      .map(normalizeUrl),
+      .map(normalizeUrl)
+      .filter(Boolean),
   ),
 ];
 

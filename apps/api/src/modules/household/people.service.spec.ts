@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { PeopleService } from './people.service';
 
@@ -84,5 +84,72 @@ describe('PeopleService access hierarchy', () => {
     expect(membershipUpdate?.data.disabledAt).toBeInstanceOf(Date);
     expect(tx.session.deleteMany).toHaveBeenCalledWith({ where: { userId: 'caregiver-1' } });
     expect(prisma.trustedContact.findFirstOrThrow).toHaveBeenCalledOnce();
+  });
+
+  it('does not enable an archived account without restoring the contact', async () => {
+    const prisma = {
+      membership: { findFirst: vi.fn().mockResolvedValue(actorMembership('ADMINISTRATOR')) },
+      trustedContact: {
+        findFirstOrThrow: vi.fn().mockResolvedValue({
+          id: 'archived-contact',
+          archivedAt: new Date(),
+          userId: 'caregiver-1',
+          user: {
+            memberships: [
+              { id: 'membership-caregiver', systemRole: 'CAREGIVER', disabledAt: new Date() },
+            ],
+          },
+        }),
+      },
+      $transaction: vi.fn(),
+    };
+    const service = new PeopleService(prisma as never);
+
+    await expect(
+      service.updateAccess('admin-1', 'archived-contact', { action: 'enable' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('restores the contact separately and leaves account access disabled', async () => {
+    const tx = {
+      trustedContact: { update: vi.fn() },
+      membership: { update: vi.fn() },
+      session: { deleteMany: vi.fn() },
+      auditLog: { create: vi.fn() },
+    };
+    const prisma = {
+      membership: { findFirst: vi.fn().mockResolvedValue(actorMembership('ADMINISTRATOR')) },
+      trustedContact: {
+        findFirstOrThrow: vi.fn().mockResolvedValue({
+          id: 'archived-contact',
+          archivedAt: new Date(),
+          userId: 'caregiver-1',
+          user: {
+            memberships: [
+              { id: 'membership-caregiver', systemRole: 'CAREGIVER', disabledAt: null },
+            ],
+          },
+        }),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      $transaction: vi.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
+    };
+    const service = new PeopleService(prisma as never);
+
+    await service.updateAccess('admin-1', 'archived-contact', { action: 'restore' });
+
+    expect(tx.trustedContact.update).toHaveBeenCalledWith({
+      where: { id: 'archived-contact' },
+      data: { archivedAt: null },
+    });
+    const membershipUpdate = tx.membership.update.mock.calls[0]?.[0] as
+      { where: { id: string }; data: { disabledAt: unknown } } | undefined;
+    expect(membershipUpdate?.where.id).toBe('membership-caregiver');
+    expect(membershipUpdate?.data.disabledAt).toBeInstanceOf(Date);
+    expect(tx.session.deleteMany).toHaveBeenCalledWith({ where: { userId: 'caregiver-1' } });
+    const auditEntry = tx.auditLog.create.mock.calls[0]?.[0] as
+      { data: { action: string } } | undefined;
+    expect(auditEntry?.data.action).toBe('PERSON_RESTORED');
   });
 });

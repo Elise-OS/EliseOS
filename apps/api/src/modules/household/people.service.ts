@@ -216,10 +216,44 @@ export class PeopleService {
         people.find((person) => person.id === personId),
       );
     }
+    if (input.action === 'restore') {
+      this.assertTarget(context.role, membership?.systemRole ?? null);
+      if (!contact.archivedAt) throw new ConflictException('Cette fiche est déjà active.');
+      await this.prisma.$transaction(async (tx) => {
+        await tx.trustedContact.update({
+          where: { id: personId },
+          data: { archivedAt: null },
+        });
+        if (membership && contact.userId) {
+          if (!membership.disabledAt) {
+            await tx.membership.update({
+              where: { id: membership.id },
+              data: { disabledAt: new Date() },
+            });
+          }
+          await tx.session.deleteMany({ where: { userId: contact.userId } });
+        }
+        await tx.auditLog.create({
+          data: {
+            homeId: context.homeId,
+            actorId: userId,
+            action: 'PERSON_RESTORED',
+            target: personId,
+            metadata: {},
+          },
+        });
+      });
+      return this.list(userId, true).then((people) =>
+        people.find((person) => person.id === personId),
+      );
+    }
     if (!contact.userId || !membership) throw new NotFoundException('Aucun compte associé.');
     this.assertTarget(context.role, membership.systemRole);
     if (input.action === 'role' && input.role === 'ADMINISTRATOR' && context.role !== 'OWNER') {
       throw new ForbiddenException('Seul le propriétaire peut nommer un administrateur.');
+    }
+    if (input.action === 'enable' && contact.archivedAt) {
+      throw new ConflictException('Restaurez d’abord la fiche avant de réactiver son accès.');
     }
     const passwordHash =
       input.action === 'reset-password' ? await hash(input.temporaryPassword) : null;

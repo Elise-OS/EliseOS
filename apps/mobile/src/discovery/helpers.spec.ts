@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isTailscaleUrl,
   normalizeUrl,
   parseDiscoveryInfo,
   remoteUrlFromDeepLink,
@@ -12,6 +13,13 @@ describe('Michel discovery helpers', () => {
     expect(normalizeUrl('192.168.1.50:8080/')).toBe('http://192.168.1.50:8080');
     expect(normalizeUrl('http://michel.local:8080/')).toBe('http://michel.local:8080');
     expect(normalizeUrl('elise.example.ts.net:8443/')).toBe('https://elise.example.ts.net:8443');
+  });
+
+  it('recognizes private Tailscale HTTPS endpoints', () => {
+    expect(isTailscaleUrl('elise.example.ts.net:8443')).toBe(true);
+    expect(isTailscaleUrl('https://elise.example.ts.net:8443/')).toBe(true);
+    expect(isTailscaleUrl('http://192.168.1.55:8090')).toBe(false);
+    expect(isTailscaleUrl('https://elise.example.com:8443')).toBe(false);
   });
 
   it('reads the private address from an Élise app link', () => {
