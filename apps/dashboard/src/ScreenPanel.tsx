@@ -22,6 +22,7 @@ import {
   Mic,
   Pause,
   Phone,
+  Power,
   ImagePlus,
   Play,
   Radio,
@@ -79,6 +80,75 @@ type YouTubePlaylist = {
   itemCount: number;
   thumbnailUrl: string | null;
 };
+type NetworkTv = {
+  id: string;
+  name: string;
+  manufacturer: string;
+  model: string;
+  address?: string;
+  mac?: string | null;
+  location?: string;
+  protocols: string[];
+  homeAssistantEntityId?: string;
+  homeAssistantName?: string;
+  available?: boolean;
+};
+type TvHostStatus = {
+  installed: boolean;
+  display?: { connected?: string[]; selected?: string; mode?: string; updatedAt?: number };
+  cec?: {
+    backend?: string;
+    detected?: boolean;
+    tvAcknowledged?: boolean;
+    activeSourceSent?: boolean;
+    power?: string | null;
+    asleepRequested?: boolean;
+    updatedAt?: number;
+  };
+  networkTv?: Partial<NetworkTv> & { updatedAt?: number };
+  networkTvStatus?: {
+    configured?: boolean;
+    reachable?: boolean;
+    detectedPort?: number | string | null;
+    cecConfirmed?: boolean;
+    lastWakeAt?: number | null;
+    updatedAt?: number;
+  };
+  homeAssistantTv?: Partial<NetworkTv> | null;
+};
+function tvSelection(selected: TvHostStatus['networkTv'], discovered: NetworkTv): NetworkTv {
+  if (!selected?.id) return discovered;
+  const current = selected as NetworkTv;
+  if (
+    current.address &&
+    !current.homeAssistantEntityId &&
+    discovered.homeAssistantEntityId &&
+    !discovered.address
+  )
+    return {
+      ...current,
+      homeAssistantEntityId: discovered.homeAssistantEntityId,
+      ...(discovered.homeAssistantName !== undefined
+        ? { homeAssistantName: discovered.homeAssistantName }
+        : {}),
+      protocols: [...new Set([...current.protocols, ...discovered.protocols])],
+    };
+  if (
+    !current.address &&
+    current.homeAssistantEntityId &&
+    discovered.address &&
+    !discovered.homeAssistantEntityId
+  )
+    return {
+      ...discovered,
+      homeAssistantEntityId: current.homeAssistantEntityId,
+      ...(current.homeAssistantName !== undefined
+        ? { homeAssistantName: current.homeAssistantName }
+        : {}),
+      protocols: [...new Set([...discovered.protocols, ...current.protocols])],
+    };
+  return discovered;
+}
 export async function screenRequest<T>(
   path: string,
   body?: unknown,
@@ -219,6 +289,9 @@ export function ScreenPanel({
   const [photoScheduleAt, setPhotoScheduleAt] = useState('');
   const [busy, setBusy] = useState(false);
   const [host, setHost] = useState<Record<string, unknown>>();
+  const [tvHost, setTvHost] = useState<TvHostStatus>();
+  const [discoveredTvs, setDiscoveredTvs] = useState<NetworkTv[]>([]);
+  const [tvScanDone, setTvScanDone] = useState(false);
   const [appointments, setAppointments] = useState<
     Array<{ id: string; title: string; startsAt: string; pictogram?: AppointmentPictogram }>
   >([]);
@@ -240,6 +313,15 @@ export function ScreenPanel({
     if (snapshot?.grant.administer)
       void screenRequest<Record<string, unknown>>('screen/host', undefined, 'GET').then(setHost);
   }, [snapshot?.grant.administer]);
+  const refreshTvHost = useCallback(async () => {
+    setTvHost(await screenRequest<TvHostStatus>('screen/tv', undefined, 'GET'));
+  }, []);
+  useEffect(() => {
+    if (!snapshot?.grant.control) return;
+    void refreshTvHost().catch(() => undefined);
+    const timer = window.setInterval(() => void refreshTvHost().catch(() => undefined), 5000);
+    return () => window.clearInterval(timer);
+  }, [snapshot?.grant.control, refreshTvHost]);
   useEffect(() => {
     const query = settings?.weatherCity?.trim() ?? '';
     if (!snapshot?.grant.administer || query.length < 2) {
@@ -358,6 +440,20 @@ export function ScreenPanel({
       setBusy(false);
     }
   };
+  const scanLocalTvs = async () => {
+    setBusy(true);
+    setError('');
+    setTvScanDone(false);
+    try {
+      const result = await screenRequest<{ devices: NetworkTv[] }>('screen/tv/scan');
+      setDiscoveredTvs(result.devices);
+      setTvScanDone(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
   const call = snapshot?.state.call;
   useEffect(() => {
     if (call?.acceptedAt && call.userId === snapshot?.userId && !join)
@@ -465,6 +561,54 @@ export function ScreenPanel({
     : snapshot.paired
       ? 'Écran hors ligne'
       : 'Écran en préparation';
+  const cecFresh =
+    typeof tvHost?.cec?.updatedAt === 'number' && Date.now() / 1000 - tvHost.cec.updatedAt < 45;
+  const cecReady =
+    cecFresh &&
+    tvHost?.cec?.tvAcknowledged === true &&
+    (state.playback.asleep
+      ? tvHost.cec.asleepRequested === true
+      : tvHost.cec.activeSourceSent === true);
+  const cecLabel = cecReady
+    ? 'CEC opérationnel'
+    : tvHost?.cec?.detected
+      ? 'CEC à vérifier'
+      : tvHost?.installed
+        ? 'CEC non détecté'
+        : 'Agent TV absent';
+  const display = tvHost?.display;
+  const displayUpdatedAt = display?.updatedAt;
+  const displayStatusFresh =
+    typeof displayUpdatedAt === 'number' && Date.now() / 1000 - displayUpdatedAt < 60;
+  const videoOutputReady = displayStatusFresh && Boolean(display?.selected && display?.mode);
+  const connectedOutputs = display?.connected ?? [];
+  const videoOutputLabel = !tvHost?.installed
+    ? 'Agent vidéo absent'
+    : !displayStatusFresh
+      ? 'État HDMI indisponible'
+      : videoOutputReady
+        ? `Sortie ${display?.selected} · ${display?.mode}`
+        : connectedOutputs.length > 0
+          ? `${connectedOutputs.join(', ')} détectée sans mode actif`
+          : 'Aucune sortie vidéo détectée';
+  const selectedNetworkTv = tvHost?.networkTv?.id ? tvHost.networkTv : undefined;
+  const networkStatusFresh =
+    typeof tvHost?.networkTvStatus?.updatedAt === 'number' &&
+    Date.now() / 1000 - tvHost.networkTvStatus.updatedAt < 30;
+  const networkReachable = networkStatusFresh && tvHost?.networkTvStatus?.reachable === true;
+  const networkControlReady =
+    selectedNetworkTv && (networkReachable || tvHost?.homeAssistantTv?.available === true);
+  const networkControlLabel = !selectedNetworkTv
+    ? 'TV réseau non associée'
+    : networkReachable
+      ? `Réseau : ${selectedNetworkTv.name} joignable`
+      : tvHost?.homeAssistantTv?.available
+        ? `Secours Home Assistant : ${selectedNetworkTv.name}`
+        : `Réseau : ${selectedNetworkTv.name} en veille`;
+  const redundantTvControl =
+    cecReady &&
+    Boolean(selectedNetworkTv) &&
+    Boolean(selectedNetworkTv?.mac || selectedNetworkTv?.homeAssistantEntityId);
   const residentFirstName = snapshot.resident.trim().split(/\s+/)[0] || snapshot.resident;
   return (
     <section className="screen-panel">
@@ -492,6 +636,20 @@ export function ScreenPanel({
             >
               Voir l’écran <ExternalLink aria-hidden="true" />
             </a>
+            {grant.control && (
+              <button
+                className="screen-button screen-button--primary"
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    await screenRequest('screen/tv/reclaim');
+                    window.setTimeout(() => void refreshTvHost().catch(() => undefined), 2500);
+                  })
+                }
+              >
+                <Power aria-hidden="true" /> Reprendre la TV
+              </button>
+            )}
             {grant.call && (
               <button
                 className="screen-button screen-button--call"
@@ -502,7 +660,7 @@ export function ScreenPanel({
               </button>
             )}
           </div>
-          {grant.administer && (
+          {(grant.administer || grant.control) && (
             <div className="screen-capabilities" aria-label="État des équipements de l’écran">
               <span className={snapshot.capabilities.camera ? 'is-ready' : ''}>
                 <Camera aria-hidden="true" />
@@ -514,7 +672,25 @@ export function ScreenPanel({
               </span>
               <span className={snapshot.online ? 'is-ready' : ''}>
                 <Tv aria-hidden="true" />
-                Image TV {snapshot.online ? 'disponible' : 'à vérifier'}
+                Navigateur kiosque {snapshot.online ? 'connecté' : 'à vérifier'}
+              </span>
+              <span className={videoOutputReady ? 'is-ready' : ''}>
+                <Tv aria-hidden="true" /> {videoOutputLabel}
+              </span>
+              <span className={redundantTvControl ? 'is-ready' : ''}>
+                {redundantTvControl ? (
+                  <CircleCheck aria-hidden="true" />
+                ) : (
+                  <CircleX aria-hidden="true" />
+                )}
+                {redundantTvControl ? 'Voies de reprise configurées' : 'Reprise TV à vérifier'}
+              </span>
+              <span className={cecReady ? 'is-ready' : ''}>
+                <Power aria-hidden="true" /> {cecLabel}
+              </span>
+              <span className={networkControlReady ? 'is-ready' : ''}>
+                <Wifi aria-hidden="true" />
+                {networkControlLabel}
               </span>
             </div>
           )}
@@ -524,6 +700,150 @@ export function ScreenPanel({
         <p role="alert" className="screen-error">
           {error}
         </p>
+      )}
+      {grant.administer && (
+        <section className="screen-card screen-network-tv-card">
+          <div className="screen-card__heading">
+            <span>
+              <Wifi aria-hidden="true" />
+            </span>
+            <div>
+              <h3>TV sur le réseau local</h3>
+              <p>
+                Le Raspberry Pi peut être en Ethernet et la TV en Wi-Fi : ils doivent simplement
+                partager le même réseau local.
+              </p>
+            </div>
+          </div>
+          <div className="screen-network-tv-current">
+            {selectedNetworkTv ? (
+              <div>
+                <strong>{selectedNetworkTv.name}</strong>
+                <span>
+                  {[selectedNetworkTv.manufacturer, selectedNetworkTv.model]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  {selectedNetworkTv.address ? ` · ${selectedNetworkTv.address}` : ''}
+                </span>
+                <small>
+                  {networkReachable
+                    ? 'TV joignable sur le réseau local.'
+                    : 'TV en veille ou non joignable : le réveil réseau reste surveillé.'}
+                  {selectedNetworkTv.homeAssistantEntityId
+                    ? ' Secours Home Assistant associé.'
+                    : ''}
+                </small>
+              </div>
+            ) : (
+              <p>Aucune TV du réseau local n’est encore associée.</p>
+            )}
+            <div className="screen-network-tv-actions">
+              <button
+                className="screen-button screen-button--secondary"
+                disabled={busy}
+                onClick={() => void scanLocalTvs()}
+              >
+                <Search aria-hidden="true" /> Rechercher les TV
+              </button>
+              {selectedNetworkTv && (
+                <button
+                  className="screen-button screen-button--ghost"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      await screenRequest('screen/tv/select', undefined, 'DELETE');
+                      await refreshTvHost();
+                    })
+                  }
+                >
+                  Oublier cette TV
+                </button>
+              )}
+            </div>
+          </div>
+          {discoveredTvs.length > 0 && (
+            <ul className="screen-network-tv-results">
+              {discoveredTvs.map((device) => {
+                const addsHomeAssistant =
+                  Boolean(selectedNetworkTv?.address) &&
+                  !selectedNetworkTv?.homeAssistantEntityId &&
+                  Boolean(device.homeAssistantEntityId) &&
+                  !device.address;
+                const addsMergedHomeAssistant =
+                  Boolean(selectedNetworkTv?.address) &&
+                  !selectedNetworkTv?.homeAssistantEntityId &&
+                  Boolean(device.address) &&
+                  Boolean(device.homeAssistantEntityId) &&
+                  selectedNetworkTv?.id === device.id;
+                const addsNetwork =
+                  !selectedNetworkTv?.address &&
+                  Boolean(selectedNetworkTv?.homeAssistantEntityId) &&
+                  Boolean(device.address) &&
+                  !device.homeAssistantEntityId;
+                const addsMergedNetwork =
+                  !selectedNetworkTv?.address &&
+                  Boolean(selectedNetworkTv?.homeAssistantEntityId) &&
+                  Boolean(device.address) &&
+                  selectedNetworkTv?.homeAssistantEntityId === device.homeAssistantEntityId;
+                const associated =
+                  !addsHomeAssistant &&
+                  !addsMergedHomeAssistant &&
+                  !addsNetwork &&
+                  !addsMergedNetwork &&
+                  (selectedNetworkTv?.id === device.id ||
+                    (Boolean(device.homeAssistantEntityId) &&
+                      selectedNetworkTv?.homeAssistantEntityId === device.homeAssistantEntityId));
+                return (
+                  <li key={device.id}>
+                    <Tv aria-hidden="true" />
+                    <div>
+                      <strong>{device.name}</strong>
+                      <span>
+                        {[device.manufacturer, device.model, device.address]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                      <small>
+                        {device.homeAssistantEntityId
+                          ? 'Commande Home Assistant disponible en secours.'
+                          : device.mac
+                            ? 'Réveil réseau disponible si la TV l’autorise.'
+                            : 'Adresse MAC non annoncée : le CEC assurera le réveil.'}
+                      </small>
+                    </div>
+                    <button
+                      className="screen-button screen-button--primary"
+                      disabled={busy || associated}
+                      onClick={() =>
+                        void run(async () => {
+                          await screenRequest(
+                            'screen/tv/select',
+                            tvSelection(selectedNetworkTv, device),
+                          );
+                          await refreshTvHost();
+                        })
+                      }
+                    >
+                      {associated
+                        ? 'Associée'
+                        : addsHomeAssistant || addsMergedHomeAssistant
+                          ? 'Ajouter en secours'
+                          : addsNetwork || addsMergedNetwork
+                            ? 'Ajouter le réseau'
+                            : 'Associer'}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {tvScanDone && discoveredTvs.length === 0 && (
+            <p className="screen-empty-library">
+              Aucune TV n’a répondu. Vérifiez qu’elle est allumée et que le routeur n’isole pas les
+              appareils du réseau local, puis relancez la recherche.
+            </p>
+          )}
+        </section>
       )}
       {join ? (
         <JitsiFrame

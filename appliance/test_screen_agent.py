@@ -16,7 +16,7 @@ class ScreenAgentTests(unittest.TestCase):
   with patch.object(agent,'run',side_effect=[query,'']) as run:
    with patch.object(agent,'try_run') as optional:
     self.assertEqual(agent.configure_outputs(['display']),'HDMI-2')
-    run.assert_any_call(['display','xrandr','--output','HDMI-2','--mode','1920x1080','--primary','--pos','0x0'])
+    run.assert_any_call(['display','xrandr','--output','HDMI-2','--mode','1920x1080','--primary','--pos','0x0'],5)
     optional.assert_called_with(['display','xrandr','--output','DP-3','--off'])
  def test_display_falls_back_to_its_preferred_mode(self):
   outputs=agent.display_outputs('DP-1 connected\n   2560x1440 59.95 +\n   1280x720 60.00*\n')

@@ -9,10 +9,12 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 [[ "$ID" == ubuntu && "$VERSION_ID" == 24.04 ]] || { echo 'Le mode écran est validé pour Ubuntu 24.04.'; exit 1; }
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y --no-install-recommends xserver-xorg xinit openbox lightdm unclutter pulseaudio alsa-utils x11-xserver-utils chromium-browser cec-utils v4l-utils python3
+apt-get install -y --no-install-recommends xserver-xorg xinit openbox lightdm unclutter pulseaudio alsa-utils x11-xserver-utils chromium-browser cec-utils v4l-utils iproute2 iputils-ping python3
 id elise-screen >/dev/null 2>&1 || useradd --create-home --shell /bin/bash elise-screen
 usermod -a -G video,render,audio,input elise-screen
 install -d -m 0755 /etc/elise /etc/lightdm/lightdm.conf.d /usr/share/xsessions /usr/lib/elise
+install -m 0644 "$root/appliance/systemd/elise-screen-tmpfiles.conf" /etc/tmpfiles.d/elise-screen.conf
+systemd-tmpfiles --create /etc/tmpfiles.d/elise-screen.conf
 printf '%s\n' "$url" > /etc/elise/screen-url
 install -m 0755 "$root/appliance/elise-screen-session.sh" /usr/lib/elise/elise-screen-session
 cat > /usr/share/xsessions/elise-screen.desktop <<'DESKTOP'

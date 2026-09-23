@@ -31,10 +31,12 @@ import {
   type ScreenState,
   type ScreenGrant,
   type ScreenSnapshot,
+  type ScreenTvControl,
 } from '@michel/contracts';
 import { PrismaService } from '../../platform/prisma.service';
 import { parseRequest } from '../../platform/zod-validation';
 import { decryptCameraSecret, encryptCameraSecret } from '../cameras/camera-crypto';
+import { MqttIngestionService } from '../sensing/mqtt-ingestion.service';
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 const json = (s: unknown) => JSON.parse(JSON.stringify(s)) as Prisma.InputJsonValue;
@@ -94,6 +96,22 @@ export interface GoogleSettingsResult {
   youtubeEnabled: boolean;
   calendarEnabled: boolean;
   youtubeConnected: boolean;
+}
+type HomeAssistantTvCandidate = {
+  id: string;
+  name: string;
+  manufacturer: string;
+  model: string;
+  protocols: string[];
+  homeAssistantEntityId: string;
+  homeAssistantName: string;
+  available: boolean;
+};
+function jsonObjects(value: Prisma.JsonValue): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => typeof item === 'object' && item !== null && !Array.isArray(item))
+    .map((item) => item as Record<string, unknown>);
 }
 
 export function cityFromAddress(address: string | null | undefined): string | null {
@@ -189,7 +207,12 @@ async function fetchCityWeather(address: string | null | undefined): Promise<Cit
 @Injectable()
 export class ScreenService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
-  constructor(private readonly prisma: PrismaService) {}
+  private tvRecoveryTimer?: NodeJS.Timeout;
+  private readonly homeAssistantCommandAt = new Map<string, number>();
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mqtt?: MqttIngestionService,
+  ) {}
   async onModuleInit() {
     await fs.mkdir(mediaRoot, { recursive: true });
     // A process restart never resurrects a conference or replays pending commands.
@@ -212,9 +235,14 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       void this.tick().catch(() => undefined);
     }, 1000);
     this.timer.unref();
+    this.tvRecoveryTimer = setInterval(() => {
+      void this.automaticTvRecovery().catch(() => undefined);
+    }, 30_000);
+    this.tvRecoveryTimer.unref();
   }
   onModuleDestroy() {
     if (this.timer) clearInterval(this.timer);
+    if (this.tvRecoveryTimer) clearInterval(this.tvRecoveryTimer);
   }
   private async home(userId: string) {
     const home = await this.prisma.home.findFirst({
@@ -350,6 +378,267 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       url: process.env.ELISE_SCREEN_LOCAL_URL ?? 'http://127.0.0.1:8080',
     });
     return { ok: true };
+  }
+  async tvStatus(userId: string) {
+    const { home, state } = await this.access(userId, 'control');
+    const homeAssistantTvs = await this.homeAssistantTvs(home.id).catch(() => []);
+    let status: Record<string, unknown> = {};
+    let installed = false;
+    try {
+      status = await this.agent('GET', '/status');
+      installed = status.installed === true;
+    } catch {
+      status = {};
+    }
+    const agentNetworkTv = (status.networkTv ?? {}) as Record<string, unknown>;
+    const networkTv = (
+      state.tvControl === null
+        ? {}
+        : state.tvControl
+          ? agentNetworkTv.id === state.tvControl.id
+            ? { ...state.tvControl, ...agentNetworkTv }
+            : state.tvControl
+          : agentNetworkTv
+    ) as {
+      id?: unknown;
+      homeAssistantEntityId?: unknown;
+    };
+    return {
+      installed,
+      display: status.display ?? {},
+      cec: status.cec ?? {},
+      networkTv,
+      networkTvStatus:
+        typeof networkTv.id === 'string' && agentNetworkTv.id === networkTv.id
+          ? (status.networkTvStatus ?? {})
+          : {},
+      homeAssistantTv:
+        homeAssistantTvs.find(
+          (candidate) => candidate.homeAssistantEntityId === networkTv.homeAssistantEntityId,
+        ) ?? null,
+    };
+  }
+  async reclaimTv(userId: string) {
+    const { home, state } = await this.access(userId, 'control');
+    await this.mutate(home.id, (state) => {
+      state.playback.asleep = false;
+      state.playback.revision++;
+    });
+    const homeAssistantEntityId =
+      typeof state.tvControl?.homeAssistantEntityId === 'string'
+        ? state.tvControl.homeAssistantEntityId
+        : undefined;
+    const [local, homeAssistant] = await Promise.all([
+      this.agent('POST', '/cec/reclaim', {}).catch(() => ({
+        ok: false,
+        reason: 'Agent TV temporairement indisponible ; la demande reste enregistrée.',
+      })),
+      homeAssistantEntityId
+        ? this.controlHomeAssistantTv(home.id, homeAssistantEntityId, false).catch(() => ({
+            sent: false,
+            reason: 'Secours Home Assistant indisponible.',
+          }))
+        : Promise.resolve({ sent: false, reason: 'Aucune TV Home Assistant associée.' }),
+    ]);
+    return { accepted: true, ...local, homeAssistant };
+  }
+  async scanTvs(userId: string) {
+    const { home } = await this.access(userId, 'administer');
+    const [local, homeAssistant] = await Promise.all([
+      this.agent('POST', '/tv/scan', {}).catch(() => ({ devices: [] })),
+      this.homeAssistantTvs(home.id).catch(() => []),
+    ]);
+    const localDevices = Array.isArray(local.devices)
+      ? (local.devices as Array<Record<string, unknown>>)
+      : [];
+    return { devices: this.mergeTvCandidates(localDevices, homeAssistant) };
+  }
+  async selectTv(userId: string, body: unknown) {
+    const { home } = await this.access(userId, 'administer');
+    const homeAssistantEntityId =
+      typeof body === 'object' &&
+      body !== null &&
+      'homeAssistantEntityId' in body &&
+      typeof body.homeAssistantEntityId === 'string'
+        ? body.homeAssistantEntityId
+        : undefined;
+    if (
+      homeAssistantEntityId &&
+      !(await this.homeAssistantTvs(home.id)).some(
+        (candidate) => candidate.homeAssistantEntityId === homeAssistantEntityId,
+      )
+    )
+      throw new BadRequestException('Cette TV Home Assistant n’est pas disponible.');
+    await this.mutate(home.id, (state) => {
+      state.tvControl = body as ScreenTvControl;
+    });
+    return this.agent('POST', '/tv/select', body).catch(() => ({
+      ok: true,
+      agentPending: true,
+    }));
+  }
+  async forgetTv(userId: string) {
+    const { home } = await this.access(userId, 'administer');
+    await this.mutate(home.id, (state) => {
+      state.tvControl = null;
+    });
+    return this.agent('POST', '/tv/forget', {}).catch(() => ({
+      ok: true,
+      agentPending: true,
+    }));
+  }
+  private async homeAssistantTvs(homeId: string) {
+    const entities = await this.prisma.deviceEntity.findMany({
+      where: { homeId, domain: 'media_player', removedAt: null },
+      include: { device: true },
+      orderBy: { name: 'asc' },
+    });
+    return entities.flatMap<HomeAssistantTvCandidate>((entity) => {
+      const actions = jsonObjects(entity.actions);
+      const canTurnOn = actions.some(
+        (action) =>
+          action.service === 'turn_on' &&
+          (action.domain === 'media_player' || action.domain === 'homeassistant'),
+      );
+      if (!canTurnOn) return [];
+      return [
+        {
+          id: hash(`home-assistant:${entity.entityId}`).slice(0, 16),
+          name: (entity.device?.displayName ?? entity.device?.name ?? entity.name).slice(0, 200),
+          manufacturer: (entity.device?.manufacturer ?? 'Home Assistant').slice(0, 200),
+          model: (entity.device?.model ?? entity.integration ?? 'TV connectée').slice(0, 200),
+          protocols: [
+            'home-assistant',
+            ...(entity.integration ? [entity.integration.slice(0, 40)] : []),
+          ],
+          homeAssistantEntityId: entity.entityId,
+          homeAssistantName: entity.name.slice(0, 200),
+          available: entity.available,
+        },
+      ];
+    });
+  }
+  private mergeTvCandidates(
+    localDevices: Array<Record<string, unknown>>,
+    homeAssistantTvs: HomeAssistantTvCandidate[],
+  ) {
+    const normalize = (value: unknown) =>
+      String(value ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+    const used = new Set<string>();
+    const merged = localDevices.map((device) => {
+      const match = homeAssistantTvs.find((candidate) => {
+        if (used.has(candidate.homeAssistantEntityId)) return false;
+        const sameModel =
+          normalize(device.model).length > 2 &&
+          normalize(device.model) === normalize(candidate.model) &&
+          normalize(device.manufacturer) === normalize(candidate.manufacturer);
+        const sameName =
+          normalize(device.name).length > 3 && normalize(device.name) === normalize(candidate.name);
+        return sameModel || sameName;
+      });
+      if (!match) return device;
+      used.add(match.homeAssistantEntityId);
+      return {
+        ...device,
+        homeAssistantEntityId: match.homeAssistantEntityId,
+        homeAssistantName: match.homeAssistantName,
+        protocols: [
+          ...new Set([
+            ...(Array.isArray(device.protocols) ? (device.protocols as string[]) : []),
+            ...match.protocols,
+          ]),
+        ],
+      };
+    });
+    return [
+      ...merged,
+      ...homeAssistantTvs.filter((candidate) => !used.has(candidate.homeAssistantEntityId)),
+    ];
+  }
+  private async controlHomeAssistantTv(homeId: string, entityId: string, asleep: boolean) {
+    const entity = await this.prisma.deviceEntity.findFirst({
+      where: { homeId, entityId, domain: 'media_player', removedAt: null },
+    });
+    const actions = entity ? jsonObjects(entity.actions) : [];
+    const service = asleep ? 'turn_off' : 'turn_on';
+    const action = actions.find(
+      (action) =>
+        action.service === service &&
+        (action.domain === 'media_player' || action.domain === 'homeassistant'),
+    );
+    if (!entity || !action || typeof action.domain !== 'string')
+      return {
+        sent: false,
+        reason: `Commande Home Assistant ${asleep ? 'de veille' : 'd’allumage'} indisponible.`,
+      };
+    if (!this.mqtt) return { sent: false, reason: 'Pont Home Assistant indisponible.' };
+    this.mqtt.executeHomeAssistantCommand({
+      domain: action.domain,
+      service,
+      target: { entity_id: entity.entityId },
+    });
+    this.homeAssistantCommandAt.set(`${entity.entityId}:${service}`, Date.now());
+    return { sent: true, entityId: entity.entityId, service };
+  }
+  private async automaticTvRecovery() {
+    let status: Record<string, unknown>;
+    try {
+      status = await this.agent('GET', '/status');
+    } catch {
+      const screens = await this.prisma.residentScreen.findMany({
+        where: { lastSeenAt: { gte: new Date(Date.now() - 60_000) } },
+      });
+      await Promise.all(
+        screens.map((screen) =>
+          this.sendAutomaticHomeAssistant(
+            screen.homeId,
+            screen.state as unknown as ScreenState,
+          ).catch(() => undefined),
+        ),
+      );
+      return;
+    }
+    const selected = status.networkTv as { homeAssistantEntityId?: unknown } | undefined;
+    if (typeof selected?.homeAssistantEntityId !== 'string') return;
+    const cec = status.cec as
+      | {
+          tvAcknowledged?: unknown;
+          activeSourceSent?: unknown;
+          updatedAt?: unknown;
+        }
+      | undefined;
+    const recentScreens = await this.prisma.residentScreen.findMany({
+      where: { lastSeenAt: { gte: new Date(Date.now() - 60_000) } },
+    });
+    const matchingScreens = recentScreens.filter(
+      (screen) =>
+        (screen.state as unknown as ScreenState).tvControl?.homeAssistantEntityId ===
+        selected.homeAssistantEntityId,
+    );
+    if (matchingScreens.length !== 1) return;
+    const screen = matchingScreens[0]!;
+    const state = screen.state as unknown as ScreenState;
+    const asleep = state.playback.asleep;
+    const cecFresh = typeof cec?.updatedAt === 'number' && Date.now() / 1000 - cec.updatedAt < 45;
+    const cecExpectedState = asleep
+      ? (status.cec as { asleepRequested?: unknown } | undefined)?.asleepRequested === true
+      : cec?.activeSourceSent === true;
+    if (cecFresh && cec?.tvAcknowledged === true && cecExpectedState) return;
+    await this.sendAutomaticHomeAssistant(screen.homeId, state);
+  }
+  private async sendAutomaticHomeAssistant(homeId: string, state: ScreenState) {
+    const entityId = state.tvControl?.homeAssistantEntityId;
+    if (!entityId) return;
+    const asleep = state.playback.asleep;
+    const service = asleep ? 'turn_off' : 'turn_on';
+    const commandKey = `${entityId}:${service}`;
+    const lastCommand = this.homeAssistantCommandAt.get(commandKey) ?? 0;
+    if (Date.now() - lastCommand < 60_000) return;
+    await this.controlHomeAssistantTv(homeId, entityId, asleep);
   }
   async buttonDevice(userId: string, path: string) {
     await this.access(userId, 'administer');

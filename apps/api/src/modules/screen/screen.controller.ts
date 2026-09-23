@@ -72,6 +72,45 @@ export class ScreenController {
   @Post('host/pair') hostPair(@Req() r: AuthenticatedRequest) {
     return this.screens.hostPair(r.userId);
   }
+  @Get('tv') tv(@Req() r: AuthenticatedRequest) {
+    return this.screens.tvStatus(r.userId);
+  }
+  @Post('tv/reclaim') reclaimTv(@Req() r: AuthenticatedRequest) {
+    return this.screens.reclaimTv(r.userId);
+  }
+  @Post('tv/scan') scanTvs(@Req() r: AuthenticatedRequest) {
+    return this.screens.scanTvs(r.userId);
+  }
+  @Post('tv/select') selectTv(@Req() r: AuthenticatedRequest, @Body() b: unknown) {
+    return this.screens.selectTv(
+      r.userId,
+      parseRequest(
+        z.object({
+          id: z.string().regex(/^[a-f0-9]{16}$/),
+          name: z.string().trim().min(1).max(200),
+          manufacturer: z.string().trim().max(200),
+          model: z.string().trim().max(200),
+          address: z.ipv4().optional(),
+          mac: z
+            .string()
+            .regex(/^[0-9a-f]{2}(?::[0-9a-f]{2}){5}$/i)
+            .nullable()
+            .optional(),
+          location: z.string().url().max(2048).optional(),
+          protocols: z.array(z.string().max(40)).max(10),
+          homeAssistantEntityId: z
+            .string()
+            .regex(/^media_player\.[a-z0-9_]+$/)
+            .optional(),
+          homeAssistantName: z.string().trim().max(200).optional(),
+        }),
+        b,
+      ),
+    );
+  }
+  @Delete('tv/select') forgetTv(@Req() r: AuthenticatedRequest) {
+    return this.screens.forgetTv(r.userId);
+  }
   @Post('host/button') buttonDevice(@Req() r: AuthenticatedRequest, @Body() b: unknown) {
     return this.screens.buttonDevice(
       r.userId,

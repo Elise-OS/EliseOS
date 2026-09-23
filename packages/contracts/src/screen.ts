@@ -122,6 +122,18 @@ export interface ScreenPlayback {
   volume: number;
   revision: number;
 }
+export interface ScreenTvControl {
+  id: string;
+  name: string;
+  manufacturer: string;
+  model: string;
+  address?: string;
+  mac?: string | null;
+  location?: string;
+  protocols: string[];
+  homeAssistantEntityId?: string;
+  homeAssistantName?: string;
+}
 export interface ScreenActivity {
   id: string;
   kind: 'message' | 'content' | 'control' | 'call' | 'appointment' | 'settings';
@@ -199,6 +211,7 @@ export interface ScreenState {
   messageUpdatedAt?: number | null;
   media: ScreenMedia[];
   playback: ScreenPlayback;
+  tvControl?: ScreenTvControl | null;
   call: ScreenCall | null;
   lastSlot: string;
   history: Array<{ id: string; name: string; startedAt: number; endedAt: number; result: string }>;
@@ -268,6 +281,7 @@ export const initialScreenState = (): ScreenState => ({
   messageUpdatedAt: null,
   media: [],
   playback: { mediaId: null, paused: false, asleep: false, volume: 30, revision: 0 },
+  tvControl: null,
   call: null,
   lastSlot: '',
   history: [],

@@ -839,6 +839,82 @@
 .screen-capabilities svg {
   width: 16px;
 }
+.screen-network-tv-card {
+  background: linear-gradient(135deg, #fff, #f4faf8);
+}
+.screen-network-tv-current,
+.screen-network-tv-results li,
+.screen-network-tv-actions {
+  display: flex;
+  align-items: center;
+}
+.screen-network-tv-current {
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border: 1px solid #dce9e6;
+  border-radius: 16px;
+  background: #f8fbfa;
+}
+.screen-network-tv-current > div:first-child,
+.screen-network-tv-results li > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.screen-network-tv-current p {
+  margin: 0;
+  color: #6d8087;
+}
+.screen-network-tv-current span,
+.screen-network-tv-current small,
+.screen-network-tv-results span,
+.screen-network-tv-results small {
+  color: #6d8087;
+}
+.screen-network-tv-actions {
+  flex: 0 0 auto;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.screen-network-tv-results {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.screen-network-tv-results li {
+  gap: 13px;
+  padding: 14px 16px;
+  border: 1px solid #e1e9e8;
+  border-radius: 14px;
+  background: #fff;
+}
+.screen-network-tv-results li > svg {
+  flex: 0 0 auto;
+  width: 23px;
+  color: #397e7e;
+}
+.screen-network-tv-results li > div {
+  flex: 1;
+}
+.screen-network-tv-results .screen-button {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 920px) {
+  .screen-network-tv-current {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .screen-network-tv-actions {
+    justify-content: flex-start;
+  }
+}
+
 .screen-context-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1229,6 +1305,16 @@
 }
 
 @media (max-width: 620px) {
+  .screen-network-tv-current,
+  .screen-network-tv-results li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .screen-network-tv-actions,
+  .screen-network-tv-actions .screen-button,
+  .screen-network-tv-results .screen-button {
+    width: 100%;
+  }
   .screen-appointment-form {
     grid-template-columns: 1fr;
   }
@@ -3075,6 +3161,7 @@
 .screen-panel > .screen-panel__hero,
 .screen-panel > .screen-error,
 .screen-panel > .screen-call-state,
+.screen-panel > .screen-network-tv-card,
 .screen-panel > .screen-scheduled-card {
   grid-column: 1 / -1;
 }
@@ -3086,6 +3173,10 @@
 .screen-panel > .screen-error,
 .screen-panel > .screen-call-state {
   order: 1;
+}
+
+.screen-panel > .screen-network-tv-card {
+  order: 2;
 }
 
 .screen-panel > .screen-media-card {
@@ -3588,6 +3679,7 @@
   .screen-panel > .screen-panel__hero,
   .screen-panel > .screen-error,
   .screen-panel > .screen-call-state,
+  .screen-panel > .screen-network-tv-card,
   .screen-panel > .screen-media-card,
   .screen-panel > .screen-context-grid,
   .screen-panel > .screen-medias,
