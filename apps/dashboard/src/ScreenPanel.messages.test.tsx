@@ -49,46 +49,48 @@ describe('TV message editor and calendar agenda summary', () => {
                 ],
               },
             }
-          : url.endsWith('/appointments') && init?.method === 'GET'
-            ? [
-                {
-                  id: 'appointment1',
-                  title: 'Coiffeur',
-                  startsAt: '2026-10-01T10:00:00Z',
-                  pictogram: 'calendar',
-                },
-              ]
-            : {
-                state,
-                resident: 'Michel',
-                online: true,
-                paired: true,
-                capabilities: {},
-                agenda: [
+          : url.endsWith('/screen/tv-guide')
+            ? { channels: [], retrievedAt: '2026-09-23T00:00:00.000Z', stale: false }
+            : url.endsWith('/appointments') && init?.method === 'GET'
+              ? [
                   {
-                    id: 'calendar-appointment',
-                    type: 'appointment',
+                    id: 'appointment1',
                     title: 'Coiffeur',
-                    pictogram: 'hairdresser',
-                    startsAt: '2026-09-23T10:00:00.000Z',
+                    startsAt: '2026-10-01T10:00:00Z',
+                    pictogram: 'calendar',
                   },
-                  {
-                    id: 'calendar-visit',
-                    type: 'visit',
-                    title: 'Sophie',
-                    startsAt: '2026-09-23T13:00:00.000Z',
+                ]
+              : {
+                  state,
+                  resident: 'Michel',
+                  online: true,
+                  paired: true,
+                  capabilities: {},
+                  agenda: [
+                    {
+                      id: 'calendar-appointment',
+                      type: 'appointment',
+                      title: 'Coiffeur',
+                      pictogram: 'hairdresser',
+                      startsAt: '2026-09-23T10:00:00.000Z',
+                    },
+                    {
+                      id: 'calendar-visit',
+                      type: 'visit',
+                      title: 'Sophie',
+                      startsAt: '2026-09-23T13:00:00.000Z',
+                    },
+                  ],
+                  weather: null,
+                  timezone: 'Europe/Paris',
+                  grant: {
+                    call: false,
+                    autoAnswer: false,
+                    message: true,
+                    control: true,
+                    administer: false,
                   },
-                ],
-                weather: null,
-                timezone: 'Europe/Paris',
-                grant: {
-                  call: false,
-                  autoAnswer: false,
-                  message: true,
-                  control: true,
-                  administer: false,
-                },
-              };
+                };
         return { ok: true, json: () => Promise.resolve(response) };
       }),
     );
@@ -180,18 +182,16 @@ describe('TV message editor and calendar agenda summary', () => {
     });
   });
   it('shows a read-only recap of the same calendar agenda that appears on the TV', () => {
-    expect(host.textContent).toContain(
-      'Récapitulatif des rendez-vous du calendrier affichés aujourd’hui.',
-    );
+    expect(host.textContent).toContain('Rendez-vous du jour');
     expect(host.textContent).toContain('Coiffeur');
     expect(host.textContent).toContain('Sophie');
     expect(host.querySelector('.screen-appointment-form')).toBeNull();
     expect(requests.some((row) => row.url.endsWith('/screen/appointments'))).toBe(false);
   });
 
-  it('keeps the current media and sound controls in the bar above the three main tabs', async () => {
+  it('keeps the current media and sound controls in the bar above the main tabs', async () => {
     const tabs = host.querySelectorAll('.screen-main-tabs [role="tab"]');
-    expect(tabs).toHaveLength(3);
+    expect(tabs).toHaveLength(4);
     expect(host.querySelector('.screen-playback-now')?.textContent).toContain('Concerts');
     expect(host.querySelector('.screen-playback-now input[type="range"]')).not.toBeNull();
     expect(host.querySelector('.screen-medias-player')).toBeNull();

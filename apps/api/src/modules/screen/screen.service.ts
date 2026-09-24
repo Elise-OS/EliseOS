@@ -1719,7 +1719,9 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
           target?.kind === 'stream'
             ? 'Radio lancée'
             : target?.kind === 'tv'
-              ? 'Chaîne TV lancée'
+              ? target.title
+                ? `${target.title} lancée`
+                : 'Chaîne TV lancée'
               : target?.kind === 'youtube'
                 ? 'Playlist YouTube lancée'
                 : 'Photo affichée',
