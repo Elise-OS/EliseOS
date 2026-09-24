@@ -522,12 +522,14 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     localDevices: Array<Record<string, unknown>>,
     homeAssistantTvs: HomeAssistantTvCandidate[],
   ) {
-    const normalize = (value: unknown) =>
-      String(value ?? '')
+    const normalize = (value: unknown) => {
+      if (typeof value !== 'string') return '';
+      return value
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
         .replace(/[^a-z0-9]/g, '');
+    };
     const used = new Set<string>();
     const merged = localDevices.map((device) => {
       const match = homeAssistantTvs.find((candidate) => {
