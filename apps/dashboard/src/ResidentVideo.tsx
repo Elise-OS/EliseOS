@@ -73,7 +73,6 @@ export function ResidentVideo({
     let disposed = false;
     let hls: Hls | undefined;
     let player: YoutubePlayer | undefined;
-    let startupTimer: number | undefined;
     let recoveryTimer: number | undefined;
     let stalledTimer: number | undefined;
     let recoveryAttempts = 0;
@@ -81,10 +80,16 @@ export function ResidentVideo({
     setSoundBlocked(false);
     hasLoaded.current = false;
     onStatus('loading');
+    const startupTimer = window.setTimeout(
+      () => {
+        if (!disposed && !hasLoaded.current) onStatus('error');
+      },
+      media.kind === 'tv' ? 90_000 : 12_000,
+    );
     const markReady = () => {
       hasLoaded.current = true;
       recoveryAttempts = 0;
-      if (startupTimer !== undefined) window.clearTimeout(startupTimer);
+      window.clearTimeout(startupTimer);
       if (recoveryTimer !== undefined) window.clearTimeout(recoveryTimer);
       if (stalledTimer !== undefined) window.clearTimeout(stalledTimer);
       recoveryTimer = undefined;
@@ -136,12 +141,6 @@ export function ResidentVideo({
     markVideoReady.current = markReady;
     recoverVideo.current = scheduleRecovery;
     checkVideoStall.current = waitForVideo;
-    startupTimer = window.setTimeout(
-      () => {
-        if (!disposed && !hasLoaded.current) onStatus('error');
-      },
-      media.kind === 'tv' ? 90_000 : 12_000,
-    );
     if (media.kind === 'tv') {
       const element = video.current!;
       element.volume = controls.current.volume / 100;
@@ -200,7 +199,7 @@ export function ResidentVideo({
                 setReady(true);
                 if (controls.current.paused) {
                   hasLoaded.current = true;
-                  if (startupTimer !== undefined) window.clearTimeout(startupTimer);
+                  window.clearTimeout(startupTimer);
                   onStatus('ready');
                 }
               },
@@ -208,7 +207,7 @@ export function ResidentVideo({
                 if (disposed) return;
                 if (event.data === 1 || event.data === 2 || event.data === 5) {
                   hasLoaded.current = true;
-                  if (startupTimer !== undefined) window.clearTimeout(startupTimer);
+                  window.clearTimeout(startupTimer);
                   onStatus('ready');
                   if (controls.current.paused) youtube.current?.pauseVideo();
                 }
@@ -228,7 +227,7 @@ export function ResidentVideo({
     }
     return () => {
       disposed = true;
-      if (startupTimer !== undefined) window.clearTimeout(startupTimer);
+      window.clearTimeout(startupTimer);
       if (recoveryTimer !== undefined) window.clearTimeout(recoveryTimer);
       if (stalledTimer !== undefined) window.clearTimeout(stalledTimer);
       if (recoverVideo.current === scheduleRecovery) recoverVideo.current = null;
