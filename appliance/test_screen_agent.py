@@ -5,7 +5,7 @@ agent=importlib.util.module_from_spec(spec);spec.loader.exec_module(agent)
 class ScreenAgentTests(unittest.TestCase):
  def setUp(self):
   original=agent.write
-  writer=patch.object(agent,'write',side_effect=lambda path,data:None if path==agent.CEC_STATUS else original(path,data));self.write=writer.start();self.addCleanup(writer.stop)
+  writer=patch.object(agent,'write',side_effect=lambda path,data:None if path in (agent.CEC_STATUS,agent.MEDIA_STATUS) else original(path,data));self.write=writer.start();self.addCleanup(writer.stop)
  def test_stable_display_does_not_reset_cec_link(self):
   query='DP-3 connected primary 1920x1080+0+0\n   1920x1080 60.00*+\n'
   with patch.object(agent,'run',return_value=query) as run:
@@ -33,6 +33,22 @@ class ScreenAgentTests(unittest.TestCase):
    run.assert_any_call(['env','pactl','set-sink-volume','alsa_output.hdmi-stereo','42%'])
    run.assert_any_call(['env','pactl','move-sink-input','7','alsa_output.hdmi-stereo'])
    run.assert_any_call(['env','pactl','set-default-source','alsa_input.usb-mic'])
+ def test_detect_media_finds_camera_and_physical_microphones(self):
+  nodes=[pathlib.Path('/dev/video0'),pathlib.Path('/dev/video1')]
+  def response(args,timeout=20):
+   if 'v4l2-ctl' in args:
+    if args[args.index('--device')+1]=='/dev/video0':
+     return 'Card type : Trust USB Camera: Trust USB Cam\nDevice Caps : 0x04200001\n\tVideo Capture\n\tStreaming\nMedia Driver Info\n'
+    return 'Device Caps : 0x00800000\n\tMetadata Capture\nMedia Driver Info\n'
+   if args[-4:]==['pactl','list','short','sources']:
+    return '0\talsa_output.hdmi.monitor\tx\n1\talsa_input.usb-Trust_Camera\tx\n2\talsa_input.usb-Blue_Snowball\tx'
+   return ''
+  with patch.object(agent.pathlib.Path,'glob',return_value=nodes),patch.object(agent,'try_run',side_effect=response):
+   media=agent.detect_media(['env'])
+  self.assertTrue(media['camera'])
+  self.assertTrue(media['microphone'])
+  self.assertEqual(media['cameraDevices'],[{'path':'/dev/video0','name':'Trust USB Camera: Trust USB Cam'}])
+  self.assertEqual(media['microphoneDevices'],[{'name':'alsa_input.usb-Trust_Camera'},{'name':'alsa_input.usb-Blue_Snowball'}])
  def test_cec_wakes_tv_and_selects_elise_input(self):
   completed=Mock(returncode=0,stdout='power status: on',stderr='')
   with patch.object(agent.shutil,'which',return_value='/usr/bin/cec-client'),patch.object(agent,'try_run',return_value='device: 1'),patch.object(agent.subprocess,'run',return_value=completed) as run:
