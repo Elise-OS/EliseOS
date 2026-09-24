@@ -371,9 +371,7 @@ async function screenTvGuide(): Promise<ScreenTvGuideResult> {
       );
       const current = currentIndex >= 0 ? (upcoming[currentIndex] ?? null) : null;
       const following =
-        currentIndex >= 0
-          ? (upcoming[currentIndex + 1] ?? null)
-          : (upcoming[0] ?? null);
+        currentIndex >= 0 ? (upcoming[currentIndex + 1] ?? null) : (upcoming[0] ?? null);
       const toResult = ({ title, description, startAt, endAt }: XmlTvProgram) => ({
         title,
         description,

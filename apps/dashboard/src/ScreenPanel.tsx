@@ -2246,7 +2246,8 @@ export function ScreenPanel({
               </span>
               <span className="is-success">
                 <CircleCheck aria-hidden="true" />{' '}
-                {(state.activity ?? []).filter((item) => item.status === 'applied').length} confirmées
+                {(state.activity ?? []).filter((item) => item.status === 'applied').length}{' '}
+                confirmées
               </span>
               {(state.activity ?? []).some(
                 (item) => item.status === 'failed' || item.status === 'expired',

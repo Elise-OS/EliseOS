@@ -136,9 +136,12 @@ export function ResidentVideo({
     markVideoReady.current = markReady;
     recoverVideo.current = scheduleRecovery;
     checkVideoStall.current = waitForVideo;
-    startupTimer = window.setTimeout(() => {
-      if (!disposed && !hasLoaded.current) onStatus('error');
-    }, media.kind === 'tv' ? 90_000 : 12_000);
+    startupTimer = window.setTimeout(
+      () => {
+        if (!disposed && !hasLoaded.current) onStatus('error');
+      },
+      media.kind === 'tv' ? 90_000 : 12_000,
+    );
     if (media.kind === 'tv') {
       const element = video.current!;
       element.volume = controls.current.volume / 100;
