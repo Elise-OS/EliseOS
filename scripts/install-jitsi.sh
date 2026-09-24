@@ -33,14 +33,25 @@ updates={'ELISE_JITSI_URL':values['PUBLIC_URL'],'ELISE_JITSI_SECRET':values['JWT
 lines=[l for l in content.splitlines() if l.split('=',1)[0] not in updates]
 app.write_text('\n'.join(lines)+'\n'+''.join(k+'='+v+'\n' for k,v in updates.items()));app.chmod(0o600)
 PY
-for dir in web prosody/config prosody/prosody-plugins-custom jicofo jvb storage/web storage/prosody storage/transcripts tmp/web-load-test tmp/web-crontabs transcripts web/crontabs web/load-test; do
+for dir in web prosody/prosody-plugins-custom jicofo jvb storage/web storage/prosody storage/transcripts tmp/web-load-test tmp/web-crontabs transcripts web/crontabs web/load-test; do
   "${as_root[@]}" install -d -m 0750 -o 1000 -g 1000 "$state/config/$dir"
 done
+# The pinned Prosody image drops privileges to uid 100 / gid 102. Keeping the
+# bind-mount root at uid 1000 prevents it from traversing /config and rejects
+# every conference participant after JWT authentication.
+"${as_root[@]}" install -d -m 0750 -o 100 -g 102 "$state/config/prosody/config"
 "${as_root[@]}" chmod 0755 "$state/config/web" "$state/config/prosody/prosody-plugins-custom"
 "${as_root[@]}" install -m 0644 docker/jitsi/mod_elise_guard.lua "$state/config/prosody/prosody-plugins-custom/mod_elise_guard.lua"
 # Keep Jitsi's authentication secret out of command output.
-docker compose --project-name elise-jitsi --env-file "$state/jitsi.env" -f docker/jitsi/compose.yaml pull
-docker compose --project-name elise-jitsi --env-file "$state/jitsi.env" -f docker/jitsi/compose.yaml up -d
+compose=(docker compose --project-name elise-jitsi --env-file "$state/jitsi.env" -f docker/jitsi/compose.yaml)
+"${compose[@]}" pull
+"${compose[@]}" up -d
+# A Docker restart can leave a running JVB without its Compose network. Compose
+# otherwise considers that container healthy enough and does not reconnect it.
+jvb_id="$("${compose[@]}" ps -q jvb)"
+if [[ -z "$jvb_id" || "$(docker inspect -f '{{len .NetworkSettings.Networks}}' "$jvb_id" 2>/dev/null || echo 0)" == 0 ]]; then
+  "${compose[@]}" up -d --force-recreate jvb
+fi
 "${as_root[@]}" tailscale serve --bg --https=8444 http://127.0.0.1:18084
 # Add only Jitsi's rules and restore them after a reboot or base firewall restart.
 "${as_root[@]}" install -d /usr/lib/elise
@@ -49,8 +60,17 @@ docker compose --project-name elise-jitsi --env-file "$state/jitsi.env" -f docke
 "${as_root[@]}" systemctl daemon-reload
 "${as_root[@]}" systemctl enable --now elise-jitsi-firewall.service
 for attempt in $(seq 1 60); do
-  if curl -fs http://127.0.0.1:18084/config.js >/dev/null; then echo "Jitsi prêt : https://$dns:8444"; exit 0; fi
+  prosody_id="$("${compose[@]}" ps -q prosody)"
+  jvb_id="$("${compose[@]}" ps -q jvb)"
+  if curl -fs http://127.0.0.1:18084/config.js >/dev/null \
+    && curl -fs http://127.0.0.1:18085/about/health >/dev/null \
+    && [[ -n "$prosody_id" && -n "$jvb_id" ]] \
+    && docker exec --user 100:102 "$prosody_id" test -r /config/prosody.cfg.lua \
+    && [[ "$(docker inspect -f '{{len .NetworkSettings.Networks}}' "$jvb_id")" -gt 0 ]]; then
+    echo "Jitsi prêt : https://$dns:8444"
+    exit 0
+  fi
   sleep 2
 done
-echo 'Jitsi ne répond pas encore ; consultez les journaux.' >&2
+echo 'Jitsi ne répond pas complètement (web, Prosody ou pont vidéo) ; consultez les journaux.' >&2
 exit 1

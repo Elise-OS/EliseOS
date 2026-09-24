@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildHomeCards, latestPresenceEvidence } from './home-summary';
+import { buildHomeCards, buildSleepSummary, latestPresenceEvidence } from './home-summary';
+import type { HomePlan } from '@michel/contracts';
 const room = { id: 'wc', kind: 'TOILET', name: 'Toilettes' };
 const bathroom = { id: 'bathroom', kind: 'BATHROOM', name: 'Salle de bain' };
 const event = (active: boolean, hour = 10) => ({
@@ -39,6 +40,206 @@ const humiditySensor = (latest: ReturnType<typeof humidityEvent>, extra = {}) =>
   unit: '%',
   events: [latest],
   ...extra,
+});
+const bedroom = { id: 'bedroom', kind: 'BEDROOM', name: 'Chambre' };
+const bedEvent = (open: boolean, occurredAt: string) => ({
+  sensorId: 'bed-contact',
+  roomId: 'bedroom',
+  capability: 'contact',
+  payload: { open },
+  quality: 'good',
+  occurredAt: new Date(occurredAt),
+});
+const bedPlan = (bedOccupiedWhen: 'CLOSED' | 'OPEN' = 'CLOSED') =>
+  ({
+    levels: [{ items: [], rooms: [{ ...bedroom, geometry: { color: null } }] }],
+    placements: [
+      {
+        kind: 'SENSOR',
+        equipmentId: 'bed-device',
+        equipmentRefKind: 'DEVICE',
+        roomId: 'bedroom',
+        capabilityBindings: [
+          { sensorId: 'bed-contact', capability: 'contact', role: 'BED', bedOccupiedWhen },
+        ],
+      },
+    ],
+  }) as unknown as HomePlan;
+const bedSensor = (latest: ReturnType<typeof bedEvent>, status = 'ONLINE') => ({
+  id: 'bed-contact',
+  deviceId: 'bed-device',
+  roomId: 'bedroom',
+  capability: 'contact',
+  status,
+  available: status === 'ONLINE',
+  events: [latest],
+});
+
+describe('bed landmarks', () => {
+  const now = new Date('2026-09-15T06:10:00Z');
+
+  it('confirms bedtime across midnight and wake-up after a sustained exit', () => {
+    const events = [
+      bedEvent(true, '2026-09-14T19:00:00Z'),
+      bedEvent(false, '2026-09-14T20:30:00Z'),
+      bedEvent(true, '2026-09-15T01:00:00Z'),
+      bedEvent(false, '2026-09-15T01:10:00Z'),
+      bedEvent(true, '2026-09-15T05:30:00Z'),
+    ];
+    expect(
+      buildSleepSummary(
+        [bedSensor(events.at(-1)!)],
+        events,
+        [],
+        bedPlan(),
+        [bedroom],
+        'Europe/Paris',
+        now,
+      ),
+    ).toMatchObject({
+      configured: true,
+      available: true,
+      occupied: false,
+      bedtimeAt: '2026-09-14T20:30:00.000Z',
+      wakeAt: '2026-09-15T05:30:00.000Z',
+    });
+    expect(buildHomeCards([bedSensor(events.at(-1)!)], events, bedPlan(), [bedroom]).cards).toEqual(
+      [],
+    );
+  });
+
+  it('keeps yesterday evening bedtime and today wake-up after tonight has started', () => {
+    const events = [
+      bedEvent(true, '2026-09-14T18:00:00Z'),
+      bedEvent(false, '2026-09-14T20:00:00Z'),
+      bedEvent(true, '2026-09-15T05:00:00Z'),
+      bedEvent(true, '2026-09-15T18:00:00Z'),
+      bedEvent(false, '2026-09-15T20:00:00Z'),
+    ];
+    expect(
+      buildSleepSummary(
+        [bedSensor(events.at(-1)!)],
+        events,
+        [],
+        bedPlan(),
+        [bedroom],
+        'Europe/Paris',
+        new Date('2026-09-15T20:30:00Z'),
+      ),
+    ).toMatchObject({
+      configured: true,
+      available: true,
+      occupied: true,
+      bedtimeAt: '2026-09-14T20:00:00.000Z',
+      wakeAt: '2026-09-15T05:00:00.000Z',
+    });
+  });
+
+  it('waits through a brief exit and accepts reversed wiring', () => {
+    const events = [
+      bedEvent(false, '2026-09-14T19:00:00Z'),
+      bedEvent(true, '2026-09-14T20:00:00Z'),
+      bedEvent(false, '2026-09-15T05:55:00Z'),
+    ];
+    expect(
+      buildSleepSummary(
+        [bedSensor(events.at(-1)!)],
+        events,
+        [],
+        bedPlan('OPEN'),
+        [bedroom],
+        'Europe/Paris',
+        now,
+      ),
+    ).toMatchObject({
+      bedtimeAt: '2026-09-14T20:00:00.000Z',
+      wakeAt: null,
+      occupied: false,
+    });
+    const shortVisit = [
+      bedEvent(false, '2026-09-14T19:00:00Z'),
+      bedEvent(true, '2026-09-14T20:00:00Z'),
+      bedEvent(false, '2026-09-14T20:10:00Z'),
+    ];
+    expect(
+      buildSleepSummary(
+        [bedSensor(shortVisit.at(-1)!)],
+        shortVisit,
+        [],
+        bedPlan('OPEN'),
+        [bedroom],
+        'Europe/Paris',
+        now,
+      ).bedtimeAt,
+    ).toBeNull();
+  });
+
+  it('keeps historical landmarks if the contact goes offline', () => {
+    const events = [
+      bedEvent(true, '2026-09-14T19:00:00Z'),
+      bedEvent(false, '2026-09-14T20:30:00Z'),
+      bedEvent(true, '2026-09-15T05:30:00Z'),
+    ];
+    expect(
+      buildSleepSummary(
+        [bedSensor(events.at(-1)!, 'OFFLINE')],
+        events,
+        [],
+        bedPlan(),
+        [bedroom],
+        'Europe/Paris',
+        now,
+      ),
+    ).toMatchObject({ available: false, occupied: null, wakeAt: '2026-09-15T05:30:00.000Z' });
+    expect(buildSleepSummary([], [], [], null, [bedroom], 'Europe/Paris', now)).toMatchObject({
+      roomId: 'bedroom',
+      configured: false,
+    });
+  });
+
+  it('keeps the first bedtime and waits until the final morning exit', () => {
+    const beforeReturn = [
+      bedEvent(true, '2026-09-14T19:00:00Z'),
+      bedEvent(false, '2026-09-14T20:00:00Z'),
+      bedEvent(true, '2026-09-15T03:00:00Z'),
+      bedEvent(false, '2026-09-15T03:45:00Z'),
+    ];
+    expect(
+      buildSleepSummary(
+        [bedSensor(beforeReturn.at(-1)!)],
+        beforeReturn,
+        [],
+        bedPlan(),
+        [bedroom],
+        'Europe/Paris',
+        new Date('2026-09-15T03:50:00Z'),
+      ),
+    ).toMatchObject({ bedtimeAt: '2026-09-14T20:00:00.000Z', wakeAt: null });
+
+    const finalExit = [...beforeReturn, bedEvent(true, '2026-09-15T06:00:00Z')];
+    expect(
+      buildSleepSummary(
+        [bedSensor(finalExit.at(-1)!)],
+        finalExit,
+        [],
+        bedPlan(),
+        [bedroom],
+        'Europe/Paris',
+        new Date('2026-09-15T06:40:00Z'),
+      ),
+    ).toMatchObject({
+      bedtimeAt: '2026-09-14T20:00:00.000Z',
+      wakeAt: '2026-09-15T06:00:00.000Z',
+    });
+  });
+
+  it('does not invent a bedtime from the first state reported after pairing', () => {
+    const first = bedEvent(false, '2026-09-14T20:30:00Z');
+    expect(
+      buildSleepSummary([bedSensor(first)], [first], [], bedPlan(), [bedroom], 'Europe/Paris', now)
+        .bedtimeAt,
+    ).toBeNull();
+  });
 });
 describe('home daily facts', () => {
   it('distinguishes a passage from a negative motion event', () => {

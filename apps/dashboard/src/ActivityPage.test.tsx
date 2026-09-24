@@ -217,14 +217,17 @@ describe('ActivityPage', () => {
     vi.unstubAllGlobals();
   });
 
-  const renderPage = async (locale: 'fr' | 'en' = 'fr') => {
+  const renderPage = async (
+    locale: 'fr' | 'en' = 'fr',
+    activitySummary: ActivitySummary = summary,
+  ) => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const fetchMock = vi.fn().mockImplementation((input: string | URL | Request) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       const data = url.includes('/home-summary')
         ? homeSummary
         : url.includes('/analytics/activity')
-          ? summary
+          ? activitySummary
           : url.includes('/household/plan')
             ? plan
             : routines;
@@ -318,6 +321,23 @@ describe('ActivityPage', () => {
     expect(host!.textContent).not.toContain('Environment & equipment');
     expect(host!.textContent).not.toContain('Last 5 movements');
     expect(host!.textContent).toContain('Movement detected');
+  });
+
+  it('describes the NodOn bed contact as occupancy', async () => {
+    const bedEvent = {
+      ...activityEvent,
+      id: 'bed-event',
+      capability: 'dry_contact' as const,
+      roomId: 'chambre',
+      roomName: 'Chambre',
+      payload: { active: true, context: { role: 'BED', bedOccupiedWhen: 'OPEN' } },
+    };
+    await renderPage('fr', {
+      ...summary,
+      sequences: [{ ...summary.sequences[0]!, events: [bedEvent] }],
+    });
+    expect(host!.textContent).toContain('Lit occupé');
+    expect(host!.textContent).not.toContain('Ouverture détectée');
   });
 
   it('opens the seven-day date picker and compares another day', async () => {

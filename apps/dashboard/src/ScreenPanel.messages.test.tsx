@@ -7,24 +7,49 @@ import { ScreenPanel } from './ScreenPanel';
 
 vi.mock('./screen-events', () => ({ subscribeScreenEvents: () => () => undefined }));
 
-describe('TV message and appointment editor', () => {
+describe('TV message editor and calendar agenda summary', () => {
   let root: Root;
   let host: HTMLDivElement;
+  let state: ReturnType<typeof initialScreenState>;
   let requests: Array<{ url: string; body: Record<string, unknown>; method: string }>;
   beforeEach(async () => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
     requests = [];
-    const state = initialScreenState();
+    state = initialScreenState();
     state.message = 'Bonjour';
     state.messages = ['Bonjour'];
+    const activeMediaId = 'd108520f-6129-4b1b-b69d-a838471667f9';
+    state.media = [
+      {
+        id: activeMediaId,
+        title: 'Concerts',
+        kind: 'youtube',
+        url: 'https://youtu.be/M7lc1UVf-VE',
+      },
+    ];
+    state.playback.mediaId = activeMediaId;
     vi.stubGlobal(
       'fetch',
       vi.fn((url: string, init?: RequestInit) => {
         const body: Record<string, unknown> =
           typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : {};
         requests.push({ url, body, method: init?.method ?? 'GET' });
-        const response =
-          url.endsWith('/appointments') && init?.method === 'GET'
+        const response = url.endsWith('/screen/upload')
+          ? {
+              state: {
+                ...state,
+                media: [
+                  ...state.media,
+                  {
+                    id: '3b2c2950-6fe5-45f8-82a5-a28707113e53',
+                    title: 'photo.jpg',
+                    kind: 'photo',
+                    url: '/api/v1/screen-media/home1/photo',
+                  },
+                ],
+              },
+            }
+          : url.endsWith('/appointments') && init?.method === 'GET'
             ? [
                 {
                   id: 'appointment1',
@@ -39,7 +64,21 @@ describe('TV message and appointment editor', () => {
                 online: true,
                 paired: true,
                 capabilities: {},
-                agenda: [],
+                agenda: [
+                  {
+                    id: 'calendar-appointment',
+                    type: 'appointment',
+                    title: 'Coiffeur',
+                    pictogram: 'hairdresser',
+                    startsAt: '2026-09-23T10:00:00.000Z',
+                  },
+                  {
+                    id: 'calendar-visit',
+                    type: 'visit',
+                    title: 'Sophie',
+                    startsAt: '2026-09-23T13:00:00.000Z',
+                  },
+                ],
                 weather: null,
                 timezone: 'Europe/Paris',
                 grant: {
@@ -140,35 +179,60 @@ describe('TV message and appointment editor', () => {
       messageIntervalSeconds: 20,
     });
   });
-  it('uses one visual pictogram picker when creating an appointment', async () => {
-    const pictogram = host.querySelector<HTMLButtonElement>(
-      'button[aria-label="Choisir le pictogramme Médecin / soins"]',
-    )!;
+  it('shows a read-only recap of the same calendar agenda that appears on the TV', () => {
+    expect(host.textContent).toContain(
+      'Récapitulatif des rendez-vous du calendrier affichés aujourd’hui.',
+    );
+    expect(host.textContent).toContain('Coiffeur');
+    expect(host.textContent).toContain('Sophie');
+    expect(host.querySelector('.screen-appointment-form')).toBeNull();
+    expect(requests.some((row) => row.url.endsWith('/screen/appointments'))).toBe(false);
+  });
+
+  it('keeps the current media and sound controls in the bar above the three main tabs', async () => {
+    const tabs = host.querySelectorAll('.screen-main-tabs [role="tab"]');
+    expect(tabs).toHaveLength(3);
+    expect(host.querySelector('.screen-playback-now')?.textContent).toContain('Concerts');
+    expect(host.querySelector('.screen-playback-now input[type="range"]')).not.toBeNull();
+    expect(host.querySelector('.screen-medias-player')).toBeNull();
+    expect(host.textContent).not.toContain('Météo sur la TV');
+
     await act(async () => {
-      pictogram.click();
+      host.querySelector<HTMLButtonElement>('#screen-main-tab-medias')!.click();
       await Promise.resolve();
     });
-    expect(pictogram.getAttribute('aria-pressed')).toBe('true');
-    expect(host.querySelector('select[aria-label^="Pictogramme pour"]')).toBeNull();
+    expect(host.querySelector('#screen-main-panel-medias')?.hasAttribute('hidden')).toBe(false);
+    expect(host.querySelector('.screen-playback-now')?.textContent).toContain('Concerts');
 
-    await change(
-      host.querySelector<HTMLInputElement>('input[placeholder="Médecin, coiffeur…"]')!,
-      'Médecin',
-    );
-    await change(
-      host.querySelector<HTMLInputElement>(
-        '.screen-appointment-form input[type="datetime-local"]',
-      )!,
-      '2026-10-01T10:00',
-    );
     await act(async () => {
-      button('Ajouter').click();
+      host.querySelector<HTMLButtonElement>('#screen-main-tab-messages')!.click();
       await Promise.resolve();
     });
+    expect(host.querySelector('#screen-main-panel-messages')?.hasAttribute('hidden')).toBe(false);
+    expect(host.querySelector('.screen-playback-now')?.textContent).toContain('Concerts');
+  });
 
-    expect(
-      requests.find((row) => row.url.endsWith('/screen/appointments') && row.method === 'POST')
-        ?.body,
-    ).toMatchObject({ title: 'Médecin', pictogram: 'medical' });
+  it('adds an album photo when its optional comment is left blank', async () => {
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('#screen-main-tab-album')!.click();
+      await Promise.resolve();
+    });
+    const fileInput = host.querySelector<HTMLInputElement>('input[type="file"]')!;
+    Object.defineProperty(fileInput, 'files', {
+      configurable: true,
+      value: [new File(['photo'], 'photo.jpg', { type: 'image/jpeg' })],
+    });
+    await act(async () => {
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await Promise.resolve();
+    });
+    expect(button('Ajouter à l’album').disabled).toBe(false);
+
+    await act(async () => {
+      button('Ajouter à l’album').click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(requests.find((row) => row.url.endsWith('/screen/media'))?.body.title).toBe('');
   });
 });

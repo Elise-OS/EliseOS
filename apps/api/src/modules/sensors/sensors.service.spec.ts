@@ -274,6 +274,7 @@ describe('SensorsService physical device views', () => {
         pairingError: null,
       }),
       setZigbeePairing: vi.fn(),
+      zigbeeDevicesJoinedSince: vi.fn().mockReturnValue([]),
     };
     const service = new SensorsService(prisma as never, mqtt as never);
 
@@ -571,6 +572,42 @@ describe('SensorsService physical device views', () => {
       OR: [{ createdAt: { gte: startedAt } }],
     });
     expect(mqtt.setZigbeePairing).not.toHaveBeenCalled();
+  });
+
+  it('reports that pairing is in progress as soon as Zigbee announces the sensor', async () => {
+    const startedAt = new Date('2026-08-21T10:00:00.000Z');
+    const session = {
+      id: 'onboarding-announced',
+      homeId: 'home-1',
+      deviceId: null,
+      protocol: 'zigbee',
+      status: 'WAITING_FOR_DEVICE',
+      createdAt: startedAt,
+      expiresAt: new Date('2099-08-21T10:04:00.000Z'),
+    };
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      device: { findFirst: vi.fn().mockResolvedValue(null) },
+      sensorOnboardingSession: { findFirst: vi.fn().mockResolvedValue(session) },
+    };
+    const mqtt = {
+      zigbeeStatus: vi.fn().mockReturnValue({
+        online: true,
+        pairingOpen: true,
+        updatedAt: new Date(),
+        pairingError: null,
+      }),
+      zigbeeDevicesJoinedSince: vi.fn().mockReturnValue(['0x00124b0023456789']),
+    };
+
+    const result = await new SensorsService(prisma as never, mqtt as never).onboarding(
+      'user-1',
+      session.id,
+    );
+
+    expect(result.status).toBe('WAITING_FOR_DEVICE');
+    expect(result.connection?.deviceDetected).toBe(true);
+    expect(mqtt.zigbeeDevicesJoinedSince).toHaveBeenCalledWith(startedAt);
   });
 
   it('groups several measurements and exposes battery as secondary information', async () => {

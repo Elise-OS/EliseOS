@@ -34,6 +34,7 @@ describe('Élise copy', () => {
       expect(html).not.toContain(labels[6]);
       expect(html).toContain(labels[10]);
       expect(html).toContain(labels[11]);
+      expect(html).toContain(labels[9]);
       expect(html.indexOf(labels[10])).toBeLessThan(html.indexOf(labels[3]));
     }
   });
@@ -114,6 +115,30 @@ describe('Élise copy', () => {
         'fr',
       ),
     ).toBe('Frigo fermé');
+    expect(
+      activityDescription(
+        {
+          id: 'bed-1',
+          occurredAt: '2026-08-09T20:00:00.000Z',
+          capability: 'dry_contact',
+          room: 'Chambre',
+          payload: { active: true, context: { role: 'BED', bedOccupiedWhen: 'OPEN' } },
+        },
+        'fr',
+      ),
+    ).toBe('Lit occupé');
+    expect(
+      activityDescription(
+        {
+          id: 'bed-2',
+          occurredAt: '2026-08-10T06:00:00.000Z',
+          capability: 'contact',
+          room: 'Chambre',
+          payload: { open: true, context: { role: 'BED', bedOccupiedWhen: 'CLOSED' } },
+        },
+        'fr',
+      ),
+    ).toBe('Lit libre');
     expect(
       activityDescription(
         {

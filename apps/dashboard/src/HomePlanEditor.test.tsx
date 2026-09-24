@@ -185,12 +185,11 @@ describe('structural home understanding', () => {
     expect(isRoomSensorDevice(technicalDevice)).toBe(false);
   });
 
-  it('only launches setup for a real draft, never for manage or live views of existing homes', () => {
+  it('only launches setup for a real draft', () => {
     expect(
       shouldRunHomeSetup({
         configured: false,
         installationStatus: 'DRAFT',
-        readOnly: false,
         preview: false,
       }),
     ).toBe(true);
@@ -198,15 +197,6 @@ describe('structural home understanding', () => {
       shouldRunHomeSetup({
         configured: false,
         installationStatus: 'LEARNING',
-        readOnly: false,
-        preview: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldRunHomeSetup({
-        configured: false,
-        installationStatus: 'DRAFT',
-        readOnly: true,
         preview: false,
       }),
     ).toBe(false);

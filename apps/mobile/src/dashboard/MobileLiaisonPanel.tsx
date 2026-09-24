@@ -1,24 +1,63 @@
 import { useState } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Modal,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import {
   liaisonCreateSchema,
+  liaisonMoodLabel,
   type LiaisonCreate,
   type LiaisonFilter,
-  type LiaisonTag,
   type ScheduleItem,
 } from '@michel/contracts';
 import { mobileApi, type AlertItem } from '../api';
 import type { SavedServer } from '../discovery/types';
+
+const MOODS = [
+  {
+    id: 'HAPPY',
+    icon: 'emoticon-excited-outline',
+    fr: 'Heureux',
+    color: '#22795E',
+    background: '#EAF6EF',
+  },
+  {
+    id: 'GOOD',
+    icon: 'emoticon-happy-outline',
+    fr: 'Bien',
+    color: '#477E9B',
+    background: '#EAF3F8',
+  },
+  {
+    id: 'NEUTRAL',
+    icon: 'emoticon-neutral-outline',
+    fr: 'Neutre',
+    color: '#66788A',
+    background: '#EFF2F5',
+  },
+  {
+    id: 'LOW',
+    icon: 'emoticon-frown-outline',
+    fr: 'Pas très bien',
+    color: '#B27831',
+    background: '#FBF1E4',
+  },
+  {
+    id: 'SAD',
+    icon: 'emoticon-cry-outline',
+    fr: 'Triste',
+    color: '#5875A4',
+    background: '#EDF1FA',
+  },
+] as const;
 
 export function MobileLiaisonPanel({
   server,
@@ -43,11 +82,8 @@ export function MobileLiaisonPanel({
   const [filter, setFilter] = useState<LiaisonFilter>('ALL');
   const [visits, setVisits] = useState(false);
   const [composing, setComposing] = useState(false);
-  const [kind, setKind] = useState<'NOTE' | 'TASK'>('NOTE');
+  const [moodOpen, setMoodOpen] = useState(false);
   const [body, setBody] = useState('');
-  const [tags, setTags] = useState<LiaisonTag[]>([]);
-  const [assigneeId, setAssigneeId] = useState<string | null>(null);
-  const [dueOn, setDueOn] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const query = useInfiniteQuery({
@@ -58,15 +94,13 @@ export function MobileLiaisonPanel({
     refetchInterval: 30000,
   });
   const data = query.data?.pages[0];
+  const moodResidentName = (data?.residentName ?? residentName).trim().split(/\s+/)[0] ?? '';
   const items = query.data?.pages.flatMap((page) => page.items) ?? [];
   const refresh = () => client.invalidateQueries({ queryKey: ['michel', server.id, 'liaison'] });
   const create = useMutation({
     mutationFn: (input: LiaisonCreate) => mobileApi.createLiaison(server, token, input),
     onSuccess: async () => {
       setBody('');
-      setTags([]);
-      setDueOn('');
-      setAssigneeId(null);
       setComposing(false);
       setError('');
       setNotice('Votre contribution a été partagée.');
@@ -76,6 +110,20 @@ export function MobileLiaisonPanel({
       setError(
         'Non enregistré. Vérifiez la connexion et vos droits, puis réessayez. Votre texte est conservé.',
       ),
+    retry: false,
+  });
+  const createMood = useMutation({
+    mutationFn: (input: LiaisonCreate) => mobileApi.createLiaison(server, token, input),
+    onSuccess: async () => {
+      setMoodOpen(false);
+      setError('');
+      setNotice('Humeur ajoutée au carnet.');
+      await refresh();
+    },
+    onError: () => {
+      setMoodOpen(false);
+      setError('Humeur non enregistrée. Vérifiez la connexion et vos droits, puis réessayez.');
+    },
     retry: false,
   });
   const complete = useMutation({
@@ -92,20 +140,28 @@ export function MobileLiaisonPanel({
       ),
     retry: false,
   });
-  const busy = create.isPending || complete.isPending;
+  const busy = create.isPending || createMood.isPending || complete.isPending;
   const blocked = busy || offline;
   const submit = () => {
-    const parsed = liaisonCreateSchema.safeParse(
-      kind === 'NOTE'
-        ? { kind, body, tags }
-        : { kind, body, tags, assigneeId, dueOn: dueOn.trim() || null },
-    );
+    const parsed = liaisonCreateSchema.safeParse({ kind: 'NOTE', body });
     if (!parsed.success) {
-      setError('Ajoutez un texte. La date facultative doit être valide et au format AAAA-MM-JJ.');
+      setError('Ajoutez un texte.');
       return;
     }
     setNotice('');
     create.mutate(parsed.data);
+  };
+  const addMood = (mood: (typeof MOODS)[number]) => {
+    const parsed = liaisonCreateSchema.safeParse({
+      kind: 'NOTE',
+      body: `mood:${mood.id}`,
+      tags: ['MOOD'],
+    });
+    if (!parsed.success) return;
+    setVisits(false);
+    setFilter('ALL');
+    setError('');
+    createMood.mutate(parsed.data);
   };
   const date = (value: string) =>
     new Date(value).toLocaleString('fr-FR', {
@@ -242,20 +298,6 @@ export function MobileLiaisonPanel({
           <Text accessibilityRole="header" style={s.subtitle}>
             Une nouvelle à partager ?
           </Text>
-          <View style={s.row}>
-            <Choice
-              label="Une nouvelle"
-              selected={kind === 'NOTE'}
-              onPress={() => setKind('NOTE')}
-              disabled={busy}
-            />
-            <Choice
-              label="Une tâche"
-              selected={kind === 'TASK'}
-              onPress={() => setKind('TASK')}
-              disabled={busy}
-            />
-          </View>
           <Text style={s.label}>Votre message</Text>
           <TextInput
             accessibilityLabel="Votre message"
@@ -268,67 +310,16 @@ export function MobileLiaisonPanel({
             style={[s.input, s.textarea]}
             textAlignVertical="top"
           />
-          <View style={s.row}>
-            {(
-              [
-                ['MEAL', 'Repas', 'restaurant-outline'],
-                ['TREATMENT', 'Traitement', 'medical-outline'],
-                ['MOOD', 'Humeur', 'happy-outline'],
-                ['REST', 'Repos', 'bed-outline'],
-              ] as const
-            ).map(([tag, label, icon]) => (
-              <Pressable
-                key={tag}
-                accessibilityRole="button"
-                accessibilityState={{ selected: tags.includes(tag) }}
-                onPress={() =>
-                  setTags((current) =>
-                    current.includes(tag)
-                      ? current.filter((value) => value !== tag)
-                      : [...current, tag],
-                  )
-                }
-                style={[s.tagChoice, tags.includes(tag) && s.tagChoiceSelected]}
-              >
-                <Ionicons name={icon} size={17} color="#315A82" />
-                <Text style={s.tagChoiceText}>{label}</Text>
-              </Pressable>
-            ))}
-          </View>
-          {kind === 'TASK' && (
-            <>
-              <Text style={s.label}>Qui s’en occupe ?</Text>
-              <View style={s.row}>
-                <Choice
-                  label="À répartir"
-                  selected={!assigneeId}
-                  disabled={busy}
-                  onPress={() => setAssigneeId(null)}
-                />
-                {data.members.map((member) => (
-                  <Choice
-                    key={member.id}
-                    label={member.displayName}
-                    selected={assigneeId === member.id}
-                    disabled={busy}
-                    onPress={() => setAssigneeId(member.id)}
-                  />
-                ))}
-              </View>
-              <Text style={s.label}>Pour quand ? (facultatif)</Text>
-              <TextInput
-                accessibilityLabel="Échéance au format AAAA-MM-JJ"
-                value={dueOn}
-                editable={!busy}
-                onChangeText={setDueOn}
-                placeholder="AAAA-MM-JJ · exemple : 2026-10-25"
-                maxLength={10}
-                autoCorrect={false}
-                style={s.input}
-              />
-              <Text style={s.muted}>Date du domicile, au format année-mois-jour.</Text>
-            </>
-          )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: blocked }}
+            disabled={blocked}
+            onPress={() => setMoodOpen(true)}
+            style={[s.moodTrigger, blocked && s.disabled]}
+          >
+            <Ionicons name="happy-outline" size={19} color="#315A82" />
+            <Text style={s.moodTriggerText}>Ajouter une humeur</Text>
+          </Pressable>
           <Action
             label={busy ? 'Enregistrement…' : 'Partager'}
             disabled={blocked || !body.trim()}
@@ -336,6 +327,56 @@ export function MobileLiaisonPanel({
           />
         </View>
       )}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={moodOpen}
+        onRequestClose={() => setMoodOpen(false)}
+      >
+        <View style={s.modalOverlay}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Fermer"
+            onPress={() => setMoodOpen(false)}
+            style={StyleSheet.absoluteFill}
+          />
+          <View accessibilityViewIsModal style={s.moodDialog}>
+            <View style={s.moodDialogHeading}>
+              <View style={s.moodDialogCopy}>
+                <Text style={s.moodEyebrow}>CARNET DE LIAISON</Text>
+                <Text accessibilityRole="header" style={s.moodDialogTitle}>
+                  Ajouter une humeur
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Fermer"
+                onPress={() => setMoodOpen(false)}
+                style={s.moodClose}
+              >
+                <Ionicons name="close" size={22} color="#385577" />
+              </Pressable>
+            </View>
+            <Text style={s.moodDialogPrompt}>Comment se sent Michel ?</Text>
+            <View style={s.moodOptions}>
+              {MOODS.map((mood) => (
+                <Pressable
+                  key={mood.id}
+                  accessibilityRole="button"
+                  disabled={createMood.isPending}
+                  onPress={() => addMood(mood)}
+                  style={[s.moodOption, createMood.isPending && s.disabled]}
+                >
+                  <View style={[s.moodPictogram, { backgroundColor: mood.background }]}>
+                    <MaterialCommunityIcons name={mood.icon} size={26} color={mood.color} />
+                  </View>
+                  <Text style={s.moodLabel}>{mood.fr}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
       <View style={s.sectionHeading}>
         <View style={s.headingTitle}>
           <View style={s.greenDot} />
@@ -385,7 +426,11 @@ export function MobileLiaisonPanel({
                   <Text style={s.muted}>{date(item.createdAt)}</Text>
                 </View>
               </View>
-              <Text style={s.body}>{item.body}</Text>
+              <Text style={s.body}>
+                {item.tags.includes('MOOD') && liaisonMoodLabel(item.body)
+                  ? `${moodResidentName ? `Humeur de ${moodResidentName}` : 'Humeur du résident'} : ${liaisonMoodLabel(item.body)}`
+                  : item.body}
+              </Text>
               <View style={s.row}>
                 {item.tags.map((tag) => (
                   <Text key={tag} style={s.noteTag}>
@@ -715,19 +760,66 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   textarea: { minHeight: 130 },
-  tagChoice: {
-    minHeight: 40,
-    paddingHorizontal: 11,
+  moodTrigger: {
+    minHeight: 44,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    alignSelf: 'flex-start',
+    gap: 8,
     borderWidth: 1,
-    borderColor: '#DCE5EB',
-    borderRadius: 10,
-    backgroundColor: '#fff',
+    borderColor: '#D8E5EA',
+    borderRadius: 11,
+    backgroundColor: '#F6FAFB',
   },
-  tagChoiceSelected: { borderColor: '#BBD2E2', backgroundColor: '#EAF4FA' },
-  tagChoiceText: { color: '#315A82', fontSize: 12, fontWeight: '600' },
+  moodTriggerText: { color: '#31527D', fontSize: 13, fontWeight: '600' },
+  modalOverlay: {
+    flex: 1,
+    padding: 20,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(12, 28, 45, 0.48)',
+  },
+  moodDialog: {
+    padding: 22,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    gap: 16,
+  },
+  moodDialogHeading: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  moodDialogCopy: { flex: 1, gap: 5 },
+  moodEyebrow: { color: '#66809A', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  moodDialogTitle: { color: '#17345F', fontSize: 23, fontWeight: '700' },
+  moodClose: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E7ED',
+    borderRadius: 12,
+  },
+  moodDialogPrompt: { color: '#52688D', fontSize: 15 },
+  moodOptions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
+  moodOption: {
+    minWidth: 82,
+    minHeight: 92,
+    padding: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#E0E9EE',
+    borderRadius: 14,
+    backgroundColor: '#F8FBFC',
+  },
+  moodPictogram: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moodLabel: { color: '#31527D', fontSize: 12, textAlign: 'center' },
   action: {
     backgroundColor: '#E8F0F3',
     borderRadius: 12,

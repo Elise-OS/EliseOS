@@ -1,29 +1,32 @@
-import { appointmentPictograms, ARTE_LIVE_URL, youtubeVideoId } from '@michel/contracts';
+import {
+  appointmentPictograms,
+  ARTE_LIVE_URL,
+  RMC_DECOUVERTE_LIVE_URL,
+  RMC_LIFE_LIVE_URL,
+  RMC_STORY_LIVE_URL,
+  youtubeVideoId,
+} from '@michel/contracts';
 import { subscribeScreenEvents } from './screen-events';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type {
-  AppointmentPictogram,
-  ScreenSnapshot,
-  ScreenJoin,
-  ScreenSettings,
-} from '@michel/contracts';
+import { createPortal } from 'react-dom';
+import type { ScreenSnapshot, ScreenJoin, ScreenSettings } from '@michel/contracts';
 import {
   Activity,
   CalendarClock,
-  CalendarPlus,
   Camera,
   ChevronRight,
-  CloudSun,
   CircleCheck,
   CircleX,
   ExternalLink,
   Heart,
+  ImagePlus,
   MessageCircleHeart,
+  MessageSquareText,
   Mic,
   Pause,
   Phone,
   Power,
-  ImagePlus,
+  Image,
   Play,
   Radio,
   Youtube,
@@ -36,6 +39,7 @@ import {
   Timer,
   Clock3,
   Upload,
+  Video,
   Volume2,
   Wifi,
   WifiOff,
@@ -60,12 +64,6 @@ type RadioStation = {
   codec: string;
   bitrate: number;
   artworkUrl?: string;
-};
-type WeatherCity = {
-  name: string;
-  label: string;
-  latitude: number;
-  longitude: number;
 };
 type YouTubeAccount = {
   configured: boolean;
@@ -93,6 +91,22 @@ type NetworkTv = {
   homeAssistantName?: string;
   available?: boolean;
 };
+type TvGuideProgram = {
+  title: string;
+  description: string | null;
+  startAt: string;
+  endAt: string;
+};
+type TvGuideData = {
+  channels: Array<{
+    id: string;
+    name: string;
+    current: TvGuideProgram | null;
+    next: TvGuideProgram | null;
+  }>;
+  retrievedAt: string;
+  stale: boolean;
+};
 type TvHostStatus = {
   installed: boolean;
   display?: { connected?: string[]; selected?: string; mode?: string; updatedAt?: number };
@@ -116,6 +130,50 @@ type TvHostStatus = {
   };
   homeAssistantTv?: Partial<NetworkTv> | null;
 };
+type ScreenMainTab = 'album' | 'messages' | 'medias' | 'activity';
+const LIVE_TV_CHANNELS = [
+  {
+    url: ARTE_LIVE_URL,
+    mediaTitle: 'ARTE en direct',
+    name: 'ARTE',
+    description: 'Culture, documentaires et cinéma.',
+    brand: 'arte',
+  },
+  {
+    url: RMC_LIFE_LIVE_URL,
+    mediaTitle: 'RMC Life en direct',
+    name: 'RMC Life',
+    description: 'Séries, films et divertissement.',
+    brand: 'rmc-life',
+    brandLabel: 'RMC',
+  },
+  {
+    url: RMC_STORY_LIVE_URL,
+    mediaTitle: 'RMC Story en direct',
+    name: 'RMC Story',
+    description: 'Séries, fiction et divertissement.',
+    brand: 'rmc-story',
+    brandLabel: 'RMC',
+  },
+  {
+    url: RMC_DECOUVERTE_LIVE_URL,
+    mediaTitle: 'RMC Découverte en direct',
+    name: 'RMC Découverte',
+    description: 'Documentaires et découverte.',
+    brand: 'rmc-decouverte',
+    brandLabel: 'RMC',
+  },
+] as const;
+const tvGuideTime = new Intl.DateTimeFormat('fr-FR', {
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Europe/Paris',
+});
+function tvGuideRange(program: TvGuideProgram | null): string {
+  return program
+    ? `${tvGuideTime.format(new Date(program.startAt))} – ${tvGuideTime.format(new Date(program.endAt))}`
+    : '';
+}
 function tvSelection(selected: TvHostStatus['networkTv'], discovered: NetworkTv): NetworkTv {
   if (!selected?.id) return discovered;
   const current = selected as NetworkTv;
@@ -169,6 +227,16 @@ export async function screenRequest<T>(
   }
   return response.json() as Promise<T>;
 }
+
+export async function startResidentScreenCall(): Promise<void> {
+  const snapshot = await screenRequest<ScreenSnapshot>('screen', undefined, 'GET');
+  if (!snapshot.grant.call) throw new Error('Vous ne pouvez pas appeler cet écran.');
+  if (!snapshot.online) throw new Error('L’écran est hors ligne.');
+  if (!snapshot.state.settings.consent)
+    throw new Error('Le consentement aux appels est désactivé.');
+  if (snapshot.state.call) throw new Error('Un appel est déjà en cours.');
+  await screenRequest('screen/calls');
+}
 type JitsiInstance = {
   dispose: () => void;
   addEventListener: (event: string, cb: () => void) => void;
@@ -183,10 +251,12 @@ export function JitsiFrame({
   join,
   onEnd,
   devices = { camera: true, microphone: true },
+  dashboard = false,
 }: {
   join: ScreenJoin;
   onEnd: () => void;
   devices?: { camera: boolean; microphone: boolean };
+  dashboard?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const end = useRef(onEnd);
@@ -239,13 +309,62 @@ export function JitsiFrame({
     };
   }, [join.room, join.jwt, join.url, join.name, devices.camera, devices.microphone]);
   return (
-    <div className="elise-call">
+    <div className={`elise-call${dashboard ? ' elise-call--dashboard' : ''}`}>
       <div ref={host} />
       {error && <p role="alert">{error}</p>}
       <button onClick={onEnd}>Raccrocher</button>
     </div>
   );
 }
+
+function DashboardCallWindow({
+  join,
+  resident,
+  onEnd,
+}: {
+  join: ScreenJoin;
+  resident: string;
+  onEnd: () => void;
+}) {
+  return createPortal(
+    <div className="screen-call-window">
+      <section
+        className="screen-call-window__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Visioconférence avec ${resident}`}
+      >
+        <header className="screen-call-window__header">
+          <div className="screen-call-window__identity">
+            <span className="screen-call-window__icon" aria-hidden="true">
+              <Video />
+            </span>
+            <div>
+              <p>VISIO EN DIRECT</p>
+              <h2>Appel avec {resident}</h2>
+              <span>Vous participez en tant que {join.name}</span>
+            </div>
+          </div>
+          <span className="screen-call-window__status">
+            <i aria-hidden="true" /> Appel en cours
+          </span>
+          <button
+            type="button"
+            className="screen-call-window__hangup"
+            onClick={onEnd}
+            aria-label={`Raccrocher l’appel avec ${resident}`}
+          >
+            <Phone aria-hidden="true" />
+            Raccrocher
+          </button>
+        </header>
+        <JitsiFrame join={join} onEnd={onEnd} dashboard />
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
 export function ScreenPanel({
   initialSection = 'display',
 }: {
@@ -260,7 +379,7 @@ export function ScreenPanel({
       messages: '.screen-message-card',
       photos: '.screen-media-card',
       call: '.screen-button--call',
-      planning: '.screen-appointment-form',
+      planning: '.screen-agenda-summary',
       display: '.screen-panel__hero',
     };
     const target = document.querySelector<HTMLElement>(selectors[initialSection]);
@@ -290,21 +409,20 @@ export function ScreenPanel({
   const [busy, setBusy] = useState(false);
   const [host, setHost] = useState<Record<string, unknown>>();
   const [tvHost, setTvHost] = useState<TvHostStatus>();
+  const [tvGuide, setTvGuide] = useState<TvGuideData>();
+  const [tvGuideUnavailable, setTvGuideUnavailable] = useState(false);
   const [discoveredTvs, setDiscoveredTvs] = useState<NetworkTv[]>([]);
   const [tvScanDone, setTvScanDone] = useState(false);
-  const [appointments, setAppointments] = useState<
-    Array<{ id: string; title: string; startsAt: string; pictogram?: AppointmentPictogram }>
-  >([]);
-  const [appointmentTitle, setAppointmentTitle] = useState('');
-  const [appointmentDate, setAppointmentDate] = useState('');
-  const [appointmentPictogram, setAppointmentPictogram] =
-    useState<AppointmentPictogram>('calendar');
   const [mediaTab, setMediaTab] = useState<'youtube' | 'tv' | 'stream'>('tv');
+  const [selectedMainTab, setSelectedMainTab] = useState<ScreenMainTab>(
+    initialSection === 'messages' ? 'messages' : 'album',
+  );
+  const [volumeDraft, setVolumeDraft] = useState<number | null>(null);
+  const volumeTimer = useRef<number | undefined>(undefined);
   const [playlistTitle, setPlaylistTitle] = useState('Mes vidéos');
   const [playlistLinks, setPlaylistLinks] = useState('');
   const [radioQuery, setRadioQuery] = useState('');
   const [radioResults, setRadioResults] = useState<RadioStation[]>([]);
-  const [weatherCities, setWeatherCities] = useState<WeatherCity[]>([]);
   const [youtubeAccount, setYoutubeAccount] = useState<YouTubeAccount>();
   const [youtubePlaylists, setYoutubePlaylists] = useState<YouTubePlaylist[]>([]);
   const [youtubePlaylistBusy, setYoutubePlaylistBusy] = useState<string>();
@@ -323,35 +441,35 @@ export function ScreenPanel({
     return () => window.clearInterval(timer);
   }, [snapshot?.grant.control, refreshTvHost]);
   useEffect(() => {
-    const query = settings?.weatherCity?.trim() ?? '';
-    if (!snapshot?.grant.administer || query.length < 2) {
-      setWeatherCities([]);
-      return;
-    }
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      void fetch(`/api/v1/screen/weather/cities?q=${encodeURIComponent(query)}`, {
-        signal: controller.signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) throw new Error('Recherche de villes indisponible.');
-          return response.json() as Promise<WeatherCity[]>;
-        })
-        .then(setWeatherCities)
-        .catch((cause) => {
-          if (cause instanceof DOMException && cause.name === 'AbortError') return;
-          setWeatherCities([]);
-        });
-    }, 250);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
+    if (!snapshot?.grant.control) return;
+    let disposed = false;
+    const refreshTvGuide = async () => {
+      try {
+        const guide = await screenRequest<TvGuideData>('screen/tv-guide', undefined, 'GET');
+        if (!disposed) {
+          setTvGuide(guide);
+          setTvGuideUnavailable(false);
+        }
+      } catch {
+        if (!disposed) setTvGuideUnavailable(true);
+      }
     };
-  }, [settings?.weatherCity, snapshot?.grant.administer]);
+    void refreshTvGuide();
+    const timer = window.setInterval(() => void refreshTvGuide(), 60_000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [snapshot?.grant.control]);
   const refresh = useCallback(async () => {
     const s = await screenRequest<ScreenSnapshot>('screen', undefined, 'GET');
     setSnapshot(s);
   }, []);
+  useEffect(() => () => window.clearTimeout(volumeTimer.current), []);
+  useEffect(() => {
+    if (initialSection === 'messages') setSelectedMainTab('messages');
+    if (initialSection === 'photos') setSelectedMainTab('album');
+  }, [initialSection]);
   useEffect(() => {
     void refresh().catch((e) => setError(String(e)));
     const stopEvents = subscribeScreenEvents(
@@ -373,16 +491,6 @@ export function ScreenPanel({
       setMessageIntervalSeconds(snapshot.state.messageIntervalSeconds ?? 20);
     }
   }, [snapshot, settings]);
-  const refreshAppointments = useCallback(async () => {
-    const rows = await screenRequest<
-      Array<{ id: string; title: string; startsAt: string; pictogram?: AppointmentPictogram }>
-    >('screen/appointments', undefined, 'GET');
-    setAppointments(rows);
-  }, []);
-  useEffect(() => {
-    if (snapshot?.grant.control)
-      void refreshAppointments().catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [snapshot?.grant.control, refreshAppointments]);
   const refreshYoutube = useCallback(async () => {
     const account = await screenRequest<YouTubeAccount>('screen/youtube/account', undefined, 'GET');
     setYoutubeAccount(account);
@@ -464,6 +572,19 @@ export function ScreenPanel({
   }, [call?.id, call?.acceptedAt, snapshot?.userId, join]);
   const command = (action: string, extra: Record<string, unknown> = {}) =>
     run(() => screenRequest('screen/commands', { action, ...extra }));
+  const changeVolume = (value: number) => {
+    setVolumeDraft(value);
+    window.clearTimeout(volumeTimer.current);
+    volumeTimer.current = window.setTimeout(() => {
+      void screenRequest('screen/commands', { action: 'volume', volume: value })
+        .then(refresh)
+        .then(() => setVolumeDraft((current) => (current === value ? null : current)))
+        .catch((cause) => {
+          setError(cause instanceof Error ? cause.message : String(cause));
+          setVolumeDraft(null);
+        });
+    }, 350);
+  };
   const listenToRadio = (station: RadioStation) =>
     run(async () => {
       const existing = snapshot?.state.media.find(
@@ -527,7 +648,11 @@ export function ScreenPanel({
   const MediaIcon =
     activeMedia?.kind === 'youtube' ? Youtube : activeMedia?.kind === 'tv' ? Tv : Radio;
   const mediaType =
-    activeMedia?.kind === 'youtube' ? 'YouTube' : activeMedia?.kind === 'tv' ? 'ARTE' : 'Radio';
+    activeMedia?.kind === 'youtube'
+      ? 'YouTube'
+      : activeMedia?.kind === 'tv'
+        ? activeMedia.title
+        : 'Radio';
   const mediaPending = state.commands.some(
     (command) =>
       command.status === 'pending' &&
@@ -610,15 +735,28 @@ export function ScreenPanel({
     Boolean(selectedNetworkTv) &&
     Boolean(selectedNetworkTv?.mac || selectedNetworkTv?.homeAssistantEntityId);
   const residentFirstName = snapshot.resident.trim().split(/\s+/)[0] || snapshot.resident;
+  const mainTabs = (
+    [
+      { id: 'album', label: 'Album photo', icon: Image, allowed: grant.control },
+      { id: 'messages', label: 'Messages', icon: MessageSquareText, allowed: grant.message },
+      { id: 'medias', label: 'Médias', icon: Tv, allowed: grant.control },
+      { id: 'activity', label: 'Suivi de l’activité', icon: Activity, allowed: true },
+    ] as const
+  ).filter((tab) => tab.allowed);
+  const activeMainTab = mainTabs.some((tab) => tab.id === selectedMainTab)
+    ? selectedMainTab
+    : mainTabs[0]?.id;
+  const currentContentLabel = state.call
+    ? 'Appel en cours'
+    : state.playback.asleep
+      ? 'TV au repos'
+      : (activeMedia?.title ?? 'Écran d’accueil');
   return (
     <section className="screen-panel">
       <header className="screen-panel__hero">
         <div className="screen-panel__identity">
-          <span className="screen-panel__icon">
-            <Tv aria-hidden="true" />
-          </span>
           <div>
-            <p className="screen-panel__eyebrow">Affichage résident</p>
+            <p className="screen-panel__eyebrow">AFFICHAGE RÉSIDENT</p>
             <h2>Écran et appels</h2>
             <span className={`screen-status ${snapshot.online ? 'is-online' : 'is-offline'}`}>
               {snapshot.online ? <Wifi aria-hidden="true" /> : <WifiOff aria-hidden="true" />}
@@ -701,8 +839,114 @@ export function ScreenPanel({
           {error}
         </p>
       )}
+      <div className="screen-live-status" aria-label="État de la TV et de la lecture">
+        <section className="screen-tv-now" aria-label="Sur la TV maintenant">
+          <span className="screen-tv-now__title">
+            <Tv aria-hidden="true" />
+            <strong>Sur la TV maintenant</strong>
+          </span>
+          <span className="screen-tv-now__device">
+            {selectedNetworkTv?.name ?? 'TV non associée'}
+            {selectedNetworkTv && <small>Associée</small>}
+          </span>
+          <span className={`screen-tv-now__online ${snapshot.online ? 'is-online' : ''}`}>
+            {snapshot.online ? 'En ligne' : 'Hors ligne'}
+          </span>
+          {!activeMedia && <span className="screen-tv-now__content">{currentContentLabel}</span>}
+          {grant.administer && selectedNetworkTv && (
+            <button
+              type="button"
+              className="screen-tv-now__forget"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  await screenRequest('screen/tv/select', undefined, 'DELETE');
+                  await refreshTvHost();
+                })
+              }
+            >
+              Oublier cette TV
+            </button>
+          )}
+        </section>
+        <section
+          className="screen-playback-now"
+          aria-label="Lecture et son sur la TV"
+          aria-live="polite"
+        >
+          <span
+            className={`screen-playback-now__dot ${activeMedia && mediaRunning ? 'is-live' : ''}`}
+          />
+          <span className="screen-playback-now__icon">
+            {activeMedia ? <MediaIcon aria-hidden="true" /> : <Volume2 aria-hidden="true" />}
+          </span>
+          <span className="screen-playback-now__copy">
+            <small>{activeMedia ? mediaStatus : 'Son de la TV'}</small>
+            <strong>{activeMedia?.title ?? 'Aucun média en cours'}</strong>
+          </span>
+          {activeMedia && (
+            <div className="screen-playback-now__controls">
+              <span className="screen-playback-now__type">{mediaType}</span>
+              <button
+                type="button"
+                aria-label={
+                  state.playback.paused || state.playback.asleep ? 'Reprendre' : 'Mettre en pause'
+                }
+                title={
+                  state.playback.paused || state.playback.asleep ? 'Reprendre' : 'Mettre en pause'
+                }
+                disabled={busy || !snapshot.online || !!state.call}
+                onClick={() =>
+                  void command(state.playback.paused || state.playback.asleep ? 'resume' : 'pause')
+                }
+              >
+                {state.playback.paused || state.playback.asleep ? (
+                  <Play aria-hidden="true" />
+                ) : (
+                  <Pause aria-hidden="true" />
+                )}
+              </button>
+              {activeMedia.kind === 'youtube' && (
+                <button
+                  type="button"
+                  aria-label="Suivant"
+                  title="Suivant"
+                  disabled={busy || !snapshot.online || !!state.call}
+                  onClick={() => void command('next')}
+                >
+                  <SkipForward aria-hidden="true" />
+                </button>
+              )}
+              <button
+                type="button"
+                aria-label="Arrêter la lecture"
+                title="Arrêter la lecture"
+                disabled={busy || !snapshot.online}
+                onClick={() => void command('stop')}
+              >
+                <Square aria-hidden="true" />
+              </button>
+            </div>
+          )}
+          {grant.control && (
+            <label className="screen-playback-now__volume">
+              <Volume2 aria-hidden="true" />
+              <span className="screen-visually-hidden">Volume de la TV</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                aria-label="Volume de la TV"
+                value={volumeDraft ?? state.playback.volume}
+                onChange={(event) => changeVolume(Number(event.target.value))}
+              />
+              <output>{volumeDraft ?? state.playback.volume} %</output>
+            </label>
+          )}
+        </section>
+      </div>
       {grant.administer && (
-        <section className="screen-card screen-network-tv-card">
+        <section className="screen-card screen-network-tv-card" hidden={Boolean(selectedNetworkTv)}>
           <div className="screen-card__heading">
             <span>
               <Wifi aria-hidden="true" />
@@ -745,20 +989,6 @@ export function ScreenPanel({
               >
                 <Search aria-hidden="true" /> Rechercher les TV
               </button>
-              {selectedNetworkTv && (
-                <button
-                  className="screen-button screen-button--ghost"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(async () => {
-                      await screenRequest('screen/tv/select', undefined, 'DELETE');
-                      await refreshTvHost();
-                    })
-                  }
-                >
-                  Oublier cette TV
-                </button>
-              )}
             </div>
           </div>
           {discoveredTvs.length > 0 && (
@@ -846,8 +1076,9 @@ export function ScreenPanel({
         </section>
       )}
       {join ? (
-        <JitsiFrame
+        <DashboardCallWindow
           join={join}
+          resident={snapshot.resident}
           onEnd={() => {
             void run(() => screenRequest(`screen/calls/${call?.id}`, undefined, 'DELETE'));
             setJoin(undefined);
@@ -870,8 +1101,54 @@ export function ScreenPanel({
           </div>
         )
       )}
+      {mainTabs.length > 0 && (
+        <div className="screen-main-tabs" role="tablist" aria-label="Sections de l’écran">
+          {mainTabs.map((tab, index) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                id={`screen-main-tab-${tab.id}`}
+                role="tab"
+                aria-selected={activeMainTab === tab.id}
+                aria-controls={`screen-main-panel-${tab.id}`}
+                tabIndex={activeMainTab === tab.id ? 0 : -1}
+                onClick={() => setSelectedMainTab(tab.id)}
+                onKeyDown={(event) => {
+                  const nextIndex =
+                    event.key === 'ArrowRight'
+                      ? (index + 1) % mainTabs.length
+                      : event.key === 'ArrowLeft'
+                        ? (index + mainTabs.length - 1) % mainTabs.length
+                        : event.key === 'Home'
+                          ? 0
+                          : event.key === 'End'
+                            ? mainTabs.length - 1
+                            : -1;
+                  if (nextIndex < 0) return;
+                  event.preventDefault();
+                  const next = mainTabs[nextIndex];
+                  if (!next) return;
+                  setSelectedMainTab(next.id);
+                  document.getElementById(`screen-main-tab-${next.id}`)?.focus();
+                }}
+              >
+                <Icon aria-hidden="true" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {grant.message && (
-        <section className="screen-card screen-message-card">
+        <section
+          id="screen-main-panel-messages"
+          role="tabpanel"
+          aria-labelledby="screen-main-tab-messages"
+          hidden={activeMainTab !== 'messages'}
+          className="screen-card screen-message-card"
+        >
           <div className="screen-card__heading">
             <span>
               <MessageCircleHeart aria-hidden="true" />
@@ -1068,146 +1345,33 @@ export function ScreenPanel({
           </div>
         </section>
       )}
-      {(grant.administer || grant.control) && (
+      {grant.control && (
         <div className="screen-context-grid">
-          {grant.administer && (
-            <section className="screen-card screen-context-card">
-              <div className="screen-card__heading">
-                <span>
-                  <CloudSun aria-hidden="true" />
-                </span>
-                <div>
-                  <h3>Météo sur la TV</h3>
-                  <p>Température extérieure de la ville choisie.</p>
-                </div>
-              </div>
-              {snapshot.weather && (
-                <p className="screen-weather-preview">
-                  <strong>{Math.round(snapshot.weather.temperature)}°C</strong>
-                  <span>
-                    {snapshot.weather.city} · min.{' '}
-                    {snapshot.weather.minimum === null
-                      ? '—'
-                      : `${Math.round(snapshot.weather.minimum)}°`}{' '}
-                    · max.{' '}
-                    {snapshot.weather.maximum === null
-                      ? '—'
-                      : `${Math.round(snapshot.weather.maximum)}°`}
-                  </span>
-                </p>
-              )}
-              <div className="screen-context-form">
-                <label>
-                  <span>Ville</span>
-                  <input
-                    list="screen-weather-cities"
-                    autoComplete="off"
-                    value={settings.weatherCity ?? ''}
-                    placeholder="Ex. Orléans"
-                    onChange={(event) =>
-                      setSettings({ ...settings, weatherCity: event.target.value })
-                    }
-                  />
-                  <datalist id="screen-weather-cities">
-                    {weatherCities.map((city) => (
-                      <option
-                        key={`${city.label}-${city.latitude}-${city.longitude}`}
-                        value={city.name}
-                        label={city.label}
-                      />
-                    ))}
-                  </datalist>
-                </label>
-                <button
-                  className="screen-button screen-button--primary"
-                  disabled={busy || !(settings.weatherCity ?? '').trim()}
-                  onClick={() =>
-                    void run(() => screenRequest('screen/settings', settings, 'PATCH'))
-                  }
-                >
-                  Afficher cette météo
-                </button>
-              </div>
-            </section>
-          )}
           {grant.control && (
-            <section className="screen-card screen-context-card">
-              <div className="screen-card__heading">
-                <span>
-                  <CalendarPlus aria-hidden="true" />
-                </span>
-                <div>
-                  <h3>Rendez-vous sur la TV</h3>
-                  <p>Les prochains rendez-vous apparaissent dans le bandeau, à côté de la météo.</p>
-                </div>
-              </div>
-              <div className="screen-appointment-form">
-                <label>
-                  <span>Rendez-vous</span>
-                  <input
-                    value={appointmentTitle}
-                    maxLength={150}
-                    placeholder="Médecin, coiffeur…"
-                    onChange={(event) => setAppointmentTitle(event.target.value)}
-                  />
-                </label>
-                <label>
-                  <span>Date et heure</span>
-                  <input
-                    type="datetime-local"
-                    value={appointmentDate}
-                    onChange={(event) => setAppointmentDate(event.target.value)}
-                  />
-                </label>
-                <button
-                  className="screen-button screen-button--primary"
-                  disabled={busy || !appointmentTitle.trim() || !appointmentDate}
-                  onClick={() =>
-                    void run(async () => {
-                      await screenRequest('screen/appointments', {
-                        title: appointmentTitle.trim(),
-                        pictogram: appointmentPictogram,
-                        startsAt: new Date(appointmentDate).toISOString(),
-                      });
-                      setAppointmentTitle('');
-                      setAppointmentDate('');
-                      await refreshAppointments();
-                    })
-                  }
-                >
-                  Ajouter
-                </button>
-                <fieldset className="screen-appointment-pictograms">
-                  <legend>Pictogramme</legend>
-                  <div>
-                    {appointmentPictograms.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        aria-pressed={appointmentPictogram === option.value}
-                        aria-label={`Choisir le pictogramme ${option.label}`}
-                        onClick={() => setAppointmentPictogram(option.value)}
-                      >
-                        <span aria-hidden="true">{option.emoji}</span>
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-              </div>
-              {appointments.length ? (
+            <section
+              className="screen-card screen-context-card screen-agenda-summary"
+              aria-labelledby="screen-agenda-summary-title"
+            >
+              <h3 id="screen-agenda-summary-title" className="screen-visually-hidden">
+                Rendez-vous du jour
+              </h3>
+              {snapshot.agenda.length ? (
                 <ul className="screen-appointment-list">
-                  {appointments.map((appointment) => (
-                    <li key={appointment.id}>
-                      <span className="screen-appointment-pictogram" aria-hidden="true">
-                        {appointmentPictograms.find(
-                          (option) => option.value === (appointment.pictogram ?? 'calendar'),
-                        )?.emoji ?? '📅'}
-                      </span>
+                  {snapshot.agenda.map((item) => (
+                    <li key={item.id}>
+                      {item.type === 'appointment' ? (
+                        <span className="screen-appointment-pictogram" aria-hidden="true">
+                          {appointmentPictograms.find((option) => option.value === item.pictogram)
+                            ?.emoji ?? '📅'}
+                        </span>
+                      ) : (
+                        <CalendarClock aria-hidden="true" />
+                      )}
                       <span>
-                        <strong>{appointment.title}</strong>
+                        <strong>{item.title}</strong>
                         <small>
-                          {new Date(appointment.startsAt).toLocaleString('fr-FR', {
+                          {new Date(item.startsAt).toLocaleString('fr-FR', {
+                            timeZone: snapshot.timezone,
                             weekday: 'long',
                             day: 'numeric',
                             month: 'long',
@@ -1216,28 +1380,10 @@ export function ScreenPanel({
                           })}
                         </small>
                       </span>
-                      <button
-                        className="screen-icon-button"
-                        aria-label={`Supprimer ${appointment.title}`}
-                        onClick={() =>
-                          void run(async () => {
-                            await screenRequest(
-                              `screen/appointments/${appointment.id}`,
-                              undefined,
-                              'DELETE',
-                            );
-                            await refreshAppointments();
-                          })
-                        }
-                      >
-                        <Trash2 />
-                      </button>
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <p className="screen-empty-library">Aucun rendez-vous à venir.</p>
-              )}
+              ) : null}
             </section>
           )}
         </div>
@@ -1301,7 +1447,13 @@ export function ScreenPanel({
       )}
       {grant.control && (
         <>
-          <section className="screen-card screen-medias">
+          <section
+            id="screen-main-panel-medias"
+            role="tabpanel"
+            aria-labelledby="screen-main-tab-medias"
+            hidden={activeMainTab !== 'medias'}
+            className="screen-card screen-medias"
+          >
             <div className="screen-card__heading screen-medias-heading">
               <span>
                 <Tv aria-hidden="true" />
@@ -1314,13 +1466,92 @@ export function ScreenPanel({
                 <Tv aria-hidden="true" /> TV de {snapshot.resident}
               </span>
             </div>
+            <section className="screen-tv-guide" aria-labelledby="screen-tv-guide-title">
+              <div className="screen-tv-guide__heading">
+                <h4 id="screen-tv-guide-title">
+                  <CalendarClock aria-hidden="true" /> Programme TV
+                </h4>
+                <span>En ce moment et à suivre</span>
+              </div>
+              {tvGuide ? (
+                <div className="screen-tv-guide__list">
+                  {tvGuide.channels.map((channel) => {
+                    const current = channel.current;
+                    const next = channel.next;
+                    const progress = current
+                      ? Math.max(
+                          0,
+                          Math.min(
+                            100,
+                            ((Date.now() - new Date(current.startAt).getTime()) /
+                              (new Date(current.endAt).getTime() -
+                                new Date(current.startAt).getTime())) *
+                              100,
+                          ),
+                        )
+                      : 0;
+                    return (
+                      <article className="screen-tv-guide__channel" key={channel.id}>
+                        <div className="screen-tv-guide__identity">
+                          <span
+                            className={`screen-tv-guide__brand screen-tv-guide__brand--${channel.id.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`}
+                          >
+                            {channel.name === 'ARTE' ? 'arte' : 'RMC'}
+                          </span>
+                          <strong>{channel.name}</strong>
+                        </div>
+                        <div className="screen-tv-guide__programs">
+                          <div className="screen-tv-guide__program">
+                            <span className="screen-tv-guide__label">
+                              {current ? 'En cours' : next ? 'À venir' : 'Programme'}
+                              {current && <time>{tvGuideRange(current)}</time>}
+                            </span>
+                            <strong>
+                              {current?.title ?? next?.title ?? 'Programme indisponible'}
+                            </strong>
+                            {current?.description && <p>{current.description}</p>}
+                            {current && (
+                              <span className="screen-tv-guide__progress" aria-hidden="true">
+                                <span style={{ width: `${progress}%` }} />
+                              </span>
+                            )}
+                          </div>
+                          {current && next && (
+                            <div className="screen-tv-guide__program screen-tv-guide__program--next">
+                              <span className="screen-tv-guide__label">
+                                À suivre <time>{tvGuideRange(next)}</time>
+                              </span>
+                              <strong>{next.title}</strong>
+                            </div>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="screen-tv-guide__empty">
+                  {tvGuideUnavailable
+                    ? 'Programme TV temporairement indisponible. La récupération reprend automatiquement.'
+                    : 'Récupération automatique du programme TV…'}
+                </p>
+              )}
+              <p className="screen-tv-guide__source">
+                {tvGuide?.stale
+                  ? `Dernière grille reçue à ${tvGuideTime.format(new Date(tvGuide.retrievedAt))} · `
+                  : 'Grille actualisée automatiquement · '}
+                <a href="https://www.xmltvfr.fr/xmltv.php" target="_blank" rel="noreferrer">
+                  Source XMLTV France <ExternalLink aria-hidden="true" />
+                </a>
+              </p>
+            </section>
             <div className="screen-medias-layout">
               <div className="screen-medias-browser">
                 <div className="screen-medias-tabs" role="tablist" aria-label="Sources médias">
                   {(
                     [
                       ['youtube', 'YouTube', Youtube],
-                      ['tv', 'ARTE', Tv],
+                      ['tv', 'TV', Tv],
                       ['stream', 'Radio', Radio],
                     ] as const
                   ).map(([kind, label, Icon]) => (
@@ -1367,37 +1598,50 @@ export function ScreenPanel({
                   hidden={mediaTab !== 'tv'}
                   className="screen-medias-source screen-tv-card"
                 >
-                  <div className="screen-arte-feature">
-                    <span className="screen-arte-brand">arte</span>
-                    <div>
-                      <h4>ARTE en direct</h4>
-                      <p>Culture, documentaires et cinéma.</p>
-                    </div>
-                    <span className="screen-media-live">Direct</span>
-                  </div>
-                  <button
-                    className="screen-button"
-                    disabled={busy || !grant.control || !snapshot.online}
-                    onClick={() =>
-                      void run(async () => {
-                        const existing = state.media.find(
-                          (media) => media.kind === 'tv' && media.url === ARTE_LIVE_URL,
-                        );
-                        const mediaId = existing?.id ?? crypto.randomUUID();
-                        if (!existing)
-                          await screenRequest('screen/media', {
-                            id: mediaId,
-                            title: 'ARTE en direct',
-                            kind: 'tv',
-                            url: ARTE_LIVE_URL,
-                          });
-                        await screenRequest('screen/commands', { action: 'play', mediaId });
-                      })
-                    }
-                  >
-                    <Play aria-hidden="true" /> Regarder ARTE
-                  </button>
-                  <p>Le direct peut être limité selon le pays et les droits du programme.</p>
+                  <section className="screen-tv-channels" aria-label="Chaînes TV en direct">
+                    {LIVE_TV_CHANNELS.map((channel) => (
+                      <article className="screen-tv-channel" key={channel.url}>
+                        <div className="screen-tv-channel__identity">
+                          <span
+                            className={`screen-tv-channel__brand screen-tv-channel__brand--${channel.brand}`}
+                            aria-hidden="true"
+                          >
+                            {channel.brand === 'arte' ? 'arte' : channel.brandLabel}
+                          </span>
+                          <div>
+                            <h4>{channel.mediaTitle}</h4>
+                            <p>{channel.description}</p>
+                          </div>
+                          <span className="screen-media-live">Direct</span>
+                        </div>
+                        <button
+                          className="screen-button"
+                          disabled={busy || !grant.control || !snapshot.online}
+                          onClick={() =>
+                            void run(async () => {
+                              const existing = state.media.find(
+                                (media) => media.kind === 'tv' && media.url === channel.url,
+                              );
+                              const mediaId = existing?.id ?? crypto.randomUUID();
+                              if (!existing)
+                                await screenRequest('screen/media', {
+                                  id: mediaId,
+                                  title: channel.mediaTitle,
+                                  kind: 'tv',
+                                  url: channel.url,
+                                });
+                              await screenRequest('screen/commands', { action: 'play', mediaId });
+                            })
+                          }
+                        >
+                          <Play aria-hidden="true" /> Regarder {channel.name}
+                        </button>
+                      </article>
+                    ))}
+                  </section>
+                  <p className="screen-tv-note">
+                    Le direct peut être limité selon le pays et les droits du programme.
+                  </p>
                 </div>
                 <div
                   id="media-panel-youtube"
@@ -1767,111 +2011,16 @@ export function ScreenPanel({
                   ) : null}
                 </div>
               </div>
-              <aside
-                className={`screen-medias-player ${activeMedia ? 'has-media' : ''}`}
-                aria-label="Lecture sur la TV"
-                aria-live="polite"
-              >
-                <div className="screen-medias-player-heading">
-                  <span
-                    className={`screen-media-dot ${activeMedia && mediaRunning ? 'is-live' : ''}`}
-                  />
-                  <span>{activeMedia ? mediaStatus : 'Prêt à diffuser'}</span>
-                </div>
-                <div
-                  className={`screen-medias-artwork screen-medias-artwork--${activeMedia?.kind ?? 'empty'}`}
-                >
-                  {activeMedia?.kind === 'tv' ? (
-                    <span className="screen-arte-brand">arte</span>
-                  ) : (
-                    <MediaIcon aria-hidden="true" />
-                  )}
-                  {activeMedia?.artworkUrl && (
-                    <img
-                      src={activeMedia.artworkUrl}
-                      alt=""
-                      onError={(event) => {
-                        event.currentTarget.style.display = 'none';
-                      }}
-                    />
-                  )}
-                  {activeMedia && (
-                    <span
-                      className={`screen-radio-wave ${mediaRunning ? '' : 'is-paused'}`}
-                      aria-hidden="true"
-                    >
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                  )}
-                </div>
-                <span className="screen-medias-type">
-                  {activeMedia ? mediaType : 'YouTube · ARTE · Radio'}
-                </span>
-                <h4>{activeMedia?.title ?? 'Un moment à partager'}</h4>
-                <p>
-                  {activeMedia
-                    ? `Sur la TV de ${snapshot.resident}`
-                    : 'Lancez une chaîne, une playlist ou une radio.'}
-                </p>
-                {activeMedia && (
-                  <div className="screen-medias-controls">
-                    <button
-                      className="screen-button screen-button--primary"
-                      disabled={busy || !snapshot.online || !!state.call}
-                      onClick={() =>
-                        void command(
-                          state.playback.paused || state.playback.asleep ? 'resume' : 'pause',
-                        )
-                      }
-                    >
-                      {state.playback.paused || state.playback.asleep ? (
-                        <Play aria-hidden="true" />
-                      ) : (
-                        <Pause aria-hidden="true" />
-                      )}
-                      {state.playback.paused || state.playback.asleep ? 'Reprendre' : 'Pause'}
-                    </button>
-                    {activeMedia.kind === 'youtube' && (
-                      <button
-                        className="screen-button screen-button--secondary"
-                        disabled={busy || !snapshot.online || !!state.call}
-                        onClick={() => void command('next')}
-                      >
-                        <SkipForward aria-hidden="true" /> Suivant
-                      </button>
-                    )}
-                    <button
-                      className="screen-button screen-medias-stop"
-                      disabled={busy || !snapshot.online}
-                      onClick={() => void command('stop')}
-                    >
-                      <Square aria-hidden="true" /> Arrêter
-                    </button>
-                  </div>
-                )}
-                <label className="screen-volume">
-                  <span>
-                    <Volume2 aria-hidden="true" /> Volume
-                  </span>
-                  <input
-                    aria-label="Volume"
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={state.playback.volume}
-                    onChange={(e) => void command('volume', { volume: Number(e.target.value) })}
-                  />
-                  <strong>{state.playback.volume}%</strong>
-                </label>{' '}
-                {activeMedia && <small>Arrêter revient à l’accueil de la TV.</small>}
-              </aside>
             </div>
           </section>
 
-          <section className="screen-card screen-media-card">
+          <section
+            id="screen-main-panel-album"
+            role="tabpanel"
+            aria-labelledby="screen-main-tab-album"
+            hidden={activeMainTab !== 'album'}
+            className="screen-card screen-media-card"
+          >
             <div className="screen-card__heading">
               <span>
                 <ImagePlus aria-hidden="true" />
@@ -1881,283 +2030,302 @@ export function ScreenPanel({
                 <p>Chaque photo défile avec son commentaire affiché en dessous.</p>
               </div>
             </div>
-            <div className="screen-photo-form">
-              <label className="screen-upload">
-                <Upload aria-hidden="true" />
-                <span>
-                  <strong>{photo ? photo.name : 'Choisir une photo'}</strong>
-                  <small>JPG, PNG ou WebP · 100 Mo maximum</small>
-                </span>
-                <input
-                  aria-label="Choisir une photo"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(event) => setPhoto(event.target.files?.[0])}
-                />
-              </label>
-              <label className="screen-photo-caption">
-                <span>Commentaire sous la photo</span>
-                <div
-                  className="screen-emoji-picker screen-photo-emojis"
-                  aria-label="Ajouter un émoji au commentaire"
-                >
-                  {messageEmojis.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      aria-label={`Ajouter ${emoji} au commentaire`}
-                      onClick={() =>
-                        setPhotoCaption(
-                          (current) =>
-                            `${current}${current && !current.endsWith(' ') ? ' ' : ''}${emoji}`,
-                        )
-                      }
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  maxLength={120}
-                  value={photoCaption}
-                  onChange={(event) => setPhotoCaption(event.target.value)}
-                  placeholder="Un beau souvenir en famille ❤️"
-                />
-                <small>{photoCaption.length}/120</small>
-              </label>
-            </div>
-            <div className={`screen-photo-scheduling${photoScheduleAt ? ' is-active' : ''}`}>
-              <span className="screen-schedule-control__icon">
-                <CalendarClock aria-hidden="true" />
-              </span>
-              <label>
-                <span>Afficher cette photo plus tard</span>
-                <input
-                  type="datetime-local"
-                  value={photoScheduleAt}
-                  onChange={(event) => setPhotoScheduleAt(event.target.value)}
-                />
-              </label>
-              <p>
-                {photoScheduleAt
-                  ? 'La photo sera ajoutée à l’album et affichée automatiquement.'
-                  : 'Laissez vide pour simplement ajouter la photo à l’album.'}
-              </p>
-              <button
-                className="screen-button screen-button--primary"
-                disabled={
-                  !photo ||
-                  !photoCaption.trim() ||
-                  busy ||
-                  (!!photoScheduleAt && new Date(photoScheduleAt).getTime() <= Date.now())
-                }
-                onClick={() =>
-                  void run(async () => {
-                    if (!photo) return;
-                    const caption = photoCaption.trim();
-                    const body = new FormData();
-                    body.append('file', photo);
-                    const response = await fetch('/api/v1/screen/upload', { method: 'POST', body });
-                    if (!response.ok) throw new Error('Envoi impossible (100 Mo maximum).');
-                    const uploaded = (await response.json()) as ScreenSnapshot;
-                    const media = uploaded.state.media.at(-1);
-                    if (!media || media.kind !== 'photo')
-                      throw new Error('Photo introuvable après l’envoi.');
-                    await screenRequest('screen/media', { ...media, title: caption });
-                    if (photoScheduleAt)
-                      await screenRequest('screen/scheduled-content', {
-                        kind: 'photo',
-                        mediaId: media.id,
-                        scheduledAt: new Date(photoScheduleAt).toISOString(),
-                      });
-                    setPhoto(undefined);
-                    setPhotoCaption('');
-                    setPhotoScheduleAt('');
-                  })
-                }
-              >
-                {photoScheduleAt ? (
-                  <CalendarClock aria-hidden="true" />
-                ) : (
-                  <ImagePlus aria-hidden="true" />
-                )}
-                {photoScheduleAt ? 'Programmer la photo' : 'Ajouter à l’album'}
-              </button>
-            </div>
-            <div className="screen-slideshow-setting">
-              <Timer aria-hidden="true" />
-              <label>
-                <span>Temps par photo</span>
-                <select
-                  value={settings.slideshowSeconds ?? 15}
-                  onChange={(event) =>
-                    setSettings({ ...settings, slideshowSeconds: Number(event.target.value) })
-                  }
-                >
-                  <option value={5}>5 secondes</option>
-                  <option value={10}>10 secondes</option>
-                  <option value={15}>15 secondes</option>
-                  <option value={30}>30 secondes</option>
-                  <option value={60}>1 minute</option>
-                  <option value={120}>2 minutes</option>
-                </select>
-              </label>
-              <button
-                className="screen-button screen-button--secondary"
-                disabled={
-                  busy ||
-                  (settings.slideshowSeconds ?? 15) === (state.settings.slideshowSeconds ?? 15)
-                }
-                onClick={() => void run(() => screenRequest('screen/settings', settings, 'PATCH'))}
-              >
-                Enregistrer
-              </button>
-            </div>
-            {state.media.some((media) => media.kind === 'photo') ? (
-              <ul className="screen-library">
-                {state.media
-                  .filter((media) => media.kind === 'photo')
-                  .map((media) => (
-                    <li
-                      key={media.id}
-                      className={state.playback.mediaId === media.id ? 'is-playing' : ''}
-                    >
-                      <img className="screen-library__thumbnail" src={media.url} alt="" />
-                      <span className="screen-library__name">
-                        <strong>{media.title}</strong>
-                        <small>Photo de l’album</small>
-                      </span>
+            <div className="screen-album-editor">
+              <h4>Ajouter une photo</h4>
+              <div className="screen-photo-form">
+                <label className="screen-upload">
+                  <Upload aria-hidden="true" />
+                  <span>
+                    <strong>{photo ? photo.name : 'Choisir une photo'}</strong>
+                    <small>JPG, PNG ou WebP · 100 Mo maximum</small>
+                  </span>
+                  <input
+                    aria-label="Choisir une photo"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) => setPhoto(event.target.files?.[0])}
+                  />
+                </label>
+                <label className="screen-photo-caption">
+                  <span>Commentaire sous la photo (facultatif)</span>
+                  <div
+                    className="screen-emoji-picker screen-photo-emojis"
+                    aria-label="Ajouter un émoji au commentaire"
+                  >
+                    {messageEmojis.map((emoji) => (
                       <button
-                        className="screen-button screen-button--secondary"
-                        disabled={!snapshot.online}
-                        onClick={() => void command('play', { mediaId: media.id })}
-                      >
-                        <Play /> Afficher
-                      </button>
-                      <button
-                        className="screen-icon-button"
-                        aria-label={`Retirer ${media.title}`}
+                        key={emoji}
+                        type="button"
+                        aria-label={`Ajouter ${emoji} au commentaire`}
                         onClick={() =>
-                          void run(() =>
-                            screenRequest(`screen/media/${media.id}`, undefined, 'DELETE'),
+                          setPhotoCaption(
+                            (current) =>
+                              `${current}${current && !current.endsWith(' ') ? ' ' : ''}${emoji}`,
                           )
                         }
                       >
-                        <Trash2 />
+                        {emoji}
                       </button>
-                    </li>
-                  ))}
-              </ul>
-            ) : (
-              <p className="screen-empty-library">Aucune photo ajoutée pour le moment.</p>
-            )}
+                    ))}
+                  </div>
+                  <textarea
+                    maxLength={120}
+                    value={photoCaption}
+                    onChange={(event) => setPhotoCaption(event.target.value)}
+                    placeholder="Ajouter un commentaire…"
+                  />
+                  <small>{photoCaption.length}/120</small>
+                </label>
+              </div>
+              <div className={`screen-photo-scheduling${photoScheduleAt ? ' is-active' : ''}`}>
+                <span className="screen-schedule-control__icon">
+                  <CalendarClock aria-hidden="true" />
+                </span>
+                <label>
+                  <span>Afficher cette photo plus tard</span>
+                  <input
+                    type="datetime-local"
+                    value={photoScheduleAt}
+                    onChange={(event) => setPhotoScheduleAt(event.target.value)}
+                  />
+                </label>
+                <p>
+                  {photoScheduleAt
+                    ? 'La photo sera ajoutée à l’album et affichée automatiquement.'
+                    : 'Laissez vide pour simplement ajouter la photo à l’album.'}
+                </p>
+                <button
+                  className="screen-button screen-button--primary"
+                  disabled={
+                    !photo ||
+                    busy ||
+                    (!!photoScheduleAt && new Date(photoScheduleAt).getTime() <= Date.now())
+                  }
+                  onClick={() =>
+                    void run(async () => {
+                      if (!photo) return;
+                      const caption = photoCaption.trim();
+                      const body = new FormData();
+                      body.append('file', photo);
+                      const response = await fetch('/api/v1/screen/upload', {
+                        method: 'POST',
+                        body,
+                      });
+                      if (!response.ok) throw new Error('Envoi impossible (100 Mo maximum).');
+                      const uploaded = (await response.json()) as ScreenSnapshot;
+                      const media = uploaded.state.media.at(-1);
+                      if (!media || media.kind !== 'photo')
+                        throw new Error('Photo introuvable après l’envoi.');
+                      await screenRequest('screen/media', { ...media, title: caption });
+                      if (photoScheduleAt)
+                        await screenRequest('screen/scheduled-content', {
+                          kind: 'photo',
+                          mediaId: media.id,
+                          scheduledAt: new Date(photoScheduleAt).toISOString(),
+                        });
+                      setPhoto(undefined);
+                      setPhotoCaption('');
+                      setPhotoScheduleAt('');
+                    })
+                  }
+                >
+                  {photoScheduleAt ? (
+                    <CalendarClock aria-hidden="true" />
+                  ) : (
+                    <ImagePlus aria-hidden="true" />
+                  )}
+                  {photoScheduleAt ? 'Programmer la photo' : 'Ajouter à l’album'}
+                </button>
+              </div>
+            </div>
+            <div className="screen-album-library">
+              <h4>Album de {residentFirstName}</h4>
+              <div className="screen-slideshow-setting">
+                <Timer aria-hidden="true" />
+                <label>
+                  <span>Temps par photo</span>
+                  <select
+                    value={settings.slideshowSeconds ?? 15}
+                    onChange={(event) =>
+                      setSettings({ ...settings, slideshowSeconds: Number(event.target.value) })
+                    }
+                  >
+                    <option value={5}>5 secondes</option>
+                    <option value={10}>10 secondes</option>
+                    <option value={15}>15 secondes</option>
+                    <option value={30}>30 secondes</option>
+                    <option value={60}>1 minute</option>
+                    <option value={120}>2 minutes</option>
+                  </select>
+                </label>
+                <button
+                  className="screen-button screen-button--secondary"
+                  disabled={
+                    busy ||
+                    (settings.slideshowSeconds ?? 15) === (state.settings.slideshowSeconds ?? 15)
+                  }
+                  onClick={() =>
+                    void run(() => screenRequest('screen/settings', settings, 'PATCH'))
+                  }
+                >
+                  Enregistrer
+                </button>
+              </div>
+              {state.media.some((media) => media.kind === 'photo') ? (
+                <ul className="screen-library">
+                  {state.media
+                    .filter((media) => media.kind === 'photo')
+                    .map((media) => (
+                      <li
+                        key={media.id}
+                        className={state.playback.mediaId === media.id ? 'is-playing' : ''}
+                      >
+                        <img className="screen-library__thumbnail" src={media.url} alt="" />
+                        <span className="screen-library__name">
+                          <strong>{media.title}</strong>
+                          <small>Photo de l’album</small>
+                        </span>
+                        <button
+                          className="screen-button screen-button--secondary"
+                          disabled={!snapshot.online}
+                          onClick={() => void command('play', { mediaId: media.id })}
+                        >
+                          <Play /> Afficher
+                        </button>
+                        <button
+                          className="screen-icon-button"
+                          aria-label={`Retirer ${media.title}`}
+                          onClick={() =>
+                            void run(() =>
+                              screenRequest(`screen/media/${media.id}`, undefined, 'DELETE'),
+                            )
+                          }
+                        >
+                          <Trash2 />
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+              ) : (
+                <p className="screen-empty-library">Aucune photo ajoutée pour le moment.</p>
+              )}
+            </div>
           </section>
         </>
       )}
-      <details className="screen-card screen-activity-card screen-activity-details" open>
-        <summary>
-          <span className="screen-activity-details__icon">
-            <Activity aria-hidden="true" />
-          </span>
-          <span className="screen-activity-details__copy">
-            <strong>Suivi de l’activité</strong>
-            <small>Historique des actions envoyées chez {snapshot.resident}.</small>
-          </span>
-          <ChevronRight className="screen-activity-details__chevron" aria-hidden="true" />
-        </summary>
-        <div className="screen-activity-details__body">
-          <div className="screen-activity-summary">
-            <span>
-              <strong>
-                {
-                  (state.activity ?? []).filter(
-                    (item) => item.createdAt >= new Date().setHours(0, 0, 0, 0),
-                  ).length
-                }
-              </strong>{' '}
-              actions aujourd’hui
+      <section
+        id="screen-main-panel-activity"
+        className="screen-activity-tab-panel"
+        role="tabpanel"
+        aria-labelledby="screen-main-tab-activity"
+        tabIndex={0}
+        hidden={activeMainTab !== 'activity'}
+      >
+        <details className="screen-card screen-activity-card screen-activity-details" open>
+          <summary>
+            <span className="screen-activity-details__icon">
+              <Activity aria-hidden="true" />
             </span>
-            <span className="is-success">
-              <CircleCheck aria-hidden="true" />{' '}
-              {(state.activity ?? []).filter((item) => item.status === 'applied').length} confirmées
+            <span className="screen-activity-details__copy">
+              <strong>Suivi de l’activité</strong>
+              <small>Historique des actions envoyées chez {snapshot.resident}.</small>
             </span>
-            {(state.activity ?? []).some(
-              (item) => item.status === 'failed' || item.status === 'expired',
-            ) && (
-              <span className="is-error">
-                <CircleX aria-hidden="true" />{' '}
-                {
-                  (state.activity ?? []).filter(
-                    (item) => item.status === 'failed' || item.status === 'expired',
-                  ).length
-                }{' '}
-                non abouties
+            <ChevronRight className="screen-activity-details__chevron" aria-hidden="true" />
+          </summary>
+          <div className="screen-activity-details__body">
+            <div className="screen-activity-summary">
+              <span>
+                <strong>
+                  {
+                    (state.activity ?? []).filter(
+                      (item) => item.createdAt >= new Date().setHours(0, 0, 0, 0),
+                    ).length
+                  }
+                </strong>{' '}
+                actions aujourd’hui
               </span>
+              <span className="is-success">
+                <CircleCheck aria-hidden="true" />{' '}
+                {(state.activity ?? []).filter((item) => item.status === 'applied').length} confirmées
+              </span>
+              {(state.activity ?? []).some(
+                (item) => item.status === 'failed' || item.status === 'expired',
+              ) && (
+                <span className="is-error">
+                  <CircleX aria-hidden="true" />{' '}
+                  {
+                    (state.activity ?? []).filter(
+                      (item) => item.status === 'failed' || item.status === 'expired',
+                    ).length
+                  }{' '}
+                  non abouties
+                </span>
+              )}
+            </div>
+            {(state.activity ?? []).length ? (
+              <ol className="screen-activity-list">
+                {[...(state.activity ?? [])]
+                  .slice(-30)
+                  .reverse()
+                  .map((item) => {
+                    const statusLabel =
+                      item.status === 'applied'
+                        ? 'Confirmée'
+                        : item.status === 'pending'
+                          ? 'En cours'
+                          : item.status === 'expired'
+                            ? 'Expirée'
+                            : 'Échec';
+                    const StatusIcon =
+                      item.status === 'applied'
+                        ? CircleCheck
+                        : item.status === 'pending'
+                          ? Clock3
+                          : CircleX;
+                    return (
+                      <li key={item.id}>
+                        <span className={`screen-activity-kind screen-activity-kind--${item.kind}`}>
+                          {item.kind === 'message' ? (
+                            <MessageCircleHeart aria-hidden="true" />
+                          ) : item.kind === 'call' ? (
+                            <Phone aria-hidden="true" />
+                          ) : item.kind === 'appointment' ? (
+                            <CalendarClock aria-hidden="true" />
+                          ) : item.kind === 'content' ? (
+                            <Play aria-hidden="true" />
+                          ) : (
+                            <Settings aria-hidden="true" />
+                          )}
+                        </span>
+                        <div>
+                          <strong>{item.title}</strong>
+                          {item.detail && <p>{item.detail}</p>}
+                          <small>
+                            {item.actor ? `${item.actor} · ` : ''}
+                            {new Date(item.createdAt).toLocaleString('fr-FR', {
+                              weekday: 'short',
+                              day: 'numeric',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </small>
+                        </div>
+                        <span className={`screen-activity-status is-${item.status}`}>
+                          <StatusIcon aria-hidden="true" /> {statusLabel}
+                        </span>
+                      </li>
+                    );
+                  })}
+              </ol>
+            ) : (
+              <p className="screen-empty-library">
+                Les prochaines actions envoyées à l’écran apparaîtront ici.
+              </p>
             )}
           </div>
-          {(state.activity ?? []).length ? (
-            <ol className="screen-activity-list">
-              {[...(state.activity ?? [])]
-                .slice(-30)
-                .reverse()
-                .map((item) => {
-                  const statusLabel =
-                    item.status === 'applied'
-                      ? 'Confirmée'
-                      : item.status === 'pending'
-                        ? 'En cours'
-                        : item.status === 'expired'
-                          ? 'Expirée'
-                          : 'Échec';
-                  const StatusIcon =
-                    item.status === 'applied'
-                      ? CircleCheck
-                      : item.status === 'pending'
-                        ? Clock3
-                        : CircleX;
-                  return (
-                    <li key={item.id}>
-                      <span className={`screen-activity-kind screen-activity-kind--${item.kind}`}>
-                        {item.kind === 'message' ? (
-                          <MessageCircleHeart aria-hidden="true" />
-                        ) : item.kind === 'call' ? (
-                          <Phone aria-hidden="true" />
-                        ) : item.kind === 'appointment' ? (
-                          <CalendarClock aria-hidden="true" />
-                        ) : item.kind === 'content' ? (
-                          <Play aria-hidden="true" />
-                        ) : (
-                          <Settings aria-hidden="true" />
-                        )}
-                      </span>
-                      <div>
-                        <strong>{item.title}</strong>
-                        {item.detail && <p>{item.detail}</p>}
-                        <small>
-                          {item.actor ? `${item.actor} · ` : ''}
-                          {new Date(item.createdAt).toLocaleString('fr-FR', {
-                            weekday: 'short',
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </small>
-                      </div>
-                      <span className={`screen-activity-status is-${item.status}`}>
-                        <StatusIcon aria-hidden="true" /> {statusLabel}
-                      </span>
-                    </li>
-                  );
-                })}
-            </ol>
-          ) : (
-            <p className="screen-empty-library">
-              Les prochaines actions envoyées à l’écran apparaîtront ici.
-            </p>
-          )}
-        </div>
-      </details>
+        </details>
+      </section>
     </section>
   );
 }

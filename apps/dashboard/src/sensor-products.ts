@@ -449,7 +449,7 @@ const documentedProducts: SensorProduct[] = [
     nameEn: 'Zigbee Dry Contact Sensor',
     kind: 'ROOM_SENSOR',
     testQuantity: 1,
-    categories: ['contact'],
+    categories: ['contact', 'bed'],
     protocol: 'zigbee',
     image: image('SDC-4-1-00'),
     sourceUrl:
@@ -482,10 +482,12 @@ const documentedProducts: SensorProduct[] = [
     placement: [
       'Installez le boîtier près du contact filaire à surveiller.',
       'Gardez-le accessible et protégez les conducteurs contre l’arrachement.',
+      'Pour suivre un lit, glissez le tapis de pression raccordé sous le matelas et gardez le boîtier à la lumière ou utilisez sa pile de secours.',
     ],
     placementEn: [
       'Install the enclosure near the wired contact to be monitored.',
       'Keep it accessible and protect the wires from being pulled out.',
+      'For bed monitoring, place the connected pressure mat under the mattress and keep the enclosure in light or use its backup battery.',
     ],
     outdoor: false,
     compatibility: 'DOCUMENTED',

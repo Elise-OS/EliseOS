@@ -12,6 +12,25 @@ export function isStale(lastSeenAt: Date | null, now: Date, minutes: number): bo
   return !lastSeenAt || elapsedMinutes(lastSeenAt, now) >= minutes;
 }
 
+export function isUnavailableLongEnough(
+  available: boolean,
+  unavailableSince: Date | null,
+  now: Date,
+  minutes: number,
+): boolean {
+  return (
+    !available && unavailableSince !== null && elapsedMinutes(unavailableSince, now) >= minutes
+  );
+}
+
+export function clearanceConfirmed(
+  conditionClearedAt: Date | null,
+  now: Date,
+  minutes = 2,
+): boolean {
+  return conditionClearedAt !== null && elapsedMinutes(conditionClearedAt, now) >= minutes;
+}
+
 export type SensorCoverageState = 'UNCONFIGURED' | 'OUTAGE' | 'READY';
 
 export function sensorCoverageState(
@@ -19,7 +38,19 @@ export function sensorCoverageState(
   activeSensors: number,
 ): SensorCoverageState {
   if (configuredSensors <= 0) return 'UNCONFIGURED';
-  return activeSensors <= 0 ? 'OUTAGE' : 'READY';
+  // A partial outage is not reliable coverage for an inactivity conclusion.
+  return activeSensors < configuredSensors ? 'OUTAGE' : 'READY';
+}
+
+export function shouldOpenInactivityAlert(
+  lastActivity: Date | null,
+  now: Date,
+  minutes: number,
+  coverage: SensorCoverageState,
+): boolean {
+  return (
+    coverage === 'READY' && lastActivity !== null && elapsedMinutes(lastActivity, now) >= minutes
+  );
 }
 
 export function isDoorOpenTooLong(
@@ -28,7 +59,7 @@ export function isDoorOpenTooLong(
   now: Date,
   minutes: number,
 ): boolean {
-  const open = Boolean((payload as { open?: unknown } | null)?.open);
+  const open = (payload as { open?: unknown } | null)?.open === true;
   return open && elapsedMinutes(occurredAt, now) >= minutes;
 }
 
@@ -41,18 +72,78 @@ export function persistentTemperatureViolation(
 ): { active: boolean; since: Date | null; latest: number | null } {
   let since: Date | null = null;
   let latest: number | null = null;
+  let outsideReadings = 0;
+  let latestAt: Date | null = null;
   for (const reading of [...values].sort(
     (left, right) => left.occurredAt.getTime() - right.occurredAt.getTime(),
   )) {
     latest = reading.value;
+    latestAt = reading.occurredAt;
     const outside = direction === 'low' ? reading.value < threshold : reading.value > threshold;
     since = outside ? (since ?? reading.occurredAt) : null;
+    outsideReadings = outside ? outsideReadings + 1 : 0;
   }
   return {
-    active: since !== null && elapsedMinutes(since, now) >= minutes,
+    active:
+      since !== null &&
+      outsideReadings >= 2 &&
+      latestAt !== null &&
+      elapsedMinutes(since, latestAt) >= minutes &&
+      elapsedMinutes(latestAt, now) <= Math.max(30, minutes * 2),
     since,
     latest,
   };
+}
+
+function localDateKey(date: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const value = (part: string) => parts.find((item) => item.type === part)?.value ?? '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
+function previousDateKey(key: string): string {
+  const day = new Date(`${key}T12:00:00.000Z`);
+  day.setUTCDate(day.getUTCDate() - 1);
+  return day.toISOString().slice(0, 10);
+}
+
+export function countCurrentNightActivity(
+  occurredAt: Date[],
+  now: Date,
+  timezone: string,
+  startMinute: number,
+  endMinute: number,
+): number {
+  const nowMinute = localMinute(now, timezone);
+  if (!isInMinuteWindow(nowMinute, startMinute, endMinute)) return 0;
+  const overnight = startMinute > endMinute;
+  const anchor = (date: Date) => {
+    const key = localDateKey(date, timezone);
+    return overnight && localMinute(date, timezone) < endMinute ? previousDateKey(key) : key;
+  };
+  const currentAnchor = anchor(now);
+  const relevant = occurredAt
+    .filter(
+      (date) =>
+        date.getTime() <= now.getTime() &&
+        isInMinuteWindow(localMinute(date, timezone), startMinute, endMinute) &&
+        anchor(date) === currentAnchor,
+    )
+    .sort((left, right) => left.getTime() - right.getTime());
+  let episodes = 0;
+  let lastEpisodeAt: Date | null = null;
+  for (const date of relevant) {
+    if (lastEpisodeAt === null || elapsedMinutes(lastEpisodeAt, date) >= 5) {
+      episodes += 1;
+      lastEpisodeAt = date;
+    }
+  }
+  return episodes;
 }
 
 export function localMinute(date: Date, timezone: string): number {

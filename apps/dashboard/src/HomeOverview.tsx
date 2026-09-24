@@ -14,7 +14,6 @@ import {
   ChevronDown,
   ChevronUp,
   CircleDot,
-  Eye,
   Home,
   Plus,
   Radio,
@@ -424,7 +423,6 @@ export function HomeOverview({
   canManage,
   onManage,
   onManageStair,
-  onOpenLivePlan,
 }: {
   locale: 'fr' | 'en';
   home: HomeInfo | undefined;
@@ -432,7 +430,6 @@ export function HomeOverview({
   canManage: boolean;
   onManage: (roomId?: string) => void;
   onManageStair: (stairId: string) => void;
-  onOpenLivePlan: () => void;
 }) {
   const fr = locale === 'fr';
   const [plan, setPlan] = useState<HomePlan | null>(null);
@@ -615,16 +612,11 @@ export function HomeOverview({
           </div>
         </div>
         <div className="home-overview-actions">
-          <button className="primary" onClick={canManage ? () => onManage() : onOpenLivePlan}>
-            {canManage ? <Home /> : <Eye />}
-            {canManage
-              ? fr
-                ? 'Modifier mon logement'
-                : 'Manage my home'
-              : fr
-                ? 'Voir le plan en direct'
-                : 'View live plan'}
-          </button>
+          {canManage && (
+            <button className="primary" onClick={() => onManage()}>
+              <Home /> {fr ? 'Modifier mon logement' : 'Manage my home'}
+            </button>
+          )}
           {canManage && (
             <button className="add-sensor" onClick={() => setSensorFlowOpen(true)}>
               <Plus /> {fr ? 'Ajouter un capteur' : 'Add a sensor'}

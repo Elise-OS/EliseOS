@@ -21,7 +21,7 @@ export interface JournalPageItem {
   occurredAt: string;
 }
 
-type JournalFilter = 'ALL' | 'DAILY_SUMMARY' | 'NOTE';
+const isLiaisonSummary = (id: string) => id.startsWith('liaison-summary:');
 
 interface JournalKindMeta {
   label: string;
@@ -44,24 +44,33 @@ function kindMeta(kind: string, locale: Locale): JournalKindMeta {
   return { label: french ? 'Événement' : 'Event', icon: Clock3, tone: 'amber' };
 }
 
-function dayKey(value: Date): string {
-  return new Intl.DateTimeFormat('en-CA').format(value);
+function dayKey(value: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat('en', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: timezone,
+  }).formatToParts(value);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
-function sameDay(left: Date, right: Date): boolean {
-  return dayKey(left) === dayKey(right);
+function shiftDayKey(value: string, days: number): string {
+  const [year, month, day] = value.split('-').map(Number);
+  const shifted = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) + days));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`;
 }
 
-function dateHeading(value: Date, locale: Locale): string {
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (sameDay(value, today)) return locale === 'fr' ? 'Aujourd’hui' : 'Today';
-  if (sameDay(value, yesterday)) return locale === 'fr' ? 'Hier' : 'Yesterday';
+function dateHeading(value: Date, locale: Locale, now: Date, timezone: string): string {
+  const key = dayKey(value, timezone);
+  const today = dayKey(now, timezone);
+  if (key === today) return locale === 'fr' ? 'Aujourd’hui' : 'Today';
+  if (key === shiftDayKey(today, -1)) return locale === 'fr' ? 'Hier' : 'Yesterday';
   return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
+    timeZone: timezone,
   }).format(value);
 }
 
@@ -70,33 +79,36 @@ function eventCount(count: number, locale: Locale): string {
   return `${count} ${count === 1 ? 'event' : 'events'}`;
 }
 
-function formatTime(value: string, locale: Locale): string {
+function formatTime(value: string, locale: Locale, timezone: string): string {
   return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: timezone,
   }).format(new Date(value));
 }
 
-function formatLongDate(value: Date, locale: Locale): string {
+function formatLongDate(value: Date, locale: Locale, timezone: string): string {
   return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
+    timeZone: timezone,
   }).format(value);
 }
 
 export function JournalPage({
   locale = 'fr',
   items,
+  timezone = 'Europe/Paris',
   onBack,
 }: {
   locale?: Locale;
   items: JournalPageItem[];
+  timezone?: string;
   onBack?: () => void;
 }) {
   const tr = (fr: string, en: string) => (locale === 'fr' ? fr : en);
-  const [filter, setFilter] = useState<JournalFilter>('ALL');
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -104,34 +116,44 @@ export function JournalPage({
     return () => window.clearInterval(timer);
   }, []);
 
-  const filteredItems = useMemo(
+  const recentItems = useMemo(() => {
+    const today = dayKey(now, timezone);
+    const firstDay = shiftDayKey(today, -6);
+    return items.filter((item) => {
+      if (item.kind !== 'DAILY_SUMMARY') return true;
+      const summaryDay = isLiaisonSummary(item.id)
+        ? item.id.slice(-10)
+        : dayKey(new Date(item.occurredAt), timezone);
+      return summaryDay >= firstDay && summaryDay <= today;
+    });
+  }, [items, now, timezone]);
+
+  const sortedItems = useMemo(
     () =>
-      items
-        .filter((item) => filter === 'ALL' || item.kind === filter)
-        .sort(
-          (left, right) =>
-            new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime(),
-        ),
-    [filter, items],
+      [...recentItems].sort(
+        (left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime(),
+      ),
+    [recentItems],
   );
 
   const groups = useMemo(() => {
     const result: Array<{ key: string; date: Date; items: JournalPageItem[] }> = [];
-    for (const item of filteredItems) {
+    for (const item of sortedItems) {
       const date = new Date(item.occurredAt);
-      const key = dayKey(date);
+      const key = dayKey(date, timezone);
       const existing = result.find((group) => group.key === key);
       if (existing) existing.items.push(item);
       else result.push({ key, date, items: [item] });
     }
     return result;
-  }, [filteredItems]);
+  }, [sortedItems, timezone]);
 
-  const monthCount = items.filter((item) => {
-    const date = new Date(item.occurredAt);
-    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  const monthCount = recentItems.filter((item) => {
+    return (
+      dayKey(new Date(item.occurredAt), timezone).slice(0, 7) === dayKey(now, timezone).slice(0, 7)
+    );
   }).length;
-  const latest = filteredItems[0] ? new Date(filteredItems[0].occurredAt) : null;
+  const latest = sortedItems[0] ? new Date(sortedItems[0].occurredAt) : null;
 
   return (
     <section className="house-journal-page">
@@ -164,30 +186,7 @@ export function JournalPage({
                 </p>
               </div>
             </div>
-            <span className="house-journal-count">{eventCount(filteredItems.length, locale)}</span>
-          </div>
-
-          <div
-            className="house-journal-filters"
-            aria-label={tr('Filtrer le journal', 'Filter the journal')}
-          >
-            {(
-              [
-                ['ALL', tr('Tout', 'All')],
-                ['DAILY_SUMMARY', tr('Bilans', 'Summaries')],
-                ['NOTE', tr('Notes familiales', 'Family notes')],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                className={filter === value ? 'is-active' : ''}
-                key={value}
-                type="button"
-                aria-pressed={filter === value}
-                onClick={() => setFilter(value)}
-              >
-                {label}
-              </button>
-            ))}
+            <span className="house-journal-count">{eventCount(sortedItems.length, locale)}</span>
           </div>
 
           {groups.length ? (
@@ -195,7 +194,7 @@ export function JournalPage({
               {groups.map((group) => (
                 <section className="house-journal-day" key={group.key}>
                   <div className="house-journal-day-heading">
-                    <span>{dateHeading(group.date, locale)}</span>
+                    <span>{dateHeading(group.date, locale, now, timezone)}</span>
                     <small>{eventCount(group.items.length, locale)}</small>
                   </div>
                   <div className="house-journal-day-items">
@@ -212,12 +211,26 @@ export function JournalPage({
                           <div className="house-journal-entry-copy">
                             <div className="house-journal-entry-meta">
                               <time dateTime={item.occurredAt}>
-                                {formatTime(item.occurredAt, locale)}
+                                {formatTime(item.occurredAt, locale, timezone)}
                               </time>
                               <span>{meta.label}</span>
                             </div>
-                            <h3>{item.title}</h3>
-                            {item.body ? <p>{item.body}</p> : null}
+                            <h3>
+                              {isLiaisonSummary(item.id)
+                                ? tr('Résumé du carnet de liaison', 'Family notebook summary')
+                                : item.title}
+                            </h3>
+                            {item.body ? (
+                              <p
+                                className={
+                                  isLiaisonSummary(item.id)
+                                    ? 'house-journal-summary-body'
+                                    : undefined
+                                }
+                              >
+                                {item.body}
+                              </p>
+                            ) : null}
                           </div>
                           <ChevronRight
                             className="house-journal-entry-chevron"
@@ -238,15 +251,10 @@ export function JournalPage({
               </div>
               <h3>{tr('Le journal commence ici', 'The journal starts here')}</h3>
               <p>
-                {filter === 'ALL'
-                  ? tr(
-                      'Les bilans du quotidien et les notes partagées par les aidants apparaîtront ici.',
-                      'Daily summaries and notes shared by caregivers will appear here.',
-                    )
-                  : tr(
-                      'Aucun élément ne correspond à ce filtre pour le moment.',
-                      'Nothing matches this filter yet.',
-                    )}
+                {tr(
+                  'Les bilans du quotidien et les notes partagées par les aidants apparaîtront ici.',
+                  'Daily summaries and notes shared by caregivers will appear here.',
+                )}
               </p>
               {onBack ? (
                 <button className="house-journal-empty-action" type="button" onClick={onBack}>
@@ -270,7 +278,7 @@ export function JournalPage({
           <div className="house-journal-stat-grid">
             <div className="house-journal-stat house-journal-stat--blue">
               <BookOpen size={22} aria-hidden="true" />
-              <strong>{items.length}</strong>
+              <strong>{recentItems.length}</strong>
               <span>{tr('éléments au total', 'total entries')}</span>
             </div>
             <div className="house-journal-stat house-journal-stat--green">
@@ -286,7 +294,7 @@ export function JournalPage({
               <strong>{tr('Dernière mise à jour', 'Last update')}</strong>
               <p>
                 {latest
-                  ? formatLongDate(latest, locale)
+                  ? formatLongDate(latest, locale, timezone)
                   : tr('Aucune entrée pour le moment', 'No entry yet')}
               </p>
             </div>

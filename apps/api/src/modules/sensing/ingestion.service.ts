@@ -79,6 +79,7 @@ export class IngestionService {
           deviceId: device?.id ?? null,
           sourceName: event.source.name ?? null,
           available: true,
+          unavailableSince: null,
           removedAt: null,
           status: event.quality === 'good' ? 'ONLINE' : 'DEGRADED',
           lastSeenAt: new Date(event.occurredAt),
@@ -111,18 +112,24 @@ export class IngestionService {
               placement.targetId ?? placement.roomId,
             )
           : null;
-      const role =
-        placement?.capabilityBindings.find(
-          (binding) => binding.sensorId === sensor.id || binding.capability === event.capability,
-        )?.role ?? null;
+      const binding = placement?.capabilityBindings.find(
+        (item) => item.sensorId === sensor.id || item.capability === event.capability,
+      );
+      const role = binding?.role ?? null;
       const context = {
         roomId: placement?.roomId ?? sensor.roomId ?? null,
         targetType: placement?.targetType ?? null,
         targetId: placement?.targetId ?? null,
         targetKind: target?.kind ?? null,
         role,
+        ...(role === 'BED' ? { bedOccupiedWhen: binding?.bedOccupiedWhen ?? 'CLOSED' } : {}),
         confidence: placement ? ('HIGH' as const) : ('LOW' as const),
-        summary: target ? this.contextSummary(event.capability, target.label) : null,
+        summary:
+          role === 'BED'
+            ? 'État du lit mis à jour.'
+            : target
+              ? this.contextSummary(event.capability, target.label)
+              : null,
       };
       const eventRoomId = context.roomId;
       const roomConfidence =
@@ -214,49 +221,115 @@ export class IngestionService {
           payload: this.features(event) as Prisma.InputJsonObject,
         },
       });
+      const securityType =
+        event.capability === 'water_leak'
+          ? 'WATER_LEAK'
+          : event.capability === 'smoke'
+            ? 'SMOKE'
+            : event.capability === 'carbon_monoxide'
+              ? 'CARBON_MONOXIDE'
+              : event.capability === 'button' &&
+                  (role?.toUpperCase() === 'ASSISTANCE' ||
+                    event.payload.action === 'sos' ||
+                    event.payload.action === 'release')
+                ? 'SOS'
+                : null;
+      const securityActive =
+        securityType !== null &&
+        event.payload.active !== false &&
+        event.payload.action !== 'release' &&
+        (securityType === 'SOS'
+          ? event.payload.action === 'sos' || role?.toUpperCase() === 'ASSISTANCE'
+          : event.payload.active === true);
       const securityAlert =
-        event.capability === 'water_leak' && event.payload.active === true
+        securityActive && securityType === 'WATER_LEAK'
           ? {
               type: 'WATER_LEAK' as const,
               title: 'Fuite d’eau détectée',
               explanation: 'Un capteur signale de l’eau dans le logement.',
             }
-          : event.capability === 'smoke' && event.payload.active === true
+          : securityActive && securityType === 'SMOKE'
             ? {
                 type: 'SMOKE' as const,
                 title: 'Fumée détectée',
                 explanation: 'Un détecteur de fumée a été déclenché.',
               }
-            : event.capability === 'carbon_monoxide' && event.payload.active === true
+            : securityActive && securityType === 'CARBON_MONOXIDE'
               ? {
                   type: 'CARBON_MONOXIDE' as const,
                   title: 'Monoxyde de carbone détecté',
                   explanation: 'Un détecteur de monoxyde de carbone a été déclenché.',
                 }
-              : event.capability === 'button' &&
-                  (event.payload.action === 'sos' ||
-                    (role?.toUpperCase() === 'ASSISTANCE' &&
-                      event.payload.action !== 'release' &&
-                      event.payload.active !== false))
+              : securityActive && securityType === 'SOS'
                 ? {
                     type: 'SOS' as const,
                     title: 'Bouton d’assistance activé',
                     explanation: 'Le bouton d’assistance du domicile a été activé.',
                   }
                 : null;
-      if (securityAlert) {
-        const alreadyOpen = await tx.alert.findFirst({
+      if (securityType) {
+        const ruleKey = `security:${securityType}:${sensor.id}`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ruleKey}))`;
+        const newerEvent = await tx.observationEvent.findFirst({
+          where: { sensorId: sensor.id, occurredAt: { gt: new Date(event.occurredAt) } },
+          select: { id: true },
+        });
+        if (newerEvent) return { accepted: true, id: saved.id };
+        const current = await tx.alert.findFirst({
           where: {
             homeId: event.homeId,
-            type: securityAlert.type,
-            status: { in: ['OPEN', 'ACKNOWLEDGED'] },
+            ruleKey,
           },
+          orderBy: { openedAt: 'desc' },
         });
-        if (alreadyOpen) return { accepted: true, id: saved.id };
+        if (!securityAlert) {
+          if (current && !current.conditionClearedAt)
+            await tx.alert.update({
+              where: { id: current.id },
+              data: { conditionClearedAt: new Date(event.occurredAt) },
+            });
+          return { accepted: true, id: saved.id };
+        }
+        const clearedForTwoMinutes =
+          current?.conditionClearedAt &&
+          new Date(event.occurredAt).getTime() - current.conditionClearedAt.getTime() >= 2 * 60_000;
+        if (current && ['OPEN', 'ACKNOWLEDGED'].includes(current.status)) {
+          if (!clearedForTwoMinutes) {
+            if (current.conditionClearedAt)
+              await tx.alert.update({
+                where: { id: current.id },
+                data: { conditionClearedAt: null },
+              });
+            return { accepted: true, id: saved.id };
+          }
+          await tx.alert.update({
+            where: { id: current.id },
+            data: { status: 'RESOLVED', resolvedAt: new Date(event.occurredAt) },
+          });
+          await tx.alertTransition.create({
+            data: {
+              alertId: current.id,
+              userId: null,
+              from: current.status,
+              to: 'RESOLVED',
+              note: 'Signal revenu à la normale avant une nouvelle activation',
+            },
+          });
+          await tx.outboxMessage.create({
+            data: {
+              homeId: event.homeId,
+              topic: 'webhook',
+              payload: { event: 'alert.resolved', alertId: current.id },
+            },
+          });
+        }
+        if (current && !current.conditionClearedAt) return { accepted: true, id: saved.id };
+        if (current && !clearedForTwoMinutes) return { accepted: true, id: saved.id };
         const alert = await tx.alert.create({
           data: {
             homeId: event.homeId,
             roomId: placement?.roomId ?? sensor.roomId,
+            ruleKey,
             type: securityAlert.type,
             severity: 'URGENT',
             title: securityAlert.title,

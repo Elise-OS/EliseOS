@@ -64,17 +64,29 @@ export async function assignSensorToPlan(tx: Prisma.TransactionClient, assignmen
       openingId: target.type === 'OPENING' ? target.id : null,
       placementNote:
         input.placementNote === undefined ? previous?.placementNote : input.placementNote,
-      capabilityBindings: sensors.map((sensor) => ({
-        sensorId: sensor.id,
-        capability: sensor.capability,
-        role:
+      capabilityBindings: sensors.map((sensor) => {
+        const previousBinding = previous?.capabilityBindings.find(
+          ({ sensorId }) => sensorId === sensor.id,
+        );
+        const role =
           ['contact', 'dry_contact'].includes(sensor.capability) && input.contactRole
             ? input.contactRole
-            : (previous?.capabilityBindings.find(({ sensorId }) => sensorId === sensor.id)?.role ??
+            : (previousBinding?.role ??
               (sensor.capability === 'button'
                 ? (input.buttonRole ?? 'ASSISTANCE')
-                : sensor.capability.toUpperCase())),
-      })),
+                : sensor.capability.toUpperCase()));
+        return {
+          sensorId: sensor.id,
+          capability: sensor.capability,
+          role,
+          ...(role === 'BED'
+            ? {
+                bedOccupiedWhen:
+                  input.bedOccupiedWhen ?? previousBinding?.bedOccupiedWhen ?? 'CLOSED',
+              }
+            : {}),
+        };
+      }),
       ...at,
       rotation: previous?.rotation ?? 0,
     });

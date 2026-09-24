@@ -41,9 +41,9 @@
 .liaison-hero {
   min-height: 132px;
   padding: clamp(24px, 2.8vw, 34px);
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 34px;
   border: 1px solid #e1ebef;
   border-radius: 24px;
@@ -61,6 +61,63 @@
     Georgia,
     serif;
   letter-spacing: -0.04em;
+}
+
+.liaison-hero-date {
+  min-width: 0;
+  padding: 10px 17px 10px 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-self: center;
+  gap: 12px;
+  border: 1px solid rgb(202 222 235 / 78%);
+  border-radius: 18px;
+  color: #234b79;
+  background: rgb(255 255 255 / 78%);
+  box-shadow: 0 8px 22px rgb(36 72 106 / 8%);
+  backdrop-filter: blur(10px);
+  text-decoration: none;
+}
+
+.liaison-hero-date__icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #dceaf4;
+  border-radius: 13px;
+  color: #2d6698;
+  background: linear-gradient(145deg, #f1f9ff, #e8f4fb);
+}
+
+.liaison-hero-date__icon svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.8;
+}
+
+.liaison-hero-date__copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.liaison-hero-date__copy > span {
+  color: #69819a;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.liaison-hero-date__copy strong {
+  color: #183b67;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 .liaison-hero-copy > strong {
@@ -85,6 +142,8 @@
 .liaison-hero-actions {
   min-width: 0;
   display: flex;
+  grid-column: 3;
+  justify-self: end;
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
@@ -404,30 +463,25 @@
   font-weight: 650;
 }
 
-.liaison-tag svg,
-.liaison-category svg {
+.liaison-tag svg {
   width: 17px;
   height: 17px;
   stroke-width: 1.8;
 }
 
-.liaison-tag--meal,
-.liaison-category--meal[aria-pressed='true'] {
+.liaison-tag--meal {
   color: #236542;
   background: #eaf6ef;
 }
 
 .liaison-tag--treatment,
 .liaison-tag--rest,
-.liaison-tag--task,
-.liaison-category--treatment[aria-pressed='true'],
-.liaison-category--rest[aria-pressed='true'] {
+.liaison-tag--task {
   color: #175a9f;
   background: #e8f2fd;
 }
 
-.liaison-tag--mood,
-.liaison-category--mood[aria-pressed='true'] {
+.liaison-tag--mood {
   color: #bd5d18;
   background: #fff0e3;
 }
@@ -477,19 +531,42 @@
   display: none;
 }
 
-.liaison-entry-menu button {
+.liaison-entry-menu__items {
   position: absolute;
   z-index: 3;
-  top: 43px;
+  top: calc(100% + 4px);
   right: 0;
-  min-width: 140px;
-  min-height: 42px;
-  padding: 8px 12px;
+  min-width: 180px;
+  padding: 5px;
+  display: grid;
+  gap: 2px;
   border: 1px solid #dae4e7;
-  border-radius: 10px;
-  color: #23466f;
+  border-radius: 12px;
   background: #fff;
   box-shadow: 0 12px 30px rgb(31 57 82 / 15%);
+}
+
+.liaison-entry-menu__items button {
+  min-height: 40px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 8px;
+  color: #23466f;
+  background: transparent;
+  text-align: left;
+}
+
+.liaison-entry-menu__items button:hover,
+.liaison-entry-menu__items button:focus-visible {
+  background: #f1f6f8;
+}
+
+.liaison-entry-menu__items button svg {
+  width: 16px;
+  height: 16px;
 }
 
 .liaison-quick-composer {
@@ -531,37 +608,217 @@
   gap: 12px;
 }
 
-.liaison-tag-picker,
+.liaison-mood-trigger {
+  min-height: 42px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d8e5ea;
+  border-radius: 11px;
+  color: #31527d;
+  background: #f6fafb;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.liaison-mood-trigger svg {
+  width: 18px;
+  height: 18px;
+}
+
+.liaison-modal-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  padding: 20px;
+  display: grid;
+  place-items: center;
+  background: rgb(12 28 45 / 48%);
+}
+
+.liaison-mood-dialog {
+  width: min(100%, 440px);
+  padding: 24px;
+  border: 1px solid #e1e9ee;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgb(16 37 58 / 28%);
+}
+
+.liaison-mood-dialog header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.liaison-mood-dialog header span {
+  color: #66809a;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.liaison-mood-dialog h2 {
+  margin: 6px 0 0;
+  color: #17345f;
+  font:
+    600 27px/1.15 'Source Serif 4',
+    Georgia,
+    serif;
+}
+
+.liaison-mood-dialog > p {
+  margin: 16px 0 18px;
+  color: #52688d;
+}
+
+.liaison-mood-close {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e0e7ed;
+  border-radius: 12px;
+  color: #385577;
+  background: #fff;
+}
+
+.liaison-mood-options {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.liaison-mood-options button {
+  min-height: 98px;
+  padding: 10px 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid #e0e9ee;
+  border-radius: 14px;
+  color: #31527d;
+  background: #f8fbfc;
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.liaison-mood-options button:hover,
+.liaison-mood-options button:focus-visible {
+  border-color: #a8c6d5;
+  background: #edf6f8;
+}
+
+.liaison-entry-dialog form {
+  margin-top: 18px;
+  display: grid;
+  gap: 9px;
+}
+
+.liaison-entry-dialog form label {
+  color: #52688d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.liaison-entry-dialog textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 130px;
+  padding: 12px 14px;
+  border: 1px solid #d5e1e6;
+  border-radius: 12px;
+  color: #263d58;
+  background: #fbfdfd;
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.liaison-entry-dialog__actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.liaison-entry-dialog__cancel,
+.liaison-entry-dialog__delete {
+  min-height: 43px;
+  padding: 0 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #d8e3e8;
+  border-radius: 12px;
+  color: #31527d;
+  background: #fff;
+  font-weight: 700;
+}
+
+.liaison-entry-dialog__delete {
+  border-color: #f0d2d0;
+  color: #a33e3a;
+  background: #fff3f2;
+}
+
+.liaison-entry-dialog__delete svg {
+  width: 17px;
+  height: 17px;
+}
+
+.liaison-mood-picto {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.liaison-mood-picto svg {
+  width: 23px;
+  height: 23px;
+  stroke-width: 1.8;
+}
+
+.liaison-mood-picto--happy {
+  color: #22795e;
+  background: #eaf6ef;
+}
+
+.liaison-mood-picto--good {
+  color: #477e9b;
+  background: #eaf3f8;
+}
+
+.liaison-mood-picto--neutral {
+  color: #66788a;
+  background: #eff2f5;
+}
+
+.liaison-mood-picto--low {
+  color: #b27831;
+  background: #fbf1e4;
+}
+
+.liaison-mood-picto--sad {
+  color: #5875a4;
+  background: #edf1fa;
+}
+
 .liaison-compose-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
-}
-
-.liaison-category,
-.liaison-kind-toggle {
-  min-height: 38px;
-  padding: 7px 9px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 0;
-  border-radius: 9px;
-  color: #61728f;
-  background: transparent;
-  font-size: 12px;
-}
-
-.liaison-category:hover,
-.liaison-kind-toggle:hover,
-.liaison-kind-toggle[aria-pressed='true'] {
-  color: #214d7f;
-  background: #edf4fa;
-}
-
-.liaison-kind-toggle {
-  border: 1px solid #e0e7ed;
 }
 
 .liaison-send {
@@ -581,41 +838,6 @@
   width: 20px;
   height: 20px;
   transform: rotate(-7deg);
-}
-
-.liaison-task-fields {
-  margin-top: 12px;
-  padding-top: 12px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  border-top: 1px solid #e7edef;
-}
-
-.liaison-task-fields label {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 18px 1fr;
-  gap: 4px 8px;
-  color: #60718e;
-  font-size: 12px;
-}
-
-.liaison-task-fields label > svg {
-  width: 16px;
-  height: 16px;
-}
-
-.liaison-task-fields select,
-.liaison-task-fields input {
-  grid-column: 1 / -1;
-  width: 100%;
-  min-height: 42px;
-  padding: 8px 10px;
-  border: 1px solid #d8e1e8;
-  border-radius: 9px;
-  color: #29476e;
-  background: #fff;
 }
 
 .liaison-highlight-list {
@@ -913,6 +1135,7 @@ button.liaison-highlight-card:hover {
   .liaison-hero {
     min-height: 0;
     padding: 24px;
+    display: flex;
     align-items: flex-start;
     flex-direction: column;
     gap: 20px;
@@ -920,6 +1143,10 @@ button.liaison-highlight-card:hover {
   }
   .liaison-hero-copy h1 {
     font-size: clamp(32px, 9vw, 40px);
+  }
+  .liaison-hero-date {
+    max-width: 100%;
+    align-self: center;
   }
   .liaison-hero-copy > strong {
     font-size: 24px;
@@ -991,16 +1218,8 @@ button.liaison-highlight-card:hover {
   .liaison-quick-composer > .liaison-avatar {
     display: none;
   }
-  .liaison-tag-picker {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    width: 100%;
-  }
-  .liaison-category {
-    justify-content: center;
-  }
-  .liaison-task-fields {
-    grid-template-columns: 1fr;
+  .liaison-mood-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .liaison-highlight-card {
     min-height: 110px;

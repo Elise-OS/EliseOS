@@ -23,7 +23,7 @@ export const COVERAGE_FAMILIES: { label: string; labelEn: string; types: Coverag
   {
     label: 'Présence et déplacements',
     labelEn: 'Presence and movement',
-    types: ['presence', 'motion'],
+    types: ['presence', 'motion', 'bed'],
   },
   {
     label: 'Confort et qualité de l’air',

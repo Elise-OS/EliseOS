@@ -226,6 +226,7 @@ export class CalendarService {
       const seriesId = existing.seriesId;
       const where =
         scope === 'SERIES' && seriesId ? { homeId: home.id, seriesId } : { id, homeId: home.id };
+      const title = input.type === 'APPOINTMENT' ? input.title : input.visitorName;
       const recurrenceData = {
         recurrence: input.recurrence,
         recurrenceUntil: input.recurrenceUntil ? new Date(input.recurrenceUntil) : null,
@@ -234,7 +235,7 @@ export class CalendarService {
         await tx.visit.updateMany({
           where,
           data: {
-            visitorName: input.type === 'VISIT' ? input.visitorName : existingVisit.visitorName,
+            visitorName: title,
             notes: input.notes,
             ...recurrenceData,
             ...(scope === 'ONE'
@@ -249,7 +250,7 @@ export class CalendarService {
         await tx.appointment.updateMany({
           where,
           data: {
-            title: input.type === 'APPOINTMENT' ? input.title : existingAppointment!.title,
+            title,
             location: input.type === 'APPOINTMENT' ? input.location : existingAppointment!.location,
             notes: input.notes,
             ...recurrenceData,

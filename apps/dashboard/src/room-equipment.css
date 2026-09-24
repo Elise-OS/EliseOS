@@ -275,6 +275,10 @@
   color: #7252ac;
   background: #f2edfb;
 }
+.category-bed .room-sensor-icon {
+  color: #77619f;
+  background: #f1edf8;
+}
 .category-presence .room-sensor-icon {
   color: #297c72;
   background: #e7f6f1;

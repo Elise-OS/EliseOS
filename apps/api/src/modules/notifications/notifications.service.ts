@@ -8,13 +8,15 @@ export class NotificationsService {
 
   public async subscribe(
     userId: string,
+    sessionId: string,
     input: { expoPushToken: string; platform: PushPlatform; deviceName?: string | undefined },
   ) {
-    await this.assertUser(userId);
+    await this.assertActiveMember(userId);
     return this.prisma.pushSubscription.upsert({
       where: { expoPushToken: input.expoPushToken },
       update: {
         userId,
+        sessionId,
         platform: input.platform,
         deviceName: input.deviceName ?? null,
         enabled: true,
@@ -22,6 +24,7 @@ export class NotificationsService {
       },
       create: {
         userId,
+        sessionId,
         expoPushToken: input.expoPushToken,
         platform: input.platform,
         deviceName: input.deviceName ?? null,
@@ -67,8 +70,13 @@ export class NotificationsService {
     return { queued: true };
   }
 
-  private async assertUser(userId: string): Promise<void> {
-    if (!(await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } }))) {
+  private async assertActiveMember(userId: string): Promise<void> {
+    if (
+      !(await this.prisma.membership.findFirst({
+        where: { userId, disabledAt: null },
+        select: { id: true },
+      }))
+    ) {
       throw new ForbiddenException();
     }
   }

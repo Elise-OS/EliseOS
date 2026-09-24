@@ -3,6 +3,7 @@ import {
   alertRuleSettingsSchema,
   DEFAULT_ALERT_RULE_SETTINGS,
   homePlanSchema,
+  liaisonMoodLabel,
   type DashboardPeriod,
   type HomeSummary,
   type PresenceEstimate,
@@ -10,14 +11,27 @@ import {
 } from '@michel/contracts';
 import { Prisma, type ObservationEvent } from '@prisma/client';
 import { buildEntranceSummary, ENTRANCE_WINDOW_MS } from './entrance-summary';
-import { buildHomeCards, latestPresenceEvidence } from './home-summary';
+import { buildHomeCards, buildSleepSummary, latestPresenceEvidence } from './home-summary';
 import { PrismaService } from '../../platform/prisma.service';
 import { activeMembership, rolesFor } from '../auth/access-policy';
 
 const HOME_EDIT_ROLES = rolesFor('configuration:manage');
 
-const ACTIVITY_CAPABILITIES = ['motion', 'occupancy', 'person_presence', 'contact', 'button'];
-const LIFE_CAPABILITIES = new Set(['motion', 'occupancy', 'person_presence', 'contact']);
+const ACTIVITY_CAPABILITIES = [
+  'motion',
+  'occupancy',
+  'person_presence',
+  'contact',
+  'dry_contact',
+  'button',
+];
+const LIFE_CAPABILITIES = new Set([
+  'motion',
+  'occupancy',
+  'person_presence',
+  'contact',
+  'dry_contact',
+]);
 const ENVIRONMENT_CAPABILITIES = new Set([
   'temperature',
   'humidity',
@@ -111,6 +125,15 @@ function zonedMidnight(value: string, timezone: string): Date {
     if (difference === 0) break;
   }
   return new Date(timestamp);
+}
+
+function formatLocalTime(value: Date, timezone: string): string {
+  return new Intl.DateTimeFormat('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: timezone,
+  }).format(value);
 }
 
 function activityWindow(
@@ -212,7 +235,17 @@ export class ActivityService {
     if (!home) throw new ForbiddenException();
     const { from, to } = activityWindow('24h', undefined, home.timezone, new Date());
     const lookback = new Date(from.getTime() - 2 * ENTRANCE_WINDOW_MS);
-    const [sensors, events, storedPlan, alerts, revision, priorStates] = await Promise.all([
+    const sleepLookback = new Date(from.getTime() - 12 * 60 * 60_000);
+    const [
+      sensors,
+      events,
+      storedPlan,
+      alerts,
+      revision,
+      priorStates,
+      sleepEvents,
+      priorSleepStates,
+    ] = await Promise.all([
       this.prisma.sensor.findMany({
         where: { homeId: home.id, analysisEnabled: true, removedAt: null },
         include: {
@@ -248,6 +281,25 @@ export class ActivityService {
         distinct: ['sensorId'],
         orderBy: { occurredAt: 'desc' },
       }),
+      this.prisma.observationEvent.findMany({
+        where: {
+          homeId: home.id,
+          capability: { in: ['contact', 'dry_contact'] },
+          occurredAt: { gte: sleepLookback, lte: to },
+          sensor: { analysisEnabled: true, removedAt: null },
+        },
+        orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+      }),
+      this.prisma.observationEvent.findMany({
+        where: {
+          homeId: home.id,
+          capability: { in: ['contact', 'dry_contact'] },
+          occurredAt: { lt: sleepLookback },
+          sensor: { analysisEnabled: true, removedAt: null },
+        },
+        distinct: ['sensorId'],
+        orderBy: { occurredAt: 'desc' },
+      }),
     ]);
     const parsed = homePlanSchema.safeParse(storedPlan?.data);
     const settings = revision?.settings as Record<string, unknown> | undefined;
@@ -259,6 +311,15 @@ export class ActivityService {
       parsed.success ? parsed.data : null,
       home.rooms,
       rules,
+      to,
+    );
+    const sleep = buildSleepSummary(
+      sensors,
+      sleepEvents,
+      priorSleepStates,
+      parsed.success ? parsed.data : null,
+      home.rooms,
+      home.timezone,
       to,
     );
     const entrance = buildEntranceSummary(
@@ -296,6 +357,7 @@ export class ActivityService {
       presence,
       rooms: home.rooms.map(({ id, name, kind }) => ({ id, name, kind })),
       ...facts,
+      sleep,
       latestPresence: latestPresenceEvent
         ? {
             roomId: latestPresenceEvent.roomId!,
@@ -1332,13 +1394,105 @@ export class ActivityService {
   }
 
   public async journal(userId: string) {
-    return this.prisma.journalEntry.findMany({
+    const [journalEntries, homes] = await Promise.all([
+      this.prisma.journalEntry.findMany({
+        where: {
+          home: { organization: { memberships: { some: { userId, disabledAt: null } } } },
+        },
+        orderBy: { occurredAt: 'desc' },
+        take: 50,
+      }),
+      this.prisma.home.findMany({
+        where: { organization: { memberships: { some: activeMembership(userId) } } },
+        select: {
+          id: true,
+          timezone: true,
+          primaryResident: {
+            select: { firstName: true, preferredName: true, displayName: true },
+          },
+        },
+      }),
+    ]);
+
+    if (homes.length === 0) return journalEntries;
+
+    const now = new Date();
+    const homeWindows = new Map(
+      homes.map((home) => {
+        const today = localDateKey(now, home.timezone);
+        const firstDay = shiftDateKey(today, -6);
+        const residentName =
+          home.primaryResident?.firstName?.trim() ||
+          home.primaryResident?.preferredName?.trim().split(/\s+/)[0] ||
+          home.primaryResident?.displayName.trim().split(/\s+/)[0] ||
+          null;
+        return [home.id, { timezone: home.timezone, today, firstDay, residentName }];
+      }),
+    );
+    const earliestStart = new Date(
+      Math.min(
+        ...homes.map((home) =>
+          zonedMidnight(homeWindows.get(home.id)!.firstDay, home.timezone).getTime(),
+        ),
+      ),
+    );
+    const liaisonEntries = await this.prisma.liaisonEntry.findMany({
       where: {
-        home: { organization: { memberships: { some: { userId, disabledAt: null } } } },
+        homeId: { in: homes.map((home) => home.id) },
+        createdAt: { gte: earliestStart, lte: now },
       },
-      orderBy: { occurredAt: 'desc' },
-      take: 50,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: { author: { select: { displayName: true } } },
     });
+
+    type RecentLiaisonEntry = (typeof liaisonEntries)[number];
+    const grouped = new Map<
+      string,
+      { homeId: string; day: string; timezone: string; entries: RecentLiaisonEntry[] }
+    >();
+    for (const entry of liaisonEntries) {
+      const window = homeWindows.get(entry.homeId);
+      if (!window) continue;
+      const day = localDateKey(entry.createdAt, window.timezone);
+      if (day < window.firstDay || day > window.today) continue;
+      const key = `${entry.homeId}:${day}`;
+      const group = grouped.get(key) ?? {
+        homeId: entry.homeId,
+        day,
+        timezone: window.timezone,
+        entries: [],
+      };
+      group.entries.push(entry);
+      grouped.set(key, group);
+    }
+
+    const dailySummaries = [...grouped.values()].map((group) => {
+      const entries = [...group.entries].sort(
+        (left, right) => left.createdAt.getTime() - right.createdAt.getTime(),
+      );
+      return {
+        id: `liaison-summary:${group.homeId}:${group.day}`,
+        homeId: group.homeId,
+        kind: 'DAILY_SUMMARY',
+        title: 'Résumé du carnet de liaison',
+        body: entries
+          .map((entry) => {
+            const time = formatLocalTime(entry.createdAt, group.timezone);
+            const mood = entry.tags.includes('MOOD') ? liaisonMoodLabel(entry.body) : null;
+            if (mood) {
+              const residentName = homeWindows.get(group.homeId)?.residentName;
+              return `• ${time} — ${residentName ? `Humeur de ${residentName}` : 'Humeur du résident'} : ${mood}`;
+            }
+            return `• ${time} — ${entry.author?.displayName ?? '—'} : ${entry.body}`;
+          })
+          .join('\n'),
+        occurredAt: entries.at(-1)!.createdAt,
+      };
+    });
+
+    return [...journalEntries, ...dailySummaries].sort(
+      (left, right) => new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime(),
+    );
   }
 
   public async journalFeed(userId: string, limit: number, cursor?: string) {

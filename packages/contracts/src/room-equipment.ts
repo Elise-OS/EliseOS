@@ -9,6 +9,7 @@ export const roomSensorCategorySchema = z.enum([
   'fall_detection',
   'button',
   'contact',
+  'bed',
   'water_leak',
   'smoke',
   'carbon_monoxide',
@@ -25,6 +26,7 @@ export const contactRoleSchema = z.enum([
   'WINDOW',
   'VERANDA',
   'OTHER',
+  'BED',
 ]);
 export type ContactRole = z.infer<typeof contactRoleSchema>;
 export const CONTACT_TYPES: Array<{ id: ContactRole; label: string; labelEn: string }> = [
@@ -100,6 +102,13 @@ export const ROOM_SENSOR_CATEGORIES: Array<{
     descriptionEn: 'Doors and windows',
   },
   {
+    id: 'bed',
+    label: 'Lit',
+    labelEn: 'Bed',
+    description: 'Occupation du lit pour repérer le coucher et le réveil',
+    descriptionEn: 'Bed occupancy to identify bedtime and wake-up',
+  },
+  {
     id: 'camera',
     label: 'Caméras',
     labelEn: 'Cameras',
@@ -153,7 +162,16 @@ export const ROOM_SENSOR_PRESETS: Record<string, readonly RoomSensorCategory[]> 
     'button',
     'contact',
   ],
-  BEDROOM: ['temperature', 'humidity', 'motion', 'presence', 'fall_detection', 'button', 'contact'],
+  BEDROOM: [
+    'temperature',
+    'humidity',
+    'motion',
+    'presence',
+    'fall_detection',
+    'button',
+    'contact',
+    'bed',
+  ],
   KITCHEN: ['temperature', 'humidity', 'motion', 'water_leak', 'contact'],
   BATHROOM: ['temperature', 'shower', 'presence', 'fall_detection', 'button', 'water_leak'],
   TOILET: ['motion', 'presence', 'fall_detection', 'button', 'water_leak'],
@@ -173,7 +191,7 @@ export const roomSensorPreferencesSchema = z.object({
 export type RoomSensorPreferences = z.infer<typeof roomSensorPreferencesSchema>;
 
 export const roomSupportsCategory = (kind: string, category: RoomSensorCategory) =>
-  category !== 'shower' || kind === 'BATHROOM';
+  (category !== 'shower' || kind === 'BATHROOM') && (category !== 'bed' || kind === 'BEDROOM');
 
 export function visibleRoomCategories(
   kind: string,
@@ -239,6 +257,10 @@ export function deviceSupportsCategory(
   if (category === 'motion')
     return values.has('motion') || (motionModel && values.has('occupancy'));
   if (category === 'contact') return values.has('contact') || values.has('dry_contact');
+  if (category === 'bed')
+    return (
+      values.has('dry_contact') || (normalizedModel.includes('SDC4100') && values.has('contact'))
+    );
   if (category === 'air_quality')
     return ['co2', 'voc', 'total_volatile_organic_compounds', 'pm25', 'air_quality'].some((value) =>
       values.has(value),

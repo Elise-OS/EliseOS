@@ -6,7 +6,7 @@ bash -n "$root/install/install-elise.sh" "$root/install/elise" \
   "$root/appliance/elise-firstboot.sh" "$root/appliance/build-raspberry-image.sh" \
   "$root/appliance/elise-tailscale-firewall.sh" "$root/appliance/elise-screen-setup.sh" \
   "$root/scripts/install-complete.sh" "$root/scripts/install-screen.sh" \
-  "$root/appliance/elise-screen-session.sh"
+  "$root/scripts/install-jitsi.sh" "$root/appliance/elise-screen-session.sh"
 python3 - <<PY
 for path in ("$root/appliance/remote-access-agent.py", "$root/appliance/elise-update-agent.py", "$root/appliance/elise-preparation.py"):
     compile(open(path, encoding="utf-8").read(), path, "exec")
@@ -27,6 +27,8 @@ grep -q -- "8555" "$root/appliance/elise-tailscale-firewall.sh"
 grep -q -- '^ELISE_SCREEN_ENABLED=true$' "$root/.env.example"
 grep -q -- 'elise-screen-setup.timer' "$root/install/install-elise.sh"
 grep -q -- 'api dashboard' "$root/appliance/elise-screen-setup.sh"
+grep -q -- 'install -d -m 0750 -o 100 -g 102' "$root/scripts/install-jitsi.sh"
+grep -q -- 'up -d --force-recreate jvb' "$root/scripts/install-jitsi.sh"
 grep -q -- '/api/v1/auth/bootstrap' "$root/docker/dashboard/Caddyfile"
 grep -q -- '/api/docs\*' "$root/docker/dashboard/Caddyfile"
 if grep -Eq -- '/api/v1/(equipment|sensor-devices)/' "$root/docker/dashboard/Caddyfile"; then

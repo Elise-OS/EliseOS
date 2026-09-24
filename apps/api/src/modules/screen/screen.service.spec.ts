@@ -8,6 +8,7 @@ import {
   screenLocalTime,
 } from '@michel/contracts';
 import type { PrismaService } from '../../platform/prisma.service';
+import { scheduledDate } from '../medications/medication-time';
 function fixture() {
   const state = initialScreenState();
   state.settings.quietStart = '00:00';
@@ -24,7 +25,7 @@ function fixture() {
   const membership = { userId: 'user1', systemRole: 'OWNER', user: { displayName: 'Paul' } };
   const home = {
     id: 'home1',
-    address: null,
+    address: null as string | null,
     timezone: 'Europe/Paris',
     organizationId: 'org1',
     primaryResident: { displayName: 'Michel' },
@@ -62,7 +63,7 @@ function fixture() {
     $transaction: vi.fn(),
   };
   db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => Promise.resolve(fn(db)));
-  return { state, row, db, service: new ScreenService(db as unknown as PrismaService) };
+  return { state, row, home, db, service: new ScreenService(db as unknown as PrismaService) };
 }
 describe('Resident display policy', () => {
   it('extracts only the city from a stored address for the weather provider', () => {
@@ -99,6 +100,19 @@ describe('Resident display policy', () => {
       },
     ]);
     vi.unstubAllGlobals();
+  });
+  it('does not infer TV weather from the home address when no city is configured', async () => {
+    const { service, home } = fixture();
+    home.address = '12 rue de la Paix, 45000 Orléans, France';
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const snapshot = await service.snapshot('user1');
+      expect(snapshot.weather).toBeNull();
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
   it('handles midnight and DST using household wall time', () => {
     const s = initialScreenState();
@@ -256,6 +270,17 @@ describe('TV and YouTube playlists', () => {
     ).rejects.toThrow();
     expect(state.media).toHaveLength(0);
   });
+  it('accepts a photo without a caption while keeping titles required for other media', async () => {
+    const { service, state } = fixture();
+    await service.media('user1', {
+      id: '3b2c2950-6fe5-45f8-82a5-a28707113e53',
+      title: '',
+      kind: 'photo',
+      url: '/api/v1/screen-media/home1/photo',
+    });
+    expect(state.media[0]?.title).toBe('');
+    await expect(service.media('user1', { ...playlist, title: ' ' })).rejects.toThrow();
+  });
 });
 
 describe('TV messages and appointment pictograms', () => {
@@ -324,7 +349,8 @@ describe('TV messages and appointment pictograms', () => {
   });
   it('stores the chosen pictogram and includes it in the resident agenda', async () => {
     const { service, db } = fixture();
-    const startsAt = new Date(Date.now() + 3600000);
+    const today = screenLocalTime(new Date(), 'Europe/Paris').date;
+    const startsAt = scheduledDate(today, 17 * 60, 'Europe/Paris');
     await service.addAppointment('user1', {
       title: 'Coiffeur',
       startsAt,
@@ -363,17 +389,22 @@ describe('TV messages and appointment pictograms', () => {
     ).rejects.toThrow();
     expect(db.appointment.updateMany).not.toHaveBeenCalled();
   });
-  it('only requests future items for the resident agenda', async () => {
+  it('only requests events scheduled on the current local day for the TV agenda', async () => {
     const { service, db } = fixture();
-    await service.snapshot('user1');
-    const now = Date.now();
-    for (const query of [db.visit.findMany, db.appointment.findMany]) {
-      const calls = query.mock.calls as unknown as Array<
-        [{ where?: { startsAt?: { gte?: Date } } }]
-      >;
-      const start = calls[0]?.[0]?.where?.startsAt?.gte as Date;
-      expect(start).toBeInstanceOf(Date);
-      expect(Math.abs(start.getTime() - now)).toBeLessThan(2000);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-23T12:00:00.000Z'));
+    try {
+      await service.snapshot('user1');
+      const dayStart = scheduledDate('2026-09-23', 0, 'Europe/Paris');
+      const nextDayStart = scheduledDate('2026-09-24', 0, 'Europe/Paris');
+      for (const query of [db.visit.findMany, db.appointment.findMany]) {
+        expect(query).toHaveBeenCalledWith({
+          where: { homeId: 'home1', startsAt: { gte: dayStart, lt: nextDayStart } },
+          orderBy: { startsAt: 'asc' },
+        });
+      }
+    } finally {
+      vi.useRealTimers();
     }
   });
 });

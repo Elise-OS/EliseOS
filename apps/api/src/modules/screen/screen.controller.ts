@@ -75,6 +75,9 @@ export class ScreenController {
   @Get('tv') tv(@Req() r: AuthenticatedRequest) {
     return this.screens.tvStatus(r.userId);
   }
+  @Get('tv-guide') tvGuide(@Req() r: AuthenticatedRequest) {
+    return this.screens.tvGuide(r.userId);
+  }
   @Post('tv/reclaim') reclaimTv(@Req() r: AuthenticatedRequest) {
     return this.screens.reclaimTv(r.userId);
   }

@@ -28,6 +28,7 @@ export type HomeSensor = {
 };
 type Room = { id: string; name: string; kind: string };
 const roomSummaryHiddenCapabilities = new Set(['battery', 'voltage', 'signal_strength']);
+const TOILET_PASSAGE_GAP_MS = 10 * 60_000;
 
 export const SHOWER_DETECTION_SETTINGS = {
   startRisePercent: 8,
@@ -258,8 +259,180 @@ export const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 export function observedState(event: HomeEvent): boolean | null {
   const payload = record(event.payload);
-  const value = event.capability === 'contact' ? payload.open : payload.active;
+  const value = ['contact', 'dry_contact'].includes(event.capability)
+    ? (payload.open ?? payload.active)
+    : payload.active;
   return typeof value === 'boolean' ? value : null;
+}
+
+const BED_OCCUPANCY_MIN_MS = 20 * 60_000;
+const BED_EXIT_CONFIRM_MS = 30 * 60_000;
+const OVERNIGHT_MIN_MS = 2 * 60 * 60_000;
+const NIGHT_INTERRUPTION_MAX_MS = 2 * 60 * 60_000;
+
+function nextLocalDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  const next = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) + 1));
+  return next.toISOString().slice(0, 10);
+}
+
+function localSleepTime(value: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(value);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? '00';
+  return {
+    date: `${part('year')}-${part('month')}-${part('day')}`,
+    minute: Number(part('hour')) * 60 + Number(part('minute')),
+  };
+}
+
+/** A wired pressure contact reports occupancy, not sleep itself. Keep only sustained
+ * overnight episodes and confirm departures before showing daily landmarks. */
+export function buildSleepSummary(
+  sensors: HomeSensor[],
+  events: HomeEvent[],
+  priorStates: HomeEvent[],
+  plan: HomePlan | null,
+  rooms: Room[],
+  timezone: string,
+  now: Date,
+): NonNullable<HomeSummary['sleep']> {
+  const bedrooms = rooms.filter(({ kind }) => kind === 'BEDROOM');
+  const bindings = (plan?.placements ?? [])
+    .filter((placement) => placement.kind === 'SENSOR')
+    .flatMap((placement) =>
+      placement.capabilityBindings
+        .filter(({ role }) => role === 'BED')
+        .map((binding) => ({ placement, binding })),
+    );
+  const selected = bindings
+    .map(({ placement, binding }) => ({
+      room: bedrooms.find(({ id }) => id === placement.roomId),
+      sensor: sensors.find(
+        ({ id, deviceId, capability }) =>
+          id === binding.sensorId &&
+          ['contact', 'dry_contact'].includes(capability) &&
+          (placement.equipmentId === id ||
+            (placement.equipmentRefKind === 'DEVICE' && placement.equipmentId === deviceId)),
+      ),
+      occupiedWhen: binding.bedOccupiedWhen ?? 'CLOSED',
+    }))
+    .find(({ room, sensor }) => room && sensor);
+  const result: NonNullable<HomeSummary['sleep']> = {
+    roomId: selected?.room?.id ?? bedrooms[0]?.id ?? null,
+    configured: Boolean(selected),
+    available: false,
+    occupied: null,
+    bedtimeAt: null,
+    wakeAt: null,
+  };
+  if (!selected?.sensor) return result;
+  const { sensor, occupiedWhen } = selected;
+  const currentEvent = sensor.events[0];
+  const currentOpen = currentEvent ? observedState(currentEvent) : null;
+  result.available = Boolean(
+    sensor.available &&
+    sensor.status === 'ONLINE' &&
+    currentEvent?.quality === 'good' &&
+    currentOpen !== null,
+  );
+  if (result.available && currentOpen !== null)
+    result.occupied = currentOpen === (occupiedWhen === 'OPEN');
+
+  const series = events
+    .filter(
+      ({ sensorId, quality, occurredAt }) =>
+        sensorId === sensor.id && quality === 'good' && occurredAt <= now,
+    )
+    .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
+  const prior = priorStates.find(
+    ({ sensorId, quality }) => sensorId === sensor.id && quality === 'good',
+  );
+  const priorOpen = prior ? observedState(prior) : null;
+  let occupied: boolean | null =
+    priorOpen === null ? null : priorOpen === (occupiedWhen === 'OPEN');
+  let startedAt: Date | null = null;
+  let emptySince: Date | null = null;
+  const episodes: Array<{ start: Date; end: Date | null }> = [];
+  for (const event of series) {
+    const open = observedState(event);
+    if (open === null) continue;
+    const nextOccupied = open === (occupiedWhen === 'OPEN');
+    if (occupied === null) {
+      occupied = nextOccupied;
+      continue;
+    }
+    if (nextOccupied === occupied) continue;
+    occupied = nextOccupied;
+    if (nextOccupied) {
+      if (startedAt && emptySince) {
+        if (event.occurredAt.getTime() - emptySince.getTime() >= BED_EXIT_CONFIRM_MS) {
+          episodes.push({ start: startedAt, end: emptySince });
+          startedAt = event.occurredAt;
+        }
+      } else startedAt = event.occurredAt;
+      emptySince = null;
+    } else if (startedAt) emptySince = event.occurredAt;
+  }
+  if (startedAt) {
+    const end =
+      emptySince && now.getTime() - emptySince.getTime() >= BED_EXIT_CONFIRM_MS ? emptySince : null;
+    episodes.push({ start: startedAt, end });
+  }
+  const today = localSleepTime(now, timezone).date;
+  const byNight = new Map<string, typeof episodes>();
+  for (const episode of episodes) {
+    const localStart = localSleepTime(episode.start, timezone);
+    if (localStart.minute >= 12 * 60 && localStart.minute < 18 * 60) continue;
+    const night = localStart.minute >= 18 * 60 ? nextLocalDate(localStart.date) : localStart.date;
+    const group = byNight.get(night) ?? [];
+    group.push(episode);
+    byNight.set(night, group);
+  }
+  // The daily cards describe the night that ended today. Ignore a new bedtime
+  // from this evening, whose night key is tomorrow.
+  const night = byNight.has(today) ? today : null;
+  if (!night) return result;
+  const chains: Array<typeof episodes> = [];
+  for (const episode of byNight.get(night)!) {
+    const lastChain = chains.at(-1);
+    const previous = lastChain?.at(-1);
+    if (
+      !previous?.end ||
+      episode.start.getTime() - previous.end.getTime() > NIGHT_INTERRUPTION_MAX_MS
+    )
+      chains.push([episode]);
+    else lastChain!.push(episode);
+  }
+  const occupiedDuration = (chain: typeof episodes) =>
+    chain.reduce(
+      (sum, episode) => sum + (episode.end ?? now).getTime() - episode.start.getTime(),
+      0,
+    );
+  const selectedChain = chains
+    .filter((chain) => {
+      const minute = localSleepTime(chain[0]!.start, timezone).minute;
+      return (
+        (minute >= 18 * 60 || minute < 4 * 60) && occupiedDuration(chain) >= BED_OCCUPANCY_MIN_MS
+      );
+    })
+    .sort((left, right) => occupiedDuration(right) - occupiedDuration(left))[0];
+  if (!selectedChain) return result;
+  result.bedtimeAt = selectedChain[0]!.start.toISOString();
+  const last = selectedChain.at(-1)!;
+  if (last.end && occupiedDuration(selectedChain) >= OVERNIGHT_MIN_MS) {
+    const localEnd = localSleepTime(last.end, timezone);
+    if (localEnd.date === today && localEnd.minute >= 4 * 60 && localEnd.minute < 12 * 60)
+      result.wakeAt = last.end.toISOString();
+  }
+  return result;
 }
 
 export function latestPresenceEvidence(
@@ -332,9 +505,13 @@ export function buildHomeCards(
     if (!room) continue;
     const item = plan?.levels.flatMap((l) => l.items).find((i) => i.id === placement?.targetId);
     const role = placement?.capabilityBindings.find((b) => b.sensorId === sensor.id)?.role;
-    if (sensor.capability === 'contact' && role === 'MAIN_ENTRANCE') continue;
+    if (
+      ['contact', 'dry_contact'].includes(sensor.capability) &&
+      (role === 'MAIN_ENTRANCE' || role === 'BED')
+    )
+      continue;
     let kind: HomeSummary['cards'][number]['kind'];
-    if (sensor.capability === 'contact')
+    if (['contact', 'dry_contact'].includes(sensor.capability))
       kind = item?.kind === 'FRIDGE' || role === 'FRIDGE' ? 'FRIDGE' : 'OPENING';
     else if (movement.has(sensor.capability))
       kind = room.kind === 'TOILET' || /toilette|\bwc\b/i.test(room.name) ? 'TOILET' : 'ROOM';
@@ -363,7 +540,7 @@ export function buildHomeCards(
     )
       kind = 'SAFETY';
     else continue;
-    const id = `${kind}:${item?.id ?? (sensor.capability === 'contact' ? (sensor.deviceId ?? sensor.id) : room.id)}`;
+    const id = `${kind}:${item?.id ?? (['contact', 'dry_contact'].includes(sensor.capability) ? (sensor.deviceId ?? sensor.id) : room.id)}`;
     targets.set(sensor.id, id);
     const latest = sensor.events[0];
     const available = sensor.available && sensor.status === 'ONLINE' && latest?.quality === 'good';
@@ -400,6 +577,7 @@ export function buildHomeCards(
     cards.set(id, card);
   }
   const previous = new Map<string, boolean>();
+  const lastToiletMovementAt = new Map<string, number>();
   for (const event of events) {
     if (event.quality !== 'good' || !event.sensorId) continue;
     const card = cards.get(targets.get(event.sensorId) ?? '');
@@ -410,7 +588,17 @@ export function buildHomeCards(
     previous.set(event.sensorId, state);
     if (!state || repeated) continue;
     card.observedToday = true;
-    card.countToday += 1;
+    const occurredAt = event.occurredAt.getTime();
+    const toiletMovement = card.kind === 'TOILET' && movement.has(event.capability);
+    const lastToiletMovement = lastToiletMovementAt.get(card.id);
+    if (
+      !toiletMovement ||
+      lastToiletMovement === undefined ||
+      occurredAt - lastToiletMovement >= TOILET_PASSAGE_GAP_MS
+    ) {
+      card.countToday += 1;
+    }
+    if (toiletMovement) lastToiletMovementAt.set(card.id, occurredAt);
     card.lastObservedAt = event.occurredAt.toISOString();
     if (movement.has(event.capability) && !activityRooms.includes(card.label))
       activityRooms.push(card.label);
@@ -444,10 +632,9 @@ export function buildHomeCards(
         const available = Boolean(
           sensor.available && sensor.status === 'ONLINE' && latest?.quality === 'good',
         );
-        const raw =
-          sensor.capability === 'contact'
-            ? payload.open
-            : (payload.value ?? payload.active ?? payload.state);
+        const raw = ['contact', 'dry_contact'].includes(sensor.capability)
+          ? (payload.open ?? payload.active)
+          : (payload.value ?? payload.active ?? payload.state);
         const value =
           typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean'
             ? raw

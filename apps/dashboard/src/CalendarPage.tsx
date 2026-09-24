@@ -7,14 +7,12 @@ import {
   Pencil,
   Plus,
   Trash2,
-  UsersRound,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   calendarCreateSchema,
   type CalendarEvent,
-  type CalendarRecurrence,
   type CalendarPage as CalendarData,
 } from '@michel/contracts';
 import type { Locale } from './i18n';
@@ -39,19 +37,14 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
   const [view, setView] = useState<'month' | 'list'>('month');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
-  const [scope, setScope] = useState<'ONE' | 'SERIES'>('ONE');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState({
-    type: 'APPOINTMENT' as 'APPOINTMENT' | 'VISIT',
     title: '',
     startsAt: '',
-    endsAt: '',
     location: '',
     notes: '',
-    recurrence: 'NONE' as CalendarRecurrence,
-    recurrenceUntil: '',
   });
   const range = useMemo(() => {
     const from = new Date(month.getFullYear(), month.getMonth() - 1, 1);
@@ -91,33 +84,26 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
         : new Date(month.getFullYear(), month.getMonth(), index - start + 1),
     );
   }, [month]);
-  const reset = () => {
+  const reset = (selectedDay?: Date) => {
+    const startsAt = selectedDay
+      ? new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate(), 9, 0)
+      : new Date(Date.now() + 3600000);
     setForm({
-      type: 'APPOINTMENT',
       title: '',
-      startsAt: isoLocal(new Date(Date.now() + 3600000)),
-      endsAt: '',
+      startsAt: isoLocal(startsAt),
       location: '',
       notes: '',
-      recurrence: 'NONE',
-      recurrenceUntil: '',
     });
     setEditing(null);
-    setScope('ONE');
     setOpen(true);
   };
   const edit = (event: CalendarEvent) => {
     setEditing(event);
-    setScope('ONE');
     setForm({
-      type: event.type,
       title: event.title,
       startsAt: formDate(event.startsAt),
-      endsAt: event.endsAt ? formDate(event.endsAt) : '',
       location: event.detail ?? '',
       notes: event.notes ?? '',
-      recurrence: event.recurrence,
-      recurrenceUntil: event.recurrenceUntil ? formDate(event.recurrenceUntil) : '',
     });
     setOpen(true);
   };
@@ -126,23 +112,22 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
     if (busy || !data?.canWrite) return;
     setBusy(true);
     setError('');
-    const base = {
-      type: form.type,
-      startsAt: new Date(form.startsAt).toISOString(),
-      endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : null,
+    const startsAt = new Date(form.startsAt);
+    if (Number.isNaN(startsAt.getTime())) {
+      setError(fr ? 'Renseignez un rendez-vous et des dates valides.' : 'Enter valid event dates.');
+      setBusy(false);
+      return;
+    }
+    const input = {
+      type: 'APPOINTMENT' as const,
+      startsAt: startsAt.toISOString(),
+      endsAt: null,
       notes: form.notes || null,
-      recurrence: form.recurrence,
-      recurrenceUntil: form.recurrenceUntil ? new Date(form.recurrenceUntil).toISOString() : null,
+      recurrence: 'NONE' as const,
+      recurrenceUntil: null,
+      title: form.title,
+      location: form.location || null,
     };
-    const input =
-      form.type === 'VISIT'
-        ? { ...base, type: 'VISIT' as const, visitorName: form.title }
-        : {
-            ...base,
-            type: 'APPOINTMENT' as const,
-            title: form.title,
-            location: form.location || null,
-          };
     const parsed = calendarCreateSchema.safeParse(input);
     if (!parsed.success) {
       setError(fr ? 'Renseignez le titre et une date valide.' : 'Enter a title and valid date.');
@@ -155,7 +140,7 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
         {
           method: editing ? 'PATCH' : 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(editing ? { ...parsed.data, scope } : parsed.data),
+          body: JSON.stringify(parsed.data),
         },
       );
       if (!response.ok) throw new Error();
@@ -177,7 +162,11 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
     }
   };
   const remove = async (event: CalendarEvent) => {
-    if (!data?.canWrite || !window.confirm(fr ? 'Supprimer cet élément ?' : 'Delete this event?'))
+    if (
+      busy ||
+      !data?.canWrite ||
+      !window.confirm(fr ? 'Supprimer ce rendez-vous ?' : 'Delete this appointment?')
+    )
       return;
     const selectedScope =
       event.seriesId &&
@@ -188,8 +177,22 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
       )
         ? 'SERIES'
         : 'ONE';
-    await fetch(`/api/v1/calendar/${event.id}?scope=${selectedScope}`, { method: 'DELETE' });
-    await load();
+    setBusy(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/v1/calendar/${event.id}?scope=${selectedScope}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error();
+      setOpen(false);
+      setEditing(null);
+      setNotice(fr ? 'Rendez-vous supprimé.' : 'Appointment deleted.');
+      await load();
+    } catch {
+      setError(fr ? 'Suppression impossible.' : 'Could not delete the appointment.');
+    } finally {
+      setBusy(false);
+    }
   };
   const format = (value: string) =>
     new Date(value).toLocaleString(locale, {
@@ -207,8 +210,8 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
           </h1>
           <p>
             {fr
-              ? 'Les rendez-vous et visites de la maison, au même endroit.'
-              : 'Appointments and visits for the home, in one place.'}
+              ? 'Les rendez-vous de la maison, au même endroit. Ceux du jour s’affichent aussi sur la TV.'
+              : 'Appointments for the home, all in one place. Today’s appointments also appear on the TV.'}
           </p>
         </div>
         <div className="calendar-hero-actions">
@@ -216,7 +219,7 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
             <ChevronLeft /> {fr ? 'Retour au carnet' : 'Back to notebook'}
           </button>
           {data?.canWrite && (
-            <button className="calendar-primary" onClick={reset}>
+            <button className="calendar-primary" onClick={() => reset()}>
               <Plus /> {fr ? 'Ajouter' : 'Add event'}
             </button>
           )}
@@ -262,8 +265,33 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
           <div className="calendar-grid">
             {days.map((day, index) => (
               <div
-                className={`calendar-day ${day && dayKey(day) === dayKey(new Date()) ? 'today' : ''}`}
+                className={`calendar-day ${day && dayKey(day) === dayKey(new Date()) ? 'today' : ''} ${day && data?.canWrite ? 'is-clickable' : ''}`}
                 key={day ? day.toISOString() : `blank-${index}`}
+                role={day && data?.canWrite ? 'button' : undefined}
+                tabIndex={day && data?.canWrite ? 0 : undefined}
+                data-calendar-day={
+                  day
+                    ? `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
+                    : undefined
+                }
+                aria-label={
+                  day && data?.canWrite
+                    ? fr
+                      ? `Ajouter un rendez-vous le ${day.toLocaleDateString(locale)}`
+                      : `Add an appointment on ${day.toLocaleDateString(locale)}`
+                    : undefined
+                }
+                onClick={day && data?.canWrite ? () => reset(day) : undefined}
+                onKeyDown={
+                  day && data?.canWrite
+                    ? (event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          reset(day);
+                        }
+                      }
+                    : undefined
+                }
               >
                 {day && (
                   <>
@@ -273,8 +301,11 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
                       .map((event) => (
                         <button
                           key={event.id}
-                          className={`calendar-event calendar-event--${event.type.toLowerCase()}`}
-                          onClick={() => edit(event)}
+                          className="calendar-event calendar-event--appointment"
+                          onClick={(click) => {
+                            click.stopPropagation();
+                            edit(event);
+                          }}
                         >
                           <span>
                             {new Date(event.startsAt).toLocaleTimeString(locale, {
@@ -297,7 +328,7 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
             monthEvents.map((event) => (
               <article className="calendar-list-item" key={event.id}>
                 <div className="calendar-list-icon">
-                  {event.type === 'VISIT' ? <UsersRound /> : <CalendarDays />}
+                  <CalendarDays />
                 </div>
                 <div>
                   <strong>{event.title}</strong>
@@ -331,9 +362,7 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
               <CalendarDays />
               <h3>{fr ? 'Aucun rendez-vous prévu' : 'No upcoming event'}</h3>
               <p>
-                {fr
-                  ? 'Ajoutez un rendez-vous ou une visite pour le foyer.'
-                  : 'Add an appointment or family visit.'}
+                {fr ? 'Ajoutez un rendez-vous pour le foyer.' : 'Add an appointment for the home.'}
               </p>
             </div>
           )}
@@ -346,120 +375,44 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
               <h2>
                 {editing
                   ? fr
-                    ? 'Modifier l’événement'
-                    : 'Edit event'
+                    ? 'Modifier le rendez-vous'
+                    : 'Edit appointment'
                   : fr
-                    ? 'Ajouter au calendrier'
-                    : 'Add to calendar'}
+                    ? 'Ajouter un rendez-vous'
+                    : 'Add an appointment'}
               </h2>
               <button type="button" onClick={() => setOpen(false)}>
                 <X />
               </button>
             </header>
-            <div className="calendar-type">
-              <button
-                type="button"
-                className={form.type === 'APPOINTMENT' ? 'active' : ''}
-                onClick={() => setForm({ ...form, type: 'APPOINTMENT' })}
-              >
-                {fr ? 'Rendez-vous' : 'Appointment'}
-              </button>
-              <button
-                type="button"
-                className={form.type === 'VISIT' ? 'active' : ''}
-                onClick={() => setForm({ ...form, type: 'VISIT' })}
-              >
-                {fr ? 'Visite familiale' : 'Family visit'}
-              </button>
-            </div>
             <label>
-              {form.type === 'VISIT' ? (fr ? 'Visiteur' : 'Visitor') : fr ? 'Titre' : 'Title'}
+              {fr ? 'Rendez-vous' : 'Appointment'}
               <input
                 required
                 value={form.title}
                 onChange={(event) => setForm({ ...form, title: event.target.value })}
               />
             </label>
-            <div className="calendar-form-grid">
-              <label>
-                {fr ? 'Début' : 'Start'}
-                <input
-                  required
-                  type="datetime-local"
-                  value={form.startsAt}
-                  onChange={(event) => setForm({ ...form, startsAt: event.target.value })}
-                />
-              </label>
-              <label>
-                {fr ? 'Fin' : 'End'}
-                <input
-                  type="datetime-local"
-                  value={form.endsAt}
-                  onChange={(event) => setForm({ ...form, endsAt: event.target.value })}
-                />
-              </label>
-            </div>
-            {form.type === 'APPOINTMENT' && (
-              <label>
-                {fr ? 'Lieu' : 'Location'}
-                <input
-                  value={form.location}
-                  onChange={(event) => setForm({ ...form, location: event.target.value })}
-                />
-              </label>
-            )}
             <label>
-              {fr ? 'Notes' : 'Notes'}
-              <textarea
-                value={form.notes}
-                onChange={(event) => setForm({ ...form, notes: event.target.value })}
+              {fr ? 'Date et heure' : 'Date and time'}
+              <input
+                required
+                type="datetime-local"
+                value={form.startsAt}
+                onChange={(event) => setForm({ ...form, startsAt: event.target.value })}
               />
             </label>
-            <div className="calendar-form-grid">
-              <label>
-                {fr ? 'Répétition' : 'Repeat'}
-                <select
-                  value={form.recurrence}
-                  onChange={(event) =>
-                    setForm({ ...form, recurrence: event.target.value as CalendarRecurrence })
-                  }
-                >
-                  <option value="NONE">{fr ? 'Aucune' : 'None'}</option>
-                  <option value="DAILY">{fr ? 'Chaque jour' : 'Daily'}</option>
-                  <option value="WEEKLY">{fr ? 'Chaque semaine' : 'Weekly'}</option>
-                  <option value="MONTHLY">{fr ? 'Chaque mois' : 'Monthly'}</option>
-                </select>
-              </label>
-              {form.recurrence !== 'NONE' && (
-                <label>
-                  {fr ? 'Jusqu’au' : 'Until'}
-                  <input
-                    required
-                    type="date"
-                    value={form.recurrenceUntil.slice(0, 10)}
-                    onChange={(event) =>
-                      setForm({
-                        ...form,
-                        recurrenceUntil: event.target.value ? `${event.target.value}T23:59:00` : '',
-                      })
-                    }
-                  />
-                </label>
-              )}
-            </div>
-            {editing && editing.seriesId && (
-              <label className="calendar-scope">
-                {fr ? 'Appliquer à' : 'Apply to'}
-                <select
-                  value={scope}
-                  onChange={(event) => setScope(event.target.value as 'ONE' | 'SERIES')}
-                >
-                  <option value="ONE">{fr ? 'Cet élément' : 'This event'}</option>
-                  <option value="SERIES">{fr ? 'Toute la série' : 'Whole series'}</option>
-                </select>
-              </label>
-            )}
             <footer>
+              {editing && (
+                <button
+                  type="button"
+                  className="calendar-delete"
+                  disabled={busy}
+                  onClick={() => void remove(editing)}
+                >
+                  <Trash2 /> {fr ? 'Supprimer' : 'Delete'}
+                </button>
+              )}
               <button type="button" className="calendar-cancel" onClick={() => setOpen(false)}>
                 {fr ? 'Annuler' : 'Cancel'}
               </button>

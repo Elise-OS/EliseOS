@@ -26,7 +26,7 @@ L’association automatique remplace l’ancien écran. L’agent utilise une id
 
 Recueillir l’accord pour la visio, l’enregistrer dans les réglages, puis définir les droits par proche. Le décrochage automatique n’est pas activé par défaut. Sans caméra ni microphone côté résident, l’appel fonctionne en réception seule : la TV affiche et diffuse le proche, sans tenter d’activer un périphérique absent. Vérifier caméra et microphone pendant l’installation pour activer ensuite la communication dans les deux sens.
 
-Un appel automatique est annoncé cinq secondes avant ouverture. Un appel manuel attend trente secondes. Le bouton à l’écran ou un bouton USB émettant `Espace` ou `F13` accepte/refuse/raccroche selon le contexte. Aucun enregistrement de visio n’est effectué.
+Un appel automatique est annoncé cinq secondes avant ouverture par un écran calme en plein écran et une courte mélodie dont le volume augmente progressivement. Un appel manuel attend trente secondes. Le bouton à l’écran ou un bouton USB émettant `Espace` ou `F13` accepte/refuse/raccroche selon le contexte. Aucun enregistrement de visio n’est effectué.
 
 Les proches peuvent enregistrer jusqu’à 20 messages de 1 000 caractères dans « Message sur la TV ». Les textes se succèdent en boucle dans le grand bandeau supérieur ; la durée de chaque message se règle entre 5 et 600 secondes. Un seul message reste affiché en permanence. Les textes longs défilent automatiquement pour rester lisibles. Les rendez-vous permettent de choisir un pictogramme (soins, coiffeur, famille, repas, activité, promenade ou transport) et de modifier celui d’un rendez-vous existant.
 
@@ -82,12 +82,12 @@ Les sauvegardes NAS sont dans `/home/drsam/michel-backups/screen-*`. Elles conti
 
 L’interface mobile intègre actuellement les commandes et Jitsi dans une WebView authentifiée. Le SDK natif Jitsi publié n’est pas compatible avec la version React Native de l’app : aucune compatibilité native n’est revendiquée sans migration et essais Android/iOS. Un test logiciel ou une caméra simulée ne valide pas les périphériques réels, le CEC ni le secours 4G.
 
-## ARTE et playlists YouTube
+## Chaînes TV en direct et playlists YouTube
 
-Dans « Affichage TV », « Regarder ARTE » lance le direct français en plein écran. Le lecteur HLS utilise les qualités proposées par le diffuseur, jusqu’à 720p, sans transcoder sur le Pi. La connexion Internet et les restrictions territoriales ou de programmes restent applicables.
+Dans « Affichage TV », l’onglet « TV » propose ARTE, RMC Life, RMC Story et RMC Découverte. Le lecteur HLS utilise les qualités proposées par le flux, jusqu’à 720p, sans transcoder sur le Pi. Les flux RMC peuvent évoluer selon leur disponibilité et les droits de diffusion. La connexion Internet et les restrictions territoriales ou de programmes restent applicables.
 
 Dans « Playlists YouTube », saisir un nom et coller un lien vidéo par ligne (1 à 50 vidéos), puis enregistrer. Plusieurs playlists peuvent être conservées. « Lancer » démarre depuis la première vidéo ; les suivantes s’enchaînent dans l’ordre. Les liens watch, youtu.be, shorts et live sont acceptés ; un lien vers une playlist YouTube seule n’est pas importé. Le lecteur officiel YouTube gère la lecture et peut refuser certains contenus (intégration désactivée, connexion requise, restrictions).
 
 La télécommande commune contrôle Pause, Reprendre, Suivant et Accueil ainsi que le volume. Suivant reste dans la playlist YouTube, même si des photos sont enregistrées. Un appel ou la mise au repos suspend le lecteur ; la fin de l’appel reprend la lecture si elle n’était pas mise en pause. Accueil arrête le lecteur et revient aux informations/photos.
 
-Validation matérielle à réaliser sur le Pi 4 : accélération vidéo de Chromium, son HDMI, lecture automatique avec son, ARTE depuis le réseau du résident, et reprise après appel. Les tests logiciels couvrent la validation des liens, l’ordre des vidéos, les commandes et la libération du lecteur.
+Validation matérielle à réaliser sur le Pi 4 : accélération vidéo de Chromium, son HDMI, lecture automatique avec son, les quatre chaînes TV depuis le réseau du résident, et reprise après appel. Les tests logiciels couvrent la validation des liens, l’ordre des vidéos, les commandes et la libération du lecteur.

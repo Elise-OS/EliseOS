@@ -105,6 +105,64 @@ describe('sensor installation confirmation', () => {
     });
   });
 
+  it('installs the NodOn contact as a bed occupancy sensor', async () => {
+    const bedSession = {
+      ...session,
+      detectedDevice: {
+        ...session.detectedDevice,
+        name: 'NodOn SDC-4-1-00',
+        manufacturer: 'NodOn',
+        model: 'SDC-4-1-00',
+        capabilities: [
+          { sensorId: 'bed-contact', capability: 'contact', label: 'Contact', primary: true },
+        ],
+      },
+    };
+    const fetchMock = vi.fn().mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(url.endsWith('/complete') ? {} : bedSession),
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await act(async () => {
+      root.render(
+        <SensorOnboardingDialog
+          open
+          locale="fr"
+          rooms={[{ id: 'bedroom', name: 'Chambre', kind: 'BEDROOM' }]}
+          initialRoomId="bedroom"
+          category="bed"
+          contactRole="BED"
+          bedOccupiedWhen="OPEN"
+          product={SENSOR_PRODUCTS.find(({ model }) => model === 'SDC-4-1-00')}
+          onClose={() => undefined}
+          onInstalled={() => Promise.resolve()}
+        />,
+      );
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain('tapis de pression à contact sec');
+    const button = Array.from(document.body.querySelectorAll('button')).find((item) =>
+      item.textContent?.includes('Installer dans Chambre'),
+    );
+    expect(button?.disabled).toBe(false);
+    await act(async () => {
+      button!.click();
+      await Promise.resolve();
+    });
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
+    const request = calls.find(([url]) => url.endsWith('/complete'));
+    const body = request?.[1]?.body;
+    expect(JSON.parse(typeof body === 'string' ? body : '')).toMatchObject({
+      category: 'bed',
+      contactRole: 'BED',
+      bedOccupiedWhen: 'OPEN',
+      roomId: 'bedroom',
+      target: null,
+    });
+  });
+
   it('shows the selected sensor photo during the preparation step', async () => {
     vi.stubGlobal(
       'fetch',
@@ -129,6 +187,38 @@ describe('sensor installation confirmation', () => {
     const photo = document.querySelector('.equipment-onboarding-product-photo img');
     expect(photo?.getAttribute('src')).toBe(product.image);
     expect(document.querySelector('.equipment-onboarding-intro > svg')).toBeNull();
+  });
+
+  it('shows the live pairing phase as soon as the Zigbee sensor is detected', async () => {
+    const pairingSession = {
+      ...session,
+      status: 'WAITING_FOR_DEVICE',
+      detectedDevice: null,
+      connection: { pairingOpen: true, deviceDetected: true },
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(pairingSession) }),
+    );
+
+    await act(async () => {
+      root.render(
+        <SensorOnboardingDialog
+          open
+          locale="fr"
+          rooms={[{ id: 'salon', name: 'Salon', kind: 'LIVING_ROOM' }]}
+          onClose={() => undefined}
+          onInstalled={() => Promise.resolve()}
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain('Capteur détecté');
+    expect(document.body.textContent).toContain('Appairage en cours');
+    expect(document.body.textContent).toContain('Élise a trouvé votre capteur');
+    expect(document.body.textContent).not.toContain('En attente de votre capteur');
+    expect(document.body.textContent).not.toContain('La box est prête à détecter.');
   });
 
   it('closes after confirmation even if refreshing the page never finishes', async () => {

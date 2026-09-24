@@ -24,9 +24,11 @@ describe('Family notebook web', () => {
       nextCursor: null,
       members: [{ id: 'paul', displayName: 'Paul' }],
       visits: [],
+      appointments: [],
       canWrite: true,
       timezone: 'Europe/Paris',
       today: '2026-09-20',
+      residentName: 'Michel',
     };
     fail = false;
     requests = [];
@@ -73,27 +75,96 @@ describe('Family notebook web', () => {
       );
     });
   };
-  it('creates an assigned task with a calendar date', async () => {
+  it('creates a simple note from the composer', async () => {
     await render();
-    await click('Note');
-    await click('Repas');
     await input('textarea', 'Apporter du pain');
-    await input('select', 'paul');
-    await input('input[type=date]', '2026-10-01');
     await interact(() =>
       host
         .querySelector('form')!
         .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
     );
     expect(requests.find((r) => r.method === 'POST')?.body).toEqual({
-      kind: 'TASK',
+      kind: 'NOTE',
       body: 'Apporter du pain',
-      tags: ['MEAL'],
-      assigneeId: 'paul',
-      dueOn: '2026-10-01',
     });
     expect(host.textContent).toContain('Votre note a été partagée.');
     expect(host.querySelector('textarea')?.value).toBe('');
+  });
+  it('adds a selected mood to the liaison timeline', async () => {
+    await render();
+    await click('Ajouter une humeur');
+    expect(host.textContent).toContain('Comment se sent Michel ?');
+    await click('Bien');
+    expect(requests.find((r) => r.method === 'POST')?.body).toEqual({
+      kind: 'NOTE',
+      body: 'mood:GOOD',
+      tags: ['MOOD'],
+    });
+    expect(host.textContent).toContain('Humeur ajoutée au carnet.');
+  });
+  it('renders older mood notes without emojis', async () => {
+    page.items = [
+      {
+        id: 'mood',
+        kind: 'NOTE',
+        body: 'Humeur : 😢 Triste',
+        tags: ['MOOD'],
+        createdAt: new Date().toISOString(),
+        author: { id: 'paul', displayName: 'Paul Breton' },
+        assignee: null,
+        dueOn: null,
+        completedAt: null,
+        completedBy: null,
+      },
+    ];
+    await render();
+    expect(host.textContent).toContain('Humeur de Michel : Triste');
+    expect(host.textContent).not.toContain('😢');
+  });
+  it('keeps the same avatar color for the same author', async () => {
+    const now = new Date().toISOString();
+    page.items = [
+      {
+        id: 'first',
+        kind: 'NOTE',
+        body: 'Première note',
+        tags: [],
+        createdAt: now,
+        author: { id: 'paul', displayName: 'Paul' },
+        assignee: null,
+        dueOn: null,
+        completedAt: null,
+        completedBy: null,
+      },
+      {
+        id: 'other',
+        kind: 'NOTE',
+        body: 'Note de Claire',
+        tags: [],
+        createdAt: now,
+        author: { id: 'claire', displayName: 'Claire' },
+        assignee: null,
+        dueOn: null,
+        completedAt: null,
+        completedBy: null,
+      },
+      {
+        id: 'last',
+        kind: 'NOTE',
+        body: 'Deuxième note',
+        tags: [],
+        createdAt: now,
+        author: { id: 'paul', displayName: 'Paul' },
+        assignee: null,
+        dueOn: null,
+        completedAt: null,
+        completedBy: null,
+      },
+    ];
+    await render();
+    const avatars = Array.from(host.querySelectorAll('.liaison-timeline .liaison-avatar'));
+    expect(avatars).toHaveLength(3);
+    expect(avatars[0]!.className).toBe(avatars[2]!.className);
   });
   it('preserves the draft and reports an unsuccessful save', async () => {
     await render();
@@ -116,7 +187,7 @@ describe('Family notebook web', () => {
         kind: 'TASK',
         body: 'Pain',
         tags: ['MEAL'],
-        createdAt: '2026-09-18T10:00:00Z',
+        createdAt: new Date().toISOString(),
         author: { id: 'paul', displayName: 'Paul' },
         assignee: null,
         dueOn: '2026-09-19',
@@ -133,10 +204,102 @@ describe('Family notebook web', () => {
       body: { completed: true },
     });
   });
+  it('lets a caregiver edit a message from its action menu', async () => {
+    page.items = [
+      {
+        id: 'note-1',
+        kind: 'NOTE',
+        body: 'Ancien texte',
+        tags: [],
+        createdAt: new Date().toISOString(),
+        author: { id: 'paul', displayName: 'Paul' },
+        assignee: null,
+        dueOn: null,
+        completedAt: null,
+        completedBy: null,
+      },
+    ];
+    await render();
+    await click('Modifier');
+    expect(host.querySelector('[role=dialog]')?.textContent).toContain('Modifier le message');
+    await input('#liaison-edit-body', 'Texte corrigé');
+    await interact(() =>
+      host
+        .querySelector('#liaison-edit-body')!
+        .closest('form')!
+        .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
+    );
+    expect(requests.find((request) => request.method === 'PATCH')).toMatchObject({
+      url: '/api/v1/liaison/note-1',
+      body: { body: 'Texte corrigé' },
+    });
+    expect(host.textContent).toContain('Message modifié.');
+    expect(host.querySelector('[role=dialog]')).toBeNull();
+  });
+  it('changes an existing mood through the mood picker', async () => {
+    page.items = [
+      {
+        id: 'mood-1',
+        kind: 'NOTE',
+        body: 'mood:GOOD',
+        tags: ['MOOD'],
+        createdAt: new Date().toISOString(),
+        author: { id: 'paul', displayName: 'Paul' },
+        assignee: null,
+        dueOn: null,
+        completedAt: null,
+        completedBy: null,
+      },
+    ];
+    await render();
+    await click('Modifier');
+    expect(host.querySelector('[role=dialog]')?.textContent).toContain('Modifier l’humeur');
+    expect(host.querySelector('#liaison-edit-body')).toBeNull();
+    await click('Triste');
+    expect(requests.find((request) => request.method === 'PATCH')).toMatchObject({
+      url: '/api/v1/liaison/mood-1',
+      body: { body: 'mood:SAD', tags: ['MOOD'] },
+    });
+    expect(host.textContent).toContain('Humeur modifiée.');
+    expect(host.querySelector('[role=dialog]')).toBeNull();
+  });
+  it('asks for confirmation before deleting a message', async () => {
+    page.items = [
+      {
+        id: 'note-2',
+        kind: 'NOTE',
+        body: 'À supprimer',
+        tags: [],
+        createdAt: new Date().toISOString(),
+        author: { id: 'paul', displayName: 'Paul' },
+        assignee: null,
+        dueOn: null,
+        completedAt: null,
+        completedBy: null,
+      },
+    ];
+    await render();
+    await click('Supprimer');
+    expect(host.querySelector('[role=alertdialog]')).not.toBeNull();
+    expect(requests.some((request) => request.method === 'DELETE')).toBe(false);
+    await interact(() =>
+      (
+        host.querySelector('[role=alertdialog] .liaison-entry-dialog__delete') as HTMLButtonElement
+      ).click(),
+    );
+    expect(requests.find((request) => request.method === 'DELETE')).toMatchObject({
+      url: '/api/v1/liaison/note-2',
+      body: null,
+    });
+    expect(host.textContent).toContain('Message supprimé.');
+    expect(host.querySelector('[role=alertdialog]')).toBeNull();
+  });
   it('makes the reader view read-only', async () => {
     page.canWrite = false;
     await render();
     expect(button('Ajouter une note')).toBeUndefined();
+    expect(button('Modifier')).toBeUndefined();
+    expect(button('Supprimer')).toBeUndefined();
     expect(host.textContent).toContain('Vous pouvez consulter ce carnet');
   });
   it('uses server-side task filters and a cursor for older entries', async () => {
@@ -179,5 +342,21 @@ describe('Family notebook web', () => {
     expect(requests.find((r) => r.method === 'PATCH')?.url).toBe(
       '/api/v1/liaison/visits/past/completion',
     );
+  });
+  it('shows calendar appointments scheduled within the next seven days in highlights', async () => {
+    page.appointments = [
+      {
+        id: 'appointment-j7',
+        title: 'Consultation médicale',
+        startsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        endsAt: null,
+        location: 'Cabinet médical',
+        notes: null,
+      },
+    ];
+    await render();
+    expect(host.textContent).toContain('Rendez-vous');
+    expect(host.textContent).toContain('Consultation médicale');
+    expect(host.textContent).toContain('Cabinet médical');
   });
 });

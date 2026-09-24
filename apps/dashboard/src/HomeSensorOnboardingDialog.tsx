@@ -51,6 +51,7 @@ const categoryIcons: Record<RoomSensorCategory, typeof Thermometer> = {
   fall_detection: ShieldAlert,
   button: Bell,
   contact: DoorOpen,
+  bed: BedDouble,
   water_leak: Droplets,
   smoke: Flame,
   carbon_monoxide: Wind,
@@ -133,6 +134,7 @@ export function HomeSensorOnboardingDialog({
   const [assigning, setAssigning] = useState<SensorUiDevice | null>(null);
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
+  const [bedOccupiedWhen, setBedOccupiedWhen] = useState<'CLOSED' | 'OPEN'>('CLOSED');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -152,6 +154,7 @@ export function HomeSensorOnboardingDialog({
     setTab('PRODUCTS');
     setProduct(initialProduct);
     setAssigning(null);
+    setBedOccupiedWhen('CLOSED');
     setError('');
   }, [open, initialRoomId, initialCategory, initialProduct, initialTarget?.id]);
 
@@ -174,8 +177,10 @@ export function HomeSensorOnboardingDialog({
         locale={locale}
         rooms={rooms}
         initialRoomId={roomId}
-        initialTarget={initialTarget}
+        initialTarget={category === 'bed' ? undefined : initialTarget}
         category={category}
+        contactRole={category === 'bed' ? 'BED' : undefined}
+        bedOccupiedWhen={bedOccupiedWhen}
         product={product}
         onClose={onClose}
         onInstalled={onInstalled}
@@ -205,9 +210,10 @@ export function HomeSensorOnboardingDialog({
         sensorJson('PATCH', {
           roomId,
           name: name.trim(),
-          target: initialTarget ?? null,
+          target: category === 'bed' ? { type: 'ROOM', id: roomId } : (initialTarget ?? null),
           placementNote: note.trim() || null,
           buttonRole: 'ASSISTANCE',
+          ...(category === 'bed' ? { contactRole: 'BED', bedOccupiedWhen } : {}),
         }),
       );
       await onInstalled();
@@ -375,6 +381,29 @@ export function HomeSensorOnboardingDialog({
                 placeholder={fr ? 'Par exemple : côté lit' : 'For example: by the bed'}
               />
             </label>
+            {category === 'bed' && (
+              <p className="equipment-note">
+                {fr
+                  ? 'Branchez un tapis de pression à contact sec au NodOn et placez le tapis sous le matelas. Le module NodOn doit rester exposé à la lumière ou utiliser sa pile de secours.'
+                  : 'Connect a dry-contact pressure mat to the NodOn and place the mat under the mattress. Keep the NodOn module exposed to light or use its backup battery.'}
+              </p>
+            )}
+            {category === 'bed' && (
+              <label className="equipment-field">
+                {fr ? 'Quand le lit est occupé' : 'When the bed is occupied'}
+                <select
+                  value={bedOccupiedWhen}
+                  onChange={(event) => setBedOccupiedWhen(event.target.value as 'CLOSED' | 'OPEN')}
+                >
+                  <option value="CLOSED">
+                    {fr ? 'Le contact est fermé' : 'The contact is closed'}
+                  </option>
+                  <option value="OPEN">
+                    {fr ? 'Le contact est ouvert' : 'The contact is open'}
+                  </option>
+                </select>
+              </label>
+            )}
             <footer className="equipment-dialog-footer">
               <button
                 className="equipment-primary"

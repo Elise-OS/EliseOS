@@ -31,7 +31,6 @@ describe('home setup preview', () => {
           home={undefined}
           sensors={[]}
           cameras={[]}
-          onOpenCamera={() => undefined}
           onSaved={() => undefined}
           setupPreview
           onSetupPreviewClose={() => undefined}

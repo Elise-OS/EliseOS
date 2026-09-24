@@ -9,6 +9,7 @@ import {
 } from '@michel/contracts';
 import {
   RoomEquipmentPage,
+  deviceBedOccupiedWhen,
   deviceContactType,
   illuminanceLevel,
   lastReadingLabel,
@@ -112,7 +113,7 @@ describe('room equipment cards', () => {
           targetId: 'stairs-1',
         },
       ],
-    } as HomePlan;
+    } as unknown as HomePlan;
 
     expect(roomCategoryDevices(stairPlan, 'room', [stairDevice], 'motion')).toEqual([]);
   });
@@ -387,6 +388,61 @@ describe('room equipment cards', () => {
     const dryContact = device([capability('dry_contact', { open: true })], { model: 'SDC-4-1-00' });
     expect(roomCategoryDevices(plan, 'room', [dryContact], 'contact')).toEqual([dryContact]);
     expect(roomSensorReading(dryContact, 'contact', true).reading).toBe('Ouvert');
+  });
+
+  it('reserves the bed card for a bedroom and its configured NodOn contact', () => {
+    expect(visibleRoomCategories('BEDROOM')).toContain('bed');
+    expect(visibleRoomCategories('LIVING_ROOM')).not.toContain('bed');
+    expect(productsForCategory('bed', false).map(({ model }) => model)).toEqual(['SDC-4-1-00']);
+    const nodon = device([capability('contact', { open: true })], {
+      manufacturer: 'NodOn',
+      model: 'SDC-4-1-00',
+      room: { id: 'room', name: 'Chambre', kind: 'BEDROOM' },
+    });
+    const bedPlan = {
+      ...plan,
+      placements: [
+        {
+          kind: 'SENSOR',
+          equipmentId: nodon.id,
+          equipmentRefKind: 'DEVICE',
+          roomId: 'room',
+          capabilityBindings: [
+            { sensorId: 'contact', capability: 'contact', role: 'BED', bedOccupiedWhen: 'OPEN' },
+          ],
+        },
+      ],
+    } as HomePlan;
+    expect(deviceSupportsCategory(nodon, 'bed')).toBe(true);
+    expect(roomCategoryDevices(bedPlan, 'room', [nodon], 'bed')).toEqual([nodon]);
+    expect(roomCategoryDevices(bedPlan, 'room', [nodon], 'contact')).toEqual([]);
+    expect(deviceBedOccupiedWhen(bedPlan, nodon)).toBe('OPEN');
+    expect(roomSensorReading(nodon, 'bed', true, Date.now(), 'OPEN').reading).toBe('Occupé');
+    expect(roomSensorReading(nodon, 'bed', true).reading).toBe('Libre');
+    const markup = renderToStaticMarkup(
+      createElement(RoomEquipmentPage, {
+        roomId: 'room',
+        plan: {
+          ...bedPlan,
+          levels: [
+            {
+              name: 'Étage',
+              floor: 1,
+              rooms: [{ id: 'room', name: 'Chambre', kind: 'BEDROOM' }],
+              openings: [],
+            },
+          ],
+        } as unknown as HomePlan,
+        devices: [nodon],
+        locale: 'fr',
+        onBack: () => undefined,
+        onRefresh: () => Promise.resolve(),
+        onPlanSaved: () => undefined,
+      }),
+    );
+    expect(markup).toContain('category-bed');
+    expect(markup).toContain('<h3>Lit</h3>');
+    expect(markup).toContain('Occupé');
   });
 
   it('shows the custom sensor name on its configured card', () => {

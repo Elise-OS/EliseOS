@@ -23,14 +23,21 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RealtimeService.name);
   private readonly updates = new Subject<DatabaseNotification>();
   private client: Client | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private stopping = false;
 
   public constructor(private readonly prisma: PrismaService) {}
 
   public async onModuleInit(): Promise<void> {
+    await this.connect();
+  }
+
+  private async connect(): Promise<void> {
     const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) return;
-    this.client = new Client({ connectionString });
-    this.client.on('notification', (message) => {
+    if (!connectionString || this.stopping) return;
+    const client = new Client({ connectionString });
+    this.client = client;
+    client.on('notification', (message) => {
       if (!message.payload) return;
       try {
         this.updates.next(JSON.parse(message.payload) as DatabaseNotification);
@@ -38,14 +45,35 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
         this.logger.warn('Notification temps réel invalide ignorée');
       }
     });
-    this.client.on('error', (error) =>
-      this.logger.error('Canal temps réel PostgreSQL interrompu', error),
-    );
-    await this.client.connect();
-    await this.client.query('LISTEN michel_updates');
+    client.on('error', (error) => {
+      this.logger.error('Canal temps réel PostgreSQL interrompu', error);
+      this.scheduleReconnect(client);
+    });
+    client.on('end', () => this.scheduleReconnect(client));
+    try {
+      await client.connect();
+      await client.query('LISTEN michel_updates');
+    } catch (error) {
+      this.logger.error('Connexion au canal temps réel impossible', error);
+      this.scheduleReconnect(client);
+    }
+  }
+
+  private scheduleReconnect(client: Client): void {
+    if (this.stopping || this.client !== client) return;
+    this.client = null;
+    void client.end().catch(() => undefined);
+    if (this.reconnectTimer) return;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      void this.connect();
+    }, 5_000);
   }
 
   public async onModuleDestroy(): Promise<void> {
+    this.stopping = true;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
     this.updates.complete();
     await this.client?.end();
   }

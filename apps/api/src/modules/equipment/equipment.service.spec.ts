@@ -36,6 +36,31 @@ describe('EquipmentService manual mappings', () => {
     );
   });
 
+  it('recognizes both Zigbee dry-contact states as open and closed', async () => {
+    const prisma = {
+      deviceEntity: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      sensor: {
+        findUnique: vi.fn().mockResolvedValue({
+          sourceName: 'Contact du lit',
+          mapping: { enabled: true, capability: 'contact', transform: 'OPEN_CLOSED' },
+          device: { sourceDeviceId: 'bed-device', manufacturer: 'NodOn', model: 'SDC-4-1-00' },
+        }),
+      },
+    };
+    const ingestion = { ingest: vi.fn().mockResolvedValue({ accepted: true }) };
+    const service = new EquipmentService(prisma as never, ingestion as never);
+    await service.ingestMappedState({ ...state, state: 'contact_open' });
+    await service.ingestMappedState({ ...state, eventId: 'raw-event-2', state: 'contact_closed' });
+    expect(ingestion.ingest).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ capability: 'contact', payload: { open: true } }),
+    );
+    expect(ingestion.ingest).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ capability: 'contact', payload: { open: false } }),
+    );
+  });
+
   it('does not use an unknown entity until an administrator maps it', async () => {
     const prisma = {
       deviceEntity: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
@@ -64,6 +89,75 @@ describe('EquipmentService manual mappings', () => {
     await new EquipmentService(prisma as never, ingestion as never).ingestMappedState(state);
 
     expect(ingestion.ingest).not.toHaveBeenCalled();
+  });
+});
+
+describe('equipment availability for alert rules', () => {
+  it('preserves a disabled sensor and its original outage start across inventory refreshes', async () => {
+    const unavailableSince = new Date('2026-09-23T10:00:00.000Z');
+    const tx = {
+      deviceEntity: { upsert: vi.fn(), updateMany: vi.fn() },
+      sensor: {
+        findMany: vi
+          .fn()
+          .mockResolvedValue([
+            { entityId: 'binary_sensor.entry_motion', available: false, unavailableSince },
+          ]),
+        upsert: vi.fn(),
+        updateMany: vi.fn(),
+      },
+      equipmentSyncState: { upsert: vi.fn() },
+    };
+    const prisma = {
+      home: { findUnique: vi.fn().mockResolvedValue({ id: 'home-1' }) },
+      $transaction: vi.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
+    };
+    const service = new EquipmentService(prisma as never, {} as never);
+    const inventory = (available: boolean) => ({
+      schemaVersion: '1.0',
+      homeId: 'home-1',
+      generatedAt: '2026-09-23T11:00:00.000Z',
+      full: true,
+      devices: [],
+      entities: [
+        {
+          entityId: 'binary_sensor.entry_motion',
+          name: 'Entrée',
+          domain: 'binary_sensor',
+          deviceClass: 'motion',
+          available,
+          capability: 'motion',
+          compatibility: 'RECOGNIZED',
+          actions: [],
+        },
+      ],
+    });
+    await service.ingestInventory(inventory(false));
+    const first = tx.sensor.upsert.mock.calls[0]?.[0] as {
+      update: { unavailableSince: Date; analysisEnabled?: boolean };
+    };
+    expect(first.update.unavailableSince).toEqual(unavailableSince);
+    expect(first.update).not.toHaveProperty('analysisEnabled');
+
+    await service.ingestInventory(inventory(true));
+    const second = tx.sensor.upsert.mock.calls[1]?.[0] as {
+      update: { unavailableSince: Date | null };
+    };
+    expect(second.update.unavailableSince).toBeNull();
+
+    tx.sensor.findMany.mockResolvedValueOnce([
+      {
+        entityId: 'binary_sensor.entry_motion',
+        available: true,
+        unavailableSince: null,
+        status: 'DEGRADED',
+      },
+    ]);
+    await service.ingestInventory(inventory(true));
+    const third = tx.sensor.upsert.mock.calls[2]?.[0] as {
+      update: { status: string };
+    };
+    expect(third.update.status).toBe('DEGRADED');
   });
 });
 

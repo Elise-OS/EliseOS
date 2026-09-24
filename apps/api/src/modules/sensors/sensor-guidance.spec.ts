@@ -19,4 +19,11 @@ describe('sensor placement guidance', () => {
     const guide = placementGuide(['battery', 'water_leak'], 'BATHROOM');
     expect(guide.title).toContain('point le plus bas');
   });
+
+  it('explains how to test a bed contact instead of describing a magnetic door sensor', () => {
+    const guide = placementGuide(['contact', 'battery'], 'BEDROOM', 'BED');
+    expect(guide.title).toBe('Installer le contact du lit');
+    expect(guide.steps.join(' ')).toContain('tapis de pression');
+    expect(guide.testInstruction).toContain('relâchez-le');
+  });
 });

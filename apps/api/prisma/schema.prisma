@@ -407,6 +407,7 @@ model Session {
   expiresAt DateTime
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pushSubscriptions PushSubscription[]
 
   @@index([expiresAt])
 }
@@ -548,6 +549,7 @@ model Sensor {
   deviceClass               String?
   unit                      String?
   available                 Boolean                     @default(true)
+  unavailableSince          DateTime?
   analysisEnabled           Boolean                     @default(true)
   classificationSource      SensorClassificationSource  @default(METADATA)
   classificationConfidence  Float                       @default(1)
@@ -887,6 +889,7 @@ model Alert {
   openedAt        DateTime               @default(now())
   acknowledgedAt  DateTime?
   resolvedAt      DateTime?
+  conditionClearedAt DateTime?
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
   home            Home                   @relation(fields: [homeId], references: [id], onDelete: Cascade)
@@ -985,6 +988,7 @@ model NotificationDelivery {
 model PushSubscription {
   id            String                 @id @default(cuid())
   userId        String
+  sessionId     String?
   expoPushToken String                 @unique
   platform      PushPlatform
   deviceName    String?
@@ -993,9 +997,11 @@ model PushSubscription {
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
   user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session       Session?               @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   deliveries    NotificationDelivery[]
 
   @@index([userId, enabled])
+  @@index([sessionId])
 }
 
 model JournalEntry {

@@ -48,6 +48,16 @@ export class AlertsController {
     return this.alerts.rules(request.userId);
   }
 
+  @Get('summary')
+  public summary(@Req() request: AuthenticatedRequest) {
+    return this.alerts.summary(request.userId);
+  }
+
+  @Get(':id/detail')
+  public detail(@Req() request: AuthenticatedRequest, @Param('id') id: string) {
+    return this.alerts.detail(request.userId, id);
+  }
+
   @Get(':id/snapshot')
   public snapshot(
     @Req() request: AuthenticatedRequest,

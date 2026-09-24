@@ -5,6 +5,52 @@ import { ActivityService } from './activity.service';
 describe('ActivityService analytics', () => {
   beforeEach(() => vi.setSystemTime(new Date('2026-08-03T12:00:00.000Z')));
 
+  it('formats daily mood summaries as a statement about the resident', async () => {
+    const prisma = {
+      journalEntry: { findMany: vi.fn().mockResolvedValue([]) },
+      home: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'home-1',
+            timezone: 'Europe/Paris',
+            primaryResident: {
+              firstName: 'Michel',
+              preferredName: 'Michel',
+              displayName: 'Michel Breton',
+            },
+          },
+        ]),
+      },
+      liaisonEntry: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'mood-happy',
+            homeId: 'home-1',
+            createdAt: new Date('2026-08-03T10:00:00.000Z'),
+            body: 'mood:HAPPY',
+            tags: ['MOOD'],
+            author: { displayName: 'Paul Breton' },
+          },
+          {
+            id: 'mood-sad',
+            homeId: 'home-1',
+            createdAt: new Date('2026-08-03T10:15:00.000Z'),
+            body: 'Humeur : 😢 Triste',
+            tags: ['MOOD'],
+            author: { displayName: 'Claire' },
+          },
+        ]),
+      },
+    };
+
+    const result = await new ActivityService(prisma as never).journal('user-1');
+    const summary = result.find((item) => item.kind === 'DAILY_SUMMARY');
+
+    expect(summary?.body).toContain('Humeur de Michel : Heureux');
+    expect(summary?.body).toContain('Humeur de Michel : Triste');
+    expect(summary?.body).not.toContain('😢');
+  });
+
   it('creates complete hourly buckets and room totals', async () => {
     const prisma = {
       home: {

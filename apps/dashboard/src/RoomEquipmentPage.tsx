@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Bell,
+  BedDouble,
   BatteryMedium,
   Check,
   CheckCircle2,
@@ -59,6 +60,7 @@ const categoryIcons = {
   fall_detection: ShieldAlert,
   button: Bell,
   contact: DoorOpen,
+  bed: BedDouble,
   water_leak: Droplets,
   smoke: Flame,
   carbon_monoxide: Wind,
@@ -122,6 +124,11 @@ export function roomCategoryDevices(
     if (stairPlacements.some(matches)) return false;
     // The main entrance has its own card and must not be duplicated in "Opening".
     if (category === 'contact' && mainEntrancePlacements.some(matches)) return false;
+    const role = ['contact', 'bed'].includes(category)
+      ? deviceContactType(plan, device)
+      : undefined;
+    if (category === 'bed' && role !== 'BED') return false;
+    if (category === 'contact' && role === 'BED') return false;
     return (
       deviceSupportsCategory(device, category) &&
       (device.room?.id === roomId || (!device.room && placements.some(matches)))
@@ -137,11 +144,25 @@ export function deviceContactType(plan: HomePlan, device: SensorUiDevice): Conta
         ? p.equipmentId === device.id
         : device.capabilities.some(({ sensorId }) => sensorId === p.equipmentId)),
   );
-  const role = placement?.capabilityBindings.find(({ capability }) =>
+  const role = placement?.capabilityBindings?.find(({ capability }) =>
     ['contact', 'dry_contact'].includes(capability),
   )?.role;
   const parsed = contactRoleSchema.safeParse(role);
   return parsed.success ? parsed.data : undefined;
+}
+
+export function deviceBedOccupiedWhen(plan: HomePlan, device: SensorUiDevice): 'CLOSED' | 'OPEN' {
+  const binding = plan.placements
+    .filter(
+      (placement) =>
+        placement.kind === 'SENSOR' &&
+        (placement.equipmentRefKind === 'DEVICE'
+          ? placement.equipmentId === device.id
+          : device.capabilities.some(({ sensorId }) => sensorId === placement.equipmentId)),
+    )
+    .flatMap((placement) => placement.capabilityBindings ?? [])
+    .find(({ role }) => role === 'BED');
+  return binding?.bedOccupiedWhen ?? 'CLOSED';
 }
 
 export function otherConnectedDevices(
@@ -181,13 +202,14 @@ export function roomSensorReading(
   category: RoomSensorCategory,
   fr: boolean,
   now = Date.now(),
+  bedOccupiedWhen: 'CLOSED' | 'OPEN' = 'CLOSED',
 ) {
   const capabilities = device.capabilities.filter(({ capability }) =>
     category === 'presence'
       ? ['person_presence', 'occupancy'].includes(capability)
       : category === 'motion'
         ? ['motion', 'occupancy'].includes(capability)
-        : category === 'contact'
+        : category === 'contact' || category === 'bed'
           ? ['contact', 'dry_contact'].includes(capability)
           : category === 'air_quality'
             ? ['co2', 'pm25', 'voc', 'total_volatile_organic_compounds', 'air_quality'].includes(
@@ -201,7 +223,7 @@ export function roomSensorReading(
   const lastSeenAt = capability?.lastSeenAt ?? device.lastSeenAt;
   const lastSeen = lastSeenAt ? Date.parse(lastSeenAt) : NaN;
   // A value can stay unchanged while another function of the same device reports.
-  const stateful = ['presence', 'motion', 'contact'].includes(category);
+  const stateful = ['presence', 'motion', 'contact', 'bed'].includes(category);
   const deviceSeen = device.lastSeenAt ? Date.parse(device.lastSeenAt) : NaN;
   const freshness = Math.max(
     Number.isFinite(lastSeen) ? lastSeen : -Infinity,
@@ -244,7 +266,7 @@ export function roomSensorReading(
     } else reading = formatted;
   } else {
     const active =
-      category === 'contact' && typeof value?.open === 'boolean'
+      ['contact', 'bed'].includes(category) && typeof value?.open === 'boolean'
         ? value.open
         : typeof value?.active === 'boolean'
           ? value.active
@@ -253,29 +275,37 @@ export function roomSensorReading(
             : undefined;
     if (typeof active === 'boolean')
       reading =
-        category === 'contact'
-          ? active
+        category === 'bed'
+          ? active === (bedOccupiedWhen === 'OPEN')
             ? fr
-              ? 'Ouvert'
-              : 'Open'
+              ? 'Occupé'
+              : 'Occupied'
             : fr
-              ? 'Fermé'
-              : 'Closed'
-          : ['presence', 'motion'].includes(category)
+              ? 'Libre'
+              : 'Empty'
+          : category === 'contact'
             ? active
               ? fr
-                ? 'Détecté'
-                : 'Detected'
+                ? 'Ouvert'
+                : 'Open'
               : fr
-                ? 'Non détecté'
-                : 'Not detected'
-            : active
-              ? fr
-                ? 'Signal détecté'
-                : 'Signal detected'
-              : fr
-                ? 'Aucun signal'
-                : 'No signal';
+                ? 'Fermé'
+                : 'Closed'
+            : ['presence', 'motion'].includes(category)
+              ? active
+                ? fr
+                  ? 'Détecté'
+                  : 'Detected'
+                : fr
+                  ? 'Non détecté'
+                  : 'Not detected'
+              : active
+                ? fr
+                  ? 'Signal détecté'
+                  : 'Signal detected'
+                : fr
+                  ? 'Aucun signal'
+                  : 'No signal';
     else if (typeof value?.action === 'string')
       reading = fr ? 'Dernier appui reçu' : 'Last press received';
   }
@@ -317,7 +347,7 @@ export function lastReadingLabel(
     month: '2-digit',
     year: 'numeric',
   });
-  const stateful = category && ['presence', 'motion', 'contact'].includes(category);
+  const stateful = category && ['presence', 'motion', 'contact', 'bed'].includes(category);
   const frenchLabel = stateful ? 'Dernier changement reçu' : 'Dernière mesure reçue';
   if (fr) return sameDay ? `${frenchLabel} à ${time}` : `${frenchLabel} le ${date} à ${time}`;
   return sameDay
@@ -356,7 +386,11 @@ export function RoomEquipmentPage({
   >();
   const [installationProduct, setInstallationProduct] = useState<SensorProduct | undefined>();
   const [installationContactRole, setInstallationContactRole] = useState<ContactRole | undefined>();
+  const [installationBedOccupiedWhen, setInstallationBedOccupiedWhen] = useState<'CLOSED' | 'OPEN'>(
+    'CLOSED',
+  );
   const [openingType, setOpeningType] = useState<ContactRole | ''>('');
+  const [bedOccupiedWhen, setBedOccupiedWhen] = useState<'CLOSED' | 'OPEN'>('CLOSED');
   const [contactFilter, setContactFilter] = useState<ContactRole | undefined>();
   const [editingMainEntrance, setEditingMainEntrance] = useState(false);
   const [guideId, setGuideId] = useState<string | null>(null);
@@ -418,7 +452,11 @@ export function RoomEquipmentPage({
       ? connectedDevicesForCategory(devices, category).filter(
           (device) => !selectedDevices.some(({ id }) => id === device.id),
         )
-      : otherConnectedDevices(devices, category, roomId, selectedDevices)
+      : category === 'bed'
+        ? connectedDevicesForCategory(devices, category).filter(
+            (device) => !selectedDevices.some(({ id }) => id === device.id),
+          )
+        : otherConnectedDevices(devices, category, roomId, selectedDevices)
     : [];
   const count = new Set([
     ...equipped.flatMap((id) => categoryDevices(id).map(({ id }) => id)),
@@ -427,6 +465,8 @@ export function RoomEquipmentPage({
   const outdoor = ['GARDEN', 'TERRACE'].includes(room.kind);
   const products = category ? productsForCategory(category, outdoor) : [];
   const shownGuide = devices.find(({ id }) => id === guideId);
+  const readingFor = (device: SensorUiDevice, id: RoomSensorCategory) =>
+    roomSensorReading(device, id, fr, now, deviceBedOccupiedWhen(plan, device));
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
     setError('');
@@ -465,7 +505,8 @@ export function RoomEquipmentPage({
         (type ? deviceContactType(plan, device) === type : !deviceContactType(plan, device)),
     );
     setContactFilter(type);
-    setOpeningType(type ?? '');
+    setOpeningType(id === 'bed' ? 'BED' : (type ?? ''));
+    setBedOccupiedWhen('CLOSED');
     setEditingMainEntrance(false);
     setCategory(id);
     setProduct(null);
@@ -479,6 +520,7 @@ export function RoomEquipmentPage({
           device.capabilities.some(({ sensorId }) => sensorId === item.equipmentId),
       );
       setNote(device.placementNote ?? placement?.placementNote ?? '');
+      if (id === 'bed') setBedOccupiedWhen(deviceBedOccupiedWhen(plan, device));
     } else setAssigning(null);
     setTab('PRODUCTS');
     setError('');
@@ -508,7 +550,10 @@ export function RoomEquipmentPage({
       await onRefresh();
       setInstallationCategory(category ?? undefined);
       setInstallationProduct(chosen);
-      setInstallationContactRole(category === 'contact' ? openingType || undefined : undefined);
+      setInstallationContactRole(
+        category === 'bed' ? 'BED' : category === 'contact' ? openingType || undefined : undefined,
+      );
+      setInstallationBedOccupiedWhen(bedOccupiedWhen);
       setCategory(null);
       setProduct(null);
       setEditingMainEntrance(false);
@@ -521,6 +566,7 @@ export function RoomEquipmentPage({
           (editingMainEntrance ? 'MAIN_ENTRANCE' : openingType || contactFilter || ''),
       );
     setAssigning(device);
+    if (category === 'bed') setBedOccupiedWhen(deviceBedOccupiedWhen(plan, device));
     setName(device.name);
     const placement = plan.placements.find(
       (p) =>
@@ -539,11 +585,13 @@ export function RoomEquipmentPage({
           name: name.trim(),
           placementNote: note.trim() || null,
           buttonRole: 'ASSISTANCE',
-          ...(category === 'contact'
+          ...(['contact', 'bed'].includes(category ?? '')
             ? {
-                contactRole: openingType || undefined,
-                ...(deviceContactType(plan, assigning) === 'MAIN_ENTRANCE' &&
-                openingType !== 'MAIN_ENTRANCE'
+                contactRole: category === 'bed' ? 'BED' : openingType || undefined,
+                ...(category === 'bed' ? { bedOccupiedWhen } : {}),
+                ...(category === 'bed' ||
+                (deviceContactType(plan, assigning) === 'MAIN_ENTRANCE' &&
+                  openingType !== 'MAIN_ENTRANCE')
                   ? { target: { type: 'ROOM', id: roomId } }
                   : {}),
               }
@@ -762,10 +810,8 @@ export function RoomEquipmentPage({
                   : !deviceContactType(plan, device)),
             );
             const Icon = categoryIcons[id];
-            const reading = items.length === 1 ? roomSensorReading(items[0]!, id, fr, now) : null;
-            const problems = items.filter(
-              (device) => roomSensorReading(device, id, fr, now).status,
-            ).length;
+            const reading = items.length === 1 ? readingFor(items[0]!, id) : null;
+            const problems = items.filter((device) => readingFor(device, id).status).length;
             return (
               <article
                 key={`${id}-${type ?? 'general'}`}
@@ -952,6 +998,31 @@ export function RoomEquipmentPage({
                 </select>
               </label>
             )}
+            {category === 'bed' && (
+              <>
+                <p className="equipment-note">
+                  {fr
+                    ? 'Reliez un tapis de pression à contact sec au module NodOn. Le module seul ne détecte pas la présence dans le lit.'
+                    : 'Connect a dry-contact pressure mat to the NodOn module. The module alone cannot detect bed occupancy.'}
+                </p>
+                <label className="equipment-field">
+                  {fr ? 'Quand le lit est occupé' : 'When the bed is occupied'}
+                  <select
+                    value={bedOccupiedWhen}
+                    onChange={(event) =>
+                      setBedOccupiedWhen(event.target.value as 'CLOSED' | 'OPEN')
+                    }
+                  >
+                    <option value="CLOSED">
+                      {fr ? 'Le contact est fermé' : 'The contact is closed'}
+                    </option>
+                    <option value="OPEN">
+                      {fr ? 'Le contact est ouvert' : 'The contact is open'}
+                    </option>
+                  </select>
+                </label>
+              </>
+            )}
             {assigning ? (
               <>
                 <button
@@ -1005,7 +1076,9 @@ export function RoomEquipmentPage({
                 <div className="equipment-sensor-glance">
                   <div>
                     <span>{fr ? 'Mesure actuelle' : 'Current reading'}</span>
-                    <strong>{roomSensorReading(assigning, category!, fr, now).reading}</strong>
+                    <strong>
+                      {roomSensorReading(assigning, category!, fr, now, bedOccupiedWhen).reading}
+                    </strong>
                   </div>
                   <div>
                     <span>{fr ? 'Batterie' : 'Battery'}</span>
@@ -1169,7 +1242,7 @@ export function RoomEquipmentPage({
                           : 'In this room'}
                     </h3>
                     {selectedDevices.map((device) => {
-                      const reading = roomSensorReading(device, category!, fr, now);
+                      const reading = readingFor(device, category!);
                       return (
                         <article className="equipment-device-row" key={device.id}>
                           <DevicePhoto device={device} />
@@ -1197,10 +1270,10 @@ export function RoomEquipmentPage({
                             {reading.lastSeenAt && (
                               <small>
                                 {fr
-                                  ? ['presence', 'motion', 'contact'].includes(category!)
+                                  ? ['presence', 'motion', 'contact', 'bed'].includes(category!)
                                     ? 'Dernier changement le '
                                     : 'Mesure reçue le '
-                                  : ['presence', 'motion', 'contact'].includes(category!)
+                                  : ['presence', 'motion', 'contact', 'bed'].includes(category!)
                                     ? 'Latest change on '
                                     : 'Reading received '}{' '}
                                 {new Date(reading.lastSeenAt).toLocaleString(fr ? 'fr-FR' : 'en')}
@@ -1387,6 +1460,7 @@ export function RoomEquipmentPage({
         rooms={rooms}
         initialRoomId={roomId}
         contactRole={installationContactRole}
+        bedOccupiedWhen={installationBedOccupiedWhen}
         category={installationCategory}
         product={installationProduct}
         onClose={() => setInstalling(false)}

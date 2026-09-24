@@ -1,6 +1,18 @@
 import { z } from 'zod';
 export const ARTE_LIVE_URL =
   'https://artesimulcast.akamaized.net/hls/live/2031003/artelive_fr/master.m3u8';
+export const RMC_LIFE_LIVE_URL =
+  'https://d3dcdjv6dx07iz.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-eaaww2dyp3iih/RMC_Life_FR.m3u8';
+export const RMC_STORY_LIVE_URL =
+  'https://d15aro46bnpfm8.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-fqkqiax1078up/RMC_Story_FR.m3u8';
+export const RMC_DECOUVERTE_LIVE_URL =
+  'https://d16zzycxcd0m0r.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-hixvx5kymecr9/RMC_Decouverte_FR.m3u8';
+const SUPPORTED_TV_LIVE_URLS = new Set<string>([
+  ARTE_LIVE_URL,
+  RMC_LIFE_LIVE_URL,
+  RMC_STORY_LIVE_URL,
+  RMC_DECOUVERTE_LIVE_URL,
+]);
 export function youtubeVideoId(value: string): string | null {
   try {
     const url = new URL(value);
@@ -29,7 +41,7 @@ export const screenGrantSchema = z.object({
 export const screenMediaSchema = z
   .object({
     id: z.string().uuid(),
-    title: z.string().trim().min(1).max(120),
+    title: z.string().trim().max(120),
     kind: z.enum(['photo', 'audio', 'video', 'youtube', 'stream', 'tv']),
     url: z.string().max(2048),
     playlistUrls: z
@@ -57,6 +69,12 @@ export const screenMediaSchema = z
       .optional(),
   })
   .superRefine((media, ctx) => {
+    if (media.kind !== 'photo' && !media.title)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['title'],
+        message: 'Un titre est requis pour ce média.',
+      });
     if (media.kind === 'youtube' && !youtubeVideoId(media.url))
       ctx.addIssue({ code: 'custom', path: ['url'], message: 'Lien vidéo YouTube invalide.' });
     if (media.playlistUrls && media.kind !== 'youtube')
@@ -65,7 +83,7 @@ export const screenMediaSchema = z
         path: ['playlistUrls'],
         message: 'Playlist réservée à YouTube.',
       });
-    if (media.kind === 'tv' && media.url !== ARTE_LIVE_URL)
+    if (media.kind === 'tv' && !SUPPORTED_TV_LIVE_URLS.has(media.url))
       ctx.addIssue({ code: 'custom', path: ['url'], message: 'Chaîne TV non prise en charge.' });
   });
 export const screenSlotSchema = z.object({

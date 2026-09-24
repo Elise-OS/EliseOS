@@ -15,7 +15,6 @@ import {
   CloudSnow,
   CloudSun,
   Image as ImageIcon,
-  PhoneCall,
   Radio,
   Sun,
   Stethoscope,
@@ -94,6 +93,115 @@ export function TVNotificationOverlay({
       <div className="tv-notification-icon">{notification.icon ?? <BellRing />}</div>
       <h1>{notification.title}</h1>
       {notification.message && <p>{notification.message}</p>}
+    </section>
+  );
+}
+
+export function callerInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  return (
+    words
+      .slice(0, 2)
+      .map((word) => word[0]?.toLocaleUpperCase('fr-FR') ?? '')
+      .join('') || 'É'
+  );
+}
+
+export function startIncomingCallRingtone(): () => void {
+  if (typeof window === 'undefined' || !window.AudioContext) return () => undefined;
+  let context: AudioContext;
+  try {
+    context = new window.AudioContext();
+  } catch {
+    return () => undefined;
+  }
+  const master = context.createGain();
+  const startAt = context.currentTime;
+  // Keep the TV's general volume tuned for radio, but make the call alert itself
+  // clearly audible from its first ring and let it strengthen gently.
+  master.gain.setValueAtTime(0.58, startAt);
+  master.gain.exponentialRampToValueAtTime(0.9, startAt + 5);
+  master.connect(context.destination);
+  let stopped = false;
+  let timer: number | undefined;
+  const ring = () => {
+    if (stopped) return;
+    const now = context.currentTime + 0.02;
+    for (const delay of [0, 0.5]) {
+      for (const frequency of [440, 480]) {
+        const oscillator = context.createOscillator();
+        const envelope = context.createGain();
+        oscillator.type = 'triangle';
+        oscillator.frequency.setValueAtTime(frequency, now + delay);
+        envelope.gain.setValueAtTime(0.0001, now + delay);
+        envelope.gain.exponentialRampToValueAtTime(0.25, now + delay + 0.055);
+        envelope.gain.setValueAtTime(0.25, now + delay + 0.3);
+        envelope.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.42);
+        oscillator.connect(envelope);
+        envelope.connect(master);
+        oscillator.start(now + delay);
+        oscillator.stop(now + delay + 0.44);
+      }
+    }
+    timer = window.setTimeout(ring, 2400);
+  };
+  const begin = () => {
+    if (!stopped) ring();
+  };
+  if (context.state === 'suspended')
+    void context
+      .resume()
+      .then(begin)
+      .catch(() => undefined);
+  else begin();
+  return () => {
+    stopped = true;
+    if (timer !== undefined) window.clearTimeout(timer);
+    master.disconnect();
+    void context.close().catch(() => undefined);
+  };
+}
+
+export function IncomingCallOverlay({
+  callId,
+  callerName,
+  automatic,
+}: {
+  callId: string;
+  callerName: string;
+  automatic: boolean;
+}) {
+  useEffect(() => startIncomingCallRingtone(), [callId]);
+  return (
+    <section
+      className="incoming-call-screen"
+      role="alert"
+      aria-live="assertive"
+      aria-label={`${callerName} vous appelle`}
+    >
+      <div className="incoming-call-screen__glow" aria-hidden="true" />
+      <div className="incoming-call-screen__content">
+        <p className="incoming-call-screen__eyebrow">Appel entrant</p>
+        <div className="incoming-call-screen__identity" aria-hidden="true">
+          <span>{callerInitials(callerName)}</span>
+        </div>
+        <h1>
+          <strong>{callerName}</strong>
+          <span>vous appelle</span>
+        </h1>
+        <p className="incoming-call-screen__instruction">
+          {automatic
+            ? 'L’appel va commencer dans un instant'
+            : 'Appuyez sur le bouton pour répondre'}
+        </p>
+        <div className="incoming-call-screen__sound" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+        </div>
+      </div>
     </section>
   );
 }
@@ -239,34 +347,14 @@ function UpcomingEvents({
   agenda: ScreenSnapshot['agenda'];
   timezone?: string;
 }) {
-  const dateKey = (date: Date) =>
-    new Intl.DateTimeFormat('fr-CA', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      timeZone: timezone,
-    }).format(date);
-  const today = new Date();
-  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-  const dayLabel = (date: Date) => {
-    const key = dateKey(date);
-    if (key === dateKey(today)) return 'Aujourd’hui';
-    if (key === dateKey(tomorrow)) return 'Demain';
-    return date.toLocaleDateString('fr-FR', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      timeZone: timezone,
-    });
-  };
   return (
-    <section className="tv-card tv-agenda" aria-label="Prochains rendez-vous">
+    <section className="tv-card tv-agenda" aria-label="Rendez-vous du jour">
       <h2>
-        <CalendarDays aria-hidden="true" /> Rendez-vous
+        <CalendarDays aria-hidden="true" /> Rendez-vous du jour
       </h2>
       {agenda.length ? (
         <ul>
-          {agenda.slice(0, 2).map((item) => {
+          {agenda.map((item) => {
             const Icon = eventIcons[item.type];
             const date = new Date(item.startsAt);
             return (
@@ -288,7 +376,7 @@ function UpcomingEvents({
                 )}
                 <span>
                   <strong>{item.title}</strong>
-                  <small>{dayLabel(date)}</small>
+                  <small>Aujourd’hui</small>
                 </span>
                 <time dateTime={item.startsAt}>
                   {date.toLocaleTimeString('fr-FR', {
@@ -302,7 +390,7 @@ function UpcomingEvents({
           })}
         </ul>
       ) : (
-        <p className="tv-agenda-empty">Aucun rendez-vous prévu</p>
+        <p className="tv-agenda-empty">Aucun rendez-vous aujourd’hui</p>
       )}
     </section>
   );
@@ -333,7 +421,6 @@ export function ResidentScreen() {
   });
   const [radioStatus, setRadioStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const radioRef = useRef<HTMLAudioElement>(null);
-  const announced = useRef('');
   const fetching = useRef(false);
   const refresh = useCallback(async () => {
     if (fetching.current) return;
@@ -410,12 +497,6 @@ export function ResidentScreen() {
   }, [button]);
   const call = online ? snapshot?.state.call : null;
   useEffect(() => {
-    if (call && announced.current !== call.id) {
-      announced.current = call.id;
-      const utterance = new SpeechSynthesisUtterance(`${call.name} vous appelle`);
-      utterance.lang = 'fr-FR';
-      speechSynthesis.speak(utterance);
-    }
     if (token && call?.acceptedAt && !join)
       void screenRequest<ScreenJoin>(
         `screen-device/calls/${call.id}/join`,
@@ -632,7 +713,7 @@ export function ResidentScreen() {
     );
   return (
     <main className={`resident-display ${state?.playback.asleep && !call ? 'resident-sleep' : ''}`}>
-      {!state?.playback.asleep && state && (
+      {!state?.playback.asleep && state && !call && (
         <FamilyMessageBanner state={state} now={now.getTime()} />
       )}
       {join && (
@@ -650,21 +731,9 @@ export function ResidentScreen() {
           }}
         />
       )}
-      <TVNotificationOverlay
-        notification={
-          call && !join
-            ? {
-                type: 'incoming_call',
-                title: `${call.name} vous appelle`,
-                message: call.automatic
-                  ? 'L’appel va commencer…'
-                  : 'Appuyez sur le bouton pour accepter',
-                icon: <PhoneCall />,
-                priority: 'high',
-              }
-            : null
-        }
-      />
+      {call && !join && (
+        <IncomingCallOverlay callId={call.id} callerName={call.name} automatic={call.automatic} />
+      )}
       <div
         className={`resident-program ${activeRadio ? 'has-radio' : ''}`}
         style={{ display: call || state?.playback.asleep ? 'none' : 'grid' }}

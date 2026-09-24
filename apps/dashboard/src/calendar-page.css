@@ -73,6 +73,52 @@
   color: #fff;
   font-weight: 750;
 }
+.calendar-hero-actions .calendar-back,
+.calendar-hero-actions .calendar-primary {
+  min-height: 68px;
+  border-radius: 18px;
+  padding: 16px 22px;
+  font-size: 18px;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+.calendar-hero-actions .calendar-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-color: #cbdbea;
+  box-shadow: 0 3px 10px #214b850a;
+}
+.calendar-hero-actions .calendar-primary {
+  gap: 12px;
+  padding-inline: 26px;
+  box-shadow: 0 7px 16px #214b8526;
+}
+.calendar-hero-actions button svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+.calendar-hero-actions .calendar-back:hover {
+  border-color: #9dbbd8;
+  background: #f7fbff;
+  box-shadow: 0 6px 16px #214b8517;
+}
+.calendar-hero-actions .calendar-primary:hover {
+  background: #1b4175;
+  box-shadow: 0 9px 20px #214b8533;
+}
+.calendar-hero-actions button:active {
+  transform: translateY(1px);
+}
+.calendar-hero-actions button:focus-visible {
+  outline: 3px solid #77aeda;
+  outline-offset: 3px;
+}
 .calendar-toolbar {
   display: flex;
   align-items: center;
@@ -147,6 +193,20 @@
 .calendar-day.today {
   border-color: #77aeda;
   background: #f3f9ff;
+}
+.calendar-day.is-clickable {
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+.calendar-day.is-clickable:hover,
+.calendar-day.is-clickable:focus-visible {
+  border-color: #8ab1d4;
+  background: #f4faff;
+  box-shadow: 0 0 0 3px #8ab1d433;
+  outline: none;
 }
 .calendar-day strong {
   display: block;
@@ -313,36 +373,25 @@
   min-height: 80px;
   resize: vertical;
 }
-.calendar-type {
-  display: flex;
-  gap: 8px;
-}
-.calendar-type button {
-  flex: 1;
-  border: 1px solid #d6e2ea;
-  border-radius: 10px;
-  padding: 11px;
-  background: #fff;
-  color: #55708e;
-}
-.calendar-type button.active {
-  background: #eaf3fb;
-  border-color: #8ab1d4;
-  color: #214b85;
-  font-weight: 700;
-}
-.calendar-form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
 .calendar-modal footer {
   justify-content: flex-end;
   gap: 10px;
 }
-.calendar-scope {
-  border-top: 1px solid #e5ecef;
-  padding-top: 13px;
+.calendar-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-right: auto;
+  border: 1px solid #efc8c4;
+  border-radius: 14px;
+  padding: 13px 17px;
+  background: #fff7f5;
+  color: #a04942;
+  font-weight: 700;
+}
+.calendar-delete svg {
+  width: 18px;
+  height: 18px;
 }
 @media (max-width: 700px) {
   .calendar-hero {
@@ -357,6 +406,19 @@
     flex: 1;
     justify-content: center;
   }
+  .calendar-hero-actions .calendar-back,
+  .calendar-hero-actions .calendar-primary {
+    min-height: 62px;
+    padding: 13px 12px;
+    font-size: 16px;
+  }
+  .calendar-hero-actions .calendar-primary {
+    padding-inline: 14px;
+  }
+  .calendar-hero-actions button svg {
+    width: 20px;
+    height: 20px;
+  }
   .calendar-day {
     min-height: 88px;
     padding: 6px;
@@ -369,7 +431,9 @@
     min-width: 0;
     font-size: 23px;
   }
-  .calendar-form-grid {
-    grid-template-columns: 1fr;
+}
+@media (max-width: 380px) {
+  .calendar-hero-actions {
+    flex-direction: column;
   }
 }

@@ -4,13 +4,31 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { LiaisonCreate, LiaisonQuery } from '@michel/contracts';
+import type { LiaisonCreate, LiaisonQuery, LiaisonUpdate } from '@michel/contracts';
 import { PrismaService } from '../../platform/prisma.service';
 import { activeMembership } from '../auth/access-policy';
+import { scheduledDate } from '../medications/medication-time';
 
 const writers = ['OWNER', 'ADMINISTRATOR', 'CAREGIVER'] as const;
 const person = { select: { id: true, displayName: true } };
 const people = { author: person, assignee: person, completedBy: person };
+
+function localDateKey(value: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat('en', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: timezone,
+  }).formatToParts(value);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+function shiftDateKey(value: string, days: number): string {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
 
 @Injectable()
 export class LiaisonService {
@@ -23,21 +41,39 @@ export class LiaisonService {
           memberships: { some: activeMembership(userId, write ? writers : undefined) },
         },
       },
-      select: { id: true, organizationId: true, timezone: true },
+      select: {
+        id: true,
+        organizationId: true,
+        timezone: true,
+        primaryResident: {
+          select: { firstName: true, preferredName: true, displayName: true },
+        },
+      },
     });
     if (!home) throw new ForbiddenException('Access denied');
-    return home;
+    const residentName =
+      home.primaryResident?.firstName?.trim() ||
+      home.primaryResident?.preferredName?.trim().split(/\s+/)[0] ||
+      home.primaryResident?.displayName.trim().split(/\s+/)[0] ||
+      null;
+    return { ...home, residentName };
   }
 
   async list(userId: string, query: LiaisonQuery) {
     const home = await this.home(userId);
+    const now = new Date();
+    const appointmentEnd = scheduledDate(
+      shiftDateKey(localDateKey(now, home.timezone), 8),
+      0,
+      home.timezone,
+    );
     if (
       query.cursor &&
       !(await this.prisma.liaisonEntry.findFirst({ where: { id: query.cursor, homeId: home.id } }))
     ) {
       throw new NotFoundException('Entry not found');
     }
-    const [items, memberships, visits, openTasks] = await Promise.all([
+    const [items, memberships, visits, appointments, openTasks] = await Promise.all([
       this.prisma.liaisonEntry.findMany({
         where: {
           homeId: home.id,
@@ -65,6 +101,18 @@ export class LiaisonService {
         orderBy: { startsAt: 'asc' },
         include: { completedBy: person },
       }),
+      this.prisma.appointment.findMany({
+        where: { homeId: home.id, startsAt: { gte: now, lt: appointmentEnd } },
+        orderBy: { startsAt: 'asc' },
+        select: {
+          id: true,
+          title: true,
+          startsAt: true,
+          endsAt: true,
+          location: true,
+          notes: true,
+        },
+      }),
       this.prisma.liaisonEntry.findMany({
         where: { homeId: home.id, kind: 'TASK', completedAt: null },
         orderBy: [{ dueOn: 'asc' }, { createdAt: 'desc' }],
@@ -85,8 +133,10 @@ export class LiaisonService {
         (m) => m.userId === userId && writers.some((role) => role === m.systemRole),
       ),
       timezone: home.timezone,
-      today: new Intl.DateTimeFormat('en-CA', { timeZone: home.timezone }).format(new Date()),
+      residentName: home.residentName,
+      today: localDateKey(now, home.timezone),
       visits,
+      appointments,
     };
   }
 
@@ -116,6 +166,49 @@ export class LiaisonService {
         },
       });
       return entry;
+    });
+  }
+
+  async update(userId: string, id: string, input: LiaisonUpdate) {
+    const home = await this.home(userId, true);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`liaison:${home.id}:false:${id}`}))`;
+      const item = await tx.liaisonEntry.findFirst({ where: { id, homeId: home.id } });
+      if (!item) throw new NotFoundException('Entry not found');
+      const updated = await tx.liaisonEntry.update({
+        where: { id },
+        data: { body: input.body, ...(input.tags ? { tags: input.tags } : {}) },
+      });
+      await tx.auditLog.create({
+        data: {
+          homeId: home.id,
+          actorId: userId,
+          action: 'LIAISON_UPDATED',
+          target: id,
+          metadata: { kind: item.kind },
+        },
+      });
+      return updated;
+    });
+  }
+
+  async remove(userId: string, id: string) {
+    const home = await this.home(userId, true);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`liaison:${home.id}:false:${id}`}))`;
+      const item = await tx.liaisonEntry.findFirst({ where: { id, homeId: home.id } });
+      if (!item) throw new NotFoundException('Entry not found');
+      await tx.liaisonEntry.delete({ where: { id } });
+      await tx.auditLog.create({
+        data: {
+          homeId: home.id,
+          actorId: userId,
+          action: 'LIAISON_DELETED',
+          target: id,
+          metadata: { kind: item.kind },
+        },
+      });
+      return { id, deleted: true };
     });
   }
 

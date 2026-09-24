@@ -10,6 +10,7 @@ export const capabilitySchema = z.enum([
   'occupancy',
   'person_presence',
   'contact',
+  'dry_contact',
   'button',
   'temperature',
   'humidity',
@@ -355,7 +356,7 @@ export type AlertRuleSettings = z.infer<typeof alertRuleSettingsSchema>;
 export const webhookEnvelopeSchema = z.object({
   schemaVersion: z.literal('1.0'),
   deliveryId: z.string(),
-  event: z.enum(['alert.opened', 'alert.acknowledged', 'alert.resolved']),
+  event: z.enum(['alert.opened', 'alert.acknowledged', 'alert.resolved', 'alert.dismissed']),
   occurredAt: z.iso.datetime(),
   alert: alertSchema,
 });
@@ -625,6 +626,7 @@ export const equipmentPlacementSchema = z.object({
         sensorId: z.string().min(1),
         capability: z.string().min(1),
         role: z.string().min(1).max(100),
+        bedOccupiedWhen: z.enum(['CLOSED', 'OPEN']).optional(),
       }),
     )
     .max(50)
@@ -1139,6 +1141,7 @@ export const sensorOnboardingSessionSchema = z.object({
     .object({
       online: z.boolean(),
       pairingOpen: z.boolean(),
+      deviceDetected: z.boolean().default(false),
       updatedAt: z.iso.datetime().nullable(),
     })
     .nullable(),
@@ -1151,6 +1154,7 @@ export const sensorOnboardingCompletionSchema = z.object({
   placementNote: z.string().trim().max(500).nullable().optional(),
   buttonRole: z.enum(['ASSISTANCE', 'CONFIRMATION', 'LIGHT', 'CUSTOM_ROUTINE']).optional(),
   contactRole: contactRoleSchema.optional(),
+  bedOccupiedWhen: z.enum(['CLOSED', 'OPEN']).optional(),
   target: z
     .object({
       type: z.enum(['ROOM', 'ITEM', 'OPENING', 'STAIR']),
@@ -1428,6 +1432,16 @@ export const homeSummarySchema = z.object({
       updatedAt: z.iso.datetime().nullable(),
     }),
   ),
+  sleep: z
+    .object({
+      roomId: z.string().nullable(),
+      configured: z.boolean(),
+      available: z.boolean(),
+      occupied: z.boolean().nullable(),
+      bedtimeAt: z.iso.datetime().nullable(),
+      wakeAt: z.iso.datetime().nullable(),
+    })
+    .optional(),
   alert: z
     .object({
       id: z.string(),

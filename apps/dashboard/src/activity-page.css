@@ -1123,7 +1123,7 @@
   margin: 0;
   color: #103b70;
   font:
-    600 clamp(28px, 2.6vw, 38px) / 1.08 'Source Serif 4',
+    600 clamp(24px, 2.2vw, 32px) / 1.12 'Source Serif 4',
     Georgia,
     serif;
   letter-spacing: -0.04em;
@@ -1133,7 +1133,7 @@
   margin: 8px 0 0;
   color: #667e98;
   font:
-    400 clamp(15px, 1.35vw, 20px) / 1.35 'Source Serif 4',
+    400 clamp(14px, 1.1vw, 16px) / 1.4 'Source Serif 4',
     Georgia,
     serif;
 }
@@ -1157,7 +1157,7 @@
   padding: 0 16px;
   border-radius: 16px;
   font-family: 'Source Serif 4', Georgia, serif;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 650;
   cursor: pointer;
 }
@@ -1233,7 +1233,7 @@
 .activity-moment-stat strong {
   color: #123d70;
   font:
-    650 clamp(22px, 2vw, 29px) / 1 'Source Serif 4',
+    650 clamp(20px, 1.6vw, 24px) / 1 'Source Serif 4',
     Georgia,
     serif;
   white-space: nowrap;
@@ -1242,7 +1242,7 @@
 .activity-moment-stat small {
   margin-top: 5px;
   color: #6e849b;
-  font-size: 11px;
+  font-size: 10px;
   white-space: nowrap;
 }
 
@@ -1372,7 +1372,7 @@
 .activity-sequence-time strong {
   color: #173e64;
   font:
-    700 18px / 1 'Source Serif 4',
+    700 16px / 1 'Source Serif 4',
     Georgia,
     serif;
 }
@@ -1380,7 +1380,7 @@
 .activity-sequence-time small {
   margin-top: 7px;
   color: #6f8499;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .activity-timeline-dot {
@@ -1444,7 +1444,7 @@
 .activity-sequence-copy strong {
   color: #123d70;
   font:
-    650 clamp(17px, 1.65vw, 23px) / 1.2 'Source Serif 4',
+    650 clamp(15px, 1.25vw, 18px) / 1.25 'Source Serif 4',
     Georgia,
     serif;
 }
@@ -1452,7 +1452,7 @@
 .activity-sequence-copy small {
   margin-top: 6px;
   color: #607b96;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .activity-sequence-summary-card > svg {
@@ -1491,7 +1491,7 @@
 
 .activity-event-time {
   color: #173e64;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
@@ -1518,7 +1518,7 @@
 .activity-event-copy strong {
   color: #183e70;
   font:
-    650 15px / 1.2 'Source Serif 4',
+    650 13px / 1.3 'Source Serif 4',
     Georgia,
     serif;
 }
@@ -1526,7 +1526,7 @@
 .activity-event-copy small {
   margin-top: 3px;
   color: #637c96;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .activity-reliability-badge {
@@ -1537,7 +1537,7 @@
   border-radius: 999px;
   color: #24775f;
   background: #e1f6ed;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -1754,11 +1754,11 @@
   }
 
   .activity-sequence-copy strong {
-    font-size: 15px;
+    font-size: 13px;
   }
 
   .activity-sequence-copy small {
-    font-size: 10px;
+    font-size: 9px;
   }
 
   .activity-sequence-events {
@@ -1782,7 +1782,7 @@
   }
 
   .activity-sequence-events > .activity-event-row > .activity-event-copy strong {
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .activity-sequence-events > .activity-event-row > .activity-event-copy small {
@@ -1824,7 +1824,7 @@
   display: block;
   color: #183e70;
   font:
-    650 15px / 1.2 'Source Serif 4',
+    650 13px / 1.3 'Source Serif 4',
     Georgia,
     serif;
 }
@@ -1833,7 +1833,7 @@
   display: block;
   margin-top: 3px;
   color: #637c96;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .activity-sequence-events > .activity-event-row > .activity-reliability-badge {
@@ -1848,7 +1848,7 @@
   border-radius: 999px;
   color: #24775f;
   background: #e1f6ed;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -1874,6 +1874,10 @@
     justify-self: start;
     padding: 5px 8px;
     font-size: 10px;
+  }
+
+  .activity-sequence-events > .activity-event-row > .activity-event-copy strong {
+    font-size: 12px;
   }
 }
 
@@ -1937,13 +1941,13 @@
 }
 
 .activity-date-option strong {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .activity-date-option small {
   color: #7890a2;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .activity-date-option > svg {
@@ -1965,7 +1969,7 @@
   color: #173e64;
   background: rgb(255 255 255 / 92%);
   box-shadow: 0 4px 14px rgb(27 55 76 / 4%);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   cursor: pointer;
 }
@@ -2020,7 +2024,7 @@
 .activity-comparison-picker label {
   flex: 0 0 auto;
   color: #58748b;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -2032,7 +2036,7 @@
   outline: 0;
   color: #173e64;
   background: transparent;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   cursor: pointer;
 }
@@ -2046,7 +2050,7 @@
 
 .activity-comparison-caption {
   color: #698399;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 750;
 }
 
@@ -2064,7 +2068,7 @@
 .activity-comparison-stat strong {
   color: #123d70;
   font:
-    650 16px / 1.1 'Source Serif 4',
+    650 14px / 1.15 'Source Serif 4',
     Georgia,
     serif;
   white-space: nowrap;

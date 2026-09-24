@@ -14,6 +14,26 @@ import { calendarCreateSchema, type CalendarRecurrence } from '@michel/contracts
 import { mobileApi } from '../api';
 import type { SavedServer } from '../discovery/types';
 
+function recurrenceEnd(startsAt: string, recurrence: CalendarRecurrence, count: number) {
+  const start = new Date(startsAt.replace(' ', 'T'));
+  if (Number.isNaN(start.getTime()) || !Number.isInteger(count) || count < 1 || count > 400)
+    return null;
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  for (let index = 1; index < count; index += 1) {
+    if (recurrence === 'DAILY') end.setDate(end.getDate() + 1);
+    if (recurrence === 'WEEKLY') end.setDate(end.getDate() + 7);
+    if (recurrence === 'MONTHLY') {
+      const originalDay = end.getDate();
+      end.setDate(1);
+      end.setMonth(end.getMonth() + 1);
+      const lastDay = new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate();
+      end.setDate(Math.min(originalDay, lastDay));
+    }
+  }
+  end.setHours(23, 59, 0, 0);
+  return end;
+}
+
 export function MobileCalendarPanel({
   server,
   token,
@@ -31,39 +51,41 @@ export function MobileCalendarPanel({
     refetchInterval: 30000,
   });
   const [formOpen, setFormOpen] = useState(false);
-  const [type, setType] = useState<'APPOINTMENT' | 'VISIT'>('APPOINTMENT');
   const [title, setTitle] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
-  const [location, setLocation] = useState('');
-  const [notes, setNotes] = useState('');
   const [recurrence, setRecurrence] = useState<CalendarRecurrence>('NONE');
-  const [recurrenceUntil, setRecurrenceUntil] = useState('');
+  const [recurrenceCount, setRecurrenceCount] = useState('7');
   const [error, setError] = useState('');
   const create = useMutation({
     mutationFn: () => {
-      const base = {
-        type,
-        startsAt: new Date(startsAt).toISOString(),
-        endsAt: endsAt ? new Date(endsAt).toISOString() : null,
-        notes: notes || null,
+      const start = new Date(startsAt.replace(' ', 'T'));
+      const end = endsAt ? new Date(endsAt.replace(' ', 'T')) : null;
+      const until =
+        recurrence === 'NONE' ? null : recurrenceEnd(startsAt, recurrence, Number(recurrenceCount));
+      if (
+        Number.isNaN(start.getTime()) ||
+        (end && Number.isNaN(end.getTime())) ||
+        (recurrence !== 'NONE' && !until)
+      )
+        throw new Error('Invalid calendar input');
+      const input = {
+        type: 'APPOINTMENT' as const,
+        startsAt: start.toISOString(),
+        endsAt: end?.toISOString() ?? null,
+        notes: null,
         recurrence,
-        recurrenceUntil: recurrenceUntil
-          ? new Date(`${recurrenceUntil}T23:59:00`).toISOString()
-          : null,
+        recurrenceUntil: until?.toISOString() ?? null,
+        title,
+        location: null,
       };
-      const input =
-        type === 'VISIT'
-          ? { ...base, type: 'VISIT' as const, visitorName: title }
-          : { ...base, type: 'APPOINTMENT' as const, title, location: location || null };
       const parsed = calendarCreateSchema.parse(input);
       return mobileApi.createCalendar(server, token, parsed);
     },
     onSuccess: async () => {
       setFormOpen(false);
       setTitle('');
-      setNotes('');
-      setRecurrenceUntil('');
+      setRecurrenceCount('7');
       await client.invalidateQueries({ queryKey });
       await client.invalidateQueries({ queryKey: ['michel', server.id, 'schedule'] });
     },
@@ -112,23 +134,7 @@ export function MobileCalendarPanel({
       </View>
       {formOpen && calendar.data?.canWrite && (
         <View style={s.form}>
-          <View style={s.choices}>
-            <Choice
-              label="Rendez-vous"
-              active={type === 'APPOINTMENT'}
-              onPress={() => setType('APPOINTMENT')}
-            />
-            <Choice
-              label="Visite familiale"
-              active={type === 'VISIT'}
-              onPress={() => setType('VISIT')}
-            />
-          </View>
-          <Field
-            label={type === 'VISIT' ? 'Visiteur' : 'Titre'}
-            value={title}
-            onChangeText={setTitle}
-          />
+          <Field label="Rendez-vous" value={title} onChangeText={setTitle} />
           <Field
             label="Début (AAAA-MM-JJ HH:MM)"
             value={startsAt}
@@ -136,8 +142,6 @@ export function MobileCalendarPanel({
             placeholder="2026-09-24 10:30"
           />
           <Field label="Fin (facultatif)" value={endsAt} onChangeText={setEndsAt} />
-          <Field label="Lieu" value={location} onChangeText={setLocation} />
-          <Field label="Notes" value={notes} onChangeText={setNotes} multiline />
           <View style={s.choices}>
             <Choice
               label="Aucune répétition"
@@ -162,10 +166,10 @@ export function MobileCalendarPanel({
           </View>
           {recurrence !== 'NONE' && (
             <Field
-              label="Jusqu’au (AAAA-MM-JJ)"
-              value={recurrenceUntil}
-              onChangeText={setRecurrenceUntil}
-              placeholder="2027-09-24"
+              label={recurrence === 'DAILY' ? 'Pendant (jours)' : 'Nombre de répétitions'}
+              value={recurrenceCount}
+              onChangeText={setRecurrenceCount}
+              placeholder="7"
             />
           )}
           {error ? <Text style={s.error}>{error}</Text> : null}
@@ -179,25 +183,17 @@ export function MobileCalendarPanel({
         <View style={s.empty}>
           <Ionicons name="calendar-outline" size={42} color="#8ab1c8" />
           <Text style={s.emptyTitle}>Aucun rendez-vous prévu</Text>
-          <Text style={s.muted}>Ajoutez une visite ou un rendez-vous pour la maison.</Text>
+          <Text style={s.muted}>Ajoutez un rendez-vous pour la maison.</Text>
         </View>
       )}
       {events.map((event) => (
         <View style={s.card} key={event.id}>
           <View style={s.icon}>
-            <Ionicons
-              name={event.type === 'VISIT' ? 'people-outline' : 'calendar-outline'}
-              size={22}
-              color="#214b85"
-            />
+            <Ionicons name="calendar-outline" size={22} color="#214b85" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.cardTitle}>{event.title}</Text>
-            <Text style={s.muted}>
-              {format(event.startsAt)}
-              {event.detail ? ` · ${event.detail}` : ''}
-            </Text>
-            {event.notes ? <Text style={s.note}>{event.notes}</Text> : null}
+            <Text style={s.muted}>{format(event.startsAt)}</Text>
           </View>
           {calendar.data?.canWrite && (
             <Pressable onPress={() => remove.mutate(event.id)}>

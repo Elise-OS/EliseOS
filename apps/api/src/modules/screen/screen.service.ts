@@ -14,12 +14,14 @@ import {
   NotFoundException,
   OnModuleDestroy,
   OnModuleInit,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { gunzipSync } from 'node:zlib';
 import {
   advanceScreenSchedule,
   initialScreenState,
@@ -36,6 +38,7 @@ import {
 import { PrismaService } from '../../platform/prisma.service';
 import { parseRequest } from '../../platform/zod-validation';
 import { decryptCameraSecret, encryptCameraSecret } from '../cameras/camera-crypto';
+import { scheduledDate } from '../medications/medication-time';
 import { MqttIngestionService } from '../sensing/mqtt-ingestion.service';
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -58,6 +61,11 @@ const mediaRoot = path.resolve(process.env.MEDIA_ROOT ?? '/var/lib/elise/media',
 type CityWeather = ScreenSnapshot['weather'];
 const weatherCache = new Map<string, { expiresAt: number; value: Promise<CityWeather> }>();
 const youtubeOAuthStates = new Map<string, { userId: string; expiresAt: number }>();
+function nextDateKey(value: string): string {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
 const YOUTUBE_SCOPE = 'openid email profile https://www.googleapis.com/auth/youtube.readonly';
 const YOUTUBE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3';
@@ -204,10 +212,189 @@ async function fetchCityWeather(address: string | null | undefined): Promise<Cit
   });
   return value;
 }
+
+export interface ScreenTvGuideProgramResult {
+  title: string;
+  description: string | null;
+  startAt: string;
+  endAt: string;
+}
+export interface ScreenTvGuideChannelResult {
+  id: string;
+  name: string;
+  current: ScreenTvGuideProgramResult | null;
+  next: ScreenTvGuideProgramResult | null;
+}
+export interface ScreenTvGuideResult {
+  channels: ScreenTvGuideChannelResult[];
+  retrievedAt: string;
+  stale: boolean;
+}
+type XmlTvProgram = ScreenTvGuideProgramResult & { startMs: number; endMs: number };
+const TV_GUIDE_SOURCE_URL = 'https://xmltvfr.fr/xmltv/xmltv_tnt.xml.gz';
+const TV_GUIDE_CHANNELS = [
+  { id: 'Arte.fr', name: 'ARTE' },
+  { id: 'Cherie25.fr', name: 'RMC Life' },
+  { id: 'Numero23.fr', name: 'RMC Story' },
+  { id: 'RMCDecouverte.fr', name: 'RMC Découverte' },
+] as const;
+const TV_GUIDE_REFRESH_MS = 6 * 60 * 60 * 1000;
+const TV_GUIDE_RETRY_MS = 5 * 60 * 1000;
+const TV_GUIDE_STALE_MAX_MS = 48 * 60 * 60 * 1000;
+let tvGuideCache: { retrievedAtMs: number; programs: Map<string, XmlTvProgram[]> } | null = null;
+let tvGuideRefresh: Promise<void> | null = null;
+let tvGuideRetryAt = 0;
+
+function decodeXmlText(value: string): string {
+  return value
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/&#x([\da-f]+);/gi, (_match, hex: string) => {
+      const codePoint = Number.parseInt(hex, 16);
+      return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : '';
+    })
+    .replace(/&#(\d+);/g, (_match, digits: string) => {
+      const codePoint = Number.parseInt(digits, 10);
+      return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : '';
+    })
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function xmlTvTag(content: string, tag: string): string | null {
+  const match = new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}\\s*>`, 'i').exec(content);
+  if (!match) return null;
+  const value = decodeXmlText(match[1]!);
+  return value || null;
+}
+
+function xmlTvDate(value: string | undefined): number | null {
+  const match = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\s*([+-])(\d{2}):?(\d{2})|Z)?$/.exec(
+    value?.trim() ?? '',
+  );
+  if (!match) return null;
+  const year = match[1]!;
+  const month = match[2]!;
+  const day = match[3]!;
+  const hour = match[4]!;
+  const minute = match[5]!;
+  const second = match[6]!;
+  const sign = match[7];
+  const offsetHour = match[8];
+  const offsetMinute = match[9];
+  const localAsUtc = Date.UTC(+year, +month - 1, +day, +hour, +minute, +second);
+  const offset = sign ? (+offsetHour! * 60 + +offsetMinute!) * 60_000 : 0;
+  return localAsUtc - (sign === '+' ? offset : -offset);
+}
+
+function parseXmlTvGuide(xml: string): Map<string, XmlTvProgram[]> {
+  const programs = new Map<string, XmlTvProgram[]>(TV_GUIDE_CHANNELS.map(({ id }) => [id, []]));
+  const attribute = (attributes: string, name: string) =>
+    new RegExp(`\\b${name}=["']([^"']+)["']`, 'i').exec(attributes)?.[1];
+  for (const match of xml.matchAll(/<programme\b([^>]*)>([\s\S]*?)<\/programme\s*>/gi)) {
+    const attributes = match[1]!;
+    const content = match[2]!;
+    const channelId = attribute(attributes, 'channel');
+    const channelPrograms = channelId ? programs.get(channelId) : undefined;
+    if (!channelPrograms) continue;
+    const startMs = xmlTvDate(attribute(attributes, 'start'));
+    const endMs = xmlTvDate(attribute(attributes, 'stop'));
+    const title = xmlTvTag(content, 'title');
+    if (startMs === null || endMs === null || endMs <= startMs || !title) continue;
+    const description = xmlTvTag(content, 'desc');
+    channelPrograms.push({
+      title: title.slice(0, 180),
+      description: description?.slice(0, 360) ?? null,
+      startAt: new Date(startMs).toISOString(),
+      endAt: new Date(endMs).toISOString(),
+      startMs,
+      endMs,
+    });
+  }
+  if ([...programs.values()].every((channelPrograms) => channelPrograms.length === 0))
+    throw new Error('The XMLTV guide contained no supported channels.');
+  for (const channelPrograms of programs.values())
+    channelPrograms.sort((left, right) => left.startMs - right.startMs);
+  return programs;
+}
+
+async function refreshTvGuide(): Promise<void> {
+  const response = await fetch(TV_GUIDE_SOURCE_URL, {
+    headers: { 'user-agent': 'Michel household TV guide/1.0' },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new Error(`XMLTV source returned HTTP ${response.status}.`);
+  const contentLength = Number(response.headers.get('content-length'));
+  if (Number.isFinite(contentLength) && contentLength > 5 * 1024 * 1024)
+    throw new Error('XMLTV source file exceeded the expected size.');
+  const compressed = new Uint8Array(await response.arrayBuffer());
+  if (compressed.byteLength > 5 * 1024 * 1024)
+    throw new Error('XMLTV source file exceeded the expected size.');
+  const xml = gunzipSync(compressed, { maxOutputLength: 16 * 1024 * 1024 }).toString('utf8');
+  if (!xml.startsWith('<?xml') && !xml.includes('<tv'))
+    throw new Error('XMLTV source did not contain a valid guide.');
+  tvGuideCache = { retrievedAtMs: Date.now(), programs: parseXmlTvGuide(xml) };
+  tvGuideRetryAt = 0;
+}
+
+async function screenTvGuide(): Promise<ScreenTvGuideResult> {
+  const now = Date.now();
+  if (!tvGuideCache || now - tvGuideCache.retrievedAtMs >= TV_GUIDE_REFRESH_MS) {
+    if (now >= tvGuideRetryAt) {
+      tvGuideRefresh ??= refreshTvGuide()
+        .catch((error: unknown) => {
+          tvGuideRetryAt = Date.now() + TV_GUIDE_RETRY_MS;
+          console.warn('[screen] TV guide refresh failed; retaining the last valid guide.', error);
+        })
+        .finally(() => {
+          tvGuideRefresh = null;
+        });
+    }
+    if (tvGuideRefresh) await tvGuideRefresh;
+  }
+  const cache = tvGuideCache;
+  if (!cache || Date.now() - cache.retrievedAtMs > TV_GUIDE_STALE_MAX_MS)
+    throw new ServiceUnavailableException('Le programme TV est temporairement indisponible.');
+  const currentTime = Date.now();
+  return {
+    retrievedAt: new Date(cache.retrievedAtMs).toISOString(),
+    stale: currentTime - cache.retrievedAtMs >= TV_GUIDE_REFRESH_MS,
+    channels: TV_GUIDE_CHANNELS.map(({ id, name }) => {
+      const upcoming = (cache.programs.get(id) ?? []).filter(({ endMs }) => endMs > currentTime);
+      const currentIndex = upcoming.findIndex(
+        ({ startMs, endMs }) => startMs <= currentTime && endMs > currentTime,
+      );
+      const current = currentIndex >= 0 ? (upcoming[currentIndex] ?? null) : null;
+      const following =
+        currentIndex >= 0
+          ? (upcoming[currentIndex + 1] ?? null)
+          : (upcoming[0] ?? null);
+      const toResult = ({ title, description, startAt, endAt }: XmlTvProgram) => ({
+        title,
+        description,
+        startAt,
+        endAt,
+      });
+      return {
+        id,
+        name,
+        current: current ? toResult(current) : null,
+        next: following ? toResult(following) : null,
+      };
+    }),
+  };
+}
+
 @Injectable()
 export class ScreenService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
   private tvRecoveryTimer?: NodeJS.Timeout;
+  private tvGuideTimer?: NodeJS.Timeout;
   private readonly homeAssistantCommandAt = new Map<string, number>();
   constructor(
     private readonly prisma: PrismaService,
@@ -215,6 +402,12 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
   ) {}
   async onModuleInit() {
     await fs.mkdir(mediaRoot, { recursive: true });
+    void screenTvGuide().catch(() => undefined);
+    this.tvGuideTimer = setInterval(
+      () => void screenTvGuide().catch(() => undefined),
+      TV_GUIDE_RETRY_MS,
+    );
+    this.tvGuideTimer.unref();
     // A process restart never resurrects a conference or replays pending commands.
     for (const row of await this.prisma.residentScreen.findMany())
       await this.mutate(row.homeId, (s) => {
@@ -243,6 +436,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
   onModuleDestroy() {
     if (this.timer) clearInterval(this.timer);
     if (this.tvRecoveryTimer) clearInterval(this.tvRecoveryTimer);
+    if (this.tvGuideTimer) clearInterval(this.tvGuideTimer);
   }
   private async home(userId: string) {
     const home = await this.prisma.home.findFirst({
@@ -417,6 +611,10 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
           (candidate) => candidate.homeAssistantEntityId === networkTv.homeAssistantEntityId,
         ) ?? null,
     };
+  }
+  async tvGuide(userId: string): Promise<ScreenTvGuideResult> {
+    await this.access(userId, 'control');
+    return screenTvGuide();
   }
   async reclaimTv(userId: string) {
     const { home, state } = await this.access(userId, 'control');
@@ -670,21 +868,19 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     });
     const state = row.state as unknown as ScreenState;
     const now = new Date();
-    const rangeEnd = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-    const [nextVisit, visits, appointments, weather, membershipRows] = await Promise.all([
-      this.prisma.visit.findFirst({
-        where: { homeId, startsAt: { gte: now } },
-        orderBy: { startsAt: 'asc' },
-      }),
+    const today = screenLocalTime(now, home.timezone).date;
+    const dayStart = scheduledDate(today, 0, home.timezone);
+    const dayEnd = scheduledDate(nextDateKey(today), 0, home.timezone);
+    const [visits, appointments, weather, membershipRows] = await Promise.all([
       this.prisma.visit.findMany({
-        where: { homeId, startsAt: { gte: now, lt: rangeEnd } },
+        where: { homeId, startsAt: { gte: dayStart, lt: dayEnd } },
         orderBy: { startsAt: 'asc' },
       }),
       this.prisma.appointment.findMany({
-        where: { homeId, startsAt: { gte: now, lt: rangeEnd } },
+        where: { homeId, startsAt: { gte: dayStart, lt: dayEnd } },
         orderBy: { startsAt: 'asc' },
       }),
-      fetchCityWeather(state.settings.weatherCity || home.address),
+      fetchCityWeather(state.settings.weatherCity),
       grant.administer
         ? this.prisma.membership.findMany({
             where: { organizationId: home.organizationId, disabledAt: null },
@@ -708,8 +904,8 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       })),
     ]
       .sort((left, right) => left.startsAt.getTime() - right.startsAt.getTime())
-      .slice(0, 3)
       .map((item) => ({ ...item, startsAt: item.startsAt.toISOString() }));
+    const nextVisit = visits.find((visit) => visit.startsAt >= now);
     const members = grant.administer
       ? membershipRows.map((membership) => ({
           id: membership.userId,
@@ -1507,23 +1703,25 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
         p.paused = false;
       if (input.action === 'planning') s.lastSlot = '';
       p.revision++;
+      const target = s.media.find((media) => media.id === p.mediaId);
       s.commands.push({
         id,
         action: input.action,
         previousPlayback,
         revision: p.revision,
         createdAt: Date.now(),
-        expiresAt: Date.now() + 15000,
+        expiresAt:
+          Date.now() +
+          (target?.kind === 'tv' && ['play', 'resume'].includes(input.action) ? 120_000 : 15_000),
         status: 'pending',
       });
       s.commands = s.commands.slice(-50);
-      const target = s.media.find((media) => media.id === p.mediaId);
       const labels: Record<string, string> = {
         play:
           target?.kind === 'stream'
             ? 'Radio lancée'
             : target?.kind === 'tv'
-              ? 'ARTE lancée'
+              ? 'Chaîne TV lancée'
               : target?.kind === 'youtube'
                 ? 'Playlist YouTube lancée'
                 : 'Photo affichée',

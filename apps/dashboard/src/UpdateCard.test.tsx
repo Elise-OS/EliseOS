@@ -33,6 +33,8 @@ describe('UpdateCard', () => {
     expect(html).toContain('Mise à jour d’Élise OS');
     expect(html).toContain('v0.1.1');
     expect(html).toContain('Installer v0.1.1');
+    expect(html).toContain('update-card-heading');
+    expect(html).toContain('settings-disclosure-chevron');
     expect(html).not.toContain('ghp_secret_value');
   });
 });

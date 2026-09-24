@@ -40,12 +40,25 @@ import {
   Sun,
   Thermometer,
   Refrigerator,
+  MoonStar,
+  Sunrise,
   Toilet,
   Tv,
   Zap,
+  MapPin,
+  Pencil,
+  Search,
+  X,
 } from 'lucide-react';
 import { roomIconKey } from './home-visuals';
 import { DataLoadingScreen } from './DataLoadingScreen';
+
+type WeatherCity = {
+  name: string;
+  label: string;
+  latitude: number;
+  longitude: number;
+};
 import type { Locale } from './i18n';
 import { subscribeScreenEvents } from './screen-events';
 import './welcome-page.css';
@@ -687,6 +700,14 @@ export function WelcomePage({
   const [messageDraft, setMessageDraft] = useState('');
   const [screenBusy, setScreenBusy] = useState(false);
   const [screenNotice, setScreenNotice] = useState('');
+  const [weatherModalOpen, setWeatherModalOpen] = useState(false);
+  const [weatherCityQuery, setWeatherCityQuery] = useState('');
+  const [selectedWeatherCity, setSelectedWeatherCity] = useState('');
+  const [weatherCities, setWeatherCities] = useState<WeatherCity[]>([]);
+  const [weatherSearchBusy, setWeatherSearchBusy] = useState(false);
+  const [weatherSearchError, setWeatherSearchError] = useState('');
+  const [weatherSaving, setWeatherSaving] = useState(false);
+  const [weatherModalError, setWeatherModalError] = useState('');
   const fr = locale === 'fr';
   void reminders;
   const residentFirstName = residentName.trim().split(/\s+/)[0] || residentName;
@@ -720,6 +741,58 @@ export function WelcomePage({
       clearInterval(timer);
     };
   }, [retry]);
+  useEffect(() => {
+    const query = weatherCityQuery.trim();
+    if (
+      !weatherModalOpen ||
+      !screen?.grant.administer ||
+      query.length < 2 ||
+      selectedWeatherCity === query
+    ) {
+      setWeatherCities([]);
+      setWeatherSearchBusy(false);
+      setWeatherSearchError('');
+      return;
+    }
+    const controller = new AbortController();
+    setWeatherSearchBusy(true);
+    setWeatherSearchError('');
+    const timer = window.setTimeout(() => {
+      void fetch(`/api/v1/screen/weather/cities?q=${encodeURIComponent(query)}`, {
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          if (!response.ok) throw new Error();
+          return response.json() as Promise<WeatherCity[]>;
+        })
+        .then((cities) => {
+          setWeatherCities(cities);
+          setWeatherSearchBusy(false);
+        })
+        .catch(() => {
+          if (controller.signal.aborted) return;
+          setWeatherCities([]);
+          setWeatherSearchBusy(false);
+          setWeatherSearchError(
+            fr
+              ? 'La recherche de villes est momentanément indisponible.'
+              : 'City search is temporarily unavailable.',
+          );
+        });
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [fr, screen?.grant.administer, selectedWeatherCity, weatherCityQuery, weatherModalOpen]);
+  useEffect(() => {
+    if (!weatherModalOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !weatherSaving) setWeatherModalOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [weatherModalOpen, weatherSaving]);
   useEffect(() => {
     let alive = true;
     let pending = false;
@@ -872,6 +945,7 @@ export function WelcomePage({
         storm: fr ? 'Orage' : 'Storm',
         rain: fr ? 'Pluie' : 'Rain',
       }[weatherKind];
+  const configuredWeatherCity = screen?.state.settings.weatherCity.trim() ?? '';
   const screenMessages = (
     screen?.state.messages?.length
       ? screen.state.messages
@@ -1007,6 +1081,77 @@ export function WelcomePage({
       tone: 'shower',
     });
   }
+  if (data) {
+    const bedroom = data.rooms.find(({ kind }) => kind === 'BEDROOM');
+    const sleep = data.sleep;
+    const roomId = sleep?.roomId ?? bedroom?.id ?? null;
+    const configured = Boolean(sleep?.configured);
+    const available = configured ? Boolean(sleep?.available) : null;
+    usageSensors.push({
+      key: 'bedtime',
+      title: fr ? 'Coucher de la veille' : "Yesterday's bedtime",
+      value: !configured
+        ? fr
+          ? 'À configurer'
+          : 'Setup required'
+        : sleep?.bedtimeAt
+          ? time(sleep.bedtimeAt)
+          : fr
+            ? 'En attente'
+            : 'Awaiting observation',
+      detail: !configured
+        ? fr
+          ? 'Associer le contact du lit'
+          : 'Assign the bed contact'
+        : !available
+          ? fr
+            ? 'Capteur indisponible'
+            : 'Sensor unavailable'
+          : sleep?.bedtimeAt
+            ? fr
+              ? 'Coucher repéré la nuit précédente'
+              : 'Bedtime observed during the previous night'
+            : fr
+              ? 'Aucun coucher repéré la nuit précédente'
+              : 'No bedtime observed during the previous night',
+      available,
+      roomId,
+      icon: MoonStar,
+      tone: 'bedtime',
+    });
+    usageSensors.push({
+      key: 'wake-up',
+      title: fr ? 'Réveil du jour' : "Today's wake-up",
+      value: !configured
+        ? fr
+          ? 'À configurer'
+          : 'Setup required'
+        : sleep?.wakeAt
+          ? time(sleep.wakeAt)
+          : fr
+            ? 'En attente'
+            : 'Awaiting observation',
+      detail: !configured
+        ? fr
+          ? 'Associer le contact du lit'
+          : 'Assign the bed contact'
+        : !available
+          ? fr
+            ? 'Capteur indisponible'
+            : 'Sensor unavailable'
+          : sleep?.wakeAt
+            ? fr
+              ? 'Réveil repéré aujourd’hui'
+              : 'Wake-up observed today'
+            : fr
+              ? 'Aucun réveil repéré aujourd’hui'
+              : 'No wake-up observed today',
+      available,
+      roomId,
+      icon: Sunrise,
+      tone: 'wakeup',
+    });
+  }
 
   async function addFamilyMessage(event: React.FormEvent) {
     event.preventDefault();
@@ -1038,6 +1183,40 @@ export function WelcomePage({
       );
     } finally {
       setScreenBusy(false);
+    }
+  }
+
+  function openWeatherEditor() {
+    const city = screen?.state.settings.weatherCity.trim() ?? '';
+    setWeatherCityQuery(city);
+    setSelectedWeatherCity(city);
+    setWeatherModalError('');
+    setWeatherModalOpen(true);
+  }
+
+  async function saveWeatherCity(event: React.FormEvent) {
+    event.preventDefault();
+    if (!screen?.grant.administer || !selectedWeatherCity.trim() || weatherSaving) return;
+    setWeatherSaving(true);
+    setWeatherModalError('');
+    try {
+      const updated = await welcomeScreenRequest<ScreenSnapshot>(
+        'screen/settings',
+        { ...screen.state.settings, weatherCity: selectedWeatherCity.trim() },
+        'PATCH',
+      );
+      setScreen(updated);
+      setWeatherModalOpen(false);
+    } catch (cause) {
+      setWeatherModalError(
+        cause instanceof Error
+          ? cause.message
+          : fr
+            ? 'La météo n’a pas pu être enregistrée.'
+            : 'The weather settings could not be saved.',
+      );
+    } finally {
+      setWeatherSaving(false);
     }
   }
 
@@ -1096,14 +1275,62 @@ export function WelcomePage({
             })}
           </span>
           <time className="welcome-clock">{time(now)}</time>
-          <div className="welcome-weather">
-            <WeatherIcon aria-hidden="true" />
-            <strong>{weather ? `${Math.round(weather.temperature)}°C` : '—'}</strong>
-            <span>
-              {weather?.city}
-              <small>{weatherLabel}</small>
-            </span>
-          </div>
+          {configuredWeatherCity ? (
+            screen?.grant.administer ? (
+              <button
+                type="button"
+                className="welcome-weather welcome-weather--button welcome-weather--configured"
+                aria-label={
+                  fr
+                    ? `Modifier la météo sur la TV, ${configuredWeatherCity}`
+                    : `Change TV weather, ${configuredWeatherCity}`
+                }
+                onClick={openWeatherEditor}
+              >
+                <WeatherIcon aria-hidden="true" />
+                <strong>{weather ? `${Math.round(weather.temperature)}°C` : '—'}</strong>
+                <span>
+                  {weather?.city ?? configuredWeatherCity}
+                  <small>{weatherLabel}</small>
+                </span>
+                <Pencil className="welcome-weather-action-icon" aria-hidden="true" />
+              </button>
+            ) : (
+              <div className="welcome-weather" aria-label={weatherLabel}>
+                <WeatherIcon aria-hidden="true" />
+                <strong>{weather ? `${Math.round(weather.temperature)}°C` : '—'}</strong>
+                <span>
+                  {weather?.city ?? configuredWeatherCity}
+                  <small>{weatherLabel}</small>
+                </span>
+              </div>
+            )
+          ) : screen?.grant.administer ? (
+            <button
+              type="button"
+              className="welcome-weather welcome-weather--button welcome-weather--setup"
+              onClick={openWeatherEditor}
+            >
+              <CloudSun aria-hidden="true" />
+              <span>
+                <strong>{fr ? 'Configurer la météo' : 'Set up weather'}</strong>
+                <small>
+                  {fr
+                    ? 'Choisir la ville pour le logement et la TV'
+                    : 'Choose the home and TV city'}
+                </small>
+              </span>
+              <ChevronRight className="welcome-weather-action-icon" aria-hidden="true" />
+            </button>
+          ) : (
+            <div className="welcome-weather welcome-weather--readonly">
+              <CloudSun aria-hidden="true" />
+              <span>
+                <strong>{fr ? 'Météo à configurer' : 'Weather needs setup'}</strong>
+                <small>{fr ? 'Par un administrateur' : 'Ask an administrator to set it up'}</small>
+              </span>
+            </div>
+          )}
         </div>
       </header>
       {error && (
@@ -1156,6 +1383,10 @@ export function WelcomePage({
                 ? 'Le résumé de la journée se prépare.'
                 : 'The day summary is being prepared.'}
           </p>
+          <button type="button" className="welcome-day-activity" onClick={onActivity}>
+            {fr ? 'Voir toute l’activité' : 'View all activity'}
+            <ChevronRight aria-hidden="true" />
+          </button>
         </article>
         <article className="welcome-card welcome-sensors">
           <header className="welcome-card-heading">
@@ -1163,9 +1394,6 @@ export function WelcomePage({
               <i className="welcome-dot" />
               {fr ? 'Repères du quotidien' : 'Daily essentials'}
             </h3>
-            <button className="welcome-see-all" onClick={onSensors}>
-              {fr ? 'Tout voir' : 'View all'}
-            </button>
           </header>
           <div className="welcome-sensor-grid">
             {usageSensors.map((usage) => {
@@ -1203,8 +1431,8 @@ export function WelcomePage({
           {!usageSensors.length && (
             <p className="welcome-empty">
               {fr
-                ? 'La porte d’entrée, le réfrigérateur et les toilettes apparaîtront ici une fois configurés.'
-                : 'The front door, refrigerator and toilet will appear here once configured.'}
+                ? 'Les repères apparaîtront ici lorsque le logement sera disponible.'
+                : 'Daily essentials will appear here when home data is available.'}
             </p>
           )}
         </article>
@@ -1373,6 +1601,153 @@ export function WelcomePage({
           </div>
         </article>
       </div>
+      {weatherModalOpen && (
+        <div
+          className="welcome-weather-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !weatherSaving) setWeatherModalOpen(false);
+          }}
+        >
+          <form
+            className="welcome-weather-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="welcome-weather-modal-title"
+            onSubmit={(event) => void saveWeatherCity(event)}
+          >
+            <header>
+              <span className="welcome-weather-modal-icon">
+                <CloudSun aria-hidden="true" />
+              </span>
+              <div>
+                <h2 id="welcome-weather-modal-title">
+                  {fr ? 'Météo du logement et de la TV' : 'Home and TV weather'}
+                </h2>
+                <p>
+                  {fr
+                    ? 'Choisissez une ville : elle sera affichée ici et sur la télévision.'
+                    : 'Choose a city to show here and on the television.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="welcome-weather-modal-close"
+                aria-label={fr ? 'Fermer' : 'Close'}
+                disabled={weatherSaving}
+                onClick={() => setWeatherModalOpen(false)}
+              >
+                <X aria-hidden="true" />
+              </button>
+            </header>
+            <label className="welcome-weather-search-label" htmlFor="welcome-weather-city">
+              {fr ? 'Ville' : 'City'}
+            </label>
+            <div className="welcome-weather-search">
+              <Search aria-hidden="true" />
+              <input
+                id="welcome-weather-city"
+                autoFocus
+                autoComplete="off"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded={weatherCities.length > 0}
+                aria-controls="welcome-weather-city-options"
+                value={weatherCityQuery}
+                placeholder={fr ? 'Ex. Orléans, Tours…' : 'e.g. Orléans, Tours…'}
+                onChange={(event) => {
+                  setWeatherCityQuery(event.target.value);
+                  setSelectedWeatherCity('');
+                  setWeatherCities([]);
+                  setWeatherModalError('');
+                }}
+              />
+              {weatherSearchBusy && <span className="welcome-weather-search-spinner" />}
+            </div>
+            {weatherCities.length > 0 && (
+              <div
+                id="welcome-weather-city-options"
+                className="welcome-weather-city-options"
+                role="listbox"
+                aria-label={fr ? 'Villes suggérées' : 'Suggested cities'}
+              >
+                {weatherCities.map((city) => (
+                  <button
+                    key={`${city.label}-${city.latitude}-${city.longitude}`}
+                    type="button"
+                    role="option"
+                    aria-selected={selectedWeatherCity === city.name}
+                    onClick={() => {
+                      setWeatherCityQuery(city.name);
+                      setSelectedWeatherCity(city.name);
+                      setWeatherCities([]);
+                      setWeatherSearchError('');
+                    }}
+                  >
+                    <MapPin aria-hidden="true" />
+                    <span>
+                      <strong>{city.name}</strong>
+                      <small>{city.label}</small>
+                    </span>
+                    <ChevronRight aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            )}
+            {weatherSearchError && (
+              <p className="welcome-weather-modal-error" role="status">
+                {weatherSearchError}
+              </p>
+            )}
+            {!weatherSearchBusy &&
+              !weatherSearchError &&
+              weatherCityQuery.trim().length >= 2 &&
+              weatherCities.length === 0 &&
+              !selectedWeatherCity && (
+                <p className="welcome-weather-modal-hint">
+                  {fr ? 'Aucune suggestion pour le moment.' : 'No suggestions yet.'}
+                </p>
+              )}
+            {weatherModalError && (
+              <p className="welcome-weather-modal-error" role="alert">
+                {weatherModalError}
+              </p>
+            )}
+            <p className="welcome-weather-modal-hint">
+              {fr
+                ? 'La ville choisie mettra également à jour la météo affichée sur la TV.'
+                : 'The selected city will also update the weather shown on the TV.'}
+            </p>
+            <footer>
+              <button
+                type="button"
+                className="welcome-weather-cancel"
+                disabled={weatherSaving}
+                onClick={() => setWeatherModalOpen(false)}
+              >
+                {fr ? 'Annuler' : 'Cancel'}
+              </button>
+              <button
+                type="submit"
+                className="welcome-weather-save"
+                disabled={!selectedWeatherCity || weatherSaving || !screen?.grant.administer}
+              >
+                {weatherSaving
+                  ? fr
+                    ? 'Enregistrement…'
+                    : 'Saving…'
+                  : configuredWeatherCity
+                    ? fr
+                      ? 'Mettre à jour'
+                      : 'Update city'
+                    : fr
+                      ? 'Configurer'
+                      : 'Set up'}
+              </button>
+            </footer>
+          </form>
+        </div>
+      )}
     </section>
   );
 }

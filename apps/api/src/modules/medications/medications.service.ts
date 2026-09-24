@@ -190,7 +190,7 @@ export class MedicationsService {
       if (alert) {
         await tx.alert.update({
           where: { id: alert.id },
-          data: { status: 'RESOLVED', resolvedAt: now },
+          data: { status: 'RESOLVED', resolvedAt: now, conditionClearedAt: now },
         });
         await tx.alertTransition.create({
           data: {

@@ -9,15 +9,18 @@ import {
   type AlertRuleSettings,
 } from '@michel/contracts';
 import pg from 'pg';
+import type { PoolClient } from 'pg';
 import { LEARNED_HABIT_STATUS } from './policy.js';
 import { isDosePastConfirmationWindow, missedDoseCopy } from './medication-rules.js';
 import {
-  countNightActivity,
+  clearanceConfirmed,
+  countCurrentNightActivity,
   isDoorOpenTooLong,
-  isStale,
+  isUnavailableLongEnough,
   numericPayload,
   persistentTemperatureViolation,
   sensorCoverageState,
+  shouldOpenInactivityAlert,
 } from './rules.js';
 
 const { Pool } = pg;
@@ -160,11 +163,36 @@ async function handleWebhook(row: OutboxRow): Promise<void> {
   const url = process.env.WEBHOOK_URL;
   const secret = process.env.WEBHOOK_SECRET;
   if (!url || !secret) return;
+  const alertId = typeof row.payload.alertId === 'string' ? row.payload.alertId : null;
+  const event = typeof row.payload.event === 'string' ? row.payload.event : null;
+  if (!alertId || !event) return;
+  const result = await pool.query<{
+    id: string;
+    type: string;
+    severity: string;
+    status: string;
+    title: string;
+    explanation: string;
+    confidence: number | null;
+    openedAt: Date;
+    resolvedAt: Date | null;
+  }>(
+    `SELECT id, type, severity, status, title, explanation, confidence, "openedAt", "resolvedAt"
+     FROM "Alert" WHERE id = $1 AND "homeId" = $2`,
+    [alertId, row.homeId],
+  );
+  const alert = result.rows[0];
+  if (!alert) return;
   const body = JSON.stringify({
     schemaVersion: '1.0',
     deliveryId: row.id,
     occurredAt: new Date().toISOString(),
-    ...row.payload,
+    event,
+    alert: {
+      ...alert,
+      openedAt: alert.openedAt.toISOString(),
+      resolvedAt: alert.resolvedAt?.toISOString() ?? null,
+    },
   });
   const signature = createHmac('sha256', secret).update(body).digest('hex');
   const response = await fetch(url, {
@@ -194,9 +222,11 @@ async function handlePush(row: OutboxRow): Promise<void> {
     `SELECT DISTINCT ps.id, ps."expoPushToken"
      FROM "PushSubscription" ps
      JOIN "User" u ON u.id = ps."userId"
+     JOIN "Session" se ON se.id = ps."sessionId" AND se."userId" = u.id
      JOIN "Membership" m ON m."userId" = u.id
      JOIN "Home" h ON h."organizationId" = m."organizationId"
-     WHERE h.id = $1 AND ps.enabled = true
+     WHERE h.id = $1 AND ps.enabled = true AND m."disabledAt" IS NULL
+       AND se."expiresAt" > NOW()
        AND ($2::text IS NULL OR ps."userId" = $2)`,
     [row.homeId, requestedUserId],
   );
@@ -214,7 +244,13 @@ async function handlePush(row: OutboxRow): Promise<void> {
       `SELECT severity, status FROM "Alert" WHERE id = $1 AND "homeId" = $2`,
       [alertId, row.homeId],
     );
-    severity = alert.rows[0]?.severity ?? null;
+    if (
+      !alert.rows[0] ||
+      (row.payload.event === 'alert.opened' &&
+        !['OPEN', 'ACKNOWLEDGED'].includes(alert.rows[0].status))
+    )
+      return;
+    severity = alert.rows[0].severity;
     title = severity === 'URGENT' ? 'Élise · Attention requise' : 'Élise · Nouvelle information';
     body = 'Une situation a été détectée au domicile. Ouvrez Élise pour les détails.';
   }
@@ -337,16 +373,25 @@ async function fail(row: OutboxRow, error: unknown): Promise<void> {
   );
 }
 
-async function enqueueWebhook(homeId: string, alertId: string, event: string): Promise<void> {
-  await pool.query(
+async function enqueueWebhook(
+  client: PoolClient,
+  homeId: string,
+  alertId: string,
+  event: string,
+): Promise<void> {
+  await client.query(
     `INSERT INTO "OutboxMessage" (id, "homeId", topic, payload, status, attempts, "availableAt", "createdAt", "updatedAt")
      VALUES
-       (concat('outbox_', gen_random_uuid()), $1, 'webhook', jsonb_build_object('event', $2::text, 'alertId', $3::text), 'PENDING', 0, NOW(), NOW(), NOW()),
-       (concat('outbox_', gen_random_uuid()), $1, 'push', jsonb_build_object('event', $2::text, 'alertId', $3::text), 'PENDING', 0, NOW(), NOW(), NOW())`,
+       (concat('outbox_', gen_random_uuid()), $1, 'webhook', jsonb_build_object('event', $2::text, 'alertId', $3::text), 'PENDING', 0, NOW(), NOW(), NOW())`,
     [homeId, event, alertId],
   );
   if (event === 'alert.opened') {
-    await pool.query(
+    await client.query(
+      `INSERT INTO "OutboxMessage" (id, "homeId", topic, payload, status, attempts, "availableAt", "createdAt", "updatedAt")
+       VALUES (concat('outbox_', gen_random_uuid()), $1, 'push', jsonb_build_object('event', $2::text, 'alertId', $3::text), 'PENDING', 0, NOW(), NOW(), NOW())`,
+      [homeId, event, alertId],
+    );
+    await client.query(
       `INSERT INTO "OutboxMessage" (id, "homeId", topic, payload, status, attempts, "availableAt", "createdAt", "updatedAt")
        VALUES (concat('outbox_', gen_random_uuid()), $1, 'camera.snapshot', jsonb_build_object('alertId', $2::text), 'PENDING', 0, NOW(), NOW(), NOW())`,
       [homeId, alertId],
@@ -355,23 +400,55 @@ async function enqueueWebhook(homeId: string, alertId: string, event: string): P
 }
 
 async function syncAlert(candidate: AlertCandidate): Promise<void> {
-  const existing = await pool.query<{ id: string; status: string }>(
-    `SELECT id, status FROM "Alert"
-     WHERE "homeId" = $1 AND "ruleKey" = $2 AND status IN ('OPEN', 'ACKNOWLEDGED')
-     ORDER BY "openedAt" DESC LIMIT 1`,
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      `${candidate.homeId}:${candidate.ruleKey}`,
+    ]);
+    await syncAlertLocked(client, candidate);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function syncAlertLocked(client: PoolClient, candidate: AlertCandidate): Promise<void> {
+  // For an open alert, conditionClearedAt starts a two-minute normal-state check.
+  // For a closed alert, it prevents re-opening until the condition has really cleared.
+  const now = new Date();
+  const existing = await client.query<{
+    id: string;
+    status: string;
+    conditionClearedAt: Date | null;
+  }>(
+    `SELECT id, status, "conditionClearedAt" FROM "Alert"
+     WHERE "homeId" = $1 AND "ruleKey" = $2
+     ORDER BY "openedAt" DESC LIMIT 1 FOR UPDATE`,
     [candidate.homeId, candidate.ruleKey],
   );
   const current = existing.rows[0];
   if (candidate.active) {
-    if (current) {
-      await pool.query(
-        `UPDATE "Alert" SET severity = $2, title = $3, explanation = $4, "updatedAt" = NOW()
-         WHERE id = $1`,
+    if (current && ['OPEN', 'ACKNOWLEDGED'].includes(current.status)) {
+      await client.query(
+        `UPDATE "Alert" SET severity = $2, title = $3, explanation = $4, "conditionClearedAt" = NULL, "updatedAt" = NOW()
+         WHERE id = $1 AND status IN ('OPEN', 'ACKNOWLEDGED')`,
         [current.id, candidate.severity, candidate.title, candidate.explanation],
       );
       return;
     }
-    const created = await pool.query<{ id: string }>(
+    if (current && !clearanceConfirmed(current.conditionClearedAt, now)) {
+      if (current.conditionClearedAt)
+        await client.query(
+          `UPDATE "Alert" SET "conditionClearedAt" = NULL, "updatedAt" = NOW() WHERE id = $1`,
+          [current.id],
+        );
+      return;
+    }
+    const created = await client.query<{ id: string }>(
       `INSERT INTO "Alert" (id, "homeId", "roomId", type, severity, status, title, explanation, "ruleKey", "openedAt", "createdAt", "updatedAt")
        VALUES (concat('alert_', gen_random_uuid()), $1, $2, $3, $4, 'OPEN', $5, $6, $7, NOW(), NOW(), NOW()) RETURNING id`,
       [
@@ -384,21 +461,38 @@ async function syncAlert(candidate: AlertCandidate): Promise<void> {
         candidate.ruleKey,
       ],
     );
-    await enqueueWebhook(candidate.homeId, created.rows[0]!.id, 'alert.opened');
+    await enqueueWebhook(client, candidate.homeId, created.rows[0]!.id, 'alert.opened');
     return;
   }
   if (!current) return;
-  await pool.query(
+  if (!['OPEN', 'ACKNOWLEDGED'].includes(current.status)) {
+    if (!current.conditionClearedAt)
+      await client.query(
+        `UPDATE "Alert" SET "conditionClearedAt" = NOW(), "updatedAt" = NOW() WHERE id = $1 AND "conditionClearedAt" IS NULL`,
+        [current.id],
+      );
+    return;
+  }
+  if (!current.conditionClearedAt) {
+    await client.query(
+      `UPDATE "Alert" SET "conditionClearedAt" = NOW(), "updatedAt" = NOW() WHERE id = $1 AND "conditionClearedAt" IS NULL`,
+      [current.id],
+    );
+    return;
+  }
+  if (!clearanceConfirmed(current.conditionClearedAt, now)) return;
+  const resolved = await client.query<{ id: string }>(
     `UPDATE "Alert" SET status = 'RESOLVED', "resolvedAt" = NOW(), "updatedAt" = NOW()
-     WHERE id = $1`,
+     WHERE id = $1 AND status IN ('OPEN', 'ACKNOWLEDGED') RETURNING id`,
     [current.id],
   );
-  await pool.query(
+  if (resolved.rowCount !== 1) return;
+  await client.query(
     `INSERT INTO "AlertTransition" (id, "alertId", "userId", "from", "to", note, "createdAt")
      VALUES (concat('transition_', gen_random_uuid()), $1, NULL, $2::"AlertStatus", 'RESOLVED', 'Retour automatique à la normale', NOW())`,
     [current.id, current.status],
   );
-  await enqueueWebhook(candidate.homeId, current.id, 'alert.resolved');
+  await enqueueWebhook(client, candidate.homeId, current.id, 'alert.resolved');
 }
 
 async function captureAlertSnapshot(homeId: string, alertId: string): Promise<void> {
@@ -455,6 +549,7 @@ async function evaluateSensorRules(): Promise<void> {
   );
   for (const home of homes.rows) {
     const rules = parseRules(home.settings);
+    const evaluatedSensorKeys = new Set<string>();
     const sensors = await pool.query<{
       id: string;
       entityId: string;
@@ -462,6 +557,7 @@ async function evaluateSensorRules(): Promise<void> {
       capability: string;
       status: string;
       available: boolean;
+      unavailableSince: Date | null;
       lastSeenAt: Date | null;
       roomId: string | null;
       roomName: string | null;
@@ -469,7 +565,7 @@ async function evaluateSensorRules(): Promise<void> {
       occurredAt: Date | null;
     }>(
       `SELECT s.id, s."entityId", COALESCE(d.name, s."entityId") AS name, s.capability,
-        s.status, s.available, s."lastSeenAt",
+        s.status, s.available, s."unavailableSince", s."lastSeenAt",
         r.id AS "roomId", r.name AS "roomName", latest.payload, latest."occurredAt"
        FROM "Sensor" s
        LEFT JOIN "Device" d ON d.id = s."deviceId"
@@ -483,33 +579,29 @@ async function evaluateSensorRules(): Promise<void> {
       [home.homeId],
     );
     for (const sensor of sensors.rows) {
-      const stale = isStale(sensor.lastSeenAt, now, rules.sensorOffline.minutes);
+      evaluatedSensorKeys.add(`sensor-offline:${sensor.id}`);
       // Motion sensors can legitimately remain silent for hours. Home Assistant's
       // availability is the connection signal; elapsed time since motion is not.
-      const offline = !sensor.available;
-      if (offline && sensor.status !== 'OFFLINE') {
-        await pool.query(
-          `UPDATE "Sensor" SET status = 'OFFLINE', "updatedAt" = NOW() WHERE id = $1`,
-          [sensor.id],
-        );
-      } else if (!offline && sensor.status === 'OFFLINE') {
-        await pool.query(
-          `UPDATE "Sensor" SET status = 'ONLINE', "updatedAt" = NOW() WHERE id = $1`,
-          [sensor.id],
-        );
-      }
       await syncAlert({
         homeId: home.homeId,
         roomId: sensor.roomId,
         ruleKey: `sensor-offline:${sensor.id}`,
         type: 'SENSOR_OFFLINE',
         severity: 'ATTENTION',
-        active: rules.sensorOffline.enabled && offline,
+        active:
+          rules.sensorOffline.enabled &&
+          isUnavailableLongEnough(
+            sensor.available,
+            sensor.unavailableSince,
+            now,
+            rules.sensorOffline.minutes,
+          ),
         title: `${sensor.name} ne répond plus`,
         explanation: `${sensor.roomName ?? 'Ce capteur'} est signalé comme indisponible par Home Assistant. Élise suspend les conclusions qui en dépendent.`,
       });
 
       if (sensor.capability === 'contact') {
+        evaluatedSensorKeys.add(`door-open:${sensor.id}`);
         await syncAlert({
           homeId: home.homeId,
           roomId: sensor.roomId,
@@ -518,7 +610,8 @@ async function evaluateSensorRules(): Promise<void> {
           severity: 'ATTENTION',
           active:
             rules.doorOpen.enabled &&
-            !stale &&
+            sensor.available &&
+            sensor.status === 'ONLINE' &&
             isDoorOpenTooLong(sensor.payload, sensor.occurredAt, now, rules.doorOpen.minutes),
           title: `${sensor.roomName ?? 'Une porte'} est restée ouverte`,
           explanation: `L’ouverture dure depuis plus de ${rules.doorOpen.minutes} minutes. Une vérification simple peut être utile.`,
@@ -526,6 +619,7 @@ async function evaluateSensorRules(): Promise<void> {
       }
 
       if (sensor.capability === 'battery') {
+        evaluatedSensorKeys.add(`low-battery:${sensor.id}`);
         const battery = numericPayload(sensor.payload);
         await syncAlert({
           homeId: home.homeId,
@@ -534,7 +628,12 @@ async function evaluateSensorRules(): Promise<void> {
           type: 'LOW_BATTERY',
           severity: 'INFO',
           active:
-            rules.lowBattery.enabled && battery !== null && battery <= rules.lowBattery.percent,
+            rules.lowBattery.enabled &&
+            sensor.available &&
+            sensor.status === 'ONLINE' &&
+            battery !== null &&
+            battery >= 0 &&
+            battery <= rules.lowBattery.percent,
           title: `Batterie faible pour ${sensor.name}`,
           explanation:
             battery === null
@@ -556,13 +655,14 @@ async function evaluateSensorRules(): Promise<void> {
        FROM "ObservationEvent" e
        JOIN "Sensor" s ON s.id = e."sensorId"
        LEFT JOIN "Room" r ON r.id = s."roomId"
-       WHERE e."homeId" = $1 AND e.capability = 'temperature' AND s."analysisEnabled" = true
+       WHERE e."homeId" = $1 AND e.capability = 'temperature' AND e.quality = 'good'
+         AND s."analysisEnabled" = true AND s.available = true AND s.status = 'ONLINE'
          AND s."removedAt" IS NULL
          AND (s."deviceId" IS NULL OR EXISTS (
            SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
              AND d."installationStatus" = 'OPERATIONAL'
          ))
-         AND e."occurredAt" >= NOW() - INTERVAL '24 hours'
+         AND e."occurredAt" >= NOW() - INTERVAL '24 hours' AND e."occurredAt" <= NOW()
        ORDER BY e."occurredAt" ASC`,
       [home.homeId],
     );
@@ -573,16 +673,19 @@ async function evaluateSensorRules(): Promise<void> {
       list.push(reading);
       bySensor.set(reading.sensorId, list);
     }
-    for (const [sensorId, readings] of bySensor) {
+    for (const sensor of sensors.rows.filter((item) => item.capability === 'temperature')) {
+      evaluatedSensorKeys.add(`temperature-low:${sensor.id}`);
+      evaluatedSensorKeys.add(`temperature-high:${sensor.id}`);
+      const readings = bySensor.get(sensor.id) ?? [];
       const values = readings
         .map((reading) => ({
           occurredAt: reading.occurredAt,
           value: numericPayload(reading.payload),
         }))
         .filter(
-          (reading): reading is { occurredAt: Date; value: number } => reading.value !== null,
+          (reading): reading is { occurredAt: Date; value: number } =>
+            reading.value !== null && reading.value >= -10 && reading.value <= 60,
         );
-      const first = readings[0]!;
       const low = persistentTemperatureViolation(
         values,
         now,
@@ -599,41 +702,71 @@ async function evaluateSensorRules(): Promise<void> {
       );
       await syncAlert({
         homeId: home.homeId,
-        roomId: first.roomId,
-        ruleKey: `temperature-low:${sensorId}`,
+        roomId: sensor.roomId,
+        ruleKey: `temperature-low:${sensor.id}`,
         type: 'TEMPERATURE',
         severity: 'ATTENTION',
         active: rules.lowTemperature.enabled && low.active,
-        title: `Température basse dans ${first.roomName ?? 'le logement'}`,
+        title: `Température basse dans ${sensor.roomName ?? 'le logement'}`,
         explanation: `La température est à ${low.latest ?? '—'} °C, sous le seuil de ${rules.lowTemperature.celsius} °C depuis au moins ${rules.lowTemperature.minutes} minutes.`,
       });
       await syncAlert({
         homeId: home.homeId,
-        roomId: first.roomId,
-        ruleKey: `temperature-high:${sensorId}`,
+        roomId: sensor.roomId,
+        ruleKey: `temperature-high:${sensor.id}`,
         type: 'TEMPERATURE',
         severity: 'ATTENTION',
         active: rules.highTemperature.enabled && high.active,
-        title: `Température élevée dans ${first.roomName ?? 'le logement'}`,
+        title: `Température élevée dans ${sensor.roomName ?? 'le logement'}`,
         explanation: `La température est à ${high.latest ?? '—'} °C, au-dessus du seuil de ${rules.highTemperature.celsius} °C depuis au moins ${rules.highTemperature.minutes} minutes.`,
+      });
+    }
+
+    const orphanedSensorAlerts = await pool.query<{
+      ruleKey: string;
+      type: AlertType;
+      severity: AlertSeverity;
+      roomId: string | null;
+    }>(
+      `SELECT "ruleKey", type, severity, "roomId" FROM "Alert"
+       WHERE "homeId" = $1 AND status IN ('OPEN', 'ACKNOWLEDGED')
+         AND ("ruleKey" LIKE 'sensor-offline:%' OR "ruleKey" LIKE 'door-open:%'
+           OR "ruleKey" LIKE 'low-battery:%' OR "ruleKey" LIKE 'temperature-low:%'
+           OR "ruleKey" LIKE 'temperature-high:%')`,
+      [home.homeId],
+    );
+    for (const alert of orphanedSensorAlerts.rows) {
+      if (evaluatedSensorKeys.has(alert.ruleKey)) continue;
+      await syncAlert({
+        homeId: home.homeId,
+        roomId: alert.roomId,
+        ruleKey: alert.ruleKey,
+        type: alert.type,
+        severity: alert.severity,
+        active: false,
+        title: '',
+        explanation: '',
       });
     }
 
     const nightEvents = await pool.query<{ occurredAt: Date }>(
       `SELECT e."occurredAt" FROM "ObservationEvent" e
        JOIN "Sensor" s ON s.id = e."sensorId" AND s."analysisEnabled" = true
+         AND s.available = true AND s.status = 'ONLINE'
          AND s."removedAt" IS NULL
          AND (s."deviceId" IS NULL OR EXISTS (
            SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
              AND d."installationStatus" = 'OPERATIONAL'
          ))
-       WHERE e."homeId" = $1 AND e.capability IN ('motion', 'occupancy', 'person_presence')
+       WHERE e."homeId" = $1 AND e.quality = 'good'
+         AND e.capability IN ('motion', 'occupancy', 'person_presence')
          AND COALESCE((e.payload->>'active')::boolean, false) = true
          AND e."occurredAt" >= NOW() - INTERVAL '24 hours'`,
       [home.homeId],
     );
-    const nightCount = countNightActivity(
+    const nightCount = countCurrentNightActivity(
       nightEvents.rows.map((event) => event.occurredAt),
+      now,
       home.timezone,
       rules.nightActivity.startMinute,
       rules.nightActivity.endMinute,
@@ -653,43 +786,62 @@ async function evaluateSensorRules(): Promise<void> {
 async function evaluateInactivity(): Promise<void> {
   const homes = await pool.query<{
     homeId: string;
+    timezone: string;
     lastActivity: Date | null;
+    lastActivityRoom: string | null;
     inactivityMinutes: number;
     inactivityEnabled: boolean;
+    sensorOfflineMinutes: number;
     configuredSensors: number;
     activeSensors: number;
   }>(
-    `SELECT h.id AS "homeId", MAX(e."occurredAt") AS "lastActivity",
+    `SELECT h.id AS "homeId", h.timezone AS "timezone",
+      activity."occurredAt" AS "lastActivity",
+      activity."roomName" AS "lastActivityRoom",
       COALESCE((SELECT (c.settings#>>'{alertRules,inactivity,minutes}')::int FROM "ConfigurationRevision" c WHERE c."homeId" = h.id ORDER BY version DESC LIMIT 1),
         (SELECT (c.settings->>'inactivityMinutes')::int FROM "ConfigurationRevision" c WHERE c."homeId" = h.id ORDER BY version DESC LIMIT 1), 180) AS "inactivityMinutes",
       COALESCE((SELECT (c.settings#>>'{alertRules,inactivity,enabled}')::boolean FROM "ConfigurationRevision" c WHERE c."homeId" = h.id ORDER BY version DESC LIMIT 1), true) AS "inactivityEnabled",
+      COALESCE((SELECT (c.settings#>>'{alertRules,sensorOffline,minutes}')::int FROM "ConfigurationRevision" c WHERE c."homeId" = h.id ORDER BY version DESC LIMIT 1), 120) AS "sensorOfflineMinutes",
       (SELECT COUNT(*)::int FROM "Sensor" s WHERE s."homeId" = h.id
         AND s."analysisEnabled" = true AND s."removedAt" IS NULL
-        AND s.capability IN ('motion', 'occupancy', 'person_presence', 'contact')
+        AND s.capability IN ('motion', 'occupancy', 'person_presence')
         AND (s."deviceId" IS NULL OR EXISTS (
           SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
             AND d."installationStatus" = 'OPERATIONAL'
         ))) AS "configuredSensors",
       (SELECT COUNT(*)::int FROM "Sensor" s WHERE s."homeId" = h.id AND s.status = 'ONLINE'
+        AND s.available = true
         AND s."analysisEnabled" = true AND s."removedAt" IS NULL
-        AND s.capability IN ('motion', 'occupancy', 'person_presence', 'contact')
+        AND s.capability IN ('motion', 'occupancy', 'person_presence')
         AND (s."deviceId" IS NULL OR EXISTS (
           SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
             AND d."installationStatus" = 'OPERATIONAL'
         ))) AS "activeSensors"
-     FROM "Home" h LEFT JOIN "ObservationEvent" e ON e."homeId" = h.id
-       AND EXISTS (SELECT 1 FROM "Sensor" active_sensor WHERE active_sensor.id = e."sensorId"
+     FROM "Home" h
+     LEFT JOIN LATERAL (
+       SELECT e."occurredAt", COALESCE(sensor_room.name, event_room.name) AS "roomName"
+       FROM "ObservationEvent" e
+       JOIN "Sensor" active_sensor ON active_sensor.id = e."sensorId"
+       LEFT JOIN "Room" sensor_room ON sensor_room.id = active_sensor."roomId"
+       LEFT JOIN "Room" event_room ON event_room.id = e."roomId"
+       WHERE e."homeId" = h.id
          AND active_sensor."analysisEnabled" = true AND active_sensor."removedAt" IS NULL
+         AND active_sensor.available = true AND active_sensor.status = 'ONLINE'
          AND (active_sensor."deviceId" IS NULL OR EXISTS (
            SELECT 1 FROM "Device" d WHERE d.id = active_sensor."deviceId" AND d.enabled = true
              AND d."installationStatus" = 'OPERATIONAL'
-         )))
-       AND e.capability IN ('motion', 'occupancy', 'person_presence', 'contact')
-       AND (e.capability = 'contact' OR COALESCE((e.payload->>'active')::boolean, false) = true)
-     GROUP BY h.id`,
+         ))
+         AND e.quality = 'good'
+         AND e."occurredAt" <= NOW()
+         AND e.capability IN ('motion', 'occupancy', 'person_presence')
+         AND COALESCE((e.payload->>'active')::boolean, false) = true
+       ORDER BY e."occurredAt" DESC
+       LIMIT 1
+     ) activity ON TRUE`,
   );
   for (const home of homes.rows) {
     const coverage = sensorCoverageState(home.configuredSensors, home.activeSensors);
+    const evaluatedAt = new Date();
     if (coverage === 'UNCONFIGURED') {
       await syncAlert({
         homeId: home.homeId,
@@ -712,12 +864,24 @@ async function evaluateInactivity(): Promise<void> {
       continue;
     }
     if (coverage === 'OUTAGE') {
+      const sustained = await pool.query<{ count: number }>(
+        `SELECT COUNT(*)::int AS count FROM "Sensor" s
+         WHERE s."homeId" = $1 AND s."analysisEnabled" = true AND s."removedAt" IS NULL
+           AND s.capability IN ('motion', 'occupancy', 'person_presence')
+           AND (s."deviceId" IS NULL OR EXISTS (
+             SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
+               AND d."installationStatus" = 'OPERATIONAL'
+           ))
+           AND s.available = false AND s."unavailableSince" IS NOT NULL
+           AND s."unavailableSince" <= NOW() - ($2::int * INTERVAL '1 minute')`,
+        [home.homeId, home.sensorOfflineMinutes],
+      );
       await syncAlert({
         homeId: home.homeId,
         ruleKey: 'coverage',
         type: 'SYSTEM',
         severity: 'ATTENTION',
-        active: true,
+        active: home.activeSensors === 0 && (sustained.rows[0]?.count ?? 0) > 0,
         title: 'Données capteurs insuffisantes',
         explanation: 'Élise ne reçoit plus assez de données fiables pour évaluer la situation.',
       });
@@ -741,17 +905,35 @@ async function evaluateInactivity(): Promise<void> {
       title: 'Données capteurs suffisantes',
       explanation: '',
     });
-    const inactive =
-      !home.lastActivity ||
-      Date.now() - home.lastActivity.getTime() >= home.inactivityMinutes * 60_000;
+    const inactive = shouldOpenInactivityAlert(
+      home.lastActivity,
+      evaluatedAt,
+      home.inactivityMinutes,
+      coverage,
+    );
+    const lastMovementDuration = home.lastActivity
+      ? frenchDuration((evaluatedAt.getTime() - home.lastActivity.getTime()) / 1000)
+      : null;
+    const lastMovementDate = home.lastActivity
+      ? new Intl.DateTimeFormat('fr-FR', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          timeZone: home.timezone,
+        }).format(home.lastActivity)
+      : null;
+    const inactivityThreshold = frenchDuration(home.inactivityMinutes * 60);
     await syncAlert({
       homeId: home.homeId,
       ruleKey: 'inactivity',
       type: 'INACTIVITY',
       severity: 'ATTENTION',
       active: home.inactivityEnabled && inactive,
-      title: 'Aucune activité récente',
-      explanation: `Aucun mouvement fiable n’a été observé depuis plus de ${home.inactivityMinutes} minutes.`,
+      title: lastMovementDuration
+        ? `Aucun mouvement depuis ${lastMovementDuration}`
+        : 'Aucune activité de mouvement récente',
+      explanation: lastMovementDate
+        ? `Dernier mouvement fiable : ${lastMovementDate}${home.lastActivityRoom ? `, dans ${home.lastActivityRoom}` : ''}. Seuil d’alerte configuré : ${inactivityThreshold} sans mouvement.`
+        : `Aucun mouvement fiable reçu. Seuil d’alerte configuré : ${inactivityThreshold}.`,
     });
   }
 }
@@ -784,7 +966,9 @@ async function evaluateMedicationDoses(): Promise<void> {
     `SELECT dose.id, dose."scheduledFor", schedule."graceMinutes"
      FROM "MedicationDose" dose
      JOIN "MedicationSchedule" schedule ON schedule.id = dose."scheduleId"
-     WHERE dose.status = 'PENDING' AND dose."scheduledFor" <= NOW()`,
+     JOIN "Medication" medication ON medication.id = schedule."medicationId"
+     WHERE dose.status = 'PENDING' AND medication.active = true AND schedule.active = true
+       AND dose."scheduledFor" <= NOW()`,
   );
   const now = new Date();
   for (const dose of pending.rows) {
@@ -810,9 +994,10 @@ async function evaluateMedicationDoses(): Promise<void> {
      JOIN "MedicationSchedule" schedule ON schedule.id = dose."scheduleId"
      JOIN "Medication" medication ON medication.id = schedule."medicationId"
      JOIN "Home" home ON home.id = medication."homeId"
-     WHERE dose.status = 'MISSED'
+     WHERE dose.status = 'MISSED' AND medication.active = true AND schedule.active = true
        AND dose."scheduledFor" >= NOW() - INTERVAL '48 hours'`,
   );
+  const currentDoseKeys = new Set(missed.rows.map((dose) => `medication:${dose.id}`));
   for (const dose of missed.rows) {
     const time = new Intl.DateTimeFormat('fr-FR', {
       timeZone: dose.timezone,
@@ -828,6 +1013,22 @@ async function evaluateMedicationDoses(): Promise<void> {
       active: true,
       title: copy.title,
       explanation: copy.explanation,
+    });
+  }
+  const orphanedMedicationAlerts = await pool.query<{ homeId: string; ruleKey: string }>(
+    `SELECT "homeId", "ruleKey" FROM "Alert"
+     WHERE "ruleKey" LIKE 'medication:%' AND status IN ('OPEN', 'ACKNOWLEDGED')`,
+  );
+  for (const alert of orphanedMedicationAlerts.rows) {
+    if (currentDoseKeys.has(alert.ruleKey)) continue;
+    await syncAlert({
+      homeId: alert.homeId,
+      ruleKey: alert.ruleKey,
+      type: 'MEDICATION_MISSED',
+      severity: 'ATTENTION',
+      active: false,
+      title: '',
+      explanation: '',
     });
   }
 }
@@ -1172,8 +1373,10 @@ async function evaluateBehavioralDwell(): Promise<void> {
          FROM "ConfigurationRevision" c WHERE c."homeId" = s."homeId" ORDER BY c.version DESC LIMIT 1), false) = true
        AND NOT EXISTS (SELECT 1 FROM "Sensor" sensor WHERE sensor."homeId" = s."homeId"
          AND sensor."analysisEnabled" = true AND sensor.capability IN ('motion','occupancy','person_presence')
-         AND sensor.status <> 'ONLINE')`,
+         AND sensor."removedAt" IS NULL
+         AND (sensor.status <> 'ONLINE' OR sensor.available = false))`,
   );
+  const eligibleRuleKeys = new Set(sessions.rows.map((session) => `behavior-dwell:${session.id}`));
   for (const session of sessions.rows) {
     const elapsed = Math.round((Date.now() - session.startedAt.getTime()) / 1_000);
     const threshold = session.medianSeconds + Math.max(3 * session.madSeconds, 30 * 60);
@@ -1217,11 +1420,10 @@ async function evaluateBehavioralDwell(): Promise<void> {
   }
   const staleAlerts = await pool.query<{ homeId: string; roomId: string | null; ruleKey: string }>(
     `SELECT a."homeId", a."roomId", a."ruleKey" FROM "Alert" a
-     WHERE a."ruleKey" LIKE 'behavior-dwell:%' AND a.status IN ('OPEN','ACKNOWLEDGED')
-       AND NOT EXISTS (SELECT 1 FROM "RoomPresenceSession" s
-         WHERE concat('behavior-dwell:', s.id) = a."ruleKey" AND s.state = 'OPEN')`,
+     WHERE a."ruleKey" LIKE 'behavior-dwell:%' AND a.status IN ('OPEN','ACKNOWLEDGED')`,
   );
   for (const alert of staleAlerts.rows) {
+    if (eligibleRuleKeys.has(alert.ruleKey)) continue;
     await syncAlert({
       homeId: alert.homeId,
       roomId: alert.roomId,

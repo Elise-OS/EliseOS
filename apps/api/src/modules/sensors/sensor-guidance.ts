@@ -39,10 +39,32 @@ const BINARY = new Set([
   'fall_detection',
 ]);
 
-export function placementGuide(capabilities: string[], roomKind = 'OTHER') {
+export function placementGuide(capabilities: string[], roomKind = 'OTHER', usage?: 'BED') {
   const primary =
     capabilities.find((item) => !['battery', 'signal_strength'].includes(item)) ?? 'unknown';
   const room = roomKind === 'BATHROOM' ? 'la salle de bain' : 'la pièce';
+
+  if (usage === 'BED' && capabilities.some((item) => ['contact', 'dry_contact'].includes(item))) {
+    return {
+      title: 'Installer le contact du lit',
+      summary:
+        'Le module NodOn lit un contact sec raccordé à un tapis de pression placé sous le matelas.',
+      steps: [
+        'Placez le tapis de pression compatible sous le matelas, à la zone d’appui habituelle.',
+        'Raccordez son contact libre de potentiel au module NodOn, sans aucune alimentation sur les bornes de contact.',
+        'Gardez le module accessible et exposé à la lumière, ou installez sa pile de secours en zone sombre.',
+        'Vérifiez dans la carte Lit que les états Occupé et Libre correspondent à la réalité ; inversez le réglage si nécessaire.',
+      ],
+      avoid: [
+        'Plier ou coincer le tapis',
+        'Placer le module photovoltaïque sous le matelas sans pile de secours',
+      ],
+      testInstruction:
+        'Appuyez sur le tapis de pression puis relâchez-le pour vérifier les deux changements d’état.',
+      safetyNote:
+        'Le repère obtenu est une estimation de l’occupation du lit, pas une mesure du sommeil.',
+    };
+  }
 
   if (['motion', 'occupancy', 'person_presence'].includes(primary)) {
     return {

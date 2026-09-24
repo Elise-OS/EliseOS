@@ -60,6 +60,9 @@ export function ResidentVideo({
   const container = useRef<HTMLDivElement>(null);
   const youtube = useRef<YoutubePlayer | null>(null);
   const controls = useRef({ paused, volume });
+  const recoverVideo = useRef<((type?: string) => void) | null>(null);
+  const markVideoReady = useRef<(() => void) | null>(null);
+  const checkVideoStall = useRef<(() => void) | null>(null);
   controls.current = { paused, volume };
   const [ready, setReady] = useState(false);
   const [soundBlocked, setSoundBlocked] = useState(false);
@@ -70,23 +73,100 @@ export function ResidentVideo({
     let disposed = false;
     let hls: Hls | undefined;
     let player: YoutubePlayer | undefined;
+    let startupTimer: number | undefined;
+    let recoveryTimer: number | undefined;
+    let stalledTimer: number | undefined;
+    let recoveryAttempts = 0;
     setReady(false);
     setSoundBlocked(false);
     hasLoaded.current = false;
     onStatus('loading');
-    const timeout = window.setTimeout(() => {
+    const markReady = () => {
+      hasLoaded.current = true;
+      recoveryAttempts = 0;
+      if (startupTimer !== undefined) window.clearTimeout(startupTimer);
+      if (recoveryTimer !== undefined) window.clearTimeout(recoveryTimer);
+      if (stalledTimer !== undefined) window.clearTimeout(stalledTimer);
+      recoveryTimer = undefined;
+      stalledTimer = undefined;
+      onStatus('ready');
+    };
+    const scheduleRecovery = (type?: string) => {
+      if (disposed || media.kind !== 'tv' || recoveryTimer !== undefined) return;
+      recoveryAttempts += 1;
+      const attempt = recoveryAttempts;
+      onStatus(hasLoaded.current && attempt >= 5 ? 'error' : 'loading');
+      const delay = Math.min(1000 * 2 ** Math.min(attempt - 1, 5), 30_000);
+      recoveryTimer = window.setTimeout(() => {
+        recoveryTimer = undefined;
+        if (disposed) return;
+        setReady(false);
+        onStatus('loading');
+        if (hls) {
+          if (type === 'mediaError' && attempt <= 2) hls.recoverMediaError();
+          else if (type === 'networkError') hls.startLoad(-1);
+          else {
+            hls.stopLoad();
+            hls.loadSource(media.url);
+            hls.startLoad(-1);
+          }
+          return;
+        }
+        const element = video.current;
+        if (!element) return;
+        element.src = media.url;
+        element.load();
+        if (!controls.current.paused)
+          void element.play().catch((error: unknown) => {
+            if (error instanceof DOMException && error.name === 'NotAllowedError') {
+              element.muted = true;
+              setSoundBlocked(true);
+              void element.play().catch(() => undefined);
+            }
+          });
+      }, delay);
+    };
+    const waitForVideo = () => {
+      if (disposed || controls.current.paused || stalledTimer !== undefined) return;
+      stalledTimer = window.setTimeout(() => {
+        stalledTimer = undefined;
+        if (!disposed && !controls.current.paused) scheduleRecovery();
+      }, 20_000);
+    };
+    markVideoReady.current = markReady;
+    recoverVideo.current = scheduleRecovery;
+    checkVideoStall.current = waitForVideo;
+    startupTimer = window.setTimeout(() => {
       if (!disposed && !hasLoaded.current) onStatus('error');
-    }, 12000);
+    }, media.kind === 'tv' ? 90_000 : 12_000);
     if (media.kind === 'tv') {
       const element = video.current!;
       element.volume = controls.current.volume / 100;
       if (element.canPlayType('application/vnd.apple.mpegurl')) element.src = media.url;
       else if (Hls.isSupported()) {
-        hls = new Hls({ capLevelToPlayerSize: true, maxBufferLength: 15, maxMaxBufferLength: 30 });
+        hls = new Hls({
+          capLevelToPlayerSize: true,
+          maxBufferLength: 15,
+          maxMaxBufferLength: 30,
+          manifestLoadingMaxRetry: 4,
+          manifestLoadingRetryDelay: 1000,
+          manifestLoadingMaxRetryTimeout: 12_000,
+          levelLoadingMaxRetry: 5,
+          levelLoadingRetryDelay: 1000,
+          levelLoadingMaxRetryTimeout: 15_000,
+          fragLoadingMaxRetry: 8,
+          fragLoadingRetryDelay: 1000,
+          fragLoadingMaxRetryTimeout: 15_000,
+        });
         hls.loadSource(media.url);
         hls.attachMedia(element);
         hls.on(Hls.Events.ERROR, (_event, data) => {
-          if (data.fatal && !disposed) onStatus('error');
+          if (data.fatal) scheduleRecovery(data.type);
+        });
+        hls.on(Hls.Events.FRAG_BUFFERED, () => {
+          recoveryAttempts = 0;
+          if (recoveryTimer !== undefined) window.clearTimeout(recoveryTimer);
+          recoveryTimer = undefined;
         });
       } else onStatus('error');
     } else {
@@ -117,7 +197,7 @@ export function ResidentVideo({
                 setReady(true);
                 if (controls.current.paused) {
                   hasLoaded.current = true;
-                  window.clearTimeout(timeout);
+                  if (startupTimer !== undefined) window.clearTimeout(startupTimer);
                   onStatus('ready');
                 }
               },
@@ -125,7 +205,7 @@ export function ResidentVideo({
                 if (disposed) return;
                 if (event.data === 1 || event.data === 2 || event.data === 5) {
                   hasLoaded.current = true;
-                  window.clearTimeout(timeout);
+                  if (startupTimer !== undefined) window.clearTimeout(startupTimer);
                   onStatus('ready');
                   if (controls.current.paused) youtube.current?.pauseVideo();
                 }
@@ -145,7 +225,12 @@ export function ResidentVideo({
     }
     return () => {
       disposed = true;
-      window.clearTimeout(timeout);
+      if (startupTimer !== undefined) window.clearTimeout(startupTimer);
+      if (recoveryTimer !== undefined) window.clearTimeout(recoveryTimer);
+      if (stalledTimer !== undefined) window.clearTimeout(stalledTimer);
+      if (recoverVideo.current === scheduleRecovery) recoverVideo.current = null;
+      if (markVideoReady.current === markReady) markVideoReady.current = null;
+      if (checkVideoStall.current === waitForVideo) checkVideoStall.current = null;
       hls?.destroy();
       player?.destroy();
       youtube.current = null;
@@ -202,13 +287,13 @@ export function ResidentVideo({
           playsInline
           onCanPlay={() => {
             setReady(true);
-            if (controls.current.paused) onStatus('ready');
+            if (controls.current.paused) markVideoReady.current?.();
           }}
-          onPlaying={() => {
-            hasLoaded.current = true;
-            onStatus('ready');
-          }}
-          onError={() => onStatus('error')}
+          onPlaying={() => markVideoReady.current?.()}
+          onWaiting={() => checkVideoStall.current?.()}
+          onStalled={() => checkVideoStall.current?.()}
+          onEnded={() => recoverVideo.current?.()}
+          onError={() => recoverVideo.current?.()}
         />
       ) : (
         <div ref={container} className="resident-youtube" />

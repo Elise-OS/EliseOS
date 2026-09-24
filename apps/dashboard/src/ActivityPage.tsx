@@ -10,12 +10,12 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   BatteryMedium,
+  BedDouble,
   Bell,
   CalendarDays,
   ChevronDown,
   CircleCheck,
   CircleDashed,
-  CircleHelp,
   Clock3,
   DoorOpen,
   Droplets,
@@ -55,6 +55,7 @@ const capabilityIcons: Record<string, typeof Activity> = {
   occupancy: Footprints,
   person_presence: Footprints,
   contact: DoorOpen,
+  dry_contact: DoorOpen,
   button: Bell,
   temperature: Thermometer,
   humidity: Droplets,
@@ -82,6 +83,7 @@ const capabilityLabels: Record<string, [string, string]> = {
   occupancy: ['Présence', 'Occupancy'],
   person_presence: ['Présence', 'Presence'],
   contact: ['Ouverture', 'Opening'],
+  dry_contact: ['Contact sec', 'Dry contact'],
   button: ['Bouton d’appel', 'Call button'],
   temperature: ['Température', 'Temperature'],
   humidity: ['Humidité', 'Humidity'],
@@ -176,14 +178,37 @@ function eventDescription(event: ActivityEvent, locale: 'fr' | 'en') {
     event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload)
       ? (event.payload as Record<string, unknown>)
       : {};
-  const raw = payload.value ?? payload.state;
+  const context =
+    payload.context && typeof payload.context === 'object' && !Array.isArray(payload.context)
+      ? (payload.context as Record<string, unknown>)
+      : {};
+  const raw = payload.open ?? payload.active ?? payload.value ?? payload.state;
   const value =
     typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean'
       ? String(raw)
       : null;
   const unit = event.unit ? ` ${event.unit}` : '';
-  if (event.capability === 'contact') {
-    const open = raw === true || raw === 'open' || raw === 'on' || raw === 1;
+  if (event.capability === 'contact' || event.capability === 'dry_contact') {
+    const open =
+      raw === true || raw === 'open' || raw === 'contact_open' || raw === 'on' || raw === 1;
+    if (context.role === 'BED') {
+      const occupied = open === (context.bedOccupiedWhen === 'OPEN');
+      return locale === 'fr'
+        ? occupied
+          ? 'Lit occupé'
+          : 'Lit libre'
+        : occupied
+          ? 'Bed occupied'
+          : 'Bed unoccupied';
+    }
+    if (event.capability === 'dry_contact')
+      return locale === 'fr'
+        ? open
+          ? 'Contact ouvert'
+          : 'Contact fermé'
+        : open
+          ? 'Contact open'
+          : 'Contact closed';
     return locale === 'fr'
       ? open
         ? 'Ouverture détectée'
@@ -204,21 +229,24 @@ function eventDescription(event: ActivityEvent, locale: 'fr' | 'en') {
 }
 
 function sequenceSentence(sequence: ActivitySequence, locale: 'fr' | 'en') {
-  const duration =
-    sequence.durationSeconds >= 60 ? readableDuration(sequence.durationSeconds, locale) : '';
   const passage = sequence.passages[0];
   if (passage)
     return locale === 'fr'
-      ? `Passage entre ${passage.fromLevelName} et ${passage.toLevelName}${duration ? `, puis activité pendant ${duration}` : ''}.`
-      : `Movement between ${passage.fromLevelName} and ${passage.toLevelName}${duration ? `, followed by ${duration} of activity` : ''}.`;
-  if (sequence.roomNames.length > 1)
+      ? `Passage entre ${passage.fromLevelName} et ${passage.toLevelName}.`
+      : `Movement between ${passage.fromLevelName} and ${passage.toLevelName}.`;
+  if (sequence.roomNames.length > 1) {
+    const firstRoom = sequence.roomNames[0]!;
+    const lastRoom = sequence.roomNames.at(-1)!;
+    if (firstRoom === lastRoom)
+      return locale === 'fr'
+        ? `Déplacement avec retour dans « ${firstRoom} ».`
+        : `Movement with a return to “${firstRoom}”.`;
     return locale === 'fr'
-      ? `Passage de ${sequence.roomNames[0]} à ${sequence.roomNames.at(-1)}${duration ? `, puis activité pendant ${duration}` : ''}.`
-      : `Movement from ${sequence.roomNames[0]} to ${sequence.roomNames.at(-1)}${duration ? `, followed by ${duration} of activity` : ''}.`;
+      ? `Passage de ${firstRoom} à ${lastRoom}.`
+      : `Movement from ${firstRoom} to ${lastRoom}.`;
+  }
   const room = sequence.roomNames[0] ?? (locale === 'fr' ? 'le logement' : 'the home');
-  return locale === 'fr'
-    ? `Activité observée dans ${room}${duration ? ` pendant ${duration}` : ''}.`
-    : `Activity observed in ${room}${duration ? ` for ${duration}` : ''}.`;
+  return locale === 'fr' ? `Activité observée dans ${room}.` : `Activity observed in ${room}.`;
 }
 
 export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
@@ -544,7 +572,6 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
               <strong>{momentsCount}</strong>
               <small>{fr ? 'moments détectés' : 'moments detected'}</small>
             </div>
-            <CircleHelp />
           </div>
           <div className="activity-moment-stat activity-moment-stat--green">
             <span className="activity-moment-stat-icon">
@@ -621,7 +648,20 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
                   </p>
                 )}
                 {sequence.events.map((event) => {
-                  const Icon = capabilityIcons[event.capability] ?? Activity;
+                  const payload =
+                    event.payload &&
+                    typeof event.payload === 'object' &&
+                    !Array.isArray(event.payload)
+                      ? (event.payload as Record<string, unknown>)
+                      : {};
+                  const context =
+                    payload.context && typeof payload.context === 'object'
+                      ? (payload.context as Record<string, unknown>)
+                      : {};
+                  const Icon =
+                    context.role === 'BED'
+                      ? BedDouble
+                      : (capabilityIcons[event.capability] ?? Activity);
                   return (
                     <div className="activity-event-row" key={event.id}>
                       <time className="activity-event-time">

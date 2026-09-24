@@ -21,7 +21,7 @@ type Session = {
   expiresAt: string;
   errorMessage?: string | null;
   detectedDevice?: (SensorUiDevice & { detectedType?: string }) | null;
-  connection?: { pairingOpen: boolean } | null;
+  connection?: { pairingOpen: boolean; deviceDetected?: boolean } | null;
 };
 
 /** One installation flow for both the sensor list and a contextual room page. */
@@ -32,6 +32,7 @@ export function SensorOnboardingDialog({
   initialRoomId,
   initialTarget,
   contactRole,
+  bedOccupiedWhen = 'CLOSED',
   category,
   product,
   onClose,
@@ -44,6 +45,7 @@ export function SensorOnboardingDialog({
   initialRoomId?: string;
   initialTarget?: { type: 'OPENING' | 'STAIR'; id: string } | undefined;
   contactRole?: ContactRole | undefined;
+  bedOccupiedWhen?: 'CLOSED' | 'OPEN' | undefined;
   category?: RoomSensorCategory | undefined;
   product?: SensorProduct | undefined;
   onClose: () => void;
@@ -56,6 +58,7 @@ export function SensorOnboardingDialog({
   const [roomId, setRoomId] = useState(initialRoomId ?? '');
   const [name, setName] = useState('');
   const [openingType, setOpeningType] = useState<ContactRole | ''>(contactRole ?? '');
+  const [occupiedWhen, setOccupiedWhen] = useState<'CLOSED' | 'OPEN'>(bedOccupiedWhen);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
@@ -89,6 +92,7 @@ export function SensorOnboardingDialog({
       setRoomId(initialRoomId ?? '');
       setName('');
       setOpeningType(contactRole ?? '');
+      setOccupiedWhen(bedOccupiedWhen);
       setStep(1);
       setSession(null);
     }
@@ -112,7 +116,7 @@ export function SensorOnboardingDialog({
       }
     })();
     return () => controller.abort();
-  }, [open, initialRoomId, initialTarget?.id, onResume, product, fr, contactRole]);
+  }, [open, initialRoomId, initialTarget?.id, onResume, product, fr, contactRole, bedOccupiedWhen]);
 
   useEffect(() => {
     if (!open || !session || !['PENDING', 'WAITING_FOR_DEVICE'].includes(session.status)) return;
@@ -224,6 +228,7 @@ export function SensorOnboardingDialog({
             category,
             target: initialTarget ?? null,
             contactRole: openingType || undefined,
+            bedOccupiedWhen: category === 'bed' ? occupiedWhen : undefined,
             buttonRole: 'ASSISTANCE',
           }),
           signal: AbortSignal.timeout(15_000),
@@ -255,6 +260,7 @@ export function SensorOnboardingDialog({
   const categoryLabel = ROOM_SENSOR_CATEGORIES.find(({ id }) => id === category)?.[
     fr ? 'label' : 'labelEn'
   ];
+  const deviceDetected = session?.connection?.deviceDetected === true;
   return (
     <EquipmentDialog
       title={fr ? 'Ajouter un capteur' : 'Add a sensor'}
@@ -342,18 +348,36 @@ export function SensorOnboardingDialog({
           <div className="equipment-onboarding-intro">
             <Radio className={remaining > 0 ? 'equipment-pulse' : ''} />
             <span className="equipment-kicker">
-              {fr ? 'Recherche autour de la box' : 'Searching around the hub'}
+              {deviceDetected
+                ? fr
+                  ? 'Capteur détecté'
+                  : 'Sensor detected'
+                : fr
+                  ? 'Recherche autour de la box'
+                  : 'Searching around the hub'}
             </span>
-            <h3>{fr ? 'En attente de votre capteur' : 'Waiting for your sensor'}</h3>
+            <h3>
+              {deviceDetected
+                ? fr
+                  ? 'Appairage en cours'
+                  : 'Pairing in progress'
+                : fr
+                  ? 'En attente de votre capteur'
+                  : 'Waiting for your sensor'}
+            </h3>
             <p>
-              {fr
-                ? 'Gardez le capteur en mode association, à proximité de la box.'
-                : 'Keep the sensor in pairing mode near the hub.'}
+              {deviceDetected
+                ? fr
+                  ? 'Élise a trouvé votre capteur et termine sa configuration. Gardez-le à proximité de la box.'
+                  : 'Elise found your sensor and is finishing its setup. Keep it near the hub.'
+                : fr
+                  ? 'Gardez le capteur en mode association, à proximité de la box.'
+                  : 'Keep the sensor in pairing mode near the hub.'}
             </p>
             <strong className="equipment-countdown" role="timer">
               {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
             </strong>
-            {session?.connection?.pairingOpen && (
+            {session?.connection?.pairingOpen && !deviceDetected && (
               <p>{fr ? 'La box est prête à détecter.' : 'The hub is ready.'}</p>
             )}
             {(error || remaining === 0) && (
@@ -452,7 +476,7 @@ export function SensorOnboardingDialog({
                   </select>
                 </label>
               )}
-              {deviceSupportsCategory(device, 'contact') && (
+              {deviceSupportsCategory(device, 'contact') && category !== 'bed' && (
                 <label className="equipment-field">
                   {fr ? 'À quoi correspond cette ouverture ?' : 'What does this opening monitor?'}
                   <select
@@ -469,6 +493,29 @@ export function SensorOnboardingDialog({
                     ))}
                   </select>
                 </label>
+              )}
+              {category === 'bed' && (
+                <>
+                  <p className="equipment-note">
+                    {fr
+                      ? 'Le SDC-4-1-00 doit être raccordé à un tapis de pression à contact sec placé sous le matelas. Gardez le module NodOn exposé à la lumière ou équipez-le de sa pile de secours.'
+                      : 'Connect the SDC-4-1-00 to a dry-contact pressure mat under the mattress. Keep the NodOn module exposed to light or fit its backup battery.'}
+                  </p>
+                  <label className="equipment-field">
+                    {fr ? 'Quand le lit est occupé' : 'When the bed is occupied'}
+                    <select
+                      value={occupiedWhen}
+                      onChange={(event) => setOccupiedWhen(event.target.value as 'CLOSED' | 'OPEN')}
+                    >
+                      <option value="CLOSED">
+                        {fr ? 'Le contact est fermé' : 'The contact is closed'}
+                      </option>
+                      <option value="OPEN">
+                        {fr ? 'Le contact est ouvert' : 'The contact is open'}
+                      </option>
+                    </select>
+                  </label>
+                </>
               )}
               <label className="equipment-field">
                 {fr ? 'Nom du capteur' : 'Sensor name'}

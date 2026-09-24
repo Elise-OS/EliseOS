@@ -38,5 +38,8 @@ describe('JournalPage', () => {
     expect(html).toContain('Tout semble normal');
     expect(html).toContain('Passage de Claire');
     expect(html).toContain('2 événements');
+    expect(html).not.toContain('house-journal-filters');
+    expect(html).not.toContain('>Bilans<');
+    expect(html).not.toContain('>Notes familiales<');
   });
 });

@@ -3,7 +3,12 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import { ResidentVideo } from './ResidentVideo';
-import { hasPhysicalMicrophone } from './ResidentScreen';
+import {
+  callerInitials,
+  hasPhysicalMicrophone,
+  IncomingCallOverlay,
+  startIncomingCallRingtone,
+} from './ResidentScreen';
 import { ARTE_LIVE_URL, youtubeVideoId, type ScreenMedia } from '@michel/contracts';
 
 const hlsMocks = vi.hoisted(() => ({
@@ -41,6 +46,80 @@ describe('resident microphone detection', () => {
   it('recognizes a USB microphone or a webcam microphone', () => {
     expect(hasPhysicalMicrophone([device('audioinput', 'usb-1', 'USB Microphone')])).toBe(true);
     expect(hasPhysicalMicrophone([device('audioinput', 'cam-1', 'HD Pro Webcam C920')])).toBe(true);
+  });
+});
+
+describe('resident incoming call', () => {
+  it('fills the screen with the caller identity without the old phone icon', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(
+        <IncomingCallOverlay callId="call-1" callerName="Paul Breton" automatic={true} />,
+      );
+      await Promise.resolve();
+    });
+    expect(callerInitials('Paul Breton')).toBe('PB');
+    expect(host.querySelector('.incoming-call-screen')).not.toBeNull();
+    expect(host.textContent).toContain('Paul Breton');
+    expect(host.textContent).toContain('vous appelle');
+    expect(host.textContent).toContain('L’appel va commencer dans un instant');
+    expect(host.querySelector('svg')).toBeNull();
+    act(() => root.unmount());
+    host.remove();
+  });
+
+  it('plays a prominent telephone-like double ring, ramps it gently, and releases audio', () => {
+    const masterGain = {
+      setValueAtTime: vi.fn(),
+      exponentialRampToValueAtTime: vi.fn(),
+    };
+    const noteGain = {
+      setValueAtTime: vi.fn(),
+      exponentialRampToValueAtTime: vi.fn(),
+    };
+    const oscillator = {
+      type: 'sine',
+      frequency: { setValueAtTime: vi.fn() },
+      connect: vi.fn(),
+      start: vi.fn(),
+      stop: vi.fn(),
+    };
+    const setFrequency = vi.fn();
+    const master = { gain: masterGain, connect: vi.fn(), disconnect: vi.fn() };
+    const envelope = { gain: noteGain, connect: vi.fn() };
+    const context = {
+      currentTime: 0,
+      state: 'running',
+      destination: {},
+      createGain: vi.fn().mockReturnValueOnce(master).mockReturnValue(envelope),
+      createOscillator: vi.fn(() => ({
+        ...oscillator,
+        frequency: { setValueAtTime: setFrequency },
+      })),
+      resume: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    vi.stubGlobal(
+      'AudioContext',
+      vi.fn(() => context),
+    );
+
+    const stop = startIncomingCallRingtone();
+    expect(masterGain.setValueAtTime).toHaveBeenCalledWith(0.58, 0);
+    expect(masterGain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.9, 5);
+    expect(context.createOscillator).toHaveBeenCalledTimes(4);
+    expect(setFrequency).toHaveBeenNthCalledWith(1, 440, 0.02);
+    expect(setFrequency).toHaveBeenNthCalledWith(2, 480, 0.02);
+    expect(setFrequency).toHaveBeenNthCalledWith(3, 440, 0.52);
+    expect(setFrequency).toHaveBeenNthCalledWith(4, 480, 0.52);
+    expect(noteGain.exponentialRampToValueAtTime).toHaveBeenCalledWith(0.25, 0.075);
+    stop();
+    expect(master.disconnect).toHaveBeenCalled();
+    expect(context.close).toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 });
 

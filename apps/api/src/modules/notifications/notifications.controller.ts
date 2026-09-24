@@ -20,7 +20,11 @@ export class NotificationsController {
 
   @Put('subscriptions')
   public subscribe(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
-    return this.notifications.subscribe(request.userId, parseRequest(subscriptionSchema, body));
+    return this.notifications.subscribe(
+      request.userId,
+      request.sessionId,
+      parseRequest(subscriptionSchema, body),
+    );
   }
 
   @Delete('subscriptions/:id')

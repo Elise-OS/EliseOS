@@ -184,8 +184,22 @@ export class EquipmentService {
       }
 
       const seenEntityIds: string[] = [];
+      const previousSensors = await tx.sensor.findMany({
+        where: { homeId: inventory.homeId },
+        select: { entityId: true, unavailableSince: true, available: true, status: true },
+      });
+      const previousByEntityId = new Map(
+        previousSensors.map((sensor) => [sensor.entityId, sensor]),
+      );
+      const availabilityObservedAt = new Date();
       for (const entity of inventory.entities) {
         seenEntityIds.push(entity.entityId);
+        const previous = previousByEntityId.get(entity.entityId);
+        const unavailableSince = entity.available
+          ? null
+          : previous?.available === false
+            ? (previous.unavailableSince ?? availabilityObservedAt)
+            : availabilityObservedAt;
         const linkedDeviceId = entity.deviceId ? (deviceIds.get(entity.deviceId) ?? null) : null;
         if (linkedDeviceId) {
           await tx.device.update({
@@ -206,13 +220,17 @@ export class EquipmentService {
             unit: entity.unit ?? null,
             capability: entity.capability ?? 'unknown',
             compatibility: entity.compatibility,
-            analysisEnabled: Boolean(entity.capability),
             classificationConfidence: entity.capability ? 1 : 0,
             classificationReason: entity.capability
               ? `Reconnu grâce au type ${entity.deviceClass ?? entity.domain}`
               : 'Métadonnées insuffisantes : confirmation nécessaire',
             available: entity.available,
-            status: entity.available ? 'ONLINE' : 'OFFLINE',
+            unavailableSince,
+            status: entity.available
+              ? previous?.status === 'DEGRADED'
+                ? 'DEGRADED'
+                : 'ONLINE'
+              : 'OFFLINE',
             removedAt: null,
           },
           create: {
@@ -231,6 +249,7 @@ export class EquipmentService {
               ? `Reconnu grâce au type ${entity.deviceClass ?? entity.domain}`
               : 'Métadonnées insuffisantes : confirmation nécessaire',
             available: entity.available,
+            unavailableSince,
             status: entity.available ? 'ONLINE' : 'OFFLINE',
           },
         });
@@ -666,7 +685,9 @@ export class EquipmentService {
     }
     if (transform === 'EVENT_ACTION') return { action: String(state) };
     const normalized = String(state).toLowerCase();
-    const positive = ['on', 'open', 'true', '1', 'active', 'detected'].includes(normalized);
+    const positive = ['on', 'open', 'contact_open', 'true', '1', 'active', 'detected'].includes(
+      normalized,
+    );
     if (transform === 'OPEN_CLOSED' || capability === 'contact') return { open: positive };
     return { active: positive };
   }

@@ -11,6 +11,7 @@ import {
 import {
   capabilitySchema,
   deviceSupportsCategory,
+  homePlanSchema,
   roomSensorCategorySchema,
   sensorOnboardingCompletionSchema,
   sensorProtocolSchema,
@@ -76,6 +77,7 @@ const updateSchema = z.object({
   target: sensorOnboardingCompletionSchema.shape.target,
   buttonRole: sensorOnboardingCompletionSchema.shape.buttonRole,
   contactRole: sensorOnboardingCompletionSchema.shape.contactRole,
+  bedOccupiedWhen: sensorOnboardingCompletionSchema.shape.bedOccupiedWhen,
   name: z.string().trim().min(1).max(120).optional(),
   roomId: z.string().min(1).nullable().optional(),
   enabled: z.boolean().optional(),
@@ -464,8 +466,16 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
     sensors: Array<{ id: string; capability: string }>,
     input: SensorOnboardingCompletion,
   ) {
-    if (input.roomId && !(await tx.room.findFirst({ where: { id: input.roomId, homeId } })))
-      throw new ForbiddenException('Pièce inconnue.');
+    const room = input.roomId
+      ? await tx.room.findFirst({ where: { id: input.roomId, homeId } })
+      : null;
+    if (input.roomId && !room) throw new ForbiddenException('Pièce inconnue.');
+    if (
+      input.contactRole === 'BED' &&
+      (room?.kind !== 'BEDROOM' ||
+        !sensors.some(({ capability }) => ['contact', 'dry_contact'].includes(capability)))
+    )
+      throw new UnprocessableEntityException('Le lit nécessite un contact sec dans une chambre.');
     if (!input.roomId && input.target)
       throw new UnprocessableEntityException('Une cible précise nécessite une pièce.');
     await assignSensorToPlan(tx, {
@@ -583,7 +593,9 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
       if (
         input.roomId !== undefined ||
         input.target !== undefined ||
-        input.placementNote !== undefined
+        input.placementNote !== undefined ||
+        input.contactRole !== undefined ||
+        input.bedOccupiedWhen !== undefined
       ) {
         await this.applyAssignment(
           tx,
@@ -748,13 +760,29 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
 
   public async guide(userId: string, id: string) {
     const home = await this.homeFor(userId);
+    const storedPlan = await this.prisma.homePlan.findUnique({ where: { homeId: home.id } });
+    const parsedPlan = homePlanSchema.safeParse(storedPlan?.data);
+    const isBedContact = (sensorIds: string[], deviceId?: string) =>
+      parsedPlan.success &&
+      parsedPlan.data.placements.some(
+        (placement) =>
+          placement.kind === 'SENSOR' &&
+          (placement.equipmentId === deviceId || sensorIds.includes(placement.equipmentId)) &&
+          placement.capabilityBindings.some(
+            ({ sensorId, role }) => role === 'BED' && sensorIds.includes(sensorId),
+          ),
+      );
     if (id.startsWith('sensor:')) {
       const sensor = await this.prisma.sensor.findFirst({
         where: { id: id.slice(7), homeId: home.id },
         include: { room: true },
       });
       if (!sensor) throw new NotFoundException('Capteur introuvable.');
-      return placementGuide([sensor.capability], sensor.room?.kind);
+      return placementGuide(
+        [sensor.capability],
+        sensor.room?.kind,
+        isBedContact([sensor.id]) ? 'BED' : undefined,
+      );
     }
     const device = await this.prisma.device.findFirst({
       where: { id, homeId: home.id },
@@ -764,6 +792,12 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
     return placementGuide(
       device.sensors.map((sensor) => sensor.capability),
       device.room?.kind,
+      isBedContact(
+        device.sensors.map((sensor) => sensor.id),
+        device.id,
+      )
+        ? 'BED'
+        : undefined,
     );
   }
 
@@ -1212,6 +1246,10 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
       ? await this.deviceById(session.homeId, session.deviceId)
       : null;
     const zigbee = session.protocol === 'zigbee' ? this.mqtt.zigbeeStatus() : null;
+    const deviceDetected =
+      session.protocol === 'zigbee' &&
+      ['PENDING', 'WAITING_FOR_DEVICE'].includes(session.status) &&
+      this.mqtt.zigbeeDevicesJoinedSince(session.createdAt).length > 0;
     const detectedDevice = device
       ? {
           ...this.deviceView(device),
@@ -1234,6 +1272,7 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
         ? {
             online: zigbee.online,
             pairingOpen: zigbee.pairingOpen,
+            deviceDetected,
             updatedAt: zigbee.updatedAt?.toISOString() ?? null,
           }
         : null,
