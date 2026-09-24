@@ -774,11 +774,20 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
   }
   async heartbeat(token: string, capabilities: Record<string, boolean>) {
     const row = await this.device(token);
+    const storedCapabilities = row.capabilities as Record<string, boolean>;
+    const updatedCapabilities = { ...storedCapabilities, ...capabilities };
+    if (!capabilities.host && storedCapabilities.host === true) {
+      for (const key of ['camera', 'microphone']) {
+        if (typeof storedCapabilities[key] === 'boolean')
+          updatedCapabilities[key] = storedCapabilities[key];
+        else delete updatedCapabilities[key];
+      }
+    }
     await this.prisma.residentScreen.update({
       where: { id: row.id },
       data: {
         ...(capabilities.host ? {} : { lastSeenAt: new Date() }),
-        capabilities: json({ ...(row.capabilities as Record<string, boolean>), ...capabilities }),
+        capabilities: json(updatedCapabilities),
       },
     });
     return this.present(row.homeId);

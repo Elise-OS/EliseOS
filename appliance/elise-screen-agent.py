@@ -12,6 +12,7 @@ CEC_RECLAIM=RUN/'cec-reclaim'
 TV_NETWORK=ROOT/'tv-network.json'
 TV_NETWORK_STATUS=RUN/'tv-network.json'
 TV_DISCOVERY_STATUS=RUN/'tv-discovery.json'
+MEDIA_STATUS=RUN/'media.json'
 PLAYBACK_CACHE=ROOT/'screen-playback.json'
 LOCK=threading.Lock()
 TV_DISCOVERY_LOCK=threading.Lock()
@@ -103,6 +104,28 @@ def configure_audio(env,volume):
         source=next((name for name in sources if 'usb' in name.lower()),sources[0])
         try_run(env+['pactl','set-default-source',source])
     return sink
+def detect_media(env):
+    cameras=[]
+    for node in sorted(pathlib.Path('/dev').glob('video[0-9]*')):
+        info=try_run(env+['v4l2-ctl','--device',str(node),'--all'],5)
+        device_caps=info.partition('Device Caps')[2].partition('Media Driver Info')[0]
+        if not re.search(r'^\s*Video Capture(?: Multiplanar)?\s*$',device_caps,re.M):continue
+        name=re.search(r'^\s*Card type\s*:\s*(.+)$',info,re.M)
+        cameras.append({'path':str(node),'name':name.group(1).strip() if name else str(node)})
+    microphones=[]
+    sources=try_run(env+['pactl','list','short','sources'],5)
+    for line in sources.splitlines():
+        fields=line.split('\t')
+        if len(fields)<2:continue
+        name=fields[1]
+        if name.endswith('.monitor') or not name.startswith(('alsa_input.','bluez_input.')):continue
+        microphones.append({'name':name})
+    return {
+        'camera':bool(cameras),
+        'microphone':bool(microphones),
+        'cameraDevices':cameras,
+        'microphoneDevices':microphones,
+    }
 def cec_connector(name):
     match=re.fullmatch(r'vc4-hdmi-(\d+)',name)
     if match:return 'HDMI-'+str(int(match.group(1))+1)
@@ -390,12 +413,24 @@ def network_tv_loop():
         time.sleep(10)
 def display_loop():
     previous=None;previous_outputs=None;display_ready=False;cec_ready=False;last_assert=0;last_cec=0;cec_desired=None
+    media={'camera':False,'microphone':False,'cameraDevices':[],'microphoneDevices':[]}
+    last_media_probe=0
     cached=read(PLAYBACK_CACHE)
     desired=(bool(cached.get('asleep',False)),int(cached.get('volume',30)))
     selected=read(DISPLAY_STATUS).get('selected')
     while True:
+        now=time.monotonic()
+        if now-last_media_probe>=15:
+            try:
+                uid=run(['id','-u','elise-screen'])
+                env=['runuser','-u','elise-screen','--','env','DISPLAY=:0','XAUTHORITY=/home/elise-screen/.Xauthority','XDG_RUNTIME_DIR=/run/user/'+uid]
+                media=detect_media(env)
+            except Exception:
+                media={'camera':False,'microphone':False,'cameraDevices':[],'microphoneDevices':[]}
+            write(MEDIA_STATUS,{**media,'updatedAt':time.time()})
+            last_media_probe=now
         try:
-            snapshot=device('heartbeat',{'host':True,'button':bool(read(CONFIG).get('buttonDevice')),'displayPower':display_ready,'cec':cec_ready})
+            snapshot=device('heartbeat',{'host':True,'button':bool(read(CONFIG).get('buttonDevice')),'displayPower':display_ready,'cec':cec_ready,'camera':media['camera'],'microphone':media['microphone']})
             if snapshot:
                 state=snapshot['state'];playback=state['playback'];updated=(bool(playback['asleep']),int(playback['volume']))
                 if updated!=desired or not cached:
@@ -504,7 +539,7 @@ def button_loop():
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self,*args): pass
     def do_GET(self):
-        result={'installed':True,'paired':bool(read(CONFIG).get('token')),'network':read(STATUS),'display':read(DISPLAY_STATUS),'cec':read(CEC_STATUS),'networkTv':read(TV_NETWORK),'networkTvStatus':read(TV_NETWORK_STATUS),'buttons':[str(p) for p in pathlib.Path('/dev/input/by-id').glob('*-event-kbd')],'outputs':{p.parent.name:p.read_text().strip() for p in pathlib.Path('/sys/class/drm').glob('card*-*/status')}}
+        result={'installed':True,'paired':bool(read(CONFIG).get('token')),'network':read(STATUS),'display':read(DISPLAY_STATUS),'media':read(MEDIA_STATUS),'cec':read(CEC_STATUS),'networkTv':read(TV_NETWORK),'networkTvStatus':read(TV_NETWORK_STATUS),'buttons':[str(p) for p in pathlib.Path('/dev/input/by-id').glob('*-event-kbd')],'outputs':{p.parent.name:p.read_text().strip() for p in pathlib.Path('/sys/class/drm').glob('card*-*/status')}}
         self.respond(200,result)
     def do_POST(self):
         try:
