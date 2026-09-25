@@ -5,7 +5,7 @@ x-node-common: &node-common
   volumes:
     - michel_secrets:/run/michel-secrets:ro
   environment:
-    MICHEL_VERSION: ${MICHEL_VERSION:-0.1.4}
+    MICHEL_VERSION: ${MICHEL_VERSION:-0.1.5}
     MICHEL_SECRETS_DIR: /run/michel-secrets
     POSTGRES_HOST: postgres
     POSTGRES_DB: michel
@@ -173,7 +173,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.ai
-    image: michel-os/ai:${MICHEL_VERSION:-0.1.4}
+    image: michel-os/ai:${MICHEL_VERSION:-0.1.5}
     restart: unless-stopped
     depends_on:
       bootstrap:
@@ -202,7 +202,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.node
       target: api
-    image: michel-os/api:${MICHEL_VERSION:-0.1.4}
+    image: michel-os/api:${MICHEL_VERSION:-0.1.5}
     depends_on:
       screen-bootstrap:
         condition: service_completed_successfully
@@ -215,7 +215,7 @@ services:
       go2rtc:
         condition: service_healthy
     environment:
-      MICHEL_VERSION: ${MICHEL_VERSION:-0.1.4}
+      MICHEL_VERSION: ${MICHEL_VERSION:-0.1.5}
       MICHEL_SECRETS_DIR: /run/michel-secrets
       POSTGRES_HOST: postgres
       POSTGRES_DB: michel
@@ -282,7 +282,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.node
       target: worker
-    image: michel-os/worker:${MICHEL_VERSION:-0.1.4}
+    image: michel-os/worker:${MICHEL_VERSION:-0.1.5}
     depends_on:
       api:
         condition: service_healthy
@@ -307,7 +307,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.node
       target: dashboard
-    image: michel-os/dashboard:${MICHEL_VERSION:-0.1.4}
+    image: michel-os/dashboard:${MICHEL_VERSION:-0.1.5}
     environment:
       ELISE_JITSI_URL: ${ELISE_JITSI_URL:-https://jitsi.invalid}
     restart: unless-stopped

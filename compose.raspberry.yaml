@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: docker/mdns/Dockerfile
-    image: michel-os/mdns:${MICHEL_VERSION:-0.1.4}
+    image: michel-os/mdns:${MICHEL_VERSION:-0.1.5}
     restart: unless-stopped
     network_mode: host
     depends_on:
