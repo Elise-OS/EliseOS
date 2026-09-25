@@ -818,7 +818,16 @@ export default function HomeScreen() {
   }
 
   if (stage === 'dashboard' && server && token) {
-    return <DashboardApp server={server} token={token} userName={userName} onLogout={logout} />;
+    return (
+      <DashboardApp
+        server={server}
+        token={token}
+        userName={userName}
+        locale={locale}
+        onLocaleChange={changeLocale}
+        onLogout={logout}
+      />
+    );
   }
 
   const status = offline

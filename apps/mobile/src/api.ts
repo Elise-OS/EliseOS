@@ -1,15 +1,27 @@
 import type {
+  AlertRuleSettings,
+  CreatePerson,
   CalendarCreate,
   CalendarPage,
   CalendarUpdate,
   LiaisonCreate,
   LiaisonFilter,
   LiaisonPage,
+  MembershipRole,
+  ScreenCommand,
+  ScreenMedia,
+  ScreenMessageInput,
+  ScreenSettings,
+  ScreenSnapshot,
+  UpdatePerson,
+  UpdatePersonAccess,
 } from '@michel/contracts';
 import type {
   ActivitySummary,
   DashboardPeriod,
+  EquipmentCoverage,
   Household,
+  HomeSummary,
   HomePlan,
   PresenceEstimate,
   PresenceHistory,
@@ -18,6 +30,8 @@ import type {
   SensorOnboardingSession,
   SensorPlacementGuide,
   SensorVerificationSession,
+  RemoteAccessStatus,
+  UpdateStatus,
 } from '@michel/contracts';
 import type { Installation } from '@michel/contracts';
 import type { SavedServer } from './discovery/types';
@@ -41,6 +55,67 @@ export interface Overview {
   activity?: ActivityItem[];
 }
 
+export interface CurrentUser {
+  id: string;
+  displayName: string;
+  username: string | null;
+  email: string | null;
+  phone?: string | null;
+  mustChangePassword: boolean;
+  role: MembershipRole;
+  capabilities: string[];
+}
+
+export interface TrustedPerson {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  email: string | null;
+  relation: string | null;
+  role: MembershipRole | null;
+  isEmergency: boolean;
+  priority: number;
+  hasAccount: boolean;
+  accessDisabled: boolean;
+  archived: boolean;
+  isCurrentUser: boolean;
+  username: string | null;
+}
+
+export interface AlertDetail extends AlertItem {
+  sensor: { id: string; sourceName: string | null; capability: string; unit: string | null } | null;
+  observations: Array<{
+    id: string;
+    occurredAt: string;
+    capability: string;
+    quality: string;
+    payload: unknown;
+  }>;
+}
+
+export interface GoogleAccountSettings {
+  configured: boolean;
+  clientId: string;
+  redirectUri: string | null;
+  youtubeEnabled: boolean;
+  calendarEnabled: boolean;
+  youtubeConnected: boolean;
+}
+
+export interface SimulationScenario {
+  id: string;
+  title: string;
+  description: string;
+}
+
+export interface WeatherCity {
+  name: string;
+  label: string;
+  latitude: number;
+  longitude: number;
+}
+
 export interface ActivityItem {
   id: string;
   capability: string;
@@ -61,7 +136,7 @@ export interface AlertTransition {
 
 export interface AlertItem {
   id: string;
-  type: 'INACTIVITY' | 'DOOR_OPEN' | 'SOS' | 'UNUSUAL_ACTIVITY' | 'SYSTEM';
+  type: string;
   severity: 'INFO' | 'ATTENTION' | 'URGENT';
   status: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED';
   title: string;
@@ -69,6 +144,8 @@ export interface AlertItem {
   confidence?: number | null;
   openedAt: string;
   resolvedAt?: string | null;
+  room?: { id: string; name: string } | null;
+  lastMovement?: { occurredAt: string; roomName: string | null } | null;
   transitions?: AlertTransition[];
   cameraSnapshots?: Array<{
     id: string;
@@ -254,23 +331,26 @@ export const mobileApi = {
         body: JSON.stringify({ identifier, password }),
       },
     ),
-  me: (server: SavedServer, token: string) =>
-    request<{
-      id: string;
-      displayName: string;
-      username: string | null;
-      email: string | null;
-      mustChangePassword: boolean;
-    }>(server, '/auth/me', token),
+  me: (server: SavedServer, token: string) => request<CurrentUser>(server, '/auth/me', token),
   logout: (server: SavedServer, token: string) =>
     request<void>(server, '/auth/logout', token, { method: 'POST' }),
   overview: (server: SavedServer, token: string) => request<Overview>(server, '/overview', token),
   summary: (server: SavedServer, token: string, period: DashboardPeriod) =>
     request<ActivitySummary>(server, `/analytics/activity?period=${period}`, token),
+  activitySummary: (server: SavedServer, token: string, date: string) =>
+    request<ActivitySummary>(
+      server,
+      `/analytics/activity?period=24h&date=${encodeURIComponent(date)}`,
+      token,
+    ),
+  homeSummary: (server: SavedServer, token: string) =>
+    request<HomeSummary>(server, '/home-summary', token),
   household: (server: SavedServer, token: string) =>
     request<Household | null>(server, '/household', token),
   homePlan: (server: SavedServer, token: string) =>
     request<HomePlan>(server, '/household/plan', token),
+  equipmentCoverage: (server: SavedServer, token: string) =>
+    request<EquipmentCoverage>(server, '/household/plan/equipment-coverage', token),
   saveHomePlan: (server: SavedServer, token: string, plan: HomePlan) =>
     request<HomePlan>(server, '/household/plan', token, {
       method: 'PUT',
@@ -412,11 +492,132 @@ export const mobileApi = {
     token: string,
     id: string,
     status: 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED',
+    note?: string,
   ) =>
     request<AlertItem>(server, `/alerts/${id}`, token, {
       method: 'PATCH',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, ...(note ? { note } : {}) }),
     }),
+  alertDetail: (server: SavedServer, token: string, id: string) =>
+    request<AlertDetail>(server, `/alerts/${encodeURIComponent(id)}/detail`, token),
+  alertSummary: (server: SavedServer, token: string) =>
+    request<{ urgentCount: number }>(server, '/alerts/summary', token),
+  alertRules: (server: SavedServer, token: string) =>
+    request<AlertRuleSettings>(server, '/alerts/rules', token),
+  saveAlertRules: (server: SavedServer, token: string, rules: AlertRuleSettings) =>
+    request<AlertRuleSettings>(server, '/alerts/rules', token, {
+      method: 'PATCH',
+      body: JSON.stringify(rules),
+    }),
+  people: (server: SavedServer, token: string) =>
+    request<TrustedPerson[]>(server, '/household/people?archived=true', token),
+  createPerson: (server: SavedServer, token: string, input: CreatePerson) =>
+    request<TrustedPerson>(server, '/household/people', token, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  updatePerson: (server: SavedServer, token: string, id: string, input: UpdatePerson) =>
+    request<TrustedPerson>(server, `/household/people/${encodeURIComponent(id)}`, token, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+  updatePersonAccess: (server: SavedServer, token: string, id: string, input: UpdatePersonAccess) =>
+    request<TrustedPerson>(server, `/household/people/${encodeURIComponent(id)}/access`, token, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+  archivePerson: (server: SavedServer, token: string, id: string) =>
+    request<void>(server, `/household/people/${encodeURIComponent(id)}`, token, {
+      method: 'DELETE',
+    }),
+  screen: (server: SavedServer, token: string) => request<ScreenSnapshot>(server, '/screen', token),
+  updateScreenMessage: (server: SavedServer, token: string, input: ScreenMessageInput) =>
+    request<ScreenSnapshot>(server, '/screen/message', token, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+  updateScreenSettings: (server: SavedServer, token: string, settings: ScreenSettings) =>
+    request<ScreenSnapshot>(server, '/screen/settings', token, {
+      method: 'PATCH',
+      body: JSON.stringify(settings),
+    }),
+  screenCommand: (server: SavedServer, token: string, command: ScreenCommand) =>
+    request<unknown>(server, '/screen/commands', token, {
+      method: 'POST',
+      body: JSON.stringify(command),
+    }),
+  createScreenMedia: (server: SavedServer, token: string, media: ScreenMedia) =>
+    request<unknown>(server, '/screen/media', token, {
+      method: 'POST',
+      body: JSON.stringify(media),
+    }),
+  screenCall: (server: SavedServer, token: string) =>
+    request<unknown>(server, '/screen/calls', token, { method: 'POST' }),
+  weatherCities: (server: SavedServer, token: string, queryText: string) =>
+    request<WeatherCity[]>(
+      server,
+      `/screen/weather/cities?q=${encodeURIComponent(queryText)}`,
+      token,
+    ),
+  googleSettings: (server: SavedServer, token: string) =>
+    request<GoogleAccountSettings>(server, '/screen/google', token),
+  saveGoogleSettings: (
+    server: SavedServer,
+    token: string,
+    input: {
+      clientId: string;
+      clientSecret?: string;
+      youtubeEnabled: boolean;
+      calendarEnabled: boolean;
+    },
+  ) =>
+    request<GoogleAccountSettings>(server, '/screen/google', token, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+  removeGoogleSettings: (server: SavedServer, token: string) =>
+    request<void>(server, '/screen/google', token, { method: 'DELETE' }),
+  remoteAccessStatus: (server: SavedServer, token: string) =>
+    request<RemoteAccessStatus>(server, '/remote-access/status', token),
+  remoteAccessAction: (
+    server: SavedServer,
+    token: string,
+    action: 'connect' | 'enable' | 'disable',
+  ) =>
+    request<RemoteAccessStatus>(server, `/remote-access/${action}`, token, {
+      method: 'POST',
+      body: JSON.stringify(action === 'connect' ? { hostname: 'elise' } : {}),
+    }),
+  updateStatus: (server: SavedServer, token: string) =>
+    request<UpdateStatus>(server, '/system/update', token),
+  checkUpdate: (server: SavedServer, token: string) =>
+    request<UpdateStatus>(server, '/system/update/check', token, { method: 'POST' }),
+  saveUpdateCredentials: (
+    server: SavedServer,
+    token: string,
+    username: string,
+    githubToken: string,
+  ) =>
+    request<UpdateStatus>(server, '/system/update/credentials', token, {
+      method: 'PUT',
+      body: JSON.stringify({ username, token: githubToken }),
+    }),
+  deleteUpdateCredentials: (server: SavedServer, token: string) =>
+    request<UpdateStatus>(server, '/system/update/credentials', token, { method: 'DELETE' }),
+  installUpdate: (server: SavedServer, token: string, version: string) =>
+    request<UpdateStatus>(server, '/system/update/install', token, {
+      method: 'POST',
+      body: JSON.stringify({ version }),
+    }),
+  simulationScenarios: (server: SavedServer, token: string) =>
+    request<SimulationScenario[]>(server, '/simulation/scenarios', token),
+  runSimulation: (server: SavedServer, token: string, scenario: string, runId: string) =>
+    request<{ accepted: number; duplicates: number }>(
+      server,
+      `/simulation/scenarios/${encodeURIComponent(scenario)}`,
+      token,
+      { method: 'POST', body: JSON.stringify({ runId }) },
+    ),
   registerPush: (
     server: SavedServer,
     token: string,

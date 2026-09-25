@@ -1,16 +1,20 @@
 import { MobileLiaisonPanel } from './MobileLiaisonPanel';
 import { MobileCalendarPanel } from './MobileCalendarPanel';
 import { MobileScreenPanel } from '../screen/MobileScreenPanel';
+import { MobileWelcomePanel } from './MobileWelcomePanel';
+import { MobilePeoplePanel } from './MobilePeoplePanel';
+import { MobileSettingsPanel } from './MobileSettingsPanel';
 import { Ionicons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import type {
-  ActivitySummary,
-  DashboardPeriod,
+  ActivityEvent,
+  ActivitySequence,
+  EquipmentCoverage,
   Household,
+  HomeSummary,
   HomePlan,
   PlanRoom,
   PresenceEstimate,
-  PresenceHistory,
   ScheduleItem,
   SensorDevice,
   SensorOnboardingSession,
@@ -38,7 +42,6 @@ import { WebView } from 'react-native-webview';
 import {
   isMobileApiAuthError,
   mobileApi,
-  type ActivityItem,
   type AlertItem,
   type CameraItem,
   type CameraSession,
@@ -54,9 +57,9 @@ import {
   rememberActiveServerUrl,
 } from '../discovery/helpers';
 import { subscribeNotificationNavigation } from '../notifications';
-import { friendlyValue, relativeTime, roomOf } from './formatters';
+import { relativeTime } from './formatters';
 
-type Tab = 'home' | 'activity' | 'alerts' | 'house' | 'journal';
+type Tab = 'home' | 'activity' | 'alerts' | 'house' | 'journal' | 'screen' | 'people' | 'settings';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const colors = {
@@ -79,7 +82,7 @@ const tabs: Array<{ id: Tab; label: string; icon: IconName; active: IconName }> 
   { id: 'home', label: 'Accueil', icon: 'home-outline', active: 'home' },
   { id: 'activity', label: 'Activité', icon: 'pulse-outline', active: 'pulse' },
   { id: 'alerts', label: 'Alertes', icon: 'notifications-outline', active: 'notifications' },
-  { id: 'house', label: 'Maison', icon: 'grid-outline', active: 'grid' },
+  { id: 'house', label: 'Logement', icon: 'grid-outline', active: 'grid' },
   { id: 'journal', label: 'Liaison', icon: 'book-outline', active: 'book' },
 ];
 
@@ -109,8 +112,9 @@ const detectedSensorLabels = {
   UNKNOWN: 'Capteur à identifier',
 } as const;
 
-const fullDate = (value: string) =>
+const fullDate = (value: string, timeZone = 'Europe/Paris') =>
   new Intl.DateTimeFormat('fr-FR', {
+    timeZone,
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -122,16 +126,27 @@ interface DashboardAppProps {
   server: SavedServer;
   token: string;
   userName: string;
+  locale: 'fr' | 'en';
+  onLocaleChange: (locale: 'fr' | 'en') => void;
   onLogout: () => Promise<void>;
 }
 
-export function DashboardApp({ server, token, userName, onLogout }: DashboardAppProps) {
+export function DashboardApp({
+  server,
+  token,
+  userName,
+  locale,
+  onLocaleChange,
+  onLogout,
+}: DashboardAppProps) {
   const queryClient = useQueryClient();
   const rootKey = useMemo(() => ['michel', server.id] as const, [server.id]);
   const [tab, setTab] = useState<Tab>('home');
   const [legacyJournal, setLegacyJournal] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [period, setPeriod] = useState<DashboardPeriod>('24h');
+  const [pagesOpen, setPagesOpen] = useState(false);
+  const [roomFocusId, setRoomFocusId] = useState<string | null>(null);
+  const [settingsSection, setSettingsSection] = useState<'general' | 'google' | 'rules'>('general');
   const [connected, setConnected] = useState(true);
   const [networkAvailable, setNetworkAvailable] = useState(true);
   const loggedOutForAuth = useRef(false);
@@ -142,9 +157,17 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
     queryKey: [...rootKey, 'overview'],
     queryFn: () => mobileApi.overview(server, token),
   });
-  const summary = useQuery({
-    queryKey: [...rootKey, 'summary', period],
-    queryFn: () => mobileApi.summary(server, token, period),
+  const currentUser = useQuery({
+    queryKey: [...rootKey, 'current-user'],
+    queryFn: () => mobileApi.me(server, token),
+  });
+  const homeSummary = useQuery({
+    queryKey: [...rootKey, 'home-summary'],
+    queryFn: () => mobileApi.homeSummary(server, token),
+  });
+  const screen = useQuery({
+    queryKey: [...rootKey, 'screen'],
+    queryFn: () => mobileApi.screen(server, token),
   });
   const household = useQuery({
     queryKey: [...rootKey, 'household'],
@@ -158,10 +181,6 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
     queryKey: [...rootKey, 'presence'],
     queryFn: () => mobileApi.presence(server, token),
     refetchInterval: 5_000,
-  });
-  const presenceHistory = useQuery({
-    queryKey: [...rootKey, 'presence-history'],
-    queryFn: () => mobileApi.presenceHistory(server, token),
   });
   const schedule = useQuery({
     queryKey: [...rootKey, 'schedule'],
@@ -193,6 +212,15 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
     queryKey: [...rootKey, 'sensor-devices'],
     queryFn: () => mobileApi.sensorDevices(server, token),
   });
+  const equipmentCoverage = useQuery({
+    queryKey: [...rootKey, 'equipment-coverage'],
+    queryFn: () => mobileApi.equipmentCoverage(server, token),
+  });
+  const sensorProtocols = useQuery({
+    queryKey: [...rootKey, 'sensor-protocols'],
+    queryFn: () => mobileApi.sensorProtocols(server, token),
+  });
+  const screenRole = currentUser.data?.role ?? 'VIEWER';
 
   const invalidateAll = () => queryClient.invalidateQueries({ queryKey: rootKey });
 
@@ -262,9 +290,28 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
           setConnected(true);
           if (event.type === 'heartbeat' || event.type === 'connected') return;
           const domains: Record<string, string[]> = {
-            activity: ['overview', 'activity', 'summary', 'household', 'presence'],
-            alerts: ['overview', 'alerts'],
-            household: ['overview', 'household', 'sensor-devices', 'home-plan', 'liaison'],
+            activity: [
+              'overview',
+              'activity',
+              'summary',
+              'activity-summary-day',
+              'home-summary',
+              'household',
+              'presence',
+            ],
+            alerts: ['overview', 'alerts', 'alert-summary'],
+            household: [
+              'overview',
+              'household',
+              'sensor-devices',
+              'sensor-protocols',
+              'equipment-coverage',
+              'home-plan',
+              'home-summary',
+              'liaison',
+            ],
+            screen: ['screen', 'home-summary'],
+            home: ['overview', 'home-summary', 'screen', 'activity', 'summary', 'schedule'],
             liaison: ['liaison'],
             journal: ['journal'],
             schedule: ['overview', 'schedule', 'liaison'],
@@ -321,7 +368,9 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
 
   const authError = [
     overview.error,
-    summary.error,
+    currentUser.error,
+    homeSummary.error,
+    screen.error,
     household.error,
     homePlan.error,
     activity.error,
@@ -329,6 +378,8 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
     journal.error,
     cameras.error,
     sensorDevices.error,
+    equipmentCoverage.error,
+    sensorProtocols.error,
   ].find(isMobileApiAuthError);
 
   useEffect(() => {
@@ -365,6 +416,14 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
           <Text style={styles.hello}>Bonjour {userName.split(' ')[0] || userName},</Text>
           <Text style={styles.homeName}>{overview.data?.home?.name ?? server.instanceName}</Text>
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ouvrir les autres pages"
+          style={styles.headerMenuButton}
+          onPress={() => setPagesOpen(true)}
+        >
+          <Ionicons name="menu-outline" size={23} color={colors.blue} />
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Ouvrir le menu du compte"
@@ -404,29 +463,36 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
       ) : null}
       <View style={styles.content}>
         {tab === 'home' && (
-          <HomeTab
+          <MobileWelcomePanel
+            server={server}
+            token={token}
+            userName={userName}
+            locale={locale}
             overview={overview.data}
-            summary={summary.data}
+            homeSummary={homeSummary.data}
+            screen={screen.data}
             activity={activityItems}
-            alerts={alertItems}
-            schedule={schedule.data ?? []}
-            presence={presence.data ?? null}
-            presenceHistory={presenceHistory.data ?? null}
-            refreshing={overview.isRefetching}
+            refreshing={overview.isRefetching || homeSummary.isRefetching}
             onRefresh={invalidateAll}
-            goTo={setTab}
+            onNavigate={setTab}
+            onScreenUpdated={() =>
+              void queryClient.invalidateQueries({ queryKey: [...rootKey, 'screen'] })
+            }
           />
         )}
         {tab === 'activity' && (
           <ActivityTab
-            summary={summary.data}
-            period={period}
-            onPeriod={setPeriod}
-            items={activityItems}
+            server={server}
+            token={token}
+            homeSummary={homeSummary.data}
+            timeZone={homeSummary.data?.timezone ?? 'Europe/Paris'}
             refreshing={activity.isRefetching}
             onRefresh={invalidateAll}
-            onMore={() => void activity.fetchNextPage()}
-            hasMore={activity.hasNextPage}
+            onOpenRoom={(roomId) => {
+              setRoomFocusId(roomId);
+              setTab('house');
+            }}
+            onOpenJournal={() => setTab('journal')}
           />
         )}
         {tab === 'alerts' && (
@@ -438,6 +504,26 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
             onRefresh={invalidateAll}
             onMore={() => void alerts.fetchNextPage()}
             hasMore={alerts.hasNextPage}
+            canManage={currentUser.data?.capabilities.includes('alerts:manage') ?? false}
+            residentName={overview.data?.home?.resident ?? 'Élise'}
+            timezone={homeSummary.data?.timezone ?? 'Europe/Paris'}
+            onCall={() =>
+              void mobileApi
+                .screenCall(server, token)
+                .then(() =>
+                  Alert.alert('Appel lancé', 'Élise va appeler depuis l’écran du logement.'),
+                )
+                .catch(() =>
+                  Alert.alert(
+                    'Appel indisponible',
+                    'L’appel ne peut pas être lancé pour le moment.',
+                  ),
+                )
+            }
+            onSettings={() => {
+              setSettingsSection('rules');
+              setTab('settings');
+            }}
           />
         )}
         {tab === 'house' && (
@@ -449,6 +535,10 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
             sensorDevices={sensorDevices.data ?? []}
             plan={homePlan.data ?? null}
             presence={presence.data ?? null}
+            focusRoomId={roomFocusId}
+            overview={overview.data}
+            coverage={equipmentCoverage.data ?? null}
+            protocols={sensorProtocols.data ?? []}
             onSavePlan={async (next) => {
               const saved = await mobileApi.saveHomePlan(server, token, next);
               queryClient.setQueryData([...rootKey, 'home-plan'], saved);
@@ -459,9 +549,36 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
               household.isRefetching ||
               cameras.isRefetching ||
               sensorDevices.isRefetching ||
+              equipmentCoverage.isRefetching ||
+              sensorProtocols.isRefetching ||
               homePlan.isRefetching
             }
             onRefresh={invalidateAll}
+          />
+        )}
+        {tab === 'screen' && (
+          <Screen refreshing={screen.isRefetching} onRefresh={invalidateAll}>
+            <SectionTitle eyebrow="ÉCRAN DU FOYER" title="Affichage TV" />
+            <MobileScreenPanel
+              server={server}
+              token={token}
+              snapshot={screen.data}
+              onChanged={() =>
+                void queryClient.invalidateQueries({ queryKey: [...rootKey, 'screen'] })
+              }
+            />
+          </Screen>
+        )}
+        {tab === 'people' && <MobilePeoplePanel server={server} token={token} role={screenRole} />}
+        {tab === 'settings' && (
+          <MobileSettingsPanel
+            server={server}
+            token={token}
+            role={screenRole}
+            locale={locale}
+            initialSection={settingsSection}
+            onLocaleChange={onLocaleChange}
+            onOpenPage={setTab}
           />
         )}
         {tab === 'journal' && calendarOpen && (
@@ -538,6 +655,50 @@ export function DashboardApp({ server, token, userName, onLogout }: DashboardApp
           );
         })}
       </View>
+      <Modal
+        visible={pagesOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPagesOpen(false)}
+      >
+        <Pressable style={styles.pagesBackdrop} onPress={() => setPagesOpen(false)}>
+          <View style={styles.pagesSheet}>
+            <View style={styles.pagesHeader}>
+              <View>
+                <Text style={styles.eyebrow}>VOTRE FOYER</Text>
+                <Text style={styles.pagesTitle}>Toutes les pages</Text>
+              </View>
+              <Pressable style={styles.close} onPress={() => setPagesOpen(false)}>
+                <Ionicons name="close" size={22} color={colors.navy} />
+              </Pressable>
+            </View>
+            {(
+              [
+                ['screen', 'Affichage TV', 'tv-outline'],
+                ['people', 'Proches', 'people-outline'],
+                ['settings', 'Réglages', 'settings-outline'],
+              ] as Array<[Tab, string, IconName]>
+            ).map(([id, label, icon]) => (
+              <Pressable
+                key={id}
+                style={styles.pageMenuRow}
+                onPress={() => {
+                  setPagesOpen(false);
+                  setCalendarOpen(false);
+                  if (id === 'settings') setSettingsSection('general');
+                  setTab(id);
+                }}
+              >
+                <View style={styles.pageMenuIcon}>
+                  <Ionicons name={icon} size={20} color={colors.blue} />
+                </View>
+                <Text style={styles.pageMenuLabel}>{label}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -580,395 +741,475 @@ function SectionTitle({
   );
 }
 
-function HomeTab({
-  overview,
-  summary,
-  activity,
-  alerts,
-  schedule,
-  presence,
-  presenceHistory,
-  refreshing,
-  onRefresh,
-  goTo,
-}: {
-  overview?: Overview;
-  summary?: ActivitySummary;
-  activity: ActivityItem[];
-  alerts: AlertItem[];
-  schedule: ScheduleItem[];
-  presence: PresenceEstimate | null;
-  presenceHistory: PresenceHistory | null;
-  refreshing: boolean;
-  onRefresh: () => void;
-  goTo: (tab: Tab) => void;
-}) {
-  const openAlerts = alerts.filter((item) => ['OPEN', 'ACKNOWLEDGED'].includes(item.status));
-  const state =
-    overview?.reassurance === 'ATTENTION'
-      ? {
-          icon: 'alert-circle-outline' as IconName,
-          tone: colors.amber,
-          label: 'Une situation demande votre attention',
-          detail: 'Consultez les alertes en cours.',
-        }
-      : overview?.reassurance === 'INSUFFICIENT_DATA'
-        ? {
-            icon: 'help-circle-outline' as IconName,
-            tone: colors.amber,
-            label: 'Données insuffisantes',
-            detail: 'Certains capteurs ne répondent pas correctement.',
-          }
-        : overview?.reassurance === 'LEARNING'
-          ? {
-              icon: 'sparkles-outline' as IconName,
-              tone: colors.accent,
-              label: 'Élise apprend les habitudes',
-              detail: `Jour ${overview.learningDays ?? 0} sur 14.`,
-            }
-          : {
-              icon: 'checkmark-circle-outline' as IconName,
-              tone: colors.green,
-              label: 'Tout semble normal',
-              detail: 'Aucune situation inhabituelle détectée.',
-            };
-  const next = schedule.find((item) => new Date(item.startsAt) >= new Date());
-  const [showPresenceWhy, setShowPresenceWhy] = useState(false);
-  const presenceCopy = caregiverPresenceCopy(presence);
-  const presenceIcon: IconName =
-    presence?.trackingState === 'CONFIRMED'
-      ? 'location-outline'
-      : presence?.trackingState === 'IN_TRANSIT'
-        ? 'navigate-outline'
-        : presence?.trackingState === 'AMBIGUOUS'
-          ? 'people-outline'
-          : 'time-outline';
-  return (
-    <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <View style={[styles.hero, { borderColor: `${state.tone}55` }]}>
-        <View style={[styles.heroIcon, { backgroundColor: state.tone }]}>
-          <Ionicons name={state.icon} color="#fff" size={26} />
-        </View>
-        <Text style={styles.eyebrow}>SITUATION ACTUELLE</Text>
-        <Text style={styles.heroTitle}>{state.label}</Text>
-        <Text style={styles.heroDetail}>{state.detail}</Text>
-      </View>
-      <View style={styles.card} accessibilityLabel="Suivi de présence du résident">
-        <View style={styles.presenceSummaryHead}>
-          <View
-            style={[styles.smallIcon, presence?.trackingDegraded && styles.presenceWarningIcon]}
-          >
-            <Ionicons
-              name={presenceIcon}
-              size={20}
-              color={presence?.trackingDegraded ? colors.amber : colors.blue}
-            />
-          </View>
-          <View style={styles.presenceSummaryCopy}>
-            <Text style={styles.eyebrow}>PRÉSENCE DU RÉSIDENT</Text>
-            <Text style={styles.presenceSummaryTitle}>{presenceCopy.title}</Text>
-            <Text style={styles.heroDetail}>
-              {presenceCopy.detail}
-              {'\n'}
-              {presence?.lastEvidenceAt
-                ? `${relativeTime(presence.lastEvidenceAt)} · confiance ${presence.confidence === 'HIGH' ? 'élevée' : presence.confidence === 'MEDIUM' ? 'moyenne' : 'faible'}`
-                : 'En attente des capteurs de présence'}
-            </Text>
-          </View>
-        </View>
-        {presence?.trackingDegraded ? (
-          <View style={styles.presenceWarning}>
-            <Ionicons name="warning-outline" size={17} color={colors.amber} />
-            <Text style={styles.presenceWarningText}>
-              Suivi moins fiable : vérifiez la couverture des passages et les capteurs hors ligne.
-            </Text>
-          </View>
-        ) : null}
-        <View style={styles.presenceActions}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setShowPresenceWhy((shown) => !shown)}
-          >
-            <Text style={styles.link}>
-              {showPresenceWhy ? 'Masquer l’explication' : 'Pourquoi Élise pense cela ?'}
-            </Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" onPress={() => goTo('house')}>
-            <Text style={styles.link}>Voir sur le plan</Text>
-          </Pressable>
-        </View>
-        {showPresenceWhy ? (
-          <View style={styles.presenceWhy}>
-            <Text style={styles.presenceWhyText}>{presence?.explanation}</Text>
-            <Text style={styles.presenceWhyText}>{presenceCopy.why}</Text>
-            {(presenceHistory?.items ?? []).slice(0, 3).map((decision) => (
-              <View key={decision.id} style={styles.presenceDecisionRow}>
-                <Text style={styles.presenceDecisionTime}>{relativeTime(decision.occurredAt)}</Text>
-                <Text style={styles.presenceWhyText}>{decision.explanation}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-      </View>
-      <View style={styles.metricGrid}>
-        <Metric
-          icon="pulse-outline"
-          label="DERNIÈRE ACTIVITÉ"
-          value={overview?.lastActivity?.room ?? '—'}
-          detail={relativeTime(overview?.lastActivity?.occurredAt)}
-        />
-        <Metric
-          icon="hardware-chip-outline"
-          label="CAPTEURS EN LIGNE"
-          value={`${overview?.sensors?.online ?? 0}/${overview?.sensors?.total ?? 0}`}
-          detail={
-            (overview?.sensors?.degraded ?? 0) > 0
-              ? `${overview?.sensors?.degraded} dégradé(s)`
-              : 'Tous opérationnels'
-          }
-        />
-        <Metric
-          icon="notifications-outline"
-          label="ALERTES"
-          value={String(openAlerts.length)}
-          detail={openAlerts.length ? 'À consulter' : 'Aucune en cours'}
-        />
-        <Metric
-          icon="calendar-outline"
-          label="PROCHAIN ÉVÉNEMENT"
-          value={next?.title ?? 'Rien de prévu'}
-          detail={next ? fullDate(next.startsAt) : 'Agenda libre'}
-        />
-      </View>
-      <View style={styles.card}>
-        <SectionTitle
-          eyebrow="RYTHME DU FOYER"
-          title="Activité sur 24 heures"
-          action={
-            <Pressable onPress={() => goTo('activity')}>
-              <Text style={styles.link}>Voir tout</Text>
-            </Pressable>
-          }
-        />
-        <ActivityChart summary={summary} />
-      </View>
-      <View style={styles.card}>
-        <SectionTitle eyebrow="DERNIERS ÉVÉNEMENTS" title="Ce qui vient de se passer" />
-        {activity.slice(0, 4).map((item) => (
-          <ActivityRow key={item.id} item={item} />
-        ))}
-        {!activity.length ? (
-          <Empty icon="pulse-outline" text="Aucune activité enregistrée." />
-        ) : null}
-      </View>
-    </Screen>
-  );
-}
-
-function Metric({
-  icon,
-  label,
-  value,
-  detail,
-}: {
-  icon: IconName;
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <View style={styles.metric}>
-      <View style={styles.smallIcon}>
-        <Ionicons name={icon} size={18} color={colors.blue} />
-      </View>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text numberOfLines={1} style={styles.metricValue}>
-        {value}
-      </Text>
-      <Text numberOfLines={1} style={styles.metricDetail}>
-        {detail}
-      </Text>
-    </View>
-  );
-}
-
-function ActivityChart({ summary }: { summary?: ActivitySummary }) {
-  const width = 310;
-  const height = 112;
-  const values = summary?.buckets ?? [];
-  const max = Math.max(1, ...values.map((item) => item.count));
-  const gap = 4;
-  const bar = values.length ? (width - gap * (values.length - 1)) / values.length : 0;
-  return (
-    <View>
-      <Svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
-        {values.map((item, index) => {
-          const h = Math.max(3, (item.count / max) * 82);
-          return (
-            <Rect
-              key={item.start}
-              x={index * (bar + gap)}
-              y={88 - h}
-              width={bar}
-              height={h}
-              rx={Math.min(4, bar / 2)}
-              fill={item.count === max ? colors.blue : '#AFC5D1'}
-            />
-          );
-        })}
-      </Svg>
-      <View style={styles.chartLabels}>
-        {values
-          .filter(
-            (_, index) =>
-              index === 0 || index === values.length - 1 || index === Math.floor(values.length / 2),
-          )
-          .map((item) => (
-            <Text key={item.start} style={styles.chartLabel}>
-              {item.label}
-            </Text>
-          ))}
-      </View>
-    </View>
-  );
-}
-
 function ActivityTab({
-  summary,
-  period,
-  onPeriod,
-  items,
+  server,
+  token,
+  timeZone,
+  homeSummary,
   refreshing,
   onRefresh,
-  onMore,
-  hasMore,
+  onOpenRoom,
+  onOpenJournal,
 }: {
-  summary?: ActivitySummary;
-  period: DashboardPeriod;
-  onPeriod: (period: DashboardPeriod) => void;
-  items: ActivityItem[];
+  server: SavedServer;
+  token: string;
+  timeZone: string;
+  homeSummary?: HomeSummary;
   refreshing: boolean;
   onRefresh: () => void;
-  onMore: () => void;
-  hasMore?: boolean;
+  onOpenRoom: (roomId: string) => void;
+  onOpenJournal: () => void;
 }) {
-  const [filter, setFilter] = useState('all');
-  const capabilities = ['all', ...new Set(items.map((item) => item.capability))];
-  const visible = filter === 'all' ? items : items.filter((item) => item.capability === filter);
+  const todayKey = dashboardDateKey(new Date(), timeZone);
+  const [selectedDate, setSelectedDate] = useState(todayKey);
+  const [compare, setCompare] = useState(false);
+  const [comparisonDate, setComparisonDate] = useState('');
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [visibleSequences, setVisibleSequences] = useState(8);
+  const daySummary = useQuery({
+    queryKey: ['michel', server.id, 'activity-summary-day', selectedDate],
+    queryFn: () => mobileApi.activitySummary(server, token, selectedDate),
+  });
+  const compareSummary = useQuery({
+    queryKey: ['michel', server.id, 'activity-summary-day', comparisonDate],
+    queryFn: () => mobileApi.activitySummary(server, token, comparisonDate),
+    enabled: compare && Boolean(comparisonDate) && comparisonDate !== selectedDate,
+  });
+  const summary = daySummary.data;
+  const sequences = [...(summary?.sequences ?? [])].sort(
+    (left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt),
+  );
+  const usedRooms = new Set(sequences.flatMap((sequence) => sequence.roomNames)).size;
+  const dates = Array.from({ length: 7 }, (_, index) => dashboardShiftDate(todayKey, -index));
+  const durationMinutes = Math.round((summary?.observedSeconds ?? 0) / 60);
+  const comparison = compareSummary.data;
+  const comparisonRooms = new Set(
+    (comparison?.sequences ?? []).flatMap((sequence) => sequence.roomNames),
+  ).size;
+  const liveAt =
+    selectedDate === todayKey
+      ? (homeSummary?.latestPresence?.occurredAt ??
+        homeSummary?.presence.lastEvidenceAt ??
+        homeSummary?.presence.lastConfirmedAt ??
+        homeSummary?.presence.detectedAt ??
+        null)
+      : null;
+  const lastReliable = summary?.lastReliableActivity;
+  const selectedDateLabel =
+    selectedDate === todayKey
+      ? `Aujourd’hui · ${dashboardDateLabel(selectedDate, timeZone)}`
+      : dashboardDateLabel(selectedDate, timeZone);
+
+  useEffect(() => {
+    setVisibleSequences(8);
+    setExpanded(null);
+  }, [selectedDate]);
+
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <SectionTitle eyebrow="ANALYSE" title="Activité du foyer" />
-      <Segment
-        options={[
-          ['24h', '24 heures'],
-          ['7d', '7 jours'],
-          ['28d', '28 jours'],
-        ]}
-        value={period}
-        onChange={(value) => onPeriod(value as DashboardPeriod)}
-      />
+      <SectionTitle eyebrow="ANALYSE" title="Activité" />
+      <View style={styles.activityReliableBanner}>
+        <Ionicons name="checkmark-circle-outline" size={18} color={colors.green} />
+        <Text style={styles.activityReliableText}>
+          {lastReliable
+            ? `La dernière activité fiable a été observée dans ${lastReliable.roomName} à ${dashboardClock(lastReliable.occurredAt, timeZone)}.`
+            : 'Aucune activité fiable ne permet encore de résumer cette période.'}
+        </Text>
+      </View>
       <View style={styles.card}>
         <View style={styles.totalRow}>
-          <View>
-            <Text style={styles.metricLabel}>ACTIVITÉS DÉTECTÉES</Text>
-            <Text style={styles.bigNumber}>{summary?.total ?? 0}</Text>
+          <View style={styles.rowCopy}>
+            <Text style={styles.metricLabel}>MOMENTS DU QUOTIDIEN</Text>
+            <Text style={styles.trendText}>
+              Une vue d’ensemble des activités et déplacements de la journée.
+            </Text>
           </View>
-          <View style={styles.trendPill}>
-            <Ionicons name="pulse" size={14} color={colors.green} />
-            <Text style={styles.trendText}>Données locales</Text>
-          </View>
+          <Pressable
+            style={styles.datePickerButton}
+            onPress={() =>
+              setSelectedDate(
+                (current) => dates[(dates.indexOf(current) + 1) % dates.length] ?? todayKey,
+              )
+            }
+          >
+            <Ionicons name="calendar-outline" size={16} color={colors.blue} />
+            <Text style={styles.datePickerText}>{selectedDateLabel}</Text>
+            <Ionicons name="chevron-down" size={14} color={colors.blue} />
+          </Pressable>
         </View>
-        <ActivityChart summary={summary} />
-      </View>
-      <View style={styles.card}>
-        <SectionTitle eyebrow="PRÉSENCE" title="Temps passé par pièce" />
-        {summary?.dwellByRoom.length ? (
-          summary.dwellByRoom.slice(0, 5).map((room) => (
-            <View key={room.id} style={styles.totalRow}>
-              <View>
-                <Text style={styles.metricLabel}>{room.name.toUpperCase()}</Text>
-                <Text style={styles.trendText}>
-                  {Math.round(room.totalSeconds / 60)} min · médiane{' '}
-                  {Math.round(room.medianSeconds / 60)} min
-                </Text>
-              </View>
-              <Text style={styles.trendText}>
-                {room.reliableSessions}/{room.sessions} fiables
-              </Text>
-            </View>
-          ))
-        ) : (
-          <Empty icon="time-outline" text="Pas encore de session fiable." />
-        )}
-      </View>
-      <View style={styles.card}>
-        <SectionTitle eyebrow="RÉPARTITION" title="Pièces les plus actives" />
-        {summary?.byRoom.length ? (
-          summary.byRoom
-            .slice(0, 5)
-            .map((room) => (
-              <BarRow
-                key={room.id ?? room.name}
-                label={room.name}
-                value={room.count}
-                max={summary.byRoom[0]?.count ?? 1}
-              />
-            ))
-        ) : (
-          <Empty icon="grid-outline" text="Pas encore assez d’activité." />
-        )}
-      </View>
-      <SectionTitle eyebrow="CHRONOLOGIE" title="Tous les événements" />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chips}
-      >
-        {capabilities.map((item) => (
-          <Chip
-            key={item}
-            active={filter === item}
-            label={item === 'all' ? 'Tout' : (capabilityMeta[item]?.label ?? item)}
-            onPress={() => setFilter(item)}
-          />
-        ))}
-      </ScrollView>
-      <View style={styles.card}>
-        {visible.map((item) => (
-          <ActivityRow key={item.id} item={item} />
-        ))}
-        {!visible.length ? (
-          <Empty icon="pulse-outline" text="Aucun événement pour ce filtre." />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chips}
+        >
+          {dates.map((date) => (
+            <Chip
+              key={date}
+              active={selectedDate === date}
+              label={date === todayKey ? 'Aujourd’hui' : dashboardShortDate(date, timeZone)}
+              onPress={() => {
+                setSelectedDate(date);
+                if (date === comparisonDate) setComparisonDate('');
+              }}
+            />
+          ))}
+        </ScrollView>
+        <Pressable
+          style={styles.compareToggle}
+          onPress={() => {
+            setCompare((value) => !value);
+            if (compare) setComparisonDate('');
+          }}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: compare }}
+        >
+          <Ionicons name="git-compare-outline" size={16} color={colors.blue} />
+          <Text style={styles.link}>Comparer avec une autre journée</Text>
+          <View style={[styles.toggleTrack, compare && styles.toggleTrackActive]}>
+            <View style={[styles.toggleKnob, compare && styles.toggleKnobActive]} />
+          </View>
+        </Pressable>
+        {compare ? (
+          <View style={styles.comparePanel}>
+            <Text style={styles.metricLabel}>COMPARER AVEC</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chips}
+            >
+              {dates
+                .filter((date) => date !== selectedDate)
+                .map((date) => (
+                  <Chip
+                    key={date}
+                    active={comparisonDate === date}
+                    label={dashboardShortDate(date, timeZone)}
+                    onPress={() => setComparisonDate(date)}
+                  />
+                ))}
+            </ScrollView>
+            {compare && comparisonDate ? (
+              compareSummary.isPending ? (
+                <Text style={styles.rowDetail}>Comparaison…</Text>
+              ) : comparison ? (
+                <View style={styles.comparisonStats}>
+                  <ComparisonStat
+                    value={dashboardDelta(
+                      sequences.length - comparison.sequences.length,
+                      'moments',
+                    )}
+                    label="moments détectés"
+                  />
+                  <ComparisonStat
+                    value={dashboardDelta(
+                      durationMinutes - Math.round(comparison.observedSeconds / 60),
+                      'min',
+                    )}
+                    label="d’activité"
+                  />
+                  <ComparisonStat
+                    value={dashboardDelta(usedRooms - comparisonRooms, 'pièces')}
+                    label="pièces utilisées"
+                  />
+                </View>
+              ) : (
+                <Text style={styles.rowDetail}>Comparaison indisponible pour cette journée.</Text>
+              )
+            ) : null}
+          </View>
         ) : null}
-        {hasMore ? <LoadMore onPress={onMore} /> : null}
+        <View style={styles.momentStats}>
+          <MomentStat
+            icon="footsteps-outline"
+            value={String(sequences.length)}
+            label="moments détectés"
+            tone="blue"
+          />
+          <MomentStat
+            icon="time-outline"
+            value={dashboardDuration(summary?.observedSeconds ?? 0)}
+            label="d’activité"
+            tone="green"
+          />
+          <MomentStat
+            icon="home-outline"
+            value={String(usedRooms)}
+            label="pièces utilisées"
+            tone="amber"
+          />
+        </View>
+      </View>
+      <View style={styles.card}>
+        <SectionTitle eyebrow="CHRONOLOGIE" title="Moments observés" />
+        {selectedDate === todayKey && homeSummary && liveAt ? (
+          <View style={styles.liveMomentRow}>
+            <View style={styles.liveTime}>
+              <Text style={styles.liveTimeText}>{dashboardClock(liveAt, timeZone)}</Text>
+              <Text style={styles.rowDetail}>En ce moment</Text>
+            </View>
+            <View style={styles.timelineDotLive} />
+            <View style={styles.liveCard}>
+              <Ionicons name="footsteps-outline" size={18} color={colors.green} />
+              <View style={styles.rowCopy}>
+                <Text style={styles.rowTitle}>{mobileActivityPresence(homeSummary)}</Text>
+                <Text style={styles.rowDetail}>Situation actuelle</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+        {daySummary.isPending ? (
+          <Text style={styles.rowDetail}>Chargement des moments…</Text>
+        ) : null}
+        {sequences.slice(0, visibleSequences).map((sequence) => (
+          <View key={sequence.id} style={styles.sequenceBlock}>
+            <Pressable
+              style={styles.sequenceSummary}
+              onPress={() =>
+                setExpanded((current) => (current === sequence.id ? null : sequence.id))
+              }
+            >
+              <View style={styles.liveTime}>
+                <Text style={styles.liveTimeText}>
+                  {dashboardClock(sequence.startedAt, timeZone)}
+                </Text>
+                <Text style={styles.rowDetail}>{dashboardRelative(sequence.startedAt)}</Text>
+              </View>
+              <View style={styles.timelineDot} />
+              <View style={styles.sequenceCard}>
+                <View style={styles.sequenceIcon}>
+                  <Ionicons name="footsteps-outline" size={17} color={colors.blue} />
+                </View>
+                <View style={styles.rowCopy}>
+                  <Text style={styles.rowTitle}>{dashboardSequenceSentence(sequence)}</Text>
+                  <Text style={styles.rowDetail}>
+                    {sequence.totalEventCount} événements ·{' '}
+                    {sequence.durationSeconds
+                      ? `activité pendant ${dashboardDuration(sequence.durationSeconds)}`
+                      : dashboardRelative(sequence.startedAt)}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={expanded === sequence.id ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={colors.muted}
+                />
+              </View>
+            </Pressable>
+            {expanded === sequence.id ? (
+              <View style={styles.sequenceEvents}>
+                {sequence.hiddenEventCount > 0 ? (
+                  <Text style={styles.rowDetail}>
+                    {sequence.hiddenEventCount} événements répétitifs ont été regroupés.
+                  </Text>
+                ) : null}
+                {sequence.events.map((event) => (
+                  <Pressable
+                    key={event.id}
+                    style={styles.sequenceEvent}
+                    onPress={() => onOpenRoom(event.roomId)}
+                  >
+                    <Text style={styles.sequenceEventTime}>
+                      {dashboardClock(event.occurredAt, timeZone)}
+                    </Text>
+                    <View style={styles.eventIcon}>
+                      <Ionicons
+                        name={capabilityMeta[event.capability]?.icon ?? 'pulse-outline'}
+                        size={16}
+                        color={colors.blue}
+                      />
+                    </View>
+                    <View style={styles.rowCopy}>
+                      <Text style={styles.rowTitle}>{mobileEventDescription(event)}</Text>
+                      <Text style={styles.rowDetail}>
+                        {event.roomName} · {event.sensorName ?? 'Capteur du logement'}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.reliability,
+                        event.quality === 'good' ? styles.reliable : styles.unreliable,
+                      ]}
+                    >
+                      {event.quality === 'good' ? 'Fiable' : 'À confirmer'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ))}
+        {!daySummary.isPending && !sequences.length && !(selectedDate === todayKey && liveAt) ? (
+          <Empty icon="pulse-outline" text="Aucun moment fiable ne correspond à cette journée." />
+        ) : null}
+        {visibleSequences < sequences.length ? (
+          <Pressable
+            style={styles.loadMore}
+            onPress={() => setVisibleSequences((value) => value + 8)}
+          >
+            <Text style={styles.link}>Afficher les moments précédents</Text>
+          </Pressable>
+        ) : null}
+        {summary?.hasMoreSequences && visibleSequences >= sequences.length ? (
+          <View style={styles.olderNote}>
+            <Text style={styles.rowDetail}>
+              Les événements plus anciens restent disponibles dans le journal local.
+            </Text>
+            <Pressable onPress={onOpenJournal}>
+              <Text style={styles.link}>Ouvrir le journal</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </Screen>
   );
 }
 
-function ActivityRow({ item }: { item: ActivityItem }) {
-  const meta = capabilityMeta[item.capability] ?? {
-    label: item.capability,
-    icon: 'ellipse-outline',
-  };
+function dashboardDateKey(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? '00';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+function dashboardShiftDate(value: string, offset: number) {
+  const date = new Date(`${value}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+function dashboardDateLabel(value: string, timezone: string) {
+  return new Date(`${value}T12:00:00Z`).toLocaleDateString('fr-FR', {
+    timeZone: timezone,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+function dashboardShortDate(value: string, timezone: string) {
+  return new Date(`${value}T12:00:00Z`).toLocaleDateString('fr-FR', {
+    timeZone: timezone,
+    day: 'numeric',
+    month: 'short',
+  });
+}
+function dashboardClock(value: string, timezone: string) {
+  return new Date(value).toLocaleTimeString('fr-FR', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+function dashboardRelative(value: string) {
+  return relativeTime(value);
+}
+function dashboardDuration(seconds: number) {
+  const minutes = Math.max(0, Math.round(seconds / 60));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return `${hours} h${remainder ? ` ${remainder} min` : ''}`;
+}
+function dashboardDelta(value: number, unit: string) {
+  return value === 0 ? 'Identique' : `${value > 0 ? '+' : '−'}${Math.abs(value)} ${unit}`;
+}
+function dashboardSequenceSentence(sequence: ActivitySequence) {
+  const passage = sequence.passages[0];
+  if (passage) return `Passage entre ${passage.fromLevelName} et ${passage.toLevelName}.`;
+  if (sequence.roomNames.length > 1) {
+    const first = sequence.roomNames[0] ?? 'le logement';
+    const last = sequence.roomNames.at(-1) ?? first;
+    return first === last
+      ? `Déplacement avec retour dans « ${first} ».`
+      : `Passage de ${first} à ${last}.`;
+  }
+  return `Activité observée dans ${sequence.roomNames[0] ?? 'le logement'}.`;
+}
+function dashboardPayload(event: ActivityEvent) {
+  return event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload)
+    ? (event.payload as Record<string, unknown>)
+    : {};
+}
+function mobileEventDescription(event: ActivityEvent) {
+  const payload = dashboardPayload(event);
+  const context =
+    payload.context && typeof payload.context === 'object' && !Array.isArray(payload.context)
+      ? (payload.context as Record<string, unknown>)
+      : {};
+  const raw = payload.open ?? payload.active ?? payload.value ?? payload.state;
+  if (event.capability === 'contact' || event.capability === 'dry_contact') {
+    const open =
+      raw === true || raw === 'open' || raw === 'contact_open' || raw === 'on' || raw === 1;
+    if (context.role === 'BED')
+      return open === (context.bedOccupiedWhen === 'OPEN') ? 'Lit occupé' : 'Lit libre';
+    return open
+      ? event.capability === 'dry_contact'
+        ? 'Contact ouvert'
+        : 'Ouverture détectée'
+      : event.capability === 'dry_contact'
+        ? 'Contact fermé'
+        : 'Fermeture détectée';
+  }
+  if (event.capability === 'motion') return 'Mouvement détecté';
+  if (event.capability === 'occupancy' || event.capability === 'person_presence')
+    return 'Présence détectée';
+  if (event.capability === 'button') return 'Bouton d’appel activé';
+  const value =
+    typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean'
+      ? String(raw)
+      : '';
+  return value
+    ? `${capabilityMeta[event.capability]?.label ?? event.capability} · ${value}${event.unit ? ` ${event.unit}` : ''}`
+    : (capabilityMeta[event.capability]?.label ?? event.capability);
+}
+function mobileActivityPresence(data: HomeSummary) {
+  const roomId =
+    data.latestPresence?.roomId ?? data.presence.confirmedRoomId ?? data.presence.roomId;
+  const room = data.rooms.find(({ id }) => id === roomId);
+  return room
+    ? `Présence observée dans ${room.name}.`
+    : caregiverPresenceCopy(data.presence).detail;
+}
+function ComparisonStat({ value, label }: { value: string; label: string }) {
   return (
-    <View style={styles.listRow}>
-      <View style={styles.rowIcon}>
-        <Ionicons name={meta.icon} color={colors.blue} size={19} />
+    <View style={styles.comparisonStat}>
+      <Text style={styles.comparisonValue}>{value}</Text>
+      <Text style={styles.rowDetail}>{label}</Text>
+    </View>
+  );
+}
+function MomentStat({
+  icon,
+  value,
+  label,
+  tone,
+}: {
+  icon: IconName;
+  value: string;
+  label: string;
+  tone: 'blue' | 'green' | 'amber';
+}) {
+  return (
+    <View style={styles.momentStat}>
+      <View
+        style={[
+          styles.momentIcon,
+          tone === 'green'
+            ? styles.momentIconGreen
+            : tone === 'amber'
+              ? styles.momentIconAmber
+              : null,
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={17}
+          color={tone === 'green' ? colors.green : tone === 'amber' ? colors.amber : colors.blue}
+        />
       </View>
-      <View style={styles.rowCopy}>
-        <Text style={styles.rowTitle}>
-          {meta.label} · {roomOf(item)}
-        </Text>
-        <Text style={styles.rowDetail}>
-          {friendlyValue(item.payload) ?? relativeTime(item.occurredAt)}
-        </Text>
-      </View>
-      <Text style={styles.rowTime}>
-        {new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(
-          new Date(item.occurredAt),
-        )}
-      </Text>
+      <Text style={styles.momentValue}>{value}</Text>
+      <Text style={styles.rowDetail}>{label}</Text>
     </View>
   );
 }
@@ -981,6 +1222,11 @@ function AlertsTab({
   onRefresh,
   onMore,
   hasMore,
+  canManage,
+  residentName,
+  timezone,
+  onCall,
+  onSettings,
 }: {
   server: SavedServer;
   token: string;
@@ -989,31 +1235,73 @@ function AlertsTab({
   onRefresh: () => void;
   onMore: () => void;
   hasMore?: boolean;
+  canManage: boolean;
+  residentName: string;
+  timezone: string;
+  onCall: () => void;
+  onSettings: () => void;
 }) {
   const client = useQueryClient();
-  const [filter, setFilter] = useState<'open' | 'history'>('open');
+  const [filter, setFilter] = useState<'ALL' | 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED'>('ALL');
+  const [showHistory, setShowHistory] = useState(false);
+  const [severity, setSeverity] = useState<'ALL' | AlertItem['severity']>('ALL');
+  const [room, setRoom] = useState('ALL');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [selected, setSelected] = useState<AlertItem | null>(null);
   const [snapshotVisible, setSnapshotVisible] = useState(false);
-  const visible = items.filter((item) =>
-    filter === 'open'
-      ? ['OPEN', 'ACKNOWLEDGED'].includes(item.status)
-      : ['RESOLVED', 'DISMISSED'].includes(item.status),
+  const [dismissOpen, setDismissOpen] = useState(false);
+  const [dismissReason, setDismissReason] = useState('');
+  const [callOpen, setCallOpen] = useState(false);
+  const urgentCount = useQuery({
+    queryKey: ['michel', server.id, 'alert-summary'],
+    queryFn: () => mobileApi.alertSummary(server, token),
+  });
+  const detail = useQuery({
+    queryKey: ['michel', server.id, 'alert-detail', selected?.id],
+    queryFn: () => mobileApi.alertDetail(server, token, selected!.id),
+    enabled: Boolean(selected),
+  });
+  const rooms = [
+    ...new Map(
+      items.filter((item) => item.room).map((item) => [item.room!.id, item.room!]),
+    ).values(),
+  ];
+  const todayKey = dashboardDateKey(new Date(), timezone);
+  const matching = items.filter(
+    (item) =>
+      (filter === 'ALL' ||
+        (filter === 'RESOLVED'
+          ? ['RESOLVED', 'DISMISSED'].includes(item.status)
+          : item.status === filter)) &&
+      (severity === 'ALL' || item.severity === severity) &&
+      (room === 'ALL' || item.room?.id === room),
+  );
+  const visible = matching.filter(
+    (item) =>
+      showHistory ||
+      ['OPEN', 'ACKNOWLEDGED'].includes(item.status) ||
+      dashboardDateKey(new Date(item.openedAt), timezone) === todayKey,
   );
   const mutation = useMutation({
     mutationFn: ({
       id,
       status,
+      note,
     }: {
       id: string;
       status: 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED';
-    }) => mobileApi.transitionAlert(server, token, id, status),
+      note?: string;
+    }) => mobileApi.transitionAlert(server, token, id, status, note),
     onSuccess: async () => {
       setSelected(null);
+      setDismissOpen(false);
+      setDismissReason('');
       await client.invalidateQueries({ queryKey: ['michel', server.id] });
     },
   });
-  const act = (status: 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED') => {
+  const act = (status: 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED', note?: string) => {
     if (!selected) return;
+    if (!canManage) return;
     Alert.alert(
       'Confirmer cette action ?',
       status === 'ACKNOWLEDGED'
@@ -1021,24 +1309,147 @@ function AlertsTab({
         : 'L’alerte quittera la liste des alertes ouvertes.',
       [
         { text: 'Annuler', style: 'cancel' },
-        { text: 'Confirmer', onPress: () => mutation.mutate({ id: selected.id, status }) },
+        { text: 'Confirmer', onPress: () => mutation.mutate({ id: selected.id, status, note }) },
       ],
     );
   };
+  const closeDetail = () => {
+    setSelected(null);
+    setDismissOpen(false);
+    setCallOpen(false);
+  };
+  const actualDetail = detail.data?.id === selected?.id ? detail.data : null;
+  const observations =
+    actualDetail?.observations.filter((entry) => entry.quality !== 'INVALID') ?? [];
+  const latestValue =
+    observations[0]?.payload &&
+    typeof observations[0].payload === 'object' &&
+    'value' in observations[0].payload
+      ? (observations[0].payload as { value?: unknown }).value
+      : null;
+  const numberValue =
+    typeof latestValue === 'number'
+      ? latestValue
+      : typeof latestValue === 'string' &&
+          latestValue.trim() &&
+          Number.isFinite(Number(latestValue))
+        ? Number(latestValue)
+        : null;
+  const timelineEntries = selected
+    ? [
+        { id: 'opened', at: selected.openedAt, label: 'Situation détectée' },
+        ...(actualDetail?.transitions ?? []).map((entry) => ({
+          id: entry.id,
+          at: entry.createdAt,
+          label: `${alertStatusLabel(entry.to)}${entry.note ? ` · ${entry.note}` : ''}`,
+        })),
+        ...observations.slice(0, 3).map((entry) => {
+          const measured = numberFromPayload(entry.payload);
+          return {
+            id: entry.id,
+            at: entry.occurredAt,
+            label:
+              measured !== null
+                ? `Mesure : ${measured} ${actualDetail?.sensor?.unit ?? ''}`
+                : 'Événement du capteur',
+          };
+        }),
+      ].sort((left, right) => Date.parse(left.at) - Date.parse(right.at))
+    : [];
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <SectionTitle eyebrow="SUIVI" title="Alertes" />
+      <SectionTitle
+        eyebrow="ALERTES DU DOMICILE"
+        title="Alertes"
+        action={
+          <Pressable onPress={onSettings}>
+            <Text style={styles.link}>Règles des alertes</Text>
+          </Pressable>
+        }
+      />
+      <View
+        style={[
+          styles.alertReassurance,
+          (urgentCount.data?.urgentCount ?? 0) > 0 && styles.alertReassuranceUrgent,
+        ]}
+      >
+        <Ionicons
+          name="shield-checkmark-outline"
+          size={22}
+          color={(urgentCount.data?.urgentCount ?? 0) > 0 ? colors.red : colors.green}
+        />
+        <View style={styles.rowCopy}>
+          <Text style={styles.rowTitle}>
+            {urgentCount.isError
+              ? 'État des urgences indisponible'
+              : urgentCount.data?.urgentCount
+                ? `${urgentCount.data.urgentCount} alerte${urgentCount.data.urgentCount === 1 ? '' : 's'} urgente${urgentCount.data.urgentCount === 1 ? '' : 's'} en cours`
+                : 'Aucune alerte urgente en cours'}
+          </Text>
+          <Text style={styles.rowDetail}>
+            {items.length} dernières situations reçues, de la plus récente à la plus ancienne.
+          </Text>
+        </View>
+      </View>
       <Segment
         options={[
-          [
-            'open',
-            `En cours (${items.filter((item) => ['OPEN', 'ACKNOWLEDGED'].includes(item.status)).length})`,
-          ],
-          ['history', 'Historique'],
+          ['ALL', showHistory ? 'Toutes' : 'Aujourd’hui'],
+          ['OPEN', 'Ouvertes'],
+          ['ACKNOWLEDGED', 'Prises en charge'],
+          ['RESOLVED', 'Résolues'],
         ]}
         value={filter}
         onChange={(value) => setFilter(value as typeof filter)}
       />
+      <Pressable style={styles.filterToggle} onPress={() => setFiltersOpen((value) => !value)}>
+        <Ionicons name="filter-outline" size={17} color={colors.blue} />
+        <Text style={styles.link}>
+          {filtersOpen ? 'Masquer les filtres' : 'Filtrer par priorité ou pièce'}
+        </Text>
+      </Pressable>
+      {filtersOpen ? (
+        <View style={styles.filterPanel}>
+          <Text style={styles.metricLabel}>PRIORITÉ</Text>
+          <View style={styles.chips}>
+            {(['ALL', 'INFO', 'ATTENTION', 'URGENT'] as const).map((value) => (
+              <Chip
+                key={value}
+                label={
+                  value === 'ALL'
+                    ? 'Toutes'
+                    : value === 'INFO'
+                      ? 'Information'
+                      : value === 'ATTENTION'
+                        ? 'À vérifier'
+                        : 'Urgence'
+                }
+                active={severity === value}
+                onPress={() => setSeverity(value)}
+              />
+            ))}
+          </View>
+          <Text style={styles.metricLabel}>PIÈCE</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chips}
+          >
+            <Chip
+              label="Toutes les pièces"
+              active={room === 'ALL'}
+              onPress={() => setRoom('ALL')}
+            />
+            {rooms.map((value) => (
+              <Chip
+                key={value.id}
+                label={value.name}
+                active={room === value.id}
+                onPress={() => setRoom(value.id)}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
       <View style={styles.card}>
         {visible.map((item) => (
           <Pressable
@@ -1087,23 +1498,36 @@ function AlertsTab({
           <Empty
             icon="checkmark-circle-outline"
             text={
-              filter === 'open'
+              filter !== 'RESOLVED'
                 ? 'Aucune alerte ne demande votre attention.'
                 : 'Aucune alerte dans l’historique.'
             }
           />
         ) : null}
-        {hasMore ? <LoadMore onPress={onMore} /> : null}
+        {matching.length > visible.length || hasMore ? (
+          <Pressable
+            style={styles.loadMore}
+            onPress={() => {
+              if (!showHistory) setShowHistory(true);
+              else onMore();
+            }}
+          >
+            <Text style={styles.link}>
+              {showHistory ? 'Charger d’autres situations' : 'Afficher les alertes précédentes'}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.blue} />
+          </Pressable>
+        ) : null}
       </View>
       <Modal
         visible={Boolean(selected)}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setSelected(null)}
+        onRequestClose={closeDetail}
       >
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <Pressable style={styles.close} onPress={() => setSelected(null)}>
+            <Pressable style={styles.close} onPress={closeDetail}>
               <Ionicons name="close" size={22} color={colors.navy} />
             </Pressable>
             <Text style={styles.modalLabel}>DÉTAIL DE L’ALERTE</Text>
@@ -1120,11 +1544,36 @@ function AlertsTab({
                 <Ionicons name="notifications" color="#fff" size={30} />
               </View>
               <Text style={styles.modalTitle}>{selected.title}</Text>
-              <Text style={styles.modalDate}>{fullDate(selected.openedAt)}</Text>
+              <Text style={styles.modalDate}>{fullDate(selected.openedAt, timezone)}</Text>
               <View style={styles.explanationCard}>
-                <Text style={styles.explanationTitle}>Ce qu’Élise a observé</Text>
+                <Text style={styles.explanationTitle}>Ce qui a été observé</Text>
                 <Text style={styles.explanationText}>{selected.explanation}</Text>
+                {selected.room?.name ? (
+                  <Text style={styles.rowDetail}>Pièce : {selected.room.name}</Text>
+                ) : null}
+                {selected.type === 'INACTIVITY' && selected.lastMovement ? (
+                  <Text style={styles.rowDetail}>
+                    Dernier mouvement fiable :{' '}
+                    {fullDate(selected.lastMovement.occurredAt, timezone)}
+                    {selected.lastMovement.roomName ? ` · ${selected.lastMovement.roomName}` : ''}
+                  </Text>
+                ) : null}
               </View>
+              {detail.isPending ? (
+                <Text style={styles.rowDetail}>Chargement des observations…</Text>
+              ) : null}
+              {actualDetail?.sensor ? (
+                <View style={styles.alertMeasure}>
+                  <Ionicons name="thermometer-outline" size={18} color={colors.blue} />
+                  <Text style={styles.rowDetail}>
+                    Capteur : {actualDetail.sensor.sourceName ?? actualDetail.sensor.capability}
+                    {numberValue !== null
+                      ? ` · ${numberValue}${actualDetail.sensor.unit ? ` ${actualDetail.sensor.unit}` : ''}`
+                      : ''}
+                    {observations[0] ? ` · ${relativeTime(observations[0].occurredAt)}` : ''}
+                  </Text>
+                </View>
+              ) : null}
               {selected.cameraSnapshots?.length ? (
                 <View style={styles.mobileAlertSnapshot}>
                   {snapshotVisible ? (
@@ -1153,14 +1602,14 @@ function AlertsTab({
                   )}
                 </View>
               ) : null}
-              {selected.transitions?.length ? (
+              {actualDetail?.transitions?.length || observations.length ? (
                 <View style={styles.timeline}>
-                  <Text style={styles.eyebrow}>HISTORIQUE</Text>
-                  {selected.transitions.map((transition) => (
-                    <View key={transition.id} style={styles.timelineRow}>
+                  <Text style={styles.eyebrow}>CHRONOLOGIE</Text>
+                  {timelineEntries.map((entry) => (
+                    <View key={entry.id} style={styles.timelineRow}>
                       <View style={styles.timelineDot} />
                       <Text style={styles.timelineText}>
-                        {transition.to} · {fullDate(transition.createdAt)}
+                        {entry.label} · {fullDate(entry.at, timezone)}
                       </Text>
                     </View>
                   ))}
@@ -1168,25 +1617,107 @@ function AlertsTab({
               ) : null}
               {['OPEN', 'ACKNOWLEDGED'].includes(selected.status) ? (
                 <View style={styles.alertActions}>
-                  {selected.status === 'OPEN' ? (
+                  {canManage && selected.status === 'OPEN' ? (
                     <Pressable style={styles.primaryButton} onPress={() => act('ACKNOWLEDGED')}>
                       <Text style={styles.primaryButtonText}>Prendre en charge</Text>
                     </Pressable>
                   ) : null}
-                  <Pressable style={styles.secondaryButton} onPress={() => act('RESOLVED')}>
-                    <Text style={styles.secondaryButtonText}>Marquer comme résolue</Text>
+                  <Pressable style={styles.secondaryButton} onPress={() => setCallOpen(true)}>
+                    <Text style={styles.secondaryButtonText}>Appeler {residentName}</Text>
                   </Pressable>
-                  <Pressable onPress={() => act('DISMISSED')}>
-                    <Text style={styles.dismissText}>Ignorer cette alerte</Text>
-                  </Pressable>
+                  {canManage ? (
+                    <Pressable style={styles.secondaryButton} onPress={() => act('RESOLVED')}>
+                      <Text style={styles.secondaryButtonText}>Marquer comme résolue</Text>
+                    </Pressable>
+                  ) : null}
+                  {canManage ? (
+                    <Pressable onPress={() => setDismissOpen(true)}>
+                      <Text style={styles.dismissText}>Signaler une fausse alerte</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
+              {dismissOpen ? (
+                <View style={styles.dismissPanel}>
+                  <Text style={styles.explanationTitle}>
+                    Pourquoi cette alerte est-elle fausse ?
+                  </Text>
+                  <TextInput
+                    value={dismissReason}
+                    onChangeText={setDismissReason}
+                    multiline
+                    maxLength={1000}
+                    placeholder="Décrivez ce qui s’est passé…"
+                    style={styles.dismissInput}
+                  />
+                  <View style={styles.dismissButtons}>
+                    <Pressable style={styles.secondaryButton} onPress={() => setDismissOpen(false)}>
+                      <Text style={styles.secondaryButtonText}>Annuler</Text>
+                    </Pressable>
+                    <Pressable
+                      disabled={!dismissReason.trim() || mutation.isPending}
+                      style={[
+                        styles.primaryButton,
+                        (!dismissReason.trim() || mutation.isPending) && styles.buttonDisabled,
+                      ]}
+                      onPress={() => act('DISMISSED', dismissReason.trim())}
+                    >
+                      <Text style={styles.primaryButtonText}>Confirmer</Text>
+                    </Pressable>
+                  </View>
                 </View>
               ) : null}
             </ScrollView>
           ) : null}
         </SafeAreaView>
       </Modal>
+      <Modal
+        visible={callOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCallOpen(false)}
+      >
+        <View style={styles.confirmBackdrop}>
+          <View style={styles.confirmCard}>
+            <Text style={styles.modalTitle}>Appeler {residentName} ?</Text>
+            <Text style={styles.rowDetail}>Une demande d’appel sera envoyée à son écran.</Text>
+            <View style={styles.dismissButtons}>
+              <Pressable style={styles.secondaryButton} onPress={() => setCallOpen(false)}>
+                <Text style={styles.secondaryButtonText}>Annuler</Text>
+              </Pressable>
+              <Pressable
+                style={styles.primaryButton}
+                onPress={() => {
+                  setCallOpen(false);
+                  onCall();
+                }}
+              >
+                <Text style={styles.primaryButtonText}>Lancer l’appel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
+}
+
+function numberFromPayload(payload: unknown): number | null {
+  if (!payload || typeof payload !== 'object' || !('value' in payload)) return null;
+  const value = payload.value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value)))
+    return Number(value);
+  return null;
+}
+function alertStatusLabel(status: AlertItem['status']) {
+  return status === 'ACKNOWLEDGED'
+    ? 'Prise en charge'
+    : status === 'RESOLVED'
+      ? 'Résolue'
+      : status === 'DISMISSED'
+        ? 'Écartée'
+        : 'Ouverte';
 }
 
 function MobileSensors({
@@ -1750,6 +2281,7 @@ function MobileHomePlan({
   presence,
   sensors,
   cameras,
+  focusRoomId,
   onSave,
   onOpenCameras,
 }: {
@@ -1757,6 +2289,7 @@ function MobileHomePlan({
   presence: PresenceEstimate | null;
   sensors: Household['rooms'][number]['sensors'];
   cameras: CameraItem[];
+  focusRoomId: string | null;
   onSave: (plan: HomePlan) => Promise<HomePlan>;
   onOpenCameras: () => void;
 }) {
@@ -1815,6 +2348,17 @@ function MobileHomePlan({
     );
     if (targetFloor) setFloorId(targetFloor.id);
   }, [draft, mode, presence?.candidateRoomId, presence?.confirmedRoomId]);
+
+  useEffect(() => {
+    if (!draft || !focusRoomId) return;
+    const targetFloor = draft.levels.find((level) =>
+      level.rooms.some((room) => room.id === focusRoomId),
+    );
+    if (!targetFloor) return;
+    setMode('LIVE');
+    setFloorId(targetFloor.id);
+    setSelectedRoomId(focusRoomId);
+  }, [draft, focusRoomId]);
 
   if (!draft) return <Empty icon="map-outline" text="Chargement du logement…" />;
   const floor = draft.levels.find(({ id }) => id === floorId) ?? draft.levels[0];
@@ -2501,6 +3045,10 @@ function HouseTab({
   sensorDevices,
   plan,
   presence,
+  focusRoomId,
+  overview,
+  coverage,
+  protocols,
   onSavePlan,
   refreshing,
   onRefresh,
@@ -2512,20 +3060,169 @@ function HouseTab({
   sensorDevices: SensorDevice[];
   plan: HomePlan | null;
   presence: PresenceEstimate | null;
+  focusRoomId: string | null;
+  overview?: Overview;
+  coverage: EquipmentCoverage | null;
+  protocols: Array<{ id: string; available: boolean; native: boolean }>;
   onSavePlan: (plan: HomePlan) => Promise<HomePlan>;
   refreshing: boolean;
   onRefresh: () => void;
 }) {
-  const [section, setSection] = useState<'rooms' | 'sensors' | 'cameras' | 'people'>('rooms');
+  const [section, setSection] = useState<'rooms' | 'sensors' | 'cameras'>('rooms');
+  const roomCount =
+    plan?.levels.reduce((sum, level) => sum + level.rooms.length, 0) ??
+    household?.rooms.length ??
+    0;
+  const levelCount = plan?.levels.length ?? 0;
+  const onlineSensors = overview?.sensors?.online ?? sensorDevices.length;
+  const totalSensors = overview?.sensors?.total ?? sensorDevices.length;
+  const issueSensors = (overview?.sensors?.degraded ?? 0) + (overview?.sensors?.offline ?? 0);
+  const onlineCameras = cameras.filter((camera) => camera.status === 'ONLINE').length;
+  const area = plan?.understanding.levels.length
+    ? plan.understanding.levels.reduce((sum, level) => sum + level.areaM2, 0)
+    : (plan?.levels
+        .flatMap((level) => level.rooms)
+        .reduce((sum, room) => sum + (room.areaM2 ?? mobilePlanRoomArea(room)), 0) ?? 0);
+  const structuralIssues = plan
+    ? plan.understanding.floorsWithoutStairs.length +
+      plan.understanding.isolatedRoomIds.length +
+      plan.understanding.incompleteStairIds.length
+    : 0;
+  const coverageFamilies = [
+    {
+      label: 'Présence et déplacements',
+      matches: ['motion', 'occupancy', 'person_presence', 'bed'],
+    },
+    {
+      label: 'Confort et qualité de l’air',
+      matches: [
+        'temperature',
+        'humidity',
+        'shower',
+        'air_quality',
+        'co2',
+        'voc',
+        'pm25',
+        'illuminance',
+      ],
+    },
+    { label: 'Ouvertures', matches: ['contact', 'dry_contact'] },
+    { label: 'Caméras', matches: ['camera'] },
+    {
+      label: 'Eau et sécurité',
+      matches: ['water_leak', 'smoke', 'carbon_monoxide', 'fall_detection'],
+    },
+    { label: 'Assistance', matches: ['button'] },
+    { label: 'Énergie', matches: ['power', 'energy'] },
+  ].map((family) => {
+    const needs = (coverage?.recommendations ?? []).filter((item) =>
+      family.matches.includes(item.capability),
+    );
+    const specificRooms = new Set(
+      needs.filter((item) => item.target.type !== 'ROOM').map((item) => item.target.roomId),
+    );
+    const filtered = needs.filter(
+      (item) => item.target.type !== 'ROOM' || !specificRooms.has(item.target.roomId),
+    );
+    const covered = filtered.filter(
+      (item) =>
+        Boolean(item.fulfilledByPlacementId) ||
+        (item.target.type === 'ROOM' &&
+          sensorDevices.some(
+            (device) =>
+              device.room?.id === item.target.roomId &&
+              device.capabilities.some((capability) =>
+                family.matches.includes(capability.capability),
+              ),
+          )),
+    ).length;
+    return { label: family.label, count: filtered.length, covered };
+  });
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <SectionTitle eyebrow="FOYER" title="Maison" />
+      <SectionTitle eyebrow="FOYER" title="Mon logement" />
+      <View style={styles.houseOverview}>
+        <HouseMetric
+          icon="map-outline"
+          value={String(roomCount)}
+          label="pièces"
+          detail={
+            levelCount ? `${levelCount} niveau${levelCount > 1 ? 'x' : ''}` : 'Plan à compléter'
+          }
+        />
+        <HouseMetric
+          icon="resize-outline"
+          value={area ? `${area.toFixed(0)} m²` : '—'}
+          label="surface estimée"
+          detail={
+            plan?.understanding.levels.some((level) => level.approximate)
+              ? 'Estimation indicative'
+              : 'Selon le plan'
+          }
+        />
+        <HouseMetric
+          icon="hardware-chip-outline"
+          value={`${onlineSensors}/${totalSensors}`}
+          label="capteurs en ligne"
+          detail={issueSensors ? `${issueSensors} à vérifier` : 'Tous opérationnels'}
+          tone={issueSensors ? 'amber' : 'green'}
+        />
+      </View>
+      <View style={styles.card}>
+        <SectionTitle eyebrow="ÉTAT DU DOMICILE" title="Équipement du logement" />
+        <EquipmentStateRow
+          label="En ligne"
+          value={overview?.sensors?.online ?? 0}
+          color={colors.green}
+        />
+        <EquipmentStateRow
+          label="Dégradés"
+          value={overview?.sensors?.degraded ?? 0}
+          color={colors.amber}
+        />
+        <EquipmentStateRow
+          label="Hors ligne"
+          value={overview?.sensors?.offline ?? 0}
+          color={colors.red}
+        />
+        <EquipmentStateRow label="Caméras disponibles" value={onlineCameras} color={colors.blue} />
+        <View style={styles.protocolRow}>
+          <Ionicons name="radio-outline" size={18} color={colors.accent} />
+          <Text style={styles.rowTitle}>Réseau Zigbee</Text>
+          <Text style={styles.protocolState}>
+            {protocols.find(({ id }) => id === 'zigbee')?.available ? 'Disponible' : 'À configurer'}
+          </Text>
+        </View>
+        {plan && (structuralIssues || !plan.configured) ? (
+          <Text style={styles.houseWarning}>
+            {!plan.configured
+              ? 'Le plan doit encore être configuré.'
+              : `${structuralIssues} point${structuralIssues === 1 ? '' : 's'} du plan à vérifier.`}
+          </Text>
+        ) : null}
+      </View>
+      <View style={styles.card}>
+        <SectionTitle eyebrow="COMPRÉHENSION" title="Ce qu’Élise couvre" />
+        {coverageFamilies.map((family) => (
+          <View key={family.label} style={styles.coverageRow}>
+            <Text style={styles.rowTitle}>{family.label}</Text>
+            <Text style={styles.rowDetail}>
+              {family.count ? `${family.covered}/${family.count} équipés` : 'À découvrir'}
+            </Text>
+          </View>
+        ))}
+        {coverage?.summary.warnings.length ? (
+          <Text style={styles.houseWarning}>
+            Le plan recommande de vérifier {coverage.summary.warnings.length} point
+            {coverage.summary.warnings.length === 1 ? '' : 's'} de couverture.
+          </Text>
+        ) : null}
+      </View>
       <Segment
         options={[
           ['rooms', 'Mon logement'],
           ['sensors', 'Capteurs'],
           ['cameras', 'Caméras'],
-          ['people', 'Entourage'],
         ]}
         value={section}
         onChange={(value) => setSection(value as typeof section)}
@@ -2539,6 +3236,7 @@ function HouseTab({
             ...(household?.rooms.flatMap((room) => room.sensors) ?? []),
           ]}
           cameras={cameras}
+          focusRoomId={focusRoomId}
           onSave={onSavePlan}
           onOpenCameras={() => setSection('cameras')}
         />
@@ -2555,40 +3253,75 @@ function HouseTab({
       {section === 'cameras' ? (
         <CameraSection server={server} token={token} cameras={cameras} onRefresh={onRefresh} />
       ) : null}
-      {section === 'people' ? (
-        <>
-          <MobileScreenPanel server={server} token={token} />
-          <View style={styles.card}>
-            <SectionTitle eyebrow="RÉSIDENTS" title="Personnes accompagnées" />
-            {household?.residents.map((resident) => (
-              <PersonRow
-                key={resident.id}
-                name={resident.displayName}
-                detail={resident.birthYear ? `Né(e) en ${resident.birthYear}` : 'Résident du foyer'}
-                primary={resident.primary}
-              />
-            ))}
-            {!household?.residents.length ? (
-              <Empty icon="person-outline" text="Aucun résident renseigné." />
-            ) : null}
-          </View>
-          <View style={styles.card}>
-            <SectionTitle eyebrow="ENTOURAGE" title="Aidants et proches" />
-            {household?.caregivers.map((person) => (
-              <PersonRow
-                key={person.id}
-                name={person.displayName}
-                detail={[person.relation, person.role].filter(Boolean).join(' · ')}
-                primary={person.isPrimary}
-              />
-            ))}
-            {!household?.caregivers.length ? (
-              <Empty icon="people-outline" text="Aucun aidant renseigné." />
-            ) : null}
-          </View>
-        </>
-      ) : null}
     </Screen>
+  );
+}
+
+function HouseMetric({
+  icon,
+  value,
+  label,
+  detail,
+  tone = 'blue',
+}: {
+  icon: IconName;
+  value: string;
+  label: string;
+  detail: string;
+  tone?: 'blue' | 'green' | 'amber';
+}) {
+  return (
+    <View style={styles.houseMetric}>
+      <View
+        style={[
+          styles.smallIcon,
+          tone === 'green'
+            ? styles.houseMetricGreen
+            : tone === 'amber'
+              ? styles.houseMetricAmber
+              : null,
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={17}
+          color={tone === 'green' ? colors.green : tone === 'amber' ? colors.amber : colors.blue}
+        />
+      </View>
+      <Text style={styles.houseMetricValue}>{value}</Text>
+      <Text style={styles.rowDetail}>{label}</Text>
+      <Text style={styles.houseMetricDetail}>{detail}</Text>
+    </View>
+  );
+}
+
+function EquipmentStateRow({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: string;
+}) {
+  return (
+    <View style={styles.equipmentStateRow}>
+      <View style={[styles.equipmentStateDot, { backgroundColor: color }]} />
+      <Text style={styles.rowTitle}>{label}</Text>
+      <Text style={styles.equipmentStateValue}>{value}</Text>
+    </View>
+  );
+}
+
+function mobilePlanRoomArea(room: PlanRoom) {
+  const points = room.geometry.points;
+  return (
+    Math.abs(
+      points.reduce((sum, point, index) => {
+        const next = points[(index + 1) % points.length] ?? point;
+        return sum + point.x * next.y - next.x * point.y;
+      }, 0) / 2,
+    ) / 10_000
   );
 }
 
@@ -2768,31 +3501,6 @@ function CameraSection({
   );
 }
 
-function PersonRow({ name, detail, primary }: { name: string; detail: string; primary: boolean }) {
-  return (
-    <View style={styles.personRow}>
-      <View style={styles.personAvatar}>
-        <Text style={styles.personInitials}>
-          {name
-            .split(' ')
-            .map((part) => part[0])
-            .join('')
-            .slice(0, 2)}
-        </Text>
-      </View>
-      <View style={styles.rowCopy}>
-        <Text style={styles.rowTitle}>{name}</Text>
-        <Text style={styles.rowDetail}>{detail}</Text>
-      </View>
-      {primary ? (
-        <View style={styles.primaryPill}>
-          <Text style={styles.primaryPillText}>PRINCIPAL</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
 function JournalTab({
   items,
   schedule,
@@ -2924,19 +3632,6 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
     <Pressable style={[styles.chip, active && styles.chipActive]} onPress={onPress}>
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
-  );
-}
-function BarRow({ label, value, max }: { label: string; value: number; max: number }) {
-  return (
-    <View style={styles.barBlock}>
-      <View style={styles.barLabels}>
-        <Text style={styles.rowTitle}>{label}</Text>
-        <Text style={styles.rowDetail}>{value}</Text>
-      </View>
-      <View style={styles.barTrack}>
-        <View style={[styles.barFill, { width: `${Math.max(4, (value / max) * 100)}%` }]} />
-      </View>
-    </View>
   );
 }
 function Empty({ icon, text }: { icon: IconName; text: string }) {
@@ -4020,4 +4715,317 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   mobileWizardFoot: { color: colors.muted, fontSize: 9, marginTop: 10, textAlign: 'center' },
+  headerMenuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  pagesBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(11, 41, 72, 0.34)' },
+  pagesSheet: {
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 35,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: colors.cream,
+    gap: 9,
+  },
+  pagesHeader: {
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pagesTitle: { marginTop: 5, color: colors.navy, fontFamily: 'Georgia', fontSize: 23 },
+  pageMenuRow: {
+    minHeight: 64,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    backgroundColor: colors.paper,
+  },
+  pageMenuIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.paleBlue,
+  },
+  pageMenuLabel: { flex: 1, color: colors.navy, fontSize: 12, fontWeight: '800' },
+  alertReassurance: {
+    minHeight: 72,
+    padding: 13,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: colors.line,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.paleGreen,
+  },
+  alertReassuranceUrgent: { borderColor: '#E4B7B2', backgroundColor: '#F9E9E6' },
+  filterToggle: {
+    minHeight: 37,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  filterPanel: {
+    padding: 13,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    gap: 8,
+    backgroundColor: colors.paper,
+  },
+  alertMeasure: {
+    width: '100%',
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.paleBlue,
+  },
+  dismissPanel: {
+    width: '100%',
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 14,
+    gap: 9,
+    backgroundColor: colors.paleAmber,
+  },
+  dismissInput: {
+    minHeight: 84,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    color: colors.navy,
+    textAlignVertical: 'top',
+    backgroundColor: colors.paper,
+    fontSize: 11,
+  },
+  dismissButtons: { flexDirection: 'row', gap: 8 },
+  confirmBackdrop: {
+    flex: 1,
+    padding: 22,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(11, 41, 72, 0.35)',
+  },
+  confirmCard: { padding: 19, borderRadius: 18, gap: 12, backgroundColor: colors.paper },
+  houseOverview: { flexDirection: 'row', gap: 8 },
+  houseMetric: {
+    flex: 1,
+    minHeight: 114,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    backgroundColor: colors.paper,
+  },
+  houseMetricValue: { marginTop: 4, color: colors.navy, fontFamily: 'Georgia', fontSize: 21 },
+  houseMetricDetail: { marginTop: 4, color: colors.muted, fontSize: 8, lineHeight: 12 },
+  houseMetricGreen: { backgroundColor: colors.paleGreen },
+  houseMetricAmber: { backgroundColor: colors.paleAmber },
+  activityReliableBanner: {
+    minHeight: 48,
+    padding: 12,
+    borderRadius: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    backgroundColor: colors.paleGreen,
+  },
+  activityReliableText: {
+    flex: 1,
+    color: colors.green,
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 15,
+  },
+  datePickerButton: {
+    minHeight: 37,
+    maxWidth: '62%',
+    paddingHorizontal: 9,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.paleBlue,
+  },
+  datePickerText: { flexShrink: 1, color: colors.blue, fontSize: 9, fontWeight: '800' },
+  compareToggle: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  toggleTrack: {
+    width: 38,
+    height: 22,
+    padding: 3,
+    marginLeft: 'auto',
+    borderRadius: 12,
+    justifyContent: 'center',
+    backgroundColor: '#C9CFD2',
+  },
+  toggleTrackActive: { alignItems: 'flex-end', backgroundColor: colors.green },
+  toggleKnob: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff' },
+  toggleKnobActive: { alignSelf: 'flex-end' },
+  comparePanel: { padding: 11, borderRadius: 12, gap: 9, backgroundColor: '#F2F0EA' },
+  comparisonStats: { flexDirection: 'row', gap: 7 },
+  comparisonStat: {
+    flex: 1,
+    minHeight: 60,
+    padding: 8,
+    borderRadius: 10,
+    backgroundColor: colors.paper,
+  },
+  comparisonValue: { color: colors.navy, fontSize: 13, fontWeight: '900' },
+  momentStats: { marginTop: 13, flexDirection: 'row', gap: 7 },
+  momentStat: {
+    flex: 1,
+    minHeight: 88,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    backgroundColor: colors.paper,
+  },
+  momentIcon: {
+    width: 29,
+    height: 29,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.paleBlue,
+  },
+  momentIconGreen: { backgroundColor: colors.paleGreen },
+  momentIconAmber: { backgroundColor: colors.paleAmber },
+  momentValue: { marginTop: 6, color: colors.navy, fontSize: 15, fontWeight: '900' },
+  liveMomentRow: { minHeight: 73, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  liveTime: { width: 57, alignItems: 'flex-end' },
+  liveTimeText: { color: colors.navy, fontSize: 10, fontWeight: '900' },
+  timelineDotLive: {
+    width: 11,
+    height: 11,
+    borderWidth: 2,
+    borderColor: colors.green,
+    borderRadius: 7,
+    backgroundColor: colors.paper,
+  },
+  liveCard: {
+    minHeight: 56,
+    flex: 1,
+    padding: 10,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.paleGreen,
+  },
+  sequenceBlock: { marginTop: 4 },
+  sequenceSummary: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  sequenceCard: {
+    minHeight: 58,
+    flex: 1,
+    padding: 9,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.paper,
+  },
+  sequenceIcon: {
+    width: 31,
+    height: 31,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.paleBlue,
+  },
+  sequenceEvents: {
+    marginLeft: 66,
+    paddingLeft: 9,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.line,
+    gap: 5,
+  },
+  sequenceEvent: {
+    minHeight: 45,
+    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  sequenceEventTime: { width: 35, color: colors.muted, fontSize: 8 },
+  reliability: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 7,
+    fontSize: 7,
+    fontWeight: '900',
+  },
+  reliable: { color: colors.green, backgroundColor: colors.paleGreen },
+  unreliable: { color: '#8D641C', backgroundColor: colors.paleAmber },
+  olderNote: {
+    paddingTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  eventIcon: {
+    width: 31,
+    height: 31,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.paleBlue,
+  },
+  equipmentStateRow: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderBottomColor: colors.line,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  equipmentStateDot: { width: 8, height: 8, borderRadius: 4 },
+  equipmentStateValue: { marginLeft: 'auto', color: colors.navy, fontSize: 11, fontWeight: '900' },
+  protocolRow: {
+    minHeight: 44,
+    marginTop: 6,
+    padding: 10,
+    borderRadius: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.paleBlue,
+  },
+  protocolState: { marginLeft: 'auto', color: colors.accent, fontSize: 9, fontWeight: '800' },
+  houseWarning: {
+    padding: 10,
+    borderRadius: 10,
+    color: '#805A20',
+    backgroundColor: colors.paleAmber,
+    fontSize: 9,
+    lineHeight: 14,
+  },
+  coverageRow: {
+    minHeight: 39,
+    borderBottomColor: colors.line,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
 });
