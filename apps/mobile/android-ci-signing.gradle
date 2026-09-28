@@ -1,0 +1,22 @@
+// Applied only in the GitHub Actions release build; signing values come from repository secrets.
+android {
+    signingConfigs {
+        release {
+            def uploadKeystorePath = System.getenv('ANDROID_UPLOAD_KEYSTORE_PATH')
+            if (uploadKeystorePath == null || uploadKeystorePath.isBlank()) {
+                throw new GradleException('Missing ANDROID_UPLOAD_KEYSTORE_PATH.')
+            }
+
+            storeFile file(uploadKeystorePath)
+            storePassword System.getenv('ANDROID_UPLOAD_KEYSTORE_PASSWORD')
+            keyAlias System.getenv('ANDROID_UPLOAD_KEY_ALIAS')
+            keyPassword System.getenv('ANDROID_UPLOAD_KEY_PASSWORD')
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+}
