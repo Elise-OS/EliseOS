@@ -41,6 +41,27 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
+      - id: android-version
+        name: Set Android build version
+        run: |
+          version_name="$(node -e '
+          const fs = require("node:fs");
+          const current = JSON.parse(fs.readFileSync("apps/mobile/app.json", "utf8")).expo.version;
+          const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(current);
+          if (!match) throw new Error(`Invalid mobile app version: ${current}`);
+          console.log(`${match[1]}.${match[2]}.${Number(match[3]) + 1}`);
+          ')"
+          version_code="$GITHUB_RUN_NUMBER"
+          if [[ ! "$version_code" =~ ^[1-9][0-9]*$ || "$version_code" -gt 2100000000 ]]; then
+            echo "::error::Invalid Android versionCode: $version_code"
+            exit 1
+          fi
+          echo "ANDROID_VERSION_NAME=$version_name" >> "$GITHUB_ENV"
+          echo "ANDROID_VERSION_CODE=$version_code" >> "$GITHUB_ENV"
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+          echo "Android artifact version: $version_name (versionCode $version_code)"
+
       - name: Generate Android project
         run: pnpm --filter @michel/mobile exec expo prebuild --platform android --no-install
 
@@ -100,7 +121,7 @@ jobs:
       - name: Upload signed Android builds
         uses: actions/upload-artifact@v4
         with:
-          name: elise-mobile-android-${{ github.sha }}
+          name: elise-mobile-android-${{ steps.android-version.outputs.version_name }}-${{ steps.android-version.outputs.version_code }}
           path: |
             apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             apps/mobile/android/app/build/outputs/bundle/release/app-release.aab

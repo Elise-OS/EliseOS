@@ -1,5 +1,16 @@
 // Applied only in the GitHub Actions release build; signing values come from repository secrets.
 android {
+    defaultConfig {
+        def buildVersionCode = System.getenv('ANDROID_VERSION_CODE')
+        def buildVersionName = System.getenv('ANDROID_VERSION_NAME')
+        if (buildVersionCode == null || buildVersionName == null) {
+            throw new GradleException('Missing Android build version environment variables.')
+        }
+
+        versionCode buildVersionCode.toInteger()
+        versionName buildVersionName
+    }
+
     signingConfigs {
         release {
             def uploadKeystorePath = System.getenv('ANDROID_UPLOAD_KEYSTORE_PATH')
