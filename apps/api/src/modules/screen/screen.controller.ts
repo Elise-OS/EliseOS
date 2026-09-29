@@ -189,6 +189,35 @@ export class ScreenController {
   @Get('radio/search') radioSearch(@Req() r: AuthenticatedRequest, @Query('q') query: string) {
     return this.screens.searchRadio(r.userId, query);
   }
+  @Get('podcasts/search') podcastSearch(@Req() r: AuthenticatedRequest, @Query('q') query: string) {
+    return this.screens.searchPodcasts(r.userId, query);
+  }
+  @Post('podcasts/:id/follow') followPodcast(
+    @Req() r: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.screens.followPodcast(r.userId, id);
+  }
+  @Delete('podcasts/:id/follow') unfollowPodcast(
+    @Req() r: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.screens.unfollowPodcast(r.userId, id);
+  }
+  @Get('podcasts/:id/episodes') podcastEpisodes(
+    @Req() r: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.screens.podcastEpisodes(r.userId, id);
+  }
+  @Post('podcasts/:id/play') playPodcastEpisode(
+    @Req() r: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() b: unknown,
+  ) {
+    const input = parseRequest(z.object({ episodeId: z.string().trim().min(1).max(500) }), b);
+    return this.screens.playPodcastEpisode(r.userId, id, input.episodeId);
+  }
   @Get('weather/cities') weatherCities(@Req() r: AuthenticatedRequest, @Query('q') query: string) {
     return this.screens.searchWeatherCities(r.userId, query);
   }

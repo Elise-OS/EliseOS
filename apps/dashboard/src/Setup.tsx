@@ -1,30 +1,30 @@
 import {
-  Accessibility,
   ArrowLeft,
   ArrowRight,
   Baby,
   BedDouble,
   BellRing,
-  CalendarDays,
   Check,
   ChevronDown,
   CircleCheck,
   CircleHelp,
+  Clock3,
+  Coffee,
   Ear,
   Eye,
+  EyeOff,
   Footprints,
   HeartHandshake,
-  Home,
-  Languages,
   LoaderCircle,
   MapPin,
-  PawPrint,
+  Moon,
   Plus,
   Radar,
   ShieldCheck,
   Sparkles,
+  Sunrise,
   Trash2,
-  Upload,
+  Utensils,
   Wifi,
   WifiOff,
 } from 'lucide-react';
@@ -65,6 +65,7 @@ interface SetupDraft {
     firstName: string;
     lastName: string;
     username: string;
+    usernameEdited: boolean;
     password: string;
     confirmation: string;
     relation: string;
@@ -73,15 +74,12 @@ interface SetupDraft {
     firstName: string;
     lastName: string;
     dailyName: string;
+    dailyNameEdited: boolean;
     birthDate: string;
     language: string;
     addressAs: string;
     customAddress: string;
-    photoName: string;
   };
-  life: string[];
-  mobility: string;
-  senses: string[];
   important: string[];
   importantNote: string;
   home: { name: string; type: string; floors: string; address: string; timezone: string };
@@ -101,17 +99,18 @@ export function createBootstrapPayload(
 }
 
 const steps: Record<Locale, string[]> = {
-  fr: ['Bienvenue', 'Vous', 'Résident', 'Quotidien', 'Apprentissage', 'Accès privé', 'Terminé'],
-  en: ['Welcome', 'You', 'Resident', 'Daily life', 'Learning', 'Private access', 'Done'],
+  fr: ['Bienvenue', 'Vous', 'Résident', 'Apprentissage', 'Accès privé', 'Terminé'],
+  en: ['Welcome', 'You', 'Resident', 'Learning', 'Private access', 'Done'],
 };
 
-const setupFlow = [0, 1, 2, 3, 8, 12, 11] as const;
+const setupFlow = [0, 1, 2, 8, 12, 11] as const;
 
 const defaultDraft: SetupDraft = {
   caregiver: {
     firstName: '',
     lastName: '',
     username: '',
+    usernameEdited: false,
     password: '',
     confirmation: '',
     relation: '',
@@ -120,15 +119,12 @@ const defaultDraft: SetupDraft = {
     firstName: '',
     lastName: '',
     dailyName: '',
+    dailyNameEdited: false,
     birthDate: '',
     language: 'Français',
     addressAs: 'daily',
     customAddress: '',
-    photoName: '',
   },
-  life: [],
-  mobility: '',
-  senses: [],
   important: [],
   importantNote: '',
   home: {
@@ -164,18 +160,6 @@ const roomCatalog = [
   ['OTHER', 'Autre'],
 ] as const;
 
-const lifeOptions = [
-  ['alone', 'Vit seul', Home],
-  ['home_help', 'Reçoit une aide à domicile', Accessibility],
-  ['visits', 'Reçoit des visites régulières', CalendarDays],
-  ['pet', 'Possède un animal', PawPrint],
-] as const;
-const mobilityOptions = [
-  ['independent', 'Se déplace seul'],
-  ['cane', 'Utilise une canne'],
-  ['walker', 'Utilise un déambulateur'],
-  ['wheelchair', 'Utilise un fauteuil roulant'],
-] as const;
 const importantOptions = [
   [
     'memory',
@@ -208,8 +192,23 @@ function toggle(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
 
+function generateUsername(firstName: string, lastName: string): string {
+  const normalizePart = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '.')
+      .replace(/^\.+|\.+$/g, '');
+  const first = normalizePart(firstName);
+  const last = normalizePart(lastName);
+  return first && last ? `${first}.${last}` : '';
+}
+
 export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
   const [step, setStep] = useState(0);
+  const [previewMode, setPreviewMode] = useState(false);
   const [draft, setDraft] = useState<SetupDraft>(() => {
     if (typeof window === 'undefined') return defaultDraft;
     try {
@@ -222,10 +221,36 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
         caregiver: {
           ...defaultDraft.caregiver,
           ...saved.caregiver,
+          username:
+            saved.caregiver?.usernameEdited === true
+              ? (saved.caregiver?.username ?? '')
+              : saved.caregiver?.username ||
+                generateUsername(saved.caregiver?.firstName ?? '', saved.caregiver?.lastName ?? ''),
+          usernameEdited:
+            saved.caregiver?.usernameEdited ??
+            Boolean(
+              saved.caregiver?.username &&
+              saved.caregiver.username !==
+                generateUsername(saved.caregiver.firstName ?? '', saved.caregiver.lastName ?? ''),
+            ),
           password: '',
           confirmation: '',
         },
-        resident: { ...defaultDraft.resident, ...saved.resident, photoName: '' },
+        resident: {
+          ...defaultDraft.resident,
+          firstName: saved.resident?.firstName ?? '',
+          lastName: saved.resident?.lastName ?? '',
+          dailyName: saved.resident?.dailyName ?? '',
+          dailyNameEdited:
+            saved.resident?.dailyNameEdited ??
+            Boolean(
+              saved.resident?.dailyName && saved.resident.dailyName !== saved.resident.firstName,
+            ),
+          birthDate: '',
+          language: saved.resident?.language ?? defaultDraft.resident.language,
+          addressAs: saved.resident?.addressAs ?? defaultDraft.resident.addressAs,
+          customAddress: saved.resident?.customAddress ?? '',
+        },
         contacts: (saved.contacts ?? []).map((contact) => ({
           ...contact,
           temporaryPassword: '',
@@ -249,13 +274,15 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
   });
   const [otherContactRelation, setOtherContactRelation] = useState('');
   const [testing, setTesting] = useState(false);
-  const [residentPhoto, setResidentPhoto] = useState<File | null>(null);
 
   useEffect(() => {
     const safeDraft = {
       ...draft,
+      life: undefined,
+      mobility: undefined,
+      senses: undefined,
       caregiver: { ...draft.caregiver, password: '', confirmation: '' },
-      resident: { ...draft.resident, photoName: '' },
+      resident: { ...draft.resident, birthDate: '' },
       contacts: draft.contacts.map((contact) => ({
         id: contact.id,
         firstName: contact.firstName,
@@ -287,8 +314,29 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
 
   const patchCaregiver = (value: Partial<SetupDraft['caregiver']>) =>
     setDraft((d) => ({ ...d, caregiver: { ...d.caregiver, ...value } }));
+  const patchCaregiverName = (field: 'firstName' | 'lastName', value: string) =>
+    setDraft((d) => {
+      const caregiver = { ...d.caregiver, [field]: value };
+      if (!caregiver.usernameEdited)
+        caregiver.username = generateUsername(caregiver.firstName, caregiver.lastName);
+      return { ...d, caregiver };
+    });
   const patchResident = (value: Partial<SetupDraft['resident']>) =>
     setDraft((d) => ({ ...d, resident: { ...d.resident, ...value } }));
+  const patchResidentFirstName = (firstName: string) =>
+    setDraft((d) => ({
+      ...d,
+      resident: {
+        ...d.resident,
+        firstName,
+        dailyName:
+          d.resident.dailyNameEdited && d.resident.dailyName.trim()
+            ? d.resident.dailyName
+            : firstName,
+      },
+    }));
+  const patchResidentDailyName = (dailyName: string) =>
+    patchResident({ dailyName, dailyNameEdited: true });
   const patchHome = (value: Partial<SetupDraft['home']>) =>
     setDraft((d) => ({ ...d, home: { ...d.home, ...value } }));
 
@@ -312,18 +360,23 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
         setError('Indiquez au moins le nom, le prénom et le prénom utilisé au quotidien.'),
         false
       );
-    if (step === 3 && !draft.mobility)
-      return (setError('Choisissez la situation qui décrit le mieux ses déplacements.'), false);
     return true;
   };
 
   const next = async () => {
-    if (!validate()) return;
+    if (!previewMode && !validate()) return;
+    setError('');
     if (step === 8) {
+      if (previewMode) {
+        setStep(12);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
       await submitInstallation();
       return;
     }
-    setStep((value) => (value === 3 ? 8 : value + 1));
+    const currentIndex = setupFlow.indexOf(step as (typeof setupFlow)[number]);
+    setStep(setupFlow[currentIndex + 1] ?? 11);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -349,10 +402,18 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
               lastName: draft.caregiver.lastName,
               relation: draft.caregiver.relation,
             },
-            resident: draft.resident,
-            life: draft.life,
-            mobility: draft.mobility,
-            senses: draft.senses,
+            resident: {
+              firstName: draft.resident.firstName,
+              lastName: draft.resident.lastName,
+              dailyName: draft.resident.dailyName,
+              birthDate: '',
+              language: draft.resident.language,
+              addressAs: draft.resident.addressAs,
+              customAddress: draft.resident.customAddress,
+            },
+            life: [],
+            mobility: 'unknown',
+            senses: [],
             important: draft.important,
             importantNote: draft.importantNote,
             habits: draft.habits,
@@ -361,13 +422,16 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       });
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { message?: string } | null;
-        if (response.status === 409)
+        if (response.status === 409) {
           setError(
-            'Cette installation a déjà été configurée. Rechargez la page pour vous connecter.',
+            tr(
+              'Cette installation est déjà configurée.',
+              'This installation is already configured.',
+            ),
           );
-        else if (response.status === 403)
+        } else if (response.status === 403)
           setError(
-            'La configuration doit être effectuée depuis le réseau local de votre installation.',
+            'Accès refusé. Ouvrez Élise depuis le réseau local ou son accès privé Tailscale.',
           );
         else
           setError(
@@ -376,26 +440,10 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
           );
         return;
       }
-      const result = (await response.json()) as { residentId: string };
-      if (residentPhoto) {
-        try {
-          const photo = new FormData();
-          photo.append('photo', await resizeResidentPhoto(residentPhoto), 'resident.webp');
-          const upload = await fetch(`/api/v1/residents/${result.residentId}/photo`, {
-            method: 'POST',
-            body: photo,
-          });
-          if (!upload.ok) throw new Error('Photo upload failed');
-        } catch {
-          setError(
-            'L’environnement est créé, mais la photo n’a pas pu être enregistrée. Vous pourrez la réessayer depuis la fiche résident.',
-          );
-        }
-      }
       window.localStorage.removeItem('elise_setup_draft');
       setStep(12);
     } catch {
-      setError('Impossible de joindre Élise. Vérifiez votre connexion au réseau local.');
+      setError('Impossible de joindre Élise. Vérifiez votre connexion locale ou Tailscale.');
     } finally {
       setSubmitting(false);
     }
@@ -490,22 +538,24 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
                   autoFocus
                   autoComplete="given-name"
                   value={draft.caregiver.firstName}
-                  onChange={(e) => patchCaregiver({ firstName: e.target.value })}
+                  onChange={(e) => patchCaregiverName('firstName', e.target.value)}
                 />
               </Field>
               <Field label="Nom">
                 <input
                   autoComplete="family-name"
                   value={draft.caregiver.lastName}
-                  onChange={(e) => patchCaregiver({ lastName: e.target.value })}
+                  onChange={(e) => patchCaregiverName('lastName', e.target.value)}
                 />
               </Field>
               <Field label="Identifiant" hint="Il servira à vous connecter depuis le domicile.">
                 <input
                   autoComplete="username"
-                  placeholder="ex. paul.martin"
+                  placeholder="ex. paul.breton"
                   value={draft.caregiver.username}
-                  onChange={(e) => patchCaregiver({ username: e.target.value })}
+                  onChange={(e) =>
+                    patchCaregiver({ username: e.target.value, usernameEdited: true })
+                  }
                 />
               </Field>
               <Field label="Lien avec le résident">
@@ -549,6 +599,7 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       case 2:
         return (
           <StepShell
+            className="elise-panel--profile"
             eyebrow={tr('Profil d’accompagnement', 'Support profile')}
             title={tr('Qui Élise va-t-elle accompagner ?', 'Who will Élise support?')}
             text={tr(
@@ -556,121 +607,70 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
               'The resident does not need to manage an account. These details simply help Élise address them naturally.',
             )}
           >
-            <div className="elise-profile-grid">
-              <label className="elise-photo">
-                <span>{draft.resident.photoName ? <CircleCheck /> : <Upload />}</span>
-                <strong>{draft.resident.photoName || 'Ajouter une photo'}</strong>
-                <small>Facultatif · modifiable plus tard</small>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    setResidentPhoto(file);
-                    patchResident({ photoName: file?.name ?? '' });
-                  }}
-                />
-              </label>
-              <div className="elise-fields two-cols">
-                <Field label="Prénom">
-                  <input
-                    autoFocus
-                    value={draft.resident.firstName}
-                    onChange={(e) =>
-                      patchResident({
-                        firstName: e.target.value,
-                        dailyName: draft.resident.dailyName || e.target.value,
-                      })
-                    }
-                  />
-                </Field>
-                <Field label="Nom">
-                  <input
-                    value={draft.resident.lastName}
-                    onChange={(e) => patchResident({ lastName: e.target.value })}
-                  />
-                </Field>
-                <Field label="Prénom utilisé au quotidien">
-                  <input
-                    value={draft.resident.dailyName}
-                    onChange={(e) => patchResident({ dailyName: e.target.value })}
-                  />
-                </Field>
-                <Field label="Date de naissance" optional>
-                  <input
-                    type="date"
-                    value={draft.resident.birthDate}
-                    onChange={(e) => patchResident({ birthDate: e.target.value })}
-                  />
-                </Field>
+            <div className="elise-profile-layout">
+              <aside className="elise-profile-preview">
+                <span className="elise-profile-mark">
+                  <HeartHandshake />
+                </span>
+                <span className="elise-profile-kicker">
+                  {tr('Une personne, avant tout', 'A person, first and foremost')}
+                </span>
+                <strong>{draft.resident.dailyName || tr('Votre proche', 'Your loved one')}</strong>
+                <small>
+                  {[draft.resident.firstName, draft.resident.lastName].filter(Boolean).join(' ') ||
+                    tr('Son nom apparaîtra ici', 'Their full name will appear here')}
+                </small>
+                <div className="elise-profile-note">
+                  <Sparkles />
+                  <span>
+                    {tr(
+                      'Élise utilisera ce prénom pour s’adresser à la personne.',
+                      'Élise will use this name when speaking to them.',
+                    )}
+                  </span>
+                </div>
+              </aside>
+              <div className="elise-profile-form">
+                <div className="elise-profile-form-heading">
+                  <strong>{tr('Ses repères', 'A few details')}</strong>
+                  <span>
+                    {tr(
+                      'Ces informations pourront évoluer.',
+                      'You can update these details later.',
+                    )}
+                  </span>
+                </div>
+                <div className="elise-fields two-cols elise-resident-fields">
+                  <Field label={tr('Prénom', 'First name')}>
+                    <input
+                      autoFocus
+                      placeholder={tr('Ex. Élise', 'e.g. Élise')}
+                      value={draft.resident.firstName}
+                      onChange={(e) => patchResidentFirstName(e.target.value)}
+                    />
+                  </Field>
+                  <Field label={tr('Nom', 'Last name')}>
+                    <input
+                      placeholder={tr('Ex. Martin', 'e.g. Martin')}
+                      value={draft.resident.lastName}
+                      onChange={(e) => patchResident({ lastName: e.target.value })}
+                    />
+                  </Field>
+                  <Field
+                    label={tr('Prénom utilisé au quotidien', 'Name used every day')}
+                    hint={tr(
+                      'Le prénom qu’Élise emploiera dans les échanges.',
+                      'The name Élise will use in conversations.',
+                    )}
+                  >
+                    <input
+                      placeholder={tr('Ex. Lili', 'e.g. Lily')}
+                      value={draft.resident.dailyName}
+                      onChange={(e) => patchResidentDailyName(e.target.value)}
+                    />
+                  </Field>
+                </div>
               </div>
-            </div>
-          </StepShell>
-        );
-      case 3:
-        return (
-          <StepShell
-            eyebrow={tr('Son quotidien', 'Daily life')}
-            title={tr(
-              `Comment vit ${residentName} ?`,
-              `What is daily life like for ${residentName}?`,
-            )}
-            text={tr(
-              'Quelques repères suffisent pour comprendre le contexte du domicile. Élise ne vous demande pas de dossier médical.',
-              'A few details are enough to understand life at home. Élise does not ask for a medical record.',
-            )}
-          >
-            <SectionLabel>
-              Situation de vie <small>Plusieurs choix possibles</small>
-            </SectionLabel>
-            <div className="elise-choice-grid compact">
-              {lifeOptions.map(([value, label, Icon]) => (
-                <Choice
-                  key={value}
-                  active={draft.life.includes(value)}
-                  onClick={() => setDraft((d) => ({ ...d, life: toggle(d.life, value) }))}
-                >
-                  <Icon />
-                  {label}
-                </Choice>
-              ))}
-            </div>
-            <SectionLabel>Déplacements</SectionLabel>
-            <div className="elise-choice-grid compact">
-              {mobilityOptions.map(([value, label]) => (
-                <Choice
-                  key={value}
-                  active={draft.mobility === value}
-                  onClick={() => setDraft((d) => ({ ...d, mobility: value }))}
-                >
-                  {label}
-                </Choice>
-              ))}
-            </div>
-            <SectionLabel>
-              Confort sensoriel <small>Facultatif</small>
-            </SectionLabel>
-            <div className="elise-choice-grid compact">
-              <Choice
-                active={draft.senses.includes('hearing')}
-                onClick={() => setDraft((d) => ({ ...d, senses: toggle(d.senses, 'hearing') }))}
-              >
-                <Ear />
-                Difficultés auditives
-              </Choice>
-              <Choice
-                active={draft.senses.includes('vision')}
-                onClick={() => setDraft((d) => ({ ...d, senses: toggle(d.senses, 'vision') }))}
-              >
-                <Eye />
-                Difficultés visuelles
-              </Choice>
-              <Choice
-                active={draft.senses.length === 0}
-                onClick={() => setDraft((d) => ({ ...d, senses: [] }))}
-              >
-                Aucune difficulté signalée
-              </Choice>
             </div>
           </StepShell>
         );
@@ -1069,6 +1069,7 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       case 8:
         return (
           <StepShell
+            className="elise-panel--routines"
             eyebrow={tr('Premiers repères', 'First routines')}
             title={tr(
               'À quoi ressemble une journée habituelle ?',
@@ -1079,65 +1080,112 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
               'Approximate time ranges are enough. Élise will observe daily life and suggest more accurate routines later.',
             )}
           >
+            <div className="elise-routine-overview">
+              <span>
+                <Clock3 /> {tr('4 moments de la journée', '4 moments in the day')}
+              </span>
+              <small>
+                {tr(
+                  'Des repères souples, à votre rythme',
+                  'Flexible starting points, at your pace',
+                )}
+              </small>
+            </div>
             <div className="elise-habits">
-              {Object.entries(draft.habits).map(([name, value]) => (
-                <div key={name}>
-                  <div>
-                    <strong>{name}</strong>
-                    <small>
-                      {value.unknown
-                        ? 'Élise l’apprendra progressivement'
-                        : `Entre ${value.from.replace(':', ' h ')} et ${value.to.replace(':', ' h ')}`}
-                    </small>
-                  </div>
-                  <div className="elise-time-range">
-                    <input
-                      aria-label={`Début ${name}`}
-                      type="time"
-                      value={value.from}
-                      disabled={value.unknown}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          habits: { ...d.habits, [name]: { ...value, from: e.target.value } },
-                        }))
-                      }
-                    />
-                    <span>à</span>
-                    <input
-                      aria-label={`Fin ${name}`}
-                      type="time"
-                      value={value.to}
-                      disabled={value.unknown}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          habits: { ...d.habits, [name]: { ...value, to: e.target.value } },
-                        }))
-                      }
-                    />
-                  </div>
-                  <label className="elise-unknown">
-                    <input
-                      type="checkbox"
-                      checked={value.unknown}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          habits: { ...d.habits, [name]: { ...value, unknown: e.target.checked } },
-                        }))
-                      }
-                    />
-                    Je ne sais pas
-                  </label>
-                </div>
-              ))}
+              {Object.entries(draft.habits).map(([name, value]) => {
+                const Icon =
+                  name === 'Lever'
+                    ? Sunrise
+                    : name === 'Coucher'
+                      ? Moon
+                      : name === 'Déjeuner'
+                        ? Coffee
+                        : Utensils;
+                const moment =
+                  name === 'Lever'
+                    ? tr('Le début de matinée', 'The start of the morning')
+                    : name === 'Coucher'
+                      ? tr('La fin de journée', 'The end of the day')
+                      : name === 'Déjeuner'
+                        ? tr('Le repas du midi', 'The midday meal')
+                        : tr('Le repas du soir', 'The evening meal');
+                return (
+                  <article
+                    className={`elise-habit-card ${value.unknown ? 'is-unknown' : ''}`}
+                    key={name}
+                  >
+                    <div className="elise-habit-heading">
+                      <span className="elise-habit-icon">
+                        <Icon />
+                      </span>
+                      <div>
+                        <strong>{name}</strong>
+                        <span>{moment}</span>
+                      </div>
+                    </div>
+                    <div className="elise-time-range">
+                      <label>
+                        <span>{tr('À partir de', 'From')}</span>
+                        <input
+                          aria-label={`${tr('Début', 'Start')} ${name}`}
+                          type="time"
+                          value={value.from}
+                          disabled={value.unknown}
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              habits: { ...d.habits, [name]: { ...value, from: e.target.value } },
+                            }))
+                          }
+                        />
+                      </label>
+                      <span className="elise-range-separator">{tr('à', 'to')}</span>
+                      <label>
+                        <span>{tr('Jusqu’à', 'Until')}</span>
+                        <input
+                          aria-label={`${tr('Fin', 'End')} ${name}`}
+                          type="time"
+                          value={value.to}
+                          disabled={value.unknown}
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              habits: { ...d.habits, [name]: { ...value, to: e.target.value } },
+                            }))
+                          }
+                        />
+                      </label>
+                    </div>
+                    <label className="elise-unknown">
+                      <input
+                        type="checkbox"
+                        checked={value.unknown}
+                        onChange={(e) =>
+                          setDraft((d) => ({
+                            ...d,
+                            habits: {
+                              ...d.habits,
+                              [name]: { ...value, unknown: e.target.checked },
+                            },
+                          }))
+                        }
+                      />
+                      <span>{tr('Je ne sais pas encore', 'Not sure yet')}</span>
+                    </label>
+                  </article>
+                );
+              })}
             </div>
             <div className="elise-learning-note">
               <Sparkles />
               <div>
-                <strong>Rien n’est figé</strong>
-                <small>Ces horaires sont des repères de départ, jamais des règles rigides.</small>
+                <strong>{tr('Rien n’est figé', 'Nothing is fixed')}</strong>
+                <small>
+                  {tr(
+                    'Ces horaires sont des repères de départ, jamais des règles rigides.',
+                    'These times are starting points, never rigid rules.',
+                  )}
+                </small>
               </div>
             </div>
           </StepShell>
@@ -1224,12 +1272,23 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
               </div>
             )}
             <div className="elise-summary">
-              <ShieldCheck />
+              {previewMode ? <Eye /> : <ShieldCheck />}
               <div>
-                <strong>Prêt à créer l’environnement de {residentName}</strong>
+                <strong>
+                  {previewMode
+                    ? tr('Aucune installation ne sera créée', 'No installation will be created')
+                    : `Prêt à créer l’environnement de ${residentName}`}
+                </strong>
                 <small>
-                  Le compte, le logement et les préférences seront enregistrés ensemble sur cette
-                  installation.
+                  {previewMode
+                    ? tr(
+                        'Continuez pour voir les deux dernières étapes en aperçu.',
+                        'Continue to preview the final two steps.',
+                      )
+                    : tr(
+                        'Le compte, le logement et les préférences seront enregistrés ensemble sur cette installation.',
+                        'The account, home and preferences will be saved together on this installation.',
+                      )}
                 </small>
               </div>
             </div>
@@ -1245,13 +1304,37 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
               'Access uses your private Tailscale network. Enable it now or later from settings.',
             )}
           >
-            <RemoteAccessCard locale={locale} compact />
+            {previewMode ? (
+              <div className="elise-preview-state">
+                <Eye />
+                <div>
+                  <strong>{tr('Aperçu seulement', 'Preview only')}</strong>
+                  <small>
+                    {tr(
+                      'Aucun réglage Tailscale ne sera modifié pendant ce parcours.',
+                      'This walkthrough will not change any Tailscale settings.',
+                    )}
+                  </small>
+                </div>
+              </div>
+            ) : (
+              <RemoteAccessCard locale={locale} compact />
+            )}
             <div className="elise-remote-nav">
-              <button className="elise-back" type="button" onClick={() => setStep(11)}>
-                {tr('Configurer plus tard', 'Set up later')}
+              <button
+                className="elise-back"
+                type="button"
+                onClick={() => setStep(previewMode ? 8 : 11)}
+              >
+                {previewMode
+                  ? tr('Retour aux repères', 'Back to routines')
+                  : tr('Configurer plus tard', 'Set up later')}
               </button>
               <button className="elise-primary" type="button" onClick={() => setStep(11)}>
-                {tr('Continuer', 'Continue')} <ArrowRight />
+                {previewMode
+                  ? tr('Continuer l’aperçu', 'Continue preview')
+                  : tr('Continuer', 'Continue')}{' '}
+                <ArrowRight />
               </button>
             </div>
           </StepShell>
@@ -1259,45 +1342,89 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       default:
         return (
           <StepShell
-            eyebrow={tr('Environnement créé', 'Environment created')}
-            title={tr('Votre environnement Élise est créé', 'Your Élise environment is ready')}
+            eyebrow={
+              previewMode
+                ? tr('Aperçu terminé', 'Preview complete')
+                : tr('Environnement créé', 'Environment created')
+            }
+            title={
+              previewMode
+                ? tr('Vous avez parcouru les 6 étapes', 'You have viewed all 6 steps')
+                : tr('Votre environnement Élise est créé', 'Your Élise environment is ready')
+            }
             text={tr(
-              'Découvrez maintenant les espaces essentiels de l’application. Vous créerez ensuite le logement accompagné pas à pas.',
-              'Discover the essential areas of the application. You will then create the home step by step.',
+              previewMode
+                ? 'Aucun environnement n’a été créé. Vous pouvez revoir le parcours ou quitter cet aperçu.'
+                : 'Découvrez maintenant les espaces essentiels de l’application. Vous créerez ensuite le logement accompagné pas à pas.',
+              previewMode
+                ? 'No environment was created. You can review the steps or close this preview.'
+                : 'Discover the essential areas of the application. You will then create the home step by step.',
             )}
           >
-            <div className="elise-success">
-              <span>
-                <CircleCheck />
-              </span>
-              <div className="elise-learning-timeline">
-                <div className="active">
-                  <b>1</b>
-                  <strong>{tr('Environnement créé', 'Environment created')}</strong>
-                  <small>{tr('Compte et profil enregistrés', 'Account and profile saved')}</small>
-                </div>
+            {previewMode ? (
+              <div className="elise-preview-state is-complete">
+                <Eye />
                 <div>
-                  <b>2</b>
-                  <strong>{tr('Découverte de l’application', 'Application tour')}</strong>
+                  <strong>
+                    {tr('Aucun environnement n’a été créé', 'No environment was created')}
+                  </strong>
                   <small>
-                    {tr('Six espaces essentiels à découvrir', 'Six essential areas to discover')}
+                    {tr(
+                      'Vous avez parcouru les six écrans sans créer d’environnement sur cette installation.',
+                      'You viewed all six screens without creating an environment on this installation.',
+                    )}
                   </small>
                 </div>
-                <div>
-                  <b>3</b>
-                  <strong>{tr('Création du logement', 'Home creation')}</strong>
-                  <small>{tr('Pièces, niveaux et équipements', 'Rooms, floors and devices')}</small>
-                </div>
               </div>
-              <blockquote>
-                {tr(
-                  '« Prenons quelques instants pour découvrir Élise avant de représenter le logement. »',
-                  '“Let’s take a moment to discover Élise before mapping the home.”',
-                )}
-              </blockquote>
-            </div>
-            <button className="elise-primary final" type="button" onClick={onCompleted}>
-              {tr('Découvrir Élise', 'Discover Élise')}
+            ) : (
+              <div className="elise-success">
+                <span>
+                  <CircleCheck />
+                </span>
+                <div className="elise-learning-timeline">
+                  <div className="active">
+                    <b>1</b>
+                    <strong>{tr('Environnement créé', 'Environment created')}</strong>
+                    <small>{tr('Compte et profil enregistrés', 'Account and profile saved')}</small>
+                  </div>
+                  <div>
+                    <b>2</b>
+                    <strong>{tr('Découverte de l’application', 'Application tour')}</strong>
+                    <small>
+                      {tr('Six espaces essentiels à découvrir', 'Six essential areas to discover')}
+                    </small>
+                  </div>
+                  <div>
+                    <b>3</b>
+                    <strong>{tr('Création du logement', 'Home creation')}</strong>
+                    <small>
+                      {tr('Pièces, niveaux et équipements', 'Rooms, floors and devices')}
+                    </small>
+                  </div>
+                </div>
+                <blockquote>
+                  {tr(
+                    '« Prenons quelques instants pour découvrir Élise avant de représenter le logement. »',
+                    '“Let’s take a moment to discover Élise before mapping the home.”',
+                  )}
+                </blockquote>
+              </div>
+            )}
+            <button
+              className="elise-primary final"
+              type="button"
+              onClick={() => {
+                if (previewMode) {
+                  setPreviewMode(false);
+                  setStep(0);
+                } else {
+                  onCompleted();
+                }
+              }}
+            >
+              {previewMode
+                ? tr('Revenir au début', 'Return to the beginning')
+                : tr('Découvrir Élise', 'Discover Élise')}
               <ArrowRight />
             </button>
           </StepShell>
@@ -1356,9 +1483,11 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       <div className="elise-progress-wrap">
         <div className="elise-progress-copy">
           <span>
-            {step === 0
-              ? tr('Installation d’Élise OS', 'Élise OS setup')
-              : tr('Installation d’Élise', 'Élise setup')}
+            {previewMode
+              ? tr('Aperçu sans création', 'Preview · nothing will be created')
+              : step === 0
+                ? tr('Installation d’Élise OS', 'Élise OS setup')
+                : tr('Installation d’Élise', 'Élise setup')}
           </span>
           <strong>
             {tr('Étape', 'Step')} {visibleStep + 1} {tr('sur', 'of')} {stepLabels.length} ·{' '}
@@ -1383,7 +1512,8 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
               className="elise-back"
               onClick={() => {
                 setError('');
-                setStep((v) => (v === 8 ? 3 : v - 1));
+                const currentIndex = setupFlow.indexOf(step as (typeof setupFlow)[number]);
+                setStep(setupFlow[currentIndex - 1] ?? 0);
               }}
             >
               <ArrowLeft /> {tr('Retour', 'Back')}
@@ -1404,7 +1534,9 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
               ) : (
                 <>
                   {step === 8
-                    ? tr('Commencer l’apprentissage', 'Start learning')
+                    ? previewMode
+                      ? tr('Voir les dernières étapes', 'Preview the final steps')
+                      : tr('Commencer l’apprentissage', 'Start learning')
                     : tr('Continuer', 'Continue')}
                   <ArrowRight />
                 </>
@@ -1430,18 +1562,20 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
 }
 
 function StepShell({
+  className,
   eyebrow,
   title,
   text,
   children,
 }: {
+  className?: string;
   eyebrow: string;
   title: string;
   text: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="elise-panel">
+    <div className={`elise-panel ${className ?? ''}`.trim()}>
       <div className="elise-panel-heading">
         <span>{eyebrow}</span>
         <h1>{title}</h1>
@@ -1473,6 +1607,7 @@ function Field({
     </label>
   );
 }
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <h3 className="elise-section-label">{children}</h3>;
 }
@@ -1528,9 +1663,6 @@ function Welcome({ locale, onStart }: { locale: Locale; onStart: () => void }) {
   return (
     <div className="elise-welcome">
       <div className="elise-welcome-copy">
-        <span className="elise-kicker">
-          <Sparkles /> {english ? 'Welcome home' : 'Bienvenue chez vous'}
-        </span>
         <h1>
           {english
             ? 'Set up Élise for someone who matters.'
@@ -1580,10 +1712,11 @@ function Welcome({ locale, onStart }: { locale: Locale; onStart: () => void }) {
           <ShieldCheck /> {english ? 'Entirely local' : 'Entièrement local'}
         </span>
         <span>
-          <Eye /> {english ? 'No camera required' : 'Sans caméra'}
+          <EyeOff /> {english ? 'Privacy comes first' : 'Respecte votre intimité'}
         </span>
         <span>
-          <Languages /> {english ? 'Simple and human' : 'Simple et humain'}
+          <HeartHandshake />{' '}
+          {english ? 'Designed for caregivers' : 'Pensé pour les proches aidants'}
         </span>
       </div>
     </div>

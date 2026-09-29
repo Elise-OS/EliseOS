@@ -14,6 +14,7 @@ import {
   CloudRain,
   CloudSnow,
   CloudSun,
+  Headphones,
   Image as ImageIcon,
   Radio,
   Sun,
@@ -545,6 +546,8 @@ export function ResidentScreen() {
   );
   const currentVideoStatus = videoStatus.id === activeVideoKey ? videoStatus.status : 'loading';
   const activeRadio = activeMedia?.kind === 'stream' ? activeMedia : undefined;
+  const activePodcast = activeMedia?.kind === 'podcast' ? activeMedia : undefined;
+  const activeAudio = activeRadio ?? activePodcast;
   const videoPlaying =
     !!activeVideo &&
     currentVideoStatus === 'ready' &&
@@ -609,13 +612,13 @@ export function ResidentScreen() {
   }, [media?.id, token]);
   useEffect(() => {
     const player = radioRef.current;
-    if (!player || !activeRadio) return;
+    if (!player || !activeAudio) return;
     // The appliance controls the real HDMI sink so Jitsi, speech and media share one volume.
     player.volume = snapshot?.capabilities.host ? 1 : (state?.playback.volume ?? 30) / 100;
     if (state?.playback.paused || state?.playback.asleep || call) player.pause();
     else void player.play().catch(() => setRadioStatus('error'));
   }, [
-    activeRadio?.id,
+    activeAudio?.id,
     state?.playback.asleep,
     state?.playback.paused,
     state?.playback.volume,
@@ -671,12 +674,12 @@ export function ResidentScreen() {
     )) {
       const contentStatus = activeVideo
         ? currentVideoStatus
-        : activeRadio
+        : activeAudio
           ? radioStatus
           : mediaStatus;
       if (
         ['play', 'resume', 'next'].includes(c.action) &&
-        (activeVideo || activeRadio || media) &&
+        (activeVideo || activeAudio || media) &&
         contentStatus === 'loading'
       )
         continue;
@@ -701,7 +704,7 @@ export function ResidentScreen() {
     radioStatus,
     currentVideoStatus,
     activeVideo?.id,
-    activeRadio?.id,
+    activeAudio?.id,
   ]);
   if (!snapshot)
     return (
@@ -735,7 +738,7 @@ export function ResidentScreen() {
         <IncomingCallOverlay callId={call.id} callerName={call.name} automatic={call.automatic} />
       )}
       <div
-        className={`resident-program ${activeRadio ? 'has-radio' : ''}`}
+        className={`resident-program ${activeAudio ? 'has-radio' : ''}`}
         style={{ display: call || state?.playback.asleep ? 'none' : 'grid' }}
       >
         {activeVideo && (
@@ -769,11 +772,16 @@ export function ResidentScreen() {
           <WeatherPanel weather={snapshot?.weather ?? null} />
           <UpcomingEvents agenda={snapshot?.agenda ?? []} timezone={snapshot?.timezone} />
         </div>
-        {activeRadio && (
-          <section className="resident-radio-banner" aria-live="polite">
+        {activeAudio && (
+          <section
+            className={`resident-radio-banner ${activePodcast ? 'resident-radio-banner--podcast' : ''}`}
+            aria-label={activePodcast ? 'Podcast en cours' : 'Radio en cours'}
+            aria-live="polite"
+          >
             <audio
+              key={activeAudio.id}
               ref={radioRef}
-              src={activeRadio.url}
+              src={activeAudio.url}
               autoPlay
               preload="none"
               onLoadStart={() => setRadioStatus('loading')}
@@ -782,10 +790,10 @@ export function ResidentScreen() {
               onError={() => setRadioStatus('error')}
             />
             <div className="resident-radio-banner__logo">
-              <Radio aria-hidden="true" />
-              {activeRadio.artworkUrl && (
+              {activePodcast ? <Headphones aria-hidden="true" /> : <Radio aria-hidden="true" />}
+              {activeAudio.artworkUrl && (
                 <img
-                  src={activeRadio.artworkUrl}
+                  src={activeAudio.artworkUrl}
                   alt=""
                   onError={(event) => {
                     event.currentTarget.style.display = 'none';
@@ -803,15 +811,26 @@ export function ResidentScreen() {
               <i />
             </div>
             <div className="resident-radio-banner__text">
-              <span>{state.playback.paused ? 'Radio en pause' : 'En cours de lecture'}</span>
-              <strong>{activeRadio.title}</strong>
+              <span>
+                {activePodcast
+                  ? state.playback.paused
+                    ? 'Podcast en pause'
+                    : 'Podcast en cours'
+                  : state.playback.paused
+                    ? 'Radio en pause'
+                    : 'En cours de lecture'}
+              </span>
+              <strong>{activeAudio.title}</strong>
+              {activePodcast && <small>{activePodcast.podcastShowTitle}</small>}
             </div>
             <b className={radioStatus === 'error' ? 'is-error' : ''}>
               {radioStatus === 'error'
                 ? 'Indisponible'
                 : state.playback.paused
                   ? 'Pause'
-                  : 'En direct'}
+                  : activePodcast
+                    ? 'Lecture'
+                    : 'En direct'}
             </b>
           </section>
         )}

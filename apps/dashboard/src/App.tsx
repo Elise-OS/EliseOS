@@ -15,6 +15,7 @@ import {
   Camera,
   ChevronRight,
   CircleCheck,
+  CircleHelp,
   Clock3,
   DoorOpen,
   Ear,
@@ -134,15 +135,15 @@ interface Household {
     photoUrl: string | null;
     primary: boolean;
     context: null | {
-      livesAlone: boolean;
-      livesWithPartner: boolean;
-      livesWithRelative: boolean;
-      receivesHomeHelp: boolean;
-      receivesVisits: boolean;
-      hasPet: boolean;
+      livesAlone: boolean | null;
+      livesWithPartner: boolean | null;
+      livesWithRelative: boolean | null;
+      receivesHomeHelp: boolean | null;
+      receivesVisits: boolean | null;
+      hasPet: boolean | null;
       mobility: string;
-      hearingDifficulty: boolean;
-      visualDifficulty: boolean;
+      hearingDifficulty: boolean | null;
+      visualDifficulty: boolean | null;
     };
     supportNeeds: Array<{ id: string; kind: string; note: string | null }>;
     habits: Array<{
@@ -655,6 +656,7 @@ function residentMobilityLabel(value: string, locale: Locale): string {
     CANE: ['Utilise une canne', 'Uses a cane'],
     WALKER: ['Utilise un déambulateur', 'Uses a walker'],
     WHEELCHAIR: ['Utilise un fauteuil roulant', 'Uses a wheelchair'],
+    UNKNOWN: ['Non renseignée', 'Not provided'],
   };
   return labels[value]?.[locale === 'fr' ? 0 : 1] ?? value;
 }
@@ -2446,6 +2448,15 @@ export function PeoplePanel({
   const emergencyContacts = people.filter(
     (person) => person.isEmergency && !person.archived,
   ).length;
+
+  if (loading)
+    return (
+      <DataLoadingScreen
+        locale={locale}
+        message={locale === 'fr' ? 'Préparation de vos proches…' : 'Preparing your care circle…'}
+      />
+    );
+
   return (
     <section className="section-view people-page">
       <div className="people-hero">
@@ -2529,14 +2540,6 @@ export function PeoplePanel({
         </div>
       </div>
       <div className="people-card-grid">
-        {loading &&
-          Array.from({ length: 4 }, (_, index) => (
-            <Card className="people-card people-card--skeleton" key={index}>
-              <i />
-              <i />
-              <i />
-            </Card>
-          ))}
         {!loading &&
           visible.map((person) => (
             <Card
@@ -3574,9 +3577,6 @@ export function App() {
           <X />
         </button>
         <div className="sidebar-navigation">
-          <span className="sidebar-section-label">
-            {locale === 'fr' ? 'Espaces d’Élise' : 'Élise spaces'}
-          </span>
           <SidebarNavigation
             labels={t.nav}
             active={active}
@@ -3817,7 +3817,7 @@ export function App() {
             onTalkStop={() => void stopTalking()}
           />
         ) : active === 10 ? (
-          <ScreenPanel initialSection={screenSection} />
+          <ScreenPanel initialSection={screenSection} locale={locale} />
         ) : active === 11 ? (
           <section className="section-view resident-page">
             <header className="resident-hero">
@@ -3958,19 +3958,25 @@ export function App() {
                     {resident.context ? (
                       <div className="resident-context-list">
                         <div className="resident-context-item resident-context-item--wide">
-                          {resident.context.livesAlone ? (
+                          {resident.context.livesAlone === null ? (
+                            <CircleHelp aria-hidden="true" />
+                          ) : resident.context.livesAlone ? (
                             <Home aria-hidden="true" />
                           ) : (
                             <UsersRound aria-hidden="true" />
                           )}
                           <span>
-                            {resident.context.livesAlone
+                            {resident.context.livesAlone === null
                               ? locale === 'fr'
-                                ? 'Vit seul(e) à son domicile'
-                                : 'Lives alone at home'
-                              : locale === 'fr'
-                                ? 'Vit accompagné(e) à son domicile'
-                                : 'Lives with someone at home'}
+                                ? 'Situation de vie non renseignée'
+                                : 'Living situation not provided'
+                              : resident.context.livesAlone
+                                ? locale === 'fr'
+                                  ? 'Vit seul(e) à son domicile'
+                                  : 'Lives alone at home'
+                                : locale === 'fr'
+                                  ? 'Vit accompagné(e) à son domicile'
+                                  : 'Lives with someone at home'}
                           </span>
                         </div>
                         {resident.context.livesWithPartner && (
@@ -4385,10 +4391,6 @@ export function App() {
             onPlanning={(medication) => {
               if (medication) setActive(5);
               else setActive(12);
-            }}
-            onScreen={(section) => {
-              setScreenSection(section);
-              setActive(10);
             }}
             onAlerts={() => setActive(2)}
             onOpenRoom={(roomId) => {

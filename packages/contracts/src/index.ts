@@ -495,7 +495,7 @@ export const installationSchema = z.object({
     customAddress: z.string().trim().max(100),
   }),
   life: z.array(z.enum(['alone', 'partner', 'relative', 'home_help', 'visits', 'pet'])),
-  mobility: z.enum(['independent', 'cane', 'walker', 'wheelchair']),
+  mobility: z.enum(['independent', 'cane', 'walker', 'wheelchair', 'unknown']),
   senses: z.array(z.enum(['hearing', 'vision'])),
   important: z.array(z.enum(['memory', 'parkinson', 'fall', 'vision', 'hearing'])),
   importantNote: z.string().trim().max(2000),
@@ -1231,15 +1231,15 @@ export const householdSchema = z.object({
       photoUrl: z.string().nullable(),
       context: z
         .object({
-          livesAlone: z.boolean(),
-          livesWithPartner: z.boolean(),
-          livesWithRelative: z.boolean(),
-          receivesHomeHelp: z.boolean(),
-          receivesVisits: z.boolean(),
-          hasPet: z.boolean(),
-          mobility: z.enum(['INDEPENDENT', 'CANE', 'WALKER', 'WHEELCHAIR']),
-          hearingDifficulty: z.boolean(),
-          visualDifficulty: z.boolean(),
+          livesAlone: z.boolean().nullable(),
+          livesWithPartner: z.boolean().nullable(),
+          livesWithRelative: z.boolean().nullable(),
+          receivesHomeHelp: z.boolean().nullable(),
+          receivesVisits: z.boolean().nullable(),
+          hasPet: z.boolean().nullable(),
+          mobility: z.enum(['INDEPENDENT', 'CANE', 'WALKER', 'WHEELCHAIR', 'UNKNOWN']),
+          hearingDifficulty: z.boolean().nullable(),
+          visualDifficulty: z.boolean().nullable(),
         })
         .nullable(),
       supportNeeds: z.array(

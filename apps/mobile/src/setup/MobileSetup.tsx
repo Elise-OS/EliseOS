@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { Installation } from '@michel/contracts';
+import type { Installation, RemoteAccessStatus } from '@michel/contracts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -28,13 +29,11 @@ type Draft = {
   password: string;
   confirmation: string;
   relation: string;
+  usernameEdited: boolean;
   residentFirstName: string;
   residentLastName: string;
   dailyName: string;
-  birthDate: string;
-  life: string[];
-  mobility: string;
-  senses: string[];
+  dailyNameEdited: boolean;
   habits: Record<string, { from: string; to: string; unknown: boolean }>;
 };
 
@@ -42,16 +41,14 @@ const initialDraft: Draft = {
   firstName: '',
   lastName: '',
   username: '',
+  usernameEdited: false,
   password: '',
   confirmation: '',
   relation: '',
   residentFirstName: '',
   residentLastName: '',
   dailyName: '',
-  birthDate: '',
-  life: [],
-  mobility: '',
-  senses: [],
+  dailyNameEdited: false,
   habits: {
     Lever: { from: '07:30', to: '09:00', unknown: false },
     Coucher: { from: '21:00', to: '23:00', unknown: false },
@@ -71,10 +68,6 @@ const previewDraft: Draft = {
   residentFirstName: 'Jeanne',
   residentLastName: 'Martin',
   dailyName: 'Jeanne',
-  birthDate: '1942-06-18',
-  life: ['alone', 'visits'],
-  mobility: 'independent',
-  senses: [],
   habits: {
     Lever: { from: '07:30', to: '09:00', unknown: false },
     Coucher: { from: '21:00', to: '23:00', unknown: false },
@@ -95,46 +88,77 @@ const colors = {
   red: '#B74747',
 };
 
+function generateUsername(firstName: string, lastName: string): string {
+  const normalizePart = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '.')
+      .replace(/^\.+|\.+$/g, '');
+  const first = normalizePart(firstName);
+  const last = normalizePart(lastName);
+  return first && last ? `${first}.${last}` : '';
+}
+
 const copy = {
   fr: {
-    steps: ['Bienvenue', 'Vous', 'Résident', 'Quotidien', 'Habitudes'],
+    steps: ['Bienvenue', 'Vous', 'Résident', 'Apprentissage', 'Accès privé', 'Terminé'],
     eyebrows: [
-      'INSTALLATION ÉLISE OS',
+      '',
       'VOTRE RÔLE',
       'PROFIL D’ACCOMPAGNEMENT',
-      'SON QUOTIDIEN',
       'PREMIERS REPÈRES',
+      'OPTION RECOMMANDÉE',
+      'ENVIRONNEMENT CRÉÉ',
     ],
     titles: [
       'Préparons Élise pour une personne qui compte.',
       'Créons votre accès',
       'Qui Élise va-t-elle accompagner ?',
-      'Comment vit le résident ?',
       'À quoi ressemble une journée habituelle ?',
+      'Retrouvez Élise, même à distance',
+      'Votre environnement Élise est créé',
     ],
     intros: [
       'La création de votre environnement se fait ici, directement sur votre téléphone.',
       'Vous serez le gestionnaire principal de cette installation.',
       'Ces quelques repères permettent à Élise de s’adresser naturellement au résident.',
-      'Sélectionnez les éléments qui correspondent à sa vie quotidienne.',
       'Des plages approximatives suffisent. Élise les affinera progressivement.',
+      'L’accès passe par votre espace privé Tailscale. Il peut être activé maintenant ou plus tard depuis les réglages.',
+      'Découvrez maintenant les espaces essentiels de l’application. Vous créerez ensuite le logement accompagné pas à pas.',
     ],
     start: 'Commencer l’installation',
     next: 'Continuer',
     finish: 'Créer mon environnement',
+    remoteContinue: 'Continuer',
+    done: 'Découvrir Élise',
     back: 'Retour',
     firstName: 'Prénom',
     lastName: 'Nom',
-    username: 'Identifiant',
+    username: 'Identifiant · ex. paul.breton',
     relation: 'Lien avec le résident',
     password: 'Mot de passe · 12 caractères minimum',
     confirm: 'Confirmer le mot de passe',
     dailyName: 'Prénom utilisé au quotidien',
-    birthDate: 'Date de naissance · AAAA-MM-JJ (facultatif)',
-    life: 'Mode de vie',
-    mobility: 'Mobilité',
-    senses: 'Confort sensoriel · facultatif',
-    unknown: 'Je ne sais pas',
+    unknown: 'Je ne sais pas encore',
+    profileKicker: 'UNE PERSONNE, AVANT TOUT',
+    profileDefault: 'Votre proche',
+    profileNameEmpty: 'Son nom apparaîtra ici',
+    profileHint: 'Élise utilisera ce prénom pour s’adresser à la personne.',
+    profileDetails: 'Ses repères',
+    profileDetailsHint: 'Ces informations pourront évoluer.',
+    routineCount: '4 moments de la journée',
+    routineHint: 'Des repères souples, à votre rythme',
+    routineFrom: 'À partir de',
+    routineUntil: 'Jusqu’à',
+    routineConnector: 'à',
+    routineLearn: 'Élise l’apprendra progressivement',
+    routineNote: 'Ces horaires sont des repères de départ, jamais des règles rigides.',
+    localBadge: 'Entièrement local',
+    privacyBadge: 'Respecte votre intimité',
+    caregiverBadge: 'Pensé pour les proches aidants',
     secure: 'Vos données restent stockées localement sur cette installation Élise OS.',
     required: 'Complétez les champs obligatoires avant de continuer.',
     mismatch: 'Les mots de passe ne correspondent pas.',
@@ -147,44 +171,82 @@ const copy = {
       'Création du foyer',
       'Préparation du profil résident',
       'Configuration des habitudes',
-      'Ouverture du dashboard',
+      'Finalisation de l’environnement',
     ],
     readyTitle: 'Votre environnement est prêt',
-    readyText: 'Bienvenue chez Élise. Ouverture du dashboard…',
+    readyText: 'L’environnement est créé. L’accès privé peut être activé à l’étape suivante.',
+    remoteChecking: 'Vérification de l’accès privé…',
+    remoteUnavailable: 'Le service d’accès privé n’est pas disponible sur cet appareil.',
+    remoteSignedOut:
+      'Reliez Élise à Tailscale. Vous pourrez aussi le faire plus tard dans les réglages.',
+    remoteAuthorizing: 'Validez la connexion dans Tailscale pour continuer l’activation.',
+    remoteConfiguring: 'Élise prépare votre adresse privée.',
+    remoteReady: 'L’accès privé est activé.',
+    remoteDegraded:
+      'L’accès privé demande une vérification. Vous pourrez reprendre dans les réglages.',
+    remoteConnect: 'Activer l’accès privé',
+    remoteApprove: 'Ouvrir Tailscale',
+    remoteEnable: 'Terminer l’activation',
+    remoteActionFailed:
+      'Cette action est indisponible pour le moment. Vous pourrez réessayer dans les réglages.',
+    remoteAddress: 'Adresse privée',
   },
   en: {
-    steps: ['Welcome', 'You', 'Resident', 'Daily life', 'Routines'],
-    eyebrows: ['ÉLISE OS SETUP', 'YOUR ROLE', 'SUPPORT PROFILE', 'DAILY LIFE', 'FIRST ROUTINES'],
+    steps: ['Welcome', 'You', 'Resident', 'Learning', 'Private access', 'Done'],
+    eyebrows: [
+      '',
+      'YOUR ROLE',
+      'SUPPORT PROFILE',
+      'FIRST ROUTINES',
+      'RECOMMENDED OPTION',
+      'ENVIRONMENT CREATED',
+    ],
     titles: [
       'Set up Élise for someone who matters.',
       'Create your access',
       'Who will Élise support?',
-      'What is the resident’s daily life like?',
       'What does a typical day look like?',
+      'Reach Élise while away from home',
+      'Your Élise environment is ready',
     ],
     intros: [
       'Create your environment here, directly on your phone.',
       'You will be the primary manager for this installation.',
       'These details help Élise address the resident naturally.',
-      'Select the items that match their daily life.',
       'Approximate time ranges are enough. Élise will refine them over time.',
+      'Access uses your private Tailscale network. Enable it now or later from settings.',
+      'Discover the essential areas of the app. You can create the home step by step afterward.',
     ],
     start: 'Start setup',
     next: 'Continue',
     finish: 'Create my environment',
+    remoteContinue: 'Continue',
+    done: 'Discover Élise',
     back: 'Back',
     firstName: 'First name',
     lastName: 'Last name',
-    username: 'Username',
+    username: 'Username · e.g. paul.breton',
     relation: 'Relationship to resident',
     password: 'Password · 12 characters minimum',
     confirm: 'Confirm password',
     dailyName: 'Name used every day',
-    birthDate: 'Date of birth · YYYY-MM-DD (optional)',
-    life: 'Living situation',
-    mobility: 'Mobility',
-    senses: 'Sensory comfort · optional',
+    profileKicker: 'A PERSON, FIRST AND FOREMOST',
+    profileDefault: 'Your loved one',
+    profileNameEmpty: 'Their full name will appear here',
+    profileHint: 'Élise will use this name when speaking to them.',
+    profileDetails: 'A few details',
+    profileDetailsHint: 'You can update these details later.',
+    routineCount: '4 moments in the day',
+    routineHint: 'Flexible starting points, at your pace',
+    routineFrom: 'From',
+    routineUntil: 'Until',
+    routineConnector: 'to',
+    routineLearn: 'Élise can learn this over time',
+    routineNote: 'These times are starting points, never rigid rules.',
     unknown: 'I don’t know',
+    localBadge: 'Entirely local',
+    privacyBadge: 'Privacy comes first',
+    caregiverBadge: 'Designed for caregivers',
     secure: 'Your data stays locally on this Élise OS installation.',
     required: 'Complete the required fields before continuing.',
     mismatch: 'The passwords do not match.',
@@ -197,10 +259,22 @@ const copy = {
       'Creating the home',
       'Preparing the resident profile',
       'Setting up routines',
-      'Opening the dashboard',
+      'Finalizing the environment',
     ],
     readyTitle: 'Your environment is ready',
-    readyText: 'Welcome to Élise. Opening the dashboard…',
+    readyText: 'The environment is ready. You can set up private access in the next step.',
+    remoteChecking: 'Checking private access…',
+    remoteUnavailable: 'The private access service is not available on this device.',
+    remoteSignedOut: 'Connect Élise to Tailscale. You can also do this later in settings.',
+    remoteAuthorizing: 'Approve the connection in Tailscale to continue setup.',
+    remoteConfiguring: 'Élise is preparing your private address.',
+    remoteReady: 'Private access is active.',
+    remoteDegraded: 'Private access needs attention. You can continue from settings later.',
+    remoteConnect: 'Enable private access',
+    remoteApprove: 'Open Tailscale',
+    remoteEnable: 'Finish activation',
+    remoteActionFailed: 'This action is unavailable right now. You can retry in settings later.',
+    remoteAddress: 'Private address',
   },
 } as const;
 
@@ -212,24 +286,6 @@ const options = {
     ['Ami(e)', 'Friend'],
     ['Professionnel', 'Professional'],
     ['Autre', 'Other'],
-  ],
-  life: [
-    ['alone', 'Vit seul', 'Lives alone'],
-    ['partner', 'Vit avec son conjoint', 'Lives with a partner'],
-    ['relative', 'Vit avec un proche', 'Lives with a relative'],
-    ['home_help', 'Reçoit une aide à domicile', 'Receives home help'],
-    ['visits', 'Reçoit des visites régulières', 'Receives regular visits'],
-    ['pet', 'Possède un animal', 'Has a pet'],
-  ],
-  mobility: [
-    ['independent', 'Se déplace seul', 'Moves independently'],
-    ['cane', 'Utilise une canne', 'Uses a cane'],
-    ['walker', 'Utilise un déambulateur', 'Uses a walker'],
-    ['wheelchair', 'Utilise un fauteuil roulant', 'Uses a wheelchair'],
-  ],
-  senses: [
-    ['hearing', 'Difficultés auditives', 'Hearing difficulties'],
-    ['vision', 'Difficultés visuelles', 'Visual difficulties'],
   ],
 } as const;
 
@@ -272,6 +328,11 @@ export function MobileSetup({
   const [busy, setBusy] = useState(false);
   const [creationPhase, setCreationPhase] = useState<'form' | 'creating' | 'ready'>('form');
   const [creationStep, setCreationStep] = useState(0);
+  const [session, setSession] = useState<{ token: string; displayName: string } | null>(null);
+  const [remoteStatus, setRemoteStatus] = useState<RemoteAccessStatus | null>(null);
+  const [remoteChecked, setRemoteChecked] = useState(false);
+  const [remoteBusy, setRemoteBusy] = useState(false);
+  const [remoteError, setRemoteError] = useState('');
   const pulse = useRef(new Animated.Value(0)).current;
   const strength = useMemo(
     () =>
@@ -284,11 +345,12 @@ export function MobileSetup({
   );
 
   const patch = (value: Partial<Draft>) => setDraft((current) => ({ ...current, ...value }));
-  const toggle = (key: 'life' | 'senses', value: string) =>
-    patch({
-      [key]: draft[key].includes(value)
-        ? draft[key].filter((item) => item !== value)
-        : [...draft[key], value],
+  const patchCaregiverName = (field: 'firstName' | 'lastName', value: string) =>
+    setDraft((current) => {
+      const nextDraft: Draft = { ...current, [field]: value };
+      if (!current.usernameEdited)
+        nextDraft.username = generateUsername(nextDraft.firstName, nextDraft.lastName);
+      return nextDraft;
     });
 
   useEffect(() => {
@@ -302,6 +364,45 @@ export function MobileSetup({
     animation.start();
     return () => animation.stop();
   }, [creationPhase, pulse]);
+
+  useEffect(() => {
+    if (step !== 4 || !session || previewMode) return;
+    let cancelled = false;
+    void mobileApi
+      .remoteAccessStatus(server, session.token)
+      .then((status) => {
+        if (!cancelled) {
+          setRemoteStatus(status);
+          setRemoteChecked(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRemoteStatus(null);
+          setRemoteChecked(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [previewMode, server, session, step]);
+
+  useEffect(() => {
+    if (
+      step !== 4 ||
+      !session ||
+      !remoteStatus ||
+      !['AUTHORIZING', 'CONFIGURING'].includes(remoteStatus.state)
+    )
+      return;
+    const timer = setTimeout(() => {
+      void mobileApi
+        .remoteAccessStatus(server, session.token)
+        .then(setRemoteStatus)
+        .catch(() => setRemoteStatus(null));
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [remoteStatus, server, session, step]);
 
   const playCreation = async () => {
     setCreationPhase('creating');
@@ -339,20 +440,29 @@ export function MobileSetup({
       setError(t.required);
       return false;
     }
-    if (step === 3 && !draft.mobility) {
-      setError(t.required);
-      return false;
-    }
     setError('');
     return true;
+  };
+
+  const runRemoteAction = async (action: 'connect' | 'enable') => {
+    if (!session) return;
+    setRemoteBusy(true);
+    setRemoteError('');
+    try {
+      setRemoteStatus(await mobileApi.remoteAccessAction(server, session.token, action));
+    } catch {
+      setRemoteError(t.remoteActionFailed);
+    } finally {
+      setRemoteBusy(false);
+    }
   };
 
   const submit = async () => {
     if (!valid()) return;
     if (previewMode) {
       await playCreation();
-      setCreationPhase('ready');
-      setTimeout(() => onPreviewCompleted?.(), 1100);
+      setCreationPhase('form');
+      setStep(4);
       return;
     }
     setBusy(true);
@@ -373,14 +483,14 @@ export function MobileSetup({
         firstName: draft.residentFirstName.trim(),
         lastName: draft.residentLastName.trim(),
         dailyName: draft.dailyName.trim(),
-        birthDate: draft.birthDate.trim(),
+        birthDate: '',
         language: locale === 'fr' ? 'Français' : 'English',
         addressAs: 'daily',
         customAddress: '',
       },
-      life: draft.life as Installation['life'],
-      mobility: draft.mobility as Installation['mobility'],
-      senses: draft.senses as Installation['senses'],
+      life: [],
+      mobility: 'unknown',
+      senses: [],
       important: [],
       importantNote: '',
       habits: draft.habits,
@@ -396,7 +506,11 @@ export function MobileSetup({
       ]);
       setCreationPhase('ready');
       await new Promise((resolve) => setTimeout(resolve, 900));
-      await onCompleted(result.accessToken, result.user.displayName);
+      setSession({ token: result.accessToken, displayName: result.user.displayName });
+      setRemoteStatus(null);
+      setRemoteChecked(false);
+      setStep(4);
+      setCreationPhase('form');
     } catch {
       setCreationPhase('form');
       setError(t.failed);
@@ -405,11 +519,40 @@ export function MobileSetup({
     }
   };
 
-  const next = () => {
+  const next = async () => {
     if (!valid()) return;
-    if (step === 4) void submit();
-    else setStep((value) => value + 1);
+    if (step === 3) void submit();
+    else if (step === 4) setStep(5);
+    else if (step === 5) {
+      if (previewMode) onPreviewCompleted?.();
+      else if (session) {
+        setBusy(true);
+        setError('');
+        try {
+          await onCompleted(session.token, session.displayName);
+        } catch {
+          setError(t.failed);
+        } finally {
+          setBusy(false);
+        }
+      }
+    } else setStep((value) => value + 1);
   };
+
+  const remoteDescription = remoteStatus
+    ? {
+        UNAVAILABLE: t.remoteUnavailable,
+        SIGNED_OUT: t.remoteSignedOut,
+        AUTHORIZING: t.remoteAuthorizing,
+        CONFIGURING: t.remoteConfiguring,
+        READY: t.remoteReady,
+        DEGRADED: t.remoteDegraded,
+      }[remoteStatus.state]
+    : previewMode
+      ? t.remoteSignedOut
+      : remoteChecked
+        ? t.remoteUnavailable
+        : t.remoteChecking;
 
   if (creationPhase !== 'form') {
     const ready = creationPhase === 'ready';
@@ -480,16 +623,22 @@ export function MobileSetup({
     >
       <SafeAreaView style={styles.shell}>
         <View style={styles.header}>
-          <Pressable style={styles.back} onPress={step ? () => setStep(step - 1) : onBack}>
-            <Ionicons name="arrow-back" size={20} color={colors.navy} />
-          </Pressable>
+          {step <= 3 ? (
+            <Pressable style={styles.back} onPress={step ? () => setStep(step - 1) : onBack}>
+              <Ionicons name="arrow-back" size={20} color={colors.navy} />
+            </Pressable>
+          ) : (
+            <View style={styles.back} />
+          )}
           <Text style={styles.brand}>Élise</Text>
           <Text style={styles.counter}>
             {step + 1}/{t.steps.length}
           </Text>
         </View>
         <View style={styles.progress}>
-          <View style={[styles.progressValue, { width: `${((step + 1) / 5) * 100}%` }]} />
+          <View
+            style={[styles.progressValue, { width: `${((step + 1) / t.steps.length) * 100}%` }]}
+          />
         </View>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {previewMode ? (
@@ -498,20 +647,32 @@ export function MobileSetup({
               <Text style={styles.previewBadgeText}>{t.preview}</Text>
             </View>
           ) : null}
-          <Text style={styles.eyebrow}>{t.eyebrows[step]}</Text>
+          {step > 0 ? <Text style={styles.eyebrow}>{t.eyebrows[step]}</Text> : null}
           <Text style={styles.title}>{t.titles[step]}</Text>
           <Text style={styles.intro}>{t.intros[step]}</Text>
 
           {step === 0 ? (
-            <View style={styles.heroCard}>
-              <Image source={eliseLogo} style={styles.heroLogo} resizeMode="contain" />
-              <Text style={styles.heroName}>{server.instanceName}</Text>
-              <Text style={styles.heroUrl}>{server.url}</Text>
-              <View style={styles.localLine}>
-                <Ionicons name="shield-checkmark-outline" size={19} color={colors.green} />
-                <Text>{t.secure}</Text>
+            <>
+              <View style={styles.heroCard}>
+                <Image source={eliseLogo} style={styles.heroLogo} resizeMode="contain" />
+                <Text style={styles.heroName}>{server.instanceName}</Text>
+                <Text style={styles.heroUrl}>{server.url}</Text>
               </View>
-            </View>
+              <View style={styles.welcomePills}>
+                <View style={styles.welcomePill}>
+                  <Ionicons name="shield-checkmark-outline" size={15} color={colors.green} />
+                  <Text style={styles.welcomePillText}>{t.localBadge}</Text>
+                </View>
+                <View style={styles.welcomePill}>
+                  <Ionicons name="eye-off-outline" size={15} color={colors.blue} />
+                  <Text style={styles.welcomePillText}>{t.privacyBadge}</Text>
+                </View>
+                <View style={styles.welcomePill}>
+                  <Ionicons name="people-outline" size={15} color={colors.blue} />
+                  <Text style={styles.welcomePillText}>{t.caregiverBadge}</Text>
+                </View>
+              </View>
+            </>
           ) : null}
 
           {step === 1 ? (
@@ -520,20 +681,20 @@ export function MobileSetup({
                 style={styles.input}
                 placeholder={t.firstName}
                 value={draft.firstName}
-                onChangeText={(firstName) => patch({ firstName })}
+                onChangeText={(firstName) => patchCaregiverName('firstName', firstName)}
               />
               <TextInput
                 style={styles.input}
                 placeholder={t.lastName}
                 value={draft.lastName}
-                onChangeText={(lastName) => patch({ lastName })}
+                onChangeText={(lastName) => patchCaregiverName('lastName', lastName)}
               />
               <TextInput
                 style={styles.input}
                 placeholder={t.username}
                 autoCapitalize="none"
                 value={draft.username}
-                onChangeText={(username) => patch({ username })}
+                onChangeText={(username) => patch({ username, usernameEdited: true })}
               />
               <Text style={styles.label}>{t.relation}</Text>
               <View style={styles.choiceGrid}>
@@ -572,115 +733,216 @@ export function MobileSetup({
           ) : null}
 
           {step === 2 ? (
-            <View style={styles.fields}>
-              <TextInput
-                style={styles.input}
-                placeholder={t.firstName}
-                value={draft.residentFirstName}
-                onChangeText={(residentFirstName) =>
-                  patch({ residentFirstName, dailyName: draft.dailyName || residentFirstName })
-                }
-              />
-              <TextInput
-                style={styles.input}
-                placeholder={t.lastName}
-                value={draft.residentLastName}
-                onChangeText={(residentLastName) => patch({ residentLastName })}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder={t.dailyName}
-                value={draft.dailyName}
-                onChangeText={(dailyName) => patch({ dailyName })}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder={t.birthDate}
-                keyboardType="numbers-and-punctuation"
-                value={draft.birthDate}
-                onChangeText={(birthDate) => patch({ birthDate })}
-              />
+            <View style={styles.residentLayout}>
+              <View style={styles.residentPreview}>
+                <View style={styles.residentPreviewMark}>
+                  <Ionicons name="heart-outline" size={21} color="#fff" />
+                </View>
+                <Text style={styles.residentPreviewKicker}>{t.profileKicker}</Text>
+                <Text style={styles.residentPreviewName}>
+                  {draft.dailyName || t.profileDefault}
+                </Text>
+                <Text style={styles.residentPreviewFullName}>
+                  {[draft.residentFirstName, draft.residentLastName].filter(Boolean).join(' ') ||
+                    t.profileNameEmpty}
+                </Text>
+                <View style={styles.residentPreviewNote}>
+                  <Ionicons name="sparkles-outline" size={16} color="#D0E0BF" />
+                  <Text style={styles.residentPreviewNoteText}>{t.profileHint}</Text>
+                </View>
+              </View>
+              <View style={styles.residentForm}>
+                <View style={styles.residentFormHeading}>
+                  <Text style={styles.residentFormTitle}>{t.profileDetails}</Text>
+                  <Text style={styles.residentFormHint}>{t.profileDetailsHint}</Text>
+                </View>
+                <Text style={styles.fieldLabel}>{t.firstName}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={locale === 'fr' ? 'Ex. Élise' : 'e.g. Élise'}
+                  value={draft.residentFirstName}
+                  onChangeText={(residentFirstName) =>
+                    setDraft((current) => ({
+                      ...current,
+                      residentFirstName,
+                      dailyName:
+                        current.dailyNameEdited && current.dailyName.trim()
+                          ? current.dailyName
+                          : residentFirstName,
+                    }))
+                  }
+                />
+                <Text style={styles.fieldLabel}>{t.lastName}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={locale === 'fr' ? 'Ex. Martin' : 'e.g. Martin'}
+                  value={draft.residentLastName}
+                  onChangeText={(residentLastName) => patch({ residentLastName })}
+                />
+                <Text style={styles.fieldLabel}>{t.dailyName}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={locale === 'fr' ? 'Ex. Lili' : 'e.g. Lily'}
+                  value={draft.dailyName}
+                  onChangeText={(dailyName) => patch({ dailyName, dailyNameEdited: true })}
+                />
+              </View>
             </View>
           ) : null}
 
           {step === 3 ? (
-            <View style={styles.fields}>
-              <Text style={styles.label}>{t.life}</Text>
-              {options.life.map(([value, fr, en]) => (
-                <Choice
-                  key={value}
-                  active={draft.life.includes(value)}
-                  label={locale === 'fr' ? fr : en}
-                  onPress={() => toggle('life', value)}
-                />
-              ))}
-              <Text style={styles.label}>{t.mobility}</Text>
-              {options.mobility.map(([value, fr, en]) => (
-                <Choice
-                  key={value}
-                  active={draft.mobility === value}
-                  label={locale === 'fr' ? fr : en}
-                  onPress={() => patch({ mobility: value })}
-                />
-              ))}
-              <Text style={styles.label}>{t.senses}</Text>
-              {options.senses.map(([value, fr, en]) => (
-                <Choice
-                  key={value}
-                  active={draft.senses.includes(value)}
-                  label={locale === 'fr' ? fr : en}
-                  onPress={() => toggle('senses', value)}
-                />
-              ))}
+            <View style={styles.routinesSection}>
+              <View style={styles.routinesOverview}>
+                <View>
+                  <Text style={styles.routinesOverviewTitle}>{t.routineCount}</Text>
+                  <Text style={styles.routinesOverviewHint}>{t.routineHint}</Text>
+                </View>
+                <View style={styles.routinesCount}>
+                  <Text style={styles.routinesCountText}>4</Text>
+                </View>
+              </View>
+              <View style={styles.fields}>
+                {Object.entries(draft.habits).map(([name, habit]) => {
+                  const displayName =
+                    locale === 'fr'
+                      ? name
+                      : ({
+                          Lever: 'Wake up',
+                          Coucher: 'Bedtime',
+                          Déjeuner: 'Lunch',
+                          Dîner: 'Dinner',
+                        }[name] ?? name);
+                  const iconName =
+                    name === 'Lever'
+                      ? 'sunny-outline'
+                      : name === 'Coucher'
+                        ? 'moon-outline'
+                        : name === 'Déjeuner'
+                          ? 'cafe-outline'
+                          : 'restaurant-outline';
+                  return (
+                    <View style={styles.habit} key={name}>
+                      <View style={styles.habitHeader}>
+                        <View style={styles.habitIcon}>
+                          <Ionicons name={iconName} size={19} color={colors.green} />
+                        </View>
+                        <View style={styles.habitHeadingCopy}>
+                          <Text style={styles.habitName}>{displayName}</Text>
+                          <Text style={styles.habitSummary}>
+                            {habit.unknown ? t.routineLearn : `${habit.from} – ${habit.to}`}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.routineTimeRow}>
+                        <View style={styles.routineTimeField}>
+                          <Text style={styles.routineTimeLabel}>{t.routineFrom}</Text>
+                          <TextInput
+                            style={[styles.timeInput, habit.unknown && styles.disabled]}
+                            editable={!habit.unknown}
+                            value={habit.from}
+                            onChangeText={(from) =>
+                              patch({ habits: { ...draft.habits, [name]: { ...habit, from } } })
+                            }
+                          />
+                        </View>
+                        <Text style={styles.routineTimeSeparator}>{t.routineConnector}</Text>
+                        <View style={styles.routineTimeField}>
+                          <Text style={styles.routineTimeLabel}>{t.routineUntil}</Text>
+                          <TextInput
+                            style={[styles.timeInput, habit.unknown && styles.disabled]}
+                            editable={!habit.unknown}
+                            value={habit.to}
+                            onChangeText={(to) =>
+                              patch({ habits: { ...draft.habits, [name]: { ...habit, to } } })
+                            }
+                          />
+                        </View>
+                      </View>
+                      <Choice
+                        active={habit.unknown}
+                        label={t.unknown}
+                        onPress={() =>
+                          patch({
+                            habits: {
+                              ...draft.habits,
+                              [name]: { ...habit, unknown: !habit.unknown },
+                            },
+                          })
+                        }
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+              <View style={styles.routineNote}>
+                <Ionicons name="sparkles-outline" size={18} color={colors.green} />
+                <Text style={styles.routineNoteText}>
+                  <Text style={styles.routineNoteTitle}>
+                    {locale === 'fr' ? 'Rien n’est figé. ' : 'Nothing is fixed. '}
+                  </Text>
+                  {t.routineNote}
+                </Text>
+              </View>
             </View>
           ) : null}
 
           {step === 4 ? (
-            <View style={styles.fields}>
-              {Object.entries(draft.habits).map(([name, habit]) => {
-                const displayName =
-                  locale === 'fr'
-                    ? name
-                    : ({ Lever: 'Wake up', Coucher: 'Bedtime', Déjeuner: 'Lunch', Dîner: 'Dinner' }[
-                        name
-                      ] ?? name);
-                return (
-                  <View style={styles.habit} key={name}>
-                    <Text style={styles.habitName}>{displayName}</Text>
-                    <View style={styles.timeRow}>
-                      <TextInput
-                        style={[styles.timeInput, habit.unknown && styles.disabled]}
-                        editable={!habit.unknown}
-                        value={habit.from}
-                        onChangeText={(from) =>
-                          patch({ habits: { ...draft.habits, [name]: { ...habit, from } } })
-                        }
-                      />
-                      <Text>—</Text>
-                      <TextInput
-                        style={[styles.timeInput, habit.unknown && styles.disabled]}
-                        editable={!habit.unknown}
-                        value={habit.to}
-                        onChangeText={(to) =>
-                          patch({ habits: { ...draft.habits, [name]: { ...habit, to } } })
-                        }
-                      />
-                    </View>
-                    <Choice
-                      active={habit.unknown}
-                      label={t.unknown}
-                      onPress={() =>
-                        patch({
-                          habits: {
-                            ...draft.habits,
-                            [name]: { ...habit, unknown: !habit.unknown },
-                          },
-                        })
-                      }
-                    />
-                  </View>
-                );
-              })}
+            <View style={styles.remotePanel}>
+              <View style={styles.remoteStatus}>
+                <Ionicons name="shield-checkmark-outline" size={22} color={colors.green} />
+                <Text style={styles.remoteMessage}>{remoteDescription}</Text>
+              </View>
+              {remoteStatus?.state === 'SIGNED_OUT' && session ? (
+                <Pressable
+                  style={styles.remoteAction}
+                  disabled={remoteBusy}
+                  onPress={() => void runRemoteAction('connect')}
+                >
+                  {remoteBusy ? <ActivityIndicator color={colors.navy} /> : null}
+                  <Text style={styles.remoteActionText}>{t.remoteConnect}</Text>
+                </Pressable>
+              ) : null}
+              {remoteStatus?.state === 'AUTHORIZING' && remoteStatus.authUrl ? (
+                <Pressable
+                  style={styles.remoteAction}
+                  onPress={() =>
+                    void Linking.openURL(remoteStatus.authUrl!).catch(() =>
+                      setRemoteError(t.remoteActionFailed),
+                    )
+                  }
+                >
+                  <Text style={styles.remoteActionText}>{t.remoteApprove}</Text>
+                  <Ionicons name="open-outline" size={18} color={colors.navy} />
+                </Pressable>
+              ) : null}
+              {remoteStatus?.state === 'CONFIGURING' && session ? (
+                <Pressable
+                  style={styles.remoteAction}
+                  disabled={remoteBusy}
+                  onPress={() => void runRemoteAction('enable')}
+                >
+                  {remoteBusy ? <ActivityIndicator color={colors.navy} /> : null}
+                  <Text style={styles.remoteActionText}>{t.remoteEnable}</Text>
+                </Pressable>
+              ) : null}
+              {remoteStatus?.remoteUrl ? (
+                <Pressable
+                  style={styles.remoteAddress}
+                  onPress={() => void Linking.openURL(remoteStatus.remoteUrl!).catch(() => {})}
+                >
+                  <Text style={styles.remoteAddressLabel}>{t.remoteAddress}</Text>
+                  <Text style={styles.remoteAddressValue}>{remoteStatus.remoteUrl}</Text>
+                </Pressable>
+              ) : null}
+              {remoteError ? <Text style={styles.remoteError}>{remoteError}</Text> : null}
+            </View>
+          ) : null}
+
+          {step === 5 ? (
+            <View style={styles.readyPanel}>
+              <View style={styles.readyCheck}>
+                <Ionicons name="checkmark" size={34} color="#fff" />
+              </View>
             </View>
           ) : null}
 
@@ -692,8 +954,8 @@ export function MobileSetup({
           ) : null}
           <Pressable
             style={styles.primary}
-            disabled={busy}
-            onPress={step === 0 ? () => setStep(1) : next}
+            disabled={busy || (step === 5 && !previewMode && !session)}
+            onPress={step === 0 ? () => setStep(1) : () => void next()}
           >
             {busy ? (
               <ActivityIndicator color="#fff" />
@@ -702,11 +964,17 @@ export function MobileSetup({
                 <Text style={styles.primaryText}>
                   {step === 0
                     ? t.start
-                    : step === 4
+                    : step === 3
                       ? previewMode
                         ? t.previewFinish
                         : t.finish
-                      : t.next}
+                      : step === 4
+                        ? t.remoteContinue
+                        : step === 5
+                          ? previewMode
+                            ? t.previewFinish
+                            : t.done
+                          : t.next}
                 </Text>
                 <Ionicons name="arrow-forward" size={19} color="#fff" />
               </>
@@ -776,16 +1044,83 @@ const styles = StyleSheet.create({
   heroLogo: { width: 112, height: 112, marginBottom: 15 },
   heroName: { color: colors.navy, fontFamily: 'Georgia', fontSize: 24 },
   heroUrl: { color: colors.muted, marginTop: 5 },
-  localLine: {
+  welcomePills: {
     flexDirection: 'row',
-    gap: 9,
-    alignItems: 'center',
-    marginTop: 20,
-    paddingTop: 18,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 22,
   },
+  welcomePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.paper,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  welcomePillText: { color: colors.navy, fontSize: 11, fontWeight: '700' },
   fields: { gap: 12, marginBottom: 20 },
+  residentLayout: { gap: 13, marginBottom: 8 },
+  residentPreview: {
+    borderRadius: 19,
+    backgroundColor: colors.blue,
+    padding: 19,
+    overflow: 'hidden',
+  },
+  residentPreviewMark: {
+    width: 43,
+    height: 43,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,.13)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 17,
+  },
+  residentPreviewKicker: {
+    color: '#C8D9DC',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  residentPreviewName: {
+    color: '#fff',
+    fontFamily: 'Georgia',
+    fontSize: 27,
+    marginTop: 7,
+  },
+  residentPreviewFullName: { color: '#D6E0E2', fontSize: 12, marginTop: 5 },
+  residentPreviewNote: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,.16)',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+    marginTop: 17,
+    paddingTop: 12,
+  },
+  residentPreviewNoteText: { flex: 1, color: '#F4F7F4', fontSize: 11, lineHeight: 17 },
+  residentForm: {
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.paper,
+    padding: 18,
+  },
+  residentFormHeading: { marginBottom: 10 },
+  residentFormTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 21 },
+  residentFormHint: { color: colors.muted, fontSize: 11, marginTop: 4 },
+  fieldLabel: {
+    color: colors.navy,
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 12,
+    marginBottom: -5,
+  },
   input: {
     minHeight: 52,
     borderRadius: 13,
@@ -816,24 +1151,104 @@ const styles = StyleSheet.create({
   strength: { flexDirection: 'row', gap: 5 },
   strengthBar: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.line },
   strengthOn: { backgroundColor: colors.green },
+  routinesSection: { gap: 11, marginBottom: 10 },
+  routinesOverview: {
+    minHeight: 58,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#E2E8E2',
+    backgroundColor: '#F5F7F3',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  routinesOverviewTitle: { color: colors.navy, fontSize: 12, fontWeight: '800' },
+  routinesOverviewHint: { color: colors.muted, fontSize: 10, marginTop: 3 },
+  routinesCount: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: '#E4EEE6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  routinesCountText: { color: colors.green, fontSize: 14, fontWeight: '900' },
   habit: {
-    padding: 16,
-    borderRadius: 17,
+    padding: 15,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.paper,
-    gap: 12,
+    gap: 13,
   },
-  habitName: { color: colors.navy, fontSize: 17, fontWeight: '800' },
+  habitHeader: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  habitIcon: {
+    width: 41,
+    height: 41,
+    borderRadius: 14,
+    backgroundColor: '#EAF2EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  habitHeadingCopy: { flex: 1 },
+  habitName: { color: colors.navy, fontSize: 15, fontWeight: '800', marginTop: 2 },
+  habitSummary: { color: colors.muted, fontSize: 10, marginTop: 3 },
+  routineTimeRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  routineTimeField: { flex: 1, gap: 5 },
+  routineTimeLabel: { color: colors.muted, fontSize: 9, fontWeight: '700' },
+  routineTimeSeparator: { color: colors.muted, fontSize: 10, paddingBottom: 14 },
+  routineNote: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E4ECE4',
+    backgroundColor: '#EDF3F0',
+    padding: 13,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+  },
+  routineNoteText: { flex: 1, color: colors.muted, fontSize: 10, lineHeight: 16 },
+  routineNoteTitle: { color: colors.navy, fontWeight: '800' },
+  remotePanel: {
+    backgroundColor: colors.paper,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 17,
+    gap: 14,
+  },
+  remoteStatus: { flexDirection: 'row', alignItems: 'flex-start', gap: 11 },
+  remoteMessage: { flex: 1, color: colors.navy, lineHeight: 21 },
+  remoteAction: {
+    minHeight: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  remoteActionText: { color: colors.navy, fontWeight: '800' },
+  remoteAddress: { borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 13, gap: 4 },
+  remoteAddressLabel: { color: colors.muted, fontSize: 12 },
+  remoteAddressValue: { color: colors.navy, fontWeight: '700' },
+  remoteError: { color: colors.red, lineHeight: 19 },
+  readyPanel: { alignItems: 'center', paddingVertical: 15 },
   timeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   timeInput: {
     flex: 1,
-    minHeight: 45,
+    minHeight: 43,
     textAlign: 'center',
     borderRadius: 11,
     borderWidth: 1,
     borderColor: colors.line,
     color: colors.navy,
+    backgroundColor: '#FBFCFA',
+    paddingHorizontal: 7,
   },
   disabled: { opacity: 0.45 },
   error: {

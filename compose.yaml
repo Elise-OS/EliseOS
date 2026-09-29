@@ -216,6 +216,7 @@ services:
         condition: service_healthy
     environment:
       MICHEL_VERSION: ${MICHEL_VERSION:-0.1.4}
+      MICHEL_WEB_CORS_ORIGINS: ${MICHEL_WEB_CORS_ORIGINS:-}
       MICHEL_SECRETS_DIR: /run/michel-secrets
       POSTGRES_HOST: postgres
       POSTGRES_DB: michel

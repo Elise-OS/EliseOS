@@ -41,8 +41,9 @@
 # sole network entry point and terminates private HTTPS on port 8443.
 :8081 {
   encode zstd gzip
+  # First-account setup is available through this private Tailscale listener.
   @remote_forbidden {
-    path /api/v1/auth/bootstrap /api/v1/auth/bootstrap-equipment /api/docs*
+    path /api/v1/auth/bootstrap-equipment /api/docs*
   }
   handle @remote_forbidden {
     respond "Cette fonction est disponible uniquement au domicile." 403

@@ -1,0 +1,19 @@
+ALTER TYPE "MobilityLevel" ADD VALUE 'UNKNOWN';
+
+ALTER TABLE "ResidentContext"
+  ALTER COLUMN "livesAlone" DROP NOT NULL,
+  ALTER COLUMN "livesAlone" DROP DEFAULT,
+  ALTER COLUMN "livesWithPartner" DROP NOT NULL,
+  ALTER COLUMN "livesWithPartner" DROP DEFAULT,
+  ALTER COLUMN "livesWithRelative" DROP NOT NULL,
+  ALTER COLUMN "livesWithRelative" DROP DEFAULT,
+  ALTER COLUMN "receivesHomeHelp" DROP NOT NULL,
+  ALTER COLUMN "receivesHomeHelp" DROP DEFAULT,
+  ALTER COLUMN "receivesVisits" DROP NOT NULL,
+  ALTER COLUMN "receivesVisits" DROP DEFAULT,
+  ALTER COLUMN "hasPet" DROP NOT NULL,
+  ALTER COLUMN "hasPet" DROP DEFAULT,
+  ALTER COLUMN "hearingDifficulty" DROP NOT NULL,
+  ALTER COLUMN "hearingDifficulty" DROP DEFAULT,
+  ALTER COLUMN "visualDifficulty" DROP NOT NULL,
+  ALTER COLUMN "visualDifficulty" DROP DEFAULT;

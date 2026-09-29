@@ -3,6 +3,7 @@ import type {
   AlertRuleSettings,
   MembershipRole,
   RemoteAccessStatus,
+  ScreenSnapshot,
   UpdateStatus,
 } from '@michel/contracts';
 import * as Linking from 'expo-linking';
@@ -21,6 +22,7 @@ import {
 import { mobileApi, type GoogleAccountSettings, type SimulationScenario } from '../api';
 import type { SavedServer } from '../discovery/types';
 import { activeServerUrl, isTailscaleUrl } from '../discovery/helpers';
+import { MobileWeatherCard } from './MobileWeatherCard';
 
 type SettingsSection = 'general' | 'google' | 'rules';
 type Locale = 'fr' | 'en';
@@ -97,7 +99,9 @@ export function MobileSettingsPanel({
   role,
   locale,
   initialSection,
+  screen,
   onLocaleChange,
+  onScreenUpdated,
   onOpenPage,
 }: {
   server: SavedServer;
@@ -105,7 +109,9 @@ export function MobileSettingsPanel({
   role: MembershipRole;
   locale: Locale;
   initialSection: SettingsSection;
+  screen?: ScreenSnapshot;
   onLocaleChange: (locale: Locale) => void;
+  onScreenUpdated: () => void;
   onOpenPage: (
     page: 'home' | 'activity' | 'alerts' | 'house' | 'journal' | 'screen' | 'people' | 'settings',
   ) => void;
@@ -470,6 +476,13 @@ export function MobileSettingsPanel({
 
         {section === 'general' ? (
           <>
+            <MobileWeatherCard
+              server={server}
+              token={token}
+              locale={locale}
+              snapshot={screen}
+              onChanged={onScreenUpdated}
+            />
             <Card
               eyebrow={fr ? 'PRÉFÉRENCES DE L’APPLICATION' : 'APPLICATION PREFERENCES'}
               title={fr ? 'Général' : 'General'}

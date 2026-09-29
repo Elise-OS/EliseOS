@@ -4,6 +4,10 @@ import {
   type ScreenMessageInput,
   type AppointmentPictogram,
   type ScreenScheduledContentInput,
+  type ScreenPodcastEpisode,
+  type ScreenPodcastSearchResult,
+  type ScreenPodcastSubscription,
+  type ScreenMedia,
 } from '@michel/contracts';
 import { request as httpRequest } from 'node:http';
 import {
@@ -40,9 +44,31 @@ import { parseRequest } from '../../platform/zod-validation';
 import { decryptCameraSecret, encryptCameraSecret } from '../cameras/camera-crypto';
 import { scheduledDate } from '../medications/medication-time';
 import { MqttIngestionService } from '../sensing/mqtt-ingestion.service';
+import { fetchPodcastEpisodes } from './podcast-feed';
 
 const hash = (s: string) => createHash('sha256').update(s).digest('hex');
 const json = (s: unknown) => JSON.parse(JSON.stringify(s)) as Prisma.InputJsonValue;
+const podcastCatalogBase = 'https://api.podcastindex.org';
+function podcastHttpsUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'https:' && !url.username && !url.password
+      ? url.href.slice(0, 2048)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+function boundedCatalogText(value: unknown, maxLength: number): string {
+  return typeof value === 'string'
+    ? value
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, maxLength)
+    : '';
+}
 const noRights: ScreenGrant = {
   call: false,
   autoAnswer: false,
@@ -60,6 +86,10 @@ const adminRights: ScreenGrant = {
 const mediaRoot = path.resolve(process.env.MEDIA_ROOT ?? '/var/lib/elise/media', 'screen');
 type CityWeather = ScreenSnapshot['weather'];
 const weatherCache = new Map<string, { expiresAt: number; value: Promise<CityWeather> }>();
+const podcastEpisodeCache = new Map<
+  string,
+  { expiresAt: number; value: Promise<ScreenPodcastEpisode[]> }
+>();
 const youtubeOAuthStates = new Map<string, { userId: string; expiresAt: number }>();
 function nextDateKey(value: string): string {
   const date = new Date(`${value}T00:00:00.000Z`);
@@ -78,6 +108,10 @@ export interface RadioStationResult {
   bitrate: number;
   artworkUrl?: string;
 }
+type PodcastDirectoryResponse = {
+  resultCount?: number;
+  results?: Array<Record<string, unknown>>;
+};
 export interface WeatherCityResult {
   name: string;
   label: string;
@@ -1176,6 +1210,269 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     );
     return { ok: true };
   }
+  private async podcastCatalogRequest(url: URL): Promise<PodcastDirectoryResponse> {
+    const response = await fetch(url, {
+      headers: { 'user-agent': 'MichelOS/0.1 (+https://elise.local)' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) throw new Error(`Podcast catalog HTTP ${response.status}.`);
+    const body = (await response.json()) as unknown;
+    if (!body || typeof body !== 'object') throw new Error('Podcast catalog response invalide.');
+    return body;
+  }
+
+  private async podcastFeedDetails(feedId: string): Promise<ScreenPodcastSubscription> {
+    const url = new URL('/lookup', podcastCatalogBase);
+    url.searchParams.set('entity', 'podcast');
+    url.searchParams.set('id', feedId);
+    const response = await this.podcastCatalogRequest(url);
+    const row = response.results?.find((item) => {
+      const id = item.collectionId ?? item.trackId;
+      return (typeof id === 'string' || typeof id === 'number') && `${id}` === feedId;
+    });
+    if (!row) throw new NotFoundException('Podcast introuvable dans le catalogue.');
+    const title = boundedCatalogText(row.collectionName ?? row.trackName, 120);
+    const feedUrl = podcastHttpsUrl(row.feedUrl);
+    if (!title || !feedUrl) throw new ConflictException('Flux de ce podcast indisponible.');
+    const artworkUrl = podcastHttpsUrl(row.artworkUrl600 ?? row.artworkUrl100);
+    return {
+      id: feedId,
+      title,
+      author: boundedCatalogText(row.artistName, 120),
+      episodeCount:
+        typeof row.trackCount === 'number' && Number.isFinite(row.trackCount)
+          ? Math.max(0, Math.min(100000, Math.trunc(row.trackCount)))
+          : 0,
+      ...(typeof row.primaryGenreName === 'string'
+        ? { genre: boundedCatalogText(row.primaryGenreName, 80) }
+        : {}),
+      ...(artworkUrl ? { artworkUrl } : {}),
+      feedUrl,
+    };
+  }
+
+  private async episodesForPodcast(
+    podcast: ScreenPodcastSubscription,
+  ): Promise<ScreenPodcastEpisode[]> {
+    const cached = podcastEpisodeCache.get(podcast.feedUrl);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const value = fetchPodcastEpisodes(podcast.feedUrl, podcast.artworkUrl);
+    podcastEpisodeCache.set(podcast.feedUrl, { expiresAt: Date.now() + 5 * 60_000, value });
+    if (podcastEpisodeCache.size > 60) {
+      const oldestKey = podcastEpisodeCache.keys().next().value;
+      if (oldestKey) podcastEpisodeCache.delete(oldestKey);
+    }
+    try {
+      return await value;
+    } catch (error) {
+      if (podcastEpisodeCache.get(podcast.feedUrl)?.value === value)
+        podcastEpisodeCache.delete(podcast.feedUrl);
+      throw error;
+    }
+  }
+
+  async searchPodcasts(
+    userId: string,
+    rawQuery: string | undefined,
+  ): Promise<ScreenPodcastSearchResult[]> {
+    await this.access(userId, 'control');
+    const query = rawQuery?.trim() ?? '';
+    if (query.length < 2 || query.length > 80)
+      throw new BadRequestException('Saisissez au moins deux caractères.');
+    const url = new URL('/search', podcastCatalogBase);
+    url.searchParams.set('term', query);
+    try {
+      const response = await this.podcastCatalogRequest(url);
+      const seen = new Set<string>();
+      return (response.results ?? [])
+        .flatMap((row): ScreenPodcastSearchResult[] => {
+          const idValue = row.collectionId ?? row.trackId;
+          const id = typeof idValue === 'number' ? String(Math.trunc(idValue)) : '';
+          const title = boundedCatalogText(row.collectionName ?? row.trackName, 120);
+          if (!/^\d{1,20}$/.test(id) || !title || seen.has(id)) return [];
+          seen.add(id);
+          const artworkUrl = podcastHttpsUrl(row.artworkUrl600 ?? row.artworkUrl100);
+          const item: ScreenPodcastSearchResult = {
+            id,
+            title,
+            author: boundedCatalogText(row.artistName, 120),
+            episodeCount:
+              typeof row.trackCount === 'number' && Number.isFinite(row.trackCount)
+                ? Math.max(0, Math.min(100000, Math.trunc(row.trackCount)))
+                : 0,
+            ...(typeof row.primaryGenreName === 'string'
+              ? { genre: boundedCatalogText(row.primaryGenreName, 80) }
+              : {}),
+            ...(artworkUrl ? { artworkUrl } : {}),
+          };
+          return [item];
+        })
+        .slice(0, 24);
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      throw new ConflictException('La recherche de podcasts est momentanément indisponible.');
+    }
+  }
+
+  async followPodcast(userId: string, rawFeedId: string) {
+    const feedId = rawFeedId.trim();
+    if (!/^\d{1,20}$/.test(feedId)) throw new BadRequestException('Podcast invalide.');
+    const { home, state } = await this.access(userId, 'control');
+    if ((state.podcasts ?? []).some((podcast) => podcast.id === feedId))
+      return this.snapshot(userId);
+    let podcast: ScreenPodcastSubscription;
+    try {
+      podcast = await this.podcastFeedDetails(feedId);
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ConflictException) throw error;
+      throw new ConflictException('Impossible de récupérer ce podcast pour le moment.');
+    }
+    const actor = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    await this.mutate(home.id, (s) => {
+      s.podcasts ??= [];
+      if (s.podcasts.some((item) => item.id === feedId)) return;
+      s.podcasts.push(podcast);
+      this.addActivity(s, {
+        id: randomUUID(),
+        kind: 'content',
+        title: 'Podcast ajouté à la bibliothèque',
+        detail: podcast.title,
+        actor: actor.displayName,
+        status: 'applied',
+      });
+    });
+    return this.snapshot(userId);
+  }
+
+  async unfollowPodcast(userId: string, rawFeedId: string) {
+    const feedId = rawFeedId.trim();
+    if (!/^\d{1,20}$/.test(feedId)) throw new BadRequestException('Podcast invalide.');
+    const { home } = await this.access(userId, 'control');
+    const actor = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    await this.mutate(home.id, (s) => {
+      const podcast = (s.podcasts ?? []).find((item) => item.id === feedId);
+      if (!podcast) throw new NotFoundException('Podcast introuvable dans la bibliothèque.');
+      s.podcasts = (s.podcasts ?? []).filter((item) => item.id !== feedId);
+      this.addActivity(s, {
+        id: randomUUID(),
+        kind: 'content',
+        title: 'Podcast retiré de la bibliothèque',
+        detail: podcast.title,
+        actor: actor.displayName,
+        status: 'applied',
+      });
+    });
+    return this.snapshot(userId);
+  }
+
+  async podcastEpisodes(userId: string, rawFeedId: string): Promise<ScreenPodcastEpisode[]> {
+    const feedId = rawFeedId.trim();
+    const { state } = await this.access(userId, 'control');
+    if (!/^\d{1,20}$/.test(feedId)) throw new BadRequestException('Podcast invalide.');
+    let podcast = (state.podcasts ?? []).find((item) => item.id === feedId);
+    if (!podcast) {
+      try {
+        podcast = await this.podcastFeedDetails(feedId);
+      } catch (error) {
+        if (error instanceof NotFoundException || error instanceof ConflictException) throw error;
+        throw new ConflictException('Impossible de récupérer ce podcast pour le moment.');
+      }
+    }
+    try {
+      return await this.episodesForPodcast(podcast);
+    } catch {
+      throw new ConflictException('Les épisodes de ce podcast sont momentanément indisponibles.');
+    }
+  }
+
+  async playPodcastEpisode(userId: string, rawFeedId: string, episodeId: string) {
+    const feedId = rawFeedId.trim();
+    if (!/^\d{1,20}$/.test(feedId) || !episodeId.trim() || episodeId.length > 500)
+      throw new BadRequestException('Épisode invalide.');
+    const { home, row, state } = await this.access(userId, 'control');
+    if (!row.lastSeenAt || Date.now() - row.lastSeenAt.getTime() > 15000)
+      throw new ConflictException('Écran hors ligne.');
+    const podcast = (state.podcasts ?? []).find((item) => item.id === feedId);
+    if (!podcast) throw new NotFoundException('Podcast introuvable dans la bibliothèque.');
+    let episodes: ScreenPodcastEpisode[];
+    try {
+      episodes = await this.episodesForPodcast(podcast);
+    } catch {
+      throw new ConflictException('Les épisodes de ce podcast sont momentanément indisponibles.');
+    }
+    const selectedIndex = episodes.findIndex((episode) => episode.id === episodeId);
+    if (selectedIndex < 0) throw new NotFoundException('Épisode introuvable dans ce podcast.');
+    const actor = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const queue = episodes.slice(selectedIndex, selectedIndex + 50);
+    const queueMedia: ScreenMedia[] = queue.map((episode) => {
+      const existing = state.media.find(
+        (media) =>
+          media.kind === 'podcast' &&
+          media.podcastFeedId === feedId &&
+          media.podcastEpisodeId === episode.id,
+      );
+      return {
+        id: existing?.id ?? randomUUID(),
+        kind: 'podcast',
+        title: episode.title,
+        url: episode.enclosureUrl,
+        podcastFeedId: feedId,
+        podcastEpisodeId: episode.id,
+        podcastShowTitle: podcast.title,
+        podcastPublishedAt: episode.publishedAt ?? 0,
+        ...(episode.durationSeconds ? { podcastDurationSeconds: episode.durationSeconds } : {}),
+        ...((episode.artworkUrl ?? podcast.artworkUrl)
+          ? { artworkUrl: episode.artworkUrl ?? podcast.artworkUrl }
+          : {}),
+      };
+    });
+    const commandId = randomUUID();
+    await this.mutate(home.id, (s) => {
+      const queuedIds = new Set(queueMedia.map((media) => media.id));
+      let remaining = (s.media ?? []).filter(
+        (media) =>
+          !queuedIds.has(media.id) && !(media.kind === 'podcast' && media.podcastFeedId === feedId),
+      );
+      const scheduledIds = new Set((s.scheduledContent ?? []).map((slot) => slot.mediaId));
+      const protectedIds = new Set([s.playback.mediaId, ...scheduledIds]);
+      let excess = remaining.length + queueMedia.length - 200;
+      if (excess > 0) {
+        const removable = remaining
+          .filter((media) => media.kind === 'podcast' && !protectedIds.has(media.id))
+          .sort((a, b) => (a.podcastPublishedAt ?? 0) - (b.podcastPublishedAt ?? 0));
+        const removeIds = new Set(removable.slice(0, excess).map((media) => media.id));
+        remaining = remaining.filter((media) => !removeIds.has(media.id));
+        excess = remaining.length + queueMedia.length - 200;
+      }
+      if (excess > 0) throw new ConflictException('La bibliothèque de médias est pleine.');
+      s.media = [...remaining, ...queueMedia];
+      const previousPlayback = { ...s.playback };
+      s.playback.mediaId = queueMedia[0]!.id;
+      s.playback.paused = false;
+      s.playback.asleep = false;
+      s.playback.revision++;
+      s.commands.push({
+        id: commandId,
+        action: 'play',
+        previousPlayback,
+        revision: s.playback.revision,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 15000,
+        status: 'pending',
+      });
+      s.commands = s.commands.slice(-50);
+      this.addActivity(s, {
+        id: commandId,
+        kind: 'content',
+        title: 'Podcast lancé',
+        detail: `${queueMedia[0]!.title} · ${podcast.title}`,
+        actor: actor.displayName,
+        status: 'pending',
+      });
+    });
+    return this.snapshot(userId);
+  }
+
   async searchRadio(userId: string, rawQuery: string | undefined): Promise<RadioStationResult[]> {
     await this.access(userId, 'control');
     const query = rawQuery?.trim() ?? '';
@@ -1683,10 +1980,31 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
         p.volume = input.volume;
         s.settings.volume = input.volume;
       }
+      const currentMedia = s.media.find((media) => media.id === p.mediaId);
+      if (input.action === 'next' && currentMedia?.kind === 'podcast') {
+        const podcastQueue = s.media
+          .filter(
+            (media) =>
+              media.kind === 'podcast' && media.podcastFeedId === currentMedia.podcastFeedId,
+          )
+          .sort(
+            (a, b) =>
+              (b.podcastPublishedAt ?? 0) - (a.podcastPublishedAt ?? 0) ||
+              s.media.indexOf(a) - s.media.indexOf(b),
+          );
+        const currentIndex = podcastQueue.findIndex((media) => media.id === currentMedia.id);
+        const nextEpisode = currentIndex >= 0 ? podcastQueue[currentIndex + 1] : undefined;
+        if (nextEpisode) {
+          p.mediaId = nextEpisode.id;
+          p.paused = false;
+          p.asleep = false;
+        }
+      }
       if (
         input.action === 'next' &&
-        s.media.find((media) => media.id === p.mediaId)?.kind !== 'youtube' &&
-        s.media.find((media) => media.id === p.mediaId)?.kind !== 'tv' &&
+        currentMedia?.kind !== 'youtube' &&
+        currentMedia?.kind !== 'tv' &&
+        currentMedia?.kind !== 'podcast' &&
         s.media.some((media) => media.kind === 'photo')
       ) {
         const photos = s.media.filter((media) => media.kind === 'photo');
@@ -1694,11 +2012,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
           photos[(photos.findIndex((media) => media.id === p.mediaId) + 1) % photos.length]!.id;
         p.paused = false;
       }
-      if (
-        input.action === 'next' &&
-        s.media.find((media) => media.id === p.mediaId)?.kind === 'youtube'
-      )
-        p.paused = false;
+      if (input.action === 'next' && currentMedia?.kind === 'youtube') p.paused = false;
       if (input.action === 'planning') s.lastSlot = '';
       p.revision++;
       const target = s.media.find((media) => media.id === p.mediaId);
@@ -1718,16 +2032,23 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
         play:
           target?.kind === 'stream'
             ? 'Radio lancée'
-            : target?.kind === 'tv'
-              ? target.title
-                ? `${target.title} lancée`
-                : 'Chaîne TV lancée'
-              : target?.kind === 'youtube'
-                ? 'Playlist YouTube lancée'
-                : 'Photo affichée',
+            : target?.kind === 'podcast'
+              ? 'Podcast lancé'
+              : target?.kind === 'tv'
+                ? target.title
+                  ? `${target.title} lancée`
+                  : 'Chaîne TV lancée'
+                : target?.kind === 'youtube'
+                  ? 'Playlist YouTube lancée'
+                  : 'Photo affichée',
         pause: 'Diffusion mise en pause',
         resume: 'Diffusion reprise',
-        next: target?.kind === 'youtube' ? 'Vidéo suivante demandée' : 'Contenu suivant demandé',
+        next:
+          target?.kind === 'youtube'
+            ? 'Vidéo suivante demandée'
+            : target?.kind === 'podcast'
+              ? 'Épisode suivant demandé'
+              : 'Contenu suivant demandé',
         stop: 'Retour à l’accueil demandé',
         wake: 'Réveil de l’écran demandé',
         sleep: 'Mise au repos demandée',

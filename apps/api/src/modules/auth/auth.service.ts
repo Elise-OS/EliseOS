@@ -200,15 +200,15 @@ export class AuthService {
       await tx.residentContext.create({
         data: {
           residentId: resident.id,
-          livesAlone: setup.life.includes('alone'),
-          livesWithPartner: setup.life.includes('partner'),
-          livesWithRelative: setup.life.includes('relative'),
-          receivesHomeHelp: setup.life.includes('home_help'),
-          receivesVisits: setup.life.includes('visits'),
-          hasPet: setup.life.includes('pet'),
+          livesAlone: setup.life.length ? setup.life.includes('alone') : null,
+          livesWithPartner: setup.life.length ? setup.life.includes('partner') : null,
+          livesWithRelative: setup.life.length ? setup.life.includes('relative') : null,
+          receivesHomeHelp: setup.life.length ? setup.life.includes('home_help') : null,
+          receivesVisits: setup.life.length ? setup.life.includes('visits') : null,
+          hasPet: setup.life.length ? setup.life.includes('pet') : null,
           mobility: this.mobility(setup.mobility),
-          hearingDifficulty: setup.senses.includes('hearing'),
-          visualDifficulty: setup.senses.includes('vision'),
+          hearingDifficulty: setup.senses.length ? setup.senses.includes('hearing') : null,
+          visualDifficulty: setup.senses.length ? setup.senses.includes('vision') : null,
         },
       });
       const needKinds: Array<
@@ -333,10 +333,16 @@ export class AuthService {
 
   private mobility(
     value: Installation['mobility'],
-  ): 'INDEPENDENT' | 'CANE' | 'WALKER' | 'WHEELCHAIR' {
-    return { independent: 'INDEPENDENT', cane: 'CANE', walker: 'WALKER', wheelchair: 'WHEELCHAIR' }[
-      value
-    ] as 'INDEPENDENT' | 'CANE' | 'WALKER' | 'WHEELCHAIR';
+  ): 'INDEPENDENT' | 'CANE' | 'WALKER' | 'WHEELCHAIR' | 'UNKNOWN' {
+    return (
+      {
+        independent: 'INDEPENDENT',
+        cane: 'CANE',
+        walker: 'WALKER',
+        wheelchair: 'WHEELCHAIR',
+        unknown: 'UNKNOWN',
+      } as const
+    )[value];
   }
 
   private supportNeed(

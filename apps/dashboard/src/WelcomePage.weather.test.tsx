@@ -137,7 +137,6 @@ describe('Accueil weather settings', () => {
           onActivity={() => undefined}
           onSensors={() => undefined}
           onPlanning={() => undefined}
-          onScreen={() => undefined}
         />,
       );
       await new Promise((resolve) => setTimeout(resolve, 0));

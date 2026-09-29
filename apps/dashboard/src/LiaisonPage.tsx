@@ -31,6 +31,7 @@ import {
   type LiaisonPage as Page,
 } from '@michel/contracts';
 import type { Locale } from './i18n';
+import { DataLoadingScreen } from './DataLoadingScreen';
 import './liaison.css';
 
 interface PendingMedication {
@@ -421,6 +422,14 @@ export function LiaisonPage({
   );
   const currentUserTone = userTone(data?.currentUser);
 
+  if (loading && !data)
+    return (
+      <DataLoadingScreen
+        locale={locale}
+        message={tr('Chargement du carnet…', 'Loading the notebook…')}
+      />
+    );
+
   return (
     <section className="section-view liaison-page">
       <header className="liaison-hero">
@@ -503,12 +512,6 @@ export function LiaisonPage({
               </div>
             </details>
           </div>
-
-          {loading && !data && (
-            <p className="liaison-loading" role="status">
-              {tr('Chargement du carnet…', 'Loading notebook…')}
-            </p>
-          )}
 
           {data && !visits && (
             <div className="liaison-timeline">

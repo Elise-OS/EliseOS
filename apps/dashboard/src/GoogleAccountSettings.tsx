@@ -1,5 +1,6 @@
 import { CalendarDays, Check, Copy, ExternalLink, KeyRound, Save, Youtube } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { DataLoadingScreen } from './DataLoadingScreen';
 
 type GoogleSettings = {
   configured: boolean;
@@ -112,6 +113,14 @@ export function GoogleAccountSettings({ locale }: { locale: 'fr' | 'en' }) {
     });
   };
 
+  if (loading)
+    return (
+      <DataLoadingScreen
+        locale={locale}
+        message={french ? 'Préparation des services Google…' : 'Preparing Google services…'}
+      />
+    );
+
   return (
     <section className="michel-card settings-section-card google-account-settings">
       <header className="settings-section-heading google-account-heading">
@@ -138,9 +147,7 @@ export function GoogleAccountSettings({ locale }: { locale: 'fr' | 'en' }) {
         </span>
       </header>
 
-      {loading ? (
-        <p className="google-account-loading">{french ? 'Chargement…' : 'Loading…'}</p>
-      ) : error === 'forbidden' ? (
+      {error === 'forbidden' ? (
         <p className="google-account-message">
           {french
             ? 'Seul un administrateur peut configurer le compte Google.'

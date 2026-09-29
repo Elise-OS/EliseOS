@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  ARTE_LIVE_URL,
   activitySummarySchema,
   homeSummarySchema,
   type ActivitySummary,
@@ -21,11 +20,6 @@ import {
   CloudFog,
   CloudSnow,
   CloudLightning,
-  Image,
-  MessageCircle,
-  MessageSquare,
-  Monitor,
-  Phone,
   PersonStanding,
   BatteryMedium,
   DoorOpen,
@@ -43,6 +37,8 @@ import {
   MoonStar,
   Sunrise,
   Toilet,
+  Headphones,
+  Youtube,
   Tv,
   Zap,
   MapPin,
@@ -629,24 +625,6 @@ export function welcomeAlertTitle(title: string, locale: Locale, roomName?: stri
 export type WelcomeEvent = { id: string; occurredAt: string; capability: string; label: string };
 export type WelcomeReminder = { title: string; at: string; medication: boolean };
 
-function WelcomeLink({
-  icon: Icon,
-  children,
-  onClick,
-}: {
-  icon: typeof Activity;
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button type="button" className="welcome-link" onClick={onClick}>
-      <Icon aria-hidden="true" />
-      <span>{children}</span>
-      <ChevronRight aria-hidden="true" />
-    </button>
-  );
-}
-
 async function welcomeScreenRequest<T>(path: string, body?: unknown, method = 'POST'): Promise<T> {
   const response = await fetch(`/api/v1/${path}`, {
     method,
@@ -672,7 +650,6 @@ export function WelcomePage({
   onActivity,
   onSensors,
   onPlanning,
-  onScreen,
 }: {
   locale: Locale;
   caregiverFirstName: string;
@@ -686,7 +663,6 @@ export function WelcomePage({
   onActivity: () => void;
   onSensors: () => void;
   onPlanning: (medication: boolean) => void;
-  onScreen: (section: 'call' | 'messages' | 'display' | 'photos') => void;
 }) {
   const [data, setData] = useState<HomeSummary | null>(null);
   const [activitySummary, setActivitySummary] = useState<ActivitySummary | null>(null);
@@ -697,9 +673,6 @@ export function WelcomePage({
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [now, setNow] = useState(() => new Date());
-  const [messageDraft, setMessageDraft] = useState('');
-  const [screenBusy, setScreenBusy] = useState(false);
-  const [screenNotice, setScreenNotice] = useState('');
   const [weatherModalOpen, setWeatherModalOpen] = useState(false);
   const [weatherCityQuery, setWeatherCityQuery] = useState('');
   const [selectedWeatherCity, setSelectedWeatherCity] = useState('');
@@ -891,6 +864,24 @@ export function WelcomePage({
     });
   const day = (date: string | Date | number) =>
     new Date(date).toLocaleDateString(locale, { timeZone: timezone });
+  const homeDateKey = (date: string | Date | number) => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date(date));
+    const part = (type: string) => parts.find((item) => item.type === type)?.value ?? '';
+    return `${part('year')}-${part('month')}-${part('day')}`;
+  };
+  const todayDateKey = homeDateKey(now);
+  const [todayYear = 0, todayMonth = 1, todayDay = 1] = todayDateKey.split('-').map(Number);
+  const tomorrowDate = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay + 1));
+  const tomorrowDateKey = [
+    tomorrowDate.getUTCFullYear(),
+    String(tomorrowDate.getUTCMonth() + 1).padStart(2, '0'),
+    String(tomorrowDate.getUTCDate()).padStart(2, '0'),
+  ].join('-');
   const recent = [...events]
     .filter((event) => event.capability !== 'illuminance')
     .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))
@@ -905,8 +896,22 @@ export function WelcomePage({
       medication: false,
     })),
   ]
-    .filter((item) => Date.parse(item.at) >= now.getTime())
+    .filter((item) => {
+      const at = Date.parse(item.at);
+      if (!Number.isFinite(at) || at < now.getTime()) return false;
+      const dateKey = homeDateKey(item.at);
+      return dateKey === todayDateKey || dateKey === tomorrowDateKey;
+    })
     .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))[0];
+  const reminderDateLabel = reminder
+    ? homeDateKey(reminder.at) === todayDateKey
+      ? fr
+        ? `Aujourd’hui · ${time(reminder.at)}`
+        : `Today · ${time(reminder.at)}`
+      : fr
+        ? `Demain · ${time(reminder.at)}`
+        : `Tomorrow · ${time(reminder.at)}`
+    : '';
   const weather = screen?.weather;
   const weatherCode = weather?.weatherCode ?? 0;
   const weatherKind =
@@ -946,14 +951,93 @@ export function WelcomePage({
         rain: fr ? 'Pluie' : 'Rain',
       }[weatherKind];
   const configuredWeatherCity = screen?.state.settings.weatherCity.trim() ?? '';
-  const screenMessages = (
-    screen?.state.messages?.length
-      ? screen.state.messages
-      : screen?.state.message
-        ? [screen.state.message]
-        : []
-  ).filter(Boolean);
-  const message = screenMessages.at(-1);
+  const activeScreenMedia = screen?.state.media.find(
+    (media) =>
+      ['stream', 'tv', 'youtube', 'podcast'].includes(media.kind) &&
+      media.id === screen.state.playback.mediaId,
+  );
+  const screenMediaPending = screen?.state.commands.some(
+    (command) =>
+      command.status === 'pending' &&
+      command.revision === screen.state.playback.revision &&
+      ['play', 'resume', 'next'].includes(command.action),
+  );
+  const screenPlaybackStatus = !screen
+    ? fr
+      ? 'État de la TV indisponible'
+      : 'TV status unavailable'
+    : !screen.online
+      ? fr
+        ? 'TV hors ligne'
+        : 'TV offline'
+      : screen.state.call
+        ? fr
+          ? 'Interrompu pendant l’appel'
+          : 'Interrupted during the call'
+        : screen.state.playback.asleep
+          ? fr
+            ? 'TV au repos'
+            : 'TV is resting'
+          : activeScreenMedia && screen.state.playback.paused
+            ? fr
+              ? 'En pause'
+              : 'Paused'
+            : activeScreenMedia && screenMediaPending
+              ? fr
+                ? 'Lancement sur la TV…'
+                : 'Starting on TV…'
+              : activeScreenMedia
+                ? fr
+                  ? 'En cours de lecture'
+                  : 'Playing now'
+                : fr
+                  ? 'Lecture sur la TV'
+                  : 'TV playback';
+  const screenPlaybackTitle =
+    activeScreenMedia?.title ??
+    (!screen
+      ? fr
+        ? 'Lecture non vérifiable'
+        : 'Playback cannot be checked'
+      : !screen.online
+        ? fr
+          ? 'Connexion de la TV indisponible'
+          : 'TV connection unavailable'
+        : screen.state.call
+          ? fr
+            ? 'Appel en cours'
+            : 'Call in progress'
+          : fr
+            ? 'Aucun média en cours'
+            : 'No media playing');
+  const screenMediaType = !activeScreenMedia
+    ? ''
+    : activeScreenMedia.kind === 'stream'
+      ? 'Radio'
+      : activeScreenMedia.kind === 'tv'
+        ? fr
+          ? 'Télévision'
+          : 'TV'
+        : activeScreenMedia.kind === 'youtube'
+          ? 'YouTube'
+          : 'Podcast';
+  const ScreenMediaIcon = !activeScreenMedia
+    ? Tv
+    : activeScreenMedia.kind === 'stream'
+      ? Radio
+      : activeScreenMedia.kind === 'youtube'
+        ? Youtube
+        : activeScreenMedia.kind === 'podcast'
+          ? Headphones
+          : Tv;
+  const screenIsPlaying = Boolean(
+    screen?.online &&
+    activeScreenMedia &&
+    !screen.state.call &&
+    !screen.state.playback.asleep &&
+    !screen.state.playback.paused &&
+    !screenMediaPending,
+  );
   const usageSensors: Array<{
     key: string;
     title: string;
@@ -1153,39 +1237,6 @@ export function WelcomePage({
     });
   }
 
-  async function addFamilyMessage(event: React.FormEvent) {
-    event.preventDefault();
-    const next = messageDraft.trim();
-    if (!next || screenBusy) return;
-    if (screenMessages.length >= 20) {
-      setScreenNotice(
-        fr ? 'La file TV contient déjà 20 messages.' : 'The TV queue already has 20 messages.',
-      );
-      return;
-    }
-    setScreenBusy(true);
-    setScreenNotice('');
-    try {
-      const snapshot = await welcomeScreenRequest<ScreenSnapshot>(
-        'screen/message',
-        {
-          messages: [...screenMessages, next],
-          messageIntervalSeconds: screen?.state.messageIntervalSeconds ?? 20,
-        },
-        'PATCH',
-      );
-      setScreen(snapshot);
-      setMessageDraft('');
-      setScreenNotice(fr ? 'Message ajouté à la file de la TV.' : 'Message added to the TV queue.');
-    } catch (cause) {
-      setScreenNotice(
-        cause instanceof Error ? cause.message : fr ? 'Ajout impossible.' : 'Unable to add.',
-      );
-    } finally {
-      setScreenBusy(false);
-    }
-  }
-
   function openWeatherEditor() {
     const city = screen?.state.settings.weatherCity.trim() ?? '';
     setWeatherCityQuery(city);
@@ -1220,34 +1271,6 @@ export function WelcomePage({
     }
   }
 
-  async function playArte() {
-    if (screenBusy) return;
-    setScreenBusy(true);
-    setScreenNotice('');
-    try {
-      const snapshot =
-        screen ?? (await welcomeScreenRequest<ScreenSnapshot>('screen', undefined, 'GET'));
-      const existing = snapshot.state.media.find(
-        (media) => media.kind === 'tv' && media.url === ARTE_LIVE_URL,
-      );
-      const mediaId = existing?.id ?? crypto.randomUUID();
-      if (!existing)
-        await welcomeScreenRequest('screen/media', {
-          id: mediaId,
-          title: 'ARTE en direct',
-          kind: 'tv',
-          url: ARTE_LIVE_URL,
-        });
-      await welcomeScreenRequest('screen/commands', { action: 'play', mediaId });
-      setScreenNotice(fr ? 'ARTE est lancé sur la TV.' : 'ARTE is playing on the TV.');
-    } catch (cause) {
-      setScreenNotice(
-        cause instanceof Error ? cause.message : fr ? 'Lancement impossible.' : 'Unable to start.',
-      );
-    } finally {
-      setScreenBusy(false);
-    }
-  }
   if (!data && !error)
     return (
       <DataLoadingScreen
@@ -1333,6 +1356,34 @@ export function WelcomePage({
           )}
         </div>
       </header>
+      <section
+        className={`welcome-playback${screenIsPlaying ? ' is-playing' : ''}`}
+        aria-label={fr ? 'Lecture sur la TV' : 'TV playback'}
+        aria-live="polite"
+      >
+        <span className={`welcome-playback__dot${screenIsPlaying ? ' is-live' : ''}`} />
+        <span className="welcome-playback__icon">
+          <ScreenMediaIcon aria-hidden="true" />
+        </span>
+        <span className="welcome-playback__copy">
+          <small>{screenPlaybackStatus}</small>
+          <strong>{screenPlaybackTitle}</strong>
+        </span>
+        {screenMediaType && <span className="welcome-playback__type">{screenMediaType}</span>}
+      </section>
+      {reminder && (
+        <button type="button" className="welcome-appointment-bar" onClick={() => onPlanning(false)}>
+          <span className="welcome-appointment-bar__icon">
+            <CalendarDays aria-hidden="true" />
+          </span>
+          <span className="welcome-appointment-bar__copy">
+            <small>{fr ? 'Prochain rendez-vous' : 'Next appointment'}</small>
+            <strong>{reminder.title}</strong>
+          </span>
+          <span className="welcome-appointment-bar__when">{reminderDateLabel}</span>
+          <ChevronRight className="welcome-appointment-bar__chevron" aria-hidden="true" />
+        </button>
+      )}
       {error && (
         <div className="welcome-error" role="status">
           <AlertTriangle />
@@ -1473,132 +1524,6 @@ export function WelcomePage({
           {!recent.length && (
             <p className="welcome-empty">{fr ? 'Aucun événement récent.' : 'No recent events.'}</p>
           )}
-        </article>
-      </div>
-      <div className="welcome-bottom-grid">
-        <article className="welcome-card welcome-family">
-          <header className="welcome-card-heading">
-            <h3>
-              <MessageSquare />
-              {fr ? 'Messages pour la famille' : 'Messages for the family'}
-            </h3>
-          </header>
-          <div className="welcome-message">
-            <p>
-              {message ||
-                (fr
-                  ? 'Un petit mot pour égayer sa journée ?'
-                  : 'A little note to brighten their day?')}
-            </p>
-            {message && (
-              <div>
-                {screen?.state.messageUpdatedAt && (
-                  <time>
-                    {new Date(screen.state.messageUpdatedAt).toLocaleDateString(locale, {
-                      timeZone: timezone,
-                      day: 'numeric',
-                      month: 'short',
-                    })}{' '}
-                    · {time(screen.state.messageUpdatedAt)}
-                  </time>
-                )}
-                {screen?.state.messageAuthor && <span>— {screen.state.messageAuthor}</span>}
-              </div>
-            )}
-          </div>
-          <form
-            className="welcome-message-compose"
-            onSubmit={(event) => void addFamilyMessage(event)}
-          >
-            <input
-              value={messageDraft}
-              maxLength={1000}
-              onChange={(event) => setMessageDraft(event.target.value)}
-              placeholder={fr ? 'Écrire un mot pour la TV…' : 'Write a note for the TV…'}
-              aria-label={fr ? 'Nouveau message pour la TV' : 'New message for the TV'}
-            />
-            <button
-              type="submit"
-              disabled={
-                screenBusy ||
-                !messageDraft.trim() ||
-                screenMessages.length >= 20 ||
-                !screen?.grant.message
-              }
-            >
-              {fr ? 'Ajouter' : 'Add'}
-            </button>
-          </form>
-          {screenNotice && (
-            <p className="welcome-screen-notice" role="status">
-              {screenNotice}
-            </p>
-          )}
-          <WelcomeLink icon={MessageCircle} onClick={() => onScreen('messages')}>
-            {fr ? 'Voir tous les messages' : 'View all messages'}
-          </WelcomeLink>
-        </article>
-        <article className="welcome-card welcome-reminder">
-          <header className="welcome-card-heading">
-            <h3>
-              <CalendarDays />
-              {fr ? 'Prochain rendez-vous' : 'Next appointment'}
-            </h3>
-          </header>
-          <div className="welcome-reminder-detail">
-            <CalendarDays aria-hidden="true" />
-            <div>
-              <strong>
-                {reminder?.title ?? (fr ? 'Aucun rendez-vous prévu' : 'No upcoming appointment')}
-              </strong>
-              {reminder && (
-                <p>
-                  {day(reminder.at) === day(now)
-                    ? fr
-                      ? 'Aujourd’hui à'
-                      : 'Today at'
-                    : new Date(reminder.at).toLocaleDateString(locale, {
-                        timeZone: timezone,
-                        day: 'numeric',
-                        month: 'short',
-                      })}{' '}
-                  {time(reminder.at)}
-                </p>
-              )}
-            </div>
-          </div>
-          <WelcomeLink icon={CalendarDays} onClick={() => onPlanning(false)}>
-            {fr ? 'Voir le calendrier' : 'View calendar'}
-          </WelcomeLink>
-        </article>
-        <article className="welcome-card welcome-actions">
-          <header className="welcome-card-heading">
-            <h3>
-              <Zap />
-              {fr ? 'Actions rapides' : 'Quick actions'}
-            </h3>
-          </header>
-          <div className="welcome-actions-grid">
-            <button onClick={() => onScreen('call')}>
-              <Phone />
-              <span>{fr ? 'Appeler' : 'Call'}</span>
-            </button>
-            <button
-              onClick={() => void playArte()}
-              disabled={screenBusy || !screen?.online || !screen?.grant.control}
-            >
-              <Tv />
-              <span>ARTE</span>
-            </button>
-            <button onClick={() => onScreen('display')}>
-              <Monitor />
-              <span>{fr ? 'Afficher sur la TV' : 'Display on TV'}</span>
-            </button>
-            <button onClick={() => onScreen('photos')}>
-              <Image />
-              <span>{fr ? 'Voir les photos' : 'View photos'}</span>
-            </button>
-          </div>
         </article>
       </div>
       {weatherModalOpen && (

@@ -135,6 +135,7 @@ enum MobilityLevel {
   CANE
   WALKER
   WHEELCHAIR
+  UNKNOWN
 }
 
 enum SupportNeedKind {
@@ -325,15 +326,15 @@ model User {
 model ResidentContext {
   id                String        @id @default(cuid())
   residentId        String        @unique
-  livesAlone        Boolean       @default(false)
-  livesWithPartner  Boolean       @default(false)
-  livesWithRelative Boolean       @default(false)
-  receivesHomeHelp  Boolean       @default(false)
-  receivesVisits    Boolean       @default(false)
-  hasPet            Boolean       @default(false)
+  livesAlone        Boolean?
+  livesWithPartner  Boolean?
+  livesWithRelative Boolean?
+  receivesHomeHelp  Boolean?
+  receivesVisits    Boolean?
+  hasPet            Boolean?
   mobility          MobilityLevel
-  hearingDifficulty Boolean       @default(false)
-  visualDifficulty  Boolean       @default(false)
+  hearingDifficulty Boolean?
+  visualDifficulty  Boolean?
   resident          Resident      @relation(fields: [residentId], references: [id], onDelete: Cascade)
 }
 

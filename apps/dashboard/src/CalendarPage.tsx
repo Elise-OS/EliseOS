@@ -16,6 +16,7 @@ import {
   type CalendarPage as CalendarData,
 } from '@michel/contracts';
 import type { Locale } from './i18n';
+import { DataLoadingScreen } from './DataLoadingScreen';
 import './calendar-page.css';
 
 const isoLocal = (value: Date) => {
@@ -38,6 +39,7 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState({
@@ -61,6 +63,8 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
       setError('');
     } catch {
       setError(fr ? 'Le calendrier est inaccessible.' : 'The calendar is unavailable.');
+    } finally {
+      setLoading(false);
     }
   }, [fr, range]);
   useEffect(() => {
@@ -200,6 +204,15 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
       timeStyle: 'short',
       timeZone: data?.timezone,
     });
+
+  if (loading && !data)
+    return (
+      <DataLoadingScreen
+        locale={locale}
+        message={fr ? 'Préparation du calendrier partagé…' : 'Preparing the shared calendar…'}
+      />
+    );
+
   return (
     <main className="calendar-page">
       <header className="calendar-hero">

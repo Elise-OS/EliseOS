@@ -42,8 +42,13 @@ export const screenMediaSchema = z
   .object({
     id: z.string().uuid(),
     title: z.string().trim().max(120),
-    kind: z.enum(['photo', 'audio', 'video', 'youtube', 'stream', 'tv']),
+    kind: z.enum(['photo', 'audio', 'video', 'youtube', 'stream', 'tv', 'podcast']),
     url: z.string().max(2048),
+    podcastFeedId: z.string().regex(/^\d+$/).max(20).optional(),
+    podcastEpisodeId: z.string().trim().min(1).max(500).optional(),
+    podcastShowTitle: z.string().trim().min(1).max(120).optional(),
+    podcastPublishedAt: z.number().int().nonnegative().optional(),
+    podcastDurationSeconds: z.number().int().positive().max(86400).optional(),
     playlistUrls: z
       .array(
         z
@@ -85,6 +90,19 @@ export const screenMediaSchema = z
       });
     if (media.kind === 'tv' && !SUPPORTED_TV_LIVE_URLS.has(media.url))
       ctx.addIssue({ code: 'custom', path: ['url'], message: 'Chaîne TV non prise en charge.' });
+    if (media.kind === 'podcast') {
+      if (!media.podcastFeedId)
+        ctx.addIssue({ code: 'custom', path: ['podcastFeedId'], message: 'Émission requise.' });
+      if (!media.podcastEpisodeId)
+        ctx.addIssue({ code: 'custom', path: ['podcastEpisodeId'], message: 'Épisode requis.' });
+      if (!media.podcastShowTitle)
+        ctx.addIssue({ code: 'custom', path: ['podcastShowTitle'], message: 'Émission requise.' });
+      try {
+        if (new URL(media.url).protocol !== 'https:') throw new Error();
+      } catch {
+        ctx.addIssue({ code: 'custom', path: ['url'], message: 'Adresse audio HTTPS requise.' });
+      }
+    }
   });
 export const screenSlotSchema = z.object({
   id: z.string().uuid(),
@@ -122,6 +140,26 @@ export type ScreenGrant = z.infer<typeof screenGrantSchema>;
 export type ScreenSettings = z.infer<typeof screenSettingsSchema>;
 export type ScreenMedia = z.infer<typeof screenMediaSchema>;
 export type ScreenCommand = z.infer<typeof screenCommandSchema>;
+export interface ScreenPodcastSearchResult {
+  id: string;
+  title: string;
+  author: string;
+  artworkUrl?: string | undefined;
+  episodeCount: number;
+  genre?: string | undefined;
+}
+export interface ScreenPodcastSubscription extends ScreenPodcastSearchResult {
+  feedUrl: string;
+}
+export interface ScreenPodcastEpisode {
+  id: string;
+  title: string;
+  description: string;
+  enclosureUrl: string;
+  publishedAt: number | null;
+  durationSeconds: number | null;
+  artworkUrl?: string | undefined;
+}
 export interface ScreenCall {
   id: string;
   room: string;
@@ -228,6 +266,7 @@ export interface ScreenState {
   messageAuthor?: string | null;
   messageUpdatedAt?: number | null;
   media: ScreenMedia[];
+  podcasts?: ScreenPodcastSubscription[];
   playback: ScreenPlayback;
   tvControl?: ScreenTvControl | null;
   call: ScreenCall | null;
@@ -298,6 +337,7 @@ export const initialScreenState = (): ScreenState => ({
   messageAuthor: null,
   messageUpdatedAt: null,
   media: [],
+  podcasts: [],
   playback: { mediaId: null, paused: false, asleep: false, volume: 30, revision: 0 },
   tvControl: null,
   call: null,

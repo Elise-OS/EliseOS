@@ -1,11 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import type { DiscoveredServer, SavedServer } from './types';
 
 const SERVERS_KEY = '@michel:servers';
 const LAST_SERVER_KEY = '@michel:last-server';
 const tokenKey = (serverId: string) =>
   `michel-session-${serverId.replace(/[^A-Za-z0-9._-]/g, '_')}`;
+const webTokens = new Map<string, string>();
+
+const webSessionStorage = (): Storage | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+};
 
 const readServers = async (): Promise<SavedServer[]> => {
   const raw = await AsyncStorage.getItem(SERVERS_KEY);
@@ -72,15 +83,48 @@ export class ServerRegistry {
   }
 
   static async saveToken(serverId: string, token: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      const key = tokenKey(serverId);
+      webTokens.set(key, token);
+      try {
+        webSessionStorage()?.setItem(key, token);
+      } catch {
+        // Keep the token in memory for this tab if browser storage is unavailable.
+      }
+      return;
+    }
     await SecureStore.setItemAsync(tokenKey(serverId), token);
   }
 
-  static token(serverId: string): Promise<string | null> {
+  static async token(serverId: string): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      const key = tokenKey(serverId);
+      try {
+        const stored = webSessionStorage()?.getItem(key);
+        if (stored) {
+          webTokens.set(key, stored);
+          return stored;
+        }
+      } catch {
+        // Fall back to the in-memory token for this tab.
+      }
+      return webTokens.get(key) ?? null;
+    }
     return SecureStore.getItemAsync(tokenKey(serverId));
   }
 
   static async clearToken(serverId: string): Promise<void> {
-    await SecureStore.deleteItemAsync(tokenKey(serverId));
+    if (Platform.OS === 'web') {
+      const key = tokenKey(serverId);
+      webTokens.delete(key);
+      try {
+        webSessionStorage()?.removeItem(key);
+      } catch {
+        // The in-memory copy is already cleared.
+      }
+    } else {
+      await SecureStore.deleteItemAsync(tokenKey(serverId));
+    }
     await AsyncStorage.removeItem(LAST_SERVER_KEY);
   }
 }

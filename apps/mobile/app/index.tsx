@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Animated,
   AppState,
+  Easing,
   type AppStateStatus,
   Image,
   KeyboardAvoidingView,
@@ -105,6 +106,8 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [offline, setOffline] = useState(false);
   const radar = useRef(new Animated.Value(0)).current;
+  const bootMotion = useRef(new Animated.Value(0)).current;
+  const bootPulse = useRef(new Animated.Value(0)).current;
   const handledDeepLink = useRef<string | null>(null);
 
   useEffect(() => {
@@ -154,6 +157,42 @@ export default function HomeScreen() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (stage !== 'boot') return;
+    const orbit = Animated.loop(
+      Animated.timing(bootMotion, {
+        toValue: 1,
+        duration: 1900,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bootPulse, {
+          toValue: 1,
+          duration: 1050,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(bootPulse, {
+          toValue: 0,
+          duration: 1050,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    orbit.start();
+    pulse.start();
+    return () => {
+      orbit.stop();
+      pulse.stop();
+      bootMotion.setValue(0);
+      bootPulse.setValue(0);
+    };
+  }, [bootMotion, bootPulse, stage]);
 
   useEffect(() => {
     if (stage !== 'discovery') return;
@@ -337,14 +376,57 @@ export default function HomeScreen() {
   };
 
   if (stage === 'boot') {
+    const orbitRotation = bootMotion.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['0deg', '360deg'],
+    });
+    const logoScale = bootPulse.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1.03] });
+    const haloOpacity = bootPulse.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.72] });
     return (
-      <View style={styles.boot}>
-        <View style={styles.logo}>
-          <Ionicons name="home-outline" size={28} color="#fff" />
+      <SafeAreaView style={styles.boot}>
+        <View pointerEvents="none" style={styles.bootAmbientTop} />
+        <View pointerEvents="none" style={styles.bootAmbientBottom} />
+        <View style={styles.bootContent}>
+          <View style={styles.bootVisual}>
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.bootHalo, { opacity: haloOpacity, transform: [{ scale: logoScale }] }]}
+            />
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.bootOrbit, { transform: [{ rotate: orbitRotation }] }]}
+            />
+            <Animated.View style={[styles.bootLogoPlate, { transform: [{ scale: logoScale }] }]}>
+              <Image
+                source={eliseLogo}
+                style={styles.bootLogoImage}
+                resizeMode="contain"
+                accessibilityLabel="Logo Élise"
+              />
+            </Animated.View>
+          </View>
+          <View style={styles.bootCopy}>
+            <Text style={styles.bootEyebrow}>ÉLISE OS</Text>
+            <Text style={styles.bootTitle}>
+              {locale === 'fr' ? 'Votre espace se prépare' : 'Preparing your space'}
+            </Text>
+            <Text style={styles.bootMessage}>
+              {locale === 'fr'
+                ? 'Élise retrouve vos repères.'
+                : 'Élise is bringing your home back into view.'}
+            </Text>
+          </View>
+          <View style={styles.bootLoading}>
+            <ActivityIndicator color={colors.accent} size="small" />
+            <Text style={styles.bootLoadingText}>
+              {locale === 'fr' ? 'Un instant…' : 'Just a moment…'}
+            </Text>
+          </View>
         </View>
-        <Text style={styles.brand}>Élise</Text>
-        <ActivityIndicator color={colors.accent} />
-      </View>
+        <Text style={styles.bootFooter}>
+          {locale === 'fr' ? 'MAISON · LIEN · SÉRÉNITÉ' : 'HOME · CONNECTION · PEACE OF MIND'}
+        </Text>
+      </SafeAreaView>
     );
   }
 
@@ -999,20 +1081,112 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 13,
+    overflow: 'hidden',
+    paddingHorizontal: 28,
     backgroundColor: colors.cream,
   },
-  logo: {
-    width: 58,
-    height: 58,
-    borderRadius: 18,
+  bootAmbientTop: {
+    position: 'absolute',
+    width: 370,
+    height: 370,
+    borderRadius: 185,
+    top: -205,
+    right: -165,
+    backgroundColor: '#E0EAF0',
+  },
+  bootAmbientBottom: {
+    position: 'absolute',
+    width: 285,
+    height: 285,
+    borderRadius: 143,
+    bottom: -175,
+    left: -132,
+    backgroundColor: '#F0E2D2',
+  },
+  bootContent: {
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    gap: 22,
+  },
+  bootVisual: {
+    width: 184,
+    height: 184,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.blue,
+  },
+  bootHalo: {
+    position: 'absolute',
+    width: 156,
+    height: 156,
+    borderRadius: 78,
+    backgroundColor: '#DDE8EB',
+  },
+  bootOrbit: {
+    position: 'absolute',
+    width: 144,
+    height: 144,
+    borderRadius: 72,
+    borderWidth: 2,
+    borderColor: '#D7E0E4',
+    borderTopColor: colors.accent,
+    borderRightColor: colors.amber,
+  },
+  bootLogoPlate: {
+    width: 112,
+    height: 112,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.paper,
     shadowColor: colors.navy,
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.12,
     shadowRadius: 20,
-    shadowOffset: { width: 0, height: 12 },
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4,
+  },
+  bootLogoImage: { width: 98, height: 98, borderRadius: 27 },
+  bootCopy: { alignItems: 'center', gap: 7 },
+  bootEyebrow: {
+    color: colors.accent,
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 3,
+  },
+  bootTitle: {
+    color: colors.navy,
+    fontFamily: 'Georgia',
+    fontSize: 25,
+    textAlign: 'center',
+  },
+  bootMessage: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+  bootLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginTop: 2,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.paper,
+  },
+  bootLoadingText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
+  bootFooter: {
+    position: 'absolute',
+    bottom: 16,
+    color: colors.muted,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 2,
   },
   miniLogo: {
     width: 38,
@@ -1024,7 +1198,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,.3)',
     backgroundColor: 'rgba(255,255,255,.08)',
   },
-  brand: { fontFamily: 'Georgia', fontSize: 27, color: colors.navy, fontWeight: '600' },
   welcome: {
     flex: 1,
     paddingHorizontal: 26,

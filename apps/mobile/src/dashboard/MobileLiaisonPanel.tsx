@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Annoyed, Frown, Laugh, Meh, Smile } from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+  KeyboardAvoidingView,
   Pressable,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -10,12 +13,12 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import {
   liaisonCreateSchema,
   liaisonMoodLabel,
   type LiaisonCreate,
-  type LiaisonFilter,
   type ScheduleItem,
 } from '@michel/contracts';
 import { mobileApi, type AlertItem } from '../api';
@@ -24,35 +27,35 @@ import type { SavedServer } from '../discovery/types';
 const MOODS = [
   {
     id: 'HAPPY',
-    icon: 'emoticon-excited-outline',
+    icon: Laugh,
     fr: 'Heureux',
     color: '#22795E',
     background: '#EAF6EF',
   },
   {
     id: 'GOOD',
-    icon: 'emoticon-happy-outline',
+    icon: Smile,
     fr: 'Bien',
     color: '#477E9B',
     background: '#EAF3F8',
   },
   {
     id: 'NEUTRAL',
-    icon: 'emoticon-neutral-outline',
+    icon: Meh,
     fr: 'Neutre',
     color: '#66788A',
     background: '#EFF2F5',
   },
   {
     id: 'LOW',
-    icon: 'emoticon-frown-outline',
+    icon: Annoyed,
     fr: 'Pas très bien',
     color: '#B27831',
     background: '#FBF1E4',
   },
   {
     id: 'SAD',
-    icon: 'emoticon-cry-outline',
+    icon: Frown,
     fr: 'Triste',
     color: '#5875A4',
     background: '#EDF1FA',
@@ -78,17 +81,18 @@ export function MobileLiaisonPanel({
   onJournal: () => void;
   onCalendar: () => void;
 }) {
+  const { width } = useWindowDimensions();
+  const compact = width <= 520;
+  const veryCompact = width <= 350;
   const client = useQueryClient();
-  const [filter, setFilter] = useState<LiaisonFilter>('ALL');
-  const [visits, setVisits] = useState(false);
-  const [composing, setComposing] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
   const [moodOpen, setMoodOpen] = useState(false);
   const [body, setBody] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const query = useInfiniteQuery({
-    queryKey: ['michel', server.id, 'liaison', filter],
-    queryFn: ({ pageParam }) => mobileApi.liaison(server, token, filter, pageParam),
+    queryKey: ['michel', server.id, 'liaison', 'ALL'],
+    queryFn: ({ pageParam }) => mobileApi.liaison(server, token, 'ALL', pageParam),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     refetchInterval: 30000,
@@ -101,7 +105,7 @@ export function MobileLiaisonPanel({
     mutationFn: (input: LiaisonCreate) => mobileApi.createLiaison(server, token, input),
     onSuccess: async () => {
       setBody('');
-      setComposing(false);
+      setNoteOpen(false);
       setError('');
       setNotice('Votre contribution a été partagée.');
       await refresh();
@@ -127,8 +131,8 @@ export function MobileLiaisonPanel({
     retry: false,
   });
   const complete = useMutation({
-    mutationFn: (input: { id: string; completed: boolean; visit?: boolean }) =>
-      mobileApi.completeLiaison(server, token, input.id, input.completed, input.visit),
+    mutationFn: (input: { id: string; completed: boolean }) =>
+      mobileApi.completeLiaison(server, token, input.id, input.completed),
     onSuccess: async () => {
       setError('');
       setNotice('Le cahier a été mis à jour.');
@@ -158,8 +162,6 @@ export function MobileLiaisonPanel({
       tags: ['MOOD'],
     });
     if (!parsed.success) return;
-    setVisits(false);
-    setFilter('ALL');
     setError('');
     createMood.mutate(parsed.data);
   };
@@ -178,12 +180,6 @@ export function MobileLiaisonPanel({
   const openTasks =
     data?.openTasks ?? items.filter((item) => item.kind === 'TASK' && !item.completedAt);
   const reminderCount = Number(Boolean(upcoming)) + Number(Boolean(attention)) + openTasks.length;
-  const today = new Intl.DateTimeFormat('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    timeZone: data?.timezone,
-  }).format(new Date());
   return (
     <ScrollView
       keyboardShouldPersistTaps="handled"
@@ -193,26 +189,44 @@ export function MobileLiaisonPanel({
       }
     >
       <View style={s.hero}>
-        <Text accessibilityRole="header" style={s.title}>
-          Carnet de liaison
-        </Text>
+        <View style={s.heroHeadingRow}>
+          <View style={s.heroHeadingCopy}>
+            <Text style={s.heroEyebrow}>PARTAGE ENTRE AIDANTS</Text>
+            <Text accessibilityRole="header" style={s.title}>
+              Carnet de liaison
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ouvrir le calendrier"
+            onPress={onCalendar}
+            style={s.calendarButton}
+          >
+            <Ionicons name="calendar-outline" size={20} color="#214b85" />
+          </Pressable>
+        </View>
         <Text style={s.heroResident}>{residentName}</Text>
         <Text style={s.heroCopy}>Les dernières informations partagées entre aidants.</Text>
         <View style={s.heroFooter}>
-          <Text style={s.heroDate}>{today}</Text>
-          <Pressable accessibilityRole="button" onPress={onCalendar} style={s.secondaryAction}>
-            <Ionicons name="calendar-outline" size={18} color="#214b85" />
-            <Text style={s.secondaryActionText}>Calendrier</Text>
-          </Pressable>
           {data?.canWrite && (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setComposing(!composing)}
-              style={s.primaryAction}
-            >
-              <Ionicons name="create-outline" size={19} color="#fff" />
-              <Text style={s.primaryActionText}>{composing ? 'Fermer' : 'Ajouter une note'}</Text>
-            </Pressable>
+            <>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setMoodOpen(true)}
+                style={s.secondaryAction}
+              >
+                <Ionicons name="happy-outline" size={19} color="#214b85" />
+                <Text style={s.secondaryActionText}>Ajouter une humeur</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setNoteOpen(true)}
+                style={s.primaryAction}
+              >
+                <Ionicons name="create-outline" size={19} color="#fff" />
+                <Text style={s.primaryActionText}>Ajouter une note</Text>
+              </Pressable>
+            </>
           )}
         </View>
       </View>
@@ -242,15 +256,18 @@ export function MobileLiaisonPanel({
         </Text>
       )}
       {data && (
-        <View style={s.reminderSection}>
-          <View style={s.sectionHeading}>
-            <View style={s.headingTitle}>
+        <View style={[s.reminderSection, compact && s.reminderSectionCompact]}>
+          <View style={[s.sectionHeading, compact && s.sectionHeadingCompact]}>
+            <View style={[s.headingTitle, compact && s.headingTitleCompact]}>
               <View style={s.amberDot} />
-              <Text accessibilityRole="header" style={s.sectionTitle}>
+              <Text
+                accessibilityRole="header"
+                style={[s.sectionTitle, compact && s.sectionTitleCompact]}
+              >
                 À retenir
               </Text>
             </View>
-            <Text style={s.muted}>{reminderCount} éléments</Text>
+            <Text style={[s.muted, compact && s.compactText]}>{reminderCount} éléments</Text>
           </View>
           {upcoming && (
             <ReminderCard
@@ -281,70 +298,100 @@ export function MobileLiaisonPanel({
             />
           ))}
           {!reminderCount && (
-            <View style={[s.reminderCard, s.reminderGreen]}>
-              <View style={[s.reminderIcon, s.reminderIconGreen]}>
+            <View style={[s.reminderCard, compact && s.reminderCardCompact, s.reminderGreen]}>
+              <View style={[s.reminderIcon, compact && s.reminderIconCompact, s.reminderIconGreen]}>
                 <Ionicons name="checkmark" size={23} color="#24694C" />
               </View>
-              <View style={s.reminderCopy}>
+              <View style={[s.reminderCopy, compact && s.reminderCopyCompact]}>
                 <Text style={s.reminderTitle}>Rien à signaler</Text>
-                <Text style={s.muted}>Aucune tâche ou visite prochaine.</Text>
+                <Text style={[s.muted, compact && s.compactText]}>
+                  Aucune tâche ou visite prochaine.
+                </Text>
               </View>
             </View>
           )}
         </View>
       )}
-      {composing && data?.canWrite && (
-        <View style={s.composerCard}>
-          <Text accessibilityRole="header" style={s.subtitle}>
-            Une nouvelle à partager ?
-          </Text>
-          <Text style={s.label}>Votre message</Text>
-          <TextInput
-            accessibilityLabel="Votre message"
-            multiline
-            maxLength={3000}
-            value={body}
-            editable={!busy}
-            onChangeText={setBody}
-            placeholder="Je suis passé ce matin, le frigo est rempli…"
-            style={[s.input, s.textarea]}
-            textAlignVertical="top"
-          />
+      <Modal
+        transparent
+        animationType="fade"
+        visible={noteOpen}
+        onRequestClose={() => setNoteOpen(false)}
+      >
+        <KeyboardAvoidingView
+          style={[s.modalOverlay, compact && s.modalOverlayCompact]}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ disabled: blocked }}
-            disabled={blocked}
-            onPress={() => setMoodOpen(true)}
-            style={[s.moodTrigger, blocked && s.disabled]}
-          >
-            <Ionicons name="happy-outline" size={19} color="#315A82" />
-            <Text style={s.moodTriggerText}>Ajouter une humeur</Text>
-          </Pressable>
-          <Action
-            label={busy ? 'Enregistrement…' : 'Partager'}
-            disabled={blocked || !body.trim()}
-            onPress={submit}
+            accessibilityLabel="Fermer"
+            onPress={() => setNoteOpen(false)}
+            style={StyleSheet.absoluteFill}
           />
-        </View>
-      )}
+          <View accessibilityViewIsModal style={[s.noteDialog, compact && s.noteDialogCompact]}>
+            <View style={s.moodDialogHeading}>
+              <View style={s.moodDialogCopy}>
+                <Text style={s.moodEyebrow}>CARNET DE LIAISON</Text>
+                <Text accessibilityRole="header" style={s.moodDialogTitle}>
+                  Ajouter une note
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Fermer"
+                onPress={() => setNoteOpen(false)}
+                style={s.moodClose}
+              >
+                <Ionicons name="close" size={22} color="#385577" />
+              </Pressable>
+            </View>
+            <Text style={s.label}>Votre message</Text>
+            <TextInput
+              accessibilityLabel="Votre message"
+              autoFocus
+              multiline
+              maxLength={3000}
+              value={body}
+              editable={!busy}
+              onChangeText={setBody}
+              placeholder="Je suis passé ce matin, le frigo est rempli…"
+              style={[s.input, s.textarea]}
+              textAlignVertical="top"
+            />
+            {error ? (
+              <Text accessibilityRole="alert" style={s.modalError}>
+                {error}
+              </Text>
+            ) : null}
+            <Action
+              label={busy ? 'Enregistrement…' : 'Partager'}
+              disabled={blocked || !body.trim()}
+              onPress={submit}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
       <Modal
         transparent
         animationType="fade"
         visible={moodOpen}
         onRequestClose={() => setMoodOpen(false)}
       >
-        <View style={s.modalOverlay}>
+        <View style={[s.modalOverlay, compact && s.modalOverlayCompact]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Fermer"
             onPress={() => setMoodOpen(false)}
             style={StyleSheet.absoluteFill}
           />
-          <View accessibilityViewIsModal style={s.moodDialog}>
+          <View accessibilityViewIsModal style={[s.moodDialog, compact && s.moodDialogCompact]}>
             <View style={s.moodDialogHeading}>
               <View style={s.moodDialogCopy}>
                 <Text style={s.moodEyebrow}>CARNET DE LIAISON</Text>
-                <Text accessibilityRole="header" style={s.moodDialogTitle}>
+                <Text
+                  accessibilityRole="header"
+                  style={[s.moodDialogTitle, compact && s.moodDialogTitleCompact]}
+                >
                   Ajouter une humeur
                 </Text>
               </View>
@@ -357,59 +404,57 @@ export function MobileLiaisonPanel({
                 <Ionicons name="close" size={22} color="#385577" />
               </Pressable>
             </View>
-            <Text style={s.moodDialogPrompt}>Comment se sent Michel ?</Text>
-            <View style={s.moodOptions}>
-              {MOODS.map((mood) => (
-                <Pressable
-                  key={mood.id}
-                  accessibilityRole="button"
-                  disabled={createMood.isPending}
-                  onPress={() => addMood(mood)}
-                  style={[s.moodOption, createMood.isPending && s.disabled]}
-                >
-                  <View style={[s.moodPictogram, { backgroundColor: mood.background }]}>
-                    <MaterialCommunityIcons name={mood.icon} size={26} color={mood.color} />
-                  </View>
-                  <Text style={s.moodLabel}>{mood.fr}</Text>
-                </Pressable>
-              ))}
+            <Text style={s.moodDialogPrompt}>
+              Comment se sent {moodResidentName || 'le résident'} ?
+            </Text>
+            {offline && (
+              <Text accessibilityRole="alert" style={s.offlineMoodHint}>
+                Reconnectez-vous pour enregistrer une humeur.
+              </Text>
+            )}
+            <View style={[s.moodOptions, compact && s.moodOptionsCompact]}>
+              {MOODS.map((mood) => {
+                const MoodIcon = mood.icon;
+                return (
+                  <Pressable
+                    key={mood.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: blocked }}
+                    disabled={blocked}
+                    onPress={() => addMood(mood)}
+                    style={[
+                      s.moodOption,
+                      compact && s.moodOptionCompact,
+                      createMood.isPending && s.disabled,
+                    ]}
+                  >
+                    <View style={[s.moodPictogram, { backgroundColor: mood.background }]}>
+                      <MoodIcon size={23} color={mood.color} strokeWidth={1.8} />
+                    </View>
+                    <Text style={s.moodLabel}>{mood.fr}</Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
         </View>
       </Modal>
-      <View style={s.sectionHeading}>
-        <View style={s.headingTitle}>
+      <View style={[s.sectionHeading, compact && s.sectionHeadingCompact]}>
+        <View style={[s.headingTitle, compact && s.headingTitleCompact]}>
           <View style={s.greenDot} />
-          <Text accessibilityRole="header" style={s.sectionTitle}>
-            {visits
-              ? 'Visites'
-              : filter === 'OPEN'
-                ? 'À faire'
-                : filter === 'DONE'
-                  ? 'Terminées'
-                  : 'Aujourd’hui'}
+          <Text
+            accessibilityRole="header"
+            style={[s.sectionTitle, compact && s.sectionTitleCompact]}
+          >
+            Aujourd’hui
           </Text>
         </View>
-        <Text style={s.muted}>{visits ? (data?.visits.length ?? 0) : items.length} notes</Text>
+        <Text style={[s.muted, compact && s.compactText]}>{items.length} notes</Text>
       </View>
-      <View style={s.row}>
-        {(['ALL', 'OPEN', 'DONE'] as const).map((value, index) => (
-          <Choice
-            key={value}
-            label={['Le fil', 'À faire', 'Terminées'][index]}
-            selected={!visits && filter === value}
-            onPress={() => {
-              setVisits(false);
-              setFilter(value);
-            }}
-          />
-        ))}
-        <Choice label="Visites" selected={visits} onPress={() => setVisits(true)} />
-      </View>
-      {data && !visits && (
+      {data && (
         <>
           {items.map((item) => (
-            <View key={item.id} style={s.card}>
+            <View key={item.id} style={[s.card, compact && s.cardCompact]}>
               <View style={s.noteHeader}>
                 <View style={s.noteAvatar}>
                   <Text style={s.noteAvatarText}>
@@ -480,10 +525,8 @@ export function MobileLiaisonPanel({
             </View>
           ))}
           {!items.length && (
-            <View style={s.card}>
-              <Text style={s.subtitle}>
-                {filter === 'ALL' ? 'Les nouvelles commencent ici' : 'Aucune tâche dans cette vue'}
-              </Text>
+            <View style={[s.card, compact && s.cardCompact]}>
+              <Text style={s.subtitle}>Les nouvelles commencent ici</Text>
               <Text style={s.muted}>
                 Un passage, une attention, une chose à prévoir : partagez ce qui aide les proches.
               </Text>
@@ -496,36 +539,6 @@ export function MobileLiaisonPanel({
               onPress={() => void query.fetchNextPage()}
             />
           )}
-        </>
-      )}
-      {data && visits && (
-        <>
-          <Text style={s.muted}>
-            Visites des 30 derniers jours et des 90 prochains jours. Horaires du domicile.
-          </Text>
-          {data.visits.map((visit) => (
-            <View key={visit.id} style={s.card}>
-              <Text style={s.subtitle}>{visit.visitorName}</Text>
-              <Text style={s.tag}>{visit.completedAt ? 'Réalisée' : 'Prévue'}</Text>
-              <Text>{date(visit.startsAt)}</Text>
-              {visit.notes && <Text style={s.body}>{visit.notes}</Text>}
-              {visit.completedAt && (
-                <Text style={s.muted}>
-                  Confirmée par {visit.completedBy?.displayName ?? '—'} · {date(visit.completedAt)}
-                </Text>
-              )}
-              {data.canWrite && (visit.completedAt || new Date(visit.startsAt) <= new Date()) && (
-                <Action
-                  label={visit.completedAt ? 'Annuler la confirmation' : 'La visite a eu lieu'}
-                  disabled={blocked}
-                  onPress={() =>
-                    complete.mutate({ id: visit.id, completed: !visit.completedAt, visit: true })
-                  }
-                />
-              )}
-            </View>
-          ))}
-          {!data.visits.length && <Text style={s.muted}>Aucune visite sur cette période.</Text>}
         </>
       )}
       <Action label="Ouvrir le journal et l’agenda du foyer" onPress={onJournal} />
@@ -546,17 +559,20 @@ function ReminderCard({
   body: string;
   detail: string;
 }) {
+  const compact = useWindowDimensions().width <= 520;
   const iconColor = tone === 'green' ? '#24694C' : tone === 'amber' ? '#B95B18' : '#1F5DA1';
   return (
     <View
       style={[
         s.reminderCard,
+        compact && s.reminderCardCompact,
         tone === 'green' ? s.reminderGreen : tone === 'amber' ? s.reminderAmber : s.reminderBlue,
       ]}
     >
       <View
         style={[
           s.reminderIcon,
+          compact && s.reminderIconCompact,
           tone === 'green'
             ? s.reminderIconGreen
             : tone === 'amber'
@@ -564,14 +580,14 @@ function ReminderCard({
               : s.reminderIconBlue,
         ]}
       >
-        <Ionicons name={icon} size={25} color={iconColor} />
+        <Ionicons name={icon} size={compact ? 22 : 25} color={iconColor} />
       </View>
-      <View style={s.reminderCopy}>
-        <Text style={s.reminderTitle}>{title}</Text>
-        <Text style={s.reminderBody}>{body}</Text>
-        <Text style={s.muted}>{detail}</Text>
+      <View style={[s.reminderCopy, compact && s.reminderCopyCompact]}>
+        <Text style={[s.reminderTitle, compact && s.reminderTitleCompact]}>{title}</Text>
+        <Text style={[s.reminderBody, compact && s.reminderBodyCompact]}>{body}</Text>
+        <Text style={[s.muted, compact && s.compactText]}>{detail}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#315A82" />
+      <Ionicons name="chevron-forward" size={compact ? 18 : 20} color="#315A82" />
     </View>
   );
 }
@@ -597,74 +613,71 @@ function Action({
     </Pressable>
   );
 }
-function Choice({
-  label,
-  onPress,
-  selected,
-  disabled = false,
-}: {
-  label: string;
-  onPress: () => void;
-  selected: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected, disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={[s.choice, selected && s.selected]}
-    >
-      <Text style={s.actionText}>{label}</Text>
-    </Pressable>
-  );
-}
 const s = StyleSheet.create({
-  page: { padding: 18, paddingBottom: 40, gap: 18, backgroundColor: '#F7F5F0' },
-  hero: {
-    padding: 22,
-    gap: 5,
-    borderRadius: 22,
+  page: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 28, gap: 12 },
+  hero: { gap: 5 },
+  heroHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  heroHeadingCopy: { minWidth: 0, flex: 1 },
+  heroEyebrow: { color: '#376884', fontSize: 9, letterSpacing: 1.25, fontWeight: '900' },
+  title: {
+    marginTop: 4,
+    color: '#0B2948',
+    fontFamily: 'Georgia',
+    fontSize: 20,
+    flexShrink: 1,
+  },
+  heroResident: { fontSize: 13, fontWeight: '700', color: '#687382', marginTop: 2, flexShrink: 1 },
+  heroCopy: { fontSize: 13, lineHeight: 19, color: '#687382', flexShrink: 1 },
+  calendarButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#DCE9EF',
-    backgroundColor: '#F1F9FD',
+    borderColor: '#D8E5EA',
+    borderRadius: 14,
+    backgroundColor: '#FDFBF7',
   },
-  title: { fontSize: 34, fontWeight: '700', color: '#153665', letterSpacing: -1 },
-  heroResident: { fontSize: 21, fontWeight: '600', color: '#52688D', marginTop: 4 },
-  heroCopy: { fontSize: 15, lineHeight: 21, color: '#52688D' },
   heroFooter: {
-    marginTop: 15,
+    marginTop: 8,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
+    gap: 8,
   },
-  heroDate: { flex: 1, color: '#52688D', fontSize: 13, textTransform: 'capitalize' },
   primaryAction: {
+    minWidth: 0,
+    maxWidth: 190,
     minHeight: 47,
-    paddingHorizontal: 16,
+    flex: 1,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
     borderRadius: 14,
     backgroundColor: '#173968',
   },
-  primaryActionText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  primaryActionText: { color: '#fff', fontSize: 13, fontWeight: '700', flexShrink: 1 },
   secondaryAction: {
+    minWidth: 0,
+    maxWidth: 190,
     minHeight: 47,
-    paddingHorizontal: 13,
+    flex: 1,
+    paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#cbdbea',
     backgroundColor: '#fff',
   },
-  secondaryActionText: { color: '#214b85', fontSize: 13, fontWeight: '700' },
-  subtitle: { fontSize: 20, fontWeight: '600', color: '#0B2948' },
-  muted: { color: '#687382', fontSize: 13, lineHeight: 21 },
+  secondaryActionText: { color: '#214b85', fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  subtitle: { fontSize: 20, fontWeight: '600', color: '#0B2948', flexShrink: 1 },
+  muted: { color: '#687382', fontSize: 13, lineHeight: 21, flexShrink: 1 },
+  compactText: { fontSize: 12, lineHeight: 18 },
   reminderSection: {
     padding: 17,
     gap: 12,
@@ -673,14 +686,18 @@ const s = StyleSheet.create({
     borderColor: '#EBE3D7',
     backgroundColor: '#FFFCF7',
   },
+  reminderSectionCompact: { padding: 14, gap: 10 },
   sectionHeading: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
   },
-  headingTitle: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  sectionTitle: { color: '#17345F', fontSize: 23, fontWeight: '700' },
+  sectionHeadingCompact: { flexWrap: 'wrap', gap: 8 },
+  headingTitle: { minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  headingTitleCompact: { flex: 1 },
+  sectionTitle: { color: '#17345F', fontSize: 23, fontWeight: '700', flexShrink: 1 },
+  sectionTitleCompact: { fontSize: 20 },
   amberDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: '#F6A22B' },
   greenDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: '#3BA46C' },
   reminderCard: {
@@ -692,6 +709,7 @@ const s = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1,
   },
+  reminderCardCompact: { minHeight: 84, padding: 12, gap: 8 },
   reminderBlue: { borderColor: '#CFE1EF', backgroundColor: '#EDF6FF' },
   reminderGreen: { borderColor: '#CCE4D4', backgroundColor: '#EEF9F2' },
   reminderAmber: { borderColor: '#F2CF9E', backgroundColor: '#FFF6E9' },
@@ -701,13 +719,18 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 24,
+    flexShrink: 0,
   },
+  reminderIconCompact: { width: 38, height: 38, borderRadius: 19 },
   reminderIconBlue: { backgroundColor: '#DCEBFC' },
   reminderIconGreen: { backgroundColor: '#DCEFE2' },
   reminderIconAmber: { backgroundColor: '#FFE5C1' },
-  reminderCopy: { flex: 1, gap: 2 },
-  reminderTitle: { color: '#17375F', fontSize: 14, fontWeight: '700' },
-  reminderBody: { color: '#23456F', fontSize: 16, lineHeight: 21 },
+  reminderCopy: { minWidth: 0, flex: 1, gap: 2 },
+  reminderCopyCompact: { gap: 1 },
+  reminderTitle: { color: '#17375F', fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  reminderTitleCompact: { fontSize: 13 },
+  reminderBody: { color: '#23456F', fontSize: 16, lineHeight: 21, flexShrink: 1 },
+  reminderBodyCompact: { fontSize: 15, lineHeight: 20 },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -716,18 +739,21 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#D9E5EB',
   },
-  composerCard: {
+  cardCompact: { padding: 14, gap: 12 },
+  noteDialog: {
+    width: '100%',
+    maxWidth: 480,
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 18,
     gap: 14,
     borderWidth: 1,
     borderColor: '#D8E5EA',
   },
+  noteDialogCompact: { padding: 16, gap: 12 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  body: { color: '#0B2948', fontSize: 17, lineHeight: 27 },
-  label: { color: '#12385F', fontWeight: '600', fontSize: 14 },
-  tag: { color: '#376884', fontWeight: '600', fontSize: 13 },
+  body: { color: '#0B2948', fontSize: 17, lineHeight: 27, flexShrink: 1 },
+  label: { color: '#12385F', fontWeight: '600', fontSize: 14, flexShrink: 1 },
   noteHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   noteAvatar: {
     width: 44,
@@ -738,7 +764,7 @@ const s = StyleSheet.create({
     backgroundColor: '#E8F2FD',
   },
   noteAvatarText: { color: '#173B6E', fontSize: 14, fontWeight: '700' },
-  noteHeadingCopy: { flex: 1, gap: 2 },
+  noteHeadingCopy: { minWidth: 0, flex: 1, gap: 2 },
   noteTag: {
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -748,8 +774,10 @@ const s = StyleSheet.create({
     backgroundColor: '#E8F2FD',
     fontSize: 11,
     fontWeight: '600',
+    flexShrink: 1,
   },
   input: {
+    width: '100%',
     backgroundColor: '#FAFCFD',
     borderRadius: 12,
     padding: 14,
@@ -760,35 +788,29 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   textarea: { minHeight: 130 },
-  moodTrigger: {
-    minHeight: 44,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#D8E5EA',
-    borderRadius: 11,
-    backgroundColor: '#F6FAFB',
-  },
-  moodTriggerText: { color: '#31527D', fontSize: 13, fontWeight: '600' },
+  modalError: { color: '#9A5550', fontSize: 13, lineHeight: 18 },
   modalOverlay: {
     flex: 1,
     padding: 20,
     justifyContent: 'center',
     backgroundColor: 'rgba(12, 28, 45, 0.48)',
   },
+  modalOverlayCompact: { padding: 12 },
   moodDialog: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
     padding: 22,
     borderRadius: 20,
     backgroundColor: '#fff',
     gap: 16,
   },
+  moodDialogCompact: { padding: 16, gap: 14 },
   moodDialogHeading: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   moodDialogCopy: { flex: 1, gap: 5 },
   moodEyebrow: { color: '#66809A', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-  moodDialogTitle: { color: '#17345F', fontSize: 23, fontWeight: '700' },
+  moodDialogTitle: { color: '#17345F', fontSize: 23, fontWeight: '700', flexShrink: 1 },
+  moodDialogTitleCompact: { fontSize: 20 },
   moodClose: {
     width: 40,
     height: 40,
@@ -799,27 +821,39 @@ const s = StyleSheet.create({
     borderRadius: 12,
   },
   moodDialogPrompt: { color: '#52688D', fontSize: 15 },
-  moodOptions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
-  moodOption: {
-    minWidth: 82,
-    minHeight: 92,
+  offlineMoodHint: {
     padding: 10,
+    borderRadius: 10,
+    color: '#80521E',
+    backgroundColor: '#FFF6E9',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  moodOptions: { flexDirection: 'row', flexWrap: 'nowrap', justifyContent: 'center', gap: 4 },
+  moodOptionsCompact: { gap: 2 },
+  moodOption: {
+    minWidth: 0,
+    minHeight: 92,
+    flex: 1,
+    paddingHorizontal: 2,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     borderWidth: 1,
     borderColor: '#E0E9EE',
     borderRadius: 14,
     backgroundColor: '#F8FBFC',
   },
+  moodOptionCompact: { minHeight: 84, paddingHorizontal: 0, paddingVertical: 5, gap: 4 },
   moodPictogram: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  moodLabel: { color: '#31527D', fontSize: 12, textAlign: 'center' },
+  moodLabel: { color: '#31527D', fontSize: 11, textAlign: 'center', flexShrink: 1 },
   action: {
     backgroundColor: '#E8F0F3',
     borderRadius: 12,
@@ -828,16 +862,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionText: { color: '#12385F', fontWeight: '600', fontSize: 14 },
-  choice: {
-    borderWidth: 1,
-    borderColor: '#DED8CE',
-    borderRadius: 12,
-    padding: 12,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  selected: { backgroundColor: '#E8F0F3', borderColor: '#376884' },
+  actionText: { color: '#12385F', fontWeight: '600', fontSize: 14, flexShrink: 1 },
   disabled: { opacity: 0.5 },
   warning: { backgroundColor: '#F7E9D7', padding: 14, borderRadius: 12, color: '#714414' },
   overdue: { color: '#925817', fontSize: 14 },

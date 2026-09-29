@@ -80,10 +80,10 @@ const colors = {
 
 const tabs: Array<{ id: Tab; label: string; icon: IconName; active: IconName }> = [
   { id: 'home', label: 'Accueil', icon: 'home-outline', active: 'home' },
-  { id: 'activity', label: 'Activité', icon: 'pulse-outline', active: 'pulse' },
-  { id: 'alerts', label: 'Alertes', icon: 'notifications-outline', active: 'notifications' },
   { id: 'house', label: 'Logement', icon: 'grid-outline', active: 'grid' },
   { id: 'journal', label: 'Liaison', icon: 'book-outline', active: 'book' },
+  { id: 'screen', label: 'Affichage TV', icon: 'tv-outline', active: 'tv' },
+  { id: 'settings', label: 'Réglages', icon: 'settings-outline', active: 'settings' },
 ];
 
 const capabilityMeta: Record<string, { label: string; icon: IconName }> = {
@@ -389,6 +389,7 @@ export function DashboardApp({
   }, [authError, onLogout]);
 
   const offline = !networkAvailable || !connected || (overview.isError && Boolean(overview.data));
+  const hideGlobalHeader = tab === 'house' || tab === 'journal' || tab === 'screen';
   const remoteConnection = isTailscaleUrl(activeServerUrl(server));
   const lastUpdated = overview.dataUpdatedAt ? new Date(overview.dataUpdatedAt) : null;
   const activityItems = activity.data?.pages.flatMap((page) => page.items) ?? [];
@@ -411,36 +412,38 @@ export function DashboardApp({
 
   return (
     <SafeAreaView style={styles.shell} edges={['top', 'left', 'right', 'bottom']}>
-      <View style={styles.appHeader}>
-        <View>
-          <Text style={styles.hello}>Bonjour {userName.split(' ')[0] || userName},</Text>
-          <Text style={styles.homeName}>{overview.data?.home?.name ?? server.instanceName}</Text>
+      {tab !== 'home' && !hideGlobalHeader ? (
+        <View style={styles.appHeader}>
+          <View>
+            <Text style={styles.hello}>Bonjour {userName.split(' ')[0] || userName},</Text>
+            <Text style={styles.homeName}>{overview.data?.home?.name ?? server.instanceName}</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ouvrir les autres pages"
+            style={styles.headerMenuButton}
+            onPress={() => setPagesOpen(true)}
+          >
+            <Ionicons name="menu-outline" size={23} color={colors.blue} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ouvrir le menu du compte"
+            style={styles.avatar}
+            onPress={logout}
+          >
+            <Text style={styles.avatarText}>
+              {userName
+                .split(' ')
+                .map((part) => part[0])
+                .join('')
+                .slice(0, 2)
+                .toUpperCase() || 'M'}
+            </Text>
+          </Pressable>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Ouvrir les autres pages"
-          style={styles.headerMenuButton}
-          onPress={() => setPagesOpen(true)}
-        >
-          <Ionicons name="menu-outline" size={23} color={colors.blue} />
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Ouvrir le menu du compte"
-          style={styles.avatar}
-          onPress={logout}
-        >
-          <Text style={styles.avatarText}>
-            {userName
-              .split(' ')
-              .map((part) => part[0])
-              .join('')
-              .slice(0, 2)
-              .toUpperCase() || 'M'}
-          </Text>
-        </Pressable>
-      </View>
-      {offline ? (
+      ) : null}
+      {offline && !hideGlobalHeader ? (
         <View style={styles.offlineBanner}>
           <Ionicons name="cloud-offline-outline" color="#fff" size={17} />
           <Text style={styles.offlineText}>
@@ -471,13 +474,12 @@ export function DashboardApp({
             overview={overview.data}
             homeSummary={homeSummary.data}
             screen={screen.data}
+            schedule={schedule.data ?? []}
             activity={activityItems}
             refreshing={overview.isRefetching || homeSummary.isRefetching}
+            connectionAvailable={!offline}
             onRefresh={invalidateAll}
             onNavigate={setTab}
-            onScreenUpdated={() =>
-              void queryClient.invalidateQueries({ queryKey: [...rootKey, 'screen'] })
-            }
           />
         )}
         {tab === 'activity' && (
@@ -577,7 +579,11 @@ export function DashboardApp({
             role={screenRole}
             locale={locale}
             initialSection={settingsSection}
+            screen={screen.data}
             onLocaleChange={onLocaleChange}
+            onScreenUpdated={() =>
+              void queryClient.invalidateQueries({ queryKey: [...rootKey, 'screen'] })
+            }
             onOpenPage={setTab}
           />
         )}
@@ -623,10 +629,6 @@ export function DashboardApp({
       <View style={styles.tabBar}>
         {tabs.map((item) => {
           const active = item.id === tab;
-          const badge =
-            item.id === 'alerts'
-              ? alertItems.filter((alert) => ['OPEN', 'ACKNOWLEDGED'].includes(alert.status)).length
-              : 0;
           return (
             <Pressable
               key={item.id}
@@ -644,11 +646,6 @@ export function DashboardApp({
                   color={active ? colors.blue : '#8A9299'}
                   size={21}
                 />
-                {badge > 0 ? (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{Math.min(badge, 9)}</Text>
-                  </View>
-                ) : null}
               </View>
               <Text style={[styles.tabText, active && styles.tabTextActive]}>{item.label}</Text>
             </Pressable>
@@ -674,9 +671,9 @@ export function DashboardApp({
             </View>
             {(
               [
-                ['screen', 'Affichage TV', 'tv-outline'],
+                ['activity', 'Activité', 'pulse-outline'],
+                ['alerts', 'Alertes', 'notifications-outline'],
                 ['people', 'Proches', 'people-outline'],
-                ['settings', 'Réglages', 'settings-outline'],
               ] as Array<[Tab, string, IconName]>
             ).map(([id, label, icon]) => (
               <Pressable
@@ -685,7 +682,6 @@ export function DashboardApp({
                 onPress={() => {
                   setPagesOpen(false);
                   setCalendarOpen(false);
-                  if (id === 'settings') setSettingsSection('general');
                   setTab(id);
                 }}
               >
@@ -3652,7 +3648,7 @@ function LoadMore({ onPress }: { onPress: () => void }) {
 }
 const styles = StyleSheet.create({
   shell: { flex: 1, backgroundColor: colors.cream },
-  content: { flex: 1 },
+  content: { flex: 1, paddingTop: 16 },
   appHeader: {
     minHeight: 73,
     paddingHorizontal: 20,
@@ -3696,19 +3692,6 @@ const styles = StyleSheet.create({
   tabButton: { flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', gap: 4 },
   tabText: { color: '#858D94', fontSize: 9, fontWeight: '700' },
   tabTextActive: { color: colors.blue },
-  badge: {
-    position: 'absolute',
-    right: -8,
-    top: -5,
-    minWidth: 15,
-    height: 15,
-    paddingHorizontal: 3,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.red,
-  },
-  badgeText: { color: '#fff', fontSize: 8, fontWeight: '900' },
   hero: {
     padding: 21,
     borderWidth: 1,

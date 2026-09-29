@@ -7,7 +7,7 @@ import { ScreenPanel } from './ScreenPanel';
 
 vi.mock('./screen-events', () => ({ subscribeScreenEvents: () => () => undefined }));
 
-describe('TV message editor and calendar agenda summary', () => {
+describe('TV message editor and display controls', () => {
   let root: Root;
   let host: HTMLDivElement;
   let state: ReturnType<typeof initialScreenState>;
@@ -181,10 +181,11 @@ describe('TV message editor and calendar agenda summary', () => {
       messageIntervalSeconds: 20,
     });
   });
-  it('shows a read-only recap of the same calendar agenda that appears on the TV', () => {
-    expect(host.textContent).toContain('Rendez-vous du jour');
-    expect(host.textContent).toContain('Coiffeur');
-    expect(host.textContent).toContain('Sophie');
+  it('does not show the TV agenda in the caregiver display controls', () => {
+    expect(host.textContent).not.toContain('Rendez-vous du jour');
+    expect(host.textContent).not.toContain('Coiffeur');
+    expect(host.textContent).not.toContain('Sophie');
+    expect(host.querySelector('.screen-appointment-list')).toBeNull();
     expect(host.querySelector('.screen-appointment-form')).toBeNull();
     expect(requests.some((row) => row.url.endsWith('/screen/appointments'))).toBe(false);
   });

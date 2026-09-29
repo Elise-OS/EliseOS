@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Locale } from './i18n';
+import { DataLoadingScreen } from './DataLoadingScreen';
 import './alerts-page.css';
 
 type AlertStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED';
@@ -437,14 +438,21 @@ export function AlertsPage({
       setBusy(false);
     }
   };
-  const reassuranceCopy: [string, string] = loading
-    ? ['Chargement des dernières situations reçues…', 'Loading the latest recorded situations…']
-    : items.length === 0
+  const reassuranceCopy: [string, string] =
+    items.length === 0
       ? ['Aucune situation dans le flux récent.', 'No situations in the recent feed.']
       : [
           `${items.length} dernières situations reçues, de la plus récente à la plus ancienne${nextCursor ? ' ; les précédentes peuvent être chargées.' : '.'}`,
           `${items.length} latest recorded situations, newest first${nextCursor ? '; older situations can be loaded.' : '.'}`,
         ];
+  if (loading)
+    return (
+      <DataLoadingScreen
+        locale={locale}
+        message={label(['Chargement des situations…', 'Loading situations…'], locale)}
+      />
+    );
+
   return (
     <section className="alerts-page">
       <header className="alerts-hero">
@@ -577,12 +585,7 @@ export function AlertsPage({
             </div>
           )}
           <div className="alerts-cards">
-            {loading && (
-              <p className="alerts-empty">
-                {label(['Chargement des situations…', 'Loading situations…'], locale)}
-              </p>
-            )}
-            {!loading && !filtered.length && (
+            {!filtered.length && (
               <div className="alerts-empty">
                 <CheckCircle2 />
                 <h3>{label(['Aucune situation à afficher', 'No situations to show'], locale)}</h3>

@@ -1,24 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import { DoorOpen, MoonStar, Refrigerator, ShowerHead, Sunrise, Toilet } from 'lucide-react-native';
 import {
-  ARTE_LIVE_URL,
   type ActivitySequence,
   type ActivitySummary,
   type HomeSummary,
+  type ScheduleItem,
   type ScreenSnapshot,
 } from '@michel/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Modal,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { mobileApi, type ActivityItem, type Overview, type WeatherCity } from '../api';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { mobileApi, type ActivityItem, type Overview } from '../api';
 import type { SavedServer } from '../discovery/types';
 import { caregiverPresenceCopy } from './presence-copy';
 import { friendlyValue, relativeTime, roomOf } from './formatters';
@@ -34,19 +27,29 @@ const c = {
   green: '#4F8569',
   paleGreen: '#E5EFE8',
   amber: '#D99A55',
-  paleAmber: '#F7E9D7',
   red: '#B74747',
   paleBlue: '#E8F0F3',
 };
 type Page = 'activity' | 'house' | 'alerts' | 'screen' | 'journal';
+type SensorTone = 'entrance' | 'fridge' | 'toilet' | 'shower' | 'bedtime' | 'wakeup';
 type SensorCard = {
   id: string;
   title: string;
   value: string;
   detail: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  icon: typeof DoorOpen;
+  tone: SensorTone;
   available: boolean | null;
   roomId: string | null;
+};
+
+const sensorToneColors: Record<SensorTone, string> = {
+  entrance: '#C36A2F',
+  fridge: '#477BA5',
+  toilet: '#4D7B73',
+  shower: '#327F9B',
+  bedtime: '#786AA1',
+  wakeup: '#D88A45',
 };
 
 const dateKeyInZone = (date: Date, zone: string) => {
@@ -284,7 +287,8 @@ function essentialCards(data: HomeSummary, locale: 'fr' | 'en', now: Date): Sens
               ? 'État inconnu'
               : 'Unknown state',
       detail: fr ? 'État actuel' : 'Current state',
-      icon: 'enter-outline',
+      icon: DoorOpen,
+      tone: 'entrance',
       available: Boolean(entry?.available),
       roomId: entranceRoom?.roomId ?? null,
     });
@@ -312,7 +316,8 @@ function essentialCards(data: HomeSummary, locale: 'fr' | 'en', now: Date): Sens
       detail: fr
         ? `${fridge.countToday} ouverture${fridge.countToday === 1 ? '' : 's'} aujourd’hui`
         : `${fridge.countToday} opening${fridge.countToday === 1 ? '' : 's'} today`,
-      icon: 'snow-outline',
+      icon: Refrigerator,
+      tone: 'fridge',
       available: fridge.available,
       roomId: room?.roomId ?? null,
     });
@@ -337,7 +342,8 @@ function essentialCards(data: HomeSummary, locale: 'fr' | 'en', now: Date): Sens
       detail: fr
         ? `${toilet.countToday} passage${toilet.countToday === 1 ? '' : 's'} aujourd’hui`
         : `${toilet.countToday} visit${toilet.countToday === 1 ? '' : 's'} today`,
-      icon: 'walk-outline',
+      icon: Toilet,
+      tone: 'toilet',
       available: toilet.available,
       roomId: room?.roomId ?? null,
     });
@@ -393,7 +399,8 @@ function essentialCards(data: HomeSummary, locale: 'fr' | 'en', now: Date): Sens
           ? 'Associer un capteur d’humidité'
           : 'Assign a humidity sensor'
         : `${extra}${shower?.updatedAt ? ` · ${new Date(shower.updatedAt).toLocaleTimeString(fr ? 'fr-FR' : 'en-GB', { timeZone: data.timezone, hour: '2-digit', minute: '2-digit' })}` : ''}`,
-      icon: 'water-outline',
+      icon: ShowerHead,
+      tone: 'shower',
       available: configured ? !unavailable : null,
       roomId: bathroom.roomId,
     });
@@ -450,7 +457,8 @@ function essentialCards(data: HomeSummary, locale: 'fr' | 'en', now: Date): Sens
               : fr
                 ? 'Aucun réveil repéré aujourd’hui'
                 : 'No wake-up noticed today',
-      icon: kind === 'bedtime' ? 'moon-outline' : 'sunny-outline',
+      icon: kind === 'bedtime' ? MoonStar : Sunrise,
+      tone: kind === 'bedtime' ? 'bedtime' : 'wakeup',
       available: configured ? Boolean(sleep?.available) : null,
       roomId,
     });
@@ -467,11 +475,12 @@ export function MobileWelcomePanel({
   overview,
   homeSummary,
   screen,
+  schedule,
   activity,
   refreshing,
+  connectionAvailable,
   onRefresh,
   onNavigate,
-  onScreenUpdated,
 }: {
   server: SavedServer;
   token: string;
@@ -480,22 +489,14 @@ export function MobileWelcomePanel({
   overview?: Overview;
   homeSummary?: HomeSummary;
   screen?: ScreenSnapshot;
+  schedule: ScheduleItem[];
   activity: ActivityItem[];
   refreshing: boolean;
+  connectionAvailable: boolean;
   onRefresh: () => void;
   onNavigate: (page: Page) => void;
-  onScreenUpdated: () => void;
 }) {
   const [now, setNow] = useState(() => new Date());
-  const [messageDraft, setMessageDraft] = useState('');
-  const [screenBusy, setScreenBusy] = useState(false);
-  const [screenNotice, setScreenNotice] = useState('');
-  const [weatherOpen, setWeatherOpen] = useState(false);
-  const [weatherQuery, setWeatherQuery] = useState('');
-  const [selectedCity, setSelectedCity] = useState('');
-  const [weatherSearch, setWeatherSearch] = useState<WeatherCity[]>([]);
-  const [weatherBusy, setWeatherBusy] = useState(false);
-  const [weatherNotice, setWeatherNotice] = useState('');
   const timezone = homeSummary?.timezone ?? screen?.timezone ?? 'Europe/Paris';
   const today = dateKeyInZone(now, timezone);
   const previousDate = shiftDate(today, -1);
@@ -515,16 +516,48 @@ export function MobileWelcomePanel({
       hour: '2-digit',
       minute: '2-digit',
     });
-  const messages = screen?.state.messages?.length
-    ? screen.state.messages
-    : screen?.state.message
-      ? [screen.state.message]
-      : [];
-  const lastMessage = messages.at(-1);
   const resident =
     homeSummary?.residentName || overview?.home?.resident || screen?.resident || 'Élise';
   const firstName = userName.trim().split(/\s+/)[0] || userName;
   const fr = locale === 'fr';
+  const playback = screen?.state.playback;
+  const playingMedia =
+    screen?.online &&
+    !screen?.state.call &&
+    playback?.mediaId &&
+    !playback.paused &&
+    !playback.asleep
+      ? (screen?.state.media.find((media) => media.id === playback.mediaId) ?? null)
+      : null;
+  const tomorrow = shiftDate(today, 1);
+  const nextAppointment = schedule
+    .filter((item) => {
+      if (item.type !== 'APPOINTMENT') return false;
+      const startsAt = Date.parse(item.startsAt);
+      if (!Number.isFinite(startsAt)) return false;
+      const endsAt = item.endsAt ? Date.parse(item.endsAt) : startsAt;
+      const day = dateKeyInZone(new Date(startsAt), timezone);
+      return endsAt >= now.getTime() && (day === today || day === tomorrow);
+    })
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))[0];
+  const playingTitle =
+    playingMedia?.title.trim() ||
+    (playingMedia?.kind === 'photo'
+      ? fr
+        ? 'Diaporama photo'
+        : 'Photo slideshow'
+      : fr
+        ? 'Contenu en cours'
+        : 'Now playing');
+  const appointmentDay = nextAppointment
+    ? dateKeyInZone(new Date(nextAppointment.startsAt), timezone) === today
+      ? fr
+        ? 'Aujourd’hui'
+        : 'Today'
+      : fr
+        ? 'Demain'
+        : 'Tomorrow'
+    : '';
   const essentials = useMemo(
     () => (homeSummary ? essentialCards(homeSummary, locale, now) : []),
     [homeSummary, locale, now],
@@ -533,127 +566,10 @@ export function MobileWelcomePanel({
     .filter(({ capability }) => capability !== 'illuminance')
     .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt))
     .slice(0, 5);
-  const nextSchedule = [
-    ...([] as Array<{ title: string; startsAt: string }>),
-    ...(overview?.nextSchedule ? [overview.nextSchedule] : []),
-    ...(screen?.agenda ?? [])
-      .filter((item) => Date.parse(item.startsAt) >= now.getTime())
-      .map((item) => ({ title: item.title, startsAt: item.startsAt })),
-  ]
-    .filter((item) => Date.parse(item.startsAt) >= now.getTime())
-    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))[0];
-
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 15_000);
     return () => clearInterval(timer);
   }, []);
-  useEffect(() => {
-    if (
-      !weatherOpen ||
-      !screen?.grant.administer ||
-      weatherQuery.trim().length < 2 ||
-      weatherQuery.trim() === selectedCity
-    ) {
-      setWeatherSearch([]);
-      setWeatherBusy(false);
-      return;
-    }
-    let active = true;
-    const timer = setTimeout(() => {
-      setWeatherBusy(true);
-      void mobileApi
-        .weatherCities(server, token, weatherQuery.trim())
-        .then((cities) => {
-          if (active) setWeatherSearch(cities);
-        })
-        .catch(() => {
-          if (active) setWeatherNotice('La recherche de villes est momentanément indisponible.');
-        })
-        .finally(() => {
-          if (active) setWeatherBusy(false);
-        });
-    }, 250);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [selectedCity, server.id, token, weatherOpen, weatherQuery, screen?.grant.administer]);
-
-  const postMessage = async () => {
-    const next = messageDraft.trim();
-    if (!next || screenBusy || !screen?.grant.message) return;
-    if (messages.length >= 20) {
-      setScreenNotice('La file TV contient déjà 20 messages.');
-      return;
-    }
-    setScreenBusy(true);
-    setScreenNotice('');
-    try {
-      await mobileApi.updateScreenMessage(server, token, {
-        messages: [...messages, next],
-        messageIntervalSeconds: screen.state.messageIntervalSeconds ?? 20,
-      });
-      setMessageDraft('');
-      setScreenNotice('Message ajouté à la file de la TV.');
-      onScreenUpdated();
-    } catch (error) {
-      setScreenNotice(error instanceof Error ? error.message : 'Ajout impossible.');
-    } finally {
-      setScreenBusy(false);
-    }
-  };
-  const saveWeather = async () => {
-    if (!screen?.grant.administer || !selectedCity || screenBusy) return;
-    setScreenBusy(true);
-    setWeatherNotice('');
-    try {
-      await mobileApi.updateScreenSettings(server, token, {
-        ...screen.state.settings,
-        weatherCity: selectedCity,
-      });
-      setWeatherOpen(false);
-      onScreenUpdated();
-    } catch {
-      setWeatherNotice('La météo n’a pas pu être enregistrée.');
-    } finally {
-      setScreenBusy(false);
-    }
-  };
-  const startArte = async () => {
-    if (!screen?.grant.control || !screen.online || screenBusy) return;
-    setScreenBusy(true);
-    setScreenNotice('');
-    try {
-      const existing = screen.state.media.find(
-        (media) => media.kind === 'tv' && media.url === ARTE_LIVE_URL,
-      );
-      const mediaId = existing?.id ?? mobileUuid();
-      if (!existing)
-        await mobileApi.createScreenMedia(server, token, {
-          id: mediaId,
-          title: 'ARTE en direct',
-          kind: 'tv',
-          url: ARTE_LIVE_URL,
-        });
-      await mobileApi.screenCommand(server, token, { action: 'play', mediaId });
-      setScreenNotice('ARTE est lancé sur la TV.');
-      onScreenUpdated();
-    } catch (error) {
-      setScreenNotice(error instanceof Error ? error.message : 'Le lancement d’ARTE a échoué.');
-    } finally {
-      setScreenBusy(false);
-    }
-  };
-  const playArte = () => {
-    void startArte();
-  };
-
-  const weatherLabel = screen?.weather
-    ? weatherText(screen.weather.weatherCode)
-    : fr
-      ? 'Météo indisponible'
-      : 'Weather unavailable';
-  const weatherCity = screen?.weather?.city ?? screen?.state.settings.weatherCity ?? '';
   const greetingDate = new Intl.DateTimeFormat(fr ? 'fr-FR' : 'en-GB', {
     timeZone: timezone,
     weekday: 'long',
@@ -661,6 +577,13 @@ export function MobileWelcomePanel({
     month: 'long',
     year: 'numeric',
   }).format(now);
+  const connectionLabel = connectionAvailable
+    ? fr
+      ? 'En ligne'
+      : 'Online'
+    : fr
+      ? 'Hors ligne'
+      : 'Offline';
   const presence = homeSummary
     ? mobilePresenceText(homeSummary, locale)
     : caregiverPresenceCopy(null).detail;
@@ -675,6 +598,7 @@ export function MobileWelcomePanel({
   const narrative = homeSummary
     ? dayNarrative(homeSummary, todaySummary.data, previousSummary.data, locale)
     : 'Le résumé de la journée se prépare.';
+  const appointmentTime = nextAppointment ? time(nextAppointment.startsAt) : '';
 
   return (
     <ScrollView
@@ -687,56 +611,68 @@ export function MobileWelcomePanel({
       <View style={s.header}>
         <View style={s.headerCopy}>
           <Text style={s.eyebrow}>{greetingDate}</Text>
-          <Text style={s.greeting}>Bonjour {firstName},</Text>
+          <View style={s.greetingRow}>
+            <Text style={s.greeting}>Bonjour {firstName},</Text>
+            <View
+              accessible
+              accessibilityRole="text"
+              accessibilityLabel={connectionLabel}
+              style={[
+                s.connectionBadge,
+                connectionAvailable ? s.connectedBadge : s.disconnectedBadge,
+              ]}
+            >
+              <View
+                style={[s.connectionDot, connectionAvailable ? s.connectedDot : s.disconnectedDot]}
+              />
+              <Text
+                style={[
+                  s.connectionBadgeText,
+                  connectionAvailable ? s.connectedBadgeText : s.disconnectedBadgeText,
+                ]}
+              >
+                {connectionLabel}
+              </Text>
+            </View>
+          </View>
           <Text style={s.subtitle}>Élise veille sur {resident}.</Text>
         </View>
-        {weatherCity ? (
-          <Pressable
-            style={s.weather}
-            disabled={!screen?.grant.administer}
-            onPress={() => {
-              setWeatherNotice('');
-              setWeatherQuery(weatherCity);
-              setSelectedCity(weatherCity);
-              setWeatherOpen(true);
-            }}
-          >
-            <Ionicons
-              name={weatherIcon(screen?.weather?.weatherCode ?? 0)}
-              size={21}
-              color={c.accent}
-            />
-            <View style={s.flex}>
-              <Text style={s.weatherTemp}>
-                {screen?.weather ? `${Math.round(screen.weather.temperature)}°C` : '—'}
-              </Text>
-              <Text style={s.weatherCity}>{weatherCity}</Text>
-              <Text style={s.caption}>{weatherLabel}</Text>
-            </View>
-            {screen?.grant.administer ? (
-              <Ionicons name="pencil-outline" size={14} color={c.accent} />
-            ) : null}
-          </Pressable>
-        ) : screen?.grant.administer ? (
-          <Pressable
-            style={s.weatherSetup}
-            onPress={() => {
-              setWeatherNotice('');
-              setWeatherQuery('');
-              setSelectedCity('');
-              setWeatherOpen(true);
-            }}
-          >
-            <Ionicons name="partly-sunny-outline" size={19} color={c.accent} />
-            <Text style={s.weatherSetupText}>Configurer la météo</Text>
-          </Pressable>
-        ) : (
-          <View style={s.weatherSetup}>
-            <Ionicons name="partly-sunny-outline" size={19} color={c.accent} />
-            <Text style={s.weatherSetupText}>Météo à configurer</Text>
-          </View>
-        )}
       </View>
+
+      {playingMedia ? (
+        <View style={s.infoLine}>
+          <View style={[s.infoIcon, s.tvInfoIcon]}>
+            <Ionicons name="tv-outline" size={18} color={c.blue} />
+          </View>
+          <View style={s.infoCopy}>
+            <Text style={s.infoHeading}>
+              {fr ? 'LECTURE EN COURS SUR LA TV' : 'NOW PLAYING ON TV'}
+            </Text>
+            <Text style={s.infoTitle} numberOfLines={1}>
+              {playingTitle}
+            </Text>
+          </View>
+          <Ionicons name="play-circle" size={19} color={c.accent} />
+        </View>
+      ) : null}
+      {nextAppointment ? (
+        <View style={s.infoLine}>
+          <View style={[s.infoIcon, s.appointmentInfoIcon]}>
+            <Ionicons name="medical-outline" size={18} color={c.green} />
+          </View>
+          <View style={s.infoCopy}>
+            <Text style={s.infoHeading}>
+              {fr
+                ? `RENDEZ-VOUS ${appointmentDay.toUpperCase()}`
+                : `APPOINTMENT · ${appointmentDay.toUpperCase()}`}
+            </Text>
+            <Text style={s.infoTitle} numberOfLines={1}>
+              {nextAppointment.title}
+            </Text>
+          </View>
+          <Text style={s.infoTime}>{appointmentTime}</Text>
+        </View>
+      ) : null}
 
       {homeSummary ? (
         <View style={s.card}>
@@ -777,34 +713,54 @@ export function MobileWelcomePanel({
         </Pressable>
       </View>
 
-      <View style={s.card}>
+      <View style={[s.card, s.essentialsCard]}>
+        <Svg
+          pointerEvents="none"
+          width="100%"
+          height="100%"
+          style={StyleSheet.absoluteFill}
+          preserveAspectRatio="none"
+        >
+          <Defs>
+            <LinearGradient id="dailyEssentialsBackground" x1="0%" y1="100%" x2="100%" y2="0%">
+              <Stop offset="0%" stopColor="#FFFFFF" />
+              <Stop offset="100%" stopColor="#F8FAF9" />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#dailyEssentialsBackground)" />
+        </Svg>
         <View style={s.cardHeader}>
-          <View style={s.statusDot} />
-          <Text style={s.cardTitle}>Repères du quotidien</Text>
+          <View style={[s.statusDot, s.essentialsDot]} />
+          <Text style={[s.cardTitle, s.essentialsTitle]}>Repères du quotidien</Text>
         </View>
         {essentials.length ? (
           <View style={s.sensorGrid}>
-            {essentials.map((item) => (
-              <Pressable
-                key={item.id}
-                style={s.sensorCard}
-                onPress={() => (item.roomId ? onNavigate('house') : onNavigate('house'))}
-              >
-                <View style={s.sensorHead}>
-                  <View style={s.sensorIcon}>
-                    <Ionicons name={item.icon} size={18} color={c.blue} />
+            {essentials.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Pressable
+                  key={item.id}
+                  style={s.sensorCard}
+                  onPress={() => (item.roomId ? onNavigate('house') : onNavigate('house'))}
+                >
+                  <Icon size={30} strokeWidth={1.9} color={sensorToneColors[item.tone]} />
+                  <View style={s.sensorCopy}>
+                    <Text style={s.sensorTitle}>{item.title}</Text>
+                    <Text style={s.sensorValue}>{item.value}</Text>
+                    <Text style={s.sensorDetail}>{item.detail}</Text>
                   </View>
                   {item.available !== null ? (
                     <View
-                      style={[s.healthDot, { backgroundColor: item.available ? c.green : c.amber }]}
+                      style={[
+                        s.healthDot,
+                        s.sensorHealthDot,
+                        { backgroundColor: item.available ? '#359457' : '#AAABB0' },
+                      ]}
                     />
                   ) : null}
-                </View>
-                <Text style={s.sensorTitle}>{item.title}</Text>
-                <Text style={s.sensorValue}>{item.value}</Text>
-                <Text style={s.caption}>{item.detail}</Text>
-              </Pressable>
-            ))}
+                </Pressable>
+              );
+            })}
           </View>
         ) : (
           <Text style={s.body}>
@@ -826,164 +782,6 @@ export function MobileWelcomePanel({
         ))}
         {!recentEvents.length ? <Text style={s.body}>Aucun événement récent.</Text> : null}
       </View>
-
-      <View style={s.card}>
-        <View style={s.cardHeader}>
-          <Ionicons name="chatbubble-ellipses-outline" size={19} color={c.accent} />
-          <Text style={s.cardTitle}>Messages pour la famille</Text>
-        </View>
-        <Text style={s.bodyLarge}>{lastMessage || 'Un petit mot pour égayer sa journée ?'}</Text>
-        {lastMessage && screen?.state.messageAuthor ? (
-          <Text style={s.caption}>
-            — {screen.state.messageAuthor}{' '}
-            {screen.state.messageUpdatedAt ? `· ${time(screen.state.messageUpdatedAt)}` : ''}
-          </Text>
-        ) : null}
-        <View style={s.composeRow}>
-          <TextInput
-            style={s.messageInput}
-            value={messageDraft}
-            onChangeText={setMessageDraft}
-            maxLength={1000}
-            placeholder="Écrire un mot pour la TV…"
-            placeholderTextColor="#8b9299"
-          />
-          <Pressable
-            disabled={
-              !screen?.grant.message || screenBusy || !messageDraft.trim() || messages.length >= 20
-            }
-            style={[
-              s.addMessage,
-              (!screen?.grant.message ||
-                screenBusy ||
-                !messageDraft.trim() ||
-                messages.length >= 20) &&
-                s.disabled,
-            ]}
-            onPress={() => void postMessage()}
-          >
-            <Text style={s.addMessageText}>{screenBusy ? '…' : 'Ajouter'}</Text>
-          </Pressable>
-        </View>
-        {screenNotice ? <Text style={s.notice}>{screenNotice}</Text> : null}
-        <Pressable style={s.linkRow} onPress={() => onNavigate('screen')}>
-          <Text style={s.link}>Voir tous les messages</Text>
-          <Ionicons name="chevron-forward" size={17} color={c.blue} />
-        </Pressable>
-      </View>
-
-      <View style={s.card}>
-        <View style={s.cardHeader}>
-          <Ionicons name="calendar-outline" size={19} color={c.accent} />
-          <Text style={s.cardTitle}>Prochain rendez-vous</Text>
-        </View>
-        <Text style={s.bodyLarge}>{nextSchedule?.title ?? 'Aucun rendez-vous prévu'}</Text>
-        {nextSchedule ? (
-          <Text style={s.caption}>
-            {new Date(nextSchedule.startsAt).toLocaleDateString('fr-FR', {
-              timeZone: timezone,
-              day: 'numeric',
-              month: 'short',
-            })}{' '}
-            · {time(nextSchedule.startsAt)}
-          </Text>
-        ) : null}
-        <Pressable style={s.linkRow} onPress={() => onNavigate('journal')}>
-          <Text style={s.link}>Voir le calendrier</Text>
-          <Ionicons name="chevron-forward" size={17} color={c.blue} />
-        </Pressable>
-      </View>
-
-      <View style={s.card}>
-        <View style={s.cardHeader}>
-          <Ionicons name="flash-outline" size={18} color={c.accent} />
-          <Text style={s.cardTitle}>Actions rapides</Text>
-        </View>
-        <View style={s.quickGrid}>
-          <Quick icon="call-outline" label="Appeler" onPress={() => onNavigate('screen')} />
-          <Quick
-            icon="tv-outline"
-            label="ARTE"
-            disabled={!screen?.online || !screen.grant.control || screenBusy}
-            onPress={playArte}
-          />
-          <Quick
-            icon="desktop-outline"
-            label="Afficher sur la TV"
-            onPress={() => onNavigate('screen')}
-          />
-          <Quick
-            icon="images-outline"
-            label="Voir les photos"
-            onPress={() => onNavigate('screen')}
-          />
-        </View>
-      </View>
-
-      <Modal
-        visible={weatherOpen}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setWeatherOpen(false)}
-      >
-        <View style={s.modalShell}>
-          <View style={s.modalHeader}>
-            <View>
-              <Text style={s.eyebrow}>MÉTÉO DU LOGEMENT ET DE LA TV</Text>
-              <Text style={s.cardTitle}>Choisir une ville</Text>
-            </View>
-            <Pressable style={s.close} onPress={() => setWeatherOpen(false)}>
-              <Ionicons name="close" size={22} color={c.navy} />
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={s.modalContent} keyboardShouldPersistTaps="handled">
-            <Text style={s.body}>
-              La ville choisie met également à jour la météo affichée sur la télévision.
-            </Text>
-            <TextInput
-              style={s.messageInput}
-              autoFocus
-              value={weatherQuery}
-              onChangeText={(value) => {
-                setWeatherQuery(value);
-                setSelectedCity('');
-                setWeatherNotice('');
-              }}
-              placeholder="Ex. Orléans, Tours…"
-              placeholderTextColor="#8b9299"
-            />
-            {weatherBusy ? <Text style={s.body}>Recherche…</Text> : null}
-            {weatherSearch.map((city) => (
-              <Pressable
-                key={`${city.name}-${city.latitude}`}
-                style={s.cityRow}
-                onPress={() => {
-                  setWeatherQuery(city.name);
-                  setSelectedCity(city.name);
-                  setWeatherSearch([]);
-                }}
-              >
-                <Ionicons name="location-outline" size={18} color={c.accent} />
-                <View style={s.flex}>
-                  <Text style={s.cardTitle}>{city.name}</Text>
-                  <Text style={s.caption}>{city.label}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={c.muted} />
-              </Pressable>
-            ))}
-            {weatherNotice ? <Text style={s.notice}>{weatherNotice}</Text> : null}
-            <Pressable
-              disabled={!selectedCity || screenBusy}
-              style={[s.saveButton, (!selectedCity || screenBusy) && s.disabled]}
-              onPress={() => void saveWeather()}
-            >
-              <Text style={s.saveText}>
-                {screenBusy ? 'Enregistrement…' : weatherCity ? 'Mettre à jour' : 'Configurer'}
-              </Text>
-            </Pressable>
-          </ScrollView>
-        </View>
-      </Modal>
     </ScrollView>
   );
 }
@@ -1024,37 +822,6 @@ function EventRow({ item, timezone }: { item: ActivityItem; timezone: string }) 
     </View>
   );
 }
-function Quick({
-  icon,
-  label,
-  onPress,
-  disabled = false,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      style={[s.quick, disabled && s.disabled]}
-      onPress={onPress}
-    >
-      <View style={s.quickIcon}>
-        <Ionicons name={icon} size={18} color={c.blue} />
-      </View>
-      <Text style={s.quickText}>{label}</Text>
-    </Pressable>
-  );
-}
-function mobileUuid() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (part) => {
-    const random = Math.floor(Math.random() * 16);
-    return (part === 'x' ? random : (random & 0x3) | 0x8).toString(16);
-  });
-}
 function capabilityLabel(capability: string) {
   return (
     (
@@ -1072,55 +839,63 @@ function capabilityLabel(capability: string) {
     )[capability] ?? capability
   );
 }
-function weatherIcon(code: number): React.ComponentProps<typeof Ionicons>['name'] {
-  if (code === 0) return 'sunny-outline';
-  if (code <= 2) return 'partly-sunny-outline';
-  if ([45, 48].includes(code)) return 'cloud-outline';
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'snow-outline';
-  if (code >= 95) return 'thunderstorm-outline';
-  return 'rainy-outline';
-}
-function weatherText(code: number) {
-  if (code === 0) return 'Ciel dégagé';
-  if (code <= 2) return 'Éclaircies';
-  if (code === 3) return 'Nuageux';
-  if ([45, 48].includes(code)) return 'Brouillard';
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return 'Neige';
-  if (code >= 95) return 'Orage';
-  return 'Pluie';
-}
 const s = StyleSheet.create({
   scroll: { padding: 18, paddingBottom: 34, gap: 12, backgroundColor: c.cream },
-  header: { gap: 10 },
-  headerCopy: { gap: 3 },
-  flex: { flex: 1 },
-  eyebrow: { color: c.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-  greeting: { color: c.navy, fontFamily: 'Georgia', fontSize: 27 },
-  subtitle: { color: c.muted, fontSize: 11 },
-  weather: {
-    minHeight: 66,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 15,
+  infoLine: {
+    minHeight: 58,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: c.line,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 9,
     backgroundColor: c.paper,
   },
-  weatherSetup: {
-    minHeight: 43,
-    paddingHorizontal: 12,
-    borderRadius: 13,
+  infoIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tvInfoIcon: { backgroundColor: c.paleBlue },
+  appointmentInfoIcon: { backgroundColor: c.paleGreen },
+  infoCopy: { flex: 1, gap: 2 },
+  infoHeading: { color: c.accent, fontSize: 8, fontWeight: '900', letterSpacing: 0.45 },
+  infoTitle: { color: c.navy, fontSize: 10, fontWeight: '900' },
+  infoTime: { color: c.blue, fontSize: 10, fontWeight: '900' },
+  header: { gap: 10 },
+  headerCopy: { gap: 3 },
+  flex: { flex: 1 },
+  eyebrow: { color: c.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
-    backgroundColor: c.paleBlue,
   },
-  weatherSetupText: { color: c.blue, fontSize: 10, fontWeight: '800' },
-  weatherTemp: { color: c.navy, fontFamily: 'Georgia', fontSize: 18 },
-  weatherCity: { color: c.navy, fontSize: 10, fontWeight: '800' },
+  greeting: { color: c.navy, flexShrink: 1, fontFamily: 'Georgia', fontSize: 27 },
+  connectionBadge: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    flexShrink: 0,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  connectedBadge: { backgroundColor: c.paleGreen, borderColor: '#C8DDCF' },
+  disconnectedBadge: { backgroundColor: '#F9E8E7', borderColor: '#E9C7C5' },
+  connectionBadgeText: { fontSize: 10, fontWeight: '800' },
+  connectedBadgeText: { color: c.green },
+  disconnectedBadgeText: { color: c.red },
+  connectionDot: { width: 8, height: 8, borderRadius: 4 },
+  connectedDot: { backgroundColor: c.green },
+  disconnectedDot: { backgroundColor: c.red },
+  subtitle: { color: c.muted, fontSize: 11 },
   caption: { color: c.muted, fontSize: 8, lineHeight: 13 },
   card: {
     padding: 16,
@@ -1129,6 +904,18 @@ const s = StyleSheet.create({
     borderColor: c.line,
     backgroundColor: c.paper,
     gap: 11,
+  },
+  essentialsCard: {
+    overflow: 'hidden',
+    borderColor: '#E5EBE8',
+    backgroundColor: '#F8FAF9',
+  },
+  essentialsTitle: { color: '#102F59' },
+  essentialsDot: {
+    backgroundColor: '#329258',
+    shadowColor: '#33995F',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   cardHeader: { minHeight: 28, flexDirection: 'row', alignItems: 'center', gap: 8 },
   cardTitle: { flex: 1, color: c.navy, fontSize: 13, fontWeight: '900' },
@@ -1167,25 +954,22 @@ const s = StyleSheet.create({
   sensorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
   sensorCard: {
     width: '48%',
-    minHeight: 137,
+    minHeight: 89,
     padding: 11,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: c.line,
-    backgroundColor: '#fffefa',
-  },
-  sensorHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sensorIcon: {
-    width: 33,
-    height: 33,
-    borderRadius: 10,
+    borderColor: '#E8EEEA',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: c.paleBlue,
+    gap: 8,
   },
+  sensorCopy: { flex: 1, minWidth: 0, paddingRight: 8 },
+  sensorTitle: { color: '#253956', fontSize: 9, fontWeight: '700', lineHeight: 13 },
+  sensorValue: { marginTop: 3, color: '#5B697C', fontSize: 9, lineHeight: 13 },
+  sensorDetail: { marginTop: 2, color: '#87909D', fontSize: 8, lineHeight: 11 },
   healthDot: { width: 7, height: 7, borderRadius: 4 },
-  sensorTitle: { marginTop: 8, color: c.navy, fontSize: 10, fontWeight: '900' },
-  sensorValue: { marginTop: 4, color: c.accent, fontSize: 10, fontWeight: '800' },
+  sensorHealthDot: { position: 'absolute', right: 11, top: 12 },
   eventRow: {
     minHeight: 53,
     paddingVertical: 7,
@@ -1204,83 +988,4 @@ const s = StyleSheet.create({
     backgroundColor: c.paleBlue,
   },
   eventTitle: { color: c.navy, fontSize: 9, fontWeight: '800' },
-  composeRow: { flexDirection: 'row', gap: 7, alignItems: 'center' },
-  messageInput: {
-    minHeight: 43,
-    flex: 1,
-    paddingHorizontal: 10,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: c.line,
-    color: c.navy,
-    backgroundColor: '#fff',
-    fontSize: 10,
-  },
-  addMessage: {
-    minHeight: 42,
-    paddingHorizontal: 12,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: c.blue,
-  },
-  addMessageText: { color: '#fff', fontSize: 9, fontWeight: '900' },
-  notice: { color: c.red, fontSize: 9 },
-  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
-  quick: {
-    width: '48%',
-    minHeight: 67,
-    padding: 10,
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: c.line,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#fffefa',
-  },
-  quickIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: c.paleBlue,
-  },
-  quickText: { flex: 1, color: c.navy, fontSize: 9, fontWeight: '800' },
-  disabled: { opacity: 0.45 },
-  modalShell: { flex: 1, backgroundColor: c.cream },
-  modalHeader: {
-    minHeight: 74,
-    paddingHorizontal: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  close: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: c.paper,
-  },
-  modalContent: { padding: 18, paddingBottom: 34, gap: 12 },
-  cityRow: {
-    minHeight: 57,
-    paddingHorizontal: 10,
-    borderRadius: 11,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    backgroundColor: c.paper,
-  },
-  saveButton: {
-    minHeight: 45,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: c.blue,
-  },
-  saveText: { color: '#fff', fontSize: 10, fontWeight: '900' },
 });

@@ -1,5 +1,4 @@
 import {
-  appointmentPictograms,
   ARTE_LIVE_URL,
   RMC_DECOUVERTE_LIVE_URL,
   RMC_LIFE_LIVE_URL,
@@ -9,7 +8,16 @@ import {
 import { subscribeScreenEvents } from './screen-events';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { ScreenSnapshot, ScreenJoin, ScreenSettings } from '@michel/contracts';
+import { DataLoadingScreen } from './DataLoadingScreen';
+import type { Locale } from './i18n';
+import type {
+  ScreenPodcastEpisode,
+  ScreenPodcastSearchResult,
+  ScreenPodcastSubscription,
+  ScreenSnapshot,
+  ScreenJoin,
+  ScreenSettings,
+} from '@michel/contracts';
 import {
   Activity,
   CalendarClock,
@@ -18,6 +26,7 @@ import {
   CircleCheck,
   CircleX,
   ExternalLink,
+  Headphones,
   Heart,
   ImagePlus,
   MessageCircleHeart,
@@ -65,6 +74,67 @@ type RadioStation = {
   bitrate: number;
   artworkUrl?: string;
 };
+function podcastDurationLabel(seconds: number | null | undefined): string | undefined {
+  if (!seconds || seconds < 1) return undefined;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return hours ? `${hours} h ${minutes.toString().padStart(2, '0')}` : `${minutes} min`;
+}
+function podcastDateLabel(timestamp: number | null | undefined): string | undefined {
+  if (!timestamp) return undefined;
+  return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' }).format(timestamp);
+}
+type MediaPlaybackButtonState = 'idle' | 'pending' | 'playing' | 'paused';
+function MediaPlaybackButton({
+  state,
+  disabled,
+  onClick,
+  idleLabel = 'Écouter',
+  playingLabel = 'En écoute',
+  pendingLabel = 'Lancement…',
+  pausedLabel = 'Reprendre',
+}: {
+  state: MediaPlaybackButtonState;
+  disabled?: boolean;
+  onClick: () => void;
+  idleLabel?: string;
+  playingLabel?: string;
+  pendingLabel?: string;
+  pausedLabel?: string;
+}) {
+  const label =
+    state === 'playing'
+      ? playingLabel
+      : state === 'pending'
+        ? pendingLabel
+        : state === 'paused'
+          ? pausedLabel
+          : idleLabel;
+  return (
+    <button
+      type="button"
+      className={`screen-button screen-button--primary screen-media-playback-button${state === 'idle' ? '' : ` is-${state}`}`}
+      aria-label={label}
+      aria-pressed={state === 'playing'}
+      disabled={disabled || state === 'playing' || state === 'pending'}
+      onClick={onClick}
+    >
+      {state === 'playing' ? (
+        <span className="screen-media-playback-meter" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+          <i />
+        </span>
+      ) : state === 'pending' ? (
+        <span className="screen-media-playback-spinner" aria-hidden="true" />
+      ) : (
+        <Play aria-hidden="true" />
+      )}
+      {label}
+    </button>
+  );
+}
 type YouTubeAccount = {
   configured: boolean;
   connected: boolean;
@@ -367,8 +437,10 @@ function DashboardCallWindow({
 
 export function ScreenPanel({
   initialSection = 'display',
+  locale = 'fr',
 }: {
   initialSection?: 'call' | 'messages' | 'display' | 'photos' | 'planning';
+  locale?: Locale;
 } = {}) {
   const [snapshot, setSnapshot] = useState<ScreenSnapshot>();
   const initialSectionOpened = useRef(false);
@@ -379,7 +451,7 @@ export function ScreenPanel({
       messages: '.screen-message-card',
       photos: '.screen-media-card',
       call: '.screen-button--call',
-      planning: '.screen-agenda-summary',
+      planning: '.screen-panel__hero',
       display: '.screen-panel__hero',
     };
     const target = document.querySelector<HTMLElement>(selectors[initialSection]);
@@ -413,7 +485,7 @@ export function ScreenPanel({
   const [tvGuideUnavailable, setTvGuideUnavailable] = useState(false);
   const [discoveredTvs, setDiscoveredTvs] = useState<NetworkTv[]>([]);
   const [tvScanDone, setTvScanDone] = useState(false);
-  const [mediaTab, setMediaTab] = useState<'youtube' | 'tv' | 'stream'>('tv');
+  const [mediaTab, setMediaTab] = useState<'youtube' | 'tv' | 'stream' | 'podcast'>('tv');
   const [selectedMainTab, setSelectedMainTab] = useState<ScreenMainTab>(
     initialSection === 'messages' ? 'messages' : 'album',
   );
@@ -423,6 +495,13 @@ export function ScreenPanel({
   const [playlistLinks, setPlaylistLinks] = useState('');
   const [radioQuery, setRadioQuery] = useState('');
   const [radioResults, setRadioResults] = useState<RadioStation[]>([]);
+  const [podcastQuery, setPodcastQuery] = useState('');
+  const [podcastResults, setPodcastResults] = useState<ScreenPodcastSearchResult[]>([]);
+  const [podcastSearchLoading, setPodcastSearchLoading] = useState(false);
+  const [podcastSearchDone, setPodcastSearchDone] = useState(false);
+  const [selectedPodcastId, setSelectedPodcastId] = useState<string>();
+  const [podcastEpisodes, setPodcastEpisodes] = useState<ScreenPodcastEpisode[]>([]);
+  const [podcastEpisodesLoaded, setPodcastEpisodesLoaded] = useState(false);
   const [youtubeAccount, setYoutubeAccount] = useState<YouTubeAccount>();
   const [youtubePlaylists, setYoutubePlaylists] = useState<YouTubePlaylist[]>([]);
   const [youtubePlaylistBusy, setYoutubePlaylistBusy] = useState<string>();
@@ -601,6 +680,59 @@ export function ScreenPanel({
         });
       await screenRequest('screen/commands', { action: 'play', mediaId });
     });
+  const searchPodcasts = () => {
+    if (podcastQuery.trim().length < 2) return;
+    setSelectedPodcastId(undefined);
+    setPodcastEpisodes([]);
+    setPodcastEpisodesLoaded(false);
+    setPodcastSearchDone(false);
+    setPodcastResults([]);
+    setPodcastSearchLoading(true);
+    void run(async () => {
+      try {
+        setPodcastResults(
+          await screenRequest<ScreenPodcastSearchResult[]>(
+            `screen/podcasts/search?q=${encodeURIComponent(podcastQuery.trim())}`,
+            undefined,
+            'GET',
+          ),
+        );
+        setPodcastSearchDone(true);
+      } finally {
+        setPodcastSearchLoading(false);
+      }
+    });
+  };
+  const openPodcastEpisodes = (podcast: ScreenPodcastSearchResult | ScreenPodcastSubscription) => {
+    setSelectedPodcastId(podcast.id);
+    setPodcastEpisodes([]);
+    setPodcastEpisodesLoaded(false);
+    void (async () => {
+      await run(async () => {
+        setPodcastEpisodes(
+          await screenRequest<ScreenPodcastEpisode[]>(
+            `screen/podcasts/${encodeURIComponent(podcast.id)}/episodes`,
+            undefined,
+            'GET',
+          ),
+        );
+      });
+      setPodcastEpisodesLoaded(true);
+    })();
+  };
+  const followPodcast = (podcast: ScreenPodcastSearchResult | ScreenPodcastSubscription) =>
+    run(() => screenRequest(`screen/podcasts/${encodeURIComponent(podcast.id)}/follow`));
+  const playPodcastEpisode = (
+    podcast: ScreenPodcastSearchResult | ScreenPodcastSubscription,
+    episode: ScreenPodcastEpisode,
+  ) =>
+    run(async () => {
+      if (!(snapshot?.state.podcasts ?? []).some((item) => item.id === podcast.id))
+        await screenRequest(`screen/podcasts/${encodeURIComponent(podcast.id)}/follow`);
+      await screenRequest(`screen/podcasts/${encodeURIComponent(podcast.id)}/play`, {
+        episodeId: episode.id,
+      });
+    });
   const connectYouTube = () => {
     setError('');
     const popup = window.open(
@@ -635,57 +767,66 @@ export function ScreenPanel({
     })();
   if (!snapshot || !settings)
     return (
-      <section className="screen-panel">
-        <h2>Écran et appels</h2>
-        <p>{error || 'Chargement…'}</p>
-      </section>
+      <DataLoadingScreen
+        locale={locale}
+        message={
+          error ||
+          (locale === 'fr'
+            ? 'Préparation de votre écran et de vos appels…'
+            : 'Preparing your screen and calls…')
+        }
+      />
     );
   const { state, grant } = snapshot;
+  const podcastSubscriptions = state.podcasts ?? [];
+  const selectedPodcast =
+    podcastSubscriptions.find((podcast) => podcast.id === selectedPodcastId) ??
+    podcastResults.find((podcast) => podcast.id === selectedPodcastId);
   const activeMedia = state.media.find(
     (media) =>
-      ['stream', 'tv', 'youtube'].includes(media.kind) && media.id === state.playback.mediaId,
+      ['stream', 'tv', 'youtube', 'podcast'].includes(media.kind) &&
+      media.id === state.playback.mediaId,
   );
   const MediaIcon =
-    activeMedia?.kind === 'youtube' ? Youtube : activeMedia?.kind === 'tv' ? Tv : Radio;
+    activeMedia?.kind === 'youtube'
+      ? Youtube
+      : activeMedia?.kind === 'tv'
+        ? Tv
+        : activeMedia?.kind === 'podcast'
+          ? Headphones
+          : Radio;
   const mediaType =
     activeMedia?.kind === 'youtube'
       ? 'YouTube'
       : activeMedia?.kind === 'tv'
         ? activeMedia.title
-        : 'Radio';
+        : activeMedia?.kind === 'podcast'
+          ? 'Podcast'
+          : 'Radio';
+  const activePodcastQueue =
+    activeMedia?.kind === 'podcast'
+      ? state.media
+          .filter(
+            (media) =>
+              media.kind === 'podcast' && media.podcastFeedId === activeMedia.podcastFeedId,
+          )
+          .sort(
+            (a, b) =>
+              (b.podcastPublishedAt ?? 0) - (a.podcastPublishedAt ?? 0) ||
+              state.media.indexOf(a) - state.media.indexOf(b),
+          )
+      : [];
+  const activePodcastQueueIndex = activeMedia
+    ? activePodcastQueue.findIndex((media) => media.id === activeMedia.id)
+    : -1;
+  const hasNextPodcastEpisode =
+    activePodcastQueueIndex >= 0 && activePodcastQueueIndex + 1 < activePodcastQueue.length;
   const mediaPending = state.commands.some(
     (command) =>
       command.status === 'pending' &&
       command.revision === state.playback.revision &&
       ['play', 'resume', 'next'].includes(command.action),
   );
-  const mediaStatus = !snapshot.online
-    ? 'TV hors ligne'
-    : state.call
-      ? 'Interrompu pendant l’appel'
-      : state.playback.asleep
-        ? 'TV au repos'
-        : state.playback.paused
-          ? 'En pause'
-          : mediaPending
-            ? 'Lancement sur la TV…'
-            : 'En cours de lecture';
-  const mediaRunning =
-    snapshot.online &&
-    !state.call &&
-    !state.playback.asleep &&
-    !state.playback.paused &&
-    !mediaPending;
-
-  const status = snapshot.online
-    ? state.call
-      ? 'En communication'
-      : state.playback.asleep
-        ? 'Au repos'
-        : 'Écran connecté'
-    : snapshot.paired
-      ? 'Écran hors ligne'
-      : 'Écran en préparation';
   const cecFresh =
     typeof tvHost?.cec?.updatedAt === 'number' && Date.now() / 1000 - tvHost.cec.updatedAt < 45;
   const cecReady =
@@ -730,6 +871,56 @@ export function ScreenPanel({
       : tvHost?.homeAssistantTv?.available
         ? `Secours Home Assistant : ${selectedNetworkTv.name}`
         : `Réseau : ${selectedNetworkTv.name} en veille`;
+  const networkTvOnline = networkReachable || tvHost?.homeAssistantTv?.available === true;
+  const networkTvStatusLabel = !selectedNetworkTv
+    ? 'TV non associée'
+    : networkTvOnline
+      ? 'En ligne'
+      : networkStatusFresh
+        ? 'Hors ligne'
+        : 'État indisponible';
+  const screenOutputConnected = snapshot.online && videoOutputReady;
+  const status = !snapshot.online
+    ? snapshot.paired
+      ? 'Écran hors ligne'
+      : 'Écran en préparation'
+    : !displayStatusFresh
+      ? 'État vidéo indisponible'
+      : !videoOutputReady
+        ? 'TV non détectée'
+        : state.call
+          ? 'En communication'
+          : state.playback.asleep
+            ? 'Au repos'
+            : 'Écran connecté';
+  const mediaStatus = !snapshot.online
+    ? 'TV hors ligne'
+    : !displayStatusFresh
+      ? 'État vidéo indisponible'
+      : !videoOutputReady
+        ? 'TV non détectée'
+        : state.call
+          ? 'Interrompu pendant l’appel'
+          : state.playback.asleep
+            ? 'TV au repos'
+            : state.playback.paused
+              ? 'En pause'
+              : mediaPending
+                ? 'Lancement sur la TV…'
+                : 'En cours de lecture';
+  const mediaRunning =
+    screenOutputConnected &&
+    !state.call &&
+    !state.playback.asleep &&
+    !state.playback.paused &&
+    !mediaPending;
+  const playbackStateForMedia = (mediaId: string | undefined): MediaPlaybackButtonState => {
+    if (!mediaId || activeMedia?.id !== mediaId) return 'idle';
+    if (mediaPending) return 'pending';
+    return !snapshot.online || state.call || state.playback.asleep || state.playback.paused
+      ? 'paused'
+      : 'playing';
+  };
   const redundantTvControl =
     cecReady &&
     Boolean(selectedNetworkTv) &&
@@ -750,7 +941,7 @@ export function ScreenPanel({
     ? 'Appel en cours'
     : state.playback.asleep
       ? 'TV au repos'
-      : (activeMedia?.title ?? 'Écran d’accueil');
+      : undefined;
   return (
     <section className="screen-panel">
       <header className="screen-panel__hero">
@@ -758,8 +949,8 @@ export function ScreenPanel({
           <div>
             <p className="screen-panel__eyebrow">AFFICHAGE RÉSIDENT</p>
             <h2>Écran et appels</h2>
-            <span className={`screen-status ${snapshot.online ? 'is-online' : 'is-offline'}`}>
-              {snapshot.online ? <Wifi aria-hidden="true" /> : <WifiOff aria-hidden="true" />}
+            <span className={`screen-status ${screenOutputConnected ? 'is-online' : 'is-offline'}`}>
+              {screenOutputConnected ? <Wifi aria-hidden="true" /> : <WifiOff aria-hidden="true" />}
               {status}
             </span>
           </div>
@@ -849,10 +1040,16 @@ export function ScreenPanel({
             {selectedNetworkTv?.name ?? 'TV non associée'}
             {selectedNetworkTv && <small>Associée</small>}
           </span>
-          <span className={`screen-tv-now__online ${snapshot.online ? 'is-online' : ''}`}>
-            {snapshot.online ? 'En ligne' : 'Hors ligne'}
+          <span
+            className={`screen-tv-now__online ${
+              networkTvOnline ? 'is-online' : networkStatusFresh ? 'is-offline' : 'is-unknown'
+            }`}
+          >
+            {networkTvStatusLabel}
           </span>
-          {!activeMedia && <span className="screen-tv-now__content">{currentContentLabel}</span>}
+          {!activeMedia && currentContentLabel && (
+            <span className="screen-tv-now__content">{currentContentLabel}</span>
+          )}
           {grant.administer && selectedNetworkTv && (
             <button
               type="button"
@@ -906,12 +1103,17 @@ export function ScreenPanel({
                   <Pause aria-hidden="true" />
                 )}
               </button>
-              {activeMedia.kind === 'youtube' && (
+              {(activeMedia.kind === 'youtube' || activeMedia.kind === 'podcast') && (
                 <button
                   type="button"
-                  aria-label="Suivant"
-                  title="Suivant"
-                  disabled={busy || !snapshot.online || !!state.call}
+                  aria-label={activeMedia.kind === 'podcast' ? 'Épisode suivant' : 'Suivant'}
+                  title={activeMedia.kind === 'podcast' ? 'Épisode suivant' : 'Suivant'}
+                  disabled={
+                    busy ||
+                    !snapshot.online ||
+                    !!state.call ||
+                    (activeMedia.kind === 'podcast' && !hasNextPodcastEpisode)
+                  }
                   onClick={() => void command('next')}
                 >
                   <SkipForward aria-hidden="true" />
@@ -1345,49 +1547,6 @@ export function ScreenPanel({
           </div>
         </section>
       )}
-      {grant.control && (
-        <div className="screen-context-grid">
-          {grant.control && (
-            <section
-              className="screen-card screen-context-card screen-agenda-summary"
-              aria-labelledby="screen-agenda-summary-title"
-            >
-              <h3 id="screen-agenda-summary-title" className="screen-visually-hidden">
-                Rendez-vous du jour
-              </h3>
-              {snapshot.agenda.length ? (
-                <ul className="screen-appointment-list">
-                  {snapshot.agenda.map((item) => (
-                    <li key={item.id}>
-                      {item.type === 'appointment' ? (
-                        <span className="screen-appointment-pictogram" aria-hidden="true">
-                          {appointmentPictograms.find((option) => option.value === item.pictogram)
-                            ?.emoji ?? '📅'}
-                        </span>
-                      ) : (
-                        <CalendarClock aria-hidden="true" />
-                      )}
-                      <span>
-                        <strong>{item.title}</strong>
-                        <small>
-                          {new Date(item.startsAt).toLocaleString('fr-FR', {
-                            timeZone: snapshot.timezone,
-                            weekday: 'long',
-                            day: 'numeric',
-                            month: 'long',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </small>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </section>
-          )}
-        </div>
-      )}
       {(state.scheduledContent ?? []).length > 0 && (
         <section className="screen-card screen-scheduled-card">
           <div className="screen-card__heading">
@@ -1466,93 +1625,15 @@ export function ScreenPanel({
                 <Tv aria-hidden="true" /> TV de {snapshot.resident}
               </span>
             </div>
-            <section className="screen-tv-guide" aria-labelledby="screen-tv-guide-title">
-              <div className="screen-tv-guide__heading">
-                <h4 id="screen-tv-guide-title">
-                  <CalendarClock aria-hidden="true" /> Programme TV
-                </h4>
-                <span>En ce moment et à suivre</span>
-              </div>
-              {tvGuide ? (
-                <div className="screen-tv-guide__list">
-                  {tvGuide.channels.map((channel) => {
-                    const current = channel.current;
-                    const next = channel.next;
-                    const progress = current
-                      ? Math.max(
-                          0,
-                          Math.min(
-                            100,
-                            ((Date.now() - new Date(current.startAt).getTime()) /
-                              (new Date(current.endAt).getTime() -
-                                new Date(current.startAt).getTime())) *
-                              100,
-                          ),
-                        )
-                      : 0;
-                    return (
-                      <article className="screen-tv-guide__channel" key={channel.id}>
-                        <div className="screen-tv-guide__identity">
-                          <span
-                            className={`screen-tv-guide__brand screen-tv-guide__brand--${channel.id.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`}
-                          >
-                            {channel.name === 'ARTE' ? 'arte' : 'RMC'}
-                          </span>
-                          <strong>{channel.name}</strong>
-                        </div>
-                        <div className="screen-tv-guide__programs">
-                          <div className="screen-tv-guide__program">
-                            <span className="screen-tv-guide__label">
-                              {current ? 'En cours' : next ? 'À venir' : 'Programme'}
-                              {current && <time>{tvGuideRange(current)}</time>}
-                            </span>
-                            <strong>
-                              {current?.title ?? next?.title ?? 'Programme indisponible'}
-                            </strong>
-                            {current?.description && <p>{current.description}</p>}
-                            {current && (
-                              <span className="screen-tv-guide__progress" aria-hidden="true">
-                                <span style={{ width: `${progress}%` }} />
-                              </span>
-                            )}
-                          </div>
-                          {current && next && (
-                            <div className="screen-tv-guide__program screen-tv-guide__program--next">
-                              <span className="screen-tv-guide__label">
-                                À suivre <time>{tvGuideRange(next)}</time>
-                              </span>
-                              <strong>{next.title}</strong>
-                            </div>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="screen-tv-guide__empty">
-                  {tvGuideUnavailable
-                    ? 'Programme TV temporairement indisponible. La récupération reprend automatiquement.'
-                    : 'Récupération automatique du programme TV…'}
-                </p>
-              )}
-              <p className="screen-tv-guide__source">
-                {tvGuide?.stale
-                  ? `Dernière grille reçue à ${tvGuideTime.format(new Date(tvGuide.retrievedAt))} · `
-                  : 'Grille actualisée automatiquement · '}
-                <a href="https://www.xmltvfr.fr/xmltv.php" target="_blank" rel="noreferrer">
-                  Source XMLTV France <ExternalLink aria-hidden="true" />
-                </a>
-              </p>
-            </section>
             <div className="screen-medias-layout">
               <div className="screen-medias-browser">
                 <div className="screen-medias-tabs" role="tablist" aria-label="Sources médias">
                   {(
                     [
                       ['youtube', 'YouTube', Youtube],
-                      ['tv', 'TV', Tv],
+                      ['tv', 'TV en direct', Tv],
                       ['stream', 'Radio', Radio],
+                      ['podcast', 'Podcasts', Headphones],
                     ] as const
                   ).map(([kind, label, Icon]) => (
                     <button
@@ -1566,7 +1647,7 @@ export function ScreenPanel({
                       tabIndex={mediaTab === kind ? 0 : -1}
                       onClick={() => setMediaTab(kind)}
                       onKeyDown={(event) => {
-                        const tabs = ['youtube', 'tv', 'stream'] as const;
+                        const tabs = ['youtube', 'tv', 'stream', 'podcast'] as const;
                         const index = tabs.indexOf(kind);
                         const next =
                           event.key === 'ArrowRight'
@@ -1576,7 +1657,7 @@ export function ScreenPanel({
                               : event.key === 'Home'
                                 ? tabs[0]
                                 : event.key === 'End'
-                                  ? tabs[2]
+                                  ? tabs[3]
                                   : null;
                         if (!next) return;
                         event.preventDefault();
@@ -1599,45 +1680,54 @@ export function ScreenPanel({
                   className="screen-medias-source screen-tv-card"
                 >
                   <section className="screen-tv-channels" aria-label="Chaînes TV en direct">
-                    {LIVE_TV_CHANNELS.map((channel) => (
-                      <article className="screen-tv-channel" key={channel.url}>
-                        <div className="screen-tv-channel__identity">
-                          <span
-                            className={`screen-tv-channel__brand screen-tv-channel__brand--${channel.brand}`}
-                            aria-hidden="true"
-                          >
-                            {channel.brand === 'arte' ? 'arte' : channel.brandLabel}
-                          </span>
-                          <div>
-                            <h4>{channel.mediaTitle}</h4>
-                            <p>{channel.description}</p>
-                          </div>
-                          <span className="screen-media-live">Direct</span>
-                        </div>
-                        <button
-                          className="screen-button"
-                          disabled={busy || !grant.control || !snapshot.online}
-                          onClick={() =>
-                            void run(async () => {
-                              const existing = state.media.find(
-                                (media) => media.kind === 'tv' && media.url === channel.url,
-                              );
-                              const mediaId = existing?.id ?? crypto.randomUUID();
-                              if (!existing)
-                                await screenRequest('screen/media', {
-                                  id: mediaId,
-                                  title: channel.mediaTitle,
-                                  kind: 'tv',
-                                  url: channel.url,
-                                });
-                              await screenRequest('screen/commands', { action: 'play', mediaId });
-                            })
-                          }
+                    {LIVE_TV_CHANNELS.map((channel) => {
+                      const channelMedia = state.media.find(
+                        (media) => media.kind === 'tv' && media.url === channel.url,
+                      );
+                      const playbackState = playbackStateForMedia(channelMedia?.id);
+                      return (
+                        <article
+                          className={`screen-tv-channel${playbackState === 'idle' ? '' : ` is-${playbackState}`}`}
+                          key={channel.url}
                         >
-                          <Play aria-hidden="true" /> Regarder {channel.name}
-                        </button>
-                      </article>
-                    ))}
+                          <div className="screen-tv-channel__identity">
+                            <span
+                              className={`screen-tv-channel__brand screen-tv-channel__brand--${channel.brand}`}
+                              aria-hidden="true"
+                            >
+                              {channel.brand === 'arte' ? 'arte' : channel.brandLabel}
+                            </span>
+                            <div>
+                              <h4>{channel.mediaTitle}</h4>
+                              <p>{channel.description}</p>
+                            </div>
+                          </div>
+                          <MediaPlaybackButton
+                            state={playbackState}
+                            idleLabel={`Regarder ${channel.name}`}
+                            playingLabel="À l’écran"
+                            pendingLabel="Changement…"
+                            disabled={busy || !grant.control || !snapshot.online || !!state.call}
+                            onClick={() =>
+                              void run(async () => {
+                                const existing = state.media.find(
+                                  (media) => media.kind === 'tv' && media.url === channel.url,
+                                );
+                                const mediaId = existing?.id ?? crypto.randomUUID();
+                                if (!existing)
+                                  await screenRequest('screen/media', {
+                                    id: mediaId,
+                                    title: channel.mediaTitle,
+                                    kind: 'tv',
+                                    url: channel.url,
+                                  });
+                                await screenRequest('screen/commands', { action: 'play', mediaId });
+                              })
+                            }
+                          />
+                        </article>
+                      );
+                    })}
                   </section>
                   <p className="screen-tv-note">
                     Le direct peut être limité selon le pays et les droits du programme.
@@ -1882,7 +1972,7 @@ export function ScreenPanel({
                   <h4>Vos radios</h4>
                   <p>Retrouvez vos favoris ou recherchez une station.</p>
                   <form
-                    className="screen-radio-search"
+                    className="screen-radio-search screen-media-search-panel"
                     onSubmit={(event) => {
                       event.preventDefault();
                       if (radioQuery.trim().length < 2) return;
@@ -1918,100 +2008,432 @@ export function ScreenPanel({
                   </form>
                   {radioResults.length > 0 && (
                     <div className="screen-radio-results" aria-label="Résultats de recherche">
-                      {radioResults.map((station) => (
-                        <article key={`${station.id}-${station.url}`}>
-                          <span className="screen-radio-logo">
-                            <Radio aria-hidden="true" />
-                            {station.artworkUrl && (
-                              <img
-                                src={station.artworkUrl}
-                                alt=""
-                                onError={(event) => {
-                                  event.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            )}
-                          </span>
-                          <span>
-                            <strong>{station.name}</strong>
-                            <small>
-                              {station.country || 'France'}
-                              {station.bitrate ? ` · ${station.bitrate} kb/s` : ''}
-                            </small>
-                          </span>
-                          <button
-                            type="button"
-                            className="screen-button screen-button--primary"
-                            disabled={busy || !snapshot.online}
-                            onClick={() => void listenToRadio(station)}
+                      {radioResults.map((station) => {
+                        const stationMedia = state.media.find(
+                          (media) => media.kind === 'stream' && media.url === station.url,
+                        );
+                        const listenState = playbackStateForMedia(stationMedia?.id);
+                        return (
+                          <article
+                            key={`${station.id}-${station.url}`}
+                            className={listenState === 'idle' ? '' : `is-${listenState}`}
                           >
-                            <Play aria-hidden="true" /> Écouter
-                          </button>
-                        </article>
-                      ))}
+                            <span className="screen-radio-logo">
+                              <Radio aria-hidden="true" />
+                              {station.artworkUrl && (
+                                <img
+                                  src={station.artworkUrl}
+                                  alt=""
+                                  onError={(event) => {
+                                    event.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              )}
+                            </span>
+                            <span>
+                              <strong>{station.name}</strong>
+                              <small>
+                                {station.country || 'France'}
+                                {station.bitrate ? ` · ${station.bitrate} kb/s` : ''}
+                              </small>
+                            </span>
+                            <MediaPlaybackButton
+                              state={listenState}
+                              disabled={busy || !snapshot.online || !!state.call}
+                              onClick={() => void listenToRadio(station)}
+                            />
+                          </article>
+                        );
+                      })}
                     </div>
                   )}
                   {state.media.some((media) => media.kind === 'stream') ? (
-                    <div className="screen-radio-favorites">
+                    <div className="screen-radio-favorites screen-media-library-panel">
                       <h4>Mes radios</h4>
                       <ul className="screen-library">
                         {state.media
                           .filter((media) => media.kind === 'stream')
-                          .map((media) => (
-                            <li
-                              key={media.id}
-                              className={state.playback.mediaId === media.id ? 'is-playing' : ''}
-                            >
-                              <span className="screen-radio-logo">
-                                <Radio aria-hidden="true" />
-                                {media.artworkUrl && (
-                                  <img
-                                    src={media.artworkUrl}
-                                    alt=""
-                                    onError={(event) => {
-                                      event.currentTarget.style.display = 'none';
-                                    }}
-                                  />
-                                )}
-                              </span>
-                              <span className="screen-library__name">
-                                <strong>{media.title}</strong>
-                                <small>
-                                  {state.playback.mediaId === media.id
-                                    ? state.playback.paused
-                                      ? 'En pause'
-                                      : `Diffusée chez ${snapshot.resident}`
-                                    : 'Radio enregistrée'}
-                                </small>
-                              </span>
-                              <button
-                                className="screen-button screen-button--secondary"
-                                disabled={!snapshot.online || busy}
-                                onClick={() => void command('play', { mediaId: media.id })}
+                          .map((media) => {
+                            const listenState = playbackStateForMedia(media.id);
+                            return (
+                              <li
+                                key={media.id}
+                                className={listenState === 'idle' ? '' : `is-${listenState}`}
                               >
-                                <Play aria-hidden="true" /> Écouter
-                              </button>
-                              <button
-                                className="screen-icon-button"
-                                aria-label={`Retirer ${media.title}`}
-                                onClick={() =>
-                                  void run(() =>
-                                    screenRequest(`screen/media/${media.id}`, undefined, 'DELETE'),
-                                  )
-                                }
-                              >
-                                <Trash2 />
-                              </button>
-                            </li>
-                          ))}
+                                <span className="screen-radio-logo">
+                                  <Radio aria-hidden="true" />
+                                  {media.artworkUrl && (
+                                    <img
+                                      src={media.artworkUrl}
+                                      alt=""
+                                      onError={(event) => {
+                                        event.currentTarget.style.display = 'none';
+                                      }}
+                                    />
+                                  )}
+                                </span>
+                                <span className="screen-library__name">
+                                  <strong>{media.title}</strong>
+                                  <small>
+                                    {listenState === 'playing'
+                                      ? `Diffusée chez ${snapshot.resident}`
+                                      : listenState === 'pending'
+                                        ? 'Lancement sur la TV…'
+                                        : listenState === 'paused'
+                                          ? 'En pause'
+                                          : 'Radio enregistrée'}
+                                  </small>
+                                </span>
+                                <MediaPlaybackButton
+                                  state={listenState}
+                                  disabled={!snapshot.online || busy || !!state.call}
+                                  onClick={() => void command('play', { mediaId: media.id })}
+                                />
+                                <button
+                                  className="screen-icon-button"
+                                  aria-label={`Retirer ${media.title}`}
+                                  onClick={() =>
+                                    void run(() =>
+                                      screenRequest(
+                                        `screen/media/${media.id}`,
+                                        undefined,
+                                        'DELETE',
+                                      ),
+                                    )
+                                  }
+                                >
+                                  <Trash2 />
+                                </button>
+                              </li>
+                            );
+                          })}
                       </ul>
                     </div>
                   ) : radioResults.length === 0 ? (
                     <p className="screen-empty-library">Recherchez une radio pour commencer.</p>
                   ) : null}
                 </div>
+                <div
+                  id="media-panel-podcast"
+                  role="tabpanel"
+                  aria-labelledby="media-tab-podcast"
+                  hidden={mediaTab !== 'podcast'}
+                  className="screen-medias-source screen-podcast-panel"
+                >
+                  <h4>Podcasts</h4>
+                  <p>
+                    Recherchez une émission, parcourez ses épisodes et lancez la lecture sur la TV.
+                  </p>
+                  <form
+                    className="screen-radio-search screen-podcast-search screen-media-search-panel"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      searchPodcasts();
+                    }}
+                  >
+                    <label>
+                      <span>Nom d’une émission ou d’un sujet</span>
+                      <div>
+                        <Search aria-hidden="true" />
+                        <input
+                          value={podcastQuery}
+                          maxLength={80}
+                          placeholder="France Inter, histoire, musique…"
+                          onChange={(event) => setPodcastQuery(event.target.value)}
+                        />
+                      </div>
+                    </label>
+                    <button
+                      type="submit"
+                      className="screen-button screen-button--primary"
+                      disabled={busy || podcastQuery.trim().length < 2}
+                    >
+                      Rechercher
+                    </button>
+                  </form>
+                  {podcastResults.length > 0 && (
+                    <div
+                      className="screen-radio-results screen-podcast-results"
+                      aria-label="Résultats de podcasts"
+                    >
+                      {podcastResults.map((podcast) => {
+                        const followed = podcastSubscriptions.some(
+                          (item) => item.id === podcast.id,
+                        );
+                        return (
+                          <article key={podcast.id}>
+                            <span className="screen-radio-logo">
+                              <Headphones aria-hidden="true" />
+                              {podcast.artworkUrl && (
+                                <img
+                                  src={podcast.artworkUrl}
+                                  alt=""
+                                  loading="lazy"
+                                  onError={(event) => {
+                                    event.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              )}
+                            </span>
+                            <span>
+                              <strong>{podcast.title}</strong>
+                              <small>
+                                {podcast.author || 'Auteur inconnu'}
+                                {podcast.episodeCount ? ` · ${podcast.episodeCount} épisodes` : ''}
+                                {podcast.genre ? ` · ${podcast.genre}` : ''}
+                              </small>
+                            </span>
+                            <div className="screen-podcast-result-actions">
+                              <button
+                                type="button"
+                                className="screen-button screen-button--secondary"
+                                disabled={busy}
+                                onClick={() => openPodcastEpisodes(podcast)}
+                              >
+                                Épisodes
+                              </button>
+                              <button
+                                type="button"
+                                className="screen-button screen-button--primary"
+                                disabled={busy || followed}
+                                onClick={() => void followPodcast(podcast)}
+                              >
+                                {followed ? 'Suivi' : 'Suivre'}
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {podcastSearchDone && podcastResults.length === 0 && (
+                    <p className="screen-empty-library">
+                      Aucun podcast trouvé pour cette recherche.
+                    </p>
+                  )}
+                  {podcastSearchLoading && (
+                    <p className="screen-empty-library">Recherche des podcasts…</p>
+                  )}
+                  {podcastSubscriptions.length > 0 && (
+                    <div className="screen-radio-favorites screen-podcast-library screen-media-library-panel">
+                      <h4>Mes podcasts</h4>
+                      <ul className="screen-library">
+                        {podcastSubscriptions.map((podcast) => (
+                          <li key={podcast.id}>
+                            <span className="screen-radio-logo">
+                              <Headphones aria-hidden="true" />
+                              {podcast.artworkUrl && (
+                                <img
+                                  src={podcast.artworkUrl}
+                                  alt=""
+                                  loading="lazy"
+                                  onError={(event) => {
+                                    event.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              )}
+                            </span>
+                            <span className="screen-library__name">
+                              <strong>{podcast.title}</strong>
+                              <small>
+                                {activeMedia?.kind === 'podcast' &&
+                                activeMedia.podcastFeedId === podcast.id
+                                  ? state.playback.paused
+                                    ? 'Épisode en pause'
+                                    : 'En cours de lecture'
+                                  : podcast.author || 'Podcast suivi'}
+                              </small>
+                            </span>
+                            <button
+                              type="button"
+                              className="screen-button screen-button--secondary"
+                              disabled={busy}
+                              onClick={() => openPodcastEpisodes(podcast)}
+                            >
+                              Épisodes
+                            </button>
+                            <button
+                              type="button"
+                              className="screen-icon-button"
+                              aria-label={`Retirer ${podcast.title} de mes podcasts`}
+                              disabled={busy}
+                              onClick={() =>
+                                void run(() =>
+                                  screenRequest(
+                                    `screen/podcasts/${encodeURIComponent(podcast.id)}/follow`,
+                                    undefined,
+                                    'DELETE',
+                                  ),
+                                )
+                              }
+                            >
+                              <Trash2 aria-hidden="true" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {selectedPodcast && (
+                    <section className="screen-podcast-episodes" aria-label="Épisodes du podcast">
+                      <div className="screen-podcast-show">
+                        <span className="screen-radio-logo">
+                          <Headphones aria-hidden="true" />
+                          {selectedPodcast.artworkUrl && (
+                            <img
+                              src={selectedPodcast.artworkUrl}
+                              alt=""
+                              onError={(event) => {
+                                event.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          )}
+                        </span>
+                        <div>
+                          <strong>{selectedPodcast.title}</strong>
+                          <small>{selectedPodcast.author || 'Podcast'}</small>
+                        </div>
+                      </div>
+                      {!podcastEpisodesLoaded ? (
+                        <p className="screen-empty-library">Chargement des épisodes…</p>
+                      ) : podcastEpisodes.length ? (
+                        <div className="screen-podcast-episode-list">
+                          {podcastEpisodes.map((episode) => {
+                            const playingEpisode =
+                              activeMedia?.kind === 'podcast' &&
+                              activeMedia.podcastFeedId === selectedPodcast.id &&
+                              activeMedia.podcastEpisodeId === episode.id
+                                ? activeMedia
+                                : undefined;
+                            const listenState = playbackStateForMedia(playingEpisode?.id);
+                            return (
+                              <article
+                                key={episode.id}
+                                className={listenState === 'idle' ? '' : `is-${listenState}`}
+                              >
+                                <div>
+                                  <strong>{episode.title}</strong>
+                                  <small>
+                                    {[
+                                      podcastDateLabel(episode.publishedAt),
+                                      podcastDurationLabel(episode.durationSeconds),
+                                    ]
+                                      .filter(Boolean)
+                                      .join(' · ') || 'Épisode'}
+                                    {listenState !== 'idle' &&
+                                      ` · ${listenState === 'playing' ? 'En écoute' : listenState === 'pending' ? 'Lancement' : 'En pause'}`}
+                                  </small>
+                                  {episode.description && <p>{episode.description}</p>}
+                                </div>
+                                <MediaPlaybackButton
+                                  state={listenState}
+                                  disabled={busy || !snapshot.online || !!state.call}
+                                  onClick={() => void playPodcastEpisode(selectedPodcast, episode)}
+                                />
+                              </article>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="screen-empty-library">
+                          Aucun épisode audio disponible pour cette émission.
+                        </p>
+                      )}
+                    </section>
+                  )}
+                  {!podcastResults.length &&
+                    !podcastSubscriptions.length &&
+                    !podcastSearchDone &&
+                    !podcastSearchLoading &&
+                    !podcastQuery.trim() && (
+                      <p className="screen-empty-library">
+                        Recherchez une émission ou un sujet pour commencer.
+                      </p>
+                    )}
+                </div>
               </div>
             </div>
+            {mediaTab === 'tv' && (
+              <section className="screen-tv-guide" aria-labelledby="screen-tv-guide-title">
+                <div className="screen-tv-guide__heading">
+                  <h4 id="screen-tv-guide-title">
+                    <CalendarClock aria-hidden="true" /> Programme TV
+                  </h4>
+                  <span>En ce moment et à suivre</span>
+                </div>
+                {tvGuide ? (
+                  <div className="screen-tv-guide__list">
+                    {tvGuide.channels.map((channel) => {
+                      const current = channel.current;
+                      const next = channel.next;
+                      const progress = current
+                        ? Math.max(
+                            0,
+                            Math.min(
+                              100,
+                              ((Date.now() - new Date(current.startAt).getTime()) /
+                                (new Date(current.endAt).getTime() -
+                                  new Date(current.startAt).getTime())) *
+                                100,
+                            ),
+                          )
+                        : 0;
+                      return (
+                        <article className="screen-tv-guide__channel" key={channel.id}>
+                          <div className="screen-tv-guide__identity">
+                            <span
+                              className={`screen-tv-guide__brand screen-tv-guide__brand--${channel.id.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`}
+                            >
+                              {channel.name === 'ARTE' ? 'arte' : 'RMC'}
+                            </span>
+                            <strong>{channel.name}</strong>
+                          </div>
+                          <div className="screen-tv-guide__programs">
+                            <div className="screen-tv-guide__program">
+                              <span className="screen-tv-guide__label">
+                                {current ? 'En cours' : next ? 'À venir' : 'Programme'}
+                                {current && <time>{tvGuideRange(current)}</time>}
+                              </span>
+                              <strong>
+                                {current?.title ?? next?.title ?? 'Programme indisponible'}
+                              </strong>
+                              {current?.description && <p>{current.description}</p>}
+                              {current && (
+                                <span className="screen-tv-guide__progress" aria-hidden="true">
+                                  <span style={{ width: `${progress}%` }} />
+                                </span>
+                              )}
+                            </div>
+                            {current && next && (
+                              <div className="screen-tv-guide__program screen-tv-guide__program--next">
+                                <span className="screen-tv-guide__label">
+                                  À suivre <time>{tvGuideRange(next)}</time>
+                                </span>
+                                <strong>{next.title}</strong>
+                              </div>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="screen-tv-guide__empty">
+                    {tvGuideUnavailable
+                      ? 'Programme TV temporairement indisponible. La récupération reprend automatiquement.'
+                      : 'Récupération automatique du programme TV…'}
+                  </p>
+                )}
+                <p className="screen-tv-guide__source">
+                  {tvGuide?.stale
+                    ? `Dernière grille reçue à ${tvGuideTime.format(new Date(tvGuide.retrievedAt))} · `
+                    : 'Grille actualisée automatiquement · '}
+                  <a href="https://www.xmltvfr.fr/xmltv.php" target="_blank" rel="noreferrer">
+                    Source XMLTV France <ExternalLink aria-hidden="true" />
+                  </a>
+                </p>
+              </section>
+            )}
           </section>
 
           <section

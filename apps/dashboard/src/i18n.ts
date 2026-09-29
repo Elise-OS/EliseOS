@@ -6,7 +6,7 @@ export const copy = {
       'Accueil',
       'Activité',
       'Alertes',
-      'Mon logement',
+      'Le logement',
       'Capteurs',
       'Médicaments',
       'Journal',
