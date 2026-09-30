@@ -13,9 +13,17 @@ export HOMEBREW_NO_AUTO_UPDATE=1
 if ! brew list --versions node@24 >/dev/null 2>&1; then
   brew install node@24
 fi
+if ! brew list --versions ruby >/dev/null 2>&1; then
+  brew install ruby
+fi
 
 node_bin="$(brew --prefix node@24)/bin"
-export PATH="$node_bin:$PATH"
+ruby_bin="$(brew --prefix ruby)/bin"
+if [[ ! -x "$ruby_bin/bundle" ]]; then
+  echo "Xcode Cloud could not find Bundler with the Homebrew Ruby installation." >&2
+  exit 1
+fi
+export PATH="$node_bin:$ruby_bin:$PATH"
 node_major="$(node -p 'process.versions.node.split(".")[0]')"
 if [[ "$node_major" != "24" ]]; then
   echo "Expected Node.js 24 for the mobile workspace, found $(node --version)." >&2
@@ -41,4 +49,12 @@ pnpm_exec --filter @michel/contracts build
 printf 'export NODE_BINARY="%s/node"\n' "$node_bin" > apps/mobile/ios/.xcode.env.local
 
 cd apps/mobile/ios
-pod install --deployment
+
+export BUNDLE_GEMFILE="$repository_root/apps/mobile/ios/Gemfile"
+export BUNDLE_PATH="${CI_DERIVED_DATA_PATH:-${TMPDIR:-/tmp}}/eliseos-ios-ruby-bundle"
+export BUNDLE_FROZEN=true
+export BUNDLE_JOBS=4
+export BUNDLE_RETRY=3
+
+bundle install
+bundle exec pod install --deployment
