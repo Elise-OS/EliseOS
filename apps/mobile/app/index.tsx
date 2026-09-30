@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useQueryClient } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import eliseLogo from '../assets/logo.png';
 import {
@@ -27,8 +28,10 @@ import { discoveryService } from '../src/discovery/service';
 import { isTailscaleUrl, remoteUrlFromDeepLink } from '../src/discovery/helpers';
 import type { DiscoveredServer, SavedServer } from '../src/discovery/types';
 import { DashboardApp } from '../src/dashboard/DashboardApp';
+import { prefetchHomeData } from '../src/dashboard/prefetchHomeData';
 import { registerPushNotifications } from '../src/notifications';
 import { MobileSetup, type Locale } from '../src/setup/MobileSetup';
+import { WelcomeExperience } from '../src/welcome/WelcomeExperience';
 
 type Stage =
   'boot' | 'welcome' | 'discovery' | 'login' | 'setup' | 'dashboard-preview' | 'dashboard';
@@ -86,6 +89,7 @@ const asDiscovered = (server: SavedServer): DiscoveredServer => {
 };
 
 export default function HomeScreen() {
+  const queryClient = useQueryClient();
   const incomingUrl = Linking.useURL();
   const [stage, setStage] = useState<Stage>('boot');
   const [locale, setLocale] = useState<Locale>('fr');
@@ -139,6 +143,8 @@ export default function HomeScreen() {
         if (!mounted) return;
         setToken(savedToken);
         setUserName(user.displayName);
+        await prefetchHomeData(queryClient, last, savedToken);
+        if (!mounted) return;
         setStage('dashboard');
       } catch (error) {
         if (isMobileApiAuthError(error)) {
@@ -156,7 +162,7 @@ export default function HomeScreen() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     if (stage !== 'boot') return;
@@ -165,6 +171,7 @@ export default function HomeScreen() {
         toValue: 1,
         duration: 1900,
         easing: Easing.linear,
+        isInteraction: false,
         useNativeDriver: true,
       }),
     );
@@ -174,19 +181,36 @@ export default function HomeScreen() {
           toValue: 1,
           duration: 1050,
           easing: Easing.inOut(Easing.ease),
+          isInteraction: false,
           useNativeDriver: true,
         }),
         Animated.timing(bootPulse, {
           toValue: 0,
           duration: 1050,
           easing: Easing.inOut(Easing.ease),
+          isInteraction: false,
           useNativeDriver: true,
         }),
       ]),
     );
+    let running = true;
+    const appState = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState === 'active' && !running) {
+        bootMotion.setValue(0);
+        bootPulse.setValue(0);
+        orbit.start();
+        pulse.start();
+        running = true;
+      } else if (nextState !== 'active' && running) {
+        orbit.stop();
+        pulse.stop();
+        running = false;
+      }
+    });
     orbit.start();
     pulse.start();
     return () => {
+      appState.remove();
       orbit.stop();
       pulse.stop();
       bootMotion.setValue(0);
@@ -340,6 +364,8 @@ export default function HomeScreen() {
       await ServerRegistry.remember(server);
       setToken(result.accessToken);
       setUserName(result.user.displayName);
+      setStage('boot');
+      await prefetchHomeData(queryClient, server, result.accessToken);
       setStage('dashboard');
     } catch {
       setError(
@@ -372,6 +398,8 @@ export default function HomeScreen() {
     await ServerRegistry.remember(server);
     setToken(accessToken);
     setUserName(displayName);
+    setStage('boot');
+    await prefetchHomeData(queryClient, server, accessToken);
     setStage('dashboard');
   };
 
@@ -432,64 +460,11 @@ export default function HomeScreen() {
 
   if (stage === 'welcome') {
     return (
-      <SafeAreaView style={styles.welcome}>
-        <View style={styles.welcomeHalo} />
-        <View style={styles.welcomeTop}>
-          <View style={styles.welcomeBrand}>
-            <Image source={eliseLogo} style={styles.welcomeLogo} />
-            <Text style={styles.welcomeBrandText}>Élise</Text>
-          </View>
-          <View style={styles.languageSwitch}>
-            <Pressable
-              style={[styles.languageOption, locale === 'fr' && styles.languageOptionActive]}
-              onPress={() => changeLocale('fr')}
-            >
-              <Text style={styles.flag}>🇫🇷</Text>
-              <Text style={[styles.languageText, locale === 'fr' && styles.languageTextActive]}>
-                FR
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.languageOption, locale === 'en' && styles.languageOptionActive]}
-              onPress={() => changeLocale('en')}
-            >
-              <Text style={styles.flag}>🇬🇧</Text>
-              <Text style={[styles.languageText, locale === 'en' && styles.languageTextActive]}>
-                EN
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-        <View style={styles.welcomeBody}>
-          <Image source={eliseLogo} style={styles.welcomeHeroLogo} />
-          <Text style={styles.eyebrowLight}>
-            {locale === 'fr' ? 'VOTRE MAISON, EN TOUTE SÉRÉNITÉ' : 'YOUR HOME, WITH PEACE OF MIND'}
-          </Text>
-          <Text style={styles.welcomeTitle}>
-            {locale === 'fr'
-              ? 'Élise veille.\nVous restez proche.'
-              : 'Élise watches over.\nYou stay close.'}
-          </Text>
-          <Text style={styles.welcomeText}>
-            {locale === 'fr'
-              ? 'Connectez-vous à votre Élise sur le réseau local pour retrouver l’essentiel, où que vous soyez dans la maison.'
-              : 'Connect to your Élise on the local network and keep what matters close at hand throughout the home.'}
-          </Text>
-        </View>
-        <View>
-          <Pressable style={styles.primaryLight} onPress={() => setStage('discovery')}>
-            <Text style={styles.primaryLightText}>
-              {locale === 'fr' ? 'Rechercher mon Élise' : 'Find my Élise'}
-            </Text>
-            <Ionicons name="arrow-forward" size={19} color={colors.navy} />
-          </Pressable>
-          <Text style={styles.welcomePrivacy}>
-            {locale === 'fr'
-              ? 'Aucune caméra · Aucune écoute · 100 % local'
-              : 'No camera · No listening · 100% local'}
-          </Text>
-        </View>
-      </SafeAreaView>
+      <WelcomeExperience
+        locale={locale}
+        onLocaleChange={changeLocale}
+        onDiscover={() => setStage('discovery')}
+      />
     );
   }
 
@@ -685,12 +660,10 @@ export default function HomeScreen() {
               <Ionicons name="arrow-back" size={21} color={colors.navy} />
             </Pressable>
             <Text style={styles.navBrand}>Élise</Text>
-            <View style={styles.iconButton} />
+            <View style={styles.loginNavSpacer} />
           </View>
           <View style={styles.loginBody}>
-            <View style={styles.loginServerIcon}>
-              <Ionicons name="home-outline" size={28} color="#fff" />
-            </View>
+            <Image source={eliseLogo} style={styles.loginServerLogo} resizeMode="cover" />
             <Text style={styles.pageEyebrow}>
               {locale === 'fr' ? 'SERVEUR SÉLECTIONNÉ' : 'SELECTED SERVER'}
             </Text>
@@ -1198,107 +1171,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,.3)',
     backgroundColor: 'rgba(255,255,255,.08)',
   },
-  welcome: {
-    flex: 1,
-    paddingHorizontal: 26,
-    paddingBottom: 18,
-    overflow: 'hidden',
-    justifyContent: 'space-between',
-    backgroundColor: colors.navy,
-  },
-  welcomeHalo: {
-    position: 'absolute',
-    width: 470,
-    height: 470,
-    borderRadius: 235,
-    top: -280,
-    right: -210,
-    backgroundColor: '#3C7090',
-    opacity: 0.5,
-  },
-  welcomeTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  welcomeBrand: { flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 10 },
-  welcomeLogo: { width: 40, height: 40, borderRadius: 12 },
-  welcomeHeroLogo: {
-    width: 82,
-    height: 82,
-    borderRadius: 24,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,.25)',
-  },
-  languageSwitch: {
-    flexDirection: 'row',
-    gap: 3,
-    padding: 3,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,.16)',
-  },
-  languageOption: {
-    minHeight: 34,
-    paddingHorizontal: 9,
-    borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  languageOptionActive: { backgroundColor: '#fff' },
-  flag: { fontSize: 17 },
-  languageText: { color: '#C9D6DE', fontSize: 11, fontWeight: '800' },
-  languageTextActive: { color: colors.navy },
-  welcomeBrandText: { color: '#fff', fontFamily: 'Georgia', fontSize: 20, fontWeight: '600' },
-  welcomeBody: { alignItems: 'center' },
-  welcomeIcon: {
-    width: 68,
-    height: 68,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 25,
-    backgroundColor: 'rgba(255,255,255,.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,.18)',
-  },
-  eyebrowLight: {
-    color: '#9CB8C9',
-    fontSize: 10,
-    letterSpacing: 1.7,
-    fontWeight: '800',
-    marginBottom: 12,
-  },
-  welcomeTitle: {
-    color: '#fff',
-    textAlign: 'center',
-    fontFamily: 'Georgia',
-    fontSize: 38,
-    lineHeight: 45,
-  },
-  welcomeText: {
-    color: '#C4D1DA',
-    textAlign: 'center',
-    fontSize: 14,
-    lineHeight: 22,
-    marginTop: 18,
-    maxWidth: 340,
-  },
-  primaryLight: {
-    minHeight: 54,
-    paddingHorizontal: 20,
-    borderRadius: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.paper,
-  },
-  primaryLightText: { color: colors.navy, fontSize: 13, fontWeight: '800' },
-  welcomePrivacy: { color: '#91A5B3', fontSize: 10, textAlign: 'center', marginTop: 16 },
   screen: { flex: 1, backgroundColor: '#F7F4EE' },
   discoveryContent: { paddingHorizontal: 20, paddingBottom: 40, gap: 24 },
   nav: { height: 62, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -1313,6 +1185,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
   },
   navBrand: { fontFamily: 'Georgia', fontWeight: '600', fontSize: 20, color: colors.navy },
+  loginNavSpacer: { width: 40 },
   pageEyebrow: {
     color: colors.accent,
     fontSize: 10,
@@ -1425,14 +1298,11 @@ const styles = StyleSheet.create({
   errorBoxText: { color: colors.red, flex: 1, fontSize: 11 },
   loginScreen: { flex: 1, paddingHorizontal: 20 },
   loginBody: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 45 },
-  loginServerIcon: {
+  loginServerLogo: {
     width: 60,
     height: 60,
     borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 20,
-    backgroundColor: colors.blue,
   },
   loginTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 31, marginTop: 2 },
   loginUrl: { color: colors.muted, fontSize: 11, marginTop: 7 },

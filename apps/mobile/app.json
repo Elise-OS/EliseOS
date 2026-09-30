@@ -11,6 +11,14 @@
       "expo-secure-store",
       "expo-notifications",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Élise accède à votre photothèque pour ajouter des photos à l’album de la TV.",
+          "cameraPermission": "Élise utilise la caméra lorsque vous appelez le résident en visioconférence.",
+          "microphonePermission": "Élise utilise le microphone pendant vos appels au résident ou lorsque vous utilisez l’interphone."
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

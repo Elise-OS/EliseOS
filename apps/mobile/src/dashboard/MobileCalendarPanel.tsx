@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Modal,
@@ -16,6 +16,7 @@ import {
 import { calendarCreateSchema, type CalendarRecurrence } from '@michel/contracts';
 import { mobileApi } from '../api';
 import type { SavedServer } from '../discovery/types';
+import { MobileDateTimePicker } from '../MobileDateTimePicker';
 
 type PickerTarget = 'start' | 'end';
 type PickerMode = 'date' | 'time';
@@ -334,10 +335,9 @@ export function MobileCalendarPanel({
               </Pressable>
             </View>
             {activePicker && (
-              <DateTimePicker
+              <MobileDateTimePicker
                 value={pickerDraft}
                 mode={activePicker.mode}
-                display="spinner"
                 is24Hour
                 locale="fr-FR"
                 themeVariant="light"

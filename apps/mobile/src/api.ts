@@ -11,6 +11,9 @@ import type {
   ScreenCommand,
   ScreenMedia,
   ScreenMessageInput,
+  ScreenPodcastEpisode,
+  ScreenPodcastSearchResult,
+  ScreenScheduledContentInput,
   ScreenSettings,
   ScreenSnapshot,
   UpdatePerson,
@@ -19,7 +22,6 @@ import type {
 import type {
   ActivitySummary,
   DashboardPeriod,
-  EquipmentCoverage,
   Household,
   HomeSummary,
   HomePlan,
@@ -189,6 +191,36 @@ export interface Page<T> {
   nextCursor: string | null;
 }
 
+export interface ScreenTvStatus {
+  installed: boolean;
+  display?: { connected?: string[]; selected?: string; mode?: string; updatedAt?: number };
+  cec?: {
+    detected?: boolean;
+    tvAcknowledged?: boolean;
+    activeSourceSent?: boolean;
+    asleepRequested?: boolean;
+    updatedAt?: number;
+  };
+  networkTv?: {
+    id?: string;
+    name?: string;
+    mac?: string | null;
+    homeAssistantEntityId?: string;
+  };
+  networkTvStatus?: { reachable?: boolean; updatedAt?: number };
+  homeAssistantTv?: { available?: boolean } | null;
+}
+
+export interface ScreenRadioStation {
+  id: string;
+  name: string;
+  url: string;
+  country: string;
+  codec: string;
+  bitrate: number;
+  artworkUrl?: string;
+}
+
 export type MobileApiErrorCode = 'NETWORK' | 'TIMEOUT' | 'HTTP';
 
 export class MobileApiError extends Error {
@@ -211,9 +243,13 @@ export const isMobileApiAuthError = (error: unknown): error is MobileApiError =>
 
 const REQUEST_TIMEOUT_MS = 8_000;
 
-const fetchWithTimeout = async (url: string, init: RequestInit): Promise<Response> => {
+const fetchWithTimeout = async (
+  url: string,
+  init: RequestInit,
+  timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<Response> => {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const parentSignal = init.signal;
   const abortFromParent = () => controller.abort();
   parentSignal?.addEventListener('abort', abortFromParent, { once: true });
@@ -241,20 +277,25 @@ const request = async <T>(
   path: string,
   token?: string,
   init?: RequestInit,
+  timeoutMs = REQUEST_TIMEOUT_MS,
 ) => {
   let response: Response | undefined;
   let lastError: unknown;
   for (const baseUrl of preferredServerUrls(server)) {
     try {
-      response = await fetchWithTimeout(`${baseUrl}/api/v1${path}`, {
-        ...init,
-        headers: {
-          accept: 'application/json',
-          ...(init?.body ? { 'content-type': 'application/json' } : {}),
-          ...(token ? { authorization: `Bearer ${token}` } : {}),
-          ...init?.headers,
+      response = await fetchWithTimeout(
+        `${baseUrl}/api/v1${path}`,
+        {
+          ...init,
+          headers: {
+            accept: 'application/json',
+            ...(typeof init?.body === 'string' ? { 'content-type': 'application/json' } : {}),
+            ...(token ? { authorization: `Bearer ${token}` } : {}),
+            ...init?.headers,
+          },
         },
-      });
+        timeoutMs,
+      );
       rememberActiveServerUrl(server, baseUrl);
       break;
     } catch (error) {
@@ -349,8 +390,6 @@ export const mobileApi = {
     request<Household | null>(server, '/household', token),
   homePlan: (server: SavedServer, token: string) =>
     request<HomePlan>(server, '/household/plan', token),
-  equipmentCoverage: (server: SavedServer, token: string) =>
-    request<EquipmentCoverage>(server, '/household/plan/equipment-coverage', token),
   saveHomePlan: (server: SavedServer, token: string, plan: HomePlan) =>
     request<HomePlan>(server, '/household/plan', token, {
       method: 'PUT',
@@ -531,10 +570,25 @@ export const mobileApi = {
       method: 'DELETE',
     }),
   screen: (server: SavedServer, token: string) => request<ScreenSnapshot>(server, '/screen', token),
+  screenTvStatus: (server: SavedServer, token: string) =>
+    request<ScreenTvStatus>(server, '/screen/tv', token),
+  screenTvReclaim: (server: SavedServer, token: string) =>
+    request<unknown>(server, '/screen/tv/reclaim', token, { method: 'POST' }),
+  uploadScreenPhoto: (server: SavedServer, token: string, body: FormData) =>
+    request<ScreenSnapshot>(server, '/screen/upload', token, { method: 'POST', body }, 120_000),
   updateScreenMessage: (server: SavedServer, token: string, input: ScreenMessageInput) =>
     request<ScreenSnapshot>(server, '/screen/message', token, {
       method: 'PATCH',
       body: JSON.stringify(input),
+    }),
+  scheduleScreenContent: (server: SavedServer, token: string, input: ScreenScheduledContentInput) =>
+    request<ScreenSnapshot>(server, '/screen/scheduled-content', token, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  cancelScheduledScreenContent: (server: SavedServer, token: string, id: string) =>
+    request<ScreenSnapshot>(server, `/screen/scheduled-content/${encodeURIComponent(id)}`, token, {
+      method: 'DELETE',
     }),
   updateScreenSettings: (server: SavedServer, token: string, settings: ScreenSettings) =>
     request<ScreenSnapshot>(server, '/screen/settings', token, {
@@ -551,6 +605,44 @@ export const mobileApi = {
       method: 'POST',
       body: JSON.stringify(media),
     }),
+  removeScreenMedia: (server: SavedServer, token: string, id: string) =>
+    request<unknown>(server, `/screen/media/${encodeURIComponent(id)}`, token, {
+      method: 'DELETE',
+    }),
+  searchScreenRadio: (server: SavedServer, token: string, queryText: string) =>
+    request<ScreenRadioStation[]>(
+      server,
+      `/screen/radio/search?q=${encodeURIComponent(queryText)}`,
+      token,
+    ),
+  searchScreenPodcasts: (server: SavedServer, token: string, queryText: string) =>
+    request<ScreenPodcastSearchResult[]>(
+      server,
+      `/screen/podcasts/search?q=${encodeURIComponent(queryText)}`,
+      token,
+    ),
+  screenPodcastEpisodes: (server: SavedServer, token: string, podcastId: string) =>
+    request<ScreenPodcastEpisode[]>(
+      server,
+      `/screen/podcasts/${encodeURIComponent(podcastId)}/episodes`,
+      token,
+    ),
+  followScreenPodcast: (server: SavedServer, token: string, podcastId: string) =>
+    request<unknown>(server, `/screen/podcasts/${encodeURIComponent(podcastId)}/follow`, token, {
+      method: 'POST',
+    }),
+  playScreenPodcastEpisode: (
+    server: SavedServer,
+    token: string,
+    podcastId: string,
+    episodeId: string,
+  ) =>
+    request<ScreenSnapshot>(
+      server,
+      `/screen/podcasts/${encodeURIComponent(podcastId)}/play`,
+      token,
+      { method: 'POST', body: JSON.stringify({ episodeId }) },
+    ),
   screenCall: (server: SavedServer, token: string) =>
     request<unknown>(server, '/screen/calls', token, { method: 'POST' }),
   weatherCities: (server: SavedServer, token: string, queryText: string) =>

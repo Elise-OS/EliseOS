@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Annoyed, Frown, Laugh, Meh, Smile } from 'lucide-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -83,7 +83,6 @@ export function MobileLiaisonPanel({
 }) {
   const { width } = useWindowDimensions();
   const compact = width <= 520;
-  const veryCompact = width <= 350;
   const client = useQueryClient();
   const [noteOpen, setNoteOpen] = useState(false);
   const [moodOpen, setMoodOpen] = useState(false);
@@ -171,6 +170,39 @@ export function MobileLiaisonPanel({
       dateStyle: 'medium',
       timeStyle: 'short',
     });
+  const dayKey = (value: string) => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: data?.timezone ?? 'Europe/Paris',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date(value));
+    const part = (type: string) =>
+      parts.find(({ type: partType }) => partType === type)?.value ?? '00';
+    return `${part('year')}-${part('month')}-${part('day')}`;
+  };
+  const time = (value: string) =>
+    new Date(value).toLocaleTimeString('fr-FR', {
+      timeZone: data?.timezone ?? 'Europe/Paris',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  const todayItems = [...items]
+    .filter((item) => data?.today && dayKey(item.createdAt) === data.today)
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+
+  useEffect(() => {
+    const lastLoadedItem = query.data?.pages.at(-1)?.items.at(-1);
+    if (
+      data?.today &&
+      lastLoadedItem &&
+      dayKey(lastLoadedItem.createdAt) === data.today &&
+      query.hasNextPage &&
+      !query.isFetchingNextPage
+    ) {
+      void query.fetchNextPage();
+    }
+  }, [data?.today, query.data, query.fetchNextPage, query.hasNextPage, query.isFetchingNextPage]);
   const upcoming = schedule.find((item) => new Date(item.startsAt) >= new Date());
   const attention = alerts.find(
     (item) =>
@@ -196,16 +228,25 @@ export function MobileLiaisonPanel({
               Carnet de liaison
             </Text>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Ouvrir le calendrier"
-            onPress={onCalendar}
-            style={s.calendarButton}
-          >
-            <Ionicons name="calendar-outline" size={20} color="#214b85" />
-          </Pressable>
+          <View style={s.heroNavigation}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Ouvrir le calendrier"
+              onPress={onCalendar}
+              style={s.heroNavigationButton}
+            >
+              <Ionicons name="calendar-outline" size={20} color="#214b85" />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Ouvrir le journal du foyer"
+              onPress={onJournal}
+              style={s.heroNavigationButton}
+            >
+              <Ionicons name="book-outline" size={20} color="#214b85" />
+            </Pressable>
+          </View>
         </View>
-        <Text style={s.heroResident}>{residentName}</Text>
         <Text style={s.heroCopy}>Les dernières informations partagées entre aidants.</Text>
         <View style={s.heroFooter}>
           {data?.canWrite && (
@@ -213,7 +254,7 @@ export function MobileLiaisonPanel({
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setMoodOpen(true)}
-                style={s.secondaryAction}
+                style={[s.heroAction, s.secondaryAction]}
               >
                 <Ionicons name="happy-outline" size={19} color="#214b85" />
                 <Text style={s.secondaryActionText}>Ajouter une humeur</Text>
@@ -221,7 +262,7 @@ export function MobileLiaisonPanel({
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setNoteOpen(true)}
-                style={s.primaryAction}
+                style={[s.heroAction, s.primaryAction]}
               >
                 <Ionicons name="create-outline" size={19} color="#fff" />
                 <Text style={s.primaryActionText}>Ajouter une note</Text>
@@ -230,12 +271,6 @@ export function MobileLiaisonPanel({
           )}
         </View>
       </View>
-      {offline && (
-        <Text accessibilityRole="alert" style={s.warning}>
-          Hors connexion. Les informations affichées peuvent être anciennes. Reconnectez-vous pour
-          contribuer.
-        </Text>
-      )}
       {(error || query.isError) && (
         <View style={s.warning}>
           <Text accessibilityRole="alert">
@@ -446,102 +481,123 @@ export function MobileLiaisonPanel({
             accessibilityRole="header"
             style={[s.sectionTitle, compact && s.sectionTitleCompact]}
           >
-            Aujourd’hui
+            Fil de la journée
           </Text>
         </View>
-        <Text style={[s.muted, compact && s.compactText]}>{items.length} notes</Text>
+        <Text style={[s.muted, compact && s.compactText]}>
+          {todayItems.length} {todayItems.length === 1 ? 'événement' : 'événements'}
+        </Text>
       </View>
       {data && (
         <>
-          {items.map((item) => (
-            <View key={item.id} style={[s.card, compact && s.cardCompact]}>
-              <View style={s.noteHeader}>
-                <View style={s.noteAvatar}>
-                  <Text style={s.noteAvatarText}>
-                    {(item.author?.displayName ?? 'Ancien proche')
-                      .split(/\s+/)
-                      .map((part) => part[0])
-                      .join('')
-                      .slice(0, 2)
-                      .toUpperCase()}
-                  </Text>
+          <View style={s.timelineList}>
+            {todayItems.map((item, index) => {
+              const late = Boolean(!item.completedAt && item.dueOn && item.dueOn < data.today);
+              const mood = item.tags.includes('MOOD') ? liaisonMoodLabel(item.body) : null;
+              return (
+                <View key={item.id} style={s.timelineEvent}>
+                  <View style={s.timelineRow}>
+                    <View style={s.timelineAxis}>
+                      <Text style={s.timelineTime}>{time(item.createdAt)}</Text>
+                      <View
+                        style={[
+                          s.timelineDot,
+                          item.kind === 'TASK'
+                            ? s.timelineDotTask
+                            : mood
+                              ? s.timelineDotMood
+                              : null,
+                        ]}
+                      />
+                      {index + 1 < todayItems.length ? <View style={s.timelineConnector} /> : null}
+                    </View>
+                    <View style={[s.timelineCard, compact && s.timelineCardCompact]}>
+                      <View style={s.timelineHeader}>
+                        <Text numberOfLines={1} style={s.timelineAuthor}>
+                          {item.author?.displayName ?? 'Un ancien proche'}
+                        </Text>
+                        {item.kind === 'TASK' ? (
+                          <Text
+                            style={[
+                              s.timelineState,
+                              item.completedAt ? s.timelineStateDone : s.timelineStateOpen,
+                            ]}
+                          >
+                            {item.completedAt ? 'Terminée' : 'À faire'}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Text style={s.timelineBody}>
+                        {mood
+                          ? `${moodResidentName ? `Humeur de ${moodResidentName}` : 'Humeur'} : ${mood}`
+                          : item.body}
+                      </Text>
+                      {item.tags.length > 0 && (
+                        <View style={s.timelineTags}>
+                          {item.tags.map((tag) => (
+                            <Text key={tag} style={s.timelineTag}>
+                              {tag === 'MEAL'
+                                ? 'Repas'
+                                : tag === 'TREATMENT'
+                                  ? 'Traitement'
+                                  : tag === 'MOOD'
+                                    ? 'Humeur'
+                                    : 'Repos'}
+                            </Text>
+                          ))}
+                        </View>
+                      )}
+                      {item.kind === 'TASK' ? (
+                        <>
+                          <Text style={[s.timelineDetail, late && s.timelineDetailLate]}>
+                            Responsable : {item.assignee?.displayName ?? 'À répartir'}
+                            {item.dueOn
+                              ? ` · Pour le ${new Date(`${item.dueOn}T12:00:00Z`).toLocaleDateString('fr-FR', { timeZone: 'UTC', day: 'numeric', month: 'short' })}`
+                              : ''}
+                            {late ? ' · En retard' : ''}
+                          </Text>
+                          {item.completedAt ? (
+                            <Text style={s.timelineDetail}>
+                              Fait par {item.completedBy?.displayName ?? '—'} ·{' '}
+                              {date(item.completedAt)}
+                            </Text>
+                          ) : null}
+                          {data.canWrite ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityState={{ disabled: blocked }}
+                              disabled={blocked}
+                              style={[s.timelineTaskAction, blocked && s.disabled]}
+                              onPress={() =>
+                                complete.mutate({ id: item.id, completed: !item.completedAt })
+                              }
+                            >
+                              <Ionicons
+                                name={item.completedAt ? 'refresh-outline' : 'checkmark-outline'}
+                                size={14}
+                                color="#214b85"
+                              />
+                              <Text style={s.timelineTaskActionText}>
+                                {item.completedAt ? 'Remettre à faire' : 'C’est fait'}
+                              </Text>
+                            </Pressable>
+                          ) : null}
+                        </>
+                      ) : null}
+                    </View>
+                  </View>
                 </View>
-                <View style={s.noteHeadingCopy}>
-                  <Text style={s.label}>{item.author?.displayName ?? 'Un ancien proche'}</Text>
-                  <Text style={s.muted}>{date(item.createdAt)}</Text>
-                </View>
-              </View>
-              <Text style={s.body}>
-                {item.tags.includes('MOOD') && liaisonMoodLabel(item.body)
-                  ? `${moodResidentName ? `Humeur de ${moodResidentName}` : 'Humeur du résident'} : ${liaisonMoodLabel(item.body)}`
-                  : item.body}
-              </Text>
-              <View style={s.row}>
-                {item.tags.map((tag) => (
-                  <Text key={tag} style={s.noteTag}>
-                    {tag === 'MEAL'
-                      ? 'Repas'
-                      : tag === 'TREATMENT'
-                        ? 'Traitement'
-                        : tag === 'MOOD'
-                          ? 'Humeur'
-                          : 'Repos'}
-                  </Text>
-                ))}
-                {item.kind === 'TASK' && (
-                  <Text style={s.noteTag}>{item.completedAt ? 'Terminée' : 'À faire'}</Text>
-                )}
-              </View>
-              {item.kind === 'TASK' && (
-                <>
-                  <Text style={s.label}>
-                    Responsable : {item.assignee?.displayName ?? 'À répartir'}
-                  </Text>
-                  {item.dueOn && (
-                    <Text
-                      style={!item.completedAt && item.dueOn < data.today ? s.overdue : s.muted}
-                    >
-                      Pour le{' '}
-                      {new Date(`${item.dueOn}T12:00:00Z`).toLocaleDateString('fr-FR', {
-                        timeZone: 'UTC',
-                      })}
-                      {!item.completedAt && item.dueOn < data.today ? ' · En retard' : ''}
-                    </Text>
-                  )}
-                  {item.completedAt && (
-                    <Text style={s.muted}>
-                      Fait par {item.completedBy?.displayName ?? '—'} · {date(item.completedAt)}
-                    </Text>
-                  )}
-                  {data.canWrite && (
-                    <Action
-                      label={item.completedAt ? 'Remettre à faire' : 'C’est fait'}
-                      disabled={blocked}
-                      onPress={() => complete.mutate({ id: item.id, completed: !item.completedAt })}
-                    />
-                  )}
-                </>
-              )}
-            </View>
-          ))}
-          {!items.length && (
+              );
+            })}
+          </View>
+          {!todayItems.length && (
             <View style={[s.card, compact && s.cardCompact]}>
-              <Text style={s.subtitle}>Les nouvelles commencent ici</Text>
-              <Text style={s.muted}>
-                Un passage, une attention, une chose à prévoir : partagez ce qui aide les proches.
-              </Text>
+              <Text style={s.subtitle}>Aucun événement aujourd’hui</Text>
+              <Text style={s.muted}>Les informations partagées aujourd’hui apparaîtront ici.</Text>
             </View>
-          )}
-          {query.hasNextPage && (
-            <Action
-              label="Voir les précédentes"
-              disabled={query.isFetching}
-              onPress={() => void query.fetchNextPage()}
-            />
           )}
         </>
       )}
-      <Action label="Ouvrir le journal et l’agenda du foyer" onPress={onJournal} />
     </ScrollView>
   );
 }
@@ -626,9 +682,9 @@ const s = StyleSheet.create({
     fontSize: 20,
     flexShrink: 1,
   },
-  heroResident: { fontSize: 13, fontWeight: '700', color: '#687382', marginTop: 2, flexShrink: 1 },
   heroCopy: { fontSize: 13, lineHeight: 19, color: '#687382', flexShrink: 1 },
-  calendarButton: {
+  heroNavigation: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroNavigationButton: {
     width: 44,
     height: 44,
     alignItems: 'center',
@@ -645,31 +701,25 @@ const s = StyleSheet.create({
     justifyContent: 'flex-start',
     gap: 8,
   },
-  primaryAction: {
+  heroAction: {
     minWidth: 0,
     maxWidth: 190,
-    minHeight: 47,
-    flex: 1,
+    height: 48,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
     paddingHorizontal: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 7,
     borderRadius: 14,
+  },
+  primaryAction: {
     backgroundColor: '#173968',
   },
   primaryActionText: { color: '#fff', fontSize: 13, fontWeight: '700', flexShrink: 1 },
   secondaryAction: {
-    minWidth: 0,
-    maxWidth: 190,
-    minHeight: 47,
-    flex: 1,
-    paddingHorizontal: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#cbdbea',
     backgroundColor: '#fff',
@@ -740,6 +790,104 @@ const s = StyleSheet.create({
     borderColor: '#D9E5EB',
   },
   cardCompact: { padding: 14, gap: 12 },
+  timelineList: { gap: 7 },
+  timelineEvent: { gap: 5 },
+  timelineDay: {
+    marginLeft: 58,
+    color: '#607990',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.25,
+    textTransform: 'capitalize',
+  },
+  timelineRow: { flexDirection: 'row', alignItems: 'stretch', gap: 7 },
+  timelineAxis: { width: 51, position: 'relative', alignItems: 'flex-end' },
+  timelineTime: {
+    position: 'absolute',
+    top: 2,
+    left: 0,
+    width: 37,
+    color: '#76889A',
+    fontSize: 9,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  timelineDot: {
+    position: 'absolute',
+    top: 4,
+    right: 5,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: '#E8F2ED',
+    backgroundColor: '#5D9B76',
+  },
+  timelineDotTask: { borderColor: '#E9F0F9', backgroundColor: '#4776A8' },
+  timelineDotMood: { borderColor: '#F9F0E4', backgroundColor: '#C58A42' },
+  timelineConnector: {
+    position: 'absolute',
+    top: 15,
+    right: 9,
+    bottom: -11,
+    width: 1,
+    backgroundColor: '#DCE6E8',
+  },
+  timelineCard: {
+    minWidth: 0,
+    flex: 1,
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E1E9EB',
+    borderRadius: 13,
+    backgroundColor: '#FFFFFF',
+  },
+  timelineCardCompact: { gap: 4, paddingHorizontal: 10, paddingVertical: 8 },
+  timelineHeader: {
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 7,
+  },
+  timelineAuthor: { minWidth: 0, flex: 1, color: '#315A82', fontSize: 10, fontWeight: '700' },
+  timelineState: {
+    overflow: 'hidden',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 99,
+    fontSize: 8,
+    fontWeight: '800',
+  },
+  timelineStateOpen: { color: '#8B5B1B', backgroundColor: '#FFF2DD' },
+  timelineStateDone: { color: '#28664B', backgroundColor: '#E9F5ED' },
+  timelineBody: { color: '#17345F', fontSize: 13, lineHeight: 19, flexShrink: 1 },
+  timelineTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  timelineTag: {
+    overflow: 'hidden',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 99,
+    color: '#536F88',
+    backgroundColor: '#F0F5F7',
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  timelineDetail: { color: '#718092', fontSize: 10, lineHeight: 14, flexShrink: 1 },
+  timelineDetailLate: { color: '#925817' },
+  timelineTaskAction: {
+    minHeight: 30,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    borderRadius: 9,
+    backgroundColor: '#EFF5FA',
+  },
+  timelineTaskActionText: { color: '#214b85', fontSize: 10, fontWeight: '700' },
   noteDialog: {
     width: '100%',
     maxWidth: 480,
@@ -751,31 +899,7 @@ const s = StyleSheet.create({
     borderColor: '#D8E5EA',
   },
   noteDialogCompact: { padding: 16, gap: 12 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  body: { color: '#0B2948', fontSize: 17, lineHeight: 27, flexShrink: 1 },
   label: { color: '#12385F', fontWeight: '600', fontSize: 14, flexShrink: 1 },
-  noteHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  noteAvatar: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-    backgroundColor: '#E8F2FD',
-  },
-  noteAvatarText: { color: '#173B6E', fontSize: 14, fontWeight: '700' },
-  noteHeadingCopy: { minWidth: 0, flex: 1, gap: 2 },
-  noteTag: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    overflow: 'hidden',
-    borderRadius: 99,
-    color: '#315A82',
-    backgroundColor: '#E8F2FD',
-    fontSize: 11,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
   input: {
     width: '100%',
     backgroundColor: '#FAFCFD',
@@ -865,5 +989,4 @@ const s = StyleSheet.create({
   actionText: { color: '#12385F', fontWeight: '600', fontSize: 14, flexShrink: 1 },
   disabled: { opacity: 0.5 },
   warning: { backgroundColor: '#F7E9D7', padding: 14, borderRadius: 12, color: '#714414' },
-  overdue: { color: '#925817', fontSize: 14 },
 });

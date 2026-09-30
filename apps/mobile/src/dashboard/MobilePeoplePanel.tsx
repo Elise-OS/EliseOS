@@ -71,10 +71,12 @@ export function MobilePeoplePanel({
   server,
   token,
   role,
+  onBackToSettings,
 }: {
   server: SavedServer;
   token: string;
   role: MembershipRole;
+  onBackToSettings: () => void;
 }) {
   const canManage = role === 'OWNER' || role === 'ADMINISTRATOR';
   const [people, setPeople] = useState<TrustedPerson[]>([]);
@@ -274,17 +276,30 @@ export function MobilePeoplePanel({
         contentContainerStyle={s.scroll}
         keyboardShouldPersistTaps="handled"
       >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retour aux réglages"
+          style={s.backButton}
+          onPress={onBackToSettings}
+        >
+          <Ionicons name="arrow-back-outline" size={17} color={c.blue} />
+          <Text style={s.backButtonText}>Retour aux réglages</Text>
+        </Pressable>
         <View style={s.hero}>
-          <View style={s.heroCopy}>
-            <Text style={s.eyebrow}>CERCLE DE CONFIANCE</Text>
-            <Text style={s.title}>Les proches</Text>
-            <Text style={s.subtitle}>Les bonnes personnes, avec le bon niveau d’accès.</Text>
+          <View style={s.heroHeadingRow}>
+            <View style={s.heroHeadingCopy}>
+              <Text style={s.heroEyebrow}>CERCLE DE CONFIANCE</Text>
+              <Text style={s.heroTitle}>Les proches</Text>
+            </View>
           </View>
+          <Text style={s.heroSubtitle}>Les bonnes personnes, avec le bon niveau d’accès.</Text>
           {canManage ? (
-            <Pressable accessibilityRole="button" style={s.addButton} onPress={() => edit()}>
-              <Ionicons name="add" size={19} color="#fff" />
-              <Text style={s.addText}>Ajouter un proche</Text>
-            </Pressable>
+            <View style={s.heroFooter}>
+              <Pressable accessibilityRole="button" style={s.addButton} onPress={() => edit()}>
+                <Ionicons name="add" size={19} color="#fff" />
+                <Text style={s.addText}>Ajouter un proche</Text>
+              </Pressable>
+            </View>
           ) : null}
         </View>
 
@@ -716,23 +731,55 @@ function Toggle({
 }
 
 const s = StyleSheet.create({
-  scroll: { padding: 18, paddingBottom: 36, gap: 12, backgroundColor: c.cream },
-  hero: { borderRadius: 20, padding: 19, backgroundColor: '#EDF2F1', gap: 14 },
-  heroCopy: { gap: 4 },
-  eyebrow: { color: c.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
-  title: { color: c.navy, fontFamily: 'Georgia', fontSize: 27 },
-  subtitle: { color: c.muted, fontSize: 11, lineHeight: 16 },
-  addButton: {
+  scroll: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 28,
+    gap: 12,
+    backgroundColor: c.cream,
+  },
+  backButton: {
     alignSelf: 'flex-start',
-    minHeight: 42,
-    paddingHorizontal: 13,
-    borderRadius: 12,
+    minHeight: 36,
+    paddingHorizontal: 8,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  backButtonText: { color: c.blue, fontSize: 11, fontWeight: '800' },
+  hero: { gap: 5 },
+  heroHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  heroHeadingCopy: { minWidth: 0, flex: 1 },
+  heroEyebrow: { color: '#376884', fontSize: 9, letterSpacing: 1.25, fontWeight: '900' },
+  heroTitle: {
+    marginTop: 4,
+    color: '#0B2948',
+    fontFamily: 'Georgia',
+    fontSize: 20,
+    flexShrink: 1,
+  },
+  heroSubtitle: { fontSize: 13, lineHeight: 19, color: '#687382', flexShrink: 1 },
+  heroFooter: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
+    gap: 8,
+  },
+  eyebrow: { color: c.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
+  addButton: {
+    alignSelf: 'flex-start',
+    minHeight: 48,
+    maxWidth: 190,
+    paddingHorizontal: 13,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
     backgroundColor: c.blue,
   },
-  addText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  addText: { color: '#fff', fontSize: 13, fontWeight: '700', flexShrink: 1 },
   summary: {
     padding: 12,
     borderRadius: 16,

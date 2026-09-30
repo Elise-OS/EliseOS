@@ -1,20 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ScreenCommand, ScreenSnapshot } from '@michel/contracts';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import {
-  Modal,
-  PermissionsAndroid,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
-import { mobileApi } from '../api';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { mobileApi, type ScreenTvStatus } from '../api';
 import type { SavedServer } from '../discovery/types';
-import { activeServerUrl } from '../discovery/helpers';
+import { MobileScreenTabs } from './MobileScreenTabs';
 
 const c = {
   navy: '#0B2948',
@@ -43,10 +34,15 @@ export function MobileScreenPanel({
   snapshot?: ScreenSnapshot;
   onChanged: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const base = server.remoteUrl ?? activeServerUrl(server);
+  const tvStatusQuery = useQuery<ScreenTvStatus>({
+    queryKey: ['michel', server.id, 'screen-tv'],
+    queryFn: () => mobileApi.screenTvStatus(server, token),
+    enabled: Boolean(snapshot?.grant.control),
+    refetchInterval: 5_000,
+  });
   const playback = snapshot?.state.playback;
   const currentMedia = playback?.mediaId
     ? (snapshot?.state.media.find((item) => item.id === playback.mediaId) ?? null)
@@ -68,7 +64,73 @@ export function MobileScreenPanel({
             ? 'En pause'
             : currentMedia
               ? 'En cours de lecture'
-              : 'Écran connecté';
+              : 'En attente';
+
+  const tvStatus = tvStatusQuery.data;
+  const nowSeconds = Date.now() / 1000;
+  const displayFresh =
+    typeof tvStatus?.display?.updatedAt === 'number' &&
+    nowSeconds - tvStatus.display.updatedAt < 60;
+  const videoOutputReady =
+    displayFresh && Boolean(tvStatus?.display?.selected && tvStatus.display.mode);
+  const connectedOutputs = tvStatus?.display?.connected ?? [];
+  const videoOutputLabel = !tvStatus
+    ? tvStatusQuery.isPending
+      ? 'Chargement…'
+      : 'État HDMI indisponible'
+    : !tvStatus.installed
+      ? 'Agent vidéo absent'
+      : !displayFresh
+        ? 'État HDMI indisponible'
+        : videoOutputReady
+          ? `Sortie ${tvStatus.display?.selected} · ${tvStatus.display?.mode}`
+          : connectedOutputs.length > 0
+            ? `${connectedOutputs.join(', ')} détectée sans mode actif`
+            : 'Aucune sortie vidéo détectée';
+  const cecFresh =
+    typeof tvStatus?.cec?.updatedAt === 'number' && nowSeconds - tvStatus.cec.updatedAt < 45;
+  const cecReady =
+    cecFresh &&
+    tvStatus?.cec?.tvAcknowledged === true &&
+    (playback?.asleep
+      ? tvStatus.cec.asleepRequested === true
+      : tvStatus.cec.activeSourceSent === true);
+  const cecLabel = !tvStatus
+    ? tvStatusQuery.isPending
+      ? 'Chargement…'
+      : 'État CEC indisponible'
+    : cecReady
+      ? 'CEC opérationnel'
+      : 'CEC à vérifier';
+  const selectedNetworkTv = tvStatus?.networkTv?.id ? tvStatus.networkTv : undefined;
+  const networkStatusFresh =
+    typeof tvStatus?.networkTvStatus?.updatedAt === 'number' &&
+    nowSeconds - tvStatus.networkTvStatus.updatedAt < 30;
+  const networkReachable = networkStatusFresh && tvStatus?.networkTvStatus?.reachable === true;
+  const networkControlReady = Boolean(
+    selectedNetworkTv && (networkReachable || tvStatus?.homeAssistantTv?.available === true),
+  );
+  const networkStatusLabel = !tvStatus
+    ? tvStatusQuery.isPending
+      ? 'Chargement…'
+      : 'Réseau : état indisponible'
+    : !selectedNetworkTv
+      ? 'Réseau : TV non associée'
+      : networkReachable
+        ? `Réseau : ${selectedNetworkTv.name ?? 'TV'} joignable`
+        : tvStatus.homeAssistantTv?.available
+          ? `Réseau : ${selectedNetworkTv.name ?? 'TV'} disponible via Home Assistant`
+          : `Réseau : ${selectedNetworkTv.name ?? 'TV'} en veille`;
+  const tvReclaimReady = Boolean(cecReady || networkControlReady);
+  const statusTone =
+    snapshot?.online && videoOutputReady ? 'ready' : snapshot?.online ? 'warning' : 'offline';
+  const statusLabel = !snapshot
+    ? 'État de l’écran indisponible'
+    : !snapshot.online
+      ? 'Écran hors ligne'
+      : videoOutputReady
+        ? 'TV connectée'
+        : 'TV à vérifier';
 
   const run = async (command: ScreenCommand) => {
     if (!snapshot?.grant.control || !snapshot.online || busy) return;
@@ -84,39 +146,38 @@ export function MobileScreenPanel({
     }
   };
 
-  const openFullPanel = async () => {
+  const reclaimTv = async () => {
+    if (!snapshot?.grant.control || busy) return;
+    setBusy(true);
     setError('');
-    if (!base.startsWith('https://')) {
-      setError('Activez l’accès privé HTTPS pour ouvrir les appels et les commandes avancées.');
-      return;
+    try {
+      await mobileApi.screenTvReclaim(server, token);
+      await new Promise<void>((resolve) => setTimeout(resolve, 2500));
+      await tvStatusQuery.refetch();
+      onChanged();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Impossible de reprendre la TV.');
+    } finally {
+      setBusy(false);
     }
-    if (Platform.OS === 'android') {
-      const result = await PermissionsAndroid.requestMultiple([
-        PermissionsAndroid.PERMISSIONS.CAMERA,
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-      ]);
-      if (!Object.values(result).every((value) => value === PermissionsAndroid.RESULTS.GRANTED)) {
-        setError('Autorisez la caméra et le microphone pour utiliser les appels vidéo.');
-        return;
-      }
-    }
-    setOpen(true);
   };
 
   return (
     <View style={s.page}>
-      <View style={s.hero}>
-        <View style={s.heroIcon}>
-          <Ionicons name="tv-outline" size={23} color={c.blue} />
+      <View style={s.pageHeader}>
+        <View>
+          <Text style={s.eyebrow}>ÉCRAN DU FOYER</Text>
+          <Text style={s.title}>Affichage TV</Text>
         </View>
-        <View style={s.flex}>
-          <Text style={s.eyebrow}>AFFICHAGE RÉSIDENT</Text>
-          <Text style={s.title}>Écran et appels</Text>
-          <View style={s.statusLine}>
-            <View style={[s.dot, { backgroundColor: snapshot?.online ? c.green : c.amber }]} />
-            <Text style={s.statusText}>{playbackLabel}</Text>
-          </View>
-        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${statusLabel}. Afficher l’état détaillé de la TV`}
+          accessibilityState={{ expanded: statusOpen }}
+          style={s.statusButton}
+          onPress={() => setStatusOpen(true)}
+        >
+          <View style={[s.statusDot, s[`statusDot_${statusTone}`]]} />
+        </Pressable>
       </View>
 
       <View style={s.card}>
@@ -179,20 +240,6 @@ export function MobileScreenPanel({
                   </Text>
                 </Pressable>
               ) : null}
-              <Pressable
-                disabled={busy || !snapshot.online}
-                style={s.commandButton}
-                onPress={() => void run({ action: playback?.asleep ? 'wake' : 'sleep' })}
-              >
-                <Ionicons
-                  name={playback?.asleep ? 'sunny-outline' : 'moon-outline'}
-                  size={18}
-                  color={c.blue}
-                />
-                <Text style={s.commandLabel}>
-                  {playback?.asleep ? 'Réveiller' : 'Mettre au repos'}
-                </Text>
-              </Pressable>
               {currentMedia ? (
                 <Pressable
                   disabled={busy || !snapshot.online}
@@ -235,171 +282,138 @@ export function MobileScreenPanel({
         )}
       </View>
 
-      <View style={s.card}>
-        <View style={s.cardHead}>
-          <View style={[s.miniIcon, s.miniIconGreen]}>
-            <Ionicons name="information-circle-outline" size={18} color={c.green} />
-          </View>
-          <View style={s.flex}>
-            <Text style={s.cardTitle}>État des équipements</Text>
-            <Text style={s.detail}>Écran de {snapshot?.resident ?? 'la personne accompagnée'}</Text>
-          </View>
-        </View>
-        <EquipmentLine
-          icon="camera-outline"
-          label="Caméra"
-          status={snapshot?.capabilities.camera ? 'Prête' : 'À tester'}
-          ready={Boolean(snapshot?.capabilities.camera)}
-        />
-        <EquipmentLine
-          icon="mic-outline"
-          label="Microphone"
-          status={snapshot?.capabilities.microphone ? 'Prêt' : 'À tester'}
-          ready={Boolean(snapshot?.capabilities.microphone)}
-        />
-        <EquipmentLine
-          icon="globe-outline"
-          label="Navigateur TV"
-          status={
-            snapshot?.online ? 'Connecté' : snapshot?.paired ? 'À vérifier' : 'En préparation'
-          }
-          ready={Boolean(snapshot?.online)}
-        />
-        {snapshot?.lastSeen ? (
-          <Text style={s.lastSeen}>
-            Dernière réponse :{' '}
-            {new Date(snapshot.lastSeen).toLocaleString('fr-FR', {
-              dateStyle: 'medium',
-              timeStyle: 'short',
-            })}
-          </Text>
-        ) : null}
-      </View>
+      <MobileScreenTabs server={server} token={token} snapshot={snapshot} onChanged={onChanged} />
 
-      <View style={s.card}>
-        <View style={s.cardHead}>
-          <View style={[s.miniIcon, s.miniIconAmber]}>
-            <Ionicons name="calendar-outline" size={18} color={c.amber} />
+      {snapshot && (snapshot.visit || snapshot.agenda.length > 0) ? (
+        <View style={s.card}>
+          <View style={s.cardHead}>
+            <View style={[s.miniIcon, s.miniIconAmber]}>
+              <Ionicons name="calendar-outline" size={18} color={c.amber} />
+            </View>
+            <View style={s.flex}>
+              <Text style={s.cardTitle}>
+                {snapshot.visit ? 'Prochain rendez-vous' : 'Agenda à venir'}
+              </Text>
+              {snapshot.visit ? (
+                <Text style={s.detail}>Visite de {snapshot.visit.visitorName}</Text>
+              ) : null}
+            </View>
           </View>
-          <View style={s.flex}>
-            <Text style={s.cardTitle}>Prochain rendez-vous</Text>
-            <Text style={s.detail}>
-              {snapshot?.visit
-                ? `Visite de ${snapshot.visit.visitorName}`
-                : 'Aucune visite annoncée'}
-            </Text>
-          </View>
-        </View>
-        {snapshot?.visit ? (
-          <Text style={s.visitTime}>
-            {new Date(snapshot.visit.startsAt).toLocaleString('fr-FR', {
-              timeZone: snapshot.timezone,
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
-        ) : null}
-        {snapshot?.agenda.slice(0, 3).map((item) => (
-          <View key={item.id} style={s.agendaRow}>
-            <Ionicons
-              name={item.type === 'visit' ? 'people-outline' : 'calendar-outline'}
-              size={15}
-              color={c.accent}
-            />
-            <Text style={s.detail}>
-              {item.title} ·{' '}
-              {new Date(item.startsAt).toLocaleDateString('fr-FR', {
+          {snapshot.visit ? (
+            <Text style={s.visitTime}>
+              {new Date(snapshot.visit.startsAt).toLocaleString('fr-FR', {
                 timeZone: snapshot.timezone,
+                weekday: 'long',
                 day: 'numeric',
-                month: 'short',
+                month: 'long',
+                hour: '2-digit',
+                minute: '2-digit',
               })}
             </Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={s.card}>
-        <View style={s.cardHead}>
-          <View style={[s.miniIcon, s.miniIconAmber]}>
-            <Ionicons name="images-outline" size={18} color={c.amber} />
-          </View>
-          <View style={s.flex}>
-            <Text style={s.cardTitle}>Contenus et messages</Text>
-            <Text style={s.detail}>
-              {snapshot?.state.media.length ?? 0} média
-              {snapshot?.state.media.length === 1 ? '' : 's'} ·{' '}
-              {snapshot?.state.messages?.length ?? (snapshot?.state.message ? 1 : 0)} message
-              {(snapshot?.state.messages?.length ?? (snapshot?.state.message ? 1 : 0)) === 1
-                ? ''
-                : 's'}
-            </Text>
-          </View>
+          ) : null}
+          {snapshot.agenda.slice(0, 3).map((item) => (
+            <View key={item.id} style={s.agendaRow}>
+              <Ionicons
+                name={item.type === 'visit' ? 'people-outline' : 'calendar-outline'}
+                size={15}
+                color={c.accent}
+              />
+              <Text style={s.detail}>
+                {item.title} ·{' '}
+                {new Date(item.startsAt).toLocaleDateString('fr-FR', {
+                  timeZone: snapshot.timezone,
+                  day: 'numeric',
+                  month: 'short',
+                })}
+              </Text>
+            </View>
+          ))}
         </View>
-        {snapshot?.state.message ? (
-          <Text style={s.message} numberOfLines={3}>
-            « {snapshot.state.message} »
-          </Text>
-        ) : null}
-        {snapshot?.grant.message ? (
-          <Text style={s.detail}>
-            Les messages se gèrent depuis Accueil ou les commandes complètes.
-          </Text>
-        ) : null}
-      </View>
+      ) : null}
 
       {error ? (
         <Text accessibilityRole="alert" style={s.error}>
           {error}
         </Text>
       ) : null}
-      <Pressable
-        accessibilityRole="button"
-        style={s.primaryButton}
-        onPress={() => void openFullPanel()}
+      <Modal
+        visible={statusOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setStatusOpen(false)}
       >
-        <Ionicons name="options-outline" size={18} color="#fff" />
-        <Text style={s.primaryText}>Ouvrir toutes les commandes TV</Text>
-        <Ionicons name="chevron-forward" size={16} color="#fff" />
-      </Pressable>
-      <Text style={s.footnote}>
-        Appels, photos, playlists, programmes et réglages détaillés de l’écran.
-      </Text>
-
-      <Modal visible={open} onRequestClose={() => setOpen(false)} animationType="slide">
-        <SafeAreaView style={s.modal}>
-          <View style={s.modalHeader}>
-            <Text style={s.modalTitle}>Affichage TV</Text>
-            <Pressable
-              accessibilityLabel="Fermer les commandes TV"
-              onPress={() => setOpen(false)}
-              style={s.close}
-            >
-              <Ionicons name="close" size={22} color={c.navy} />
-            </Pressable>
-          </View>
-          <WebView
-            source={{
-              uri: `${base}/api/v1/screen/mobile-session`,
-              method: 'POST',
-              headers: { Authorization: `Bearer ${token}` },
-            }}
-            javaScriptEnabled
-            domStorageEnabled
-            sharedCookiesEnabled
-            allowsInlineMediaPlayback
-            mediaPlaybackRequiresUserAction={false}
-            mediaCapturePermissionGrantType="prompt"
-            onError={(event) => setError(event.nativeEvent.description)}
-            onShouldStartLoadWithRequest={(request) =>
-              request.url.startsWith(base + '/') ||
-              request.url.startsWith(base.replace(/:\d+$/, ':8444') + '/') ||
-              request.url === 'about:blank'
-            }
+        <View style={s.statusOverlay}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Fermer la fenêtre d’état"
+            style={s.statusBackdrop}
+            onPress={() => setStatusOpen(false)}
           />
-        </SafeAreaView>
+          <View style={s.statusDialog}>
+            <View style={s.modalHeader}>
+              <Text style={s.statusModalTitle}>État de la TV</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Fermer l’état de la TV"
+                onPress={() => setStatusOpen(false)}
+                style={s.close}
+              >
+                <Ionicons name="close" size={22} color={c.navy} />
+              </Pressable>
+            </View>
+            <View style={s.statusList}>
+              <EquipmentLine
+                icon="camera-outline"
+                text={`Caméra ${snapshot?.capabilities.camera ? 'prête' : 'à tester'}`}
+                ready={Boolean(snapshot?.capabilities.camera)}
+              />
+              <EquipmentLine
+                icon="mic-outline"
+                text={`Micro ${snapshot?.capabilities.microphone ? 'prêt' : 'à tester'}`}
+                ready={Boolean(snapshot?.capabilities.microphone)}
+              />
+              <EquipmentLine
+                icon="globe-outline"
+                text={`Navigateur kiosque ${snapshot?.online ? 'connecté' : 'à vérifier'}`}
+                ready={Boolean(snapshot?.online)}
+              />
+              <EquipmentLine
+                icon="tv-outline"
+                text={videoOutputLabel}
+                ready={Boolean(videoOutputReady)}
+              />
+              <EquipmentLine
+                icon={tvReclaimReady ? 'checkmark-circle-outline' : 'close-circle-outline'}
+                text={`Reprise TV ${tvReclaimReady ? 'disponible' : 'à vérifier'}`}
+                ready={tvReclaimReady}
+              />
+              <EquipmentLine icon="power-outline" text={cecLabel} ready={Boolean(cecReady)} />
+              <EquipmentLine
+                icon={networkControlReady ? 'wifi-outline' : 'cloud-offline-outline'}
+                text={networkStatusLabel}
+                ready={networkControlReady}
+              />
+            </View>
+            {error ? (
+              <Text accessibilityRole="alert" style={s.statusError}>
+                {error}
+              </Text>
+            ) : null}
+            {snapshot?.grant.control ? (
+              <Pressable
+                accessibilityRole="button"
+                disabled={busy}
+                style={[s.reclaimButton, busy && s.reclaimButtonDisabled]}
+                onPress={() => void reclaimTv()}
+              >
+                <Ionicons name="power-outline" size={18} color="#fff" />
+                <Text style={s.reclaimButtonText}>
+                  {busy ? 'Reprise en cours…' : 'Reprendre la TV'}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -407,20 +421,17 @@ export function MobileScreenPanel({
 
 function EquipmentLine({
   icon,
-  label,
-  status,
+  text,
   ready,
 }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
-  label: string;
-  status: string;
+  text: string;
   ready: boolean;
 }) {
   return (
     <View style={s.equipmentLine}>
       <Ionicons name={icon} size={16} color={ready ? c.green : c.amber} />
-      <Text style={s.equipmentLabel}>{label}</Text>
-      <Text style={[s.equipmentStatus, ready && s.equipmentReady]}>{status}</Text>
+      <Text style={[s.equipmentLabel, ready && s.equipmentReady]}>{text}</Text>
     </View>
   );
 }
@@ -428,28 +439,28 @@ function EquipmentLine({
 const s = StyleSheet.create({
   page: { gap: 11, paddingBottom: 12 },
   flex: { flex: 1 },
-  hero: {
-    minHeight: 90,
-    padding: 16,
-    borderRadius: 18,
+  pageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#EDF2F1',
-  },
-  heroIcon: {
-    width: 47,
-    height: 47,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#DDE9ED',
+    justifyContent: 'space-between',
+    gap: 10,
   },
   eyebrow: { color: c.accent, fontSize: 8, fontWeight: '900', letterSpacing: 1 },
   title: { marginTop: 3, color: c.navy, fontFamily: 'Georgia', fontSize: 22 },
-  statusLine: { marginTop: 5, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  dot: { width: 7, height: 7, borderRadius: 4 },
-  statusText: { color: c.muted, fontSize: 9, fontWeight: '700' },
+  statusButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: c.paper,
+    borderWidth: 1,
+    borderColor: c.line,
+  },
+  statusDot: { width: 12, height: 12, borderRadius: 6 },
+  statusDot_ready: { backgroundColor: c.green },
+  statusDot_warning: { backgroundColor: c.amber },
+  statusDot_offline: { backgroundColor: c.red },
   card: {
     padding: 14,
     borderRadius: 16,
@@ -467,7 +478,6 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: c.paleBlue,
   },
-  miniIconGreen: { backgroundColor: c.paleGreen },
   miniIconAmber: { backgroundColor: c.paleAmber },
   cardTitle: { color: c.navy, fontSize: 12, fontWeight: '900' },
   detail: { marginTop: 3, color: c.muted, fontSize: 9, lineHeight: 14 },
@@ -547,27 +557,40 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 7,
   },
-  equipmentLabel: { flex: 1, color: c.navy, fontSize: 9, fontWeight: '700' },
-  equipmentStatus: { color: '#8D641C', fontSize: 8, fontWeight: '800' },
+  equipmentLabel: { flex: 1, color: c.navy, fontSize: 10, fontWeight: '700' },
   equipmentReady: { color: c.green },
-  lastSeen: { color: c.muted, fontSize: 8 },
   visitTime: { color: c.accent, fontSize: 10, fontWeight: '800' },
   agendaRow: { minHeight: 27, flexDirection: 'row', alignItems: 'center', gap: 7 },
   message: { color: c.navy, fontFamily: 'Georgia', fontSize: 14, lineHeight: 20 },
   error: { padding: 10, borderRadius: 10, color: c.red, backgroundColor: c.paleAmber, fontSize: 9 },
-  primaryButton: {
-    minHeight: 48,
-    paddingHorizontal: 13,
-    borderRadius: 13,
+  statusOverlay: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  statusBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(8, 27, 46, .42)',
+  },
+  statusDialog: {
+    width: '100%',
+    maxWidth: 380,
+    padding: 12,
+    borderRadius: 18,
+    backgroundColor: c.cream,
+    gap: 8,
+  },
+  statusModalTitle: { color: c.navy, fontFamily: 'Georgia', fontSize: 19 },
+  statusList: { gap: 2 },
+  statusError: { color: c.red, fontSize: 10 },
+  reclaimButton: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     backgroundColor: c.blue,
   },
-  primaryText: { flex: 1, color: '#fff', fontSize: 10, fontWeight: '900' },
-  footnote: { color: c.muted, textAlign: 'center', fontSize: 8 },
-  modal: { flex: 1, backgroundColor: c.cream },
+  reclaimButtonDisabled: { opacity: 0.65 },
+  reclaimButtonText: { color: '#fff', fontSize: 11, fontWeight: '900' },
   modalHeader: {
     minHeight: 58,
     paddingHorizontal: 16,
@@ -575,7 +598,6 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  modalTitle: { color: c.navy, fontFamily: 'Georgia', fontSize: 20 },
   close: {
     width: 39,
     height: 39,

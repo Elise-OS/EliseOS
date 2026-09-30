@@ -7,14 +7,15 @@ import {
   type ScheduleItem,
   type ScreenSnapshot,
 } from '@michel/contracts';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { mobileApi, type ActivityItem, type Overview } from '../api';
 import type { SavedServer } from '../discovery/types';
 import { caregiverPresenceCopy } from './presence-copy';
 import { friendlyValue, relativeTime, roomOf } from './formatters';
+import { dateKeyInZone, shiftDate } from './homeDates';
 
 const c = {
   navy: '#0B2948',
@@ -50,23 +51,6 @@ const sensorToneColors: Record<SensorTone, string> = {
   shower: '#327F9B',
   bedtime: '#786AA1',
   wakeup: '#D88A45',
-};
-
-const dateKeyInZone = (date: Date, zone: string) => {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: zone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-  const part = (type: string) =>
-    parts.find(({ type: itemType }) => itemType === type)?.value ?? '00';
-  return `${part('year')}-${part('month')}-${part('day')}`;
-};
-const shiftDate = (date: string, days: number) => {
-  const value = new Date(`${date}T12:00:00Z`);
-  value.setUTCDate(value.getUTCDate() + days);
-  return value.toISOString().slice(0, 10);
 };
 
 function roomLabel(room: Pick<HomeSummary['rooms'][number], 'kind' | 'name'>, locale: 'fr' | 'en') {
@@ -497,6 +481,11 @@ export function MobileWelcomePanel({
   onNavigate: (page: Page) => void;
 }) {
   const [now, setNow] = useState(() => new Date());
+  const [callConfirmOpen, setCallConfirmOpen] = useState(false);
+  const [callPending, setCallPending] = useState(false);
+  const [callStarted, setCallStarted] = useState(false);
+  const [callError, setCallError] = useState('');
+  const queryClient = useQueryClient();
   const timezone = homeSummary?.timezone ?? screen?.timezone ?? 'Europe/Paris';
   const today = dateKeyInZone(now, timezone);
   const previousDate = shiftDate(today, -1);
@@ -584,6 +573,13 @@ export function MobileWelcomePanel({
     : fr
       ? 'Hors ligne'
       : 'Offline';
+  const canStartCall = Boolean(
+    connectionAvailable &&
+    screen?.grant.call &&
+    screen.online &&
+    !screen.state.call &&
+    screen.state.settings.consent,
+  );
   const presence = homeSummary
     ? mobilePresenceText(homeSummary, locale)
     : caregiverPresenceCopy(null).detail;
@@ -599,190 +595,354 @@ export function MobileWelcomePanel({
     ? dayNarrative(homeSummary, todaySummary.data, previousSummary.data, locale)
     : 'Le résumé de la journée se prépare.';
   const appointmentTime = nextAppointment ? time(nextAppointment.startsAt) : '';
+  const launchCall = async () => {
+    if (!canStartCall || callPending) return;
+    setCallPending(true);
+    setCallError('');
+    try {
+      await mobileApi.screenCall(server, token);
+      setCallStarted(true);
+      void queryClient.invalidateQueries({ queryKey: ['michel', server.id, 'screen'] });
+    } catch (cause) {
+      setCallError(
+        cause instanceof Error
+          ? cause.message
+          : fr
+            ? 'Impossible de lancer l’appel pour le moment.'
+            : 'The call could not be started right now.',
+      );
+    } finally {
+      setCallPending(false);
+    }
+  };
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={s.scroll}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.blue} />
-      }
-    >
-      <View style={s.header}>
-        <View style={s.headerCopy}>
-          <Text style={s.eyebrow}>{greetingDate}</Text>
-          <View style={s.greetingRow}>
-            <Text style={s.greeting}>Bonjour {firstName},</Text>
-            <View
-              accessible
-              accessibilityRole="text"
-              accessibilityLabel={connectionLabel}
-              style={[
-                s.connectionBadge,
-                connectionAvailable ? s.connectedBadge : s.disconnectedBadge,
-              ]}
-            >
-              <View
-                style={[s.connectionDot, connectionAvailable ? s.connectedDot : s.disconnectedDot]}
-              />
-              <Text
-                style={[
-                  s.connectionBadgeText,
-                  connectionAvailable ? s.connectedBadgeText : s.disconnectedBadgeText,
-                ]}
-              >
-                {connectionLabel}
+    <>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={s.scroll}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.blue} />
+        }
+      >
+        <View style={s.header}>
+          <View style={s.headerCopy}>
+            <Text style={s.eyebrow}>{greetingDate}</Text>
+            <View style={s.greetingRow}>
+              <Text style={s.greeting}>Bonjour {firstName},</Text>
+              <View style={s.headerActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    homeSummary?.alert
+                      ? fr
+                        ? 'Alertes, une situation à consulter'
+                        : 'Alerts, an item needs attention'
+                      : fr
+                        ? 'Alertes'
+                        : 'Alerts'
+                  }
+                  accessibilityHint={fr ? 'Ouvre la page Alertes.' : 'Opens the Alerts page.'}
+                  style={s.headerIconButton}
+                  onPress={() => onNavigate('alerts')}
+                >
+                  <Ionicons
+                    name="notifications-outline"
+                    size={21}
+                    color={homeSummary?.alert ? c.amber : c.blue}
+                  />
+                  {homeSummary?.alert ? <View style={s.notificationDot} /> : null}
+                </Pressable>
+                {screen?.grant.call ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={fr ? `Appeler ${resident}` : `Call ${resident}`}
+                    accessibilityHint={
+                      fr
+                        ? 'Ouvre une confirmation avant l’appel vidéo Jitsi.'
+                        : 'Opens a confirmation before the Jitsi video call.'
+                    }
+                    disabled={!canStartCall || callPending}
+                    style={[
+                      s.headerIconButton,
+                      (!canStartCall || callPending) && s.callIconButtonDisabled,
+                    ]}
+                    onPress={() => {
+                      setCallError('');
+                      setCallStarted(false);
+                      setCallConfirmOpen(true);
+                    }}
+                  >
+                    <Ionicons
+                      name="call-outline"
+                      size={21}
+                      color={canStartCall ? c.green : c.muted}
+                    />
+                  </Pressable>
+                ) : null}
+                <View
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel={connectionLabel}
+                  style={[
+                    s.connectionBadge,
+                    connectionAvailable ? s.connectedBadge : s.disconnectedBadge,
+                  ]}
+                >
+                  <View
+                    style={[
+                      s.connectionDot,
+                      connectionAvailable ? s.connectedDot : s.disconnectedDot,
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      s.connectionBadgeText,
+                      connectionAvailable ? s.connectedBadgeText : s.disconnectedBadgeText,
+                    ]}
+                  >
+                    {connectionLabel}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <Text style={s.subtitle}>Élise veille sur {resident}.</Text>
+          </View>
+        </View>
+
+        {playingMedia ? (
+          <View style={s.infoLine}>
+            <View style={[s.infoIcon, s.tvInfoIcon]}>
+              <Ionicons name="tv-outline" size={18} color={c.blue} />
+            </View>
+            <View style={s.infoCopy}>
+              <Text style={s.infoHeading}>
+                {fr ? 'LECTURE EN COURS SUR LA TV' : 'NOW PLAYING ON TV'}
+              </Text>
+              <Text style={s.infoTitle} numberOfLines={1}>
+                {playingTitle}
               </Text>
             </View>
+            <Ionicons name="play-circle" size={19} color={c.accent} />
           </View>
-          <Text style={s.subtitle}>Élise veille sur {resident}.</Text>
-        </View>
-      </View>
-
-      {playingMedia ? (
-        <View style={s.infoLine}>
-          <View style={[s.infoIcon, s.tvInfoIcon]}>
-            <Ionicons name="tv-outline" size={18} color={c.blue} />
-          </View>
-          <View style={s.infoCopy}>
-            <Text style={s.infoHeading}>
-              {fr ? 'LECTURE EN COURS SUR LA TV' : 'NOW PLAYING ON TV'}
-            </Text>
-            <Text style={s.infoTitle} numberOfLines={1}>
-              {playingTitle}
-            </Text>
-          </View>
-          <Ionicons name="play-circle" size={19} color={c.accent} />
-        </View>
-      ) : null}
-      {nextAppointment ? (
-        <View style={s.infoLine}>
-          <View style={[s.infoIcon, s.appointmentInfoIcon]}>
-            <Ionicons name="medical-outline" size={18} color={c.green} />
-          </View>
-          <View style={s.infoCopy}>
-            <Text style={s.infoHeading}>
-              {fr
-                ? `RENDEZ-VOUS ${appointmentDay.toUpperCase()}`
-                : `APPOINTMENT · ${appointmentDay.toUpperCase()}`}
-            </Text>
-            <Text style={s.infoTitle} numberOfLines={1}>
-              {nextAppointment.title}
-            </Text>
-          </View>
-          <Text style={s.infoTime}>{appointmentTime}</Text>
-        </View>
-      ) : null}
-
-      {homeSummary ? (
-        <View style={s.card}>
-          <View style={s.cardHeader}>
-            <View style={[s.statusDot, homeSummary.alert && s.statusDotWarning]} />
-            <Text style={s.cardTitle}>En ce moment</Text>
-            <Text style={s.timePill}>{time(homeSummary.to)}</Text>
-          </View>
-          <Text style={s.presenceText}>{presence}</Text>
-          {lastPresence ? <Text style={s.body}>{lastPresence}</Text> : null}
-          {homeSummary.alert ? (
-            <Pressable style={s.alertBanner} onPress={() => onNavigate('alerts')}>
-              <Ionicons name="alert-circle-outline" size={17} color={c.amber} />
-              <Text style={s.alertBannerText}>
-                {homeSummary.alert.title}
-                {homeSummary.alert.roomName ? ` · ${homeSummary.alert.roomName}` : ''}
+        ) : null}
+        {nextAppointment ? (
+          <View style={s.infoLine}>
+            <View style={[s.infoIcon, s.appointmentInfoIcon]}>
+              <Ionicons name="medical-outline" size={18} color={c.green} />
+            </View>
+            <View style={s.infoCopy}>
+              <Text style={s.infoHeading}>
+                {fr
+                  ? `RENDEZ-VOUS ${appointmentDay.toUpperCase()}`
+                  : `APPOINTMENT · ${appointmentDay.toUpperCase()}`}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={c.accent} />
-            </Pressable>
-          ) : null}
-        </View>
-      ) : (
-        <View style={s.card}>
-          <Text style={s.cardTitle}>En ce moment</Text>
-          <Text style={s.body}>Les informations du logement sont indisponibles.</Text>
-        </View>
-      )}
+              <Text style={s.infoTitle} numberOfLines={1}>
+                {nextAppointment.title}
+              </Text>
+            </View>
+            <Text style={s.infoTime}>{appointmentTime}</Text>
+          </View>
+        ) : null}
 
-      <View style={s.card}>
-        <View style={s.cardHeader}>
-          <View style={s.statusDot} />
-          <Text style={s.cardTitle}>La journée de {resident.split(/\s+/)[0]}</Text>
-        </View>
-        <Text style={s.bodyLarge}>{narrative}</Text>
-        <Pressable style={s.linkRow} onPress={() => onNavigate('activity')}>
-          <Text style={s.link}>Voir toute l’activité</Text>
-          <Ionicons name="chevron-forward" size={17} color={c.blue} />
-        </Pressable>
-      </View>
-
-      <View style={[s.card, s.essentialsCard]}>
-        <Svg
-          pointerEvents="none"
-          width="100%"
-          height="100%"
-          style={StyleSheet.absoluteFill}
-          preserveAspectRatio="none"
-        >
-          <Defs>
-            <LinearGradient id="dailyEssentialsBackground" x1="0%" y1="100%" x2="100%" y2="0%">
-              <Stop offset="0%" stopColor="#FFFFFF" />
-              <Stop offset="100%" stopColor="#F8FAF9" />
-            </LinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#dailyEssentialsBackground)" />
-        </Svg>
-        <View style={s.cardHeader}>
-          <View style={[s.statusDot, s.essentialsDot]} />
-          <Text style={[s.cardTitle, s.essentialsTitle]}>Repères du quotidien</Text>
-        </View>
-        {essentials.length ? (
-          <View style={s.sensorGrid}>
-            {essentials.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Pressable
-                  key={item.id}
-                  style={s.sensorCard}
-                  onPress={() => (item.roomId ? onNavigate('house') : onNavigate('house'))}
-                >
-                  <Icon size={30} strokeWidth={1.9} color={sensorToneColors[item.tone]} />
-                  <View style={s.sensorCopy}>
-                    <Text style={s.sensorTitle}>{item.title}</Text>
-                    <Text style={s.sensorValue}>{item.value}</Text>
-                    <Text style={s.sensorDetail}>{item.detail}</Text>
-                  </View>
-                  {item.available !== null ? (
-                    <View
-                      style={[
-                        s.healthDot,
-                        s.sensorHealthDot,
-                        { backgroundColor: item.available ? '#359457' : '#AAABB0' },
-                      ]}
-                    />
-                  ) : null}
-                </Pressable>
-              );
-            })}
+        {homeSummary ? (
+          <View style={s.card}>
+            <View style={s.cardHeader}>
+              <View style={[s.statusDot, homeSummary.alert && s.statusDotWarning]} />
+              <Text style={s.cardTitle}>En ce moment</Text>
+              <Text style={s.timePill}>{time(homeSummary.to)}</Text>
+            </View>
+            <Text style={s.presenceText}>{presence}</Text>
+            {lastPresence ? <Text style={s.body}>{lastPresence}</Text> : null}
+            {homeSummary.alert ? (
+              <Pressable style={s.alertBanner} onPress={() => onNavigate('alerts')}>
+                <Ionicons name="alert-circle-outline" size={17} color={c.amber} />
+                <Text style={s.alertBannerText}>
+                  {homeSummary.alert.title}
+                  {homeSummary.alert.roomName ? ` · ${homeSummary.alert.roomName}` : ''}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={c.accent} />
+              </Pressable>
+            ) : null}
           </View>
         ) : (
-          <Text style={s.body}>
-            Les repères apparaîtront ici lorsque les données du logement seront disponibles.
-          </Text>
+          <View style={s.card}>
+            <Text style={s.cardTitle}>En ce moment</Text>
+            <Text style={s.body}>Les informations du logement sont indisponibles.</Text>
+          </View>
         )}
-      </View>
 
-      <View style={s.card}>
-        <View style={s.cardHeader}>
-          <Ionicons name="time-outline" size={18} color={c.accent} />
-          <Text style={s.cardTitle}>Derniers événements</Text>
-          <Pressable onPress={() => onNavigate('activity')}>
-            <Text style={s.link}>Tout voir</Text>
+        <View style={s.card}>
+          <View style={s.cardHeader}>
+            <View style={s.statusDot} />
+            <Text style={s.cardTitle}>La journée de {resident.split(/\s+/)[0]}</Text>
+          </View>
+          <Text style={s.bodyLarge}>{narrative}</Text>
+          <Pressable style={s.linkRow} onPress={() => onNavigate('activity')}>
+            <Text style={s.link}>Voir toute l’activité</Text>
+            <Ionicons name="chevron-forward" size={17} color={c.blue} />
           </Pressable>
         </View>
-        {recentEvents.map((item) => (
-          <EventRow key={item.id} item={item} timezone={timezone} />
-        ))}
-        {!recentEvents.length ? <Text style={s.body}>Aucun événement récent.</Text> : null}
-      </View>
-    </ScrollView>
+
+        <View style={[s.card, s.essentialsCard]}>
+          <Svg
+            pointerEvents="none"
+            width="100%"
+            height="100%"
+            style={StyleSheet.absoluteFill}
+            preserveAspectRatio="none"
+          >
+            <Defs>
+              <LinearGradient id="dailyEssentialsBackground" x1="0%" y1="100%" x2="100%" y2="0%">
+                <Stop offset="0%" stopColor="#FFFFFF" />
+                <Stop offset="100%" stopColor="#F8FAF9" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#dailyEssentialsBackground)" />
+          </Svg>
+          <View style={s.cardHeader}>
+            <View style={[s.statusDot, s.essentialsDot]} />
+            <Text style={[s.cardTitle, s.essentialsTitle]}>Repères du quotidien</Text>
+          </View>
+          {essentials.length ? (
+            <View style={s.sensorGrid}>
+              {essentials.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Pressable
+                    key={item.id}
+                    style={s.sensorCard}
+                    onPress={() => (item.roomId ? onNavigate('house') : onNavigate('house'))}
+                  >
+                    <Icon size={30} strokeWidth={1.9} color={sensorToneColors[item.tone]} />
+                    <View style={s.sensorCopy}>
+                      <Text style={s.sensorTitle}>{item.title}</Text>
+                      <Text style={s.sensorValue}>{item.value}</Text>
+                      <Text style={s.sensorDetail}>{item.detail}</Text>
+                    </View>
+                    {item.available !== null ? (
+                      <View
+                        style={[
+                          s.healthDot,
+                          s.sensorHealthDot,
+                          { backgroundColor: item.available ? '#359457' : '#AAABB0' },
+                        ]}
+                      />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : (
+            <Text style={s.body}>
+              Les repères apparaîtront ici lorsque les données du logement seront disponibles.
+            </Text>
+          )}
+        </View>
+
+        <View style={s.card}>
+          <View style={s.cardHeader}>
+            <Ionicons name="time-outline" size={18} color={c.accent} />
+            <Text style={s.cardTitle}>Derniers événements</Text>
+            <Pressable onPress={() => onNavigate('activity')}>
+              <Text style={s.link}>Tout voir</Text>
+            </Pressable>
+          </View>
+          {recentEvents.map((item) => (
+            <EventRow key={item.id} item={item} timezone={timezone} />
+          ))}
+          {!recentEvents.length ? <Text style={s.body}>Aucun événement récent.</Text> : null}
+        </View>
+      </ScrollView>
+      <Modal
+        visible={callConfirmOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCallConfirmOpen(false)}
+      >
+        <View style={s.callModalRoot}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={fr ? 'Fermer la confirmation d’appel' : 'Close call confirmation'}
+            style={s.callModalScrim}
+            onPress={() => setCallConfirmOpen(false)}
+          />
+          <View style={s.callModalCard}>
+            <View style={s.callModalIcon}>
+              <Ionicons
+                name={callStarted ? 'checkmark' : 'videocam-outline'}
+                size={22}
+                color={c.blue}
+              />
+            </View>
+            <Text style={s.callModalTitle}>
+              {callStarted
+                ? fr
+                  ? 'Appel lancé'
+                  : 'Call started'
+                : `${fr ? 'Appeler' : 'Call'} ${resident} ?`}
+            </Text>
+            <Text style={s.callModalBody}>
+              {callStarted
+                ? fr
+                  ? 'La demande Jitsi a été envoyée à l’écran du logement.'
+                  : 'The Jitsi call request was sent to the home screen.'
+                : fr
+                  ? `L’écran du logement fera sonner ${resident} pour démarrer l’appel vidéo Jitsi.`
+                  : `The home screen will ring ${resident} to start the Jitsi video call.`}
+            </Text>
+            {callError ? (
+              <Text accessibilityRole="alert" style={s.callModalError}>
+                {callError}
+              </Text>
+            ) : null}
+            <View style={s.callModalActions}>
+              {callStarted ? (
+                <Pressable
+                  style={[s.callModalButton, s.callModalConfirm]}
+                  onPress={() => setCallConfirmOpen(false)}
+                >
+                  <Text style={s.callModalConfirmText}>{fr ? 'Fermer' : 'Close'}</Text>
+                </Pressable>
+              ) : (
+                <>
+                  <Pressable
+                    disabled={callPending}
+                    style={[
+                      s.callModalButton,
+                      s.callModalCancel,
+                      callPending && s.callModalButtonDisabled,
+                    ]}
+                    onPress={() => setCallConfirmOpen(false)}
+                  >
+                    <Text style={s.callModalCancelText}>{fr ? 'Annuler' : 'Cancel'}</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={!canStartCall || callPending}
+                    style={[
+                      s.callModalButton,
+                      s.callModalConfirm,
+                      (!canStartCall || callPending) && s.callModalButtonDisabled,
+                    ]}
+                    onPress={() => void launchCall()}
+                  >
+                    <Text style={s.callModalConfirmText}>
+                      {callPending
+                        ? fr
+                          ? 'Lancement…'
+                          : 'Starting…'
+                        : fr
+                          ? 'Confirmer'
+                          : 'Confirm'}
+                    </Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -868,14 +1028,15 @@ const s = StyleSheet.create({
   infoTime: { color: c.blue, fontSize: 10, fontWeight: '900' },
   header: { gap: 10 },
   headerCopy: { gap: 3 },
-  flex: { flex: 1 },
-  eyebrow: { color: c.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
   },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
+  flex: { flex: 1 },
+  eyebrow: { color: c.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   greeting: { color: c.navy, flexShrink: 1, fontFamily: 'Georgia', fontSize: 27 },
   connectionBadge: {
     alignItems: 'center',
@@ -895,6 +1056,75 @@ const s = StyleSheet.create({
   connectionDot: { width: 8, height: 8, borderRadius: 4 },
   connectedDot: { backgroundColor: c.green },
   disconnectedDot: { backgroundColor: c.red },
+  headerIconButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: '#C8DDCF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: c.paper,
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: c.paper,
+    backgroundColor: c.red,
+  },
+  callIconButtonDisabled: { opacity: 0.5 },
+  callModalRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 22 },
+  callModalScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(8, 27, 46, 0.48)',
+  },
+  callModalCard: {
+    width: '100%',
+    maxWidth: 370,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: c.line,
+    borderRadius: 20,
+    alignItems: 'center',
+    gap: 11,
+    backgroundColor: c.paper,
+  },
+  callModalIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: c.paleBlue,
+  },
+  callModalTitle: { color: c.navy, textAlign: 'center', fontFamily: 'Georgia', fontSize: 20 },
+  callModalBody: { color: c.muted, textAlign: 'center', fontSize: 11, lineHeight: 17 },
+  callModalError: {
+    width: '100%',
+    padding: 9,
+    borderRadius: 10,
+    color: c.red,
+    backgroundColor: '#F9E8E7',
+    fontSize: 10,
+  },
+  callModalActions: { width: '100%', flexDirection: 'row', gap: 8, marginTop: 2 },
+  callModalButton: {
+    minHeight: 44,
+    flex: 1,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callModalButtonDisabled: { opacity: 0.5 },
+  callModalCancel: { borderWidth: 1, borderColor: c.line, backgroundColor: c.cream },
+  callModalConfirm: { backgroundColor: c.blue },
+  callModalCancelText: { color: c.navy, fontSize: 11, fontWeight: '800' },
+  callModalConfirmText: { color: '#fff', fontSize: 11, fontWeight: '900' },
   subtitle: { color: c.muted, fontSize: 11 },
   caption: { color: c.muted, fontSize: 8, lineHeight: 13 },
   card: {

@@ -1,0 +1,6 @@
+{
+  "name": "@michel/apple-liquid-glass",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Apple UIKit Liquid Glass background for the Michel mobile navigation bar"
+}
