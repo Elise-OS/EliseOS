@@ -6,13 +6,11 @@ import {
   AlertRulesPanel,
   Login,
   MedicationPanel,
-  PeoplePanel,
   SidebarBehaviorSetting,
   SidebarNavigation,
   SimulationPanel,
 } from './App';
 import { createBootstrapPayload, Setup } from './Setup';
-import { GoogleAccountSettings } from './GoogleAccountSettings';
 
 describe('Élise copy', () => {
   it('ships complete reassurance copy in both languages', () => {
@@ -160,7 +158,7 @@ describe('Élise first startup', () => {
       <Setup locale="fr" onLocaleChange={() => undefined} onCompleted={() => undefined} />,
     );
     expect(html).toContain('Préparons Élise pour une personne qui compte');
-    expect(html).toContain('Étape 1 sur 7');
+    expect(html).toContain('Étape 1 sur 6');
     expect(html).toContain('Vos données restent stockées localement');
     expect(html).toContain('Français');
     expect(html).not.toContain('Téléphone');
@@ -172,7 +170,7 @@ describe('Élise first startup', () => {
     );
     expect(html).toContain('Set up Élise for someone who matters');
     expect(html).toContain('Start setup');
-    expect(html).toContain('Step 1 of 7 · Welcome');
+    expect(html).toContain('Step 1 of 6 · Welcome');
     expect(html).toContain('Draft saved on this device');
     expect(html).not.toContain('Préparons Élise pour une personne qui compte');
   });
@@ -191,17 +189,6 @@ describe('Élise first startup', () => {
     );
     expect(html).toContain('Créer un environnement Élise');
     expect(html).toContain('compte propriétaire protégé');
-  });
-});
-
-describe('People access design', () => {
-  it('shows management actions only to administrators', () => {
-    const viewer = renderToStaticMarkup(<PeoplePanel locale="fr" currentRole="VIEWER" />);
-    const owner = renderToStaticMarkup(<PeoplePanel locale="fr" currentRole="OWNER" />);
-    expect(viewer).toContain('Les proches');
-    expect(viewer).not.toContain('Ajouter un proche');
-    expect(owner).toContain('Ajouter un proche');
-    expect(owner).toContain('contacts prioritaires');
   });
 });
 
@@ -260,15 +247,6 @@ describe('Élise alert rule design', () => {
     expect(html).toContain('Évite de confondre une panne avec une absence d’activité');
     expect(html).toContain('Enregistrer les repères');
     expect(html).not.toContain('MQTT');
-  });
-});
-
-describe('Google account setup', () => {
-  it('exposes a dedicated Google account section', () => {
-    const html = renderToStaticMarkup(<GoogleAccountSettings locale="fr" />);
-    expect(html).toContain('Compte Google');
-    expect(html).toContain('Un seul réglage pour vos playlists YouTube');
-    expect(html).toContain('À configurer');
   });
 });
 

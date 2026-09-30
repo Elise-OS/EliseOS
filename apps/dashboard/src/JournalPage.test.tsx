@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { JournalPage } from './JournalPage';
 
 describe('JournalPage', () => {
@@ -12,6 +12,8 @@ describe('JournalPage', () => {
   });
 
   it('groups entries by date and labels their source', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-21T12:00:00.000Z'));
     const html = renderToStaticMarkup(
       <JournalPage
         items={[
@@ -43,3 +45,5 @@ describe('JournalPage', () => {
     expect(html).not.toContain('>Notes familiales<');
   });
 });
+
+afterEach(() => vi.useRealTimers());
