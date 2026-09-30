@@ -7,6 +7,7 @@ fi
 
 repository_root="${CI_PRIMARY_REPOSITORY_PATH:?Xcode Cloud did not provide the repository path}"
 build_number="${CI_BUILD_NUMBER:?Xcode Cloud did not provide the build number}"
+cd "$repository_root"
 node_binary="$(brew --prefix node@24)/bin/node"
 
 if [[ ! "$build_number" =~ ^[1-9][0-9]*$ ]]; then
