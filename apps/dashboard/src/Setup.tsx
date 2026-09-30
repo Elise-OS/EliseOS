@@ -1608,25 +1608,6 @@ function Field({
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <h3 className="elise-section-label">{children}</h3>;
-}
-function Choice({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button type="button" className={`elise-choice ${active ? 'selected' : ''}`} onClick={onClick}>
-      {children}
-      <span>{active && <Check />}</span>
-    </button>
-  );
-}
 function Segmented({
   value,
   options,

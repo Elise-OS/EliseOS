@@ -8,7 +8,7 @@ export type MobileDateTimePickerProps = {
   is24Hour?: boolean;
   locale?: string;
   themeVariant?: 'light' | 'dark';
-  minuteInterval?: number;
+  minuteInterval?: 1 | 2 | 3 | 4 | 5 | 6 | 10 | 12 | 15 | 20 | 30;
   minimumDate?: Date;
   style?: StyleProp<ViewStyle>;
 };

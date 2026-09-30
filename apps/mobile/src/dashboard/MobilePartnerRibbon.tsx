@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import lifeplusLogo from '../../assets/partners/lifeplus.png';
+import nodonLogo from '../../assets/partners/nodon.png';
+import smlightLogo from '../../assets/partners/smlight-symbol.png';
+import thirdrealityLogo from '../../assets/partners/thirdreality.png';
 import {
   AccessibilityInfo,
   Animated,
@@ -24,28 +28,28 @@ const partners: Partner[] = [
   {
     id: 'nodon',
     name: 'NodOn',
-    image: require('../../assets/partners/nodon.png'),
+    image: nodonLogo,
     roleFr: 'Partenaire principal',
     roleEn: 'Lead partner',
   },
   {
     id: 'thirdreality',
     name: 'ThirdReality',
-    image: require('../../assets/partners/thirdreality.png'),
+    image: thirdrealityLogo,
     roleFr: 'Partenaire matériel',
     roleEn: 'Hardware partner',
   },
   {
     id: 'smlight',
     name: 'SMLIGHT',
-    image: require('../../assets/partners/smlight-symbol.png'),
+    image: smlightLogo,
     roleFr: 'Partenaire matériel',
     roleEn: 'Hardware partner',
   },
   {
     id: 'lifeplus',
     name: 'Life Plus',
-    image: require('../../assets/partners/lifeplus.png'),
+    image: lifeplusLogo,
     roleFr: 'Conseils & intimité du résident',
     roleEn: 'Resident guidance & privacy',
   },
