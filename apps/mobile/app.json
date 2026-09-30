@@ -1,9 +1,10 @@
 {
   "expo": {
-    "name": "Élise",
+    "name": "Elise Os - Companion",
     "slug": "michel-mobile",
     "scheme": "michel",
     "version": "0.1.5",
+    "icon": "./assets/logo.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "plugins": [
