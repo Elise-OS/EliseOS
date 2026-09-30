@@ -16,7 +16,8 @@ ENV['RCT_NEW_ARCH_ENABLED'] ||= '0' if podfile_properties['newArchEnabled'] == '
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] ||= podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
 ENV['RCT_USE_RN_DEP'] ||= '1' if podfile_properties['ios.buildReactNativeFromSource'] != 'true' && podfile_properties['newArchEnabled'] != 'false'
 ENV['RCT_USE_PREBUILT_RNCORE'] ||= '1' if podfile_properties['ios.buildReactNativeFromSource'] != 'true' && podfile_properties['newArchEnabled'] != 'false'
-platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
+ios_deployment_target = podfile_properties['ios.deploymentTarget'] || '15.1'
+platform :ios, ios_deployment_target
 
 prepare_react_native_project!
 
@@ -59,5 +60,15 @@ target 'lise' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
+
+    minimum_ios_version = Gem::Version.new(ios_deployment_target)
+    installer.pods_project.targets.each do |pod_target|
+      pod_target.build_configurations.each do |build_configuration|
+        pod_ios_version = build_configuration.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        next unless pod_ios_version && Gem::Version.new(pod_ios_version) < minimum_ios_version
+
+        build_configuration.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = ios_deployment_target
+      end
+    end
   end
 end
