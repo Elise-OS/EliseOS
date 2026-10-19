@@ -131,6 +131,34 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - id: play-publishing
+        name: Check Google Play publishing configuration
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Google Play upload skipped: only main is published."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          elif [[ -z "${PLAY_SERVICE_ACCOUNT_JSON:-}" ]]; then
+            echo "::notice::Google Play upload skipped: repository secret PLAY_SERVICE_ACCOUNT_JSON is not set."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A Play app that has never been reviewed only accepts draft releases; set the
+      # repository variable PLAY_RELEASE_STATUS to "completed" once the app is live.
+      - name: Upload AAB to Google Play internal testing
+        if: steps.play-publishing.outputs.enabled == 'true'
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: org.michel.mobile
+          releaseFiles: apps/mobile/android/app/build/outputs/bundle/release/app-release.aab
+          releaseName: ${{ steps.android-version.outputs.version_name }} (${{ steps.android-version.outputs.version_code }})
+          track: internal
+          status: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
+
       - name: Remove temporary upload keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/upload-keystore.jks"
