@@ -1,5 +1,6 @@
 import {
   DEFAULT_ALERT_RULE_SETTINGS,
+  isBedOccupancySensorModel,
   presenceCapabilityForDevice,
   type AlertRuleSettings,
   type HomePlan,
@@ -313,17 +314,22 @@ export function buildSleepSummary(
         .map((binding) => ({ placement, binding })),
     );
   const selected = bindings
-    .map(({ placement, binding }) => ({
-      room: bedrooms.find(({ id }) => id === placement.roomId),
-      sensor: sensors.find(
-        ({ id, deviceId, capability }) =>
+    .map(({ placement, binding }) => {
+      const sensor = sensors.find(
+        ({ id, deviceId, capability, device }) =>
           id === binding.sensorId &&
-          ['contact', 'dry_contact'].includes(capability) &&
+          (['contact', 'dry_contact'].includes(capability) ||
+            (capability === 'occupancy' && isBedOccupancySensorModel(device?.model))) &&
           (placement.equipmentId === id ||
             (placement.equipmentRefKind === 'DEVICE' && placement.equipmentId === deviceId)),
-      ),
-      occupiedWhen: binding.bedOccupiedWhen ?? 'CLOSED',
-    }))
+      );
+      return {
+        room: bedrooms.find(({ id }) => id === placement.roomId),
+        sensor,
+        occupiedWhen:
+          binding.bedOccupiedWhen ?? (sensor?.capability === 'occupancy' ? 'OPEN' : 'CLOSED'),
+      };
+    })
     .find(({ room, sensor }) => room && sensor);
   const result: NonNullable<HomeSummary['sleep']> = {
     roomId: selected?.room?.id ?? bedrooms[0]?.id ?? null,

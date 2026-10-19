@@ -246,17 +246,31 @@ export class ActivityService {
       sleepEvents,
       priorSleepStates,
     ] = await Promise.all([
-      this.prisma.sensor.findMany({
-        where: { homeId: home.id, analysisEnabled: true, removedAt: null },
-        include: {
-          device: { select: { model: true, lastSeenAt: true } },
-          events: { orderBy: { occurredAt: 'desc' }, take: 1, where: { occurredAt: { lte: to } } },
-        },
-      }),
+      this.prisma.sensor
+        .findMany({
+          where: { homeId: home.id, analysisEnabled: true, removedAt: null },
+          include: {
+            device: { select: { model: true, lastSeenAt: true } },
+          },
+        })
+        .then(async (rows) => {
+          // Limit each sensor's history in PostgreSQL, before sending it to the API.
+          const latest = await this.latestEvents(
+            rows.map((sensor) => sensor.id),
+            to,
+          );
+          return rows.map((sensor) => ({
+            ...sensor,
+            events: latest.has(sensor.id) ? [latest.get(sensor.id)!] : [],
+          }));
+        }),
       this.prisma.observationEvent.findMany({
         where: {
           homeId: home.id,
           occurredAt: { gte: lookback, lte: to },
+          // Light levels use the latest sensor reading; their dense numeric
+          // history does not contribute to activity or shower detection.
+          capability: { not: 'illuminance' },
           sensor: { analysisEnabled: true, removedAt: null },
         },
         orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
@@ -284,7 +298,7 @@ export class ActivityService {
       this.prisma.observationEvent.findMany({
         where: {
           homeId: home.id,
-          capability: { in: ['contact', 'dry_contact'] },
+          capability: { in: ['contact', 'dry_contact', 'occupancy'] },
           occurredAt: { gte: sleepLookback, lte: to },
           sensor: { analysisEnabled: true, removedAt: null },
         },
@@ -293,7 +307,7 @@ export class ActivityService {
       this.prisma.observationEvent.findMany({
         where: {
           homeId: home.id,
-          capability: { in: ['contact', 'dry_contact'] },
+          capability: { in: ['contact', 'dry_contact', 'occupancy'] },
           occurredAt: { lt: sleepLookback },
           sensor: { analysisEnabled: true, removedAt: null },
         },
@@ -1363,7 +1377,10 @@ export class ActivityService {
     });
   }
 
-  private async latestEvents(sensorIds: string[]): Promise<Map<string, ObservationEvent>> {
+  private async latestEvents(
+    sensorIds: string[],
+    at = new Date(),
+  ): Promise<Map<string, ObservationEvent>> {
     if (sensorIds.length === 0) return new Map();
     const events = await this.prisma.$queryRaw<ObservationEvent[]>`
       SELECT latest.*
@@ -1371,6 +1388,7 @@ export class ActivityService {
       JOIN LATERAL (
         SELECT * FROM "ObservationEvent" AS event
         WHERE event."sensorId" = target.id
+          AND event."occurredAt" <= ${at}
         ORDER BY event."occurredAt" DESC
         LIMIT 1
       ) AS latest ON true

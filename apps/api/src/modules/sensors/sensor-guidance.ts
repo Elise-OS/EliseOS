@@ -114,6 +114,22 @@ export function placementGuide(capabilities: string[], roomKind = 'OTHER', usage
         'Élise complète la vigilance du logement mais ne garantit pas la détection de toutes les fuites.',
     };
   }
+  if (primary === 'fall_detection') {
+    return {
+      title: 'Couvrir la zone de vie',
+      summary:
+        'Installez le détecteur selon la hauteur et l’orientation indiquées par Heiman, avec une vue dégagée sur la zone à protéger.',
+      steps: [
+        'Choisissez un montage mural ou au plafond prévu par la notice.',
+        'Vérifiez que les meubles et cloisons ne masquent pas la zone de détection.',
+        'Utilisez uniquement le mode de test du fabricant pour vérifier l’alerte Élise.',
+      ],
+      avoid: ['Usage extérieur', 'Zone masquée ou couverture partielle de la pièce'],
+      testInstruction: 'Utilisez le mode de test indiqué dans la notice Heiman.',
+      safetyNote:
+        'Une alerte demande une vérification auprès de la personne. La détection Élise ne remplace ni une téléassistance ni les services d’urgence.',
+    };
+  }
   if (['smoke', 'carbon_monoxide'].includes(primary)) {
     return {
       title: 'Respecter la notice de sécurité',

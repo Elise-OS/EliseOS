@@ -12,6 +12,7 @@ import {
   capabilitySchema,
   deviceSupportsCategory,
   homePlanSchema,
+  isBedOccupancySensorModel,
   roomSensorCategorySchema,
   sensorOnboardingCompletionSchema,
   sensorProtocolSchema,
@@ -465,6 +466,7 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
     standalone: boolean,
     sensors: Array<{ id: string; capability: string }>,
     input: SensorOnboardingCompletion,
+    deviceModel: string | null = null,
   ) {
     const room = input.roomId
       ? await tx.room.findFirst({ where: { id: input.roomId, homeId } })
@@ -473,15 +475,22 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
     if (
       input.contactRole === 'BED' &&
       (room?.kind !== 'BEDROOM' ||
-        !sensors.some(({ capability }) => ['contact', 'dry_contact'].includes(capability)))
+        !sensors.some(
+          ({ capability }) =>
+            ['contact', 'dry_contact'].includes(capability) ||
+            (capability === 'occupancy' && isBedOccupancySensorModel(deviceModel)),
+        ))
     )
-      throw new UnprocessableEntityException('Le lit nécessite un contact sec dans une chambre.');
+      throw new UnprocessableEntityException(
+        'Le lit nécessite un capteur de pression ou un contact sec dans une chambre.',
+      );
     if (!input.roomId && input.target)
       throw new UnprocessableEntityException('Une cible précise nécessite une pièce.');
     await assignSensorToPlan(tx, {
       homeId,
       equipmentId,
       standalone,
+      model: deviceModel,
       sensors,
       input,
       resolve: (plan, roomId, target, capabilities) => {
@@ -535,6 +544,7 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
         false,
         session.device!.sensors,
         input,
+        session.device!.model,
       );
       await tx.device.update({
         where: { id: session.device!.id },
@@ -607,6 +617,7 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
             ...input,
             roomId,
           },
+          device?.model ?? null,
         );
       }
       if (sensor) {
@@ -999,7 +1010,8 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
     if (values.has('temperature') && values.has('humidity')) return 'TEMPERATURE_HUMIDITY';
     if (values.has('temperature')) return 'TEMPERATURE';
     if (values.has('water_leak')) return 'WATER_LEAK';
-    if (values.has('smoke') || values.has('carbon_monoxide')) return 'SAFETY';
+    if (values.has('smoke') || values.has('carbon_monoxide') || values.has('fall_detection'))
+      return 'SAFETY';
     if (values.has('contact')) return 'CONTACT';
     if (values.has('occupancy') && isPirMotionModel(model)) return 'MOTION';
     if (values.has('person_presence') || values.has('occupancy')) return 'PRESENCE';
@@ -1076,11 +1088,17 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private deviceView(device: DeviceWithSensors) {
+    const zigbee2mqttDevice =
+      device.protocol === 'zigbee' &&
+      ['zigbee2mqtt', 'mqtt'].includes(device.integration ?? '') &&
+      Boolean(device.networkIdentifier);
     const zigbeeJoined =
-      device.protocol === 'zigbee' && device.networkIdentifier
+      zigbee2mqttDevice && device.networkIdentifier
         ? this.mqtt.isZigbeeDeviceJoined?.(device.networkIdentifier)
         : null;
-    const networkDisconnected = zigbeeJoined === false;
+    const zigbeeOnline = zigbee2mqttDevice ? this.mqtt.zigbeeStatus?.().online : undefined;
+    const networkDisconnected =
+      zigbee2mqttDevice && (zigbeeOnline === false || zigbeeJoined === false);
     const recognizedSensors = device.sensors
       .filter((sensor) => sensor.capability !== 'unknown')
       .sort(
@@ -1096,8 +1114,8 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
           : sensor.capability;
       return this.capabilityView(sensor, networkDisconnected, displayCapability);
     });
-    const batteryPayload = userSensors.find((sensor) => sensor.capability === 'battery')?.events[0]
-      ?.payload;
+    const batterySensor = userSensors.find((sensor) => sensor.capability === 'battery');
+    const batteryPayload = batterySensor?.events[0]?.payload;
     const battery = this.recordValue(batteryPayload);
     const lastSeen = device.sensors.reduce(
       (latest: Date | null, sensor) =>
@@ -1106,6 +1124,9 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
     );
     const primarySensors = userSensors.filter((sensor) => !isSecondarySensor(sensor));
     const sensorsDeterminingState = primarySensors.length > 0 ? primarySensors : userSensors;
+    const sensorUnavailable = sensorsDeterminingState.some(
+      (sensor) => !sensor.available || sensor.status === 'OFFLINE',
+    );
     const uncertain = sensorsDeterminingState.some(
       (sensor) => !sensor.analysisEnabled || sensor.classificationConfidence < 0.8,
     );
@@ -1126,7 +1147,7 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
                   : device.name;
     const status = !device.enabled
       ? 'DISABLED'
-      : networkDisconnected
+      : networkDisconnected || sensorUnavailable
         ? 'ATTENTION'
         : uncertain
           ? 'NEEDS_CONFIRMATION'
@@ -1148,7 +1169,12 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
       placementNote: device.placementNote ?? null,
       lastSeenAt: lastSeen?.toISOString() ?? null,
       batteryPercent:
-        !networkDisconnected && typeof battery?.value === 'number' ? battery.value : null,
+        !networkDisconnected &&
+        batterySensor?.available &&
+        batterySensor.status !== 'OFFLINE' &&
+        typeof battery?.value === 'number'
+          ? battery.value
+          : null,
       capabilities,
       action: this.actionFor(status, Boolean(device.room)),
     };
@@ -1190,6 +1216,7 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
     networkDisconnected = false,
     displayCapability = sensor.capability,
   ) {
+    const unavailable = networkDisconnected || !sensor.available || sensor.status === 'OFFLINE';
     return {
       sensorId: sensor.id,
       entityId: sensor.entityId,
@@ -1198,8 +1225,8 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
       primary: !isSecondarySensor(sensor),
       lastSeenAt:
         sensor.events[0]?.occurredAt?.toISOString() ?? sensor.lastSeenAt?.toISOString() ?? null,
-      status: networkDisconnected ? 'OFFLINE' : sensor.status,
-      value: networkDisconnected ? null : this.recordValue(sensor.events[0]?.payload),
+      status: unavailable ? 'OFFLINE' : sensor.status,
+      value: unavailable ? null : this.recordValue(sensor.events[0]?.payload),
       unit: sensor.unit,
       classification: {
         source: sensor.classificationSource,

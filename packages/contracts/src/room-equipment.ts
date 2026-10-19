@@ -222,6 +222,21 @@ const STILL_PRESENCE_MODELS = new Set([
 const STILL_PRESENCE_MODEL_NAMES = ['SMARTPRESENCESENSORR3', 'MULTIFUNCTIONSMARTPRESENCESENSORR3'];
 const MOTION_MODELS = new Set(['SNZB-03P', 'SNZB-03', '3RMS16BZ', '3RMS16BZ-NEW', '3RSM0147Z']);
 const MOTION_MODEL_NAMES = ['WIRELESSMOTIONSENSOR'];
+const BED_OCCUPANCY_MODEL_NAMES = [
+  'TS0601BEDPRESENCESENSOR',
+  'PRESSURESENSINGSTRAPBEDOCCUPANCYSENSOR',
+  'TZE200SEQ9CM6U',
+];
+
+export function isBedOccupancySensorModel(model: string | null | undefined): boolean {
+  const normalizedModel =
+    model
+      ?.trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '') ?? '';
+  return BED_OCCUPANCY_MODEL_NAMES.some((name) => normalizedModel.includes(name));
+}
+
 export type CategoryDevice = { model: string | null; capabilities: Array<{ capability: string }> };
 
 export function presenceCapabilityForDevice(
@@ -259,13 +274,50 @@ export function deviceSupportsCategory(
   if (category === 'contact') return values.has('contact') || values.has('dry_contact');
   if (category === 'bed')
     return (
-      values.has('dry_contact') || (normalizedModel.includes('SDC4100') && values.has('contact'))
+      values.has('dry_contact') ||
+      (normalizedModel.includes('SDC4100') && values.has('contact')) ||
+      (values.has('occupancy') && isBedOccupancySensorModel(model))
     );
   if (category === 'air_quality')
     return ['co2', 'voc', 'total_volatile_organic_compounds', 'pm25', 'air_quality'].some((value) =>
       values.has(value),
     );
   return values.has(category);
+}
+
+/**
+ * Returns sensors that are assigned to a room or placed in the home plan and
+ * support the requested category. Unassigned devices found during discovery
+ * are intentionally excluded.
+ */
+export function configuredHomeDevicesForCategory<
+  T extends {
+    id: string;
+    model: string | null;
+    room?: { id: string } | null;
+    capabilities: Array<{ sensorId: string; capability: string }>;
+  },
+>(
+  plan: {
+    placements: Array<{
+      kind: string;
+      equipmentId: string;
+      equipmentRefKind?: string | undefined;
+    }>;
+  },
+  devices: readonly T[],
+  category: RoomSensorCategory,
+): T[] {
+  return devices.filter((device) => {
+    const placedInPlan = plan.placements.some(
+      (placement) =>
+        placement.kind === 'SENSOR' &&
+        (placement.equipmentRefKind === 'DEVICE'
+          ? placement.equipmentId === device.id
+          : device.capabilities.some(({ sensorId }) => sensorId === placement.equipmentId)),
+    );
+    return (Boolean(device.room?.id) || placedInPlan) && deviceSupportsCategory(device, category);
+  });
 }
 
 export type SensorProduct = {

@@ -1,4 +1,9 @@
-import { homePlanSchema, type HomePlan, type SensorOnboardingCompletion } from '@michel/contracts';
+import {
+  homePlanSchema,
+  isBedOccupancySensorModel,
+  type HomePlan,
+  type SensorOnboardingCompletion,
+} from '@michel/contracts';
 import { ConflictException, UnprocessableEntityException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 
@@ -6,6 +11,7 @@ type Assignment = {
   homeId: string;
   equipmentId: string;
   standalone: boolean;
+  model?: string | null;
   sensors: Array<{ id: string; capability: string }>;
   input: SensorOnboardingCompletion;
   resolve: (
@@ -19,7 +25,7 @@ type Assignment = {
 /** Called inside the same transaction as the device update. Revision checks
  * protect against an editor saving over a concurrent installation. */
 export async function assignSensorToPlan(tx: Prisma.TransactionClient, assignment: Assignment) {
-  const { homeId, equipmentId, standalone, sensors, input, resolve } = assignment;
+  const { homeId, equipmentId, standalone, model, sensors, input, resolve } = assignment;
   const record = await tx.homePlan.findUnique({ where: { homeId } });
   if (!record) {
     if (input.target)
@@ -68,8 +74,13 @@ export async function assignSensorToPlan(tx: Prisma.TransactionClient, assignmen
         const previousBinding = previous?.capabilityBindings.find(
           ({ sensorId }) => sensorId === sensor.id,
         );
+        const canUseContactRole =
+          ['contact', 'dry_contact'].includes(sensor.capability) ||
+          (sensor.capability === 'occupancy' &&
+            input.contactRole === 'BED' &&
+            isBedOccupancySensorModel(model));
         const role =
-          ['contact', 'dry_contact'].includes(sensor.capability) && input.contactRole
+          canUseContactRole && input.contactRole
             ? input.contactRole
             : (previousBinding?.role ??
               (sensor.capability === 'button'
@@ -82,7 +93,9 @@ export async function assignSensorToPlan(tx: Prisma.TransactionClient, assignmen
           ...(role === 'BED'
             ? {
                 bedOccupiedWhen:
-                  input.bedOccupiedWhen ?? previousBinding?.bedOccupiedWhen ?? 'CLOSED',
+                  input.bedOccupiedWhen ??
+                  previousBinding?.bedOccupiedWhen ??
+                  (sensor.capability === 'occupancy' ? 'OPEN' : 'CLOSED'),
               }
             : {}),
         };

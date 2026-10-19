@@ -74,6 +74,44 @@ const bedSensor = (latest: ReturnType<typeof bedEvent>, status = 'ONLINE') => ({
   available: status === 'ONLINE',
   events: [latest],
 });
+const bedOccupancyEvent = (active: boolean, occurredAt: string) => ({
+  sensorId: 'bed-occupancy',
+  roomId: 'bedroom',
+  capability: 'occupancy',
+  payload: { active },
+  quality: 'good',
+  occurredAt: new Date(occurredAt),
+});
+const bedOccupancyPlan = () =>
+  ({
+    levels: [{ items: [], rooms: [{ ...bedroom, geometry: { color: null } }] }],
+    placements: [
+      {
+        kind: 'SENSOR',
+        equipmentId: 'bed-device',
+        equipmentRefKind: 'DEVICE',
+        roomId: 'bedroom',
+        capabilityBindings: [
+          {
+            sensorId: 'bed-occupancy',
+            capability: 'occupancy',
+            role: 'BED',
+            bedOccupiedWhen: 'OPEN',
+          },
+        ],
+      },
+    ],
+  }) as unknown as HomePlan;
+const bedOccupancySensor = (latest: ReturnType<typeof bedOccupancyEvent>) => ({
+  id: 'bed-occupancy',
+  deviceId: 'bed-device',
+  roomId: 'bedroom',
+  capability: 'occupancy',
+  status: 'ONLINE',
+  available: true,
+  device: { model: 'Pressure Sensing Strap/Bed Occupancy Sensor' },
+  events: [latest],
+});
 
 describe('bed landmarks', () => {
   const now = new Date('2026-09-15T06:10:00Z');
@@ -106,6 +144,31 @@ describe('bed landmarks', () => {
     expect(buildHomeCards([bedSensor(events.at(-1)!)], events, bedPlan(), [bedroom]).cards).toEqual(
       [],
     );
+  });
+
+  it('uses the Tuya binary occupancy state for bedtime and wake-up', () => {
+    const events = [
+      bedOccupancyEvent(false, '2026-09-14T19:00:00Z'),
+      bedOccupancyEvent(true, '2026-09-14T20:30:00Z'),
+      bedOccupancyEvent(false, '2026-09-15T05:30:00Z'),
+    ];
+    expect(
+      buildSleepSummary(
+        [bedOccupancySensor(events.at(-1)!)],
+        events,
+        [],
+        bedOccupancyPlan(),
+        [bedroom],
+        'Europe/Paris',
+        now,
+      ),
+    ).toMatchObject({
+      configured: true,
+      available: true,
+      occupied: false,
+      bedtimeAt: '2026-09-14T20:30:00.000Z',
+      wakeAt: '2026-09-15T05:30:00.000Z',
+    });
   });
 
   it('keeps yesterday evening bedtime and today wake-up after tonight has started', () => {
@@ -440,6 +503,7 @@ describe('home daily facts', () => {
   it('exposes the latest active movement as the current location evidence', async () => {
     const db = database();
     db.sensor.findMany.mockResolvedValue([sensor]);
+    db.$queryRaw.mockResolvedValue(sensor.events);
     db.observationEvent.findMany.mockResolvedValue([
       {
         sensorId: 'pir',
@@ -624,6 +688,7 @@ const database = () => ({
     findFirst: vi.fn().mockResolvedValue({ id: 'home', timezone: 'Europe/Paris', rooms: [room] }),
   },
   sensor: { findMany: vi.fn().mockResolvedValue([]) },
+  $queryRaw: vi.fn().mockResolvedValue([]),
   observationEvent: { findMany: vi.fn().mockResolvedValue([]) },
   homePlan: { findUnique: vi.fn().mockResolvedValue(null) },
   alert: { findMany: vi.fn().mockResolvedValue([]) },
@@ -666,6 +731,7 @@ describe('home summary access and day boundaries', () => {
   it('keeps a confirmed room when its latest evidence sensor is online', async () => {
     const db = database();
     db.sensor.findMany.mockResolvedValue([sensor]);
+    db.$queryRaw.mockResolvedValue(sensor.events);
     db.alert.findMany.mockResolvedValue([
       {
         id: 'alert-toilet',
