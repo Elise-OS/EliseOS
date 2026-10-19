@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -8,10 +9,11 @@ import {
 } from '@nestjs/common';
 import {
   cameraConfigurationSchema,
+  cameraNetworkConfigurationSchema,
   cameraPrivacySchema,
   type CameraConfiguration,
 } from '@michel/contracts';
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Prisma, type MembershipRole } from '@prisma/client';
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -20,6 +22,8 @@ import { PrismaService } from '../../platform/prisma.service';
 import { rolesFor } from '../auth/access-policy';
 import { MqttIngestionService } from '../sensing/mqtt-ingestion.service';
 import { decryptCameraSecret, encryptCameraSecret } from './camera-crypto';
+import { discoverOnvifStreams } from './camera-onvif';
+import { CameraNetworkDiscoveryService } from './camera-network-discovery.service';
 
 const VIEW_ROLES = rolesFor('cameras:view');
 const PRIVACY_ROLES = rolesFor('cameras:privacy');
@@ -40,6 +44,7 @@ export class CamerasService implements OnModuleInit, OnModuleDestroy {
   public constructor(
     private readonly prisma: PrismaService,
     private readonly mqtt: MqttIngestionService,
+    private readonly networkDiscovery: CameraNetworkDiscoveryService = new CameraNetworkDiscoveryService(),
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -66,40 +71,82 @@ export class CamerasService implements OnModuleInit, OnModuleDestroy {
     return cameras.map((camera) => this.present(camera));
   }
 
-  public async create(userId: string, body: unknown) {
-    const input = parseRequest(cameraConfigurationSchema, body);
+  public async discoverNetwork(userId: string) {
+    await this.homeFor(userId, ADMIN_ROLES);
+    return this.networkDiscovery.discover();
+  }
+
+  public async createNetworkCamera(userId: string, body: unknown) {
+    const input = parseRequest(cameraNetworkConfigurationSchema, body);
     const home = await this.homeFor(userId, ADMIN_ROLES);
-    const links = await this.validateLinks(home.id, input);
+    const room = await this.prisma.room.findFirst({
+      where: { id: input.roomId, homeId: home.id },
+    });
+    if (!room) throw new NotFoundException('Pièce introuvable.');
+    await this.networkDiscovery.verifyTarget(input.address, input.rtspPort);
+    const discovered = await discoverOnvifStreams(input.address, input.username, input.password);
+    const fallbackPaths = [
+      '/cam/realmonitor?channel=1&subtype=0',
+      '/Streaming/Channels/101',
+      '/live/ch00_0',
+      '/stream1',
+      '/h264Preview_01_main',
+    ];
+    const streamCandidates = [
+      ...discovered.streamUris,
+      ...fallbackPaths.map((path) => `rtsp://${input.address}:${input.rtspPort}${path}`),
+    ];
+    let streamUrl: string | undefined;
+    for (const candidate of [...new Set(streamCandidates)]) {
+      try {
+        const authenticated = await this.authenticatedNetworkStreamUrl(candidate, input);
+        await this.verifyNetworkStream(authenticated);
+        streamUrl = authenticated;
+        break;
+      } catch {
+        // Try the next automatically discovered ONVIF profile or common RTSP path.
+      }
+    }
+    if (!streamUrl) {
+      throw new BadRequestException(
+        'Élise n’a pas trouvé de flux vidéo utilisable. Vérifiez le mot de passe local et que ONVIF ou RTSP est activé dans l’application de la caméra.',
+      );
+    }
+    const resolvedStream = new URL(streamUrl);
     const streamKey = `camera_${randomUUID().replaceAll('-', '')}`;
+    const streamEntityId = `network:${createHash('sha256')
+      .update(
+        `${input.address}:${resolvedStream.port || input.rtspPort}${resolvedStream.pathname}${resolvedStream.search}`,
+      )
+      .digest('hex')}`;
     const camera = await this.prisma.camera.create({
       data: {
         homeId: home.id,
         roomId: input.roomId,
-        deviceId: links.deviceId,
+        deviceId: null,
         name: input.name,
-        provider: input.provider,
+        provider: discovered.manufacturer || input.provider,
         streamKey,
-        streamEntityId: input.streamEntityId,
-        personEntityId: input.personEntityId,
-        privacyEntityId: input.privacyEntityId,
-        streamUrlEncrypted: encryptCameraSecret(input.streamUrl),
-        compatibility: input.compatibility,
-        liveEnabled: input.capabilities.live,
-        talkEnabled: input.capabilities.talk,
-        ptzEnabled: input.capabilities.ptz,
-        privacySupported: input.capabilities.privacy,
-        snapshotEnabled: input.capabilities.snapshot,
+        streamEntityId,
+        personEntityId: null,
+        privacyEntityId: null,
+        streamUrlEncrypted: encryptCameraSecret(streamUrl),
+        compatibility: 'RECOGNIZED',
+        liveEnabled: true,
+        talkEnabled: false,
+        ptzEnabled: false,
+        privacySupported: false,
+        snapshotEnabled: true,
         consentedAt: new Date(),
         consentedById: userId,
         status: 'UNKNOWN',
       },
       include: { room: true },
     });
-    if (links.personSensorId) await this.mapPersonSensor(links.personSensorId);
     await this.audit(home.id, userId, 'CAMERA_CONFIGURED', camera.id, {
       roomId: camera.roomId,
       provider: camera.provider,
-      intimateSpace: links.intimateSpace,
+      intimateSpace: ['BEDROOM', 'BATHROOM'].includes(room.kind),
     });
     await this.syncStream(camera.id);
     return this.present(
@@ -108,6 +155,53 @@ export class CamerasService implements OnModuleInit, OnModuleDestroy {
         include: { room: true },
       }),
     );
+  }
+
+  private async authenticatedNetworkStreamUrl(
+    streamUri: string,
+    input: ReturnType<typeof cameraNetworkConfigurationSchema.parse>,
+  ): Promise<string> {
+    let url: URL;
+    try {
+      url = new URL(streamUri);
+    } catch {
+      throw new BadRequestException('Adresse du flux vidéo invalide.');
+    }
+    if (!['rtsp:', 'rtsps:'].includes(url.protocol) || url.hostname !== input.address) {
+      throw new BadRequestException('Le flux vidéo ne pointe pas vers la caméra détectée.');
+    }
+    const port = Number(url.port || (url.protocol === 'rtsps:' ? 322 : 554));
+    if (port !== input.rtspPort) await this.networkDiscovery.verifyTarget(input.address, port);
+    url.username = input.username;
+    url.password = input.password;
+    url.hash = '';
+    return url.toString();
+  }
+
+  private async verifyNetworkStream(streamUrl: string): Promise<void> {
+    const temporaryKey = `camera_setup_${randomUUID().replaceAll('-', '')}`;
+    try {
+      const addQuery = new URLSearchParams({ name: temporaryKey, src: streamUrl });
+      const added = await fetch(`${this.go2rtcUrl}/api/streams?${addQuery}`, {
+        method: 'PUT',
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!added.ok) throw new Error('stream setup failed');
+      const frameQuery = new URLSearchParams({ src: temporaryKey });
+      const frame = await fetch(`${this.go2rtcUrl}/api/frame.jpeg?${frameQuery}`, {
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!frame.ok) throw new Error('stream probe failed');
+      await frame.body?.cancel();
+    } catch {
+      throw new BadRequestException('Le flux vidéo n’a pas pu être vérifié avec la caméra.');
+    } finally {
+      const removeQuery = new URLSearchParams({ src: temporaryKey });
+      await fetch(`${this.go2rtcUrl}/api/streams?${removeQuery}`, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(3_000),
+      }).catch(() => undefined);
+    }
   }
 
   public async update(userId: string, cameraId: string, body: unknown) {
@@ -272,6 +366,46 @@ export class CamerasService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  public async listRecordings(userId: string) {
+    const home = await this.homeFor(userId, VIEW_ROLES);
+    const recordings = await this.prisma.cameraRecording.findMany({
+      where: { homeId: home.id, expiresAt: { gt: new Date() } },
+      orderBy: { capturedAt: 'desc' },
+      take: 100,
+    });
+    return recordings.map((recording) => ({
+      id: recording.id,
+      cameraId: recording.cameraId,
+      cameraName: recording.cameraName,
+      roomId: recording.roomId,
+      roomName: recording.roomName,
+      doorName: recording.doorName,
+      capturedAt: recording.capturedAt.toISOString(),
+      durationSeconds: recording.durationSeconds,
+      expiresAt: recording.expiresAt.toISOString(),
+    }));
+  }
+
+  public async recordingVideo(userId: string, recordingId: string): Promise<StreamableFile> {
+    const home = await this.homeFor(userId, VIEW_ROLES);
+    const recording = await this.prisma.cameraRecording.findFirst({
+      where: { id: recordingId, homeId: home.id, expiresAt: { gt: new Date() } },
+    });
+    if (!recording) throw new NotFoundException('Enregistrement introuvable ou expiré.');
+    const absolutePath = path.resolve(this.mediaRoot, recording.path);
+    if (!absolutePath.startsWith(`${this.mediaRoot}${path.sep}`)) throw new ForbiddenException();
+    await fs.access(absolutePath);
+    await this.audit(home.id, userId, 'CAMERA_RECORDING_VIEWED', recording.cameraId, {
+      recordingId: recording.id,
+      sourceEventId: recording.sourceEventId,
+      doorName: recording.doorName,
+    });
+    return new StreamableFile(createReadStream(absolutePath), {
+      type: recording.mimeType,
+      disposition: `inline; filename="camera-${recording.id}.mp4"`,
+    });
+  }
+
   public async cleanupExpiredSnapshots(): Promise<void> {
     const expired = await this.prisma.cameraSnapshot.findMany({
       where: { expiresAt: { lte: new Date() } },
@@ -287,6 +421,22 @@ export class CamerasService implements OnModuleInit, OnModuleDestroy {
     if (expired.length) {
       await this.prisma.cameraSnapshot.deleteMany({
         where: { id: { in: expired.map((snapshot) => snapshot.id) } },
+      });
+    }
+    const expiredRecordings = await this.prisma.cameraRecording.findMany({
+      where: { expiresAt: { lte: new Date() } },
+      select: { id: true, path: true },
+      take: 200,
+    });
+    for (const recording of expiredRecordings) {
+      const absolutePath = path.resolve(this.mediaRoot, recording.path);
+      if (absolutePath.startsWith(`${this.mediaRoot}${path.sep}`)) {
+        await fs.rm(absolutePath, { force: true });
+      }
+    }
+    if (expiredRecordings.length) {
+      await this.prisma.cameraRecording.deleteMany({
+        where: { id: { in: expiredRecordings.map((recording) => recording.id) } },
       });
     }
   }

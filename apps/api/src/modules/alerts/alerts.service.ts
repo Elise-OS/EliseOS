@@ -100,6 +100,9 @@ export class AlertsService {
     const sensorId =
       /^(?:temperature-low|temperature-high|sensor-offline|door-open|low-battery):(.+)$/.exec(
         alert.ruleKey ?? '',
+      )?.[1] ??
+      /^security:(?:WATER_LEAK|SMOKE|CARBON_MONOXIDE|FALL_DETECTION|SOS):(.+)$/.exec(
+        alert.ruleKey ?? '',
       )?.[1];
     const sensor = sensorId
       ? await this.prisma.sensor.findFirst({
@@ -133,19 +136,30 @@ export class AlertsService {
       ...(alert.type === 'INACTIVITY' ? { lastMovement: movementEvidence } : {}),
       sensor,
       observations: observations.map((observation) => {
-        const raw = (observation.payload as { value?: unknown } | null)?.value;
+        const payload = (observation.payload as Record<string, unknown> | null) ?? {};
+        const raw = payload.value;
         const value =
           typeof raw === 'number' && Number.isFinite(raw)
             ? raw
             : typeof raw === 'string' && raw.trim() && Number.isFinite(Number(raw))
               ? Number(raw)
               : null;
+        const fallStatus =
+          typeof payload.fallStatus === 'string' &&
+          ['normal', 'fall_warning', 'fall_alarm'].includes(payload.fallStatus)
+            ? payload.fallStatus
+            : undefined;
         return {
           id: observation.id,
           occurredAt: observation.occurredAt,
           capability: observation.capability,
           quality: observation.quality,
-          payload: { value },
+          payload: {
+            value,
+            ...(typeof payload.active === 'boolean' ? { active: payload.active } : {}),
+            ...(typeof payload.open === 'boolean' ? { open: payload.open } : {}),
+            ...(fallStatus ? { fallStatus } : {}),
+          },
         };
       }),
     };

@@ -165,6 +165,22 @@ export class LiaisonService {
           metadata: { kind: input.kind },
         },
       });
+      if (input.kind === 'NOTE') {
+        const mood = input.tags?.includes('MOOD') ?? false;
+        await tx.outboxMessage.create({
+          data: {
+            homeId: home.id,
+            topic: 'push',
+            payload: {
+              event: 'liaison.created',
+              kind: 'liaison',
+              liaisonId: entry.id,
+              preference: mood ? 'liaisonMoods' : 'liaisonMessages',
+              excludeUserId: userId,
+            },
+          },
+        });
+      }
       return entry;
     });
   }

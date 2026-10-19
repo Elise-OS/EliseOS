@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { notificationPreferencesSchema } from '@michel/contracts';
 import { z } from 'zod';
 import { parseRequest } from '../../platform/zod-validation';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
@@ -17,6 +18,19 @@ const subscriptionSchema = z.object({
 @UseGuards(SessionGuard)
 export class NotificationsController {
   public constructor(private readonly notifications: NotificationsService) {}
+
+  @Get('preferences')
+  public preferences(@Req() request: AuthenticatedRequest) {
+    return this.notifications.preferences(request.userId);
+  }
+
+  @Put('preferences')
+  public updatePreferences(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    return this.notifications.updatePreferences(
+      request.userId,
+      parseRequest(notificationPreferencesSchema, body),
+    );
+  }
 
   @Put('subscriptions')
   public subscribe(@Req() request: AuthenticatedRequest, @Body() body: unknown) {

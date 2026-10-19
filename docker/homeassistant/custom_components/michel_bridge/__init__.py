@@ -178,6 +178,13 @@ def _secret(name: str) -> str:
 
 
 def _payload(capability: str, state: Any) -> dict[str, Any]:
+    if capability == "fall_detection":
+        fall_status = str(state.state).strip().lower()
+        if fall_status in {"fall_warning", "fall_alarm"}:
+            return {"active": True, "fallStatus": fall_status}
+        if fall_status == "normal":
+            return {"active": False, "fallStatus": fall_status}
+        return {"fallStatus": fall_status}
     if capability in {
         "motion",
         "occupancy",
@@ -186,7 +193,6 @@ def _payload(capability: str, state: Any) -> dict[str, Any]:
         "smoke",
         "carbon_monoxide",
         "vibration",
-        "fall_detection",
     }:
         return {"active": state.state == "on"}
     if capability == "contact":
@@ -248,6 +254,10 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 
     def entity_capability(entity_id: str, device_class: str | None) -> str | None:
         domain = entity_id.split(".", 1)[0]
+        # Zigbee2MQTT exposes the Heiman fall result as an enum sensor rather
+        # than a binary_sensor. Keep the enum capability so Élise can alert on it.
+        if domain == "sensor" and entity_id.lower().endswith("_fall_status"):
+            return "fall_detection"
         # NodOn SDC-4-1-00 is exposed by Zigbee2MQTT as an enum sensor named
         # "dry_contact", rather than as Home Assistant's opening binary sensor.
         if domain in {"sensor", "binary_sensor"} and "dry_contact" in entity_id.lower():

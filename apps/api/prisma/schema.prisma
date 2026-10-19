@@ -102,6 +102,7 @@ enum AlertType {
   WATER_LEAK
   SMOKE
   CARBON_MONOXIDE
+  FALL_DETECTION
 }
 
 enum AlertSeverity {
@@ -254,6 +255,7 @@ model Home {
   equipmentSync              EquipmentSyncState?
   cameras                    Camera[]
   cameraSnapshots            CameraSnapshot[]
+  cameraRecordings           CameraRecording[]
   sensorOnboardingSessions   SensorOnboardingSession[]
   sensorVerificationSessions SensorVerificationSession[]
   plan                       HomePlan?
@@ -321,6 +323,7 @@ model User {
   trustedContact     TrustedContact?
   confirmedDoses     MedicationDose[]
   pushSubscriptions  PushSubscription[]
+  notificationPreference NotificationPreference?
 }
 
 model ResidentContext {
@@ -439,6 +442,7 @@ model Room {
   devices   Device[]
   sensors   Sensor[]
   cameras   Camera[]
+  cameraRecordings CameraRecording[]
   alerts    Alert[]
   observationEvents ObservationEvent[]
   presenceSessions RoomPresenceSession[]
@@ -652,6 +656,7 @@ model Camera {
   room               Room?               @relation(fields: [roomId], references: [id], onDelete: SetNull)
   device             Device?             @relation(fields: [deviceId], references: [id], onDelete: SetNull)
   snapshots          CameraSnapshot[]
+  recordings         CameraRecording[]
 
   @@unique([homeId, streamEntityId])
   @@index([homeId, roomId])
@@ -674,6 +679,31 @@ model CameraSnapshot {
   alert      Alert    @relation(fields: [alertId], references: [id], onDelete: Cascade)
 
   @@unique([alertId, cameraId])
+  @@index([expiresAt])
+}
+
+model CameraRecording {
+  id              String   @id @default(cuid())
+  homeId          String
+  cameraId        String
+  roomId          String?
+  outboxId        String   @unique
+  sourceEventId   String
+  cameraName      String
+  roomName        String?
+  doorName        String   @default("Entrée principale")
+  path            String
+  mimeType        String   @default("video/mp4")
+  sizeBytes       Int
+  durationSeconds Int
+  capturedAt      DateTime
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  home            Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  camera          Camera   @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  room            Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  @@index([homeId, capturedAt(sort: Desc)])
   @@index([expiresAt])
 }
 
@@ -1003,6 +1033,19 @@ model PushSubscription {
 
   @@index([userId, enabled])
   @@index([sessionId])
+}
+
+model NotificationPreference {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  fallDetection   Boolean  @default(true)
+  smoke           Boolean  @default(true)
+  waterLeak       Boolean  @default(true)
+  liaisonMessages Boolean  @default(true)
+  liaisonMoods    Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model JournalEntry {

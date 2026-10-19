@@ -26,9 +26,24 @@ export class CamerasController {
     return this.cameras.list(request.userId);
   }
 
-  @Post()
-  public create(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
-    return this.cameras.create(request.userId, body);
+  @Post('network-discovery')
+  public discoverNetwork(@Req() request: AuthenticatedRequest) {
+    return this.cameras.discoverNetwork(request.userId);
+  }
+
+  @Post('network')
+  public createNetworkCamera(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    return this.cameras.createNetworkCamera(request.userId, body);
+  }
+
+  @Get('recordings')
+  public recordings(@Req() request: AuthenticatedRequest) {
+    return this.cameras.listRecordings(request.userId);
+  }
+
+  @Get('recordings/:id/video')
+  public recordingVideo(@Req() request: AuthenticatedRequest, @Param('id') id: string) {
+    return this.cameras.recordingVideo(request.userId, id);
   }
 
   @Patch(':id')

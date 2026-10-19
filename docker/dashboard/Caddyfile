@@ -22,6 +22,9 @@
   encode zstd gzip
   handle /api/* {
     reverse_proxy api:3000 {
+      transport http {
+        keepalive 4s
+      }
       header_up X-Elise-Gateway local
       header_up X-Forwarded-Proto {scheme}
     }
@@ -57,6 +60,9 @@
   }
   handle /api/* {
     reverse_proxy api:3000 {
+      transport http {
+        keepalive 4s
+      }
       header_up X-Elise-Gateway remote
       header_up X-Forwarded-Proto https
     }

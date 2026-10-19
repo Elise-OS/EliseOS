@@ -1,7 +1,17 @@
 import { z } from 'zod';
 import { contactRoleSchema, roomSensorPreferencesSchema } from './room-equipment.js';
 import { calendarRecurrenceSchema } from './calendar.js';
+
+function containsControlCharacters(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code < 32 || code === 127) return true;
+  }
+  return false;
+}
+
 export * from './calendar.js';
+export * from './notifications.js';
 export * from './room-equipment.js';
 export * from './retire-furniture.js';
 
@@ -110,6 +120,30 @@ export const cameraConfigurationSchema = z.object({
     }),
   capabilities: cameraCapabilitySchema,
   compatibility: cameraCompatibilitySchema.default('RECOGNIZED'),
+  intimateSpaceConsent: z.literal(true),
+});
+
+export const cameraNetworkDeviceSchema = z.object({
+  address: z.ipv4(),
+  rtspPort: z.number().int().min(1).max(65535),
+  openPorts: z.array(z.number().int().min(1).max(65535)),
+  authenticationRequired: z.boolean().default(false),
+});
+
+export const cameraNetworkConfigurationSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  roomId: z.string().min(1),
+  provider: z.string().trim().min(1).max(60).default('ONVIF/RTSP'),
+  address: z.ipv4(),
+  rtspPort: z.number().int().min(1).max(65535),
+  username: z
+    .string()
+    .max(128)
+    .refine((value) => !containsControlCharacters(value)),
+  password: z
+    .string()
+    .max(256)
+    .refine((value) => !containsControlCharacters(value)),
   intimateSpaceConsent: z.literal(true),
 });
 
@@ -303,6 +337,7 @@ export const alertSchema = z.object({
     'WATER_LEAK',
     'SMOKE',
     'CARBON_MONOXIDE',
+    'FALL_DETECTION',
   ]),
   severity: z.enum(['INFO', 'ATTENTION', 'URGENT']),
   status: z.enum(['OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'DISMISSED']),
@@ -366,6 +401,8 @@ export type Compatibility = z.infer<typeof compatibilitySchema>;
 export type MappingTransform = z.infer<typeof mappingTransformSchema>;
 export type Camera = z.infer<typeof cameraSchema>;
 export type CameraConfiguration = z.infer<typeof cameraConfigurationSchema>;
+export type CameraNetworkDevice = z.infer<typeof cameraNetworkDeviceSchema>;
+export type CameraNetworkConfiguration = z.infer<typeof cameraNetworkConfigurationSchema>;
 export type CameraLiveSession = z.infer<typeof cameraLiveSessionSchema>;
 export type CameraSnapshot = z.infer<typeof cameraSnapshotSchema>;
 export type HomeAssistantInventory = z.infer<typeof homeAssistantInventorySchema>;

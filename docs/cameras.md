@@ -1,30 +1,22 @@
 # Cameras in Élise OS
 
-## Supported layers
+## Add a camera
 
-Camera support stays manufacturer-neutral:
+Camera setup is a network flow, separate from Zigbee pairing. Start it from **Mon logement → select a room → Types de capteurs → Caméra**. The sidebar **Caméras** page is for viewing live streams and event recordings.
 
-1. Home Assistant inventory discovers camera, person-detection and privacy entities.
-2. Selecting a person entity maps it to `person_presence` with the bounded `ON_OFF` transform.
-3. go2rtc receives the encrypted RTSP source over the private Docker network and serves ticketed WebRTC.
-4. The worker requests one JPEG from the camera assigned to the alert room. It expires after 24 hours.
+1. Élise scans the configured private network range and sends an RTSP `OPTIONS` request to confirm each camera service. It ignores unrelated open ports and collapses duplicate IP addresses that share a device-specific RTSP authentication realm. It does not start a Zigbee pairing session or rely on Home Assistant discovery.
+2. If one camera is found, Élise selects it automatically. The username starts as `admin`; the local camera password is requested only when the stream requires authentication. The room is fixed to the room where setup started. The browser never asks for a manufacturer or RTSP path.
+3. After the form is submitted, Élise queries ONVIF for the camera's video profiles and stream addresses. If the camera does not expose ONVIF profiles, Élise tries common RTSP paths automatically. go2rtc must return a frame before Élise saves the camera; the RTSP URL and local credentials are encrypted before database storage.
 
-Detection-only cameras need only a Home Assistant binary sensor. Live viewing additionally requires RTSP. Push-to-talk and hardware privacy are enabled only after they work on the exact model and firmware.
+Use the camera's local streaming account, not the Imou Life cloud account unless the camera uses the same credential. For Imou cameras the username is often `admin`; use the device password configured during setup. A password-protected RTSP stream cannot be opened without that password. Credentials are submitted only through this setup form; do not send them in chat or support logs. ONVIF or RTSP must be enabled in the camera settings.
 
-## Reolink E1 Zoom pilot
+The API discovery range defaults to `192.168.1.0/24`, which matches the NAS network used for the Imou camera. Override `MICHEL_CAMERA_DISCOVERY_CIDRS` with comma-separated private IPv4 CIDRs when the cameras use another LAN. Each range must contain at most 256 addresses (`/24` through `/32`).
 
-Start with two cameras, in the entrance and living room, before buying more.
+Only the live stream and event recording are supported by this flow. Push-to-talk, PTZ, hardware privacy, and person recognition remain disabled unless they are implemented and validated for that camera. Continuous recording stays disabled.
 
-1. Initialize each camera with the Reolink application, install current firmware and create a dedicated local user.
-2. Enable HTTP/HTTPS, RTSP and ONVIF in the camera network settings.
-3. Add the Reolink integration to the internal Home Assistant instance.
-4. Reserve the camera address through router DHCP. Do not configure a static address inside the camera.
-5. Refresh the Élise equipment inventory, open **Caméras**, and select the camera stream, person sensor and privacy switch.
-6. Enter the local RTSP H.264 substream URL. Élise encrypts it before database storage.
-7. Confirm consent, then validate direct video, privacy mode, person events, an alert snapshot and push-to-talk.
-8. Only after the pilot passes, block camera internet access and repeat the validation from LAN and Tailscale.
+## Imou camera on the NAS
 
-Do not install microSD cards for this release: continuous recording is intentionally disabled. If a camera exposes no functional talk backchannel through go2rtc, mark talk unsupported instead of silently falling back to a vendor cloud.
+ONVIF discovery on the NAS identified an Imou/Lechange camera at the time of discovery. The camera's RTSP endpoint requires authentication. Once its local camera username and device password are entered, Élise tries to retrieve the stream profile through ONVIF and tests for a frame before registering it. Network detection by itself does not prove that the camera is configured or streaming.
 
 ## Tailscale and HTTPS
 

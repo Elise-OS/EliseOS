@@ -36,6 +36,7 @@ import { PrismaService } from './platform/prisma.service';
 import { SeedService } from './platform/seed.service';
 import { CameraMediaAuthController, CamerasController } from './modules/cameras/cameras.controller';
 import { CamerasService } from './modules/cameras/cameras.service';
+import { CameraNetworkDiscoveryService } from './modules/cameras/camera-network-discovery.service';
 import { SensorsController } from './modules/sensors/sensors.controller';
 import { SensorsService } from './modules/sensors/sensors.service';
 import { HomePlanController } from './modules/household/home-plan.controller';
@@ -94,6 +95,7 @@ import { UpdateAgentClient } from './modules/system/update-agent.client';
     SimulationService,
     MedicationsService,
     CamerasService,
+    CameraNetworkDiscoveryService,
     SensorsService,
     HomePlanService,
     PeopleService,

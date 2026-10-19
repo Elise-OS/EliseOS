@@ -122,7 +122,12 @@ export class IngestionService {
         targetId: placement?.targetId ?? null,
         targetKind: target?.kind ?? null,
         role,
-        ...(role === 'BED' ? { bedOccupiedWhen: binding?.bedOccupiedWhen ?? 'CLOSED' } : {}),
+        ...(role === 'BED'
+          ? {
+              bedOccupiedWhen:
+                binding?.bedOccupiedWhen ?? (event.capability === 'occupancy' ? 'OPEN' : 'CLOSED'),
+            }
+          : {}),
         confidence: placement ? ('HIGH' as const) : ('LOW' as const),
         summary:
           role === 'BED'
@@ -139,6 +144,42 @@ export class IngestionService {
             ? 'MEDIUM'
             : 'LOW';
       const enrichedPayload = { ...event.payload, context };
+      const mainEntranceOpening = parsedPlan?.success
+        ? parsedPlan.data.levels
+            .flatMap(({ openings }) => openings)
+            .find(
+              (opening) =>
+                opening.isMainEntrance ||
+                opening.id === parsedPlan.data.understanding.mainEntranceOpeningId,
+            )
+        : undefined;
+      const placementIsMainEntrance = Boolean(
+        placement &&
+        mainEntranceOpening &&
+        (placement.targetType === 'OPENING' && placement.targetId === mainEntranceOpening.id
+          ? true
+          : role?.toUpperCase() === 'MAIN_ENTRANCE' &&
+            mainEntranceOpening.roomIds.includes(placement.roomId)),
+      );
+      const isMainEntranceOpeningEvent =
+        event.capability === 'contact' &&
+        event.payload.active === true &&
+        placementIsMainEntrance &&
+        Boolean(placement?.roomId);
+      const previousContactEvent = isMainEntranceOpeningEvent
+        ? await tx.observationEvent.findFirst({
+            where: {
+              sensorId: sensor.id,
+              capability: 'contact',
+              occurredAt: { lt: new Date(event.occurredAt) },
+            },
+            orderBy: { occurredAt: 'desc' },
+            select: { payload: true },
+          })
+        : null;
+      const doorOpenedNow =
+        isMainEntranceOpeningEvent &&
+        (previousContactEvent?.payload as { active?: unknown } | undefined)?.active !== true;
       const saved = await tx.observationEvent.create({
         data: {
           homeId: event.homeId,
@@ -154,6 +195,34 @@ export class IngestionService {
           receivedAt: new Date(event.receivedAt),
         },
       });
+      if (doorOpenedNow && placement?.roomId) {
+        const cameras = await tx.camera.findMany({
+          where: {
+            homeId: event.homeId,
+            roomId: placement.roomId,
+            liveEnabled: true,
+            privacyMode: false,
+            consentedAt: { not: null },
+            status: { in: ['ONLINE', 'DEGRADED'] },
+          },
+          select: { id: true },
+        });
+        for (const camera of cameras) {
+          await tx.outboxMessage.create({
+            data: {
+              homeId: event.homeId,
+              topic: 'camera.recording',
+              payload: {
+                cameraId: camera.id,
+                roomId: placement.roomId,
+                doorName: 'Entrée principale',
+                sourceEventId: saved.id,
+                triggeredAt: event.occurredAt,
+              },
+            },
+          });
+        }
+      }
       if (!sensor.analysisEnabled) return { accepted: true, id: saved.id };
       if (['motion', 'occupancy', 'person_presence'].includes(event.capability)) {
         const presenceCapability = presenceCapabilityForDevice(event.capability, device?.model);
@@ -234,8 +303,11 @@ export class IngestionService {
                     event.payload.action === 'release')
                 ? 'SOS'
                 : null;
+      const alertType = event.capability === 'fall_detection' ? 'FALL_DETECTION' : securityType;
+      if (event.capability === 'fall_detection' && typeof event.payload.active !== 'boolean')
+        return { accepted: true, id: saved.id };
       const securityActive =
-        securityType !== null &&
+        alertType !== null &&
         event.payload.active !== false &&
         event.payload.action !== 'release' &&
         (securityType === 'SOS'
@@ -267,8 +339,18 @@ export class IngestionService {
                     explanation: 'Le bouton d’assistance du domicile a été activé.',
                   }
                 : null;
-      if (securityType) {
-        const ruleKey = `security:${securityType}:${sensor.id}`;
+      const fallAlert =
+        securityActive && alertType === 'FALL_DETECTION'
+          ? {
+              type: 'FALL_DETECTION' as const,
+              title: 'Alerte de chute',
+              explanation:
+                'Le détecteur signale une chute possible. Vérifiez rapidement la situation.',
+            }
+          : null;
+      const activeSecurityAlert = fallAlert ?? securityAlert;
+      if (alertType) {
+        const ruleKey = `security:${alertType}:${sensor.id}`;
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${ruleKey}))`;
         const newerEvent = await tx.observationEvent.findFirst({
           where: { sensorId: sensor.id, occurredAt: { gt: new Date(event.occurredAt) } },
@@ -282,7 +364,7 @@ export class IngestionService {
           },
           orderBy: { openedAt: 'desc' },
         });
-        if (!securityAlert) {
+        if (!activeSecurityAlert) {
           if (current && !current.conditionClearedAt)
             await tx.alert.update({
               where: { id: current.id },
@@ -330,12 +412,12 @@ export class IngestionService {
             homeId: event.homeId,
             roomId: placement?.roomId ?? sensor.roomId,
             ruleKey,
-            type: securityAlert.type,
+            type: activeSecurityAlert.type,
             severity: 'URGENT',
-            title: securityAlert.title,
+            title: activeSecurityAlert.title,
             explanation: target
-              ? `${securityAlert.explanation} Emplacement : ${target.label}.`
-              : securityAlert.explanation,
+              ? `${activeSecurityAlert.explanation} Emplacement : ${target.label}.`
+              : activeSecurityAlert.explanation,
           },
         });
         await tx.outboxMessage.create({

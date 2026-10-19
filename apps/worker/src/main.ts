@@ -120,7 +120,7 @@ async function claim(): Promise<OutboxRow | null> {
       `SELECT id, "homeId", topic, payload, attempts
        FROM "OutboxMessage"
        WHERE status IN ('PENDING', 'FAILED') AND "availableAt" <= NOW()
-       ORDER BY "createdAt" ASC
+       ORDER BY CASE WHEN topic = 'camera.recording' THEN 0 ELSE 1 END, "createdAt" ASC
        LIMIT 1 FOR UPDATE SKIP LOCKED`,
     );
     const row = result.rows[0];
@@ -218,20 +218,9 @@ interface ExpoTicket {
 async function handlePush(row: OutboxRow): Promise<void> {
   const alertId = typeof row.payload.alertId === 'string' ? row.payload.alertId : null;
   const requestedUserId = typeof row.payload.userId === 'string' ? row.payload.userId : null;
-  const subscriptions = await pool.query<PushSubscriptionRow>(
-    `SELECT DISTINCT ps.id, ps."expoPushToken"
-     FROM "PushSubscription" ps
-     JOIN "User" u ON u.id = ps."userId"
-     JOIN "Session" se ON se.id = ps."sessionId" AND se."userId" = u.id
-     JOIN "Membership" m ON m."userId" = u.id
-     JOIN "Home" h ON h."organizationId" = m."organizationId"
-     WHERE h.id = $1 AND ps.enabled = true AND m."disabledAt" IS NULL
-       AND se."expiresAt" > NOW()
-       AND ($2::text IS NULL OR ps."userId" = $2)`,
-    [row.homeId, requestedUserId],
-  );
-  if (subscriptions.rows.length === 0) return;
-
+  const excludedUserId =
+    typeof row.payload.excludeUserId === 'string' ? row.payload.excludeUserId : null;
+  const liaisonId = typeof row.payload.liaisonId === 'string' ? row.payload.liaisonId : null;
   let title =
     typeof row.payload.title === 'string' ? row.payload.title : 'Nouvelle information Élise';
   let body =
@@ -239,21 +228,69 @@ async function handlePush(row: OutboxRow): Promise<void> {
       ? row.payload.body
       : 'Ouvrez Élise pour consulter la situation.';
   let severity: string | null = null;
+  let preferenceColumn: string | null = null;
   if (alertId) {
-    const alert = await pool.query<{ severity: string; status: string }>(
-      `SELECT severity, status FROM "Alert" WHERE id = $1 AND "homeId" = $2`,
-      [alertId, row.homeId],
-    );
+    const alert = await pool.query<{
+      severity: string;
+      status: string;
+      type: string;
+      title: string;
+    }>(`SELECT severity, status, type, title FROM "Alert" WHERE id = $1 AND "homeId" = $2`, [
+      alertId,
+      row.homeId,
+    ]);
+    if (!alert.rows[0]) return;
     if (
-      !alert.rows[0] ||
-      (row.payload.event === 'alert.opened' &&
-        !['OPEN', 'ACKNOWLEDGED'].includes(alert.rows[0].status))
+      row.payload.event === 'alert.opened' &&
+      !['OPEN', 'ACKNOWLEDGED'].includes(alert.rows[0].status)
     )
       return;
+    preferenceColumn =
+      {
+        FALL_DETECTION: 'fallDetection',
+        SMOKE: 'smoke',
+        WATER_LEAK: 'waterLeak',
+      }[alert.rows[0].type] ?? null;
+    // Alert types without a user preference (SOS, CO, inactivity…) are always pushed.
     severity = alert.rows[0].severity;
-    title = severity === 'URGENT' ? 'Élise · Attention requise' : 'Élise · Nouvelle information';
+    title = alert.rows[0].title
+      ? `Élise · ${alert.rows[0].title}`
+      : severity === 'URGENT'
+        ? 'Élise · Attention requise'
+        : 'Élise · Nouvelle information';
     body = 'Une situation a été détectée au domicile. Ouvrez Élise pour les détails.';
+  } else if (liaisonId) {
+    const preference = row.payload.preference;
+    if (preference !== 'liaisonMessages' && preference !== 'liaisonMoods') return;
+    preferenceColumn = preference;
+    title =
+      preference === 'liaisonMoods'
+        ? 'Élise · Nouvelle humeur dans le carnet'
+        : 'Élise · Nouveau message dans le carnet';
+    body = 'Ouvrez Élise pour consulter le carnet de liaison.';
   }
+
+  const bypassPreferences = row.payload.kind === 'test';
+  const preferenceFilter =
+    preferenceColumn && !bypassPreferences
+      ? `AND COALESCE(np."${preferenceColumn}", true) = true`
+      : '';
+  const subscriptions = await pool.query<PushSubscriptionRow>(
+    `SELECT DISTINCT ps.id, ps."expoPushToken"
+     FROM "PushSubscription" ps
+     JOIN "User" u ON u.id = ps."userId"
+     JOIN "Session" se ON se.id = ps."sessionId" AND se."userId" = u.id
+     JOIN "Membership" m ON m."userId" = u.id
+     JOIN "Home" h ON h."organizationId" = m."organizationId"
+     LEFT JOIN "NotificationPreference" np ON np."userId" = u.id
+     WHERE h.id = $1 AND ps.enabled = true AND m."disabledAt" IS NULL
+       AND se."expiresAt" > NOW()
+       AND ($2::text IS NULL OR ps."userId" = $2)
+       AND ($3::text IS NULL OR ps."userId" <> $3)
+       ${preferenceFilter}`,
+    [row.homeId, requestedUserId, excludedUserId],
+  );
+  if (subscriptions.rows.length === 0) return;
 
   const response = await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST',
@@ -271,7 +308,12 @@ async function handlePush(row: OutboxRow): Promise<void> {
         title,
         body,
         priority: severity === 'URGENT' ? 'high' : 'default',
-        data: { kind: alertId ? 'alert' : (row.payload.kind ?? 'system'), alertId, severity },
+        data: {
+          kind: alertId ? 'alert' : (row.payload.kind ?? 'system'),
+          ...(alertId ? { alertId } : {}),
+          ...(liaisonId ? { liaisonId } : {}),
+          severity,
+        },
       })),
     ),
   });
@@ -534,6 +576,101 @@ async function captureAlertSnapshot(homeId: string, alertId: string): Promise<vo
   );
 }
 
+async function recordMainEntranceOpening(
+  homeId: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const cameraId = typeof payload.cameraId === 'string' ? payload.cameraId : '';
+  const sourceEventId = typeof payload.sourceEventId === 'string' ? payload.sourceEventId : '';
+  const outboxId = typeof payload.outboxId === 'string' ? payload.outboxId : '';
+  if (!cameraId || !sourceEventId || !outboxId) throw new Error('Recording request is incomplete');
+
+  const existing = await pool.query<{ id: string }>(
+    `SELECT id FROM "CameraRecording" WHERE "outboxId" = $1`,
+    [outboxId],
+  );
+  if (existing.rowCount) return;
+
+  const cameraResult = await pool.query<{
+    id: string;
+    streamKey: string;
+    name: string;
+    roomId: string | null;
+    roomName: string | null;
+  }>(
+    `SELECT c.id, c."streamKey", c.name, c."roomId", r.name AS "roomName"
+     FROM "Camera" c
+     LEFT JOIN "Room" r ON r.id = c."roomId"
+     WHERE c.id = $1 AND c."homeId" = $2 AND c."liveEnabled" = true
+       AND c."privacyMode" = false AND c."consentedAt" IS NOT NULL
+       AND c.status IN ('ONLINE', 'DEGRADED')`,
+    [cameraId, homeId],
+  );
+  const camera = cameraResult.rows[0];
+  if (!camera) return;
+
+  const durationSeconds = 30;
+  const query = new URLSearchParams({
+    src: camera.streamKey,
+    duration: String(durationSeconds),
+    video: 'all',
+    audio: '',
+  });
+  const go2rtc = process.env.GO2RTC_URL ?? 'http://go2rtc:1984';
+  const response = await fetch(`${go2rtc}/api/stream.mp4?${query}`, {
+    signal: AbortSignal.timeout((durationSeconds + 20) * 1_000),
+  });
+  if (!response.ok) throw new Error(`Camera recording service returned ${response.status}`);
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length < 1_024 || bytes.length > 100 * 1024 * 1024) {
+    throw new Error('Camera recording has an invalid size');
+  }
+
+  const root = path.resolve(process.env.CAMERA_MEDIA_ROOT ?? '/var/lib/elise/camera-media');
+  const safeHomeId = homeId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const safeOutboxId = outboxId.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `entrance-${safeOutboxId}.mp4`;
+  const directory = path.join(root, 'recordings', safeHomeId);
+  const relativePath = path.join('recordings', safeHomeId, filename);
+  const absolutePath = path.join(root, relativePath);
+  const partialPath = `${absolutePath}.partial`;
+  await fs.mkdir(directory, { recursive: true });
+  try {
+    await fs.writeFile(partialPath, bytes, { mode: 0o600 });
+    await fs.rename(partialPath, absolutePath);
+    const triggeredAt =
+      typeof payload.triggeredAt === 'string' && Number.isFinite(Date.parse(payload.triggeredAt))
+        ? new Date(payload.triggeredAt)
+        : new Date();
+    const doorName = typeof payload.doorName === 'string' ? payload.doorName : 'Entrée principale';
+    await pool.query(
+      `INSERT INTO "CameraRecording"
+       (id, "homeId", "cameraId", "roomId", "outboxId", "sourceEventId", "cameraName", "roomName", "doorName", path, "mimeType", "sizeBytes", "durationSeconds", "capturedAt", "expiresAt", "createdAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'video/mp4', $11, $12, $13, NOW() + INTERVAL '24 hours', NOW())
+       ON CONFLICT ("outboxId") DO NOTHING`,
+      [
+        `recording_${safeOutboxId}`,
+        homeId,
+        camera.id,
+        typeof payload.roomId === 'string' ? payload.roomId : camera.roomId,
+        outboxId,
+        sourceEventId,
+        camera.name,
+        camera.roomName,
+        doorName,
+        relativePath,
+        bytes.length,
+        durationSeconds,
+        triggeredAt,
+      ],
+    );
+  } catch (error) {
+    await fs.rm(partialPath, { force: true });
+    await fs.rm(absolutePath, { force: true });
+    throw error;
+  }
+}
+
 function parseRules(settings: unknown): AlertRuleSettings {
   const candidate = (settings as { alertRules?: unknown } | null)?.alertRules;
   const parsed = alertRuleSettingsSchema.safeParse(candidate);
@@ -575,7 +712,13 @@ async function evaluateSensorRules(): Promise<void> {
          WHERE e."sensorId" = s.id ORDER BY e."occurredAt" DESC LIMIT 1
        ) latest ON true
        WHERE s."homeId" = $1 AND s."analysisEnabled" = true AND s."removedAt" IS NULL
-         AND (s."deviceId" IS NULL OR (d.enabled = true AND d."installationStatus" = 'OPERATIONAL'))`,
+         AND (s."deviceId" IS NULL OR (
+           d.enabled = true
+           AND (
+             d."installationStatus" = 'OPERATIONAL'
+             OR (d."installationStatus" = 'ATTENTION' AND d."placementConfirmedAt" IS NOT NULL)
+           )
+         ))`,
       [home.homeId],
     );
     for (const sensor of sensors.rows) {
@@ -597,7 +740,7 @@ async function evaluateSensorRules(): Promise<void> {
             rules.sensorOffline.minutes,
           ),
         title: `${sensor.name} ne répond plus`,
-        explanation: `${sensor.roomName ?? 'Ce capteur'} est signalé comme indisponible par Home Assistant. Élise suspend les conclusions qui en dépendent.`,
+        explanation: `Le capteur ${sensor.name}${sensor.roomName ? ` de ${sensor.roomName}` : ''} ne transmet plus de données à Élise. Les conclusions qui en dépendent sont suspendues.`,
       });
 
       if (sensor.capability === 'contact') {
@@ -660,7 +803,10 @@ async function evaluateSensorRules(): Promise<void> {
          AND s."removedAt" IS NULL
          AND (s."deviceId" IS NULL OR EXISTS (
            SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
-             AND d."installationStatus" = 'OPERATIONAL'
+             AND (
+               d."installationStatus" = 'OPERATIONAL'
+               OR (d."installationStatus" = 'ATTENTION' AND d."placementConfirmedAt" IS NOT NULL)
+             )
          ))
          AND e."occurredAt" >= NOW() - INTERVAL '24 hours' AND e."occurredAt" <= NOW()
        ORDER BY e."occurredAt" ASC`,
@@ -756,7 +902,10 @@ async function evaluateSensorRules(): Promise<void> {
          AND s."removedAt" IS NULL
          AND (s."deviceId" IS NULL OR EXISTS (
            SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
-             AND d."installationStatus" = 'OPERATIONAL'
+             AND (
+               d."installationStatus" = 'OPERATIONAL'
+               OR (d."installationStatus" = 'ATTENTION' AND d."placementConfirmedAt" IS NOT NULL)
+             )
          ))
        WHERE e."homeId" = $1 AND e.quality = 'good'
          AND e.capability IN ('motion', 'occupancy', 'person_presence')
@@ -780,6 +929,68 @@ async function evaluateSensorRules(): Promise<void> {
       title: 'Activité nocturne inhabituelle',
       explanation: `${nightCount} mouvements ont été observés pendant la plage nocturne configurée.`,
     });
+  }
+}
+
+async function resolveClearedSecurityAlerts(): Promise<void> {
+  const pending = await pool.query<{
+    id: string;
+    homeId: string;
+    ruleKey: string;
+  }>(
+    `SELECT id, "homeId", "ruleKey" FROM "Alert"
+     WHERE type IN ('WATER_LEAK', 'SMOKE', 'CARBON_MONOXIDE', 'FALL_DETECTION', 'SOS')
+       AND status IN ('OPEN', 'ACKNOWLEDGED')
+       AND "ruleKey" LIKE 'security:%'
+       AND "conditionClearedAt" <= NOW() - INTERVAL '2 minutes'
+     ORDER BY "conditionClearedAt" ASC
+     LIMIT 100`,
+  );
+
+  for (const alert of pending.rows) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Match the advisory lock used by ingestion so a new active sensor event
+      // cannot race with this automatic resolution.
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [alert.ruleKey]);
+      const current = await client.query<{ status: string }>(
+        `SELECT status FROM "Alert"
+         WHERE id = $1 AND "homeId" = $2
+           AND type IN ('WATER_LEAK', 'SMOKE', 'CARBON_MONOXIDE', 'FALL_DETECTION', 'SOS')
+           AND status IN ('OPEN', 'ACKNOWLEDGED')
+           AND "conditionClearedAt" <= NOW() - INTERVAL '2 minutes'
+         FOR UPDATE`,
+        [alert.id, alert.homeId],
+      );
+      const status = current.rows[0]?.status;
+      if (status !== 'OPEN' && status !== 'ACKNOWLEDGED') {
+        await client.query('COMMIT');
+        continue;
+      }
+      const resolved = await client.query<{ id: string }>(
+        `UPDATE "Alert"
+         SET status = 'RESOLVED', "resolvedAt" = NOW(), "updatedAt" = NOW()
+         WHERE id = $1 AND status IN ('OPEN', 'ACKNOWLEDGED')
+           AND "conditionClearedAt" <= NOW() - INTERVAL '2 minutes'
+         RETURNING id`,
+        [alert.id],
+      );
+      if (resolved.rowCount === 1) {
+        await client.query(
+          `INSERT INTO "AlertTransition" (id, "alertId", "userId", "from", "to", note, "createdAt")
+           VALUES (concat('transition_', gen_random_uuid()), $1, NULL, $2::"AlertStatus", 'RESOLVED', 'Retour automatique à la normale', NOW())`,
+          [alert.id, status],
+        );
+        await enqueueWebhook(client, alert.homeId, alert.id, 'alert.resolved');
+      }
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 
@@ -807,7 +1018,10 @@ async function evaluateInactivity(): Promise<void> {
         AND s.capability IN ('motion', 'occupancy', 'person_presence')
         AND (s."deviceId" IS NULL OR EXISTS (
           SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
-            AND d."installationStatus" = 'OPERATIONAL'
+            AND (
+              d."installationStatus" = 'OPERATIONAL'
+              OR (d."installationStatus" = 'ATTENTION' AND d."placementConfirmedAt" IS NOT NULL)
+            )
         ))) AS "configuredSensors",
       (SELECT COUNT(*)::int FROM "Sensor" s WHERE s."homeId" = h.id AND s.status = 'ONLINE'
         AND s.available = true
@@ -815,7 +1029,10 @@ async function evaluateInactivity(): Promise<void> {
         AND s.capability IN ('motion', 'occupancy', 'person_presence')
         AND (s."deviceId" IS NULL OR EXISTS (
           SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
-            AND d."installationStatus" = 'OPERATIONAL'
+            AND (
+              d."installationStatus" = 'OPERATIONAL'
+              OR (d."installationStatus" = 'ATTENTION' AND d."placementConfirmedAt" IS NOT NULL)
+            )
         ))) AS "activeSensors"
      FROM "Home" h
      LEFT JOIN LATERAL (
@@ -829,7 +1046,10 @@ async function evaluateInactivity(): Promise<void> {
          AND active_sensor.available = true AND active_sensor.status = 'ONLINE'
          AND (active_sensor."deviceId" IS NULL OR EXISTS (
            SELECT 1 FROM "Device" d WHERE d.id = active_sensor."deviceId" AND d.enabled = true
-             AND d."installationStatus" = 'OPERATIONAL'
+             AND (
+               d."installationStatus" = 'OPERATIONAL'
+               OR (d."installationStatus" = 'ATTENTION' AND d."placementConfirmedAt" IS NOT NULL)
+             )
          ))
          AND e.quality = 'good'
          AND e."occurredAt" <= NOW()
@@ -870,7 +1090,10 @@ async function evaluateInactivity(): Promise<void> {
            AND s.capability IN ('motion', 'occupancy', 'person_presence')
            AND (s."deviceId" IS NULL OR EXISTS (
              SELECT 1 FROM "Device" d WHERE d.id = s."deviceId" AND d.enabled = true
-               AND d."installationStatus" = 'OPERATIONAL'
+               AND (
+                 d."installationStatus" = 'OPERATIONAL'
+                 OR (d."installationStatus" = 'ATTENTION' AND d."placementConfirmedAt" IS NOT NULL)
+               )
            ))
            AND s.available = false AND s."unavailableSince" IS NOT NULL
            AND s."unavailableSince" <= NOW() - ($2::int * INTERVAL '1 minute')`,
@@ -1186,7 +1409,13 @@ async function maintainTopologicalPresence(): Promise<void> {
       AND s."analysisEnabled" = true
       AND s."removedAt" IS NULL
       AND s.available = true
-      AND (s."deviceId" IS NULL OR (d.enabled = true AND d."installationStatus" = 'OPERATIONAL'))
+      AND (s."deviceId" IS NULL OR (
+        d.enabled = true
+        AND (
+          d."installationStatus" = 'OPERATIONAL'
+          OR (d."installationStatus" = 'ATTENTION' AND d."placementConfirmedAt" IS NOT NULL)
+        )
+      ))
       AND COALESCE(d."lastSeenAt", s."lastSeenAt") >= NOW() - INTERVAL '5 minutes'
       AND COALESCE((latest.payload->>'active')::boolean, false) = true
   )`;
@@ -1598,6 +1827,7 @@ async function main(): Promise<void> {
     try {
       if (Date.now() - lastRuleCheck > 60_000) {
         await evaluateSensorRules();
+        await resolveClearedSecurityAlerts();
         lastRuleCheck = Date.now();
       }
       if (Date.now() - lastInactivityCheck > 60_000) {
@@ -1643,6 +1873,9 @@ async function main(): Promise<void> {
         if (row.topic === 'camera.snapshot') {
           const alertId = typeof row.payload.alertId === 'string' ? row.payload.alertId : '';
           if (alertId) await captureAlertSnapshot(row.homeId, alertId);
+        }
+        if (row.topic === 'camera.recording') {
+          await recordMainEntranceOpening(row.homeId, { ...row.payload, outboxId: row.id });
         }
         await complete(row);
       } catch (error) {
