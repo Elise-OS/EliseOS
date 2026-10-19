@@ -81,6 +81,42 @@ export function activeZigbeeInventoryOnly(
   };
 }
 
+export function markUnjoinedZigbeeInventoryUnavailable(
+  inventory: HomeAssistantInventory,
+  joinedIdentifiers: ReadonlySet<string>,
+): HomeAssistantInventory {
+  const identifier = (value: string) => value.toLowerCase().match(/0x[0-9a-f]{16}/)?.[0];
+  const joined = new Set([...joinedIdentifiers].map((value) => value.toLowerCase()));
+  const deviceIdentifiers = new Map<string, string>();
+  for (const device of inventory.devices) {
+    const ieee = device.networkIdentifier ? identifier(device.networkIdentifier) : undefined;
+    if (ieee) deviceIdentifiers.set(device.deviceId, ieee);
+  }
+  for (const entity of inventory.entities) {
+    if (
+      entity.deviceId &&
+      entity.protocol === 'zigbee' &&
+      ['mqtt', 'zigbee2mqtt'].includes(entity.integration ?? '')
+    ) {
+      const ieee = identifier(entity.entityId);
+      if (ieee && !deviceIdentifiers.has(entity.deviceId))
+        deviceIdentifiers.set(entity.deviceId, ieee);
+    }
+  }
+
+  return {
+    ...inventory,
+    entities: inventory.entities.map((entity) => {
+      const ieee =
+        (entity.deviceId ? deviceIdentifiers.get(entity.deviceId) : undefined) ??
+        (entity.protocol === 'zigbee' && ['mqtt', 'zigbee2mqtt'].includes(entity.integration ?? '')
+          ? identifier(entity.entityId)
+          : undefined);
+      return ieee && !joined.has(ieee) ? { ...entity, available: false } : entity;
+    }),
+  };
+}
+
 @Injectable()
 export class EquipmentService {
   public constructor(
@@ -94,7 +130,7 @@ export class EquipmentService {
   ): Promise<void> {
     const received = homeAssistantInventorySchema.parse(payload);
     const fullInventory = joinedZigbeeIdentifiers
-      ? activeZigbeeInventoryOnly(received, joinedZigbeeIdentifiers)
+      ? markUnjoinedZigbeeInventoryUnavailable(received, joinedZigbeeIdentifiers)
       : received;
     const inventory = sensorInventoryOnly(fullInventory);
     const home = await this.prisma.home.findUnique({
@@ -108,13 +144,19 @@ export class EquipmentService {
       const inferredZigbeeIdentifiers = new Map<string, string>();
       for (const entity of fullInventory.entities) {
         const identifier = entity.entityId.toLowerCase().match(/0x[0-9a-f]{16}/)?.[0];
-        if (entity.deviceId && identifier) {
+        if (
+          entity.deviceId &&
+          identifier &&
+          entity.protocol === 'zigbee' &&
+          ['mqtt', 'zigbee2mqtt'].includes(entity.integration ?? '')
+        ) {
           inferredZigbeeIdentifiers.set(entity.deviceId, identifier);
         }
       }
       for (const source of fullInventory.devices) {
         const inferredZigbeeIdentifier = inferredZigbeeIdentifiers.get(source.deviceId) ?? null;
-        const networkIdentifier = source.networkIdentifier ?? inferredZigbeeIdentifier;
+        const sourceNetworkIdentifier = source.networkIdentifier ?? inferredZigbeeIdentifier;
+        const networkIdentifier = sourceNetworkIdentifier?.toLowerCase() ?? null;
         const device = await tx.device.upsert({
           where: {
             homeId_sourceDeviceId: {
@@ -253,6 +295,18 @@ export class EquipmentService {
             status: entity.available ? 'ONLINE' : 'OFFLINE',
           },
         });
+        if (entity.available && linkedDeviceId) {
+          await tx.device.updateMany({
+            where: {
+              id: linkedDeviceId,
+              enabled: true,
+              roomId: { not: null },
+              placementConfirmedAt: { not: null },
+              installationStatus: 'ATTENTION',
+            },
+            data: { installationStatus: 'OPERATIONAL' },
+          });
+        }
       }
 
       if (inventory.full) {
@@ -610,14 +664,26 @@ export class EquipmentService {
       ? await this.prisma.home.findUnique({ where: { id: status.homeId }, select: { id: true } })
       : await this.prisma.home.findFirst({ orderBy: { createdAt: 'asc' }, select: { id: true } });
     if (!home) return;
-    await this.prisma.equipmentSyncState.upsert({
-      where: { homeId: home.id },
-      update: { bridgeConnected: status.status === 'online', homeAssistantSeenAt: new Date() },
-      create: {
-        homeId: home.id,
-        bridgeConnected: status.status === 'online',
-        homeAssistantSeenAt: new Date(),
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.equipmentSyncState.upsert({
+        where: { homeId: home.id },
+        update: { bridgeConnected: status.status === 'online', homeAssistantSeenAt: new Date() },
+        create: {
+          homeId: home.id,
+          bridgeConnected: status.status === 'online',
+          homeAssistantSeenAt: new Date(),
+        },
+      });
+      if (status.status !== 'online') {
+        await tx.$executeRaw`
+          UPDATE "Sensor"
+          SET available = false,
+              status = 'OFFLINE',
+              "unavailableSince" = COALESCE("unavailableSince", NOW()),
+              "updatedAt" = NOW()
+          WHERE "homeId" = ${home.id} AND "removedAt" IS NULL
+        `;
+      }
     });
   }
 
@@ -627,8 +693,21 @@ export class EquipmentService {
       const devices = await tx.device.findMany({
         where: {
           OR: [
-            { networkIdentifier: normalizedIdentifier },
-            { sensors: { some: { entityId: { contains: normalizedIdentifier } } } },
+            {
+              protocol: 'zigbee',
+              integration: { in: ['zigbee2mqtt', 'mqtt'] },
+              networkIdentifier: { equals: normalizedIdentifier, mode: 'insensitive' },
+            },
+            {
+              protocol: 'zigbee',
+              integration: { in: ['zigbee2mqtt', 'mqtt'] },
+              sensors: {
+                some: {
+                  entityId: { contains: normalizedIdentifier, mode: 'insensitive' },
+                  removedAt: null,
+                },
+              },
+            },
           ],
         },
         select: { id: true },
@@ -641,36 +720,46 @@ export class EquipmentService {
           networkIdentifier: normalizedIdentifier,
           protocol: 'zigbee',
           integration: 'zigbee2mqtt',
-          installationStatus: 'ATTENTION',
         },
       });
-      await tx.sensor.updateMany({
-        where: { deviceId: { in: deviceIds }, removedAt: null },
-        data: { available: false, status: 'OFFLINE' },
-      });
+      await tx.$executeRaw`
+        UPDATE "Sensor"
+        SET available = false,
+            status = 'OFFLINE',
+            "unavailableSince" = COALESCE("unavailableSince", NOW()),
+            "updatedAt" = NOW()
+        WHERE "deviceId" IN (${Prisma.join(deviceIds)}) AND "removedAt" IS NULL
+      `;
     });
   }
 
   public async reconcileZigbeeDevices(joinedIdentifiers: string[]): Promise<void> {
-    await this.prisma.$transaction([
-      this.prisma.device.updateMany({
+    await this.prisma.$transaction(async (tx) => {
+      const joined = new Set(joinedIdentifiers.map((identifier) => identifier.toLowerCase()));
+      const zigbeeDevices = await tx.device.findMany({
         where: {
           protocol: 'zigbee',
-          networkIdentifier: { not: null, notIn: joinedIdentifiers },
+          integration: { in: ['zigbee2mqtt', 'mqtt'] },
+          networkIdentifier: { not: null },
         },
-        data: { installationStatus: 'ATTENTION' },
-      }),
-      this.prisma.sensor.updateMany({
-        where: {
-          removedAt: null,
-          device: {
-            protocol: 'zigbee',
-            networkIdentifier: { not: null, notIn: joinedIdentifiers },
-          },
-        },
-        data: { available: false, status: 'OFFLINE' },
-      }),
-    ]);
+        select: { id: true, networkIdentifier: true },
+      });
+      const missingDeviceIds = zigbeeDevices
+        .filter(({ networkIdentifier }) => !joined.has(networkIdentifier!.toLowerCase()))
+        .map(({ id }) => id);
+      if (missingDeviceIds.length === 0) return;
+      await tx.$executeRaw`
+        UPDATE "Sensor" AS sensor
+        SET available = false,
+            status = 'OFFLINE',
+            "unavailableSince" = COALESCE(sensor."unavailableSince", NOW()),
+            "updatedAt" = NOW()
+        FROM "Device" AS device
+        WHERE sensor."deviceId" = device.id
+          AND sensor."removedAt" IS NULL
+          AND device.id IN (${Prisma.join(missingDeviceIds)})
+      `;
+    });
   }
 
   private transform(

@@ -78,8 +78,22 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
       }
       if (topic === 'zigbee2mqtt/bridge/state') {
         const state = parsed as { state?: string };
+        const wasOnline = this.zigbee.online;
         this.zigbee.online = state.state === 'online';
         this.zigbee.updatedAt = new Date();
+        if (!this.zigbee.online) {
+          void this.equipment
+            .reconcileZigbeeDevices([])
+            .catch((error: unknown) =>
+              this.logger.error('Unable to mark Zigbee devices offline', error),
+            );
+        } else if (!wasOnline) {
+          if (this.rejoinedDeviceInventoryTimer) clearTimeout(this.rejoinedDeviceInventoryTimer);
+          this.rejoinedDeviceInventoryTimer = setTimeout(() => {
+            this.rejoinedDeviceInventoryTimer = undefined;
+            this.requestInventory('');
+          }, 3_000);
+        }
         return;
       }
       if (topic === 'michel/v1/discovery') {
@@ -232,6 +246,12 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
             : this.equipment.bridgeStatus(parsed);
       void action
         .then(async () => {
+          if (
+            topic === MQTT_TOPICS.bridgeStatus &&
+            (parsed as { status?: string }).status === 'online'
+          ) {
+            this.requestInventory((parsed as { homeId?: string }).homeId ?? '');
+          }
           if (topic === MQTT_TOPICS.inventory && this.zigbeeInventoryReceived) {
             await this.equipment.reconcileZigbeeDevices([...this.joinedZigbeeDevices]);
           }
