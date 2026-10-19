@@ -40,3 +40,11 @@ Vérification des prix et disponibilités : 16 août 2026. Les prix et stocks pe
 ## Périmètre couvert
 
 Ce panier couvre les neuf scénarios de simulation de Michel : matinée normale, cycle de porte, porte laissée ouverte, inactivité, température basse, activité nocturne, batterie faible, capteur hors ligne et SOS. Il est dimensionné pour un premier logement pilote, pas pour un déploiement industriel.
+
+## Option sécurité incendie — relevée le 2 octobre 2026
+
+| Quantité | Produit                                                                                                                                                                                | Usage prévu                                                            | Prix unitaire constaté | Disponibilité affichée                       |
+| -------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------: | -------------------------------------------- |
+|        1 | [HEIMAN HS1SA-E — détecteur de fumée Zigbee 3.0, certifié EN14604](https://www.domadoo.fr/fr/peripheriques/6291-heiman-detecteur-de-fumee-intelligent-zigbee-30-certifie-en14604.html) | Sirène locale et remontée d’alerte fumée dans Élise OS via Zigbee2MQTT |            18,99 € TTC | Réapprovisionnement estimé le 6 octobre 2026 |
+
+Cette option est en plus du total du panier pilote ci-dessus. Vérifier la référence **HS1SA-E** lors de la commande : l’installation Élise utilise directement son réseau Zigbee, sans compte ni concentrateur Heiman.
