@@ -8,7 +8,9 @@ import type {
   LiaisonFilter,
   LiaisonPage,
   MembershipRole,
+  NotificationPreferences,
   ScreenCommand,
+  ScreenJoin,
   ScreenMedia,
   ScreenMessageInput,
   ScreenPodcastEpisode,
@@ -38,6 +40,7 @@ import type {
 import type { Installation } from '@michel/contracts';
 import type { SavedServer } from './discovery/types';
 import { preferredServerUrls, rememberActiveServerUrl } from './discovery/helpers';
+import { isDemoServer, mockDemoRequest } from './demo/mock-api';
 
 export interface Overview {
   onboardingRequired: boolean;
@@ -279,6 +282,8 @@ const request = async <T>(
   init?: RequestInit,
   timeoutMs = REQUEST_TIMEOUT_MS,
 ) => {
+  if (isDemoServer(server)) return mockDemoRequest<T>(path, init);
+
   let response: Response | undefined;
   let lastError: unknown;
   for (const baseUrl of preferredServerUrls(server)) {
@@ -375,6 +380,7 @@ export const mobileApi = {
   me: (server: SavedServer, token: string) => request<CurrentUser>(server, '/auth/me', token),
   logout: (server: SavedServer, token: string) =>
     request<void>(server, '/auth/logout', token, { method: 'POST' }),
+  health: (server: SavedServer) => request<{ status: string }>(server, '/system/health'),
   overview: (server: SavedServer, token: string) => request<Overview>(server, '/overview', token),
   summary: (server: SavedServer, token: string, period: DashboardPeriod) =>
     request<ActivitySummary>(server, `/analytics/activity?period=${period}`, token),
@@ -644,7 +650,18 @@ export const mobileApi = {
       { method: 'POST', body: JSON.stringify({ episodeId }) },
     ),
   screenCall: (server: SavedServer, token: string) =>
-    request<unknown>(server, '/screen/calls', token, { method: 'POST' }),
+    request<ScreenSnapshot>(server, '/screen/calls', token, {
+      method: 'POST',
+      body: JSON.stringify({ client: 'mobile' }),
+    }),
+  screenCallJoin: (server: SavedServer, token: string, id: string) =>
+    request<ScreenJoin>(server, `/screen/calls/${encodeURIComponent(id)}/join`, token, {
+      method: 'POST',
+    }),
+  screenEndCall: (server: SavedServer, token: string, id: string) =>
+    request<{ ok: boolean }>(server, `/screen/calls/${encodeURIComponent(id)}`, token, {
+      method: 'DELETE',
+    }),
   weatherCities: (server: SavedServer, token: string, queryText: string) =>
     request<WeatherCity[]>(
       server,
@@ -718,5 +735,16 @@ export const mobileApi = {
     request<{ id: string }>(server, '/notifications/subscriptions', token, {
       method: 'PUT',
       body: JSON.stringify(subscription),
+    }),
+  notificationPreferences: (server: SavedServer, token: string) =>
+    request<NotificationPreferences>(server, '/notifications/preferences', token),
+  saveNotificationPreferences: (
+    server: SavedServer,
+    token: string,
+    preferences: NotificationPreferences,
+  ) =>
+    request<NotificationPreferences>(server, '/notifications/preferences', token, {
+      method: 'PUT',
+      body: JSON.stringify(preferences),
     }),
 };

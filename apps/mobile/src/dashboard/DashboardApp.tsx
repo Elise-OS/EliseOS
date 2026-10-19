@@ -6,13 +6,18 @@ import { MobilePeoplePanel } from './MobilePeoplePanel';
 import { MobileSettingsPanel } from './MobileSettingsPanel';
 import { MobileHomePlanPanel } from './MobileHomePlanPanel';
 import { AppleLiquidGlassBackground } from './AppleLiquidGlassBackground';
+import { MobileCallOverlay } from '../screen/MobileCallOverlay';
 import { Ionicons } from '@expo/vector-icons';
+import { Sofa } from 'lucide-react-native';
+import { configuredHomeDevicesForCategory } from '@michel/contracts';
 import NetInfo from '@react-native-community/netinfo';
 import type {
   ActivityEvent,
   ActivitySequence,
   HomePlan,
   HomeSummary,
+  RoomSensorCategory,
+  ScreenJoin,
   SensorDevice,
 } from '@michel/contracts';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -49,9 +54,12 @@ import {
 } from '../discovery/helpers';
 import { subscribeNotificationNavigation } from '../notifications';
 import { relativeTime } from './formatters';
+import { isDemoServer } from '../demo/mock-api';
 
 type Tab = 'home' | 'activity' | 'alerts' | 'house' | 'journal' | 'screen' | 'people' | 'settings';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
+type SafetyCategory = Extract<RoomSensorCategory, 'fall_detection' | 'smoke' | 'water_leak'>;
+type SafetyCoverage = { devices: SensorDevice[]; attentionCount: number };
 
 const colors = {
   navy: '#0B2948',
@@ -100,6 +108,133 @@ const fullDate = (value: string, timeZone = 'Europe/Paris') =>
     minute: '2-digit',
   }).format(new Date(value));
 
+const safetyCoverage = (
+  plan: HomePlan,
+  devices: SensorDevice[],
+  category: SafetyCategory,
+): SafetyCoverage => {
+  const configured = configuredHomeDevicesForCategory(plan, devices, category);
+  return {
+    devices: configured,
+    attentionCount: configured.filter(
+      (device) =>
+        !device.enabled ||
+        device.installationStatus !== 'OPERATIONAL' ||
+        device.capabilities.some(
+          ({ capability, status }) => capability === category && status !== 'ONLINE',
+        ),
+    ).length,
+  };
+};
+
+const safetyCoverageCopy = (
+  coverage: SafetyCoverage | null,
+  locale: 'fr' | 'en',
+  loading: boolean,
+) => {
+  const fr = locale === 'fr';
+  if (loading) return fr ? 'Chargement des capteurs…' : 'Loading sensors…';
+  if (!coverage) return fr ? 'Données du logement indisponibles' : 'Home data unavailable';
+  const { devices, attentionCount } = coverage;
+  if (!devices.length) return fr ? 'Aucun détecteur configuré' : 'No detector configured';
+  const onlineCount = devices.length - attentionCount;
+  if (!attentionCount)
+    return fr
+      ? `${devices.length} capteur${devices.length > 1 ? 's' : ''} · En ligne`
+      : `${devices.length} sensor${devices.length > 1 ? 's' : ''} · Online`;
+  if (!onlineCount)
+    return fr
+      ? `${devices.length} capteur${devices.length > 1 ? 's' : ''} · À vérifier`
+      : `${devices.length} sensor${devices.length > 1 ? 's' : ''} · Needs checking`;
+  return fr
+    ? `${onlineCount} en ligne · ${attentionCount} à vérifier`
+    : `${onlineCount} online · ${attentionCount} to check`;
+};
+
+const safetyCoverageTone = (coverage: SafetyCoverage | null, loading: boolean) =>
+  loading
+    ? 'pending'
+    : !coverage
+      ? 'unavailable'
+      : !coverage.devices.length
+        ? 'unconfigured'
+        : coverage.attentionCount
+          ? 'attention'
+          : 'online';
+
+const alertTitleText = (item: AlertItem, fr: boolean) => {
+  const titles: Record<string, [string, string]> = {
+    WATER_LEAK: ['Fuite d’eau détectée', 'Water leak detected'],
+    SMOKE: ['Fumée détectée', 'Smoke detected'],
+    CARBON_MONOXIDE: ['Monoxyde de carbone détecté', 'Carbon monoxide detected'],
+    FALL_DETECTION: ['Alerte de chute', 'Possible fall detected'],
+    SOS: ['Bouton d’assistance activé', 'Assistance button pressed'],
+  };
+  if (titles[item.type]) return titles[item.type][fr ? 0 : 1];
+  if (item.type === 'SENSOR_OFFLINE') {
+    const sensorName = item.title.replace(/ ne répond plus$/i, '');
+    return fr ? item.title : `${sensorName} is offline`;
+  }
+  return item.title;
+};
+
+const alertExplanationText = (item: AlertItem, fr: boolean) => {
+  const explanations: Record<string, [string, string]> = {
+    WATER_LEAK: [
+      'Le capteur a signalé la présence d’eau. Vérifiez la zone concernée et coupez l’eau si nécessaire.',
+      'The sensor reported water. Check the affected area and turn off the water if needed.',
+    ],
+    SMOKE: [
+      'Le détecteur de fumée s’est déclenché. Vérifiez rapidement la situation sans vous exposer au danger.',
+      'The smoke detector was triggered. Check promptly without putting yourself in danger.',
+    ],
+    CARBON_MONOXIDE: [
+      'Le détecteur a signalé du monoxyde de carbone. Vérifiez immédiatement la situation et suivez les consignes d’urgence.',
+      'The detector reported carbon monoxide. Check immediately and follow emergency guidance.',
+    ],
+    FALL_DETECTION: [
+      'Le détecteur signale une chute possible. Vérifiez rapidement que la personne va bien.',
+      'The detector reported a possible fall. Check promptly that the resident is all right.',
+    ],
+    SOS: [
+      'Le bouton d’assistance du domicile a été activé. Contactez rapidement la personne.',
+      'The home assistance button was pressed. Contact the resident promptly.',
+    ],
+    SENSOR_OFFLINE: [
+      'Élise ne reçoit plus de données de ce capteur. Vérifiez son alimentation et sa connexion ; les conclusions qui en dépendent sont suspendues.',
+      'Élise is no longer receiving data from this sensor. Check its power and connection; conclusions that depend on it are suspended.',
+    ],
+  };
+  return explanations[item.type]?.[fr ? 0 : 1] ?? item.explanation;
+};
+
+const sensorEventText = (payload: unknown, fr: boolean) => {
+  if (!payload || typeof payload !== 'object') return fr ? 'Événement du capteur' : 'Sensor event';
+  const value = payload as Record<string, unknown>;
+  if (value.fallStatus === 'fall_alarm') return fr ? 'Chute signalée' : 'Fall reported';
+  if (value.fallStatus === 'fall_warning')
+    return fr ? 'Chute possible signalée' : 'Possible fall reported';
+  if (value.fallStatus === 'normal')
+    return fr ? 'Détecteur revenu à l’état normal' : 'Detector returned to normal';
+  if (typeof value.active === 'boolean')
+    return value.active
+      ? fr
+        ? 'Détection active'
+        : 'Detection active'
+      : fr
+        ? 'Retour à la normale'
+        : 'Returned to normal';
+  if (typeof value.open === 'boolean')
+    return value.open
+      ? fr
+        ? 'Ouverture détectée'
+        : 'Opening detected'
+      : fr
+        ? 'Fermeture détectée'
+        : 'Closed';
+  return fr ? 'Événement du capteur' : 'Sensor event';
+};
+
 interface DashboardAppProps {
   server: SavedServer;
   token: string;
@@ -123,16 +258,40 @@ export function DashboardApp({
   const [legacyJournal, setLegacyJournal] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [pagesOpen, setPagesOpen] = useState(false);
-  const [settingsSection, setSettingsSection] = useState<'general' | 'rules'>('general');
-  const [connected, setConnected] = useState(true);
-  const [networkAvailable, setNetworkAvailable] = useState(true);
+  const [settingsSection, setSettingsSection] = useState<'general' | 'rules' | 'notifications'>(
+    'general',
+  );
+  const [mobileCallId, setMobileCallId] = useState<string | null>(null);
+  const [mobileCallJoin, setMobileCallJoin] = useState<ScreenJoin | null>(null);
+  const [mobileCallJoinError, setMobileCallJoinError] = useState('');
+  const mobileCallJoinRequested = useRef<string | null>(null);
+  const mobileCallStarting = useRef(false);
+  const demoMode = isDemoServer(server);
   const loggedOutForAuth = useRef(false);
 
-  useEffect(() => subscribeNotificationNavigation(() => setTab('alerts')), []);
+  useEffect(
+    () =>
+      subscribeNotificationNavigation((destination) => {
+        setTab(destination);
+        if (destination === 'journal') {
+          setCalendarOpen(false);
+          setLegacyJournal(false);
+        }
+        void queryClient.invalidateQueries({ queryKey: [...rootKey, destination] });
+      }),
+    [queryClient, rootKey],
+  );
 
   const overview = useQuery({
     queryKey: [...rootKey, 'overview'],
     queryFn: () => mobileApi.overview(server, token),
+  });
+  const serverHealth = useQuery({
+    queryKey: [...rootKey, 'server-health'],
+    queryFn: () => mobileApi.health(server),
+    enabled: !demoMode,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
   const currentUser = useQuery({
     queryKey: [...rootKey, 'current-user'],
@@ -145,6 +304,8 @@ export function DashboardApp({
   const screen = useQuery({
     queryKey: [...rootKey, 'screen'],
     queryFn: () => mobileApi.screen(server, token),
+    refetchInterval: (query) => (query.state.data?.state.call ? 2_000 : false),
+    refetchIntervalInBackground: false,
   });
   const schedule = useQuery({
     queryKey: [...rootKey, 'schedule'],
@@ -186,13 +347,97 @@ export function DashboardApp({
   });
   const screenRole = currentUser.data?.role ?? 'VIEWER';
 
+  const startMobileCall = async () => {
+    if (demoMode) {
+      Alert.alert('Appel simulé', 'La démonstration ne lance aucun appel réel.');
+      return;
+    }
+    if (mobileCallStarting.current || mobileCallId) return;
+    mobileCallStarting.current = true;
+    try {
+      const snapshot = await mobileApi.screenCall(server, token);
+      const call = snapshot.state.call;
+      if (!call) throw new Error('L’appel n’a pas pu être lancé.');
+      mobileCallJoinRequested.current = null;
+      setMobileCallJoin(null);
+      setMobileCallJoinError('');
+      queryClient.setQueryData([...rootKey, 'screen'], snapshot);
+      setMobileCallId(call.id);
+    } finally {
+      mobileCallStarting.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (!mobileCallId) return;
+    const call = screen.data?.state.call;
+    if (!call || call.id !== mobileCallId) {
+      setMobileCallId(null);
+      setMobileCallJoin(null);
+      setMobileCallJoinError('');
+      mobileCallJoinRequested.current = null;
+      return;
+    }
+    if (
+      !call.acceptedAt ||
+      call.userId !== currentUser.data?.id ||
+      mobileCallJoinRequested.current === call.id
+    )
+      return;
+
+    mobileCallJoinRequested.current = call.id;
+    let disposed = false;
+    void mobileApi
+      .screenCallJoin(server, token, call.id)
+      .then((join) => {
+        if (!disposed) setMobileCallJoin(join);
+      })
+      .catch((cause) => {
+        if (!disposed)
+          setMobileCallJoinError(
+            cause instanceof Error ? cause.message : 'Impossible de rejoindre la visioconférence.',
+          );
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [
+    currentUser.data?.id,
+    mobileCallId,
+    screen.data?.state.call?.acceptedAt,
+    screen.data?.state.call?.id,
+    screen.data?.state.call?.userId,
+    server,
+    token,
+  ]);
+
+  const endMobileCall = async () => {
+    const callId = mobileCallId;
+    setMobileCallId(null);
+    setMobileCallJoin(null);
+    setMobileCallJoinError('');
+    mobileCallJoinRequested.current = null;
+    if (!callId || demoMode) return;
+    try {
+      await mobileApi.screenEndCall(server, token, callId);
+    } catch {
+      Alert.alert(
+        locale === 'fr' ? 'Appel terminé' : 'Call ended',
+        locale === 'fr'
+          ? 'La fermeture de l’appel sur l’écran du logement n’a pas pu être confirmée.'
+          : 'The home screen could not be notified that the call ended.',
+      );
+    } finally {
+      void queryClient.invalidateQueries({ queryKey: [...rootKey, 'screen'] });
+    }
+  };
+
   const invalidateAll = () => queryClient.invalidateQueries({ queryKey: rootKey });
 
   useEffect(() => {
     let wasAvailable = true;
     return NetInfo.addEventListener((state) => {
       const available = state.isConnected !== false;
-      setNetworkAvailable(available);
       if (available && !wasAvailable) {
         void queryClient.refetchQueries({ queryKey: rootKey, type: 'active' });
       }
@@ -201,12 +446,23 @@ export function DashboardApp({
   }, [queryClient, rootKey]);
 
   useEffect(() => {
+    if (demoMode) return;
     let stream: EventSource | null = null;
     let streamUrl = '';
     let endpointIndex = 0;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const pendingDomains = new Set<string>();
+    const refreshDomains = () => {
+      refreshTimer = undefined;
+      for (const domain of pendingDomains)
+        void queryClient.invalidateQueries(
+          { queryKey: [...rootKey, domain] },
+          { cancelRefetch: false },
+        );
+      pendingDomains.clear();
+    };
     let appActive = true;
-    let transportAvailable = true;
     let disposed = false;
     let generation = 0;
     const clearReconnect = () => {
@@ -214,13 +470,10 @@ export function DashboardApp({
       reconnectTimer = undefined;
     };
     const open = (preferActive = true) => {
-      if (disposed || !appActive || !transportAvailable) return;
+      if (disposed || !appActive) return;
       clearReconnect();
       const urls = preferredServerUrls(server);
-      if (!urls.length) {
-        setConnected(false);
-        return;
-      }
+      if (!urls.length) return;
       if (preferActive) {
         const activeIndex = urls.indexOf(activeServerUrl(server));
         if (activeIndex >= 0) endpointIndex = activeIndex;
@@ -238,11 +491,9 @@ export function DashboardApp({
       current.addEventListener('open', () => {
         if (currentGeneration !== generation) return;
         rememberActiveServerUrl(server, url);
-        setConnected(true);
       });
       current.addEventListener('error', () => {
         if (currentGeneration !== generation) return;
-        setConnected(false);
         endpointIndex = (endpointIndex + 1) % urls.length;
         reconnectTimer = setTimeout(() => open(false), 1_500);
       });
@@ -251,7 +502,6 @@ export function DashboardApp({
         if (!message.data) return;
         try {
           const event = JSON.parse(message.data) as { type: string };
-          setConnected(true);
           if (event.type === 'heartbeat' || event.type === 'connected') return;
           const domains: Record<string, string[]> = {
             activity: [
@@ -272,15 +522,24 @@ export function DashboardApp({
               'home-summary',
               'liaison',
             ],
-            screen: ['screen', 'home-summary'],
+            screen: ['screen'],
             home: ['overview', 'home-summary', 'screen', 'activity', 'summary', 'schedule'],
             liaison: ['liaison'],
             journal: ['journal'],
             schedule: ['overview', 'schedule', 'liaison'],
             presence: ['presence', 'presence-history'],
           };
-          for (const domain of domains[event.type] ?? [])
-            void queryClient.invalidateQueries({ queryKey: [...rootKey, domain] });
+          for (const domain of domains[event.type] ?? []) {
+            if (event.type === 'activity' || event.type === 'presence') {
+              pendingDomains.add(domain);
+              refreshTimer ??= setTimeout(refreshDomains, 3_000);
+            } else {
+              void queryClient.invalidateQueries(
+                { queryKey: [...rootKey, domain] },
+                { cancelRefetch: false },
+              );
+            }
+          }
         } catch {
           // Ignore malformed local events; the next reconnect performs a full refresh.
         }
@@ -299,34 +558,27 @@ export function DashboardApp({
         appActive = false;
         generation += 1;
         clearReconnect();
+        if (refreshTimer) clearTimeout(refreshTimer);
+        refreshTimer = undefined;
+        pendingDomains.clear();
         stream?.close();
         stream = null;
-        setConnected(false);
       }
     });
     const network = NetInfo.addEventListener((next) => {
-      if (next.isConnected === false) {
-        transportAvailable = false;
-        setConnected(false);
-        generation += 1;
-        clearReconnect();
-        stream?.close();
-        stream = null;
-        return;
-      }
-      transportAvailable = true;
-      if (!stream || streamUrl !== activeServerUrl(server)) open();
+      if (next.isConnected !== false && (!stream || streamUrl !== activeServerUrl(server))) open();
     });
     return () => {
       disposed = true;
       generation += 1;
       clearInterval(endpointCheck);
       clearReconnect();
+      if (refreshTimer) clearTimeout(refreshTimer);
       state.remove();
       network();
       stream?.close();
     };
-  }, [queryClient, rootKey, server, token]);
+  }, [demoMode, queryClient, rootKey, server, token]);
 
   const authError = [
     overview.error,
@@ -348,28 +600,70 @@ export function DashboardApp({
     void onLogout();
   }, [authError, onLogout]);
 
-  const offline = !networkAvailable || !connected || (overview.isError && Boolean(overview.data));
-  const hideGlobalHeader = tab === 'house' || tab === 'journal' || tab === 'screen';
+  const offline =
+    !demoMode &&
+    (serverHealth.isError || (serverHealth.isSuccess && serverHealth.data.status !== 'ok'));
+  const hideGlobalHeader =
+    tab === 'house' || tab === 'journal' || tab === 'screen' || tab === 'alerts';
   const activityItems = activity.data?.pages.flatMap((page) => page.items) ?? [];
   const alertItems = alerts.data?.pages.flatMap((page) => page.items) ?? [];
   const journalItems = journal.data?.pages.flatMap((page) => page.items) ?? [];
 
   const logout = () => {
-    Alert.alert('Se déconnecter ?', 'Les données conservées hors ligne seront supprimées.', [
-      { text: 'Annuler', style: 'cancel' },
+    const confirmLogout = () => {
+      queryClient.removeQueries({ queryKey: rootKey });
+      void onLogout();
+    };
+
+    if (demoMode) {
+      queryClient.removeQueries({ queryKey: rootKey });
+      void onLogout();
+      return;
+    }
+
+    const title = locale === 'fr' ? 'Se déconnecter ?' : 'Sign out?';
+    const message =
+      locale === 'fr'
+        ? 'Les données conservées hors ligne seront supprimées.'
+        : 'Offline data stored on this device will be deleted.';
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(`${title}\n\n${message}`)) {
+        confirmLogout();
+      }
+      return;
+    }
+
+    Alert.alert(title, message, [
+      { text: locale === 'fr' ? 'Annuler' : 'Cancel', style: 'cancel' },
       {
-        text: 'Se déconnecter',
+        text: locale === 'fr' ? 'Se déconnecter' : 'Sign out',
         style: 'destructive',
-        onPress: () => {
-          queryClient.removeQueries({ queryKey: rootKey });
-          void onLogout();
-        },
+        onPress: confirmLogout,
       },
     ]);
   };
 
   return (
     <SafeAreaView style={styles.shell} edges={['top', 'left', 'right', 'bottom']}>
+      {demoMode ? (
+        <View style={styles.demoBanner}>
+          <View style={styles.demoBannerLabel}>
+            <Ionicons name="sparkles-outline" size={15} color={colors.blue} />
+            <Text style={styles.demoBannerText}>
+              {locale === 'fr' ? 'MODE DÉMO · DONNÉES FICTIVES' : 'DEMO MODE · SAMPLE DATA'}
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={locale === 'fr' ? 'Quitter la démonstration' : 'Exit demo'}
+            onPress={logout}
+            style={styles.demoExitButton}
+          >
+            <Text style={styles.demoExitText}>{locale === 'fr' ? 'Quitter' : 'Exit'}</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {tab !== 'home' && !hideGlobalHeader && tab !== 'settings' && tab !== 'people' ? (
         <View style={styles.appHeader}>
           <Pressable
@@ -396,6 +690,7 @@ export function DashboardApp({
             activity={activityItems}
             refreshing={overview.isRefetching || homeSummary.isRefetching}
             connectionAvailable={!offline}
+            onStartCall={startMobileCall}
             onRefresh={invalidateAll}
             onNavigate={setTab}
           />
@@ -416,27 +711,20 @@ export function DashboardApp({
           <AlertsTab
             server={server}
             token={token}
+            locale={locale}
             items={alertItems}
             refreshing={alerts.isRefetching}
             onRefresh={invalidateAll}
             onMore={() => void alerts.fetchNextPage()}
             hasMore={alerts.hasNextPage}
+            loadingMore={alerts.isFetchingNextPage}
             canManage={currentUser.data?.capabilities.includes('alerts:manage') ?? false}
             residentName={overview.data?.home?.resident ?? 'Élise'}
             timezone={homeSummary.data?.timezone ?? 'Europe/Paris'}
-            onCall={() =>
-              void mobileApi
-                .screenCall(server, token)
-                .then(() =>
-                  Alert.alert('Appel lancé', 'Élise va appeler depuis l’écran du logement.'),
-                )
-                .catch(() =>
-                  Alert.alert(
-                    'Appel indisponible',
-                    'L’appel ne peut pas être lancé pour le moment.',
-                  ),
-                )
-            }
+            homePlan={homePlan.data}
+            sensorDevices={sensorDevices.data}
+            safetyLoading={homePlan.isLoading || sensorDevices.isLoading}
+            onCall={startMobileCall}
             onSettings={() => {
               setSettingsSection('rules');
               setTab('settings');
@@ -498,6 +786,7 @@ export function DashboardApp({
               void queryClient.invalidateQueries({ queryKey: [...rootKey, 'screen'] })
             }
             onOpenPage={setTab}
+            onLogout={logout}
           />
         )}
         {tab === 'journal' && calendarOpen && (
@@ -531,6 +820,17 @@ export function DashboardApp({
           />
         )}
       </View>
+      <MobileCallOverlay
+        visible={Boolean(mobileCallId)}
+        residentName={screen.data?.resident ?? overview.data?.home?.resident ?? 'Élise'}
+        locale={locale}
+        accepted={Boolean(
+          screen.data?.state.call?.id === mobileCallId && screen.data.state.call.acceptedAt,
+        )}
+        join={mobileCallJoin}
+        error={mobileCallJoinError}
+        onEnd={endMobileCall}
+      />
       <View style={styles.tabBar}>
         {Platform.OS === 'ios' ? (
           <AppleLiquidGlassBackground style={StyleSheet.absoluteFill} />
@@ -549,11 +849,19 @@ export function DashboardApp({
               }}
             >
               <View>
-                <Ionicons
-                  name={active ? item.active : item.icon}
-                  color={active ? colors.blue : '#8A9299'}
-                  size={21}
-                />
+                {item.id === 'house' ? (
+                  <Sofa
+                    color={active ? colors.blue : '#8A9299'}
+                    size={24}
+                    strokeWidth={active ? 2.25 : 1.9}
+                  />
+                ) : (
+                  <Ionicons
+                    name={active ? item.active : item.icon}
+                    color={active ? colors.blue : '#8A9299'}
+                    size={21}
+                  />
+                )}
               </View>
               <Text style={[styles.tabText, active && styles.tabTextActive]}>{item.label}</Text>
             </Pressable>
@@ -612,7 +920,13 @@ export function DashboardApp({
                 <Ionicons name="log-out-outline" size={20} color={colors.red} />
               </View>
               <Text style={[styles.pageMenuLabel, styles.pageMenuLabelDanger]}>
-                {locale === 'fr' ? 'Se déconnecter' : 'Sign out'}
+                {demoMode
+                  ? locale === 'fr'
+                    ? 'Quitter la démonstration'
+                    : 'Exit demo'
+                  : locale === 'fr'
+                    ? 'Se déconnecter'
+                    : 'Sign out'}
               </Text>
               <Ionicons name="chevron-forward" size={18} color={colors.muted} />
             </Pressable>
@@ -625,14 +939,30 @@ export function DashboardApp({
 
 function Screen({
   children,
-  refreshing,
   onRefresh,
-}: React.PropsWithChildren<{ refreshing: boolean; onRefresh: () => void }>) {
+}: React.PropsWithChildren<{
+  refreshing: boolean;
+  onRefresh: () => void | Promise<unknown>;
+}>) {
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  const refresh = async () => {
+    if (pullRefreshing) return;
+    setPullRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setPullRefreshing(false);
+    }
+  };
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} />
+        <RefreshControl
+          refreshing={pullRefreshing}
+          onRefresh={() => void refresh()}
+          tintColor={colors.blue}
+        />
       }
       contentContainerStyle={styles.scroll}
     >
@@ -1058,11 +1388,17 @@ function mobileEventDescription(event: ActivityEvent) {
       ? (payload.context as Record<string, unknown>)
       : {};
   const raw = payload.open ?? payload.active ?? payload.value ?? payload.state;
-  if (event.capability === 'contact' || event.capability === 'dry_contact') {
+  if (
+    event.capability === 'contact' ||
+    event.capability === 'dry_contact' ||
+    (event.capability === 'occupancy' && context.role === 'BED')
+  ) {
     const open =
       raw === true || raw === 'open' || raw === 'contact_open' || raw === 'on' || raw === 1;
     if (context.role === 'BED')
-      return open === (context.bedOccupiedWhen === 'OPEN') ? 'Lit occupé' : 'Lit libre';
+      return open === (context.bedOccupiedWhen === 'OPEN' || event.capability === 'occupancy')
+        ? 'Lit occupé'
+        : 'Lit libre';
     return open
       ? event.capability === 'dry_contact'
         ? 'Contact ouvert'
@@ -1134,39 +1470,98 @@ function MomentStat({
   );
 }
 
+function SafetySensorCard({
+  icon,
+  iconColor,
+  iconBackground,
+  eyebrow,
+  title,
+  coverage,
+  locale,
+  loading,
+}: {
+  icon: IconName;
+  iconColor: string;
+  iconBackground: string;
+  eyebrow: string;
+  title: string;
+  coverage: SafetyCoverage | null;
+  locale: 'fr' | 'en';
+  loading: boolean;
+}) {
+  const tone = safetyCoverageTone(coverage, loading);
+  return (
+    <View style={[styles.card, styles.alertSafetyCard]}>
+      <View style={styles.alertSafetyHeader}>
+        <View style={[styles.alertSafetyIcon, { backgroundColor: iconBackground }]}>
+          <Ionicons name={icon} size={23} color={iconColor} />
+        </View>
+        <View style={styles.rowCopy}>
+          <Text style={styles.alertSafetyEyebrow}>{eyebrow}</Text>
+          <Text style={styles.alertSafetyTitle}>{title}</Text>
+          <Text
+            style={[
+              styles.alertSafetyDetail,
+              tone === 'online'
+                ? styles.alertSafetyOnline
+                : tone === 'attention'
+                  ? styles.alertSafetyAttention
+                  : null,
+            ]}
+          >
+            {safetyCoverageCopy(coverage, locale, loading)}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function AlertsTab({
   server,
   token,
+  locale,
   items,
   refreshing,
   onRefresh,
   onMore,
   hasMore,
+  loadingMore,
   canManage,
   residentName,
   timezone,
+  homePlan,
+  sensorDevices,
+  safetyLoading,
   onCall,
   onSettings,
 }: {
   server: SavedServer;
   token: string;
+  locale: 'fr' | 'en';
   items: AlertItem[];
   refreshing: boolean;
   onRefresh: () => void;
   onMore: () => void;
   hasMore?: boolean;
+  loadingMore: boolean;
   canManage: boolean;
   residentName: string;
   timezone: string;
-  onCall: () => void;
+  homePlan?: HomePlan;
+  sensorDevices?: SensorDevice[];
+  safetyLoading: boolean;
+  onCall: () => Promise<void>;
   onSettings: () => void;
 }) {
+  const fr = locale === 'fr';
   const client = useQueryClient();
   const [filter, setFilter] = useState<'ALL' | 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED'>('ALL');
   const [showHistory, setShowHistory] = useState(false);
   const [severity, setSeverity] = useState<'ALL' | AlertItem['severity']>('ALL');
   const [room, setRoom] = useState('ALL');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [displayedCount, setDisplayedCount] = useState(8);
   const [selected, setSelected] = useState<AlertItem | null>(null);
   const [snapshotVisible, setSnapshotVisible] = useState(false);
   const [dismissOpen, setDismissOpen] = useState(false);
@@ -1186,6 +1581,12 @@ function AlertsTab({
       items.filter((item) => item.room).map((item) => [item.room!.id, item.room!]),
     ).values(),
   ];
+  const fallCoverage =
+    homePlan && sensorDevices ? safetyCoverage(homePlan, sensorDevices, 'fall_detection') : null;
+  const smokeCoverage =
+    homePlan && sensorDevices ? safetyCoverage(homePlan, sensorDevices, 'smoke') : null;
+  const waterCoverage =
+    homePlan && sensorDevices ? safetyCoverage(homePlan, sensorDevices, 'water_leak') : null;
   const todayKey = dashboardDateKey(new Date(), timezone);
   const matching = items.filter(
     (item) =>
@@ -1196,12 +1597,21 @@ function AlertsTab({
       (severity === 'ALL' || item.severity === severity) &&
       (room === 'ALL' || item.room?.id === room),
   );
-  const visible = matching.filter(
-    (item) =>
-      showHistory ||
-      ['OPEN', 'ACKNOWLEDGED'].includes(item.status) ||
-      dashboardDateKey(new Date(item.openedAt), timezone) === todayKey,
+  const isOngoing = (item: AlertItem) => ['OPEN', 'ACKNOWLEDGED'].includes(item.status);
+  const currentItems = matching.filter(
+    (item) => dashboardDateKey(new Date(item.openedAt), timezone) === todayKey || isOngoing(item),
   );
+  const olderItems = matching.filter(
+    (item) => dashboardDateKey(new Date(item.openedAt), timezone) !== todayKey && !isOngoing(item),
+  );
+  const olderCount = olderItems.length;
+  const filtered = showHistory ? olderItems : currentItems;
+  const visible = filtered.slice(0, displayedCount);
+  const hasMoreLoaded = filtered.length > visible.length;
+  const extraFilterCount = Number(severity !== 'ALL') + Number(room !== 'ALL');
+  useEffect(() => {
+    setDisplayedCount(8);
+  }, [filter, severity, room, showHistory]);
   const mutation = useMutation({
     mutationFn: ({
       id,
@@ -1271,7 +1681,7 @@ function AlertsTab({
             label:
               measured !== null
                 ? `Mesure : ${measured} ${actualDetail?.sensor?.unit ?? ''}`
-                : 'Événement du capteur',
+                : sensorEventText(entry.payload, fr),
           };
         }),
       ].sort((left, right) => Date.parse(left.at) - Date.parse(right.at))
@@ -1287,6 +1697,41 @@ function AlertsTab({
           </Pressable>
         }
       />
+      <View
+        style={styles.alertSafetyCards}
+        accessibilityLabel={fr ? 'Capteurs de sécurité du logement' : 'Home safety sensors'}
+      >
+        <SafetySensorCard
+          icon="shield-outline"
+          iconColor="#7252AC"
+          iconBackground="#F2EDFB"
+          eyebrow={fr ? 'Protection de la personne' : 'Personal safety'}
+          title={fr ? 'Détection des chutes' : 'Fall detection'}
+          coverage={fallCoverage}
+          locale={locale}
+          loading={safetyLoading}
+        />
+        <SafetySensorCard
+          icon="flame-outline"
+          iconColor="#B45B54"
+          iconBackground="#FCF0ED"
+          eyebrow={fr ? 'Sécurité du logement' : 'Home safety'}
+          title={fr ? 'Détection de la fumée' : 'Smoke detection'}
+          coverage={smokeCoverage}
+          locale={locale}
+          loading={safetyLoading}
+        />
+        <SafetySensorCard
+          icon="water-outline"
+          iconColor="#307BA7"
+          iconBackground="#E9F5FC"
+          eyebrow={fr ? 'Sécurité du logement' : 'Home safety'}
+          title={fr ? 'Détection des fuites d’eau' : 'Water leak detection'}
+          coverage={waterCoverage}
+          locale={locale}
+          loading={safetyLoading}
+        />
+      </View>
       <View
         style={[
           styles.alertReassurance,
@@ -1307,67 +1752,165 @@ function AlertsTab({
                 : 'Aucune alerte urgente en cours'}
           </Text>
           <Text style={styles.rowDetail}>
-            {items.length} dernières situations reçues, de la plus récente à la plus ancienne.
+            {showHistory
+              ? `${visible.length} situation${visible.length > 1 ? 's' : ''} affichée${visible.length > 1 ? 's' : ''} dans l’historique.`
+              : `${visible.length} situation${visible.length > 1 ? 's' : ''} récente${visible.length > 1 ? 's' : ''} ou en cours affichée${visible.length > 1 ? 's' : ''}. Les situations terminées plus anciennes restent dans l’historique.`}
           </Text>
         </View>
       </View>
       <Segment
         options={[
-          ['ALL', showHistory ? 'Toutes' : 'Aujourd’hui'],
-          ['OPEN', 'Ouvertes'],
-          ['ACKNOWLEDGED', 'Prises en charge'],
-          ['RESOLVED', 'Résolues'],
+          ['ALL', showHistory ? (fr ? 'Toutes' : 'All') : fr ? 'Actuelles' : 'Current'],
+          ['OPEN', fr ? 'Ouvertes' : 'Open'],
+          ['ACKNOWLEDGED', fr ? 'Prises en charge' : 'Acknowledged'],
+          ['RESOLVED', fr ? 'Résolues' : 'Resolved'],
         ]}
         value={filter}
         onChange={(value) => setFilter(value as typeof filter)}
       />
-      <Pressable style={styles.filterToggle} onPress={() => setFiltersOpen((value) => !value)}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: filtersOpen }}
+        style={[styles.filterToggle, filtersOpen && styles.filterToggleActive]}
+        onPress={() => setFiltersOpen((value) => !value)}
+      >
         <Ionicons name="filter-outline" size={17} color={colors.blue} />
-        <Text style={styles.link}>
-          {filtersOpen ? 'Masquer les filtres' : 'Filtrer par priorité ou pièce'}
+        <Text style={styles.filterToggleText}>
+          {filtersOpen
+            ? fr
+              ? 'Masquer les filtres'
+              : 'Hide filters'
+            : fr
+              ? 'Filtrer les alertes'
+              : 'Filter alerts'}
         </Text>
+        {extraFilterCount > 0 ? (
+          <View style={styles.filterCountBadge}>
+            <Text style={styles.filterCountText}>{extraFilterCount}</Text>
+          </View>
+        ) : null}
+        <Ionicons
+          name={filtersOpen ? 'chevron-up' : 'chevron-down'}
+          size={15}
+          color={colors.muted}
+        />
       </Pressable>
       {filtersOpen ? (
-        <View style={styles.filterPanel}>
-          <Text style={styles.metricLabel}>PRIORITÉ</Text>
-          <View style={styles.chips}>
-            {(['ALL', 'INFO', 'ATTENTION', 'URGENT'] as const).map((value) => (
-              <Chip
-                key={value}
-                label={
-                  value === 'ALL'
-                    ? 'Toutes'
-                    : value === 'INFO'
-                      ? 'Information'
-                      : value === 'ATTENTION'
-                        ? 'À vérifier'
-                        : 'Urgence'
-                }
-                active={severity === value}
-                onPress={() => setSeverity(value)}
-              />
-            ))}
+        <View style={styles.alertFilterPanel}>
+          <View style={styles.alertFilterPanelHeading}>
+            <View>
+              <Text style={styles.alertFilterPanelTitle}>
+                {fr ? 'Affiner les alertes' : 'Refine alerts'}
+              </Text>
+              <Text style={styles.alertFilterPanelDetail}>
+                {filtered.length} {fr ? 'résultat' : 'result'}
+                {filtered.length > 1 ? 's' : ''}
+              </Text>
+            </View>
+            {extraFilterCount > 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setSeverity('ALL');
+                  setRoom('ALL');
+                }}
+                style={styles.alertFilterReset}
+              >
+                <Text style={styles.alertFilterResetText}>{fr ? 'Réinitialiser' : 'Reset'}</Text>
+              </Pressable>
+            ) : null}
           </View>
-          <Text style={styles.metricLabel}>PIÈCE</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chips}
+          <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel={fr ? 'Priorité' : 'Priority'}
+            style={styles.alertFilterGroup}
           >
-            <Chip
-              label="Toutes les pièces"
-              active={room === 'ALL'}
-              onPress={() => setRoom('ALL')}
-            />
-            {rooms.map((value) => (
-              <Chip
-                key={value.id}
-                label={value.name}
-                active={room === value.id}
-                onPress={() => setRoom(value.id)}
-              />
-            ))}
-          </ScrollView>
+            <Text style={styles.alertFilterLabel}>{fr ? 'PRIORITÉ' : 'PRIORITY'}</Text>
+            <View style={styles.alertFilterOptions}>
+              {(['ALL', 'INFO', 'ATTENTION', 'URGENT'] as const).map((value) => (
+                <Pressable
+                  key={value}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: severity === value }}
+                  onPress={() => setSeverity(value)}
+                  style={[
+                    styles.alertFilterPill,
+                    severity === value && styles.alertFilterPillActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.alertFilterPillText,
+                      severity === value && styles.alertFilterPillTextActive,
+                    ]}
+                  >
+                    {value === 'ALL'
+                      ? fr
+                        ? 'Toutes'
+                        : 'All'
+                      : value === 'INFO'
+                        ? 'Information'
+                        : value === 'ATTENTION'
+                          ? fr
+                            ? 'À vérifier'
+                            : 'Needs attention'
+                          : fr
+                            ? 'Urgence'
+                            : 'Urgent'}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel={fr ? 'Pièce' : 'Room'}
+            style={styles.alertFilterGroup}
+          >
+            <Text style={styles.alertFilterLabel}>{fr ? 'PIÈCE' : 'ROOM'}</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.alertFilterRoomOptions}
+            >
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ selected: room === 'ALL' }}
+                onPress={() => setRoom('ALL')}
+                style={[styles.alertFilterPill, room === 'ALL' && styles.alertFilterPillActive]}
+              >
+                <Text
+                  style={[
+                    styles.alertFilterPillText,
+                    room === 'ALL' && styles.alertFilterPillTextActive,
+                  ]}
+                >
+                  {fr ? 'Toutes les pièces' : 'All rooms'}
+                </Text>
+              </Pressable>
+              {rooms.map((value) => (
+                <Pressable
+                  key={value.id}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: room === value.id }}
+                  onPress={() => setRoom(value.id)}
+                  style={[
+                    styles.alertFilterPill,
+                    room === value.id && styles.alertFilterPillActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.alertFilterPillText,
+                      room === value.id && styles.alertFilterPillTextActive,
+                    ]}
+                  >
+                    {value.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
         </View>
       ) : null}
       <View style={styles.card}>
@@ -1406,9 +1949,9 @@ function AlertsTab({
                 </Text>
                 <Text style={styles.rowTime}>{relativeTime(item.openedAt)}</Text>
               </View>
-              <Text style={styles.alertTitle}>{item.title}</Text>
+              <Text style={styles.alertTitle}>{alertTitleText(item, fr)}</Text>
               <Text numberOfLines={2} style={styles.alertExplanation}>
-                {item.explanation}
+                {alertExplanationText(item, fr)}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.muted} />
@@ -1418,24 +1961,110 @@ function AlertsTab({
           <Empty
             icon="checkmark-circle-outline"
             text={
-              filter !== 'RESOLVED'
-                ? 'Aucune alerte ne demande votre attention.'
-                : 'Aucune alerte dans l’historique.'
+              loadingMore && !visible.length
+                ? fr
+                  ? showHistory
+                    ? 'Chargement des situations plus anciennes…'
+                    : 'Chargement des situations…'
+                  : showHistory
+                    ? 'Loading older situations…'
+                    : 'Loading situations…'
+                : olderCount > 0 && !showHistory
+                  ? fr
+                    ? 'Aucune alerte récente ou en cours. Des situations terminées plus anciennes sont dans l’historique.'
+                    : 'No recent or ongoing alerts. Older completed situations are in the history.'
+                  : filter !== 'RESOLVED'
+                    ? fr
+                      ? 'Aucune alerte ne demande votre attention.'
+                      : 'No alerts need your attention.'
+                    : fr
+                      ? 'Aucune alerte dans l’historique.'
+                      : 'No alerts in the history.'
             }
           />
         ) : null}
-        {matching.length > visible.length || hasMore ? (
+        {hasMoreLoaded ? (
           <Pressable
-            style={styles.loadMore}
-            onPress={() => {
-              if (!showHistory) setShowHistory(true);
-              else onMore();
-            }}
+            accessibilityRole="button"
+            onPress={() => setDisplayedCount((count) => count + 8)}
+            style={styles.alertPaginationButton}
           >
-            <Text style={styles.link}>
-              {showHistory ? 'Charger d’autres situations' : 'Afficher les alertes précédentes'}
+            <Text style={styles.alertPaginationText}>
+              {fr ? 'Afficher 8 situations de plus' : 'Show 8 more situations'}
             </Text>
             <Ionicons name="chevron-down" size={16} color={colors.blue} />
+          </Pressable>
+        ) : null}
+        {!showHistory && !hasMoreLoaded && hasMore ? (
+          <Pressable
+            accessibilityRole="button"
+            disabled={loadingMore}
+            onPress={() => {
+              setDisplayedCount(visible.length + 8);
+              onMore();
+            }}
+            style={styles.alertPaginationButton}
+          >
+            <Text style={styles.alertPaginationText}>
+              {loadingMore
+                ? fr
+                  ? 'Chargement…'
+                  : 'Loading…'
+                : fr
+                  ? 'Charger d’autres situations'
+                  : 'Load more situations'}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.blue} />
+          </Pressable>
+        ) : null}
+        {!showHistory && olderCount > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setShowHistory(true)}
+            style={[styles.alertPaginationButton, styles.alertHistoryButton]}
+          >
+            <Text style={styles.alertPaginationText}>
+              {fr ? 'Voir les situations plus anciennes' : 'View older situations'}
+            </Text>
+            {olderCount > 0 ? (
+              <View style={styles.filterCountBadge}>
+                <Text style={styles.filterCountText}>{olderCount}</Text>
+              </View>
+            ) : null}
+            <Ionicons name="chevron-down" size={16} color={colors.blue} />
+          </Pressable>
+        ) : null}
+        {showHistory && !hasMoreLoaded && hasMore ? (
+          <Pressable
+            accessibilityRole="button"
+            disabled={loadingMore}
+            onPress={() => {
+              setDisplayedCount(visible.length + 8);
+              onMore();
+            }}
+            style={styles.alertPaginationButton}
+          >
+            <Text style={styles.alertPaginationText}>
+              {loadingMore
+                ? fr
+                  ? 'Chargement…'
+                  : 'Loading…'
+                : fr
+                  ? 'Charger d’autres situations'
+                  : 'Load more situations'}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.blue} />
+          </Pressable>
+        ) : null}
+        {showHistory ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setShowHistory(false)}
+            style={styles.alertHistoryButton}
+          >
+            <Text style={styles.alertHistoryText}>
+              {fr ? 'Revenir aux situations actuelles' : 'Back to current situations'}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -1463,11 +2092,11 @@ function AlertsTab({
               >
                 <Ionicons name="notifications" color="#fff" size={30} />
               </View>
-              <Text style={styles.modalTitle}>{selected.title}</Text>
+              <Text style={styles.modalTitle}>{alertTitleText(selected, fr)}</Text>
               <Text style={styles.modalDate}>{fullDate(selected.openedAt, timezone)}</Text>
               <View style={styles.explanationCard}>
                 <Text style={styles.explanationTitle}>Ce qui a été observé</Text>
-                <Text style={styles.explanationText}>{selected.explanation}</Text>
+                <Text style={styles.explanationText}>{alertExplanationText(selected, fr)}</Text>
                 {selected.room?.name ? (
                   <Text style={styles.rowDetail}>Pièce : {selected.room.name}</Text>
                 ) : null}
@@ -1600,7 +2229,9 @@ function AlertsTab({
         <View style={styles.confirmBackdrop}>
           <View style={styles.confirmCard}>
             <Text style={styles.modalTitle}>Appeler {residentName} ?</Text>
-            <Text style={styles.rowDetail}>Une demande d’appel sera envoyée à son écran.</Text>
+            <Text style={styles.rowDetail}>
+              L’écran du logement répondra automatiquement et la vidéo s’ouvrira sur ce téléphone.
+            </Text>
             <View style={styles.dismissButtons}>
               <Pressable style={styles.secondaryButton} onPress={() => setCallOpen(false)}>
                 <Text style={styles.secondaryButtonText}>Annuler</Text>
@@ -1609,7 +2240,14 @@ function AlertsTab({
                 style={styles.primaryButton}
                 onPress={() => {
                   setCallOpen(false);
-                  onCall();
+                  void onCall().catch(() =>
+                    Alert.alert(
+                      fr ? 'Appel indisponible' : 'Call unavailable',
+                      fr
+                        ? 'L’appel ne peut pas être lancé pour le moment.'
+                        : 'The call cannot be started right now.',
+                    ),
+                  );
                 }}
               >
                 <Text style={styles.primaryButtonText}>Lancer l’appel</Text>
@@ -2025,6 +2663,20 @@ function LoadMore({ onPress }: { onPress: () => void }) {
 }
 const styles = StyleSheet.create({
   shell: { flex: 1, backgroundColor: colors.cream },
+  demoBanner: {
+    minHeight: 38,
+    paddingHorizontal: 16,
+    backgroundColor: '#E6EEE9',
+    borderBottomWidth: 1,
+    borderBottomColor: '#D1DDD5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  demoBannerLabel: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  demoBannerText: { color: colors.blue, fontSize: 9, fontWeight: '900', letterSpacing: 0.65 },
+  demoExitButton: { minHeight: 32, justifyContent: 'center', paddingHorizontal: 8 },
+  demoExitText: { color: colors.blue, fontSize: 11, fontWeight: '900' },
   content: { flex: 1, paddingTop: 16 },
   appHeader: {
     minHeight: 52,
@@ -3295,13 +3947,120 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paleGreen,
   },
   alertReassuranceUrgent: { borderColor: '#E4B7B2', backgroundColor: '#F9E9E6' },
+  alertSafetyCards: { gap: 10, marginBottom: 11 },
+  alertSafetyCard: { gap: 11, backgroundColor: '#FAFCFB' },
+  alertSafetyHeader: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  alertSafetyIcon: {
+    width: 43,
+    height: 43,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertSafetyEyebrow: {
+    color: colors.muted,
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.65,
+    textTransform: 'uppercase',
+  },
+  alertSafetyTitle: { marginTop: 3, color: colors.navy, fontSize: 14, fontWeight: '800' },
+  alertSafetyDetail: { marginTop: 5, color: colors.muted, fontSize: 9, lineHeight: 13 },
+  alertSafetyOnline: { color: colors.green, fontWeight: '700' },
+  alertSafetyAttention: { color: '#925819', fontWeight: '700' },
   filterToggle: {
-    minHeight: 37,
+    minHeight: 42,
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    backgroundColor: colors.paper,
+  },
+  filterToggleActive: { borderColor: '#A9C3DD', backgroundColor: '#F3F8FC' },
+  filterToggleText: { flex: 1, color: colors.navy, fontSize: 11, fontWeight: '800' },
+  filterCountBadge: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.blue,
+  },
+  filterCountText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  alertFilterPanel: {
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 16,
+    gap: 14,
+    backgroundColor: '#F8FAFC',
+  },
+  alertFilterPanelHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
+  alertFilterPanelTitle: { color: colors.navy, fontSize: 12, fontWeight: '900' },
+  alertFilterPanelDetail: { marginTop: 3, color: colors.muted, fontSize: 9 },
+  alertFilterReset: {
+    minHeight: 31,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    justifyContent: 'center',
+    backgroundColor: colors.paleBlue,
+  },
+  alertFilterResetText: { color: colors.blue, fontSize: 9, fontWeight: '800' },
+  alertFilterGroup: { gap: 8 },
+  alertFilterLabel: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 0.7 },
+  alertFilterOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, paddingRight: 2 },
+  alertFilterRoomOptions: { flexDirection: 'row', gap: 7, paddingRight: 2 },
+  alertFilterPill: {
+    minHeight: 34,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.paper,
+  },
+  alertFilterPillActive: {
+    borderColor: colors.blue,
+    backgroundColor: colors.blue,
+  },
+  alertFilterPillText: { color: colors.muted, fontSize: 9, fontWeight: '800' },
+  alertFilterPillTextActive: { color: '#fff' },
+  alertPaginationButton: {
+    minHeight: 42,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 21,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
+    gap: 8,
+    backgroundColor: colors.paper,
   },
+  alertPaginationText: { color: colors.blue, fontSize: 10, fontWeight: '800' },
+  alertHistoryButton: {
+    minHeight: 38,
+    marginTop: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  alertHistoryText: { color: colors.muted, fontSize: 9, fontWeight: '800' },
   filterPanel: {
     padding: 13,
     borderWidth: 1,

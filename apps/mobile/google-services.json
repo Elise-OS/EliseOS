@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "448186380616",
+    "project_id": "elise-os-503d8",
+    "storage_bucket": "elise-os-503d8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:448186380616:android:7cd150c6b5aee403a4437d",
+        "android_client_info": {
+          "package_name": "org.michel.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkTUbOKFUz2MQw2F_-342hUOH2ZJNWdI4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

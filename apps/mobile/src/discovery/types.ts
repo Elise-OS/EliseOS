@@ -15,7 +15,7 @@ export interface DiscoveredServer extends DiscoveryInfo {
   url: string;
   host: string;
   port: number;
-  source: 'mdns' | 'subnet' | 'manual';
+  source: 'mdns' | 'subnet' | 'tailscale' | 'manual';
   lastSeenAt: string;
 }
 
@@ -23,6 +23,6 @@ export interface SavedServer extends DiscoveryInfo {
   id: string;
   url: string;
   urls: string[];
-  source: 'mdns' | 'subnet' | 'manual';
+  source: 'mdns' | 'subnet' | 'tailscale' | 'manual';
   lastConnectedAt: string;
 }

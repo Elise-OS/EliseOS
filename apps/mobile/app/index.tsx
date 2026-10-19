@@ -10,6 +10,7 @@ import {
   Easing,
   type AppStateStatus,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -21,7 +22,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isMobileApiAuthError, mobileApi, type AlertItem, type Overview } from '../src/api';
 import { ServerRegistry } from '../src/discovery/registry';
 import { discoveryService } from '../src/discovery/service';
@@ -29,6 +30,12 @@ import { isTailscaleUrl, remoteUrlFromDeepLink } from '../src/discovery/helpers'
 import type { DiscoveredServer, SavedServer } from '../src/discovery/types';
 import { DashboardApp } from '../src/dashboard/DashboardApp';
 import { prefetchHomeData } from '../src/dashboard/prefetchHomeData';
+import {
+  createDemoServer,
+  DEMO_SERVER_ID,
+  DEMO_TOKEN,
+  resetDemoSession,
+} from '../src/demo/mock-api';
 import { registerPushNotifications } from '../src/notifications';
 import { MobileSetup, type Locale } from '../src/setup/MobileSetup';
 import { WelcomeExperience } from '../src/welcome/WelcomeExperience';
@@ -110,9 +117,17 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [offline, setOffline] = useState(false);
   const radar = useRef(new Animated.Value(0)).current;
+  const discoveryScrollRef = useRef<ScrollView | null>(null);
   const bootMotion = useRef(new Animated.Value(0)).current;
   const bootPulse = useRef(new Animated.Value(0)).current;
   const handledDeepLink = useRef<string | null>(null);
+  const discoverRememberedRemoteServers = useCallback(async () => {
+    const savedServers = await ServerRegistry.list();
+    setKnownServers(savedServers);
+    await Promise.all(
+      savedServers.map((savedServer) => discoveryService.discoverRemote(savedServer)),
+    );
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -222,11 +237,16 @@ export default function HomeScreen() {
     if (stage !== 'discovery') return;
     const unsubscribe = discoveryService.subscribe(setServers);
     const unsubscribeError = discoveryService.onError(setError);
-    void ServerRegistry.list().then(setKnownServers);
+    void discoverRememberedRemoteServers().catch(() => {});
     discoveryService.start();
     const appState = AppState.addEventListener('change', (state: AppStateStatus) => {
-      if (state === 'active') discoveryService.restart();
-      else discoveryService.stop();
+      if (state === 'active') {
+        discoveryService.restart();
+        void discoverRememberedRemoteServers().catch(() => {});
+      } else discoveryService.stop();
+    });
+    const keyboard = Keyboard.addListener('keyboardDidShow', () => {
+      requestAnimationFrame(() => discoveryScrollRef.current?.scrollToEnd({ animated: true }));
     });
     const animation = Animated.loop(
       Animated.timing(radar, { toValue: 1, duration: 1800, useNativeDriver: true }),
@@ -236,11 +256,12 @@ export default function HomeScreen() {
       animation.stop();
       radar.setValue(0);
       appState.remove();
+      keyboard.remove();
       unsubscribe();
       unsubscribeError();
       discoveryService.stop();
     };
-  }, [radar, stage]);
+  }, [discoverRememberedRemoteServers, radar, stage]);
 
   const loadDashboard = async (showSpinner = false) => {
     if (!server || !token) return;
@@ -267,7 +288,7 @@ export default function HomeScreen() {
   }, [stage, server, token]);
 
   useEffect(() => {
-    if (stage === 'dashboard' && server && token) {
+    if (stage === 'dashboard' && server && token && server.id !== DEMO_SERVER_ID) {
       void registerPushNotifications(server, token).catch(() => undefined);
     }
   }, [server, stage, token]);
@@ -379,6 +400,16 @@ export default function HomeScreen() {
   };
 
   const logout = async () => {
+    if (server?.id === DEMO_SERVER_ID) {
+      queryClient.removeQueries({ queryKey: ['michel', DEMO_SERVER_ID] });
+      setToken(null);
+      setServer(null);
+      setOverview(null);
+      setAlerts([]);
+      setOffline(false);
+      setStage('welcome');
+      return;
+    }
     if (server && token) void mobileApi.logout(server, token).catch(() => undefined);
     if (server) await ServerRegistry.clearToken(server.id);
     setToken(null);
@@ -400,6 +431,22 @@ export default function HomeScreen() {
     setUserName(displayName);
     setStage('boot');
     await prefetchHomeData(queryClient, server, accessToken);
+    setStage('dashboard');
+  };
+
+  const enterDemo = async () => {
+    const demoServer = createDemoServer();
+    resetDemoSession();
+    queryClient.removeQueries({ queryKey: ['michel', DEMO_SERVER_ID] });
+    setServer(demoServer);
+    setToken(DEMO_TOKEN);
+    setUserName('Claire Martin');
+    setSetupPreview(false);
+    setOverview(null);
+    setAlerts([]);
+    setOffline(false);
+    setStage('boot');
+    await prefetchHomeData(queryClient, demoServer, DEMO_TOKEN);
     setStage('dashboard');
   };
 
@@ -464,6 +511,7 @@ export default function HomeScreen() {
         locale={locale}
         onLocaleChange={changeLocale}
         onDiscover={() => setStage('discovery')}
+        onDemo={() => void enterDemo()}
       />
     );
   }
@@ -482,7 +530,9 @@ export default function HomeScreen() {
                 ? 'construct-outline'
                 : remembered
                   ? 'time-outline'
-                  : 'home-outline'
+                  : candidate.source === 'tailscale'
+                    ? 'cloud-outline'
+                    : 'home-outline'
             }
             size={22}
             color={colors.blue}
@@ -512,9 +562,11 @@ export default function HomeScreen() {
                   ? locale === 'fr'
                     ? 'CONNEXION RÉCENTE'
                     : 'RECENT CONNECTION'
-                  : locale === 'fr'
-                    ? 'PRÊT À SE CONNECTER'
-                    : 'READY TO CONNECT'}
+                  : candidate.source === 'tailscale'
+                    ? 'VIA TAILSCALE'
+                    : locale === 'fr'
+                      ? 'PRÊT À SE CONNECTER'
+                      : 'READY TO CONNECT'}
             </Text>
           </View>
         </View>
@@ -522,129 +574,175 @@ export default function HomeScreen() {
       </Pressable>
     );
     return (
-      <SafeAreaView style={styles.screen}>
-        <ScrollView
-          contentContainerStyle={styles.discoveryContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.nav}>
-            <Pressable style={styles.iconButton} onPress={() => setStage('welcome')}>
-              <Ionicons name="arrow-back" size={21} color={colors.navy} />
-            </Pressable>
-            <Text style={styles.navBrand}>Élise</Text>
-            <Pressable style={styles.iconButton} onPress={() => discoveryService.restart()}>
-              <Ionicons name="refresh" size={20} color={colors.navy} />
-            </Pressable>
-          </View>
-          <View>
-            <Text style={styles.pageEyebrow}>
-              {locale === 'fr' ? 'RÉSEAU LOCAL' : 'LOCAL NETWORK'}
-            </Text>
-            <Text style={styles.pageTitle}>
-              {servers.length
-                ? locale === 'fr'
-                  ? 'Votre Élise est là.'
-                  : 'Your Élise is here.'
-                : locale === 'fr'
-                  ? 'Recherche en cours…'
-                  : 'Scanning…'}
-            </Text>
-            <Text style={styles.pageText}>
-              {locale === 'fr'
-                ? 'Votre téléphone recherche automatiquement Élise OS sur tout le réseau Wi-Fi local.'
-                : 'Your phone is automatically scanning the entire local Wi-Fi network for Élise OS.'}
-            </Text>
-          </View>
-          {!servers.length && (
-            <View style={styles.radarCard}>
-              <View style={styles.radarWrap}>
-                <Animated.View
-                  style={[
-                    styles.radarRing,
-                    {
-                      opacity: radar.interpolate({ inputRange: [0, 1], outputRange: [0.7, 0] }),
-                      transform: [
-                        {
-                          scale: radar.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.5, 1.45],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                />
-                <View style={styles.radarCore}>
-                  <Ionicons name="wifi" size={28} color="#fff" />
+      <KeyboardAvoidingView
+        style={styles.screen}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <SafeAreaView style={styles.screen}>
+          <ScrollView
+            ref={discoveryScrollRef}
+            contentContainerStyle={styles.discoveryContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.nav}>
+              <Pressable style={styles.iconButton} onPress={() => setStage('welcome')}>
+                <Ionicons name="arrow-back" size={21} color={colors.navy} />
+              </Pressable>
+              <View style={styles.discoveryBrand}>
+                <Image source={eliseLogo} style={styles.discoveryBrandLogo} resizeMode="cover" />
+                <View>
+                  <Text style={styles.discoveryBrandName}>Élise</Text>
+                  <Text style={styles.discoveryBrandCaption}>
+                    {locale === 'fr' ? 'ESPACE FAMILLE' : 'FAMILY SPACE'}
+                  </Text>
                 </View>
               </View>
-              <Text style={styles.radarTitle}>
-                {locale === 'fr' ? 'Scan réseau actif' : 'Network scan active'}
-              </Text>
-              <Text style={styles.radarText}>
-                {locale === 'fr'
-                  ? 'Recherche mDNS et vérification des ports 8090 et 8080 sur le sous-réseau'
-                  : 'Searching with mDNS and probing ports 8090 and 8080 across the subnet'}
-              </Text>
-            </View>
-          )}
-          {visibleServers.live.length > 0 && (
-            <View style={styles.list}>
-              <Text style={styles.sectionLabel}>
-                {locale === 'fr' ? 'DÉTECTÉ MAINTENANT' : 'FOUND NOW'}
-              </Text>
-              {visibleServers.live.map((item) => renderServer(item))}
-            </View>
-          )}
-          {visibleServers.remembered.length > 0 && (
-            <View style={styles.list}>
-              <Text style={styles.sectionLabel}>
-                {locale === 'fr' ? 'CONNEXIONS RÉCENTES' : 'RECENT CONNECTIONS'}
-              </Text>
-              {visibleServers.remembered.map((item) => renderServer(asDiscovered(item), true))}
-            </View>
-          )}
-          <View style={styles.manualCard}>
-            <Text style={styles.manualTitle}>
-              {locale === 'fr' ? 'Connexion manuelle' : 'Manual connection'}
-            </Text>
-            <Text style={styles.manualText}>
-              {locale === 'fr'
-                ? 'Si Élise n’apparaît pas, saisissez son adresse locale ou son adresse Tailscale HTTPS.'
-                : 'If Élise does not appear, enter its local or Tailscale HTTPS address.'}
-            </Text>
-            <View style={styles.manualRow}>
-              <TextInput
-                style={styles.manualInput}
-                value={manualUrl}
-                onChangeText={setManualUrl}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-                placeholder="http://192.168.1.55:8090"
-                placeholderTextColor="#98A1A9"
-              />
               <Pressable
-                style={styles.manualButton}
-                disabled={busy}
-                onPress={() => void connectManual()}
+                style={styles.iconButton}
+                onPress={() => {
+                  discoveryService.restart();
+                  void discoverRememberedRemoteServers().catch(() => {});
+                }}
               >
-                {busy ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Ionicons name="arrow-forward" size={20} color="#fff" />
-                )}
+                <Ionicons name="refresh" size={20} color={colors.navy} />
               </Pressable>
             </View>
-          </View>
-          {error ? (
-            <View style={styles.errorBox}>
-              <Ionicons name="alert-circle-outline" size={18} color={colors.red} />
-              <Text style={styles.errorBoxText}>{error}</Text>
+            <View style={styles.discoveryHeading}>
+              <View style={styles.discoveryEyebrowRow}>
+                <View style={styles.discoveryEyebrowDot} />
+                <Text style={[styles.pageEyebrow, styles.discoveryPageEyebrow]}>
+                  {locale === 'fr' ? 'CONNEXION AU DOMICILE' : 'HOME CONNECTION'}
+                </Text>
+              </View>
+              <Text style={styles.pageTitle}>
+                {servers.length
+                  ? locale === 'fr'
+                    ? 'Élise a été repérée.'
+                    : 'Élise has been found.'
+                  : locale === 'fr'
+                    ? 'Relions Élise à votre maison.'
+                    : 'Connect Élise to your home.'}
+              </Text>
+              <Text style={styles.pageText}>
+                {locale === 'fr'
+                  ? 'Votre téléphone cherche Élise sur le Wi-Fi du domicile ou via une adresse Tailscale enregistrée.'
+                  : 'Your phone looks for Élise on home Wi-Fi or through a saved Tailscale address.'}
+              </Text>
             </View>
-          ) : null}
-        </ScrollView>
-      </SafeAreaView>
+            {!servers.length && (
+              <View style={styles.radarCard}>
+                <View style={styles.radarWrap}>
+                  <Animated.View
+                    style={[
+                      styles.radarRing,
+                      {
+                        opacity: radar.interpolate({ inputRange: [0, 1], outputRange: [0.7, 0] }),
+                        transform: [
+                          {
+                            scale: radar.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0.5, 1.45],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  />
+                  <View style={styles.radarCore}>
+                    <Ionicons name="wifi" size={24} color="#fff" />
+                  </View>
+                </View>
+                <View style={styles.radarCopy}>
+                  <Text style={styles.radarTitle}>
+                    {locale === 'fr' ? 'Recherche en cours' : 'Searching now'}
+                  </Text>
+                  <Text style={styles.radarText}>
+                    {locale === 'fr'
+                      ? 'Cela peut prendre quelques secondes.'
+                      : 'This may take a few seconds.'}
+                  </Text>
+                  <View style={styles.scanStatus}>
+                    <View style={styles.scanStatusDot} />
+                    <Text style={styles.scanStatusText}>
+                      {locale === 'fr' ? 'Détection automatique' : 'Automatic discovery'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+            {visibleServers.live.length > 0 && (
+              <View style={styles.list}>
+                <Text style={styles.sectionLabel}>
+                  {locale === 'fr' ? 'DÉTECTÉ MAINTENANT' : 'FOUND NOW'}
+                </Text>
+                {visibleServers.live.map((item) => renderServer(item))}
+              </View>
+            )}
+            {visibleServers.remembered.length > 0 && (
+              <View style={styles.list}>
+                <Text style={styles.sectionLabel}>
+                  {locale === 'fr' ? 'CONNEXIONS RÉCENTES' : 'RECENT CONNECTIONS'}
+                </Text>
+                {visibleServers.remembered.map((item) => renderServer(asDiscovered(item), true))}
+              </View>
+            )}
+            <View style={styles.manualCard}>
+              <View style={styles.manualHeading}>
+                <View style={styles.manualIcon}>
+                  <Ionicons name="link-outline" size={18} color={colors.accent} />
+                </View>
+                <View style={styles.manualCopy}>
+                  <Text style={styles.manualTitle}>
+                    {locale === 'fr' ? 'Entrer une adresse' : 'Enter an address'}
+                  </Text>
+                  <Text style={styles.manualText}>
+                    {locale === 'fr'
+                      ? 'Utilisez l’adresse locale ou Tailscale de votre serveur.'
+                      : 'Use your server’s local or Tailscale address.'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.manualRow}>
+                <TextInput
+                  style={styles.manualInput}
+                  value={manualUrl}
+                  onChangeText={setManualUrl}
+                  onSubmitEditing={() => void connectManual()}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  returnKeyType="go"
+                  placeholder="http://192.168.1.55:8090"
+                  placeholderTextColor="#98A1A9"
+                  selectionColor={colors.accent}
+                  accessibilityLabel={locale === 'fr' ? 'Adresse du serveur' : 'Server address'}
+                />
+                <Pressable
+                  style={styles.manualButton}
+                  disabled={busy}
+                  onPress={() => void connectManual()}
+                  accessibilityRole="button"
+                  accessibilityLabel={locale === 'fr' ? 'Se connecter' : 'Connect'}
+                >
+                  {busy ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Ionicons name="arrow-forward" size={20} color="#fff" />
+                  )}
+                </Pressable>
+              </View>
+            </View>
+            {error ? (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle-outline" size={18} color={colors.red} />
+                <Text style={styles.errorBoxText}>{error}</Text>
+              </View>
+            ) : null}
+          </ScrollView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -1172,7 +1270,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,.08)',
   },
   screen: { flex: 1, backgroundColor: '#F7F4EE' },
-  discoveryContent: { paddingHorizontal: 20, paddingBottom: 40, gap: 24 },
+  discoveryContent: { paddingHorizontal: 20, paddingBottom: 30, gap: 20 },
   nav: { height: 62, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconButton: {
     width: 40,
@@ -1185,6 +1283,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
   },
   navBrand: { fontFamily: 'Georgia', fontWeight: '600', fontSize: 20, color: colors.navy },
+  discoveryBrand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  discoveryBrandLogo: { width: 38, height: 38, borderRadius: 12 },
+  discoveryBrandName: { color: colors.navy, fontFamily: 'Georgia', fontSize: 18, lineHeight: 21 },
+  discoveryBrandCaption: {
+    color: colors.muted,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    marginTop: 1,
+  },
+  discoveryHeading: { gap: 0 },
+  discoveryEyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 9,
+  },
+  discoveryEyebrowDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.green },
   loginNavSpacer: { width: 40 },
   pageEyebrow: {
     color: colors.accent,
@@ -1193,36 +1309,43 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 7,
   },
-  pageTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 33, lineHeight: 39 },
-  pageText: { color: colors.muted, fontSize: 13, lineHeight: 20, marginTop: 10 },
+  discoveryPageEyebrow: { marginBottom: 0 },
+  pageTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 31, lineHeight: 37 },
+  pageText: { color: colors.muted, fontSize: 13, lineHeight: 20, marginTop: 9 },
   radarCard: {
-    minHeight: 265,
+    minHeight: 150,
+    padding: 14,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
+    gap: 9,
+    borderRadius: 21,
     borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.paper,
+    borderColor: '#DCE5E3',
+    backgroundColor: '#EAF0EE',
   },
-  radarWrap: { width: 125, height: 125, alignItems: 'center', justifyContent: 'center' },
+  radarWrap: { width: 96, height: 96, alignItems: 'center', justifyContent: 'center' },
   radarRing: {
     position: 'absolute',
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 78,
+    height: 78,
+    borderRadius: 39,
     borderWidth: 2,
     borderColor: colors.accent,
   },
   radarCore: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.blue,
   },
-  radarTitle: { color: colors.navy, fontWeight: '800', fontSize: 15, marginTop: 12 },
-  radarText: { color: colors.muted, fontSize: 11, marginTop: 6 },
+  radarCopy: { flex: 1, paddingVertical: 8 },
+  radarTitle: { color: colors.navy, fontWeight: '800', fontSize: 15 },
+  radarText: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 5 },
+  scanStatus: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
+  scanStatusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.green },
+  scanStatusText: { color: colors.accent, fontSize: 10, fontWeight: '700' },
   list: { gap: 10 },
   sectionLabel: {
     color: colors.accent,
@@ -1232,9 +1355,9 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   serverCard: {
-    minHeight: 100,
-    padding: 15,
-    borderRadius: 17,
+    minHeight: 92,
+    padding: 14,
+    borderRadius: 18,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
@@ -1259,30 +1382,45 @@ const styles = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.green },
   dotAmber: { backgroundColor: colors.amber },
   manualCard: {
-    padding: 18,
-    borderRadius: 18,
+    padding: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.line,
-    backgroundColor: '#EEEAE3',
+    backgroundColor: colors.paper,
+    shadowColor: colors.navy,
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 1,
   },
+  manualHeading: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  manualIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F0F3',
+  },
+  manualCopy: { flex: 1 },
   manualTitle: { color: colors.navy, fontWeight: '800', fontSize: 14 },
-  manualText: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: 6 },
+  manualText: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 3 },
   manualRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
   manualInput: {
     flex: 1,
-    height: 46,
-    paddingHorizontal: 12,
-    borderRadius: 11,
+    height: 50,
+    paddingHorizontal: 13,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: '#D7DFE0',
     color: colors.navy,
-    backgroundColor: '#fff',
+    backgroundColor: '#F9FAF9',
     fontSize: 12,
   },
   manualButton: {
-    width: 46,
-    height: 46,
-    borderRadius: 11,
+    width: 50,
+    height: 50,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.blue,

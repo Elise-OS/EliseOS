@@ -7,7 +7,7 @@ import {
   type ScheduleItem,
   type ScreenSnapshot,
 } from '@michel/contracts';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -463,6 +463,7 @@ export function MobileWelcomePanel({
   activity,
   refreshing,
   connectionAvailable,
+  onStartCall,
   onRefresh,
   onNavigate,
 }: {
@@ -477,15 +478,14 @@ export function MobileWelcomePanel({
   activity: ActivityItem[];
   refreshing: boolean;
   connectionAvailable: boolean;
+  onStartCall: () => Promise<void>;
   onRefresh: () => void;
   onNavigate: (page: Page) => void;
 }) {
   const [now, setNow] = useState(() => new Date());
   const [callConfirmOpen, setCallConfirmOpen] = useState(false);
   const [callPending, setCallPending] = useState(false);
-  const [callStarted, setCallStarted] = useState(false);
   const [callError, setCallError] = useState('');
-  const queryClient = useQueryClient();
   const timezone = homeSummary?.timezone ?? screen?.timezone ?? 'Europe/Paris';
   const today = dateKeyInZone(now, timezone);
   const previousDate = shiftDate(today, -1);
@@ -600,9 +600,8 @@ export function MobileWelcomePanel({
     setCallPending(true);
     setCallError('');
     try {
-      await mobileApi.screenCall(server, token);
-      setCallStarted(true);
-      void queryClient.invalidateQueries({ queryKey: ['michel', server.id, 'screen'] });
+      await onStartCall();
+      setCallConfirmOpen(false);
     } catch (cause) {
       setCallError(
         cause instanceof Error
@@ -659,8 +658,8 @@ export function MobileWelcomePanel({
                     accessibilityLabel={fr ? `Appeler ${resident}` : `Call ${resident}`}
                     accessibilityHint={
                       fr
-                        ? 'Ouvre une confirmation avant l’appel vidéo Jitsi.'
-                        : 'Opens a confirmation before the Jitsi video call.'
+                        ? 'Ouvre une confirmation avant l’appel vidéo depuis ce téléphone.'
+                        : 'Opens a confirmation before starting a video call from this phone.'
                     }
                     disabled={!canStartCall || callPending}
                     style={[
@@ -669,7 +668,6 @@ export function MobileWelcomePanel({
                     ]}
                     onPress={() => {
                       setCallError('');
-                      setCallStarted(false);
                       setCallConfirmOpen(true);
                     }}
                   >
@@ -869,27 +867,13 @@ export function MobileWelcomePanel({
           />
           <View style={s.callModalCard}>
             <View style={s.callModalIcon}>
-              <Ionicons
-                name={callStarted ? 'checkmark' : 'videocam-outline'}
-                size={22}
-                color={c.blue}
-              />
+              <Ionicons name="videocam-outline" size={22} color={c.blue} />
             </View>
-            <Text style={s.callModalTitle}>
-              {callStarted
-                ? fr
-                  ? 'Appel lancé'
-                  : 'Call started'
-                : `${fr ? 'Appeler' : 'Call'} ${resident} ?`}
-            </Text>
+            <Text style={s.callModalTitle}>{`${fr ? 'Appeler' : 'Call'} ${resident} ?`}</Text>
             <Text style={s.callModalBody}>
-              {callStarted
-                ? fr
-                  ? 'La demande Jitsi a été envoyée à l’écran du logement.'
-                  : 'The Jitsi call request was sent to the home screen.'
-                : fr
-                  ? `L’écran du logement fera sonner ${resident} pour démarrer l’appel vidéo Jitsi.`
-                  : `The home screen will ring ${resident} to start the Jitsi video call.`}
+              {fr
+                ? `L’appel partira de ce téléphone. L’écran du logement fera sonner ${resident}, puis répondra automatiquement. La vidéo s’ouvrira ici.`
+                : `The call will start from this phone. The home screen will ring ${resident} and answer automatically. Video will open here.`}
             </Text>
             {callError ? (
               <Text accessibilityRole="alert" style={s.callModalError}>
@@ -897,47 +881,30 @@ export function MobileWelcomePanel({
               </Text>
             ) : null}
             <View style={s.callModalActions}>
-              {callStarted ? (
-                <Pressable
-                  style={[s.callModalButton, s.callModalConfirm]}
-                  onPress={() => setCallConfirmOpen(false)}
-                >
-                  <Text style={s.callModalConfirmText}>{fr ? 'Fermer' : 'Close'}</Text>
-                </Pressable>
-              ) : (
-                <>
-                  <Pressable
-                    disabled={callPending}
-                    style={[
-                      s.callModalButton,
-                      s.callModalCancel,
-                      callPending && s.callModalButtonDisabled,
-                    ]}
-                    onPress={() => setCallConfirmOpen(false)}
-                  >
-                    <Text style={s.callModalCancelText}>{fr ? 'Annuler' : 'Cancel'}</Text>
-                  </Pressable>
-                  <Pressable
-                    disabled={!canStartCall || callPending}
-                    style={[
-                      s.callModalButton,
-                      s.callModalConfirm,
-                      (!canStartCall || callPending) && s.callModalButtonDisabled,
-                    ]}
-                    onPress={() => void launchCall()}
-                  >
-                    <Text style={s.callModalConfirmText}>
-                      {callPending
-                        ? fr
-                          ? 'Lancement…'
-                          : 'Starting…'
-                        : fr
-                          ? 'Confirmer'
-                          : 'Confirm'}
-                    </Text>
-                  </Pressable>
-                </>
-              )}
+              <Pressable
+                disabled={callPending}
+                style={[
+                  s.callModalButton,
+                  s.callModalCancel,
+                  callPending && s.callModalButtonDisabled,
+                ]}
+                onPress={() => setCallConfirmOpen(false)}
+              >
+                <Text style={s.callModalCancelText}>{fr ? 'Annuler' : 'Cancel'}</Text>
+              </Pressable>
+              <Pressable
+                disabled={!canStartCall || callPending}
+                style={[
+                  s.callModalButton,
+                  s.callModalConfirm,
+                  (!canStartCall || callPending) && s.callModalButtonDisabled,
+                ]}
+                onPress={() => void launchCall()}
+              >
+                <Text style={s.callModalConfirmText}>
+                  {callPending ? (fr ? 'Lancement…' : 'Starting…') : fr ? 'Confirmer' : 'Confirm'}
+                </Text>
+              </Pressable>
             </View>
           </View>
         </View>

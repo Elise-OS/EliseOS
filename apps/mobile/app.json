@@ -48,6 +48,7 @@
     },
     "android": {
       "package": "org.michel.mobile",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
@@ -60,6 +61,13 @@
     "experiments": {
       "typedRoutes": true,
       "autolinkingModuleResolution": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e31ba564-936e-4d36-a455-ac4c014c0d7e"
+      }
+    },
+    "owner": "drsamourai"
   }
 }

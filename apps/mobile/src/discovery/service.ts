@@ -1,8 +1,14 @@
 import NetInfo from '@react-native-community/netinfo';
 import { Platform } from 'react-native';
 import Zeroconf, { ImplType, type ZeroconfService } from 'react-native-zeroconf';
-import { normalizeUrl, parseDiscoveryInfo, serverUrls, subnetCandidates } from './helpers';
-import type { DiscoveredServer } from './types';
+import {
+  isTailscaleUrl,
+  normalizeUrl,
+  parseDiscoveryInfo,
+  serverUrls,
+  subnetCandidates,
+} from './helpers';
+import type { DiscoveredServer, SavedServer } from './types';
 
 type Listener = (servers: DiscoveredServer[]) => void;
 type ErrorListener = (message: string) => void;
@@ -95,6 +101,26 @@ export class DiscoveryService {
       }
     }
     throw lastError instanceof Error ? lastError : new Error('Serveur Élise introuvable');
+  }
+
+  async discoverRemote(server: SavedServer): Promise<void> {
+    const session = this.session;
+    if (!this.current(session)) return;
+
+    const urls = [server.remoteUrl, server.url, ...server.urls]
+      .filter((value): value is string => Boolean(value))
+      .map(normalizeUrl)
+      .filter((url, index, values) => isTailscaleUrl(url) && values.indexOf(url) === index);
+
+    for (const url of urls) {
+      try {
+        const discovered = await this.probe(url, 'tailscale', 5000);
+        if (this.current(session)) this.add(discovered);
+        return;
+      } catch {
+        // A remembered Tailscale address is only reachable while the tailnet is connected.
+      }
+    }
   }
 
   private async handleResolved(service: ZeroconfService) {

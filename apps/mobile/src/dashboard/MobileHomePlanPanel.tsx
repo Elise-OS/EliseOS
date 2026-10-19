@@ -1,6 +1,7 @@
 import {
   ROOM_SENSOR_CATEGORIES,
   deviceSupportsCategory,
+  isBedOccupancySensorModel,
   visibleRoomCategories,
   type HomePlan,
   type PlanRoom,
@@ -36,6 +37,21 @@ import {
   Wind,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
+import image3RDS17BZ from '../../assets/sensor-products/3RDS17BZ.png';
+import image3RMS16BZ from '../../assets/sensor-products/3RMS16BZ.png';
+import image3RPL01084Z from '../../assets/sensor-products/3RPL01084Z.png';
+import image3RSB22BZ from '../../assets/sensor-products/3RSB22BZ.png';
+import image3RSPE01044BZ from '../../assets/sensor-products/3RSPE01044BZ.png';
+import image3RTHS0224Z from '../../assets/sensor-products/3RTHS0224Z.png';
+import image3RWS18BZ from '../../assets/sensor-products/3RWS18BZ.png';
+import imageHS2FDE from '../../assets/sensor-products/HS2FD-E.png';
+import imageHS1SAE from '../../assets/sensor-products/HS1SA-E.png';
+import imageSDC4100 from '../../assets/sensor-products/SDC-4-1-00.png';
+import imageSDO4100 from '../../assets/sensor-products/SDO-4-1-00.png';
+import imageSEM4100 from '../../assets/sensor-products/SEM-4-1-00.png';
+import imageSNZB02P from '../../assets/sensor-products/SNZB-02P.png';
+import imageSTPH4100 from '../../assets/sensor-products/STPH-4-1-00.png';
+import imageTuyaBedPressure from '../../assets/sensor-products/TS0601_bed_presence_sensor.png';
 import {
   ActivityIndicator,
   Image,
@@ -45,6 +61,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 import type { CameraItem } from '../api';
 
 type Locale = 'fr' | 'en';
@@ -112,12 +129,37 @@ const sensorPhotoModels = [
   { brand: 'THIRDREALITY', model: '3RWS18BZ', aliases: [] },
   { brand: 'THIRDREALITY', model: '3RSPE01044BZ', aliases: [] },
   { brand: 'THIRDREALITY', model: '3RSB22BZ', aliases: [] },
+  { brand: 'HEIMAN', model: 'HS2FD-EF1-3.0', aliases: [] },
+  { brand: 'HEIMAN', model: 'HS1SA-E', aliases: [] },
   { brand: 'SONOFF', model: 'SNZB-02P', aliases: [] },
   { brand: 'NODON', model: 'SDO-4-1-00', aliases: [] },
   { brand: 'NODON', model: 'STPH-4-1-00', aliases: [] },
   { brand: 'NODON', model: 'SDC-4-1-00', aliases: [] },
   { brand: 'NODON', model: 'SEM-4-1-00', aliases: [] },
+  {
+    brand: 'TUYA',
+    model: 'TS0601_bed_presence_sensor',
+    aliases: ['PRESSURESENSINGSTRAPBEDOCCUPANCYSENSOR', 'TZE200SEQ9CM6U'],
+  },
 ];
+
+const sensorPhotoAssets: Record<string, ImageSourcePropType> = {
+  '3RPL01084Z': image3RPL01084Z,
+  '3RDS17BZ': image3RDS17BZ,
+  '3RMS16BZ': image3RMS16BZ,
+  '3RTHS0224Z': image3RTHS0224Z,
+  '3RWS18BZ': image3RWS18BZ,
+  '3RSPE01044BZ': image3RSPE01044BZ,
+  '3RSB22BZ': image3RSB22BZ,
+  'HS2FD-EF1-3.0': imageHS2FDE,
+  'HS1SA-E': imageHS1SAE,
+  'SNZB-02P': imageSNZB02P,
+  'SDO-4-1-00': imageSDO4100,
+  'STPH-4-1-00': imageSTPH4100,
+  'SDC-4-1-00': imageSDC4100,
+  'SEM-4-1-00': imageSEM4100,
+  TS0601_bed_presence_sensor: imageTuyaBedPressure,
+};
 
 const roomLabels: Record<string, [string, string]> = {
   LIVING_ROOM: ['Salon', 'Living room'],
@@ -162,20 +204,28 @@ function roomKindLabel(kind: string, locale: Locale) {
   return roomLabels[kind]?.[locale === 'fr' ? 0 : 1] ?? kind;
 }
 
-function sensorDevicePhotoUrl(device: SensorDevice, imageBaseUrl: string) {
+function sensorDevicePhotoModel(device: SensorDevice) {
   const normalize = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
   const manufacturer = normalize(device.manufacturer ?? '');
   const model = device.model?.trim() ?? '';
   const normalizedModel = normalize(model);
   if (!normalizedModel) return null;
+  if (isBedOccupancySensorModel(model)) return 'TS0601_bed_presence_sensor';
   const product = sensorPhotoModels.find((candidate) => {
-    if (normalize(candidate.brand) !== manufacturer) return false;
+    const candidateBrand = normalize(candidate.brand);
+    const brandMatches =
+      !manufacturer ||
+      candidateBrand === manufacturer ||
+      manufacturer.includes(candidateBrand) ||
+      candidateBrand.includes(manufacturer);
     const expected = normalize(candidate.model);
-    return (
+    const modelMatches =
       normalizedModel === expected ||
       normalizedModel.includes(expected) ||
-      expected.includes(normalizedModel) ||
-      candidate.aliases.some((alias) => normalizedModel.includes(alias))
+      expected.includes(normalizedModel);
+    return (
+      modelMatches ||
+      (brandMatches && candidate.aliases.some((alias) => normalizedModel.includes(alias)))
     );
   });
   const sonoffTemperatureSensor =
@@ -184,6 +234,11 @@ function sensorDevicePhotoUrl(device: SensorDevice, imageBaseUrl: string) {
     device.capabilities.some(({ capability }) => capability === 'temperature') &&
     device.capabilities.some(({ capability }) => capability === 'humidity');
   const imageModel = product?.model ?? (sonoffTemperatureSensor ? 'SNZB-02P' : null);
+  return imageModel;
+}
+
+function sensorDevicePhotoUrl(device: SensorDevice, imageBaseUrl: string) {
+  const imageModel = sensorDevicePhotoModel(device);
   if (!imageModel) return null;
   try {
     return new URL(`/sensor-products/${imageModel}.png`, imageBaseUrl).toString();
@@ -290,7 +345,10 @@ function deviceReading(device: SensorDevice, category: RoomSensorCategory, local
       : category === 'motion'
         ? ['motion', 'occupancy'].includes(capability)
         : category === 'contact' || category === 'bed'
-          ? ['contact', 'dry_contact'].includes(capability)
+          ? category === 'bed'
+            ? ['contact', 'dry_contact'].includes(capability) ||
+              (capability === 'occupancy' && isBedOccupancySensorModel(device.model))
+            : ['contact', 'dry_contact'].includes(capability)
           : category === 'air_quality'
             ? ['co2', 'pm25', 'voc', 'total_volatile_organic_compounds', 'air_quality'].includes(
                 capability,
@@ -320,9 +378,27 @@ function deviceReading(device: SensorDevice, category: RoomSensorCategory, local
   if (active !== undefined) {
     if (category === 'contact')
       return locale === 'fr' ? (active ? 'Ouvert' : 'Fermé') : active ? 'Open' : 'Closed';
+    if (category === 'bed' && capability.capability === 'occupancy')
+      return locale === 'fr' ? (active ? 'Occupé' : 'Libre') : active ? 'Occupied' : 'Unoccupied';
     return active ? (locale === 'fr' ? 'Détecté' : 'Detected') : '—';
   }
   return deviceStatus(device, locale);
+}
+
+function deviceLastSeen(device: SensorDevice, locale: Locale) {
+  const lastSeenAt =
+    device.capabilities.find(({ value }) => value !== null)?.lastSeenAt ??
+    device.capabilities.find(({ lastSeenAt: seenAt }) => seenAt)?.lastSeenAt ??
+    device.lastSeenAt;
+  if (!lastSeenAt) return null;
+  const date = new Date(lastSeenAt);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export function MobileHomePlanPanel({
@@ -490,31 +566,69 @@ export function MobileHomePlanPanel({
                         : 'Needs checking'}
                   </Text>
                 </View>
-                <ChevronRight size={18} color="#84909d" />
               </View>
             ))
           ) : categoryDevices.length ? (
-            categoryDevices.map((device) => (
-              <View key={device.id} style={styles.deviceRow}>
-                <DevicePhoto device={device} imageBaseUrl={imageBaseUrl} />
-                <View style={styles.flex}>
-                  <Text style={styles.deviceName}>{device.name}</Text>
-                  <Text style={styles.deviceModel} numberOfLines={1}>
-                    {[device.manufacturer, device.model].filter(Boolean).join(' · ') ||
-                      (fr ? 'Modèle non indiqué' : 'Model not reported')}
-                  </Text>
-                  <Text style={styles.deviceMeta}>
-                    {deviceReading(device, category, locale)} · {deviceStatus(device, locale)}
-                  </Text>
-                  {device.batteryPercent !== null && (
-                    <Text style={styles.deviceMeta}>
-                      {fr ? 'Batterie' : 'Battery'} {device.batteryPercent} %
+            categoryDevices.map((device) => {
+              const status = deviceStatus(device, locale);
+              const online = status === (fr ? 'En ligne' : 'Online');
+              const needsChecking = status === (fr ? 'À vérifier' : 'Needs checking');
+              const statusStyle = online
+                ? styles.deviceStatusOnline
+                : needsChecking
+                  ? styles.deviceStatusAttention
+                  : styles.deviceStatusOffline;
+              const lastSeen = deviceLastSeen(device, locale);
+              return (
+                <View key={device.id} style={styles.deviceCard}>
+                  <View style={styles.deviceHero}>
+                    <DevicePhoto device={device} imageBaseUrl={imageBaseUrl} large />
+                    <View style={[styles.deviceSummary, styles.flex]}>
+                      <Text style={styles.deviceName}>{device.name}</Text>
+                      <Text style={styles.deviceModel}>
+                        {[device.manufacturer, device.model].filter(Boolean).join(' · ') ||
+                          (fr ? 'Modèle non indiqué' : 'Model not reported')}
+                      </Text>
+                      <View style={[styles.deviceStatusBadge, statusStyle]}>
+                        <Text style={styles.deviceStatusText}>{status}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={styles.deviceReadingCard}>
+                    <Text style={styles.deviceReadingLabel}>
+                      {selectedDefinition[fr ? 'label' : 'labelEn']}
                     </Text>
-                  )}
+                    <Text style={styles.deviceReadingValue}>
+                      {deviceReading(device, category, locale)}
+                    </Text>
+                  </View>
+                  <View style={styles.deviceInfoList}>
+                    {device.placementNote ? (
+                      <View style={styles.deviceInfoRow}>
+                        <Text style={styles.deviceInfoLabel}>
+                          {fr ? 'Emplacement' : 'Placement'}
+                        </Text>
+                        <Text style={styles.deviceInfoValue}>{device.placementNote}</Text>
+                      </View>
+                    ) : null}
+                    {device.batteryPercent !== null ? (
+                      <View style={styles.deviceInfoRow}>
+                        <Text style={styles.deviceInfoLabel}>{fr ? 'Batterie' : 'Battery'}</Text>
+                        <Text style={styles.deviceInfoValue}>{device.batteryPercent} %</Text>
+                      </View>
+                    ) : null}
+                    {lastSeen ? (
+                      <View style={styles.deviceInfoRow}>
+                        <Text style={styles.deviceInfoLabel}>
+                          {fr ? 'Dernier signal' : 'Last signal'}
+                        </Text>
+                        <Text style={styles.deviceInfoValue}>{lastSeen}</Text>
+                      </View>
+                    ) : null}
+                  </View>
                 </View>
-                <ChevronRight size={18} color="#84909d" />
-              </View>
-            ))
+              );
+            })
           ) : (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyText}>
@@ -804,19 +918,30 @@ export function MobileHomePlanPanel({
   );
 }
 
-function DevicePhoto({ device, imageBaseUrl }: { device: SensorDevice; imageBaseUrl: string }) {
-  const photo = sensorDevicePhotoUrl(device, imageBaseUrl);
+function DevicePhoto({
+  device,
+  imageBaseUrl,
+  large = false,
+}: {
+  device: SensorDevice;
+  imageBaseUrl: string;
+  large?: boolean;
+}) {
+  const photoModel = sensorDevicePhotoModel(device);
+  const localPhoto = photoModel ? sensorPhotoAssets[photoModel] : undefined;
+  const remotePhoto = sensorDevicePhotoUrl(device, imageBaseUrl);
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [photo]);
+  useEffect(() => setFailed(false), [photoModel, remotePhoto]);
+  const photo = failed ? null : (localPhoto ?? (remotePhoto ? { uri: remotePhoto } : null));
   return (
-    <View style={styles.devicePhotoFrame}>
-      {photo && !failed ? (
+    <View style={large ? styles.devicePhotoFrameLarge : styles.devicePhotoFrame}>
+      {photo ? (
         <Image
           accessibilityLabel={`${device.manufacturer ?? ''} ${device.model ?? device.name}`.trim()}
-          source={{ uri: photo }}
+          source={photo}
           resizeMode="contain"
           onError={() => setFailed(true)}
-          style={styles.devicePhoto}
+          style={large ? styles.devicePhotoLarge : styles.devicePhoto}
         />
       ) : (
         <Text style={styles.devicePhotoFallback}>
@@ -1054,10 +1179,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  deviceCard: {
+    gap: 13,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#dfe5e7',
+    borderRadius: 16,
+    backgroundColor: '#fff',
+  },
+  deviceHero: { flexDirection: 'row', alignItems: 'center', gap: 13 },
+  deviceSummary: { gap: 4 },
   devicePhotoFrame: {
     width: 58,
     height: 58,
     flex: 0,
+    flexShrink: 0,
     borderWidth: 1,
     borderColor: '#e7edf1',
     borderRadius: 12,
@@ -1066,9 +1202,59 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  devicePhotoFrameLarge: {
+    width: 88,
+    height: 88,
+    minWidth: 88,
+    flex: 0,
+    flexShrink: 0,
+    padding: 7,
+    borderWidth: 1,
+    borderColor: '#d5e2e8',
+    borderRadius: 16,
+    backgroundColor: '#e6f0f4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
   devicePhoto: { width: '100%', height: '100%' },
+  devicePhotoLarge: { width: '100%', height: '100%' },
   devicePhotoFallback: { color: '#527083', fontSize: 12, fontWeight: '700' },
-  deviceName: { color: '#173e64', fontSize: 13, fontWeight: '700' },
-  deviceModel: { marginTop: 3, color: '#657587', fontSize: 10 },
+  deviceName: { color: '#173e64', fontSize: 15, fontWeight: '700' },
+  deviceModel: { color: '#657587', fontSize: 11, lineHeight: 16 },
   deviceMeta: { marginTop: 4, color: '#657587', fontSize: 10 },
+  deviceStatusBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  deviceStatusOnline: { backgroundColor: '#e7f4ed' },
+  deviceStatusAttention: { backgroundColor: '#fff2dc' },
+  deviceStatusOffline: { backgroundColor: '#fceceb' },
+  deviceStatusText: { color: '#326b4e', fontSize: 10, fontWeight: '700' },
+  deviceReadingCard: {
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: '#f2f6f8',
+  },
+  deviceReadingLabel: { color: '#657587', fontSize: 11, fontWeight: '600' },
+  deviceReadingValue: { marginTop: 3, color: '#173e64', fontSize: 18, fontWeight: '700' },
+  deviceInfoList: { gap: 7 },
+  deviceInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  deviceInfoLabel: { color: '#657587', fontSize: 11 },
+  deviceInfoValue: {
+    flex: 1,
+    color: '#173e64',
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
 });

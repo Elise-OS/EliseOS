@@ -9,6 +9,7 @@ import {
   House,
   LockKeyhole,
   MessageCircle,
+  Play,
   Radio,
   Smartphone,
   Thermometer,
@@ -45,6 +46,7 @@ type Props = {
   locale: Locale;
   onLocaleChange: (locale: Locale) => void;
   onDiscover: () => void;
+  onDemo?: () => void;
 };
 
 const palette = {
@@ -71,9 +73,9 @@ const fonts = {
 const copy = {
   fr: {
     discover: 'Rechercher mon Élise',
+    demo: 'Démo',
     language: 'Langue',
     scroll: 'Défiler pour découvrir',
-    illustration: 'Illustration de principe',
     hero: {
       eyebrow: 'UNE AUTRE FAÇON DE GARDER LE LIEN',
       title: 'Un lien discret',
@@ -120,9 +122,9 @@ const copy = {
   },
   en: {
     discover: 'Find my Élise',
+    demo: 'Demo',
     language: 'Language',
     scroll: 'Scroll to discover',
-    illustration: 'Concept illustration',
     hero: {
       eyebrow: 'A DIFFERENT WAY TO STAY CONNECTED',
       title: 'A gentle link',
@@ -473,22 +475,18 @@ function PrivacyScene({
 }
 
 function Chapter({
-  index,
   eyebrow,
   title,
   body,
   scene,
-  illustration,
   active,
   reducedMotion,
   onLayout,
 }: {
-  index: number;
   eyebrow: string;
   title: string;
   body: string;
   scene: ReactNode;
-  illustration: string;
   active: boolean;
   reducedMotion: boolean;
   onLayout: (event: LayoutChangeEvent) => void;
@@ -503,15 +501,12 @@ function Chapter({
       </Reveal>
       <Reveal active={active} reducedMotion={reducedMotion} delay={140}>
         {scene}
-        <Text style={styles.illustrationLabel}>
-          {illustration} · {String(index).padStart(2, '0')}/04
-        </Text>
       </Reveal>
     </View>
   );
 }
 
-export function WelcomeExperience({ locale, onLocaleChange, onDiscover }: Props) {
+export function WelcomeExperience({ locale, onLocaleChange, onDiscover, onDemo }: Props) {
   const [fontsLoaded] = useFonts({
     InterRegular: interRegular,
     InterSemiBold: interSemiBold,
@@ -625,33 +620,52 @@ export function WelcomeExperience({ locale, onLocaleChange, onDiscover }: Props)
   return (
     <SafeAreaView style={styles.shell} edges={['top', 'bottom', 'left', 'right']}>
       <StatusBar style="dark" />
-      <View style={styles.header}>
+      <View style={[styles.header, compact && styles.headerCompact]}>
         <View style={styles.brand}>
           <Image
             source={eliseLogo}
-            style={styles.brandLogo}
+            style={[styles.brandLogo, compact && styles.brandLogoCompact]}
             resizeMode="contain"
             accessibilityLabel="Élise OS"
           />
-          <Text style={styles.brandText}>
-            élise<Text style={styles.brandOs}> OS</Text>
+          <Text style={[styles.brandText, compact && styles.brandTextCompact]}>
+            élise<Text style={[styles.brandOs, compact && styles.brandOsCompact]}> OS</Text>
           </Text>
         </View>
-        <View style={styles.languageSwitch} accessibilityLabel={t.language}>
-          {(['fr', 'en'] as const).map((option) => (
+        <View style={[styles.headerActions, compact && styles.headerActionsCompact]}>
+          {onDemo ? (
             <Pressable
-              key={option}
-              style={[styles.languageOption, locale === option && styles.languageOptionActive]}
-              onPress={() => onLocaleChange(option)}
+              style={({ pressed }) => [
+                styles.demoButton,
+                compact && styles.demoButtonCompact,
+                pressed && styles.demoButtonPressed,
+              ]}
+              onPress={onDemo}
               accessibilityRole="button"
-              accessibilityLabel={option === 'fr' ? 'Français' : 'English'}
-              accessibilityState={{ selected: locale === option }}
+              accessibilityLabel={
+                locale === 'fr' ? 'Découvrir la démonstration' : 'Explore the demo'
+              }
             >
-              <Text style={[styles.languageText, locale === option && styles.languageTextActive]}>
-                {option.toUpperCase()}
-              </Text>
+              <Play size={14} color={palette.ink} fill={palette.ink} />
+              <Text style={styles.demoButtonText}>{t.demo}</Text>
             </Pressable>
-          ))}
+          ) : null}
+          <View style={styles.languageSwitch} accessibilityLabel={t.language}>
+            {(['fr', 'en'] as const).map((option) => (
+              <Pressable
+                key={option}
+                style={[styles.languageOption, locale === option && styles.languageOptionActive]}
+                onPress={() => onLocaleChange(option)}
+                accessibilityRole="button"
+                accessibilityLabel={option === 'fr' ? 'Français' : 'English'}
+                accessibilityState={{ selected: locale === option }}
+              >
+                <Text style={[styles.languageText, locale === option && styles.languageTextActive]}>
+                  {option.toUpperCase()}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
       </View>
 
@@ -692,45 +706,37 @@ export function WelcomeExperience({ locale, onLocaleChange, onDiscover }: Props)
         >
           <View style={styles.threadLine} />
           <Chapter
-            index={1}
             eyebrow={t.sensors.eyebrow}
             title={t.sensors.title}
             body={t.sensors.body}
             scene={<SensorScene height={sceneHeight} t={t.sensors} pulse={pulse} />}
-            illustration={t.illustration}
             active={visible.current.has(1)}
             reducedMotion={reducedMotion}
             onLayout={onChapterLayout(1)}
           />
           <Chapter
-            index={2}
             eyebrow={t.mobile.eyebrow}
             title={t.mobile.title}
             body={t.mobile.body}
             scene={<MobileScene height={sceneHeight + 36} t={t.mobile} />}
-            illustration={t.illustration}
             active={visible.current.has(2)}
             reducedMotion={reducedMotion}
             onLayout={onChapterLayout(2)}
           />
           <Chapter
-            index={3}
             eyebrow={t.tv.eyebrow}
             title={t.tv.title}
             body={t.tv.body}
             scene={<TvScene height={sceneHeight} t={t.tv} />}
-            illustration={t.illustration}
             active={visible.current.has(3)}
             reducedMotion={reducedMotion}
             onLayout={onChapterLayout(3)}
           />
           <Chapter
-            index={4}
             eyebrow={t.privacy.eyebrow}
             title={t.privacy.title}
             body={t.privacy.body}
             scene={<PrivacyScene height={sceneHeight} t={t.privacy} compact={compact} />}
-            illustration={t.illustration}
             active={visible.current.has(4)}
             reducedMotion={reducedMotion}
             onLayout={onChapterLayout(4)}
@@ -781,10 +787,31 @@ const styles = StyleSheet.create({
     borderBottomColor: '#E5E0D7',
     backgroundColor: palette.paper,
   },
+  headerCompact: { paddingHorizontal: 12, minHeight: 58 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   brandLogo: { width: 36, height: 36, borderRadius: 11 },
+  brandLogoCompact: { width: 32, height: 32, borderRadius: 10 },
   brandText: { color: palette.ink, fontSize: 25, fontFamily: fonts.serif, letterSpacing: -0.8 },
+  brandTextCompact: { fontSize: 22 },
   brandOs: { color: palette.mint, fontSize: 9, fontFamily: fonts.bold, letterSpacing: 0.7 },
+  brandOsCompact: { fontSize: 8 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerActionsCompact: { gap: 5 },
+  demoButton: {
+    minHeight: 42,
+    paddingHorizontal: 11,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: '#C9D6D1',
+    backgroundColor: '#F8FBF8',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  demoButtonCompact: { paddingHorizontal: 8 },
+  demoButtonPressed: { backgroundColor: '#E6EFEB', transform: [{ scale: 0.98 }] },
+  demoButtonText: { color: palette.ink, fontSize: 11, fontFamily: fonts.bold, letterSpacing: 0.2 },
   languageSwitch: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -954,14 +981,6 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     marginTop: 14,
     marginBottom: 22,
-    fontFamily: fonts.body,
-  },
-  illustrationLabel: {
-    color: palette.faint,
-    fontSize: 10,
-    letterSpacing: 0.5,
-    marginTop: 9,
-    marginLeft: 3,
     fontFamily: fonts.body,
   },
   sensorPath: {

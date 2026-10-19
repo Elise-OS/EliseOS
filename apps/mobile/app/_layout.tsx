@@ -1,15 +1,20 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
 import { onlineManager, QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { Platform } from 'react-native';
 import { isMobileApiNetworkError } from '../src/api';
 
-onlineManager.setEventListener((setOnline) =>
-  NetInfo.addEventListener((state) => setOnline(state.isConnected !== false)),
-);
+if (Platform.OS !== 'web') {
+  // NetInfo can report no internet while the saved Tailscale endpoint is reachable.
+  // Let real API requests determine connectivity on native devices.
+  onlineManager.setEventListener((setOnline) => {
+    setOnline(true);
+    return () => {};
+  });
+}
 
 export const queryClient = new QueryClient({
   defaultOptions: {

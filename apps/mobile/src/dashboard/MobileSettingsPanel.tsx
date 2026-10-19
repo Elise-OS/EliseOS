@@ -7,9 +7,10 @@ import type {
 } from '@michel/contracts';
 import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  Linking as NativeLinking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,12 +20,15 @@ import {
   View,
 } from 'react-native';
 import { mobileApi, type SimulationScenario } from '../api';
+import type { NotificationPreferences } from '@michel/contracts';
+import { registerPushNotifications, type PushRegistrationStatus } from '../notifications';
 import type { SavedServer } from '../discovery/types';
+import { isDemoServer } from '../demo/mock-api';
 import { activeServerUrl } from '../discovery/helpers';
 import { MobilePartnerRibbon } from './MobilePartnerRibbon';
 import { MobileWeatherCard } from './MobileWeatherCard';
 
-type SettingsSection = 'general' | 'rules' | 'about' | 'legal';
+type SettingsSection = 'general' | 'rules' | 'notifications' | 'about' | 'legal';
 type Locale = 'fr' | 'en';
 
 const c = {
@@ -72,6 +76,7 @@ export function MobileSettingsPanel({
   onLocaleChange,
   onScreenUpdated,
   onOpenPage,
+  onLogout,
 }: {
   server: SavedServer;
   token: string;
@@ -84,8 +89,10 @@ export function MobileSettingsPanel({
   onOpenPage: (
     page: 'home' | 'activity' | 'alerts' | 'house' | 'journal' | 'screen' | 'people' | 'settings',
   ) => void;
+  onLogout: () => void;
 }) {
   const fr = locale === 'fr';
+  const demoMode = isDemoServer(server);
   const appVersion = Constants.expoConfig?.version ?? '—';
   const privacyPolicyUrl = fr
     ? 'https://eliseos.paulbreton.dev/politique/'
@@ -112,33 +119,64 @@ export function MobileSettingsPanel({
   const [scenarios, setScenarios] = useState<SimulationScenario[]>([]);
   const [runningScenario, setRunningScenario] = useState<string | null>(null);
   const [simulationNotice, setSimulationNotice] = useState('');
+  const [notificationPreferences, setNotificationPreferences] =
+    useState<NotificationPreferences | null>(null);
+  const [notificationPreferencesLoading, setNotificationPreferencesLoading] = useState(true);
+  const [notificationPreferencesError, setNotificationPreferencesError] = useState(false);
+  const [notificationBusy, setNotificationBusy] = useState(false);
+  const [notificationNotice, setNotificationNotice] = useState('');
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushNotice, setPushNotice] = useState('');
+  const [pushStatus, setPushStatus] = useState<PushRegistrationStatus | null>(null);
 
   const sectionTitle =
-    section === 'about'
-      ? fr
-        ? 'À propos'
-        : 'About'
-      : section === 'legal'
+    section === 'notifications'
+      ? 'Notifications'
+      : section === 'about'
         ? fr
-          ? 'Mentions légales'
-          : 'Legal information'
-        : fr
-          ? 'Réglages'
-          : 'Settings';
+          ? 'À propos'
+          : 'About'
+        : section === 'legal'
+          ? fr
+            ? 'Mentions légales'
+            : 'Legal information'
+          : fr
+            ? 'Réglages'
+            : 'Settings';
   const sectionSubtitle =
-    section === 'about'
+    section === 'notifications'
       ? fr
-        ? 'En savoir plus sur Élise et cette application.'
-        : 'Learn more about Élise and this app.'
-      : section === 'legal'
+        ? 'Choisissez les notifications push que vous souhaitez recevoir.'
+        : 'Choose which push notifications you want to receive.'
+      : section === 'about'
         ? fr
-          ? 'Éditeur du projet, licence et conditions de l’application.'
-          : 'Project publisher, software licence, and app terms.'
-        : fr
-          ? 'Adaptez Élise à votre quotidien et choisissez les situations qui méritent votre attention.'
-          : 'Adapt Élise to your daily life and choose which situations deserve your attention.';
+          ? 'En savoir plus sur Élise et cette application.'
+          : 'Learn more about Élise and this app.'
+        : section === 'legal'
+          ? fr
+            ? 'Éditeur du projet, licence et conditions de l’application.'
+            : 'Project publisher, software licence, and app terms.'
+          : fr
+            ? 'Adaptez Élise à votre quotidien et choisissez les situations qui méritent votre attention.'
+            : 'Adapt Élise to your daily life and choose which situations deserve your attention.';
 
   useEffect(() => setSection(initialSection), [initialSection]);
+
+  const loadNotificationPreferences = useCallback(async () => {
+    setNotificationPreferencesLoading(true);
+    setNotificationPreferencesError(false);
+    try {
+      setNotificationPreferences(await mobileApi.notificationPreferences(server, token));
+    } catch {
+      setNotificationPreferencesError(true);
+    } finally {
+      setNotificationPreferencesLoading(false);
+    }
+  }, [server, token]);
+
+  useEffect(() => {
+    void loadNotificationPreferences();
+  }, [loadNotificationPreferences]);
 
   useEffect(() => {
     if (!canManage) return;
@@ -183,6 +221,15 @@ export function MobileSettingsPanel({
   const pingRemote = async () => {
     const remoteUrl = remoteStatus?.remoteUrl;
     if (!remoteUrl || pingBusy) return;
+
+    if (demoMode) {
+      setRemoteNotice(
+        fr
+          ? 'Connexion simulée : Élise répond dans la démonstration.'
+          : 'Simulated connection: Élise is responding in the demo.',
+      );
+      return;
+    }
 
     setPingBusy(true);
     setRemoteNotice('');
@@ -229,6 +276,70 @@ export function MobileSettingsPanel({
       );
     } finally {
       setRulesBusy(false);
+    }
+  };
+  const updateNotificationPreference = async (
+    key: keyof NotificationPreferences,
+    value: boolean,
+  ) => {
+    if (!notificationPreferences || notificationBusy) return;
+    const previous = notificationPreferences;
+    const next = { ...previous, [key]: value };
+    setNotificationPreferences(next);
+    setNotificationBusy(true);
+    setNotificationNotice('');
+    try {
+      setNotificationPreferences(await mobileApi.saveNotificationPreferences(server, token, next));
+      setNotificationNotice(fr ? 'Préférence enregistrée.' : 'Preference saved.');
+    } catch {
+      setNotificationPreferences(previous);
+      setNotificationNotice(
+        fr ? 'La préférence n’a pas pu être enregistrée.' : 'The preference could not be saved.',
+      );
+    } finally {
+      setNotificationBusy(false);
+    }
+  };
+  const enablePushOnDevice = async () => {
+    setPushBusy(true);
+    setPushStatus(null);
+    setPushNotice('');
+    try {
+      const status = await registerPushNotifications(server, token);
+      setPushStatus(status);
+      if (status === 'registered') {
+        setPushNotice(
+          fr
+            ? 'Cet appareil est prêt à recevoir les notifications autorisées ci-dessous.'
+            : 'This device can receive the notifications enabled below.',
+        );
+      } else if (status === 'permission-denied') {
+        setPushNotice(
+          fr
+            ? 'Autorisez les notifications Élise dans les réglages de votre téléphone.'
+            : 'Allow Élise notifications in your phone settings.',
+        );
+      } else if (status === 'project-id-missing') {
+        setPushNotice(
+          fr
+            ? 'Les notifications push ne sont pas disponibles dans cette version de l’application.'
+            : 'Push notifications are not available in this app version.',
+        );
+      } else {
+        setPushNotice(
+          fr
+            ? 'Les notifications push nécessitent un téléphone ou une tablette.'
+            : 'Push notifications require a phone or tablet.',
+        );
+      }
+    } catch {
+      setPushNotice(
+        fr
+          ? 'Cet appareil n’a pas pu être inscrit aux notifications. Réessayez.'
+          : 'This device could not be registered for notifications. Try again.',
+      );
+    } finally {
+      setPushBusy(false);
     }
   };
   const runScenario = async (scenario: SimulationScenario) => {
@@ -353,6 +464,27 @@ export function MobileSettingsPanel({
                 <Text style={s.eyebrow}>{fr ? 'REPÈRES DU DOMICILE' : 'HOME LANDMARKS'}</Text>
                 <Text style={s.cardTitle}>
                   {fr ? 'Situations à signaler' : 'Situations to flag'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={19} color={c.muted} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              style={s.settingsNavRow}
+              onPress={() => setSection('notifications')}
+            >
+              <View style={[s.cardIcon, s.notificationSettingsIcon]}>
+                <Ionicons name="phone-portrait-outline" size={19} color={c.accent} />
+              </View>
+              <View style={s.flex}>
+                <Text style={s.eyebrow}>
+                  {fr ? 'NOTIFICATIONS DU COMPTE' : 'ACCOUNT NOTIFICATIONS'}
+                </Text>
+                <Text style={s.cardTitle}>{fr ? 'Notifications push' : 'Push notifications'}</Text>
+                <Text style={s.body}>
+                  {fr
+                    ? 'Chutes, fumée, fuite d’eau et carnet de liaison.'
+                    : 'Falls, smoke, water leaks, and the liaison journal.'}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={19} color={c.muted} />
@@ -819,6 +951,163 @@ export function MobileSettingsPanel({
           </>
         ) : null}
 
+        {section === 'notifications' ? (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              style={s.settingsBack}
+              onPress={() => setSection('general')}
+            >
+              <Ionicons name="chevron-back" size={18} color={c.blue} />
+              <Text style={s.settingsBackLabel}>
+                {fr ? 'Retour aux réglages' : 'Back to settings'}
+              </Text>
+            </Pressable>
+            <Card
+              eyebrow={fr ? 'AUTORISATION DE L’APPAREIL' : 'DEVICE PERMISSION'}
+              title={fr ? 'Recevoir les notifications push' : 'Receive push notifications'}
+              icon="phone-portrait-outline"
+            >
+              <Text style={s.body}>
+                {fr
+                  ? 'Les alertes et les nouveaux éléments du carnet sont envoyés à l’application. Les notifications doivent aussi être autorisées dans les réglages du téléphone.'
+                  : 'Alerts and new journal entries are sent to the app. Notifications must also be allowed in your phone settings.'}
+              </Text>
+              {demoMode ? (
+                <Text style={s.notice}>
+                  {fr
+                    ? 'La démonstration ne peut pas envoyer de véritables notifications push.'
+                    : 'The demo cannot send real push notifications.'}
+                </Text>
+              ) : (
+                <>
+                  <ActionButton
+                    label={
+                      pushBusy
+                        ? fr
+                          ? 'Vérification…'
+                          : 'Checking…'
+                        : fr
+                          ? 'Activer sur cet appareil'
+                          : 'Enable on this device'
+                    }
+                    disabled={pushBusy}
+                    onPress={() => void enablePushOnDevice()}
+                  />
+                  {pushStatus === 'permission-denied' ? (
+                    <ActionButton
+                      label={fr ? 'Ouvrir les réglages du téléphone' : 'Open phone settings'}
+                      outline
+                      onPress={() => void NativeLinking.openSettings()}
+                    />
+                  ) : null}
+                </>
+              )}
+              {pushNotice ? <Text style={s.notice}>{pushNotice}</Text> : null}
+              {notificationNotice ? <Text style={s.notice}>{notificationNotice}</Text> : null}
+            </Card>
+            {notificationPreferencesLoading ? (
+              <Card
+                title={fr ? 'Préférences de notification' : 'Notification preferences'}
+                icon="notifications-outline"
+              >
+                <Text style={s.body}>{fr ? 'Chargement…' : 'Loading…'}</Text>
+              </Card>
+            ) : notificationPreferencesError || !notificationPreferences ? (
+              <Card
+                title={fr ? 'Préférences de notification' : 'Notification preferences'}
+                icon="notifications-outline"
+              >
+                <Text style={s.notice}>
+                  {fr
+                    ? 'Les préférences n’ont pas pu être chargées.'
+                    : 'Notification preferences could not be loaded.'}
+                </Text>
+                <ActionButton
+                  label={fr ? 'Réessayer' : 'Try again'}
+                  onPress={() => void loadNotificationPreferences()}
+                />
+              </Card>
+            ) : (
+              <>
+                <Card
+                  eyebrow={fr ? 'ALERTES DU LOGEMENT' : 'HOME ALERTS'}
+                  title={fr ? 'Sécurité' : 'Safety'}
+                  icon="shield-checkmark-outline"
+                >
+                  <Text style={s.body}>
+                    {fr
+                      ? 'Choisissez les alertes de sécurité à envoyer en notification push. Ces préférences s’appliquent aux appareils associés à ce compte.'
+                      : 'Choose which safety alerts to send as push notifications. These preferences apply to devices linked to this account.'}
+                  </Text>
+                  <RuleToggle
+                    title={fr ? 'Détection de chute' : 'Fall detection'}
+                    detail={fr ? 'Lorsqu’une chute est détectée.' : 'When a fall is detected.'}
+                    value={notificationPreferences.fallDetection}
+                    disabled={notificationBusy}
+                    onChange={(value) => void updateNotificationPreference('fallDetection', value)}
+                  />
+                  <RuleToggle
+                    title={fr ? 'Détection de fumée' : 'Smoke detection'}
+                    detail={
+                      fr
+                        ? 'Lorsqu’un détecteur signale de la fumée.'
+                        : 'When a sensor detects smoke.'
+                    }
+                    value={notificationPreferences.smoke}
+                    disabled={notificationBusy}
+                    onChange={(value) => void updateNotificationPreference('smoke', value)}
+                  />
+                  <RuleToggle
+                    title={fr ? 'Fuite d’eau' : 'Water leak'}
+                    detail={
+                      fr ? 'Lorsqu’une fuite d’eau est détectée.' : 'When a water leak is detected.'
+                    }
+                    value={notificationPreferences.waterLeak}
+                    disabled={notificationBusy}
+                    onChange={(value) => void updateNotificationPreference('waterLeak', value)}
+                  />
+                </Card>
+                <Card
+                  eyebrow={fr ? 'CARNET DE LIAISON' : 'LIAISON JOURNAL'}
+                  title={fr ? 'Nouveaux éléments' : 'New entries'}
+                  icon="book-outline"
+                >
+                  <Text style={s.body}>
+                    {fr
+                      ? 'Une notification est envoyée à chaque nouvelle entrée créée par un autre membre du domicile.'
+                      : 'A notification is sent for each new entry created by another household member.'}
+                  </Text>
+                  <RuleToggle
+                    title={fr ? 'Nouveau message' : 'New message'}
+                    detail={
+                      fr
+                        ? 'Messages ajoutés au carnet de liaison.'
+                        : 'Messages added to the liaison journal.'
+                    }
+                    value={notificationPreferences.liaisonMessages}
+                    disabled={notificationBusy}
+                    onChange={(value) =>
+                      void updateNotificationPreference('liaisonMessages', value)
+                    }
+                  />
+                  <RuleToggle
+                    title={fr ? 'Nouvelle humeur' : 'New mood'}
+                    detail={
+                      fr
+                        ? 'Humeurs ajoutées au carnet de liaison.'
+                        : 'Moods added to the liaison journal.'
+                    }
+                    value={notificationPreferences.liaisonMoods}
+                    disabled={notificationBusy}
+                    onChange={(value) => void updateNotificationPreference('liaisonMoods', value)}
+                  />
+                </Card>
+              </>
+            )}
+          </>
+        ) : null}
+
         {section === 'about' ? (
           <>
             <Pressable
@@ -970,6 +1259,39 @@ export function MobileSettingsPanel({
             <Text style={s.caption}>© Élise OS · Paul Breton</Text>
           </>
         ) : null}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            demoMode
+              ? fr
+                ? 'Quitter la démonstration'
+                : 'Exit demo'
+              : fr
+                ? 'Se déconnecter'
+                : 'Sign out'
+          }
+          style={[s.settingsNavRow, s.logoutSettingsRow]}
+          onPress={onLogout}
+        >
+          <View style={[s.cardIcon, s.logoutSettingsIcon]}>
+            <Ionicons name="log-out-outline" size={19} color={c.red} />
+          </View>
+          <View style={s.flex}>
+            <Text style={[s.cardTitle, s.logoutSettingsTitle]}>
+              {demoMode
+                ? fr
+                  ? 'Quitter la démonstration'
+                  : 'Exit demo'
+                : fr
+                  ? 'Se déconnecter'
+                  : 'Sign out'}
+            </Text>
+            <Text style={s.body}>
+              {fr ? 'Fermer cette session sur cet appareil.' : 'Sign out on this device.'}
+            </Text>
+          </View>
+        </Pressable>
       </ScrollView>
     </>
   );
@@ -1101,11 +1423,13 @@ function RuleToggle({
   detail,
   value,
   onChange,
+  disabled = false,
 }: {
   title: string;
   detail: string;
   value: boolean;
   onChange: (value: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <View style={s.ruleRow}>
@@ -1114,8 +1438,12 @@ function RuleToggle({
         <Text style={s.body}>{detail}</Text>
       </View>
       <Switch
+        disabled={disabled}
+        accessibilityLabel={title}
+        accessibilityHint={detail}
         value={value}
         onValueChange={onChange}
+        style={disabled ? s.disabled : undefined}
         trackColor={{ false: '#C8CFD1', true: c.green }}
         thumbColor="#fff"
       />
@@ -1224,9 +1552,13 @@ const s = StyleSheet.create({
     gap: 10,
     backgroundColor: c.paper,
   },
+  logoutSettingsRow: { borderColor: '#E6C7C1' },
+  logoutSettingsIcon: { backgroundColor: '#F7E9E6' },
+  logoutSettingsTitle: { color: c.red },
   aboutActions: { gap: 9 },
   peopleSettingsIcon: { backgroundColor: c.paleGreen },
   homeLandmarksIcon: { backgroundColor: c.paleAmber },
+  notificationSettingsIcon: { backgroundColor: '#E8F0F3' },
   settingsBack: {
     alignSelf: 'flex-start',
     paddingVertical: 6,
