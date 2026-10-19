@@ -24,7 +24,7 @@ final class MichelAppleLiquidGlassView: ExpoView {
     ])
 
     if #available(iOS 26.0, *) {
-      let effect = UIGlassEffect(style: .regular)
+      let effect = UIGlassEffect(style: .clear)
       effect.isInteractive = true
       glassView.effect = effect
     } else {
