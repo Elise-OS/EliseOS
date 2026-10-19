@@ -340,6 +340,23 @@ describe('ActivityPage', () => {
     expect(host!.textContent).not.toContain('Ouverture détectée');
   });
 
+  it('describes Tuya bed occupancy as occupied and unoccupied', async () => {
+    const pressureEvent = {
+      ...activityEvent,
+      id: 'bed-pressure-event',
+      capability: 'occupancy' as const,
+      roomId: 'chambre',
+      roomName: 'Chambre',
+      payload: { active: true, context: { role: 'BED', bedOccupiedWhen: 'OPEN' } },
+    };
+    await renderPage('fr', {
+      ...summary,
+      sequences: [{ ...summary.sequences[0]!, events: [pressureEvent] }],
+    });
+    expect(host!.textContent).toContain('Lit occupé');
+    expect(host!.textContent).not.toContain('Présence détectée');
+  });
+
   it('opens the seven-day date picker and compares another day', async () => {
     const { fetchMock } = await renderPage();
     const dateButton = host!.querySelector<HTMLButtonElement>('.activity-moments-date');

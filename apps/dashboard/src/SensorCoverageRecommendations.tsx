@@ -1,5 +1,18 @@
 import { useState } from 'react';
-import { ArrowLeft, ArrowRight, RefreshCw, Sparkles } from 'lucide-react';
+import {
+  Activity,
+  ArrowLeft,
+  ArrowRight,
+  Camera,
+  DoorOpen,
+  HeartHandshake,
+  Radio,
+  RefreshCw,
+  ShieldAlert,
+  Sparkles,
+  Wind,
+  Zap,
+} from 'lucide-react';
 import type { EquipmentCoverage, SensorProduct } from '@michel/contracts';
 import { ROOM_SENSOR_CATEGORIES } from '@michel/contracts';
 import { EquipmentDialog } from './EquipmentDialog';
@@ -11,6 +24,8 @@ import {
   type CoverageType,
 } from './coverage-model';
 import './coverage-explorer.css';
+
+const familyIcons = [Activity, Wind, DoorOpen, Camera, ShieldAlert, HeartHandshake, Zap];
 
 export function SensorCoverageRecommendations({
   locale,
@@ -126,6 +141,10 @@ export function SensorCoverageRecommendations({
       ) : (
         <>
           <header className="coverage-explorer-intro">
+            <span className="coverage-explorer-eyebrow">
+              <Sparkles aria-hidden="true" />
+              {fr ? 'Catalogue de compatibilité' : 'Compatibility catalogue'}
+            </span>
             <h2>{fr ? 'Les capteurs documentés par Élise' : 'Sensors documented by Élise'}</h2>
             <p>
               {fr
@@ -137,90 +156,125 @@ export function SensorCoverageRecommendations({
             className="coverage-family-list"
             aria-label={fr ? 'Familles de capteurs' : 'Sensor families'}
           >
-            {COVERAGE_FAMILIES.map((family) => (
-              <button
-                type="button"
-                key={family.labelEn}
-                aria-pressed={family === activeFamily}
-                onClick={() => setChosenType(family.types[0]!)}
-              >
-                <strong>{fr ? family.label : family.labelEn}</strong>
-              </button>
-            ))}
-          </nav>
-          <nav
-            className="coverage-type-list"
-            aria-label={fr ? 'Types de capteurs' : 'Sensor types'}
-          >
-            {COVERAGE_TYPES.filter((item) => activeFamily.types.includes(item.id)).map((item) => {
+            {COVERAGE_FAMILIES.map((family, index) => {
+              const Icon = familyIcons[index] ?? Activity;
+              const active = family === activeFamily;
               return (
                 <button
                   type="button"
-                  key={item.id}
-                  aria-pressed={type === item.id}
-                  onClick={() => setChosenType(item.id)}
+                  key={family.labelEn}
+                  aria-pressed={active}
+                  className={active ? 'is-active' : ''}
+                  onClick={() => setChosenType(family.types[0]!)}
                 >
-                  <span>
-                    <strong>{item[fr ? 'label' : 'labelEn']}</strong>
+                  <span className="coverage-family-icon">
+                    <Icon aria-hidden="true" />
+                  </span>
+                  <span className="coverage-family-copy">
+                    <strong>{fr ? family.label : family.labelEn}</strong>
+                    <small>
+                      {family.types.length} {family.types.length === 1 ? 'type' : 'types'}
+                    </small>
                   </span>
                 </button>
               );
             })}
           </nav>
-          <div className="coverage-type-detail">
-            <header>
-              <h3>{definition[fr ? 'label' : 'labelEn']}</h3>
-              <p>{definition[fr ? 'description' : 'descriptionEn']}</p>
-            </header>
-            <div className="coverage-product-heading">
-              <h4>{fr ? 'Modèles documentés' : 'Documented models'}</h4>
-              <span>{products.length}</span>
-            </div>
-            {!products.length ? (
-              <div className="coverage-empty-products">
-                <strong>
-                  {fr
-                    ? 'Aucun modèle documenté actuellement'
-                    : 'No documented model currently available'}
-                </strong>
-                <p>
-                  {fr
-                    ? 'Le type reste visible pour présenter tout ce qu’Élise peut couvrir.'
-                    : 'The type remains visible to show everything Élise can cover.'}
-                </p>
+          <div className="coverage-catalog-layout">
+            <aside className="coverage-type-picker">
+              <div className="coverage-type-picker-heading">
+                <span className="coverage-section-eyebrow">
+                  {fr ? 'Explorer par type' : 'Browse by type'}
+                </span>
+                <strong>{fr ? activeFamily.label : activeFamily.labelEn}</strong>
               </div>
-            ) : (
-              <div className="equipment-product-grid">
-                {products.map((product) => (
-                  <article className="coverage-product" key={product.id}>
-                    <SensorProductCard
-                      product={product}
-                      fr={fr}
-                      onSelect={() => setPreviewProduct(product)}
-                    />
-                    <p>{fr ? product.recommendation?.advice : product.recommendation?.adviceEn}</p>
-                    {product.recommendation?.detectionDistanceM && (
-                      <small>
-                        {product.recommendation.detectionDistanceM} m ·{' '}
-                        {fr ? 'distance de détection documentée' : 'documented detection distance'}
-                      </small>
-                    )}
-                    <a
-                      href={product.recommendation?.sourceUrl ?? product.manualUrl}
-                      target="_blank"
-                      rel="noreferrer"
+              <nav
+                className="coverage-type-list"
+                aria-label={fr ? 'Types de capteurs' : 'Sensor types'}
+              >
+                {COVERAGE_TYPES.filter((item) => activeFamily.types.includes(item.id)).map(
+                  (item) => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      aria-pressed={type === item.id}
+                      className={type === item.id ? 'is-active' : ''}
+                      onClick={() => setChosenType(item.id)}
                     >
-                      {fr ? 'Source fabricant' : 'Manufacturer source'} ↗
-                    </a>
-                  </article>
-                ))}
+                      <span>{item[fr ? 'label' : 'labelEn']}</span>
+                      <ArrowRight aria-hidden="true" />
+                    </button>
+                  ),
+                )}
+              </nav>
+            </aside>
+            <div className="coverage-type-detail">
+              <header className="coverage-detail-heading">
+                <div>
+                  <span className="coverage-section-eyebrow">
+                    {fr ? 'Type de capteur' : 'Sensor type'}
+                  </span>
+                  <h3>{definition[fr ? 'label' : 'labelEn']}</h3>
+                  <p>{definition[fr ? 'description' : 'descriptionEn']}</p>
+                </div>
+              </header>
+              <div className="coverage-product-heading">
+                <h4>{fr ? 'Modèles documentés' : 'Documented models'}</h4>
+                <span>{products.length}</span>
               </div>
-            )}
-            <p className="coverage-explorer-note">
-              {fr
-                ? 'Un appareil multifonction apparaît dans chaque type qu’il documente, mais il reste un seul produit.'
-                : 'A multifunction device appears under every documented type, but remains a single product.'}
-            </p>
+              {!products.length ? (
+                <div className="coverage-empty-products">
+                  <span className="coverage-empty-icon">
+                    <Radio aria-hidden="true" />
+                  </span>
+                  <strong>
+                    {fr
+                      ? 'Aucun modèle documenté actuellement'
+                      : 'No documented model currently available'}
+                  </strong>
+                  <p>
+                    {fr
+                      ? 'Le type reste visible pour présenter tout ce qu’Élise peut couvrir.'
+                      : 'The type remains visible to show everything Élise can cover.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="equipment-product-grid">
+                  {products.map((product) => (
+                    <article className="coverage-product" key={product.id}>
+                      <SensorProductCard
+                        product={product}
+                        fr={fr}
+                        onSelect={() => setPreviewProduct(product)}
+                      />
+                      <p>
+                        {fr ? product.recommendation?.advice : product.recommendation?.adviceEn}
+                      </p>
+                      {product.recommendation?.detectionDistanceM && (
+                        <small>
+                          {product.recommendation.detectionDistanceM} m ·{' '}
+                          {fr
+                            ? 'distance de détection documentée'
+                            : 'documented detection distance'}
+                        </small>
+                      )}
+                      <a
+                        href={product.recommendation?.sourceUrl ?? product.manualUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {fr ? 'Source fabricant' : 'Manufacturer source'} ↗
+                      </a>
+                    </article>
+                  ))}
+                </div>
+              )}
+              <p className="coverage-explorer-note">
+                {fr
+                  ? 'Un appareil multifonction apparaît dans chaque type qu’il documente, mais il reste un seul produit.'
+                  : 'A multifunction device appears under every documented type, but remains a single product.'}
+              </p>
+            </div>
           </div>
         </>
       )}

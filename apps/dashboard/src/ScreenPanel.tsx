@@ -643,7 +643,8 @@ export function ScreenPanel({
   };
   const call = snapshot?.state.call;
   useEffect(() => {
-    if (call?.acceptedAt && call.userId === snapshot?.userId && !join)
+    if (call?.client === 'mobile') setJoin(undefined);
+    else if (call?.acceptedAt && call.userId === snapshot?.userId && !join)
       void screenRequest<ScreenJoin>(`screen/calls/${call.id}/join`)
         .then(setJoin)
         .catch((e) => setError(String(e)));

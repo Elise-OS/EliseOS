@@ -93,4 +93,78 @@ describe('bed contact assignment from the home plan', () => {
       target: { type: 'ROOM', id: 'bedroom' },
     });
   });
+
+  it('assigns a Tuya occupancy strip with active meaning occupied', async () => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+    vi.stubGlobal('fetch', fetchMock);
+    const plan = {
+      levels: [
+        {
+          id: 'floor',
+          name: 'Étage',
+          floor: 1,
+          rooms: [
+            {
+              id: 'bedroom',
+              name: 'Chambre',
+              kind: 'BEDROOM',
+              geometry: { color: '#eee', points: [] },
+            },
+          ],
+          openings: [],
+          items: [],
+          stairs: [],
+        },
+      ],
+      placements: [],
+    } as unknown as HomePlan;
+    const device = {
+      id: 'tuya-bed',
+      name: 'Bande Tuya du lit',
+      manufacturer: 'Tuya',
+      model: 'Pressure Sensing Strap/Bed Occupancy Sensor',
+      room: null,
+      placementNote: null,
+      batteryPercent: 90,
+      capabilities: [{ sensorId: 'occupancy', capability: 'occupancy' }],
+    } as unknown as SensorUiDevice;
+    host = document.createElement('div');
+    document.body.append(host);
+    root = createRoot(host);
+    act(() => {
+      root!.render(
+        <HomeSensorOnboardingDialog
+          open
+          locale="fr"
+          plan={plan}
+          devices={[device]}
+          initialRoomId="bedroom"
+          initialCategory="bed"
+          onClose={() => undefined}
+          onInstalled={() => Promise.resolve()}
+        />,
+      );
+    });
+    const button = (label: string) =>
+      Array.from(document.body.querySelectorAll('button')).find((item) =>
+        item.textContent?.includes(label),
+      );
+    act(() => button('Déjà connectés')!.click());
+    act(() => button('Bande Tuya du lit')!.click());
+    expect(document.body.textContent).toContain('Son état actif signifie « lit occupé »');
+    expect(document.body.textContent).not.toContain('Quand le lit est occupé');
+    await act(async () => {
+      button('Associer à Chambre')!.click();
+      await Promise.resolve();
+    });
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
+    const body = calls[0]?.[1]?.body;
+    expect(JSON.parse(typeof body === 'string' ? body : '')).toMatchObject({
+      roomId: 'bedroom',
+      contactRole: 'BED',
+      bedOccupiedWhen: 'OPEN',
+      target: { type: 'ROOM', id: 'bedroom' },
+    });
+  });
 });

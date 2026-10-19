@@ -4,6 +4,7 @@ import {
   CONTACT_TYPES,
   type ContactRole,
   deviceSupportsCategory,
+  isBedOccupancySensorModel,
   ROOM_SENSOR_CATEGORIES,
   type RoomSensorCategory,
   type SensorProduct,
@@ -74,6 +75,8 @@ export function SensorOnboardingDialog({
     if (next.status === 'DEVICE_FOUND' && next.detectedDevice) {
       setStep(3);
       setName(product ? (fr ? product.name : product.nameEn) : next.detectedDevice.name);
+      if (category === 'bed' && isBedOccupancySensorModel(next.detectedDevice.model))
+        setOccupiedWhen('OPEN');
     } else setStep(2);
   };
   useEffect(() => {
@@ -497,24 +500,32 @@ export function SensorOnboardingDialog({
               {category === 'bed' && (
                 <>
                   <p className="equipment-note">
-                    {fr
-                      ? 'Le SDC-4-1-00 doit être raccordé à un tapis de pression à contact sec placé sous le matelas. Gardez le module NodOn exposé à la lumière ou équipez-le de sa pile de secours.'
-                      : 'Connect the SDC-4-1-00 to a dry-contact pressure mat under the mattress. Keep the NodOn module exposed to light or fit its backup battery.'}
+                    {isBedOccupancySensorModel(device.model)
+                      ? fr
+                        ? 'La bande de pression Tuya détecte directement l’occupation. Vérifiez « Occupé » en vous allongeant et « Libre » en vous levant.'
+                        : 'The Tuya pressure strip detects occupancy directly. Check for “Occupied” when lying down and “Unoccupied” when getting up.'
+                      : fr
+                        ? 'Le SDC-4-1-00 doit être raccordé à un tapis de pression à contact sec placé sous le matelas. Gardez le module NodOn exposé à la lumière ou équipez-le de sa pile de secours.'
+                        : 'Connect the SDC-4-1-00 to a dry-contact pressure mat under the mattress. Keep the NodOn module exposed to light or fit its backup battery.'}
                   </p>
-                  <label className="equipment-field">
-                    {fr ? 'Quand le lit est occupé' : 'When the bed is occupied'}
-                    <select
-                      value={occupiedWhen}
-                      onChange={(event) => setOccupiedWhen(event.target.value as 'CLOSED' | 'OPEN')}
-                    >
-                      <option value="CLOSED">
-                        {fr ? 'Le contact est fermé' : 'The contact is closed'}
-                      </option>
-                      <option value="OPEN">
-                        {fr ? 'Le contact est ouvert' : 'The contact is open'}
-                      </option>
-                    </select>
-                  </label>
+                  {!isBedOccupancySensorModel(device.model) && (
+                    <label className="equipment-field">
+                      {fr ? 'Quand le lit est occupé' : 'When the bed is occupied'}
+                      <select
+                        value={occupiedWhen}
+                        onChange={(event) =>
+                          setOccupiedWhen(event.target.value as 'CLOSED' | 'OPEN')
+                        }
+                      >
+                        <option value="CLOSED">
+                          {fr ? 'Le contact est fermé' : 'The contact is closed'}
+                        </option>
+                        <option value="OPEN">
+                          {fr ? 'Le contact est ouvert' : 'The contact is open'}
+                        </option>
+                      </select>
+                    </label>
+                  )}
                 </>
               )}
               <label className="equipment-field">

@@ -33,6 +33,7 @@ import {
   type ContactRole,
   ROOM_SENSOR_CATEGORIES,
   deviceSupportsCategory,
+  isBedOccupancySensorModel,
   roomSupportsCategory,
   visibleRoomCategories,
   type HomePlan,
@@ -40,6 +41,7 @@ import {
   type SensorProduct,
 } from '@michel/contracts';
 import { EquipmentDialog } from './EquipmentDialog';
+import { CameraNetworkOnboarding } from './CameraNetworkOnboarding';
 import { SensorOnboardingDialog } from './SensorOnboardingDialog';
 import { SensorInstallationGuide } from './SensorInstallationGuide';
 import { productsForCategory, sensorDevicePhoto } from './sensor-products';
@@ -144,8 +146,10 @@ export function deviceContactType(plan: HomePlan, device: SensorUiDevice): Conta
         ? p.equipmentId === device.id
         : device.capabilities.some(({ sensorId }) => sensorId === p.equipmentId)),
   );
-  const role = placement?.capabilityBindings?.find(({ capability }) =>
-    ['contact', 'dry_contact'].includes(capability),
+  const role = placement?.capabilityBindings?.find(
+    ({ capability }) =>
+      ['contact', 'dry_contact'].includes(capability) ||
+      (capability === 'occupancy' && isBedOccupancySensorModel(device.model)),
   )?.role;
   const parsed = contactRoleSchema.safeParse(role);
   return parsed.success ? parsed.data : undefined;
@@ -162,7 +166,7 @@ export function deviceBedOccupiedWhen(plan: HomePlan, device: SensorUiDevice): '
     )
     .flatMap((placement) => placement.capabilityBindings ?? [])
     .find(({ role }) => role === 'BED');
-  return binding?.bedOccupiedWhen ?? 'CLOSED';
+  return binding?.bedOccupiedWhen ?? (isBedOccupancySensorModel(device.model) ? 'OPEN' : 'CLOSED');
 }
 
 export function otherConnectedDevices(
@@ -209,15 +213,18 @@ export function roomSensorReading(
       ? ['person_presence', 'occupancy'].includes(capability)
       : category === 'motion'
         ? ['motion', 'occupancy'].includes(capability)
-        : category === 'contact' || category === 'bed'
-          ? ['contact', 'dry_contact'].includes(capability)
-          : category === 'air_quality'
-            ? ['co2', 'pm25', 'voc', 'total_volatile_organic_compounds', 'air_quality'].includes(
-                capability,
-              )
-            : category === 'shower'
-              ? capability === 'humidity'
-              : capability === category,
+        : category === 'bed'
+          ? ['contact', 'dry_contact'].includes(capability) ||
+            (capability === 'occupancy' && isBedOccupancySensorModel(device.model))
+          : category === 'contact'
+            ? ['contact', 'dry_contact'].includes(capability)
+            : category === 'air_quality'
+              ? ['co2', 'pm25', 'voc', 'total_volatile_organic_compounds', 'air_quality'].includes(
+                  capability,
+                )
+              : category === 'shower'
+                ? capability === 'humidity'
+                : capability === category,
   );
   const capability = capabilities.find((c) => c.value !== null) ?? capabilities[0];
   const lastSeenAt = capability?.lastSeenAt ?? device.lastSeenAt;
@@ -299,13 +306,21 @@ export function roomSensorReading(
                 : fr
                   ? 'Non détecté'
                   : 'Not detected'
-              : active
-                ? fr
-                  ? 'Signal détecté'
-                  : 'Signal detected'
-                : fr
-                  ? 'Aucun signal'
-                  : 'No signal';
+              : category === 'fall_detection'
+                ? active
+                  ? fr
+                    ? 'Alerte de chute'
+                    : 'Fall alert'
+                  : fr
+                    ? 'Aucune chute signalée'
+                    : 'No fall reported'
+                : active
+                  ? fr
+                    ? 'Signal détecté'
+                    : 'Signal detected'
+                  : fr
+                    ? 'Aucun signal'
+                    : 'No signal';
     else if (typeof value?.action === 'string')
       reading = fr ? 'Dernier appui reçu' : 'Last press received';
   }
@@ -359,19 +374,28 @@ export function RoomEquipmentPage({
   roomId,
   plan,
   devices,
+  cameras = [],
   locale,
   onBack,
   onRefresh,
   onPlanSaved,
+  onCameraAdded = () => undefined,
 }: {
   roomId: string;
   plan: HomePlan;
   devices: SensorUiDevice[];
+  cameras?: Array<{
+    id: string;
+    name: string;
+    status: string;
+    room: { id: string; name: string; kind: string } | null;
+  }>;
   locale: Locale;
   onBack: () => void;
   onEditPlan?: () => void;
   onRefresh: () => Promise<void>;
   onPlanSaved: (plan: HomePlan) => void;
+  onCameraAdded?: () => void | Promise<void>;
 }) {
   const fr = locale === 'fr';
   const floor = plan.levels.find(({ rooms }) => rooms.some(({ id }) => id === roomId));
@@ -448,15 +472,17 @@ export function RoomEquipmentPage({
         )
     : [];
   const availableConnected = category
-    ? editingMainEntrance
-      ? connectedDevicesForCategory(devices, category).filter(
-          (device) => !selectedDevices.some(({ id }) => id === device.id),
-        )
-      : category === 'bed'
+    ? category === 'camera'
+      ? []
+      : editingMainEntrance
         ? connectedDevicesForCategory(devices, category).filter(
             (device) => !selectedDevices.some(({ id }) => id === device.id),
           )
-        : otherConnectedDevices(devices, category, roomId, selectedDevices)
+        : category === 'bed'
+          ? connectedDevicesForCategory(devices, category).filter(
+              (device) => !selectedDevices.some(({ id }) => id === device.id),
+            )
+          : otherConnectedDevices(devices, category, roomId, selectedDevices)
     : [];
   const count = new Set([
     ...equipped.flatMap((id) => categoryDevices(id).map(({ id }) => id)),
@@ -553,7 +579,9 @@ export function RoomEquipmentPage({
       setInstallationContactRole(
         category === 'bed' ? 'BED' : category === 'contact' ? openingType || undefined : undefined,
       );
-      setInstallationBedOccupiedWhen(bedOccupiedWhen);
+      setInstallationBedOccupiedWhen(
+        category === 'bed' && isBedOccupancySensorModel(chosen?.model) ? 'OPEN' : bedOccupiedWhen,
+      );
       setCategory(null);
       setProduct(null);
       setEditingMainEntrance(false);
@@ -969,8 +997,8 @@ export function RoomEquipmentPage({
       {selected && (
         <EquipmentDialog
           title={`${editingMainEntrance ? (fr ? 'Porte principale' : 'Main entrance') : selected[fr ? 'label' : 'labelEn']} · ${room.name}`}
-          wide
-          sidePanel
+          wide={category !== 'camera'}
+          sidePanel={category !== 'camera'}
           onClose={() => {
             setCategory(null);
             setAssigning(null);
@@ -979,462 +1007,489 @@ export function RoomEquipmentPage({
           }}
           busy={busy}
         >
-          <div className="equipment-category-content">
-            {category === 'contact' && (
-              <label className="equipment-field">
-                {fr ? 'À quoi correspond cette ouverture ?' : 'What does this opening monitor?'}
-                <select
-                  value={openingType}
-                  onChange={(e) => setOpeningType(e.target.value as ContactRole)}
-                >
-                  <option value="">
-                    {fr ? 'Choisir un type d’ouverture' : 'Choose an opening type'}
-                  </option>
-                  {CONTACT_TYPES.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type[fr ? 'label' : 'labelEn']}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            {category === 'bed' && (
-              <>
-                <p className="equipment-note">
-                  {fr
-                    ? 'Reliez un tapis de pression à contact sec au module NodOn. Le module seul ne détecte pas la présence dans le lit.'
-                    : 'Connect a dry-contact pressure mat to the NodOn module. The module alone cannot detect bed occupancy.'}
-                </p>
+          {category === 'camera' ? (
+            <CameraNetworkOnboarding
+              locale={locale}
+              roomId={roomId}
+              roomName={room.name}
+              cameras={cameras.filter(({ room: cameraRoom }) => cameraRoom?.id === roomId)}
+              onAdded={async () => {
+                await onRefresh();
+                await onCameraAdded();
+              }}
+            />
+          ) : (
+            <div className="equipment-category-content">
+              {category === 'contact' && (
                 <label className="equipment-field">
-                  {fr ? 'Quand le lit est occupé' : 'When the bed is occupied'}
+                  {fr ? 'À quoi correspond cette ouverture ?' : 'What does this opening monitor?'}
                   <select
-                    value={bedOccupiedWhen}
-                    onChange={(event) =>
-                      setBedOccupiedWhen(event.target.value as 'CLOSED' | 'OPEN')
-                    }
+                    value={openingType}
+                    onChange={(e) => setOpeningType(e.target.value as ContactRole)}
                   >
-                    <option value="CLOSED">
-                      {fr ? 'Le contact est fermé' : 'The contact is closed'}
+                    <option value="">
+                      {fr ? 'Choisir un type d’ouverture' : 'Choose an opening type'}
                     </option>
-                    <option value="OPEN">
-                      {fr ? 'Le contact est ouvert' : 'The contact is open'}
-                    </option>
+                    {CONTACT_TYPES.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type[fr ? 'label' : 'labelEn']}
+                      </option>
+                    ))}
                   </select>
                 </label>
-              </>
-            )}
-            {assigning ? (
-              <>
-                <button
-                  className="equipment-text-button"
-                  onClick={() => {
-                    setAssigning(null);
-                  }}
-                >
-                  <ArrowLeft />
-                  {fr ? 'Retour aux capteurs' : 'Back to sensors'}
-                </button>
-                <section className="equipment-sensor-profile">
-                  <div className="equipment-sensor-profile-photo">
-                    <DevicePhoto device={assigning} />
-                  </div>
-                  <div className="equipment-sensor-profile-copy">
-                    <span className="equipment-sensor-profile-status">
-                      <span aria-hidden="true" />
-                      {assigning.enabled
-                        ? fr
-                          ? 'Capteur actif'
-                          : 'Active sensor'
-                        : fr
-                          ? 'Capteur hors ligne'
-                          : 'Sensor offline'}
-                    </span>
-                    <h3>{assigning.name}</h3>
-                    <p className="equipment-sensor-model">
-                      {[assigning.manufacturer, assigning.model].filter(Boolean).join(' · ')}
-                    </p>
-                  </div>
-                </section>
-                <section className="equipment-sensor-purpose">
-                  <span className={`room-sensor-icon category-${category}`}>
-                    {(() => {
-                      const Icon = categoryIcons[category!];
-                      return <Icon />;
-                    })()}
-                  </span>
-                  <div>
-                    <span>{fr ? 'À quoi sert ce capteur ?' : 'What is this sensor for?'}</span>
-                    <strong>
-                      {editingMainEntrance
-                        ? fr
-                          ? 'Il surveille l’ouverture de la porte principale du logement.'
-                          : 'It monitors the opening of the home’s main door.'
-                        : selected[fr ? 'description' : 'descriptionEn']}
-                    </strong>
-                  </div>
-                </section>
-                <div className="equipment-sensor-glance">
-                  <div>
-                    <span>{fr ? 'Mesure actuelle' : 'Current reading'}</span>
-                    <strong>
-                      {roomSensorReading(assigning, category!, fr, now, bedOccupiedWhen).reading}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>{fr ? 'Batterie' : 'Battery'}</span>
-                    <strong>
-                      {assigning.batteryPercent !== null
-                        ? `${assigning.batteryPercent} %`
-                        : fr
-                          ? 'Non indiquée'
-                          : 'Not reported'}
-                    </strong>
-                  </div>
-                </div>
-                {assigning.room && assigning.room.id !== roomId && (
+              )}
+              {category === 'bed' && (
+                <>
                   <p className="equipment-note">
-                    {fr
-                      ? `Cet appareil sera déplacé de « ${assigning.room.name} » vers « ${room.name} », avec toutes ses mesures.`
-                      : `This device and all its readings will move from ${assigning.room.name} to ${room.name}.`}
+                    {assigning
+                      ? isBedOccupancySensorModel(assigning.model)
+                        ? fr
+                          ? 'La bande Tuya se connecte directement en Zigbee. Son état actif signifie « lit occupé » ; vérifiez le retour à « libre » au lever.'
+                          : 'The Tuya strip connects directly over Zigbee. Its active state means “bed occupied”; check that it returns to “unoccupied” when the person gets up.'
+                        : fr
+                          ? 'Reliez un tapis de pression à contact sec au module NodOn. Le module seul ne détecte pas la présence dans le lit.'
+                          : 'Connect a dry-contact pressure mat to the NodOn module. The module alone cannot detect bed occupancy.'
+                      : fr
+                        ? 'Choisissez une bande Tuya Zigbee qui détecte directement l’occupation, ou un module NodOn raccordé à un tapis à contact sec.'
+                        : 'Choose a Tuya Zigbee occupancy strip, or a NodOn module connected to a dry-contact pressure mat.'}
                   </p>
-                )}
-                <h4 className="equipment-sensor-settings-title">
-                  {fr ? 'Personnalisation' : 'Personalisation'}
-                </h4>
-                <label className="equipment-field">
-                  {fr ? 'Nom du capteur' : 'Sensor name'}
-                  <input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
-                </label>
-                <label className="equipment-field">
-                  {fr ? 'Emplacement (facultatif)' : 'Location (optional)'}
-                  <input
-                    value={note}
-                    maxLength={500}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder={fr ? 'Par exemple : côté lit' : 'For example: by the bed'}
-                  />
-                </label>
-                <footer className="equipment-dialog-footer">
+                  {(!assigning || !isBedOccupancySensorModel(assigning.model)) && (
+                    <label className="equipment-field">
+                      {fr ? 'Quand le lit est occupé' : 'When the bed is occupied'}
+                      <select
+                        value={bedOccupiedWhen}
+                        onChange={(event) =>
+                          setBedOccupiedWhen(event.target.value as 'CLOSED' | 'OPEN')
+                        }
+                      >
+                        <option value="CLOSED">
+                          {fr ? 'Le contact est fermé' : 'The contact is closed'}
+                        </option>
+                        <option value="OPEN">
+                          {fr ? 'Le contact est ouvert' : 'The contact is open'}
+                        </option>
+                      </select>
+                    </label>
+                  )}
+                </>
+              )}
+              {assigning ? (
+                <>
                   <button
-                    className="equipment-primary"
-                    disabled={busy || !name.trim() || (category === 'contact' && !openingType)}
-                    onClick={() => void associate()}
+                    className="equipment-text-button"
+                    onClick={() => {
+                      setAssigning(null);
+                    }}
                   >
-                    <Check />
-                    {editingMainEntrance
-                      ? fr
-                        ? 'Définir comme porte principale'
-                        : 'Set as main entrance'
-                      : assigning.room?.id === roomId
-                        ? fr
-                          ? 'Enregistrer'
-                          : 'Save'
-                        : fr
-                          ? `Associer à ${room.name}`
-                          : `Assign to ${room.name}`}
+                    <ArrowLeft />
+                    {fr ? 'Retour aux capteurs' : 'Back to sensors'}
                   </button>
-                </footer>
-              </>
-            ) : product ? (
-              <>
-                <button className="equipment-text-button" onClick={() => setProduct(null)}>
-                  <ArrowLeft />
-                  {fr ? 'Tous les produits' : 'All products'}
-                </button>
-                <div className="equipment-product-detail">
-                  <ProductPhoto product={product} />
-                  <div>
-                    <span className="equipment-kicker">{product.brand}</span>
-                    <h3>{fr ? product.name : product.nameEn}</h3>
-                    <p>{product.model}</p>
-                    <span className="equipment-product-badge">
-                      {product.eliseValidated
-                        ? fr
-                          ? 'Validé avec Élise'
-                          : 'Validated with Élise'
-                        : fr
-                          ? 'Compatibilité documentée · test Élise à faire'
-                          : 'Documented compatibility · Élise test pending'}
+                  <section className="equipment-sensor-profile">
+                    <div className="equipment-sensor-profile-photo">
+                      <DevicePhoto device={assigning} />
+                    </div>
+                    <div className="equipment-sensor-profile-copy">
+                      <span className="equipment-sensor-profile-status">
+                        <span aria-hidden="true" />
+                        {assigning.enabled
+                          ? fr
+                            ? 'Capteur actif'
+                            : 'Active sensor'
+                          : fr
+                            ? 'Capteur hors ligne'
+                            : 'Sensor offline'}
+                      </span>
+                      <h3>{assigning.name}</h3>
+                      <p className="equipment-sensor-model">
+                        {[assigning.manufacturer, assigning.model].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                  </section>
+                  <section className="equipment-sensor-purpose">
+                    <span className={`room-sensor-icon category-${category}`}>
+                      {(() => {
+                        const Icon = categoryIcons[category!];
+                        return <Icon />;
+                      })()}
                     </span>
+                    <div>
+                      <span>{fr ? 'À quoi sert ce capteur ?' : 'What is this sensor for?'}</span>
+                      <strong>
+                        {editingMainEntrance
+                          ? fr
+                            ? 'Il surveille l’ouverture de la porte principale du logement.'
+                            : 'It monitors the opening of the home’s main door.'
+                          : selected[fr ? 'description' : 'descriptionEn']}
+                      </strong>
+                    </div>
+                  </section>
+                  <div className="equipment-sensor-glance">
+                    <div>
+                      <span>{fr ? 'Mesure actuelle' : 'Current reading'}</span>
+                      <strong>
+                        {roomSensorReading(assigning, category!, fr, now, bedOccupiedWhen).reading}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>{fr ? 'Batterie' : 'Battery'}</span>
+                      <strong>
+                        {assigning.batteryPercent !== null
+                          ? `${assigning.batteryPercent} %`
+                          : fr
+                            ? 'Non indiquée'
+                            : 'Not reported'}
+                      </strong>
+                    </div>
                   </div>
-                </div>
-                <div className="equipment-capability-tags">
-                  {product.categories.map((id) => (
-                    <span key={id}>
-                      {ROOM_SENSOR_CATEGORIES.find((c) => c.id === id)?.[fr ? 'label' : 'labelEn']}
-                    </span>
-                  ))}
-                </div>
-                <h4>{fr ? 'Fonctions documentées' : 'Documented features'}</h4>
-                <ul>
-                  {(fr ? product.features : product.featuresEn).map((feature) => (
-                    <li key={feature}>{feature}</li>
-                  ))}
-                </ul>
-                <dl className="equipment-product-specs">
-                  <div>
-                    <dt>{fr ? 'Alimentation' : 'Power'}</dt>
-                    <dd>{fr ? product.power : product.powerEn}</dd>
-                  </div>
-                  <div>
-                    <dt>{fr ? 'Utilisation' : 'Use'}</dt>
-                    <dd>
-                      {product.outdoor
-                        ? fr
-                          ? 'Extérieur'
-                          : 'Outdoor'
-                        : fr
-                          ? 'Intérieur'
-                          : 'Indoor'}
-                    </dd>
-                  </div>
-                </dl>
-                <h4>{fr ? 'Préparer le capteur' : 'Prepare the sensor'}</h4>
-                <ol className="equipment-guide-steps">
-                  {(fr ? product.preparation : product.preparationEn).map((s) => (
-                    <li key={s}>{s}</li>
-                  ))}
-                </ol>
-                <h4>{fr ? 'Où le placer' : 'Where to place it'}</h4>
-                <ul>
-                  {(fr ? product.placement : product.placementEn).map((s) => (
-                    <li key={s}>{s}</li>
-                  ))}
-                </ul>
-                <div className="equipment-product-links">
-                  <a href={product.manualUrl} target="_blank" rel="noreferrer">
-                    {fr ? 'Notice et documentation fabricant' : 'Manufacturer documentation'} ↗
-                  </a>
-                  <a href={product.integrationUrl} target="_blank" rel="noreferrer">
-                    {fr ? 'Compatibilité documentée' : 'Documented compatibility'} ↗
-                  </a>
-                </div>
-                <small className="equipment-muted">
-                  {fr ? 'Documentation vérifiée le' : 'Documentation checked on'}{' '}
-                  {product.verifiedAt}
-                </small>
-                <footer className="equipment-dialog-footer">
-                  <button
-                    className="equipment-primary"
-                    disabled={
-                      busy ||
-                      (category === 'contact' && !openingType) ||
-                      product.compatibility !== 'DOCUMENTED'
-                    }
-                    onClick={() => void startInstall(product)}
-                  >
-                    {fr ? 'Installer ce capteur' : 'Install this sensor'}
-                    <ArrowRight />
-                  </button>
-                </footer>
-              </>
-            ) : (
-              <>
-                {!!selectedDevices.length && (
-                  <section className="equipment-assigned">
-                    <h3>
+                  {assigning.room && assigning.room.id !== roomId && (
+                    <p className="equipment-note">
+                      {fr
+                        ? `Cet appareil sera déplacé de « ${assigning.room.name} » vers « ${room.name} », avec toutes ses mesures.`
+                        : `This device and all its readings will move from ${assigning.room.name} to ${room.name}.`}
+                    </p>
+                  )}
+                  <h4 className="equipment-sensor-settings-title">
+                    {fr ? 'Personnalisation' : 'Personalisation'}
+                  </h4>
+                  <label className="equipment-field">
+                    {fr ? 'Nom du capteur' : 'Sensor name'}
+                    <input value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
+                  </label>
+                  <label className="equipment-field">
+                    {fr ? 'Emplacement (facultatif)' : 'Location (optional)'}
+                    <input
+                      value={note}
+                      maxLength={500}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder={fr ? 'Par exemple : côté lit' : 'For example: by the bed'}
+                    />
+                  </label>
+                  <footer className="equipment-dialog-footer">
+                    <button
+                      className="equipment-primary"
+                      disabled={busy || !name.trim() || (category === 'contact' && !openingType)}
+                      onClick={() => void associate()}
+                    >
+                      <Check />
                       {editingMainEntrance
                         ? fr
-                          ? 'Porte principale'
-                          : 'Main entrance'
-                        : fr
-                          ? 'Dans cette pièce'
-                          : 'In this room'}
-                    </h3>
-                    {selectedDevices.map((device) => {
-                      const reading = readingFor(device, category!);
-                      return (
-                        <article className="equipment-device-row" key={device.id}>
-                          <DevicePhoto device={device} />
-                          <div>
-                            <strong>{device.name}</strong>
-                            <p>
-                              {device.placementNote ||
-                                [device.manufacturer, device.model].filter(Boolean).join(' · ')}
-                            </p>
-                            <span
-                              className={
-                                reading.outdated ? 'equipment-muted' : 'equipment-device-value'
-                              }
-                            >
-                              {reading.reading}
-                            </span>
-                            {reading.detail && (
-                              <small className="equipment-device-reading-detail">
-                                {reading.detail}
-                              </small>
-                            )}
-                            {reading.status && (
-                              <small className="equipment-device-attention">{reading.status}</small>
-                            )}
-                            {reading.lastSeenAt && (
-                              <small>
-                                {fr
-                                  ? ['presence', 'motion', 'contact', 'bed'].includes(category!)
-                                    ? 'Dernier changement le '
-                                    : 'Mesure reçue le '
-                                  : ['presence', 'motion', 'contact', 'bed'].includes(category!)
-                                    ? 'Latest change on '
-                                    : 'Reading received '}{' '}
-                                {new Date(reading.lastSeenAt).toLocaleString(fr ? 'fr-FR' : 'en')}
-                              </small>
-                            )}
-                            {device.batteryPercent !== null && (
-                              <small>
-                                {fr ? 'Batterie' : 'Battery'} {device.batteryPercent} %
-                              </small>
-                            )}
-                          </div>
-                          <div className="equipment-device-actions">
-                            <button onClick={() => editDevice(device)}>
-                              {fr ? 'Gérer' : 'Manage'}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setGuideId(device.id);
-                                setCategory(null);
-                              }}
-                            >
-                              {fr ? 'Guide et test' : 'Guide and test'}
-                            </button>
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </section>
-                )}
-                <h3>{fr ? 'Ajouter un capteur' : 'Add a sensor'}</h3>
-                <div
-                  className="equipment-catalog-tabs"
-                  role="tablist"
-                  aria-label={fr ? 'Choix du capteur' : 'Sensor choice'}
-                >
-                  <button
-                    id="equipment-products-tab"
-                    role="tab"
-                    aria-selected={tab === 'PRODUCTS'}
-                    aria-controls="equipment-products-panel"
-                    onClick={() => setTab('PRODUCTS')}
-                  >
-                    {fr ? 'Produits documentés' : 'Documented products'}
-                  </button>
-                  <button
-                    id="equipment-connected-tab"
-                    role="tab"
-                    aria-selected={tab === 'CONNECTED'}
-                    aria-controls="equipment-connected-panel"
-                    onClick={() => setTab('CONNECTED')}
-                  >
-                    {fr ? 'Autres capteurs connectés' : 'Other connected sensors'}
-                  </button>
-                </div>
-                {tab === 'PRODUCTS' ? (
-                  <div
-                    id="equipment-products-panel"
-                    role="tabpanel"
-                    aria-labelledby="equipment-products-tab"
-                  >
-                    <div className="equipment-product-grid">
-                      {products.map((item) => (
-                        <SensorProductCard
-                          key={item.id}
-                          product={item}
-                          fr={fr}
-                          onSelect={() => setProduct(item)}
-                        />
-                      ))}
-                    </div>
-                    {!products.length && (
-                      <p className="equipment-note">
-                        {category === 'camera'
+                          ? 'Définir comme porte principale'
+                          : 'Set as main entrance'
+                        : assigning.room?.id === roomId
                           ? fr
-                            ? 'Aucun produit caméra documenté pour l’instant. Vous pouvez ajouter une caméra Zigbee par détection automatique ou associer une caméra déjà reconnue.'
-                            : 'No documented camera products yet. Add a Zigbee camera with automatic detection or assign a recognized camera.'
-                          : outdoor
+                            ? 'Enregistrer'
+                            : 'Save'
+                          : fr
+                            ? `Associer à ${room.name}`
+                            : `Assign to ${room.name}`}
+                    </button>
+                  </footer>
+                </>
+              ) : product ? (
+                <>
+                  <button className="equipment-text-button" onClick={() => setProduct(null)}>
+                    <ArrowLeft />
+                    {fr ? 'Tous les produits' : 'All products'}
+                  </button>
+                  <div className="equipment-product-detail">
+                    <ProductPhoto product={product} />
+                    <div>
+                      <span className="equipment-kicker">{product.brand}</span>
+                      <h3>{fr ? product.name : product.nameEn}</h3>
+                      <p>{product.model}</p>
+                      <span className="equipment-product-badge">
+                        {product.eliseValidated
+                          ? fr
+                            ? 'Validé avec Élise'
+                            : 'Validated with Élise'
+                          : fr
+                            ? 'Compatibilité documentée · test Élise à faire'
+                            : 'Documented compatibility · Élise test pending'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="equipment-capability-tags">
+                    {product.categories.map((id) => (
+                      <span key={id}>
+                        {
+                          ROOM_SENSOR_CATEGORIES.find((c) => c.id === id)?.[
+                            fr ? 'label' : 'labelEn'
+                          ]
+                        }
+                      </span>
+                    ))}
+                  </div>
+                  <h4>{fr ? 'Fonctions documentées' : 'Documented features'}</h4>
+                  <ul>
+                    {(fr ? product.features : product.featuresEn).map((feature) => (
+                      <li key={feature}>{feature}</li>
+                    ))}
+                  </ul>
+                  <dl className="equipment-product-specs">
+                    <div>
+                      <dt>{fr ? 'Alimentation' : 'Power'}</dt>
+                      <dd>{fr ? product.power : product.powerEn}</dd>
+                    </div>
+                    <div>
+                      <dt>{fr ? 'Utilisation' : 'Use'}</dt>
+                      <dd>
+                        {product.outdoor
+                          ? fr
+                            ? 'Extérieur'
+                            : 'Outdoor'
+                          : fr
+                            ? 'Intérieur'
+                            : 'Indoor'}
+                      </dd>
+                    </div>
+                  </dl>
+                  <h4>{fr ? 'Préparer le capteur' : 'Prepare the sensor'}</h4>
+                  <ol className="equipment-guide-steps">
+                    {(fr ? product.preparation : product.preparationEn).map((s) => (
+                      <li key={s}>{s}</li>
+                    ))}
+                  </ol>
+                  <h4>{fr ? 'Où le placer' : 'Where to place it'}</h4>
+                  <ul>
+                    {(fr ? product.placement : product.placementEn).map((s) => (
+                      <li key={s}>{s}</li>
+                    ))}
+                  </ul>
+                  <div className="equipment-product-links">
+                    <a href={product.manualUrl} target="_blank" rel="noreferrer">
+                      {fr ? 'Notice et documentation fabricant' : 'Manufacturer documentation'} ↗
+                    </a>
+                    <a href={product.integrationUrl} target="_blank" rel="noreferrer">
+                      {fr ? 'Compatibilité documentée' : 'Documented compatibility'} ↗
+                    </a>
+                  </div>
+                  <small className="equipment-muted">
+                    {fr ? 'Documentation vérifiée le' : 'Documentation checked on'}{' '}
+                    {product.verifiedAt}
+                  </small>
+                  <footer className="equipment-dialog-footer">
+                    <button
+                      className="equipment-primary"
+                      disabled={
+                        busy ||
+                        (category === 'contact' && !openingType) ||
+                        product.compatibility !== 'DOCUMENTED'
+                      }
+                      onClick={() => void startInstall(product)}
+                    >
+                      {fr ? 'Installer ce capteur' : 'Install this sensor'}
+                      <ArrowRight />
+                    </button>
+                  </footer>
+                </>
+              ) : (
+                <>
+                  {!!selectedDevices.length && (
+                    <section className="equipment-assigned">
+                      <h3>
+                        {editingMainEntrance
+                          ? fr
+                            ? 'Porte principale'
+                            : 'Main entrance'
+                          : fr
+                            ? 'Dans cette pièce'
+                            : 'In this room'}
+                      </h3>
+                      {selectedDevices.map((device) => {
+                        const reading = readingFor(device, category!);
+                        return (
+                          <article className="equipment-device-row" key={device.id}>
+                            <DevicePhoto device={device} />
+                            <div>
+                              <strong>{device.name}</strong>
+                              <p>
+                                {device.placementNote ||
+                                  [device.manufacturer, device.model].filter(Boolean).join(' · ')}
+                              </p>
+                              <span
+                                className={
+                                  reading.outdated ? 'equipment-muted' : 'equipment-device-value'
+                                }
+                              >
+                                {reading.reading}
+                              </span>
+                              {reading.detail && (
+                                <small className="equipment-device-reading-detail">
+                                  {reading.detail}
+                                </small>
+                              )}
+                              {reading.status && (
+                                <small className="equipment-device-attention">
+                                  {reading.status}
+                                </small>
+                              )}
+                              {reading.lastSeenAt && (
+                                <small>
+                                  {fr
+                                    ? ['presence', 'motion', 'contact', 'bed'].includes(category!)
+                                      ? 'Dernier changement le '
+                                      : 'Mesure reçue le '
+                                    : ['presence', 'motion', 'contact', 'bed'].includes(category!)
+                                      ? 'Latest change on '
+                                      : 'Reading received '}{' '}
+                                  {new Date(reading.lastSeenAt).toLocaleString(fr ? 'fr-FR' : 'en')}
+                                </small>
+                              )}
+                              {device.batteryPercent !== null && (
+                                <small>
+                                  {fr ? 'Batterie' : 'Battery'} {device.batteryPercent} %
+                                </small>
+                              )}
+                            </div>
+                            <div className="equipment-device-actions">
+                              <button onClick={() => editDevice(device)}>
+                                {fr ? 'Gérer' : 'Manage'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setGuideId(device.id);
+                                  setCategory(null);
+                                }}
+                              >
+                                {fr ? 'Guide et test' : 'Guide and test'}
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </section>
+                  )}
+                  <h3>{fr ? 'Ajouter un capteur' : 'Add a sensor'}</h3>
+                  <div
+                    className="equipment-catalog-tabs"
+                    role="tablist"
+                    aria-label={fr ? 'Choix du capteur' : 'Sensor choice'}
+                  >
+                    <button
+                      id="equipment-products-tab"
+                      role="tab"
+                      aria-selected={tab === 'PRODUCTS'}
+                      aria-controls="equipment-products-panel"
+                      onClick={() => setTab('PRODUCTS')}
+                    >
+                      {fr ? 'Produits documentés' : 'Documented products'}
+                    </button>
+                    <button
+                      id="equipment-connected-tab"
+                      role="tab"
+                      aria-selected={tab === 'CONNECTED'}
+                      aria-controls="equipment-connected-panel"
+                      onClick={() => setTab('CONNECTED')}
+                    >
+                      {fr ? 'Autres capteurs connectés' : 'Other connected sensors'}
+                    </button>
+                  </div>
+                  {tab === 'PRODUCTS' ? (
+                    <div
+                      id="equipment-products-panel"
+                      role="tabpanel"
+                      aria-labelledby="equipment-products-tab"
+                    >
+                      <div className="equipment-product-grid">
+                        {products.map((item) => (
+                          <SensorProductCard
+                            key={item.id}
+                            product={item}
+                            fr={fr}
+                            onSelect={() => setProduct(item)}
+                          />
+                        ))}
+                      </div>
+                      {!products.length && (
+                        <p className="equipment-note">
+                          {outdoor
                             ? fr
                               ? 'Aucun modèle pour l’extérieur n’est disponible dans le matériel de test actuel.'
                               : 'No outdoor model is available in the current test hardware.'
                             : fr
                               ? 'Aucun modèle de votre matériel de test ne fournit cette fonction. Vous pouvez tout de même associer un appareil déjà reconnu ou lancer la détection automatique.'
                               : 'None of your current test devices provides this function. You can still assign an already recognized device or use automatic detection.'}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div
-                    id="equipment-connected-panel"
-                    role="tabpanel"
-                    aria-labelledby="equipment-connected-tab"
-                  >
-                    {availableConnected.map((device) => (
-                      <button
-                        className="equipment-connected-choice"
-                        key={device.id}
-                        onClick={() => editDevice(device)}
-                      >
-                        <Radio />
-                        <span>
-                          <strong>{device.name}</strong>
-                          <small>
-                            {device.room
-                              ? fr
-                                ? `Actuellement : ${device.room.name}`
-                                : `Currently: ${device.room.name}`
-                              : fr
-                                ? 'Sans pièce'
-                                : 'Unassigned'}
-                          </small>
-                          {device.batteryPercent !== null && (
-                            <small>
-                              {fr ? 'Batterie' : 'Battery'} {device.batteryPercent} %
-                            </small>
-                          )}
-                        </span>
-                        <Plus />
-                      </button>
-                    ))}
-                    {!availableConnected.length && (
-                      <div className="equipment-connected-empty" role="status">
-                        <Radio />
-                        <strong>
-                          {fr ? 'Aucun autre capteur à ajouter' : 'No other sensor to add'}
-                        </strong>
-                        <p>
-                          {selectedDevices.length
-                            ? fr
-                              ? 'Les capteurs de cette pièce sont déjà affichés plus haut. Les autres capteurs compatibles apparaîtront ici.'
-                              : 'Sensors in this room are already shown above. Other compatible sensors will appear here.'
-                            : fr
-                              ? 'Les capteurs compatibles déjà connectés apparaîtront ici.'
-                              : 'Compatible connected sensors will appear here.'}
                         </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <button
-                  className="equipment-unlisted"
-                  disabled={busy || (category === 'contact' && !openingType)}
-                  onClick={() => void startInstall()}
-                >
-                  <Radio />
-                  <span>
-                    {fr ? 'Mon modèle n’est pas dans la liste' : 'My model is not listed'}
-                    <small>
-                      {fr ? 'Lancer la détection automatique' : 'Start automatic detection'}
-                    </small>
-                  </span>
-                  <ArrowRight />
-                </button>
-              </>
-            )}
-            {error && (
-              <p className="equipment-error" role="alert">
-                {error}
-                <button onClick={() => void run(onRefresh)}>{fr ? 'Actualiser' : 'Refresh'}</button>
-              </p>
-            )}
-          </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      id="equipment-connected-panel"
+                      role="tabpanel"
+                      aria-labelledby="equipment-connected-tab"
+                    >
+                      {availableConnected.map((device) => (
+                        <button
+                          className="equipment-connected-choice"
+                          key={device.id}
+                          onClick={() => editDevice(device)}
+                        >
+                          <Radio />
+                          <span>
+                            <strong>{device.name}</strong>
+                            <small>
+                              {device.room
+                                ? fr
+                                  ? `Actuellement : ${device.room.name}`
+                                  : `Currently: ${device.room.name}`
+                                : fr
+                                  ? 'Sans pièce'
+                                  : 'Unassigned'}
+                            </small>
+                            {device.batteryPercent !== null && (
+                              <small>
+                                {fr ? 'Batterie' : 'Battery'} {device.batteryPercent} %
+                              </small>
+                            )}
+                          </span>
+                          <Plus />
+                        </button>
+                      ))}
+                      {!availableConnected.length && (
+                        <div className="equipment-connected-empty" role="status">
+                          <Radio />
+                          <strong>
+                            {fr ? 'Aucun autre capteur à ajouter' : 'No other sensor to add'}
+                          </strong>
+                          <p>
+                            {selectedDevices.length
+                              ? fr
+                                ? 'Les capteurs de cette pièce sont déjà affichés plus haut. Les autres capteurs compatibles apparaîtront ici.'
+                                : 'Sensors in this room are already shown above. Other compatible sensors will appear here.'
+                              : fr
+                                ? 'Les capteurs compatibles déjà connectés apparaîtront ici.'
+                                : 'Compatible connected sensors will appear here.'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <button
+                    className="equipment-unlisted"
+                    disabled={busy || (category === 'contact' && !openingType)}
+                    onClick={() => void startInstall()}
+                  >
+                    <Radio />
+                    <span>
+                      {fr ? 'Mon modèle n’est pas dans la liste' : 'My model is not listed'}
+                      <small>
+                        {fr ? 'Lancer la détection automatique' : 'Start automatic detection'}
+                      </small>
+                    </span>
+                    <ArrowRight />
+                  </button>
+                </>
+              )}
+              {error && (
+                <p className="equipment-error" role="alert">
+                  {error}
+                  <button onClick={() => void run(onRefresh)}>
+                    {fr ? 'Actualiser' : 'Refresh'}
+                  </button>
+                </p>
+              )}
+            </div>
+          )}
         </EquipmentDialog>
       )}
       {guideId && (

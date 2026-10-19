@@ -58,7 +58,7 @@ describe('page Alertes', () => {
     });
 
     expect(container.textContent).toContain('ALERTES DU DOMICILE');
-    expect(container.textContent).toContain('Situation du jour');
+    expect(container.textContent).toContain('Situations récentes et en cours');
     expect(container.textContent).toContain('Règles des alertes');
     expect(container.textContent).toContain('État des urgences indisponible');
     expect(container.textContent).not.toContain('Aucune urgence en cours');

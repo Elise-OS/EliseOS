@@ -1,6 +1,10 @@
 import { ProductPhoto, SensorProductCard } from './SensorProductCard';
 import type { HomePlan, RoomSensorCategory, SensorProduct } from '@michel/contracts';
-import { ROOM_SENSOR_CATEGORIES, roomSupportsCategory } from '@michel/contracts';
+import {
+  ROOM_SENSOR_CATEGORIES,
+  isBedOccupancySensorModel,
+  roomSupportsCategory,
+} from '@michel/contracts';
 import {
   Activity,
   Camera,
@@ -154,7 +158,9 @@ export function HomeSensorOnboardingDialog({
     setTab('PRODUCTS');
     setProduct(initialProduct);
     setAssigning(null);
-    setBedOccupiedWhen('CLOSED');
+    setBedOccupiedWhen(
+      initialProduct && isBedOccupancySensorModel(initialProduct.model) ? 'OPEN' : 'CLOSED',
+    );
     setError('');
   }, [open, initialRoomId, initialCategory, initialProduct, initialTarget?.id]);
 
@@ -190,6 +196,7 @@ export function HomeSensorOnboardingDialog({
 
   const selectedRoom = rooms.find((room) => room.id === roomId);
   const selectedCategory = ROOM_SENSOR_CATEGORIES.find(({ id }) => id === category);
+  const requestedCategory = ROOM_SENSOR_CATEGORIES.find(({ id }) => id === initialCategory);
   const outdoor = plan.levels
     .flatMap(({ rooms }) => rooms)
     .some(({ id, kind }) => id === roomId && ['GARDEN', 'TERRACE'].includes(kind));
@@ -262,9 +269,13 @@ export function HomeSensorOnboardingDialog({
               <div>
                 <h3>{fr ? 'Où souhaitez-vous l’installer ?' : 'Where will you install it?'}</h3>
                 <p>
-                  {fr
-                    ? 'Le choix de la pièce permet à Élise de proposer les bons usages et le bon emplacement.'
-                    : 'Choosing a room lets Élise suggest the right uses and placement.'}
+                  {requestedCategory
+                    ? fr
+                      ? `Choisissez la pièce pour « ${requestedCategory.label} » ; Élise proposera les bons usages et le bon emplacement.`
+                      : `Choose a room for “${requestedCategory.labelEn}”; Élise will suggest the right uses and placement.`
+                    : fr
+                      ? 'Le choix de la pièce permet à Élise de proposer les bons usages et le bon emplacement.'
+                      : 'Choosing a room lets Élise suggest the right uses and placement.'}
                 </p>
               </div>
             </div>
@@ -280,7 +291,16 @@ export function HomeSensorOnboardingDialog({
                           key={room.id}
                           onClick={() => {
                             setRoomId(room.id);
-                            setStep('CATEGORY');
+                            if (
+                              initialCategory &&
+                              roomSupportsCategory(room.kind, initialCategory)
+                            ) {
+                              setCategory(initialCategory);
+                              setTab('PRODUCTS');
+                              setStep('CATALOG');
+                            } else {
+                              setStep('CATEGORY');
+                            }
                           }}
                         >
                           <span
@@ -307,6 +327,13 @@ export function HomeSensorOnboardingDialog({
                 </section>
               ))}
             </div>
+            {!rooms.length && (
+              <p className="equipment-note" role="status">
+                {fr
+                  ? 'Aucune pièce n’est définie. Fermez cette fenêtre et ajoutez d’abord une pièce dans Mon logement.'
+                  : 'No rooms are defined. Close this window and add a room in My home first.'}
+              </p>
+            )}
           </>
         ) : step === 'CATEGORY' ? (
           <>
@@ -383,12 +410,20 @@ export function HomeSensorOnboardingDialog({
             </label>
             {category === 'bed' && (
               <p className="equipment-note">
-                {fr
-                  ? 'Branchez un tapis de pression à contact sec au NodOn et placez le tapis sous le matelas. Le module NodOn doit rester exposé à la lumière ou utiliser sa pile de secours.'
-                  : 'Connect a dry-contact pressure mat to the NodOn and place the mat under the mattress. Keep the NodOn module exposed to light or use its backup battery.'}
+                {assigning
+                  ? isBedOccupancySensorModel(assigning.model)
+                    ? fr
+                      ? 'La bande Tuya se connecte directement en Zigbee. Son état actif signifie « lit occupé » ; vérifiez le retour à « libre » au lever.'
+                      : 'The Tuya strip connects directly over Zigbee. Its active state means “bed occupied”; check that it returns to “unoccupied” when the person gets up.'
+                    : fr
+                      ? 'Branchez un tapis de pression à contact sec au NodOn et placez le tapis sous le matelas. Le module NodOn doit rester exposé à la lumière ou utiliser sa pile de secours.'
+                      : 'Connect a dry-contact pressure mat to the NodOn and place the mat under the mattress. Keep the NodOn module exposed to light or use its backup battery.'
+                  : fr
+                    ? 'La bande Tuya se place sous le matelas et se connecte directement en Zigbee ; le NodOn doit être raccordé à un tapis de pression à contact sec.'
+                    : 'The Tuya strip sits under the mattress and connects directly over Zigbee; the NodOn needs a dry-contact pressure mat.'}
               </p>
             )}
-            {category === 'bed' && (
+            {category === 'bed' && (!assigning || !isBedOccupancySensorModel(assigning.model)) && (
               <label className="equipment-field">
                 {fr ? 'Quand le lit est occupé' : 'When the bed is occupied'}
                 <select
@@ -506,6 +541,10 @@ export function HomeSensorOnboardingDialog({
                       setAssigning(device);
                       setName(device.name);
                       setNote(device.placementNote ?? '');
+                      if (category === 'bed')
+                        setBedOccupiedWhen(
+                          isBedOccupancySensorModel(device.model) ? 'OPEN' : 'CLOSED',
+                        );
                       setStep('ASSIGN');
                     }}
                   >

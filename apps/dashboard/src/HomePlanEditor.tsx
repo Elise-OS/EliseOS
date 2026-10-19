@@ -68,6 +68,7 @@ type CameraItem = {
   id: string;
   name: string;
   status: string;
+  room: { id: string; name: string; kind: string } | null;
 };
 
 type Tool =
@@ -1759,6 +1760,7 @@ export function HomePlanEditor({
         roomId={editingRoom.id}
         plan={plan}
         devices={sensorDevices}
+        cameras={cameras}
         locale={locale}
         onBack={() => {
           if (initialRoomId && onBack) {
@@ -1775,6 +1777,7 @@ export function HomePlanEditor({
           setSaveState('SAVED');
           onSaved();
         }}
+        onCameraAdded={onSaved}
         onRefresh={async () => {
           if (saving.current || dirty)
             throw new Error(

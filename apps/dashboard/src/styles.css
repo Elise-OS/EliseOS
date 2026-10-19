@@ -10851,6 +10851,62 @@ footer svg:last-child {
   justify-content: center;
   padding-top: 18px;
 }
+
+.camera-live-card-footer {
+  align-items: center;
+  border-top: 1px solid #e6edf0;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 7px 10px;
+}
+.camera-live-card-footer strong {
+  color: var(--navy-deep);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.camera-live-card-footer button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #27627b;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 800;
+  gap: 3px;
+}
+.camera-live-card-footer button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.camera-live-card-footer svg {
+  height: 14px;
+  width: 14px;
+}
+.camera-recording-item {
+  align-items: start;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(0, 1fr);
+}
+.camera-recording-video {
+  aspect-ratio: 16 / 9;
+  background: #0d1d24;
+  border-radius: 7px;
+  display: block;
+  max-width: 100%;
+  width: 100%;
+}
+.camera-recording-copy > small {
+  color: #72818a;
+  display: block;
+  font-size: 10px;
+  margin-top: 7px;
+}
+
 .talk-button {
   align-items: center;
   background: var(--navy);
@@ -17893,5 +17949,29 @@ textarea:focus-visible {
   .studio-selection-bar {
     right: 24px;
     bottom: 30px;
+  }
+}
+
+.camera-recording-item {
+  align-items: start;
+  grid-template-columns: minmax(180px, 0.9fr) minmax(0, 1fr);
+}
+.camera-recording-video {
+  aspect-ratio: 16 / 9;
+  background: #0d1d24;
+  border-radius: 7px;
+  display: block;
+  max-width: 100%;
+  width: 100%;
+}
+.camera-recording-copy > small {
+  color: #72818a;
+  display: block;
+  font-size: 10px;
+  margin-top: 7px;
+}
+@media (max-width: 700px) {
+  .camera-recording-item {
+    grid-template-columns: 1fr;
   }
 }

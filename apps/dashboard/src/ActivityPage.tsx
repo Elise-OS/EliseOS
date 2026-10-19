@@ -188,11 +188,16 @@ function eventDescription(event: ActivityEvent, locale: 'fr' | 'en') {
       ? String(raw)
       : null;
   const unit = event.unit ? ` ${event.unit}` : '';
-  if (event.capability === 'contact' || event.capability === 'dry_contact') {
+  if (
+    event.capability === 'contact' ||
+    event.capability === 'dry_contact' ||
+    (event.capability === 'occupancy' && context.role === 'BED')
+  ) {
     const open =
       raw === true || raw === 'open' || raw === 'contact_open' || raw === 'on' || raw === 1;
     if (context.role === 'BED') {
-      const occupied = open === (context.bedOccupiedWhen === 'OPEN');
+      const occupied =
+        open === (context.bedOccupiedWhen === 'OPEN' || event.capability === 'occupancy');
       return locale === 'fr'
         ? occupied
           ? 'Lit occupé'

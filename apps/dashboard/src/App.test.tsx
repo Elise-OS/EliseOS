@@ -140,6 +140,30 @@ describe('Élise copy', () => {
     expect(
       activityDescription(
         {
+          id: 'bed-pressure-1',
+          occurredAt: '2026-08-10T06:05:00.000Z',
+          capability: 'occupancy',
+          room: 'Chambre',
+          payload: { active: true, context: { role: 'BED', bedOccupiedWhen: 'OPEN' } },
+        },
+        'fr',
+      ),
+    ).toBe('Lit occupé');
+    expect(
+      activityDescription(
+        {
+          id: 'bed-pressure-2',
+          occurredAt: '2026-08-10T06:30:00.000Z',
+          capability: 'occupancy',
+          room: 'Chambre',
+          payload: { active: false, context: { role: 'BED', bedOccupiedWhen: 'OPEN' } },
+        },
+        'fr',
+      ),
+    ).toBe('Lit libre');
+    expect(
+      activityDescription(
+        {
           id: 'light-1',
           occurredAt: '2026-08-09T08:00:00.000Z',
           capability: 'illuminance',

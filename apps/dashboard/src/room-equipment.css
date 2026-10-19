@@ -1887,3 +1887,156 @@
     animation: none;
   }
 }
+
+.camera-network-onboarding {
+  display: grid;
+  gap: 18px;
+}
+.camera-network-existing {
+  margin: -8px 0 0 !important;
+}
+.camera-network-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: -5px 0 0 !important;
+  color: #3b708a;
+  font-size: 0.875rem;
+}
+.camera-network-status svg {
+  width: 18px;
+  height: 18px;
+}
+.camera-network-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 16px;
+  border: 1px solid #dce6eb;
+  border-radius: 15px;
+  color: #496a7e;
+  background: #f7fafc;
+}
+.camera-network-empty > svg {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  color: #347a98;
+}
+.camera-network-empty strong {
+  color: #214b66;
+}
+.camera-network-empty p {
+  margin: 3px 0 0;
+  color: #647b8a;
+  font-size: 0.875rem;
+}
+.camera-network-results h4 {
+  margin: 4px 0 10px;
+  color: #596f7e;
+  font-size: 0.8125rem;
+  font-weight: 750;
+}
+.camera-network-result-list {
+  display: grid;
+  gap: 9px;
+  max-height: 230px;
+  overflow-y: auto;
+}
+.camera-network-result {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 68px;
+  padding: 10px 13px;
+  border: 1px solid #dfe7ec;
+  border-radius: 15px;
+  color: #244d68;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
+}
+.camera-network-result:hover,
+.camera-network-result.is-selected {
+  border-color: #76a9c1;
+  background: #f3f9fc;
+  box-shadow: 0 0 0 2px #e5f0f6;
+}
+.camera-network-result-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  color: #286f92;
+  background: #eaf3f8;
+}
+.camera-network-result-icon svg {
+  width: 21px;
+  height: 21px;
+}
+.camera-network-result-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.camera-network-result-copy strong {
+  font-size: 0.9375rem;
+}
+.camera-network-result-copy small {
+  color: #6e8290;
+  overflow-wrap: anywhere;
+}
+.camera-network-result > svg {
+  width: 20px;
+  height: 20px;
+  color: #38836a;
+}
+.camera-network-credentials {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.camera-network-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #526c7e;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.camera-network-consent input {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin: 2px 0 0;
+  accent-color: #286d91;
+}
+.equipment-dialog-footer.camera-network-form-footer {
+  justify-content: space-between;
+}
+.camera-network-error {
+  margin: 0 !important;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+  .camera-network-credentials {
+    grid-template-columns: 1fr;
+  }
+  .equipment-dialog-footer.camera-network-form-footer {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+  .equipment-dialog-footer.camera-network-form-footer > button {
+    width: 100%;
+  }
+}

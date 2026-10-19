@@ -4,6 +4,7 @@ import type {
   HomePlan,
   PlanRoom,
   PresenceEstimate,
+  RoomSensorCategory,
   SensorDevice,
 } from '@michel/contracts';
 import {
@@ -421,6 +422,8 @@ export function HomeOverview({
   home,
   cameras,
   canManage,
+  initialSensorCategory,
+  onSensorCategoryOpened,
   onManage,
   onManageStair,
 }: {
@@ -428,6 +431,8 @@ export function HomeOverview({
   home: HomeInfo | undefined;
   cameras: CameraItem[];
   canManage: boolean;
+  initialSensorCategory?: RoomSensorCategory | null;
+  onSensorCategoryOpened?: () => void;
   onManage: (roomId?: string) => void;
   onManageStair: (stairId: string) => void;
 }) {
@@ -445,6 +450,14 @@ export function HomeOverview({
   const [showStairs, setShowStairs] = useState(false);
   const [coverageOpen, setCoverageOpen] = useState(false);
   const [sensorFlowOpen, setSensorFlowOpen] = useState(false);
+  const [sensorFlowCategory, setSensorFlowCategory] = useState<RoomSensorCategory | undefined>();
+
+  useEffect(() => {
+    if (!initialSensorCategory) return;
+    setSensorFlowCategory(initialSensorCategory);
+    setSensorFlowOpen(true);
+    onSensorCategoryOpened?.();
+  }, [initialSensorCategory, onSensorCategoryOpened]);
 
   const refresh = useCallback(
     async (showLoading = false) => {
@@ -618,7 +631,13 @@ export function HomeOverview({
             </button>
           )}
           {canManage && (
-            <button className="add-sensor" onClick={() => setSensorFlowOpen(true)}>
+            <button
+              className="add-sensor"
+              onClick={() => {
+                setSensorFlowCategory(undefined);
+                setSensorFlowOpen(true);
+              }}
+            >
               <Plus /> {fr ? 'Ajouter un capteur' : 'Add a sensor'}
             </button>
           )}
@@ -947,7 +966,11 @@ export function HomeOverview({
           locale={locale}
           plan={plan}
           devices={devices}
-          onClose={() => setSensorFlowOpen(false)}
+          initialCategory={sensorFlowCategory}
+          onClose={() => {
+            setSensorFlowOpen(false);
+            setSensorFlowCategory(undefined);
+          }}
           onInstalled={refresh}
         />
       )}

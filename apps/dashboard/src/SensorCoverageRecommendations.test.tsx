@@ -127,10 +127,14 @@ describe('documented sensor coverage', () => {
   });
   it('exposes all 16 functions including the bed and types with no documented product', () => {
     expect(COVERAGE_TYPES).toHaveLength(16);
-    expect(coverageProducts('bed').map(({ model }) => model)).toEqual(['SDC-4-1-00']);
-    expect(coverageState('smoke', coverage, plan, [])).toBe('NO_PRODUCT');
+    expect(coverageProducts('bed').map(({ model }) => model)).toEqual([
+      'TS0601_bed_presence_sensor',
+    ]);
+    expect(coverageProducts('smoke').map(({ model }) => model)).toEqual(['HS1SA-E']);
+    expect(coverageState('smoke', coverage, plan, [])).toBe('AVAILABLE');
     expect(coverageState('carbon_monoxide', coverage, plan, [])).toBe('NO_PRODUCT');
-    expect(coverageState('fall_detection', coverage, plan, [])).toBe('NO_PRODUCT');
+    expect(coverageProducts('fall_detection').map(({ model }) => model)).toEqual(['HS2FD-EF1-3.0']);
+    expect(coverageState('fall_detection', coverage, plan, [])).toBe('AVAILABLE');
     expect(coverageState('energy', coverage, plan, [])).toBe('AVAILABLE');
     expect(coverageState('temperature', coverage, plan, devices)).toBe('MISSING');
     expect(coverageState('humidity', coverage, plan, devices)).toBe('COVERED');

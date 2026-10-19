@@ -1,4 +1,8 @@
-import type { RoomSensorCategory, SensorProduct } from '@michel/contracts';
+import {
+  isBedOccupancySensorModel,
+  type RoomSensorCategory,
+  type SensorProduct,
+} from '@michel/contracts';
 
 const zigbee = (model: string) => `https://www.zigbee2mqtt.io/devices/${model}.html`;
 // Product pictures ship with the dashboard so the catalogue remains usable
@@ -449,7 +453,7 @@ const documentedProducts: SensorProduct[] = [
     nameEn: 'Zigbee Dry Contact Sensor',
     kind: 'ROOM_SENSOR',
     testQuantity: 1,
-    categories: ['contact', 'bed'],
+    categories: ['contact'],
     protocol: 'zigbee',
     image: image('SDC-4-1-00'),
     sourceUrl:
@@ -492,6 +496,56 @@ const documentedProducts: SensorProduct[] = [
     outdoor: false,
     compatibility: 'DOCUMENTED',
     verifiedAt: '2026-09-11',
+    eliseValidated: false,
+  },
+  {
+    id: 'tuya-bed-pressure-strip',
+    brand: 'Tuya',
+    model: 'TS0601_bed_presence_sensor',
+    name: 'Bande de présence au lit',
+    nameEn: 'Bed occupancy pressure strip',
+    kind: 'ROOM_SENSOR',
+    testQuantity: 1,
+    categories: ['bed'],
+    protocol: 'zigbee',
+    image: image('TS0601_bed_presence_sensor'),
+    sourceUrl:
+      'https://www.manomano.fr/p/capteur-de-pression-multifonctionnel-tuya-zigbee-2mqtt-capteur-de-pression-a-couche-mince-flexible-bande-de-detection-liaison-intelligente-232924570',
+    manualUrl: zigbee('TS0601_bed_presence_sensor'),
+    integrationUrl: zigbee('TS0601_bed_presence_sensor'),
+    power: 'Piles remplaçables · type et autonomie à confirmer pour cette référence vendeur',
+    powerEn: 'Replaceable batteries · type and runtime to confirm for this seller reference',
+    features: [
+      'Bande souple de détection de pression à placer sous le matelas',
+      'État binaire d’occupation du lit',
+      'Batterie, luminosité et réglages de sensibilité et de temporisation exposés par Zigbee2MQTT',
+    ],
+    featuresEn: [
+      'Flexible pressure strip to place under the mattress',
+      'Binary bed occupancy state',
+      'Battery, illuminance, sensitivity and timing settings exposed by Zigbee2MQTT',
+    ],
+    preparation: [
+      'Lancez l’association Zigbee depuis Élise OS, puis activez le mode association du capteur selon sa notice. Aucun compte Smart Life/Tuya ni concentrateur Tuya n’est requis pour le modèle reconnu par Zigbee2MQTT.',
+      'À la détection, vérifiez que le modèle est « TS0601_bed_presence_sensor » (Tuya) et qu’une fonction d’occupation apparaît. ManoMano ne précise pas le code Zigbee de cette référence ; si un autre modèle apparaît, ne l’assignez pas au lit avant vérification.',
+    ],
+    preparationEn: [
+      'Start Zigbee pairing from Élise OS, then enable pairing mode on the sensor as described in its manual. The Zigbee2MQTT-recognized model needs no Smart Life/Tuya account or Tuya hub.',
+      'When detected, verify the model is “TS0601_bed_presence_sensor” (Tuya) and an occupancy function appears. ManoMano does not state the Zigbee model code for this listing; if another model appears, do not assign it to a bed until checked.',
+    ],
+    placement: [
+      'Glissez la bande sous le matelas, à l’emplacement prévu par la notice et adapté à la détection d’une personne allongée.',
+      'Avant de vous fier aux horaires de coucher et de lever, vérifiez plusieurs fois dans Élise que le capteur passe à « Occupé » quand la personne s’allonge et à « Libre » quand elle se lève.',
+      'Il signale une occupation détectée, pas la qualité ni les phases du sommeil.',
+    ],
+    placementEn: [
+      'Slide the strip under the mattress, where the manual recommends and where it can detect a person lying down.',
+      'Before relying on bedtime and wake-up times, check several times in Élise that the sensor changes to “Occupied” when someone lies down and “Unoccupied” when they get up.',
+      'It reports detected occupancy, not sleep quality or sleep stages.',
+    ],
+    outdoor: false,
+    compatibility: 'DOCUMENTED',
+    verifiedAt: '2026-10-03',
     eliseValidated: false,
   },
   {
@@ -545,6 +599,121 @@ const documentedProducts: SensorProduct[] = [
     verifiedAt: '2026-09-11',
     eliseValidated: false,
   },
+  {
+    id: 'heiman-fall-detection',
+    brand: 'Heiman',
+    model: 'HS2FD-EF1-3.0',
+    name: 'Détecteur de chute Zigbee',
+    nameEn: 'Zigbee Fall Detection Sensor',
+    kind: 'ROOM_SENSOR',
+    testQuantity: 0,
+    categories: ['fall_detection'],
+    protocol: 'zigbee',
+    image: image('HS2FD-E'),
+    sourceUrl:
+      'https://materiels-electriques.fr/12308-dispositif-de-detection-de-chute-zigbee-30-heiman-hs2fd-e.html',
+    manualUrl:
+      'https://materiels-electriques.fr/img/cms/Info%20techniques/Fiches%20Techniques/HEIMAN/Fiche-HS2FD-E.pdf',
+    integrationUrl: zigbee('HS2FD-EF1-3.0'),
+    power: 'Alimentation permanente · 5 V / 2 A',
+    powerEn: 'Continuous power · 5 V / 2 A',
+    features: [
+      'États de chute transmis par Zigbee : normal, chute suspectée ou alarme de chute',
+      'Montage mural ou au plafond, pour intérieur uniquement',
+      'Portée annoncée : 4 × 4 m au mur ou 4 × 5 m au plafond',
+      'Aucune caméra',
+    ],
+    featuresEn: [
+      'Fall states reported over Zigbee: normal, fall warning or fall alarm',
+      'Wall or ceiling mounting, for indoor use only',
+      'Advertised range: 4 × 4 m on a wall or 4 × 5 m on the ceiling',
+      'No camera',
+    ],
+    preparation: [
+      'Le vendeur référence le produit HS2FD-E ; Zigbee2MQTT documente la variante HS2FD-EF1-3.0. Faites confirmer cette référence exacte avant l’achat.',
+      'Branchez le capteur à une alimentation 5 V / 2 A, près de la box Élise.',
+      'Dans Élise OS, choisissez « Installer ce capteur » puis Zigbee. Placez le capteur en mode association en suivant sa notice : aucun hub ni compte Heiman n’est requis.',
+      'Après l’installation, vérifiez la réception d’une alerte de chute avec le mode de test indiqué par le fabricant. Le modèle n’a pas encore été testé physiquement avec Élise.',
+    ],
+    preparationEn: [
+      'The retailer lists HS2FD-E; Zigbee2MQTT documents variant HS2FD-EF1-3.0. Ask the seller to confirm the exact reference before buying.',
+      'Connect the sensor to a 5 V / 2 A power supply near the Élise hub.',
+      'In Élise OS, choose “Install this sensor” and then Zigbee. Put the sensor in pairing mode using its manual; no Heiman hub or account is required.',
+      'After installation, verify a fall alert using the manufacturer’s test mode. This model has not yet been physically tested with Élise.',
+    ],
+    placement: [
+      'Installez-le uniquement à l’intérieur et respectez la hauteur et l’orientation indiquées dans la notice.',
+      'Choisissez un emplacement dégagé qui couvre la zone de vie de la personne ; la fiche annonce 4 × 4 m au mur et 4 × 5 m au plafond.',
+      'Élise complète la vigilance des proches : cette détection ne remplace pas une téléassistance ni une vérification humaine.',
+    ],
+    placementEn: [
+      'Install it indoors only and follow the height and orientation in the manual.',
+      'Choose an unobstructed position covering the resident’s living area; the product sheet advertises 4 × 4 m on a wall and 4 × 5 m on the ceiling.',
+      'Élise supports caregiver vigilance; fall detection does not replace telecare or a human check-in.',
+    ],
+    outdoor: false,
+    compatibility: 'DOCUMENTED',
+    verifiedAt: '2026-10-01',
+    eliseValidated: false,
+  },
+  {
+    id: 'heiman-smoke-detector',
+    brand: 'Heiman',
+    model: 'HS1SA-E',
+    name: 'Détecteur de fumée intelligent Zigbee',
+    nameEn: 'Smart Zigbee smoke detector',
+    kind: 'ROOM_SENSOR',
+    testQuantity: 0,
+    categories: ['smoke'],
+    protocol: 'zigbee',
+    image: image('HS1SA-E'),
+    sourceUrl:
+      'https://www.domadoo.fr/fr/peripheriques/6291-heiman-detecteur-de-fumee-intelligent-zigbee-30-certifie-en14604.html',
+    manualUrl: 'https://www.domadoo.fr/fr/index.php?controller=attachment&id_attachment=3062',
+    integrationUrl: zigbee('HS1SA-E'),
+    power: 'Pile lithium CR17335 / CR123A · 3 V',
+    powerEn: 'CR17335 / CR123A lithium battery · 3 V',
+    features: [
+      'Détection photoélectrique de fumée et sirène locale ≥ 85 dB à 3 m',
+      'Zigbee2MQTT expose les états fumée, test et batterie (0–100 %) ; Élise reçoit la fumée et le niveau de batterie',
+      'Certification EN 14604 indiquée par le vendeur',
+    ],
+    featuresEn: [
+      'Photoelectric smoke detection and built-in siren ≥ 85 dB at 3 m',
+      'Zigbee2MQTT exposes smoke, test and battery (0–100%) states; Élise receives smoke and battery level',
+      'EN 14604 certification listed by the retailer',
+    ],
+    preparation: [
+      'Vérifiez la référence HS1SA-E : les variantes Heiman autonomes ou Z-Wave ne sont pas compatibles avec l’installation Zigbee Élise.',
+      'Installez une pile CR123A puis rapprochez le détecteur de la box Élise.',
+      'Dans Élise OS, choisissez « Installer ce capteur » puis Zigbee. Avec un trombone, maintenez le bouton latéral plus de 2 secondes jusqu’au clignotement rapide de la LED.',
+      'Il rejoint le réseau Zigbee d’Élise OS via Zigbee2MQTT : aucun compte, application ni concentrateur Heiman n’est requis.',
+      'Gardez le détecteur éveillé en appuyant sur son bouton toutes les 2 secondes jusqu’à la fin de l’appairage.',
+      'Après l’installation, testez la sirène selon la notice et vérifiez l’état du détecteur et de sa batterie dans Élise. Zigbee2MQTT signale que certains firmwares peuvent envoyer de faux états fumée répétés ; surveillez son comportement après l’appairage.',
+      'La sirène locale fonctionne sur le détecteur. Les notifications Élise complètent la vigilance et n’ont pas encore été validées sur un appareil physique.',
+    ],
+    preparationEn: [
+      'Check the HS1SA-E reference: standalone and Z-Wave Heiman variants are not compatible with Élise Zigbee setup.',
+      'Install a CR123A battery, then bring the detector near the Élise hub.',
+      'In Élise OS, choose “Install this sensor” and then Zigbee. Use a paper clip to hold the side button for more than 2 seconds until the LED flashes rapidly.',
+      'It joins Élise OS over Zigbee via Zigbee2MQTT; no Heiman account, app or hub is required.',
+      'Keep the detector awake by pressing its button every 2 seconds until pairing is complete.',
+      'After installation, test the siren as described in the manual and check the detector and battery status in Élise. Zigbee2MQTT reports that some firmware versions can send repeated false smoke states; monitor it after pairing.',
+      'The detector has its own local siren. Élise notifications provide additional awareness and have not yet been validated on physical hardware.',
+    ],
+    placement: [
+      'Fixez-le à l’emplacement et dans l’orientation prescrits par la notice et les règles applicables au logement.',
+      'Gardez le détecteur dégagé, accessible pour le test, et ne le peignez ni ne le recouvrez.',
+    ],
+    placementEn: [
+      'Mount it in the location and orientation required by the manual and applicable housing rules.',
+      'Keep the detector unobstructed and accessible for testing; do not paint or cover it.',
+    ],
+    outdoor: false,
+    compatibility: 'DOCUMENTED',
+    verifiedAt: '2026-10-02',
+    eliseValidated: false,
+  },
 ];
 
 export const SENSOR_PRODUCTS: SensorProduct[] = documentedProducts.map((product) => ({
@@ -555,7 +724,7 @@ export const SENSOR_PRODUCTS: SensorProduct[] = documentedProducts.map((product)
         ? 'HOME'
         : product.kind === 'SMART_PLUG'
           ? 'APPLIANCE'
-          : product.categories.some((id) => ['presence', 'motion'].includes(id))
+          : product.categories.some((id) => ['presence', 'motion', 'fall_detection'].includes(id))
             ? 'DETECTION'
             : product.categories.some((id) => ['contact', 'water_leak', 'button'].includes(id))
               ? 'TARGET'
@@ -585,6 +754,7 @@ const detectedModelAliases: Record<string, string[]> = {
   '3RDS17BZ': ['DOORSENSOR'],
   '3RMS16BZ': ['WIRELESSMOTIONSENSOR'],
   '3RTHS0224Z': ['TEMPERATUREANDHUMIDITYSENSORLITE'],
+  TS0601_bed_presence_sensor: ['PRESSURESENSINGSTRAPBEDOCCUPANCYSENSOR', 'TZE200SEQ9CM6U'],
 };
 
 export function productMatchesDetectedModel(product: SensorProduct, detectedModel?: string | null) {
@@ -606,6 +776,11 @@ export function sensorDevicePhoto(device: {
 }): string | null {
   const manufacturer = normalizedModel(device.manufacturer ?? '');
   const model = normalizedModel(device.model ?? '');
+  if (isBedOccupancySensorModel(device.model))
+    return (
+      SENSOR_PRODUCTS.find(({ model: productModel }) => isBedOccupancySensorModel(productModel))
+        ?.image ?? null
+    );
   const documented = SENSOR_PRODUCTS.find(
     (product) =>
       normalizedModel(product.brand) === manufacturer &&

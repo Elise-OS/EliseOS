@@ -3,7 +3,7 @@ import { JournalPage } from './JournalPage';
 import { CalendarPage } from './CalendarPage';
 import { WelcomePage } from './WelcomePage';
 import { ScreenPanel, startResidentScreenCall } from './ScreenPanel';
-import { AlertsPage } from './AlertsPage';
+import { AlertsPage, type SafetyCategory } from './AlertsPage';
 import { Button, Card, StatusPill } from '@michel/ui';
 import {
   Accessibility,
@@ -25,14 +25,10 @@ import {
   Home,
   Languages,
   KeyRound,
-  Leaf,
   LogOut,
   Mail,
   Maximize2,
   Menu,
-  Mic,
-  MicOff,
-  MoreVertical,
   PawPrint,
   PanelLeftClose,
   Pill,
@@ -51,8 +47,6 @@ import {
   UsersRound,
   UserRound,
   Video,
-  VideoOff,
-  Volume2,
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
@@ -189,22 +183,6 @@ interface CurrentAccess {
   capabilities: string[];
 }
 
-interface EquipmentCandidate {
-  id: string;
-  entityId: string;
-  sourceName: string | null;
-  capability: string;
-  compatibility: 'VALIDATED' | 'RECOGNIZED' | 'PARTIAL' | 'UNSUPPORTED';
-  status: string;
-  available: boolean;
-  domain: string | null;
-  deviceClass: string | null;
-  unit: string | null;
-  device: { name: string; manufacturer: string | null; model: string | null } | null;
-  room: { id: string; name: string } | null;
-  mapping: { capability: string; transform: string; enabled: boolean } | null;
-}
-
 interface ActivityItem {
   id: string;
   occurredAt: string;
@@ -258,19 +236,16 @@ interface CameraSession {
   talkEnabled: boolean;
 }
 
-interface CameraDraft {
-  name: string;
-  roomId: string;
-  provider: string;
-  streamEntityId: string;
-  personEntityId: string;
-  privacyEntityId: string;
-  streamUrl: string;
-  talk: boolean;
-  ptz: boolean;
-  privacy: boolean;
-  snapshot: boolean;
-  intimateSpaceConsent: boolean;
+interface CameraRecording {
+  id: string;
+  cameraId: string;
+  cameraName: string;
+  roomId: string | null;
+  roomName: string | null;
+  doorName: string;
+  capturedAt: string;
+  durationSeconds: number;
+  expiresAt: string;
 }
 
 interface JournalItem {
@@ -623,13 +598,6 @@ function time(value?: string): string {
   return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(date);
 }
 
-function relativeTime(value: string, locale: Locale): string {
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60_000));
-  if (minutes < 60) return locale === 'fr' ? `il y a ${minutes} min` : `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  return locale === 'fr' ? `il y a ${hours} h` : `${hours}h ago`;
-}
-
 function formatMinute(value: number | null): string {
   if (value === null) return '—';
   return `${String(Math.floor(value / 60)).padStart(2, '0')} h ${String(value % 60).padStart(2, '0')}`;
@@ -727,11 +695,11 @@ export function activityDescription(item: ActivityItem, locale: Locale): string 
       ? (payload.context as Record<string, unknown>)
       : {};
   const contactRole = typeof context.role === 'string' ? context.role : null;
-  const bedOccupiedWhen = context.bedOccupiedWhen === 'OPEN' ? 'OPEN' : 'CLOSED';
-  const rawValue =
-    item.capability === 'contact' || item.capability === 'dry_contact'
-      ? (payload.open ?? payload.active ?? payload.value ?? payload.state)
-      : (payload.value ?? payload.state);
+  const bedOccupiedWhen =
+    context.bedOccupiedWhen === 'OPEN' || item.capability === 'occupancy' ? 'OPEN' : 'CLOSED';
+  const rawValue = ['contact', 'dry_contact', 'occupancy'].includes(item.capability)
+    ? (payload.open ?? payload.active ?? payload.value ?? payload.state)
+    : (payload.value ?? payload.state);
   const unit = typeof payload.unit === 'string' ? payload.unit : '';
   const value =
     typeof rawValue === 'number' || typeof rawValue === 'string'
@@ -741,7 +709,12 @@ export function activityDescription(item: ActivityItem, locale: Locale): string 
     rawValue === true || rawValue === 'open' || rawValue === 'on' || rawValue === 1;
   const labels: Record<string, [string, string]> = {
     motion: ['Mouvement détecté', 'Movement detected'],
-    occupancy: ['Présence détectée', 'Presence detected'],
+    occupancy:
+      contactRole === 'BED'
+        ? contactOpen
+          ? ['Lit occupé', 'Bed occupied']
+          : ['Lit libre', 'Bed unoccupied']
+        : ['Présence détectée', 'Presence detected'],
     person_presence: ['Personne détectée', 'Person detected'],
     contact:
       contactRole === 'BED'
@@ -1464,98 +1437,32 @@ export function MedicationPanel({
 function CamerasPanel({
   locale,
   cameras,
-  rooms,
-  candidates,
-  alerts,
+  recordings,
   session,
-  talking,
   notice,
-  formOpen,
-  draft,
-  onDraft,
-  onToggleForm,
-  onConfigure,
   onOpen,
   onClose,
-  onPrivacy,
-  onTalkStart,
-  onTalkStop,
 }: {
   locale: Locale;
   cameras: CameraItem[];
-  rooms: Household['rooms'];
-  candidates: EquipmentCandidate[];
-  alerts: AlertItem[];
+  recordings: CameraRecording[];
   session: CameraSession | null;
-  talking: boolean;
   notice: string;
-  formOpen: boolean;
-  draft: CameraDraft;
-  onDraft: (draft: CameraDraft) => void;
-  onToggleForm: () => void;
-  onConfigure: (event: FormEvent) => void;
   onOpen: (cameraId: string) => void;
   onClose: () => void;
-  onPrivacy: (camera: CameraItem) => void;
-  onTalkStart: () => void;
-  onTalkStop: () => void;
 }) {
   const selectedCamera = cameras.find((camera) => camera.id === session?.cameraId) ?? null;
-  const selectedRoom = rooms.find((room) => room.id === draft.roomId);
-  const intimateSpace = ['BEDROOM', 'BATHROOM'].includes(selectedRoom?.kind ?? '');
-  const cameraEntities = candidates.filter((candidate) => candidate.domain === 'camera');
-  const binaryEntities = candidates.filter((candidate) => candidate.domain === 'binary_sensor');
-  const switchEntities = candidates.filter((candidate) => candidate.domain === 'switch');
-  const insecureRemote =
-    typeof window !== 'undefined' &&
-    window.location.protocol !== 'https:' &&
-    !['localhost', '127.0.0.1'].includes(window.location.hostname);
   const onlineCameras = cameras.filter(
     (camera) => camera.status === 'ONLINE' && !camera.privacyMode,
   ).length;
-  const activeAlerts = alerts.filter((alert) => ['OPEN', 'ACKNOWLEDGED'].includes(alert.status));
-  const recordings = alerts
-    .flatMap((alert) =>
-      (alert.cameraSnapshots ?? []).map((snapshot) => ({
-        ...snapshot,
-        alertId: alert.id,
-        title: alert.title,
-        severity: alert.severity,
-      })),
-    )
-    .sort(
-      (left, right) => new Date(right.capturedAt).getTime() - new Date(left.capturedAt).getTime(),
-    );
-  const presenceCount = cameras.filter((camera) => camera.lastPersonSeenAt).length;
-  const recordedMinutes = recordings.length ? Math.max(1, Math.round(recordings.length * 0.75)) : 0;
-  const roomCounts = cameras.reduce<Record<string, number>>((counts, camera) => {
-    const roomName = camera.room?.name ?? (locale === 'fr' ? 'Sans pièce' : 'No room');
-    counts[roomName] = (counts[roomName] ?? 0) + 1;
-    return counts;
-  }, {});
-  const roomDistribution = Object.entries(roomCounts).sort((left, right) => right[1] - left[1]);
-  const cameraRoomIcon = (kind?: string | null) => {
-    if (kind === 'GARDEN' || kind === 'TERRACE') return <Leaf aria-hidden="true" />;
-    if (kind === 'ENTRANCE') return <DoorOpen aria-hidden="true" />;
-    if (kind === 'LIVING_ROOM' || kind === 'DINING_ROOM') return <Sofa aria-hidden="true" />;
-    return <Video aria-hidden="true" />;
-  };
-  const cameraRoomTone = (kind?: string | null) =>
-    kind === 'GARDEN' || kind === 'TERRACE'
-      ? 'garden'
-      : kind === 'ENTRANCE'
-        ? 'entrance'
-        : kind === 'LIVING_ROOM' || kind === 'DINING_ROOM'
-          ? 'living'
-          : 'default';
-  const cameraActivityLabel = (camera: CameraItem) => {
-    if (camera.privacyMode)
-      return locale === 'fr' ? 'Mode intimité activé' : 'Privacy mode enabled';
-    if (camera.lastPersonSeenAt)
-      return locale === 'fr'
-        ? `Présence détectée ${relativeTime(camera.lastPersonSeenAt, locale)}`
-        : `Presence detected ${relativeTime(camera.lastPersonSeenAt, locale)}`;
-    return locale === 'fr' ? 'Aucun mouvement' : 'No movement';
+  const formatDate = (value: string) =>
+    new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(value));
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
   };
 
   return (
@@ -1567,31 +1474,21 @@ function CamerasPanel({
           </span>
           <div>
             <span className="eyebrow">
-              {locale === 'fr' ? 'Sécurité du domicile' : 'Home security'}
+              {locale === 'fr' ? 'Surveillance du domicile' : 'Home cameras'}
             </span>
             <h1>{locale === 'fr' ? 'Caméras' : 'Cameras'}</h1>
             <p>
               {locale === 'fr'
-                ? 'Gardez un œil sur les espaces importants, dans le respect de l’intimité de Michel.'
-                : 'Keep an eye on important spaces while respecting Michel’s privacy.'}
+                ? 'Flux en direct et clips déclenchés par l’ouverture de l’entrée principale.'
+                : 'Live streams and clips triggered when the main entrance opens.'}
             </p>
           </div>
         </div>
         <div className="camera-hero-actions">
           <span className="camera-online-count">
             <span className="camera-online-dot" />
-            {onlineCameras} {locale === 'fr' ? 'caméra(s) en ligne' : 'camera(s) online'}
+            {onlineCameras} {locale === 'fr' ? 'en ligne' : 'online'}
           </span>
-          <button type="button" className="camera-outline-action" onClick={onToggleForm}>
-            <Settings aria-hidden="true" />
-            {formOpen
-              ? locale === 'fr'
-                ? 'Fermer la gestion'
-                : 'Close management'
-              : locale === 'fr'
-                ? 'Gérer les caméras'
-                : 'Manage cameras'}
-          </button>
           <button
             type="button"
             className="camera-primary-action"
@@ -1601,210 +1498,15 @@ function CamerasPanel({
             }}
           >
             <Maximize2 aria-hidden="true" />
-            {locale === 'fr' ? 'Vue plein écran' : 'Full screen view'}
+            {locale === 'fr' ? 'Plein écran' : 'Full screen'}
           </button>
         </div>
       </header>
 
-      {insecureRemote && (
-        <div className="camera-security-note" role="status">
-          <ShieldCheck />
-          <span>
-            <strong>
-              {locale === 'fr' ? 'HTTPS requis pour parler' : 'HTTPS required to talk'}
-            </strong>
-            {locale === 'fr'
-              ? ' Activez HTTPS sur votre adresse Tailscale pour autoriser le microphone.'
-              : ' Enable HTTPS on your Tailscale address to allow microphone access.'}
-          </span>
-        </div>
-      )}
-      {notice && <p className="form-notice camera-notice">{notice}</p>}
-
-      {formOpen && (
-        <Card className="camera-setup-card">
-          <div className="settings-card-heading">
-            <span className="settings-icon">
-              <Video />
-            </span>
-            <div>
-              <h2>{locale === 'fr' ? 'Connexion locale sécurisée' : 'Secure local connection'}</h2>
-              <p>
-                {locale === 'fr'
-                  ? 'Les identifiants du flux sont chiffrés et ne seront jamais affichés après enregistrement.'
-                  : 'Stream credentials are encrypted and never displayed after saving.'}
-              </p>
-            </div>
-          </div>
-          <form className="camera-form" onSubmit={onConfigure}>
-            <label>
-              <span>{locale === 'fr' ? 'Nom visible' : 'Display name'}</span>
-              <input
-                required
-                value={draft.name}
-                onChange={(event) => onDraft({ ...draft, name: event.target.value })}
-                placeholder="Caméra du salon"
-              />
-            </label>
-            <label>
-              <span>{locale === 'fr' ? 'Pièce' : 'Room'}</span>
-              <select
-                required
-                value={draft.roomId}
-                onChange={(event) =>
-                  onDraft({ ...draft, roomId: event.target.value, intimateSpaceConsent: false })
-                }
-              >
-                <option value="">{locale === 'fr' ? 'Choisir une pièce' : 'Choose a room'}</option>
-                {rooms.map((room) => (
-                  <option key={room.id} value={room.id}>
-                    {room.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>{locale === 'fr' ? 'Fabricant ou protocole' : 'Provider or protocol'}</span>
-              <input
-                required
-                value={draft.provider}
-                onChange={(event) => onDraft({ ...draft, provider: event.target.value })}
-              />
-            </label>
-            <label className="camera-form-wide">
-              <span>
-                {locale === 'fr' ? 'Entité caméra Home Assistant' : 'Home Assistant camera entity'}
-              </span>
-              <select
-                required
-                value={draft.streamEntityId}
-                onChange={(event) => onDraft({ ...draft, streamEntityId: event.target.value })}
-              >
-                <option value="">
-                  {locale === 'fr' ? 'Sélectionner le flux' : 'Select stream'}
-                </option>
-                {cameraEntities.map((entity) => (
-                  <option key={entity.entityId} value={entity.entityId}>
-                    {entity.sourceName ?? entity.entityId}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="camera-form-wide">
-              <span>{locale === 'fr' ? 'Adresse RTSP locale' : 'Local RTSP address'}</span>
-              <input
-                required
-                type="password"
-                autoComplete="off"
-                value={draft.streamUrl}
-                onChange={(event) => onDraft({ ...draft, streamUrl: event.target.value })}
-                placeholder="rtsp://utilisateur:mot-de-passe@192.168.1.25/..."
-              />
-            </label>
-            <label>
-              <span>{locale === 'fr' ? 'Détection de personne' : 'Person detection'}</span>
-              <select
-                value={draft.personEntityId}
-                onChange={(event) => onDraft({ ...draft, personEntityId: event.target.value })}
-              >
-                <option value="">{locale === 'fr' ? 'Aucune' : 'None'}</option>
-                {binaryEntities.map((entity) => (
-                  <option key={entity.entityId} value={entity.entityId}>
-                    {entity.sourceName ?? entity.entityId}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>{locale === 'fr' ? 'Commande mode intimité' : 'Privacy mode control'}</span>
-              <select
-                value={draft.privacyEntityId}
-                onChange={(event) => onDraft({ ...draft, privacyEntityId: event.target.value })}
-              >
-                <option value="">
-                  {locale === 'fr' ? 'Protection Élise uniquement' : 'Élise protection only'}
-                </option>
-                {switchEntities.map((entity) => (
-                  <option key={entity.entityId} value={entity.entityId}>
-                    {entity.sourceName ?? entity.entityId}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <fieldset className="camera-capabilities camera-form-wide">
-              <legend>
-                {locale === 'fr'
-                  ? 'Fonctions vérifiées sur ce modèle'
-                  : 'Features verified on this model'}
-              </legend>
-              {(
-                [
-                  ['talk', locale === 'fr' ? 'Interphone' : 'Two-way audio'],
-                  ['ptz', 'Pan / Tilt / Zoom'],
-                  ['privacy', locale === 'fr' ? 'Mode intimité matériel' : 'Hardware privacy mode'],
-                  ['snapshot', locale === 'fr' ? 'Capture sur alerte' : 'Alert snapshot'],
-                ] as const
-              ).map(([key, label]) => (
-                <label key={key}>
-                  <input
-                    type="checkbox"
-                    checked={draft[key]}
-                    onChange={(event) => onDraft({ ...draft, [key]: event.target.checked })}
-                  />{' '}
-                  {label}
-                </label>
-              ))}
-            </fieldset>
-            {intimateSpace && (
-              <div className="camera-intimate-warning camera-form-wide">
-                <ShieldCheck />
-                <div>
-                  <strong>
-                    {locale === 'fr'
-                      ? 'Espace particulièrement sensible'
-                      : 'Highly sensitive space'}
-                  </strong>
-                  <p>
-                    {locale === 'fr'
-                      ? 'Confirmez que la personne filmée comprend l’accès accordé aux aidants et peut retirer son consentement.'
-                      : 'Confirm that the filmed person understands caregiver access and can withdraw consent.'}
-                  </p>
-                  <label>
-                    <input
-                      required
-                      type="checkbox"
-                      checked={draft.intimateSpaceConsent}
-                      onChange={(event) =>
-                        onDraft({ ...draft, intimateSpaceConsent: event.target.checked })
-                      }
-                    />{' '}
-                    {locale === 'fr'
-                      ? 'Consentement explicite recueilli'
-                      : 'Explicit consent obtained'}
-                  </label>
-                </div>
-              </div>
-            )}
-            {!intimateSpace && (
-              <label className="camera-consent camera-form-wide">
-                <input
-                  required
-                  type="checkbox"
-                  checked={draft.intimateSpaceConsent}
-                  onChange={(event) =>
-                    onDraft({ ...draft, intimateSpaceConsent: event.target.checked })
-                  }
-                />{' '}
-                {locale === 'fr'
-                  ? 'La personne accompagnée a été informée de cette caméra et des accès accordés.'
-                  : 'The resident has been informed about this camera and its access.'}
-              </label>
-            )}
-            <Button type="submit" className="camera-form-wide">
-              {locale === 'fr' ? 'Chiffrer et ajouter la caméra' : 'Encrypt and add camera'}
-            </Button>
-          </form>
-        </Card>
+      {notice && (
+        <p className="form-notice camera-notice" role="status">
+          {notice}
+        </p>
       )}
 
       <section className="camera-panel-card camera-live-section">
@@ -1814,23 +1516,18 @@ function CamerasPanel({
               <Tv aria-hidden="true" />
             </span>
             <div>
-              <h2>{locale === 'fr' ? 'En direct' : 'Live view'}</h2>
-              <p>{locale === 'fr' ? 'Les caméras de vos pièces' : 'Cameras from your rooms'}</p>
+              <h2>{locale === 'fr' ? 'Flux en direct' : 'Live streams'}</h2>
+              <p>
+                {locale === 'fr'
+                  ? 'Sélectionnez une caméra pour ouvrir son flux.'
+                  : 'Select a camera to open its live stream.'}
+              </p>
             </div>
           </div>
-          <span className="camera-updated">
-            {locale === 'fr' ? 'Mis à jour à' : 'Updated at'} {time(new Date().toISOString())}
-          </span>
         </div>
-
         {cameras.length ? (
           <div className="camera-live-grid">
             {cameras.map((camera) => {
-              const roomName = camera.room?.name ?? (locale === 'fr' ? 'Sans pièce' : 'No room');
-              const tone = cameraRoomTone(camera.room?.kind);
-              const latestSnapshot = recordings.find(
-                (recording) => recording.cameraId === camera.id,
-              );
               const unavailable =
                 camera.privacyMode || camera.status === 'OFFLINE' || !camera.capabilities.live;
               return (
@@ -1840,10 +1537,10 @@ function CamerasPanel({
                 >
                   <div className="camera-live-card-heading">
                     <div className="camera-room-name">
-                      <span className={`camera-room-icon camera-room-icon--${tone}`}>
-                        {cameraRoomIcon(camera.room?.kind)}
+                      <span className="camera-room-icon">
+                        <Video aria-hidden="true" />
                       </span>
-                      <h3>{roomName}</h3>
+                      <h3>{camera.room?.name ?? (locale === 'fr' ? 'Sans pièce' : 'No room')}</h3>
                     </div>
                     <span
                       className={`camera-live-status ${camera.status === 'ONLINE' && !camera.privacyMode ? 'is-online' : ''}`}
@@ -1855,105 +1552,44 @@ function CamerasPanel({
                           : 'Privacy'
                         : camera.status === 'ONLINE'
                           ? locale === 'fr'
-                            ? 'En direct'
-                            : 'Live'
+                            ? 'En ligne'
+                            : 'Online'
                           : camera.status}
                     </span>
-                    <button
-                      type="button"
-                      className="camera-card-menu"
-                      onClick={() => onPrivacy(camera)}
-                      aria-label={
-                        locale === 'fr' ? `Options de ${camera.name}` : `${camera.name} options`
-                      }
-                    >
-                      <MoreVertical aria-hidden="true" />
-                    </button>
                   </div>
-                  <div
-                    className={`camera-preview camera-preview--${tone}`}
-                    style={
-                      latestSnapshot
-                        ? {
-                            backgroundImage: `linear-gradient(135deg, rgb(12 42 53 / 27%), rgb(18 76 69 / 39%)), url('/api/v1/alerts/${latestSnapshot.alertId}/snapshot')`,
-                          }
-                        : undefined
-                    }
-                  >
+                  <div className="camera-preview">
                     <button
                       type="button"
                       className="camera-preview-main"
                       disabled={unavailable}
                       onClick={() => onOpen(camera.id)}
-                      aria-label={
-                        unavailable
-                          ? `${camera.name} ${locale === 'fr' ? 'indisponible' : 'unavailable'}`
-                          : `${locale === 'fr' ? 'Ouvrir le direct de' : 'Open live view for'} ${camera.name}`
-                      }
+                      aria-label={`${locale === 'fr' ? 'Ouvrir le direct de' : 'Open live stream for'} ${camera.name}`}
                     >
                       <span className="camera-preview-scene">
-                        {camera.privacyMode ? (
-                          <VideoOff aria-hidden="true" />
-                        ) : (
-                          <Video aria-hidden="true" />
-                        )}
+                        <Video aria-hidden="true" />
                       </span>
                       <span className="camera-preview-label">
                         {camera.privacyMode
                           ? locale === 'fr'
-                            ? 'Objectif masqué'
-                            : 'Lens covered'
+                            ? 'Mode intimité activé'
+                            : 'Privacy mode enabled'
                           : unavailable
                             ? locale === 'fr'
                               ? 'Flux indisponible'
                               : 'Stream unavailable'
                             : locale === 'fr'
-                              ? 'Ouvrir le direct'
-                              : 'Open live view'}
+                              ? 'Ouvrir le flux en direct'
+                              : 'Open live stream'}
                       </span>
                     </button>
-                    <div className="camera-preview-controls">
-                      <button
-                        type="button"
-                        disabled={unavailable}
-                        onClick={() => onOpen(camera.id)}
-                        aria-label={
-                          locale === 'fr' ? `Écouter ${camera.name}` : `Listen to ${camera.name}`
-                        }
-                      >
-                        <Volume2 aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={unavailable}
-                        onClick={() => onOpen(camera.id)}
-                        aria-label={
-                          locale === 'fr' ? `Agrandir ${camera.name}` : `Expand ${camera.name}`
-                        }
-                      >
-                        <Maximize2 aria-hidden="true" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onPrivacy(camera)}
-                        aria-label={
-                          locale === 'fr' ? `Intimité de ${camera.name}` : `${camera.name} privacy`
-                        }
-                      >
-                        <ShieldCheck aria-hidden="true" />
-                      </button>
-                    </div>
                   </div>
-                  <button
-                    type="button"
-                    className="camera-presence-row"
-                    onClick={() => onOpen(camera.id)}
-                    disabled={unavailable}
-                  >
-                    <Footprints aria-hidden="true" />
-                    <span>{cameraActivityLabel(camera)}</span>
-                    <ChevronRight aria-hidden="true" />
-                  </button>
+                  <div className="camera-live-card-footer">
+                    <strong>{camera.name}</strong>
+                    <button type="button" disabled={unavailable} onClick={() => onOpen(camera.id)}>
+                      {locale === 'fr' ? 'Voir le direct' : 'Open live'}{' '}
+                      <ChevronRight aria-hidden="true" />
+                    </button>
+                  </div>
                 </article>
               );
             })}
@@ -1962,199 +1598,77 @@ function CamerasPanel({
           <div className="camera-empty camera-empty--inline">
             <Video aria-hidden="true" />
             <div>
-              <h3>{locale === 'fr' ? 'Aucune caméra configurée' : 'No camera configured'}</h3>
+              <h3>{locale === 'fr' ? 'Aucune caméra associée' : 'No cameras connected'}</h3>
               <p>
                 {locale === 'fr'
-                  ? 'Ajoutez une caméra depuis « Gérer les caméras » pour la retrouver ici par pièce.'
-                  : 'Add a camera from “Manage cameras” to see it here by room.'}
+                  ? 'Ajoutez-la dans Mon logement → pièce → Types de capteurs → Caméra.'
+                  : 'Add it under My home → room → Sensor types → Camera.'}
               </p>
             </div>
           </div>
         )}
       </section>
 
-      <div className="camera-privacy-banner" role="status">
-        <ShieldCheck aria-hidden="true" />
-        <span>
-          {locale === 'fr'
-            ? 'Les caméras filment uniquement les espaces configurés. Aucun enregistrement continu n’est activé.'
-            : 'Cameras only cover configured spaces. Continuous recording is not enabled.'}
-        </span>
-        <button type="button" onClick={onToggleForm}>
-          {locale === 'fr' ? 'Voir les réglages de confidentialité' : 'View privacy settings'}
-          <ChevronRight aria-hidden="true" />
-        </button>
-      </div>
-
-      <div className="camera-lower-grid">
-        <section className="camera-panel-card camera-recordings-section">
-          <div className="camera-section-heading camera-recordings-heading">
-            <div>
-              <div className="camera-section-title">
-                <span className="camera-section-icon camera-section-icon--blue">
-                  <Play aria-hidden="true" />
-                </span>
-                <div>
-                  <h2>{locale === 'fr' ? 'Enregistrements' : 'Recordings'}</h2>
-                  <p>
-                    {locale === 'fr'
-                      ? 'Les moments enregistrés automatiquement ou sauvegardés par un aidant.'
-                      : 'Moments automatically recorded or saved by a caregiver.'}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="camera-recording-filters">
-              <button type="button" className="is-selected">
-                {locale === 'fr' ? 'Aujourd’hui' : 'Today'}
-              </button>
-              <button type="button">
-                {locale === 'fr' ? 'Toutes les caméras' : 'All cameras'}
-              </button>
-              <button type="button" aria-label={locale === 'fr' ? 'Rechercher' : 'Search'}>
-                <Search aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-          <div className="camera-recordings-grid">
-            {recordings.slice(0, 6).map((recording) => {
-              const recordingCamera = cameras.find((camera) => camera.id === recording.cameraId);
-              const roomName =
-                recordingCamera?.room?.name ?? (locale === 'fr' ? 'Caméra' : 'Camera');
-              return (
-                <article className="camera-recording-item" key={recording.id}>
-                  <button
-                    type="button"
-                    className="camera-recording-thumb"
-                    onClick={() => onOpen(recording.cameraId)}
-                    aria-label={`${locale === 'fr' ? 'Ouvrir le direct de' : 'Open live view for'} ${roomName}`}
-                  >
-                    <img
-                      src={`/api/v1/alerts/${recording.alertId}/snapshot`}
-                      alt={`${locale === 'fr' ? 'Capture de' : 'Snapshot of'} ${roomName}`}
-                      loading="lazy"
-                    />
-                    <span className="camera-recording-play">
-                      <Play aria-hidden="true" fill="currentColor" />
-                    </span>
-                    <span className="camera-recording-duration">
-                      {locale === 'fr' ? 'Capture' : 'Snapshot'}
-                    </span>
-                  </button>
-                  <div className="camera-recording-copy">
-                    <strong>
-                      {roomName} · {time(recording.capturedAt)}
-                    </strong>
-                    <span
-                      className={`camera-recording-tag camera-recording-tag--${recording.severity.toLowerCase()}`}
-                    >
-                      <Footprints aria-hidden="true" />
-                      {recording.severity === 'URGENT' || recording.severity === 'ATTENTION'
-                        ? locale === 'fr'
-                          ? 'Mouvement détecté'
-                          : 'Movement detected'
-                        : locale === 'fr'
-                          ? 'Passage détecté'
-                          : 'Passage detected'}
-                    </span>
-                  </div>
-                  <span className="camera-recording-more" aria-hidden="true">
-                    <MoreVertical />
-                  </span>
-                </article>
-              );
-            })}
-            {!recordings.length && (
-              <div className="camera-recordings-empty">
-                <Play aria-hidden="true" />
-                <span>
-                  {locale === 'fr'
-                    ? 'Les captures liées aux alertes apparaîtront ici.'
-                    : 'Alert snapshots will appear here.'}
-                </span>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <aside className="camera-panel-card camera-summary-card">
+      <section className="camera-panel-card camera-recordings-section">
+        <div className="camera-section-heading camera-recordings-heading">
           <div className="camera-section-title">
-            <span className="camera-section-icon camera-section-icon--green">
-              <Activity aria-hidden="true" />
+            <span className="camera-section-icon camera-section-icon--blue">
+              <Play aria-hidden="true" />
             </span>
             <div>
-              <h2>{locale === 'fr' ? 'Résumé du jour' : 'Today’s summary'}</h2>
-              <p>{locale === 'fr' ? 'Activité des caméras' : 'Camera activity'}</p>
-            </div>
-          </div>
-          <div className="camera-summary-metrics">
-            <div>
-              <Camera aria-hidden="true" />
-              <strong>{recordings.length}</strong>
-              <span>{locale === 'fr' ? 'enregistrements' : 'recordings'}</span>
-            </div>
-            <div>
-              <Footprints aria-hidden="true" />
-              <strong>{presenceCount}</strong>
-              <span>{locale === 'fr' ? 'mouvements' : 'movements'}</span>
-            </div>
-            <div>
-              <Clock3 aria-hidden="true" />
-              <strong>{recordedMinutes} min</strong>
-              <span>{locale === 'fr' ? 'enregistrées' : 'recorded'}</span>
-            </div>
-          </div>
-          <h3>{locale === 'fr' ? 'Répartition par caméra' : 'By camera'}</h3>
-          <div className="camera-distribution">
-            {roomDistribution.length ? (
-              roomDistribution.map(([roomName, count]) => (
-                <div className="camera-distribution-row" key={roomName}>
-                  <span>{roomName}</span>
-                  <span className="camera-distribution-track">
-                    <i
-                      style={{
-                        width: `${Math.max(18, Math.round((count / Math.max(roomDistribution[0]![1], 1)) * 100))}%`,
-                      }}
-                    />
-                  </span>
-                  <strong>{count}</strong>
-                </div>
-              ))
-            ) : (
-              <p className="camera-summary-muted">
-                {locale === 'fr' ? 'Aucune caméra associée à une pièce.' : 'No room camera yet.'}
+              <h2>{locale === 'fr' ? 'Enregistrements' : 'Recordings'}</h2>
+              <p>
+                {locale === 'fr'
+                  ? 'Clips vidéo sans son de 30 s, démarrés à l’ouverture de l’entrée principale et conservés 24 h.'
+                  : '30-second, silent video clips starting when the main entrance opens, kept for 24 hours.'}
               </p>
-            )}
+            </div>
           </div>
-          <div className={`camera-summary-status ${activeAlerts.length ? 'has-alert' : ''}`}>
-            <CircleCheck aria-hidden="true" />
-            <span>
-              {activeAlerts.length
-                ? locale === 'fr'
-                  ? `${activeAlerts.length} activité(s) à vérifier`
-                  : `${activeAlerts.length} activity item(s) to review`
-                : locale === 'fr'
-                  ? 'Aucune activité inhabituelle détectée'
-                  : 'No unusual activity detected'}
-            </span>
-          </div>
-        </aside>
-      </div>
+        </div>
+        <div className="camera-recordings-grid">
+          {recordings.map((recording) => (
+            <article className="camera-recording-item" key={recording.id}>
+              <video
+                className="camera-recording-video"
+                controls
+                preload="metadata"
+                src={`/api/v1/cameras/recordings/${encodeURIComponent(recording.id)}/video`}
+                aria-label={`${locale === 'fr' ? 'Enregistrement' : 'Recording'} ${recording.cameraName}`}
+              />
+              <div className="camera-recording-copy">
+                <strong>
+                  {recording.cameraName} ·{' '}
+                  {recording.roomName ?? (locale === 'fr' ? 'Sans pièce' : 'No room')}
+                </strong>
+                <span className="camera-recording-tag camera-recording-tag--attention">
+                  <DoorOpen aria-hidden="true" />
+                  {locale === 'fr' ? 'Ouverture de l’entrée principale' : 'Main entrance opened'}
+                </span>
+                <small>
+                  {formatDate(recording.capturedAt)} · {formatDuration(recording.durationSeconds)}
+                </small>
+              </div>
+            </article>
+          ))}
+          {!recordings.length && (
+            <div className="camera-recordings-empty">
+              <Play aria-hidden="true" />
+              <span>
+                {locale === 'fr'
+                  ? 'Les clips apparaîtront ici après une ouverture de l’entrée principale.'
+                  : 'Clips will appear here after the main entrance opens.'}
+              </span>
+            </div>
+          )}
+        </div>
+      </section>
 
       {session && selectedCamera && (
         <Card className="camera-viewer-card">
           <div className="camera-viewer-heading">
             <div>
               <span className="camera-live-dot" />
-              <span className="eyebrow">
-                {talking
-                  ? locale === 'fr'
-                    ? 'Micro actif'
-                    : 'Microphone active'
-                  : locale === 'fr'
-                    ? 'En direct'
-                    : 'Live'}
-              </span>
+              <span className="eyebrow">{locale === 'fr' ? 'En direct' : 'Live'}</span>
               <h2>{selectedCamera.name}</h2>
               <p>{selectedCamera.room?.name}</p>
             </div>
@@ -2162,7 +1676,7 @@ function CamerasPanel({
               type="button"
               className="camera-close"
               onClick={onClose}
-              aria-label={locale === 'fr' ? 'Fermer le direct' : 'Close live view'}
+              aria-label={locale === 'fr' ? 'Fermer le direct' : 'Close live stream'}
             >
               <X />
             </button>
@@ -2172,33 +1686,15 @@ function CamerasPanel({
               key={session.mediaUrl}
               src={session.mediaUrl}
               title={selectedCamera.name}
-              allow="autoplay; microphone; fullscreen"
+              allow="autoplay; fullscreen"
               referrerPolicy="no-referrer"
             />
           </div>
           <div className="camera-viewer-actions">
-            {selectedCamera.capabilities.talk && (
-              <button
-                type="button"
-                className={`talk-button ${talking ? 'talk-button--active' : ''}`}
-                onPointerDown={onTalkStart}
-                onPointerUp={onTalkStop}
-                onPointerCancel={onTalkStop}
-              >
-                {talking ? <Mic /> : <MicOff />}
-                {talking
-                  ? locale === 'fr'
-                    ? 'Parlez maintenant'
-                    : 'Speak now'
-                  : locale === 'fr'
-                    ? 'Maintenir pour parler'
-                    : 'Hold to talk'}
-              </button>
-            )}
             <small>
               {locale === 'fr'
-                ? 'Le son n’est jamais enregistré par Élise.'
-                : 'Élise never records audio.'}
+                ? 'Les enregistrements sont vidéo uniquement.'
+                : 'Recordings contain video only.'}
             </small>
           </div>
         </Card>
@@ -2885,32 +2381,18 @@ export function App() {
   const [alertRules, setAlertRules] = useState<AlertRuleSettings | null>(null);
   const [savingRules, setSavingRules] = useState(false);
   const [ruleNotice, setRuleNotice] = useState('');
-  const [equipmentCandidates, setEquipmentCandidates] = useState<EquipmentCandidate[]>([]);
   const [cameras, setCameras] = useState<CameraItem[]>([]);
   const [cameraSession, setCameraSession] = useState<CameraSession | null>(null);
   const cameraSessionRequest = useRef(0);
   const [cameraNotice, setCameraNotice] = useState('');
-  const [cameraFormOpen, setCameraFormOpen] = useState(false);
-  const [talking, setTalking] = useState(false);
-  const [cameraDraft, setCameraDraft] = useState<CameraDraft>({
-    name: '',
-    roomId: '',
-    provider: 'reolink',
-    streamEntityId: '',
-    personEntityId: '',
-    privacyEntityId: '',
-    streamUrl: '',
-    talk: true,
-    ptz: true,
-    privacy: true,
-    snapshot: true,
-    intimateSpaceConsent: false,
-  });
+  const [cameraRecordings, setCameraRecordings] = useState<CameraRecording[]>([]);
   const [active, setActive] = useState(0);
   const [screenSection, setScreenSection] = useState<
     'call' | 'messages' | 'display' | 'photos' | 'planning'
   >('display');
   const [homeSection, setHomeSection] = useState<'OVERVIEW' | 'EDITOR'>('OVERVIEW');
+  const [homeSensorCategory, setHomeSensorCategory] = useState<SafetyCategory | null>(null);
+  const clearHomeSensorCategory = useCallback(() => setHomeSensorCategory(null), []);
   const [settingsTab, setSettingsTab] = useState<'general' | 'google' | 'rules'>('general');
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
@@ -2984,8 +2466,8 @@ export function App() {
         rulesResponse,
         medicationsResponse,
         dosesResponse,
-        equipmentCandidatesResponse,
         camerasResponse,
+        cameraRecordingsResponse,
       ] = await Promise.all([
         fetch('/api/v1/alerts'),
         fetch('/api/v1/journal'),
@@ -2994,8 +2476,8 @@ export function App() {
         fetch('/api/v1/alerts/rules'),
         fetch('/api/v1/medications'),
         fetch(`/api/v1/medications/doses?from=${dateKey(historyStart)}&to=${dateKey(historyEnd)}`),
-        fetch('/api/v1/equipment/candidates'),
         fetch('/api/v1/cameras'),
+        fetch('/api/v1/cameras/recordings'),
       ]);
       if (alertsResponse.ok) setAlerts((await alertsResponse.json()) as AlertItem[]);
       if (journalResponse.ok) setJournal((await journalResponse.json()) as JournalItem[]);
@@ -3008,9 +2490,9 @@ export function App() {
         setMedications((await medicationsResponse.json()) as MedicationItem[]);
       if (dosesResponse.ok)
         setMedicationDoses((await dosesResponse.json()) as MedicationDoseItem[]);
-      if (equipmentCandidatesResponse.ok)
-        setEquipmentCandidates((await equipmentCandidatesResponse.json()) as EquipmentCandidate[]);
       if (camerasResponse.ok) setCameras((await camerasResponse.json()) as CameraItem[]);
+      if (cameraRecordingsResponse.ok)
+        setCameraRecordings((await cameraRecordingsResponse.json()) as CameraRecording[]);
       setAuthRequired(false);
       setDataError(false);
     } catch {
@@ -3242,71 +2724,11 @@ export function App() {
     const response = await fetch(`/api/v1/residents/${resident.id}/photo`, { method: 'DELETE' });
     if (response.ok) await refresh();
   };
-  const configureCamera = async (event: FormEvent) => {
-    event.preventDefault();
-    setCameraNotice('');
-    const response = await fetch('/api/v1/cameras', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        name: cameraDraft.name,
-        roomId: cameraDraft.roomId,
-        provider: cameraDraft.provider,
-        streamEntityId: cameraDraft.streamEntityId,
-        personEntityId: cameraDraft.personEntityId || null,
-        privacyEntityId: cameraDraft.privacyEntityId || null,
-        streamUrl: cameraDraft.streamUrl,
-        compatibility: 'RECOGNIZED',
-        capabilities: {
-          live: true,
-          talk: cameraDraft.talk,
-          ptz: cameraDraft.ptz,
-          privacy: cameraDraft.privacy,
-          snapshot: cameraDraft.snapshot,
-        },
-        intimateSpaceConsent: cameraDraft.intimateSpaceConsent,
-      }),
-    });
-    if (!response.ok) {
-      const result = (await response.json().catch(() => null)) as { message?: string } | null;
-      setCameraNotice(
-        result?.message ??
-          (locale === 'fr'
-            ? 'La caméra n’a pas pu être configurée.'
-            : 'The camera could not be configured.'),
-      );
-      return;
-    }
-    setCameraNotice(
-      locale === 'fr'
-        ? 'Caméra ajoutée. Élise vérifie maintenant le flux local.'
-        : 'Camera added. Élise is now checking the local stream.',
-    );
-    setCameraFormOpen(false);
-    setCameraDraft({
-      name: '',
-      roomId: '',
-      provider: 'reolink',
-      streamEntityId: '',
-      personEntityId: '',
-      privacyEntityId: '',
-      streamUrl: '',
-      talk: true,
-      ptz: true,
-      privacy: true,
-      snapshot: true,
-      intimateSpaceConsent: false,
-    });
-    await refresh();
-  };
-  const openCamera = async (cameraId: string, talk = false) => {
+  const openCamera = async (cameraId: string) => {
     const requestId = ++cameraSessionRequest.current;
     setCameraNotice('');
     try {
-      const response = await fetch(
-        `/api/v1/cameras/${cameraId}/${talk ? 'talk-session' : 'live-session'}`,
-        { method: 'POST' },
-      );
+      const response = await fetch(`/api/v1/cameras/${cameraId}/live-session`, { method: 'POST' });
       if (requestId !== cameraSessionRequest.current) return;
       if (response.ok) {
         setCameraSession((await response.json()) as CameraSession);
@@ -3324,39 +2746,6 @@ export function App() {
         );
       }
     }
-  };
-  const toggleCameraPrivacy = async (camera: CameraItem) => {
-    cameraSessionRequest.current += 1;
-    setCameraSession((session) => (session?.cameraId === camera.id ? null : session));
-    const response = await fetch(`/api/v1/cameras/${camera.id}/privacy`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ enabled: !camera.privacyMode }),
-    });
-    setCameraNotice(
-      response.ok
-        ? camera.privacyMode
-          ? locale === 'fr'
-            ? 'Mode intimité désactivé.'
-            : 'Privacy mode disabled.'
-          : locale === 'fr'
-            ? 'Mode intimité activé.'
-            : 'Privacy mode enabled.'
-        : locale === 'fr'
-          ? 'Le mode intimité n’a pas pu être modifié.'
-          : 'Privacy mode could not be changed.',
-    );
-    if (response.ok) await refresh();
-  };
-  const startTalking = async () => {
-    if (!cameraSession) return;
-    setTalking(true);
-    await openCamera(cameraSession.cameraId, true);
-  };
-  const stopTalking = async () => {
-    if (!cameraSession) return;
-    setTalking(false);
-    await openCamera(cameraSession.cameraId, false);
   };
   const runSimulation = async (scenario: string) => {
     setRunningSimulation(scenario);
@@ -3698,6 +3087,11 @@ export function App() {
               setSettingsTab('rules');
               setActive(8);
             }}
+            onOpenHomeCategory={(category) => {
+              setHomeSection('OVERVIEW');
+              setHomeSensorCategory(category);
+              setActive(3);
+            }}
             onCall={async () => {
               await startResidentScreenCall();
               setScreenSection('call');
@@ -3711,6 +3105,8 @@ export function App() {
               locale={locale}
               home={household?.home}
               cameras={cameras}
+              initialSensorCategory={homeSensorCategory}
+              onSensorCategoryOpened={clearHomeSensorCategory}
               canManage={currentAccess.role === 'OWNER' || currentAccess.role === 'ADMINISTRATOR'}
               onManage={(roomId) => {
                 setHomeEditorRoomId(roomId ?? null);
@@ -3795,26 +3191,14 @@ export function App() {
           <CamerasPanel
             locale={locale}
             cameras={cameras}
-            rooms={household?.rooms ?? []}
-            candidates={equipmentCandidates}
-            alerts={alerts}
+            recordings={cameraRecordings}
             session={cameraSession}
-            talking={talking}
             notice={cameraNotice}
-            formOpen={cameraFormOpen}
-            draft={cameraDraft}
-            onDraft={setCameraDraft}
-            onToggleForm={() => setCameraFormOpen((value) => !value)}
-            onConfigure={(event) => void configureCamera(event)}
             onOpen={(cameraId) => void openCamera(cameraId)}
             onClose={() => {
               cameraSessionRequest.current += 1;
               setCameraSession(null);
-              setTalking(false);
             }}
-            onPrivacy={(camera) => void toggleCameraPrivacy(camera)}
-            onTalkStart={() => void startTalking()}
-            onTalkStop={() => void stopTalking()}
           />
         ) : active === 10 ? (
           <ScreenPanel initialSection={screenSection} locale={locale} />

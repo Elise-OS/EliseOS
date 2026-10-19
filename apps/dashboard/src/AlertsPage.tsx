@@ -7,6 +7,8 @@ import {
   ClipboardList,
   Clock3,
   DoorOpen,
+  Droplets,
+  Flame,
   Filter,
   Hand,
   Info,
@@ -14,11 +16,18 @@ import {
   MoreVertical,
   Phone,
   Settings,
+  ShieldAlert,
   ShieldCheck,
   Thermometer,
   WifiOff,
   X,
 } from 'lucide-react';
+import {
+  configuredHomeDevicesForCategory,
+  type HomePlan,
+  type RoomSensorCategory,
+  type SensorDevice,
+} from '@michel/contracts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Locale } from './i18n';
 import { DataLoadingScreen } from './DataLoadingScreen';
@@ -51,6 +60,8 @@ interface SituationDetail extends Situation {
   }>;
 }
 type FilterStatus = 'ALL' | 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
+export type SafetyCategory = Extract<RoomSensorCategory, 'fall_detection' | 'smoke' | 'water_leak'>;
+type SafetyCoverage = { devices: SensorDevice[]; attentionCount: number };
 
 const statusLabels: Record<AlertStatus, [string, string]> = {
   OPEN: ['Ouverte', 'Open'],
@@ -63,7 +74,7 @@ const severityLabels: Record<AlertSeverity, [string, string]> = {
   ATTENTION: ['À vérifier', 'Needs attention'],
   URGENT: ['Urgence', 'Urgent'],
 };
-const label = (pair: [string, string], locale: Locale) => pair[locale === 'fr' ? 0 : 1];
+const label = (pair: readonly [string, string], locale: Locale) => pair[locale === 'fr' ? 0 : 1];
 const localDay = (value: string | Date, timezone: string) => {
   const parts = new Intl.DateTimeFormat('en', {
     timeZone: timezone,
@@ -102,6 +113,33 @@ const durationBetween = (start: string, end: string, locale: Locale) => {
   return hours ? `${hours}h${remainingMinutes ? ` ${remainingMinutes}m` : ''}` : `${minutes}m`;
 };
 const explanationFor = (item: Situation, locale: Locale, timezone: string) => {
+  const safetyExplanations: Record<string, [string, string]> = {
+    WATER_LEAK: [
+      'Le capteur a signalé la présence d’eau. Vérifiez la zone concernée et coupez l’eau si nécessaire.',
+      'The sensor reported water. Check the affected area and turn off the water if needed.',
+    ],
+    SMOKE: [
+      'Le détecteur de fumée s’est déclenché. Vérifiez rapidement la situation sans vous exposer au danger.',
+      'The smoke detector was triggered. Check promptly without putting yourself in danger.',
+    ],
+    CARBON_MONOXIDE: [
+      'Le détecteur a signalé du monoxyde de carbone. Vérifiez immédiatement la situation et suivez les consignes d’urgence.',
+      'The detector reported carbon monoxide. Check immediately and follow emergency guidance.',
+    ],
+    FALL_DETECTION: [
+      'Le détecteur signale une chute possible. Vérifiez rapidement que la personne va bien.',
+      'The detector reported a possible fall. Check promptly that the resident is all right.',
+    ],
+    SOS: [
+      'Le bouton d’assistance du domicile a été activé. Contactez rapidement la personne.',
+      'The home assistance button was pressed. Contact the resident promptly.',
+    ],
+    SENSOR_OFFLINE: [
+      'Élise ne reçoit plus de données de ce capteur. Vérifiez son alimentation et sa connexion ; les conclusions qui en dépendent sont suspendues.',
+      'Élise is no longer receiving data from this sensor. Check its power and connection; conclusions that depend on it are suspended.',
+    ],
+  };
+  if (safetyExplanations[item.type]) return label(safetyExplanations[item.type]!, locale);
   if (item.type !== 'INACTIVITY') return item.explanation;
   if (!item.lastMovement) {
     return item.explanation.startsWith('Dernier mouvement fiable')
@@ -133,19 +171,28 @@ const iconFor = (type: string) => {
   if (type === 'TEMPERATURE') return Thermometer;
   if (type === 'SENSOR_OFFLINE') return WifiOff;
   if (type === 'DOOR_OPEN') return DoorOpen;
+  if (type === 'WATER_LEAK') return Droplets;
+  if (type === 'SMOKE') return Flame;
+  if (['FALL_DETECTION', 'CARBON_MONOXIDE'].includes(type)) return ShieldAlert;
+  if (type === 'SOS') return Hand;
   if (type === 'SYSTEM') return Info;
   return Bell;
 };
-const displayTitle = (item: Situation, locale: Locale) =>
-  item.type === 'SENSOR_OFFLINE'
-    ? label(
-        [
-          `Capteur${item.room?.name ? ` du ${item.room.name}` : ''} indisponible`,
-          `Sensor${item.room?.name ? ` in ${item.room.name}` : ''} offline`,
-        ],
-        locale,
-      )
-    : item.title;
+const displayTitle = (item: Situation, locale: Locale) => {
+  const safetyTitles: Record<string, [string, string]> = {
+    WATER_LEAK: ['Fuite d’eau détectée', 'Water leak detected'],
+    SMOKE: ['Fumée détectée', 'Smoke detected'],
+    CARBON_MONOXIDE: ['Monoxyde de carbone détecté', 'Carbon monoxide detected'],
+    FALL_DETECTION: ['Alerte de chute', 'Possible fall detected'],
+    SOS: ['Bouton d’assistance activé', 'Assistance button pressed'],
+  };
+  if (safetyTitles[item.type]) return label(safetyTitles[item.type]!, locale);
+  if (item.type === 'SENSOR_OFFLINE') {
+    const sensorName = item.title.replace(/ ne répond plus$/i, '');
+    return locale === 'fr' ? item.title : `${sensorName} is offline`;
+  }
+  return item.title;
+};
 const priorityLabel = (item: Situation, locale: Locale) =>
   ['RESOLVED', 'DISMISSED'].includes(item.status)
     ? label(['Terminée', 'Closed'], locale)
@@ -158,6 +205,90 @@ const observedNumber = (payload: unknown): number | null => {
     return Number(value);
   return null;
 };
+const sensorEventText = (payload: unknown, locale: Locale) => {
+  if (!payload || typeof payload !== 'object')
+    return label(['Événement du capteur', 'Sensor event'], locale);
+  const value = payload as Record<string, unknown>;
+  if (value.fallStatus === 'fall_alarm') return label(['Chute signalée', 'Fall reported'], locale);
+  if (value.fallStatus === 'fall_warning')
+    return label(['Chute possible signalée', 'Possible fall reported'], locale);
+  if (value.fallStatus === 'normal')
+    return label(['Détecteur revenu à l’état normal', 'Detector returned to normal'], locale);
+  if (typeof value.active === 'boolean')
+    return value.active
+      ? label(['Détection active', 'Detection active'], locale)
+      : label(['Retour à la normale', 'Returned to normal'], locale);
+  if (typeof value.open === 'boolean')
+    return value.open
+      ? label(['Ouverture détectée', 'Opening detected'], locale)
+      : label(['Fermeture détectée', 'Closed'], locale);
+  return label(['Événement du capteur', 'Sensor event'], locale);
+};
+const safetyCoverage = (
+  plan: HomePlan,
+  devices: SensorDevice[],
+  category: SafetyCategory,
+): SafetyCoverage => {
+  const configured = configuredHomeDevicesForCategory(plan, devices, category);
+  return {
+    devices: configured,
+    attentionCount: configured.filter(
+      (device) =>
+        !device.enabled ||
+        device.installationStatus !== 'OPERATIONAL' ||
+        device.capabilities.some(
+          ({ capability, status }) => capability === category && status !== 'ONLINE',
+        ),
+    ).length,
+  };
+};
+const safetyCoverageText = (
+  coverage: SafetyCoverage | null,
+  locale: Locale,
+  loading: boolean,
+  unavailable: boolean,
+) => {
+  if (loading) return label(['Chargement des capteurs…', 'Loading sensors…'], locale);
+  if (unavailable || !coverage)
+    return label(['Données du logement indisponibles', 'Home data unavailable'], locale);
+  const { devices, attentionCount } = coverage;
+  if (!devices.length)
+    return label(['Aucun détecteur configuré', 'No detector configured'], locale);
+  const onlineCount = devices.length - attentionCount;
+  if (attentionCount === 0)
+    return label(
+      [
+        `${devices.length} capteur${devices.length > 1 ? 's' : ''} · En ligne`,
+        `${devices.length} sensor${devices.length > 1 ? 's' : ''} · Online`,
+      ],
+      locale,
+    );
+  if (onlineCount === 0)
+    return label(
+      [
+        `${devices.length} capteur${devices.length > 1 ? 's' : ''} · À vérifier`,
+        `${devices.length} sensor${devices.length > 1 ? 's' : ''} · Needs checking`,
+      ],
+      locale,
+    );
+  return label(
+    [
+      `${onlineCount} en ligne · ${attentionCount} à vérifier`,
+      `${onlineCount} online · ${attentionCount} to check`,
+    ],
+    locale,
+  );
+};
+const safetyTone = (coverage: SafetyCoverage | null, loading: boolean, unavailable: boolean) =>
+  loading
+    ? 'pending'
+    : unavailable || !coverage
+      ? 'unavailable'
+      : !coverage.devices.length
+        ? 'unconfigured'
+        : coverage.attentionCount
+          ? 'attention'
+          : 'online';
 const advice = (type: string, locale: Locale, residentName: string) => {
   const texts: Record<string, [string, string]> = {
     INACTIVITY: [
@@ -169,8 +300,8 @@ const advice = (type: string, locale: Locale, residentName: string) => {
       'Check the resident’s comfort and the heating or ventilation.',
     ],
     SENSOR_OFFLINE: [
-      'Vérifiez l’alimentation et la connexion du capteur. Tant qu’il est indisponible, certaines conclusions sont suspendues.',
-      'Check the sensor’s power and connection. Some conclusions are suspended while it is offline.',
+      'Élise ne reçoit plus de données de ce capteur. Vérifiez son alimentation et sa connexion ; certaines conclusions restent suspendues.',
+      'Élise is no longer receiving data from this sensor. Check its power and connection; some conclusions remain suspended.',
     ],
     DOOR_OPEN: [
       'Vérifiez si la porte est toujours ouverte et refermez-la si nécessaire.',
@@ -191,6 +322,10 @@ const advice = (type: string, locale: Locale, residentName: string) => {
     WATER_LEAK: [
       'Vérifiez la zone concernée et coupez l’eau si nécessaire.',
       'Check the affected area and turn off the water if needed.',
+    ],
+    FALL_DETECTION: [
+      'Vérifiez rapidement que la personne va bien. Le signal peut être une chute possible : confirmez la situation sur place ou par appel.',
+      'Check promptly that the resident is all right. The signal may indicate a possible fall; confirm the situation in person or by calling.',
     ],
     MEDICATION_MISSED: [
       'Vérifiez auprès de la personne si la dose a été prise avant toute nouvelle prise. En cas de doute, suivez les consignes du professionnel de santé.',
@@ -225,6 +360,7 @@ export function AlertsPage({
   timezone,
   onSettings,
   onCall,
+  onOpenHomeCategory = () => undefined,
   onChanged,
 }: {
   locale: Locale;
@@ -233,6 +369,7 @@ export function AlertsPage({
   timezone: string;
   onSettings: () => void;
   onCall: () => Promise<void>;
+  onOpenHomeCategory?: (category: SafetyCategory) => void;
   onChanged: () => Promise<void>;
 }) {
   const [items, setItems] = useState<Situation[]>([]);
@@ -245,6 +382,7 @@ export function AlertsPage({
   const [severity, setSeverity] = useState<'ALL' | AlertSeverity>('ALL');
   const [room, setRoom] = useState('ALL');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [displayedCount, setDisplayedCount] = useState(8);
   const [menuOpen, setMenuOpen] = useState(false);
   const [dismissOpen, setDismissOpen] = useState(false);
   const [dismissReason, setDismissReason] = useState('');
@@ -253,7 +391,44 @@ export function AlertsPage({
   const [loadingMore, setLoadingMore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [revealedSnapshot, setRevealedSnapshot] = useState<string | null>(null);
+  const [homePlan, setHomePlan] = useState<HomePlan | null>(null);
+  const [homeSensorDevices, setHomeSensorDevices] = useState<SensorDevice[]>([]);
+  const [safetyLoading, setSafetyLoading] = useState(true);
+  const [safetyUnavailable, setSafetyUnavailable] = useState(false);
   const callConfirmationRef = useRef<HTMLDialogElement>(null);
+  const safetyRequestRef = useRef<AbortController | null>(null);
+  const safetyRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const refreshSafety = useCallback(async () => {
+    safetyRequestRef.current?.abort();
+    const controller = new AbortController();
+    safetyRequestRef.current = controller;
+    try {
+      const [planResponse, devicesResponse] = await Promise.all([
+        fetch('/api/v1/household/plan', { cache: 'no-store', signal: controller.signal }),
+        fetch('/api/v1/sensor-devices', { cache: 'no-store', signal: controller.signal }),
+      ]);
+      if (!planResponse.ok || !devicesResponse.ok) throw new Error('home sensors');
+      const [plan, devices] = await Promise.all([
+        planResponse.json() as Promise<HomePlan>,
+        devicesResponse.json() as Promise<SensorDevice[]>,
+      ]);
+      if (!Array.isArray(plan.placements) || !Array.isArray(devices))
+        throw new Error('home sensors');
+      setHomePlan(plan);
+      setHomeSensorDevices(devices);
+      setSafetyUnavailable(false);
+    } catch {
+      if (!controller.signal.aborted) setSafetyUnavailable(true);
+    } finally {
+      if (!controller.signal.aborted) setSafetyLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshSafety();
+    return () => safetyRequestRef.current?.abort();
+  }, [refreshSafety]);
 
   const refresh = useCallback(async () => {
     try {
@@ -283,9 +458,35 @@ export function AlertsPage({
   useEffect(() => {
     void refresh();
     const stream = new EventSource('/api/v1/events');
-    stream.onmessage = () => void refresh();
-    return () => stream.close();
-  }, [refresh]);
+    stream.onmessage = (message: MessageEvent<string>) => {
+      let type = '';
+      try {
+        type = (JSON.parse(message.data) as { type?: string }).type ?? '';
+      } catch {
+        void refresh();
+        return;
+      }
+      if (type === 'heartbeat') return;
+      if (type === 'connected') {
+        void refresh();
+        void refreshSafety();
+        return;
+      }
+      if (type === 'alerts') void refresh();
+      if (type === 'household') {
+        if (safetyRefreshTimerRef.current) clearTimeout(safetyRefreshTimerRef.current);
+        safetyRefreshTimerRef.current = setTimeout(() => {
+          safetyRefreshTimerRef.current = null;
+          void refreshSafety();
+        }, 300);
+      }
+    };
+    return () => {
+      stream.close();
+      if (safetyRefreshTimerRef.current) clearTimeout(safetyRefreshTimerRef.current);
+      safetyRequestRef.current?.abort();
+    };
+  }, [refresh, refreshSafety]);
   const loadMore = async () => {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
@@ -333,12 +534,18 @@ export function AlertsPage({
   );
   const today = localDay(new Date(), timezone);
   const isToday = (value: string) => localDay(value, timezone) === today;
-  const filtered = matchingFilters.filter(
-    (item) =>
-      showHistory || ['OPEN', 'ACKNOWLEDGED'].includes(item.status) || isToday(item.openedAt),
-  );
-  const hasOlderItems = matchingFilters.some((item) => !filtered.includes(item));
-  const selected = filtered.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
+  const isOngoing = (item: Situation) => ['OPEN', 'ACKNOWLEDGED'].includes(item.status);
+  const currentItems = matchingFilters.filter((item) => isToday(item.openedAt) || isOngoing(item));
+  const olderItems = matchingFilters.filter((item) => !isToday(item.openedAt) && !isOngoing(item));
+  const olderCount = olderItems.length;
+  const filtered = showHistory ? olderItems : currentItems;
+  const visible = filtered.slice(0, displayedCount);
+  const hasMoreLoaded = filtered.length > visible.length;
+  const extraFilterCount = Number(severity !== 'ALL') + Number(room !== 'ALL');
+  useEffect(() => {
+    setDisplayedCount(8);
+  }, [filter, severity, room, showHistory]);
+  const selected = visible.find((item) => item.id === selectedId) ?? visible[0] ?? null;
   useEffect(() => {
     if (!selected) {
       setDetail(null);
@@ -363,6 +570,17 @@ export function AlertsPage({
     };
   }, [selected?.id, selected?.status, locale]);
   const actualDetail = detail?.id === selected?.id ? detail : null;
+  const safetyCoverages = useMemo(
+    () =>
+      homePlan
+        ? {
+            fall: safetyCoverage(homePlan, homeSensorDevices, 'fall_detection'),
+            smoke: safetyCoverage(homePlan, homeSensorDevices, 'smoke'),
+            water: safetyCoverage(homePlan, homeSensorDevices, 'water_leak'),
+          }
+        : null,
+    [homePlan, homeSensorDevices],
+  );
   const observations =
     actualDetail?.observations.filter((item) => item.quality !== 'INVALID') ?? [];
   const latest = observations[0];
@@ -386,7 +604,7 @@ export function AlertsPage({
           description:
             observedNumber(observation.payload) !== null
               ? `${label(['Mesure', 'Reading'], locale)} : ${new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', { maximumFractionDigits: 1 }).format(observedNumber(observation.payload)!)} ${actualDetail?.sensor?.unit ?? ''}`
-              : label(['Événement du capteur', 'Sensor event'], locale),
+              : sensorEventText(observation.payload, locale),
         })),
       ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
     : [];
@@ -441,10 +659,15 @@ export function AlertsPage({
   const reassuranceCopy: [string, string] =
     items.length === 0
       ? ['Aucune situation dans le flux récent.', 'No situations in the recent feed.']
-      : [
-          `${items.length} dernières situations reçues, de la plus récente à la plus ancienne${nextCursor ? ' ; les précédentes peuvent être chargées.' : '.'}`,
-          `${items.length} latest recorded situations, newest first${nextCursor ? '; older situations can be loaded.' : '.'}`,
-        ];
+      : showHistory
+        ? [
+            `${visible.length} situation${visible.length > 1 ? 's' : ''} affichée${visible.length > 1 ? 's' : ''} dans l’historique.`,
+            `${visible.length} situation${visible.length === 1 ? '' : 's'} shown in history.`,
+          ]
+        : [
+            `${visible.length} situation${visible.length > 1 ? 's' : ''} récente${visible.length > 1 ? 's' : ''} ou en cours affichée${visible.length > 1 ? 's' : ''}. Les situations terminées plus anciennes restent dans l’historique.`,
+            `${visible.length} recent or ongoing situation${visible.length === 1 ? '' : 's'} shown. Older completed situations remain in history.`,
+          ];
   if (loading)
     return (
       <DataLoadingScreen
@@ -473,6 +696,80 @@ export function AlertsPage({
           <Settings /> {label(['Règles des alertes', 'Alert rules'], locale)}
         </button>
       </header>
+      <section
+        className="alerts-safety-grid"
+        aria-label={label(['Capteurs de sécurité du logement', 'Home safety sensors'], locale)}
+      >
+        {(
+          [
+            {
+              category: 'fall_detection',
+              coverage: safetyCoverages?.fall ?? null,
+              icon: ShieldAlert,
+              iconClass: 'fall',
+              eyebrow: ['Protection de la personne', 'Personal safety'],
+              title: ['Détection des chutes', 'Fall detection'],
+            },
+            {
+              category: 'smoke',
+              coverage: safetyCoverages?.smoke ?? null,
+              icon: Flame,
+              iconClass: 'smoke',
+              eyebrow: ['Sécurité du logement', 'Home safety'],
+              title: ['Détection de la fumée', 'Smoke detection'],
+            },
+            {
+              category: 'water_leak',
+              coverage: safetyCoverages?.water ?? null,
+              icon: Droplets,
+              iconClass: 'water',
+              eyebrow: ['Sécurité du logement', 'Home safety'],
+              title: ['Détection des fuites d’eau', 'Water leak detection'],
+            },
+          ] as const
+        ).map(({ category, coverage, icon: Icon, iconClass, eyebrow, title }) => {
+          const tone = safetyTone(coverage, safetyLoading, safetyUnavailable);
+          const cardContent = (
+            <>
+              <span className={`alerts-safety-icon alerts-safety-icon--${iconClass}`}>
+                <Icon aria-hidden="true" />
+              </span>
+              <div className="alerts-safety-copy">
+                <span className="alerts-safety-eyebrow">{label(eyebrow, locale)}</span>
+                <h2>{label(title, locale)}</h2>
+                <p>{safetyCoverageText(coverage, locale, safetyLoading, safetyUnavailable)}</p>
+              </div>
+            </>
+          );
+          const canConfigure = canManage && tone === 'unconfigured';
+          return (
+            <article
+              className={`alerts-safety-card alerts-safety-card--${tone}${canConfigure ? ' alerts-safety-card--action' : ''}`}
+              key={category}
+            >
+              {canConfigure ? (
+                <button
+                  type="button"
+                  className="alerts-safety-card-trigger"
+                  aria-label={label(
+                    [
+                      `Configurer ${label(title, 'fr')} dans Mon logement`,
+                      `Configure ${label(title, 'en')} in My home`,
+                    ],
+                    locale,
+                  )}
+                  onClick={() => onOpenHomeCategory(category)}
+                >
+                  {cardContent}
+                  <ChevronRight aria-hidden="true" />
+                </button>
+              ) : (
+                cardContent
+              )}
+            </article>
+          );
+        })}
+      </section>
       <div
         className={`alerts-reassurance${urgentCount ? ' alerts-reassurance--urgent' : ''}`}
         role="status"
@@ -516,7 +813,14 @@ export function AlertsPage({
               <span>
                 <ClipboardList />
               </span>
-              <h2>{label(['Situation du jour', 'Today’s situations'], locale)}</h2>
+              <h2>
+                {showHistory
+                  ? label(['Historique des situations', 'Situation history'], locale)
+                  : label(
+                      ['Situations récentes et en cours', 'Recent and ongoing situations'],
+                      locale,
+                    )}
+              </h2>
             </div>
             <div className="alerts-list-controls">
               <div
@@ -534,7 +838,7 @@ export function AlertsPage({
                     {label(
                       (
                         {
-                          ALL: showHistory ? ['Toutes', 'All'] : ['Aujourd’hui', 'Today'],
+                          ALL: showHistory ? ['Toutes', 'All'] : ['Actuelles', 'Current'],
                           OPEN: ['Ouvertes', 'Open'],
                           ACKNOWLEDGED: ['Prises en charge', 'Acknowledged'],
                           RESOLVED: ['Résolues', 'Resolved'],
@@ -551,56 +855,124 @@ export function AlertsPage({
                 aria-expanded={filtersOpen}
                 onClick={() => setFiltersOpen(!filtersOpen)}
               >
-                <Filter /> {label(['Filtrer', 'Filter'], locale)}
+                <Filter />
+                {label(['Filtres', 'Filters'], locale)}
+                {extraFilterCount > 0 && (
+                  <span className="alerts-filter-count">{extraFilterCount}</span>
+                )}
+                <ChevronDown className={filtersOpen ? 'is-open' : ''} />
               </button>
             </div>
           </div>
           {filtersOpen && (
             <div className="alerts-extra-filters">
-              <label>
-                {label(['Priorité', 'Priority'], locale)}
-                <select
-                  value={severity}
-                  onChange={(event) => setSeverity(event.target.value as typeof severity)}
-                >
-                  <option value="ALL">{label(['Toutes', 'All'], locale)}</option>
-                  {(['INFO', 'ATTENTION', 'URGENT'] as const).map((value) => (
-                    <option key={value} value={value}>
-                      {label(severityLabels[value], locale)}
-                    </option>
+              <div className="alerts-filter-panel-heading">
+                <div>
+                  <strong>{label(['Affiner les situations', 'Refine situations'], locale)}</strong>
+                  <span>
+                    {label(
+                      [
+                        `${filtered.length} résultat${filtered.length > 1 ? 's' : ''}`,
+                        `${filtered.length} result${filtered.length === 1 ? '' : 's'}`,
+                      ],
+                      locale,
+                    )}
+                  </span>
+                </div>
+                {extraFilterCount > 0 && (
+                  <button
+                    className="alerts-filter-reset"
+                    type="button"
+                    onClick={() => {
+                      setSeverity('ALL');
+                      setRoom('ALL');
+                    }}
+                  >
+                    {label(['Réinitialiser', 'Reset'], locale)}
+                  </button>
+                )}
+              </div>
+              <div
+                className="alerts-filter-group"
+                role="group"
+                aria-label={label(['Priorité', 'Priority'], locale)}
+              >
+                <span className="alerts-filter-label">
+                  {label(['Priorité', 'Priority'], locale)}
+                </span>
+                <div className="alerts-filter-options">
+                  {(['ALL', 'INFO', 'ATTENTION', 'URGENT'] as const).map((value) => (
+                    <button
+                      key={value}
+                      className={`alerts-filter-option${severity === value ? ' is-active' : ''}`}
+                      type="button"
+                      aria-pressed={severity === value}
+                      onClick={() => setSeverity(value)}
+                    >
+                      {value === 'ALL'
+                        ? label(['Toutes', 'All'], locale)
+                        : label(severityLabels[value], locale)}
+                    </button>
                   ))}
-                </select>
-              </label>
-              <label>
-                {label(['Pièce', 'Room'], locale)}
-                <select value={room} onChange={(event) => setRoom(event.target.value)}>
-                  <option value="ALL">{label(['Toutes les pièces', 'All rooms'], locale)}</option>
+                </div>
+              </div>
+              <div
+                className="alerts-filter-group"
+                role="group"
+                aria-label={label(['Pièce', 'Room'], locale)}
+              >
+                <span className="alerts-filter-label">{label(['Pièce', 'Room'], locale)}</span>
+                <div className="alerts-filter-options alerts-filter-options--rooms">
+                  <button
+                    className={`alerts-filter-option${room === 'ALL' ? ' is-active' : ''}`}
+                    type="button"
+                    aria-pressed={room === 'ALL'}
+                    onClick={() => setRoom('ALL')}
+                  >
+                    {label(['Toutes les pièces', 'All rooms'], locale)}
+                  </button>
                   {rooms.map((value) => (
-                    <option key={value.id} value={value.id}>
+                    <button
+                      key={value.id}
+                      className={`alerts-filter-option${room === value.id ? ' is-active' : ''}`}
+                      type="button"
+                      aria-pressed={room === value.id}
+                      onClick={() => setRoom(value.id)}
+                    >
                       {value.name}
-                    </option>
+                    </button>
                   ))}
-                </select>
-              </label>
+                </div>
+              </div>
             </div>
           )}
           <div className="alerts-cards">
-            {!filtered.length && (
+            {!visible.length && (
               <div className="alerts-empty">
                 <CheckCircle2 />
-                <h3>{label(['Aucune situation à afficher', 'No situations to show'], locale)}</h3>
+                <h3>
+                  {loadingMore
+                    ? showHistory
+                      ? label(['Chargement de l’historique…', 'Loading history…'], locale)
+                      : label(['Chargement des situations…', 'Loading situations…'], locale)
+                    : label(['Aucune situation à afficher', 'No situations to show'], locale)}
+                </h3>
                 <p>
                   {label(
                     [
-                      'Essayez un autre filtre ou revenez plus tard.',
-                      'Try another filter or check back later.',
+                      olderCount > 0 && !showHistory
+                        ? 'Aucune situation récente ou en cours. Les situations terminées plus anciennes sont dans l’historique.'
+                        : 'Essayez un autre filtre ou revenez plus tard.',
+                      olderCount > 0 && !showHistory
+                        ? 'No recent or ongoing situations. Older completed situations are in the history.'
+                        : 'Try another filter or check back later.',
                     ],
                     locale,
                   )}
                 </p>
               </div>
             )}
-            {filtered.map((item) => {
+            {visible.map((item) => {
               const Icon = iconFor(item.type);
               return (
                 <button
@@ -654,24 +1026,70 @@ export function AlertsPage({
               );
             })}
           </div>
-          {(hasOlderItems || nextCursor) && (
-            <button
-              className="alerts-older"
-              type="button"
-              disabled={loadingMore}
-              onClick={() => {
-                if (!showHistory) setShowHistory(true);
-                else void loadMore();
-              }}
-            >
-              {loadingMore
-                ? label(['Chargement…', 'Loading…'], locale)
-                : showHistory && nextCursor
-                  ? label(['Charger d’autres situations', 'Load more situations'], locale)
-                  : label(['Afficher les alertes précédentes', 'Show previous situations'], locale)}
-              <ChevronDown />
-            </button>
-          )}
+          <div className="alerts-pagination">
+            {hasMoreLoaded && (
+              <button
+                className="alerts-older"
+                type="button"
+                onClick={() => setDisplayedCount((count) => count + 8)}
+              >
+                {label(['Afficher 8 situations de plus', 'Show 8 more situations'], locale)}
+                <ChevronDown />
+              </button>
+            )}
+            {!showHistory && !hasMoreLoaded && nextCursor && (
+              <button
+                className="alerts-older"
+                type="button"
+                disabled={loadingMore}
+                onClick={() => {
+                  setDisplayedCount(visible.length + 8);
+                  void loadMore();
+                }}
+              >
+                {loadingMore
+                  ? label(['Chargement…', 'Loading…'], locale)
+                  : label(['Charger d’autres situations', 'Load more situations'], locale)}
+                <ChevronDown />
+              </button>
+            )}
+            {!showHistory && olderCount > 0 && (
+              <button
+                className="alerts-history-toggle"
+                type="button"
+                onClick={() => setShowHistory(true)}
+              >
+                {label(['Voir les situations plus anciennes', 'View older situations'], locale)}
+                {olderCount > 0 && <span>{olderCount}</span>}
+                <ChevronDown />
+              </button>
+            )}
+            {showHistory && !hasMoreLoaded && nextCursor && (
+              <button
+                className="alerts-older"
+                type="button"
+                disabled={loadingMore}
+                onClick={() => {
+                  setDisplayedCount(visible.length + 8);
+                  void loadMore();
+                }}
+              >
+                {loadingMore
+                  ? label(['Chargement…', 'Loading…'], locale)
+                  : label(['Charger d’autres situations', 'Load more situations'], locale)}
+                <ChevronDown />
+              </button>
+            )}
+            {showHistory && (
+              <button
+                className="alerts-history-toggle"
+                type="button"
+                onClick={() => setShowHistory(false)}
+              >
+                {label(['Revenir aux situations actuelles', 'Back to current situations'], locale)}
+              </button>
+            )}
+          </div>
         </div>
         <aside
           className="alerts-detail-panel"

@@ -276,6 +276,14 @@ describe('room equipment cards', () => {
         }),
       ),
     ).toBe('/sensor-products/3RPL01084Z.png');
+    expect(
+      sensorDevicePhoto(
+        device([capability('smoke')], {
+          manufacturer: 'Heiman',
+          model: 'HS1SA-E',
+        }),
+      ),
+    ).toBe('/sensor-products/HS1SA-E.png');
   });
 
   it('keeps an old value visible but clearly marks it as old', () => {
@@ -354,9 +362,12 @@ describe('room equipment cards', () => {
       'SDO-4-1-00',
       'STPH-4-1-00',
       'SDC-4-1-00',
+      'TS0601_bed_presence_sensor',
       'SEM-4-1-00',
+      'HS2FD-EF1-3.0',
+      'HS1SA-E',
     ]);
-    expect(TEST_HARDWARE_COUNT).toBe(19);
+    expect(TEST_HARDWARE_COUNT).toBe(20);
     expect(SENSOR_PRODUCTS.every(({ image }) => image.startsWith('/sensor-products/'))).toBe(true);
     expect(
       SENSOR_PRODUCTS.every(
@@ -377,6 +388,17 @@ describe('room equipment cards', () => {
       categories: ['temperature', 'humidity'],
       compatibility: 'DOCUMENTED',
     });
+    expect(SENSOR_PRODUCTS.find(({ model }) => model === 'HS1SA-E')).toMatchObject({
+      brand: 'Heiman',
+      image: '/sensor-products/HS1SA-E.png',
+      categories: ['smoke'],
+      compatibility: 'DOCUMENTED',
+      eliseValidated: false,
+    });
+    expect(
+      SENSOR_PRODUCTS.find(({ model }) => model === 'HS1SA-E')?.preparation.join(' '),
+    ).toContain('aucun compte, application ni concentrateur Heiman');
+    expect(productsForCategory('smoke', false).map(({ model }) => model)).toEqual(['HS1SA-E']);
     expect(productsForCategory('contact', false).map(({ model }) => model)).toEqual([
       '3RDS17BZ',
       'SDO-4-1-00',
@@ -393,7 +415,9 @@ describe('room equipment cards', () => {
   it('reserves the bed card for a bedroom and its configured NodOn contact', () => {
     expect(visibleRoomCategories('BEDROOM')).toContain('bed');
     expect(visibleRoomCategories('LIVING_ROOM')).not.toContain('bed');
-    expect(productsForCategory('bed', false).map(({ model }) => model)).toEqual(['SDC-4-1-00']);
+    expect(productsForCategory('bed', false).map(({ model }) => model)).toEqual([
+      'TS0601_bed_presence_sensor',
+    ]);
     const nodon = device([capability('contact', { open: true })], {
       manufacturer: 'NodOn',
       model: 'SDC-4-1-00',
@@ -443,6 +467,44 @@ describe('room equipment cards', () => {
     expect(markup).toContain('category-bed');
     expect(markup).toContain('<h3>Lit</h3>');
     expect(markup).toContain('Occupé');
+  });
+
+  it('treats the Tuya pressure strip occupancy state as bed occupancy', () => {
+    const tuya = device([capability('occupancy', { active: true })], {
+      manufacturer: 'Tuya',
+      model: 'Pressure Sensing Strap/Bed Occupancy Sensor',
+      room: { id: 'room', name: 'Chambre', kind: 'BEDROOM' },
+    });
+    const bedPlan = {
+      ...plan,
+      placements: [
+        {
+          kind: 'SENSOR',
+          equipmentId: tuya.id,
+          equipmentRefKind: 'DEVICE',
+          roomId: 'room',
+          capabilityBindings: [
+            {
+              sensorId: 'occupancy',
+              capability: 'occupancy',
+              role: 'BED',
+              bedOccupiedWhen: 'OPEN',
+            },
+          ],
+        },
+      ],
+    } as HomePlan;
+
+    expect(deviceSupportsCategory(tuya, 'bed')).toBe(true);
+    expect(roomCategoryDevices(bedPlan, 'room', [tuya], 'bed')).toEqual([tuya]);
+    expect(roomSensorReading(tuya, 'bed', true, Date.now(), 'OPEN').reading).toBe('Occupé');
+    expect(sensorDevicePhoto(tuya)).toBe('/sensor-products/TS0601_bed_presence_sensor.png');
+    expect(
+      productMatchesDetectedModel(
+        SENSOR_PRODUCTS.find(({ model }) => model === 'TS0601_bed_presence_sensor')!,
+        'Pressure Sensing Strap/Bed Occupancy Sensor',
+      ),
+    ).toBe(true);
   });
 
   it('shows the custom sensor name on its configured card', () => {
