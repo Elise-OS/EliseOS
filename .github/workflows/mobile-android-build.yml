@@ -121,15 +121,17 @@ jobs:
           fi
           ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease
 
+      # Google Play publishing must not depend on the Actions artifact storage quota.
       - name: Upload signed Android builds
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: elise-mobile-android-${{ steps.android-version.outputs.version_name }}-${{ steps.android-version.outputs.version_code }}
           path: |
             apps/mobile/android/app/build/outputs/apk/release/app-release.apk
             apps/mobile/android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
 
       - id: play-publishing
         name: Check Google Play publishing configuration
