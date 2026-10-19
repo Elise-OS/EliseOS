@@ -14,7 +14,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # Required to attach the signed builds to a private pre-release.
+  contents: write
 
 concurrency:
   group: mobile-android-${{ github.ref }}
@@ -132,6 +133,29 @@ jobs:
             apps/mobile/android/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 7
+
+      # Release assets do not count against the Actions artifact quota. Pre-releases are
+      # ignored by the release versioning and by the appliance update agent.
+      - name: Attach signed builds to a GitHub pre-release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ steps.android-version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.android-version.outputs.version_code }}
+        run: |
+          tag="android-v${VERSION_NAME}-${VERSION_CODE}"
+          outputs="apps/mobile/android/app/build/outputs"
+          release_dir="$RUNNER_TEMP/android-release"
+          mkdir -p "$release_dir"
+          cp "$outputs/apk/release/app-release.apk" "$release_dir/elise-companion-${VERSION_NAME}-${VERSION_CODE}.apk"
+          cp "$outputs/bundle/release/app-release.aab" "$release_dir/elise-companion-${VERSION_NAME}-${VERSION_CODE}.aab"
+          gh release create "$tag" "$release_dir"/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Élise Companion Android ${VERSION_NAME} (${VERSION_CODE})" \
+            --notes "Signed Android builds from ${GITHUB_SHA}. The APK is for direct installation; upload the AAB to Google Play." \
+            --prerelease \
+            --latest=false
 
       - id: play-publishing
         name: Check Google Play publishing configuration
