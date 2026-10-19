@@ -15,6 +15,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   OnModuleDestroy,
   OnModuleInit,
@@ -85,7 +86,11 @@ const adminRights: ScreenGrant = {
 };
 const mediaRoot = path.resolve(process.env.MEDIA_ROOT ?? '/var/lib/elise/media', 'screen');
 type CityWeather = ScreenSnapshot['weather'];
-const weatherCache = new Map<string, { expiresAt: number; value: Promise<CityWeather> }>();
+const weatherLogger = new Logger('ScreenWeather');
+const weatherCache = new Map<
+  string,
+  { expiresAt: number; value: Promise<CityWeather>; reading: CityWeather }
+>();
 const podcastEpisodeCache = new Map<
   string,
   { expiresAt: number; value: Promise<ScreenPodcastEpisode[]> }
@@ -178,16 +183,19 @@ async function fetchCityWeather(address: string | null | undefined): Promise<Cit
   if (!requestedCity) return null;
   const key = requestedCity.toLocaleLowerCase('fr-FR');
   const cached = weatherCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  if (cached && cached.expiresAt > Date.now()) return cached.reading;
+  const previousReading = cached?.reading ?? null;
   const value = (async () => {
     try {
+      const signal = AbortSignal.timeout(4000);
       const geocodingUrl = new URL('https://geocoding-api.open-meteo.com/v1/search');
       geocodingUrl.searchParams.set('name', requestedCity);
       geocodingUrl.searchParams.set('count', '1');
       geocodingUrl.searchParams.set('language', 'fr');
       geocodingUrl.searchParams.set('format', 'json');
-      const geocodingResponse = await fetch(geocodingUrl, { signal: AbortSignal.timeout(4000) });
-      if (!geocodingResponse.ok) return null;
+      const geocodingResponse = await fetch(geocodingUrl, { signal });
+      if (!geocodingResponse.ok)
+        throw new Error(`Open-Meteo geocoding returned HTTP ${geocodingResponse.status}`);
       const geocoding = (await geocodingResponse.json()) as {
         results?: Array<{ name?: string; latitude?: number; longitude?: number }>;
       };
@@ -197,7 +205,7 @@ async function fetchCityWeather(address: string | null | undefined): Promise<Cit
         !Number.isFinite(location.latitude) ||
         !Number.isFinite(location.longitude)
       )
-        return null;
+        throw new Error('Open-Meteo geocoding returned no usable location');
       const forecastUrl = new URL('https://api.open-meteo.com/v1/forecast');
       forecastUrl.searchParams.set('latitude', String(location.latitude));
       forecastUrl.searchParams.set('longitude', String(location.longitude));
@@ -205,8 +213,9 @@ async function fetchCityWeather(address: string | null | undefined): Promise<Cit
       forecastUrl.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,weather_code');
       forecastUrl.searchParams.set('forecast_days', '1');
       forecastUrl.searchParams.set('timezone', 'auto');
-      const forecastResponse = await fetch(forecastUrl, { signal: AbortSignal.timeout(4000) });
-      if (!forecastResponse.ok) return null;
+      const forecastResponse = await fetch(forecastUrl, { signal });
+      if (!forecastResponse.ok)
+        throw new Error(`Open-Meteo forecast returned HTTP ${forecastResponse.status}`);
       const forecast = (await forecastResponse.json()) as {
         current?: { time?: string; temperature_2m?: number; weather_code?: number };
         daily?: {
@@ -219,7 +228,8 @@ async function fetchCityWeather(address: string | null | undefined): Promise<Cit
       const weatherCode = Number(
         forecast.current?.weather_code ?? forecast.daily?.weather_code?.[0],
       );
-      if (!Number.isFinite(temperature) || !Number.isFinite(weatherCode)) return null;
+      if (!Number.isFinite(temperature) || !Number.isFinite(weatherCode))
+        throw new Error('Open-Meteo forecast returned no usable current reading');
       const minimum = Number(forecast.daily?.temperature_2m_min?.[0]);
       const maximum = Number(forecast.daily?.temperature_2m_max?.[0]);
       return {
@@ -230,21 +240,30 @@ async function fetchCityWeather(address: string | null | undefined): Promise<Cit
         weatherCode,
         observedAt: forecast.current?.time ?? new Date().toISOString(),
       };
-    } catch {
+    } catch (error) {
+      weatherLogger.warn(
+        `Weather refresh failed for ${requestedCity}: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return null;
     }
   })();
-  weatherCache.set(key, { expiresAt: Date.now() + 15 * 60 * 1000, value });
-  // A transient network failure must not make the weather unavailable for the
-  // whole cache window. Keep successful readings for 15 minutes, but retry a
-  // failed lookup on the next screen refresh.
+  const entry = {
+    expiresAt: Date.now() + 15 * 60 * 1000,
+    value,
+    reading: previousReading,
+  };
+  weatherCache.set(key, entry);
+  // Refresh weather in the background: screen heartbeats and calls must remain
+  // available even when the external weather service cannot be reached.
   void value.then((result) => {
-    if (result === null) {
-      const current = weatherCache.get(key);
-      if (current?.value === value) weatherCache.delete(key);
-    }
+    if (weatherCache.get(key) !== entry) return;
+    if (result) entry.reading = result;
+    entry.expiresAt = Date.now() + (result ? 15 * 60 * 1000 : 30_000);
   });
-  return value;
+  // A cold cache waits for the provider once so the first dashboard snapshot
+  // after an API restart already contains weather. Later refreshes keep the
+  // last successful reading and run in the background.
+  return previousReading ?? value;
 }
 
 export interface ScreenTvGuideProgramResult {
@@ -425,6 +444,7 @@ async function screenTvGuide(): Promise<ScreenTvGuideResult> {
 @Injectable()
 export class ScreenService implements OnModuleInit, OnModuleDestroy {
   private timer?: NodeJS.Timeout;
+  private tickRunning = false;
   private tvRecoveryTimer?: NodeJS.Timeout;
   private tvGuideTimer?: NodeJS.Timeout;
   private readonly homeAssistantCommandAt = new Map<string, number>();
@@ -457,7 +477,13 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
         });
       });
     this.timer = setInterval(() => {
-      void this.tick().catch(() => undefined);
+      if (this.tickRunning) return;
+      this.tickRunning = true;
+      void this.tick()
+        .catch(() => undefined)
+        .finally(() => {
+          this.tickRunning = false;
+        });
     }, 1000);
     this.timer.unref();
     this.tvRecoveryTimer = setInterval(() => {
@@ -503,16 +529,21 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     if (capability && !grant[capability]) throw new ForbiddenException('Droit écran insuffisant.');
     return { home, row, state, grant };
   }
-  private async mutate(homeId: string, fn: (state: ScreenState) => void | Promise<void>) {
+  private async mutate(
+    homeId: string,
+    fn: (state: ScreenState, tx: Prisma.TransactionClient) => void | Promise<void>,
+    notify = true,
+  ) {
     return this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "ResidentScreen" WHERE "homeId" = ${homeId} FOR UPDATE`;
       const row = await tx.residentScreen.findUniqueOrThrow({ where: { homeId } });
       const s = row.state as unknown as ScreenState;
       const before = JSON.stringify(s);
-      await fn(s);
+      await fn(s, tx);
       if (JSON.stringify(s) === before) return s;
       await tx.residentScreen.update({ where: { homeId }, data: { state: json(s) } });
-      await tx.$executeRaw`SELECT pg_notify('michel_updates', ${JSON.stringify({ homeId, type: 'screen' })})`;
+      if (notify)
+        await tx.$executeRaw`SELECT pg_notify('michel_updates', ${JSON.stringify({ homeId, type: 'screen' })})`;
       return s;
     });
   }
@@ -883,9 +914,13 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
   async snapshot(userId: string): Promise<ScreenSnapshot> {
     const a = await this.access(userId);
     if (a.state.call?.userId === userId)
-      await this.mutate(a.home.id, (s) => {
-        if (s.call?.userId === userId) s.call.callerSeenAt = Date.now();
-      });
+      await this.mutate(
+        a.home.id,
+        (s) => {
+          if (s.call?.userId === userId) s.call.callerSeenAt = Date.now();
+        },
+        false,
+      );
     return this.present(a.row.homeId, a.grant, userId);
   }
   private async present(
@@ -2210,8 +2245,9 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       mimeType: m.mimeType ?? 'application/octet-stream',
     };
   }
-  async startCall(userId: string) {
+  async startCall(userId: string, client: 'dashboard' | 'mobile' = 'dashboard') {
     const { home, row, grant } = await this.access(userId, 'call');
+    const automatic = client === 'mobile' || grant.autoAnswer;
     if (!process.env.ELISE_JITSI_URL || !process.env.ELISE_JITSI_SECRET)
       throw new ConflictException('Jitsi doit être installé.');
     if (!row.lastSeenAt || Date.now() - row.lastSeenAt.getTime() > 15000)
@@ -2219,29 +2255,34 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     await this.mutate(home.id, (s) => {
       if (!s.settings.consent) throw new ForbiddenException('Accord visio requis.');
-      if (s.call) throw new ConflictException('Le résident est déjà en communication.');
+      if (s.call) {
+        if (client === 'mobile' && s.call.client === 'mobile' && s.call.userId === userId) return;
+        throw new ConflictException('Le résident est déjà en communication.');
+      }
       if (
         s.playback.asleep ||
         screenIsQuiet(s.settings, screenLocalTime(new Date(), home.timezone).time)
       )
         throw new ConflictException('Le résident est au repos.');
       const id = randomUUID();
+      const acceptedAt = client === 'mobile' ? Date.now() : null;
       s.call = {
         id,
         room: `elise${id.replaceAll('-', '')}`,
         userId,
         name: user.displayName,
-        automatic: grant.autoAnswer,
+        client,
+        automatic,
         createdAt: Date.now(),
-        acceptedAt: null,
+        acceptedAt,
         callerSeenAt: Date.now(),
-        deadline: Date.now() + (grant.autoAnswer ? 5000 : 30000),
+        deadline: Date.now() + (automatic ? 5000 : 30000),
       };
       this.addActivity(s, {
         id,
         kind: 'call',
         title: `Appel de ${user.displayName}`,
-        detail: grant.autoAnswer ? 'Décrochage automatique' : 'En attente de réponse',
+        detail: automatic ? 'Décrochage automatique' : 'En attente de réponse',
         actor: user.displayName,
         status: 'pending',
       });
@@ -2331,10 +2372,10 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
   private async tick() {
     for (const row of await this.prisma.residentScreen.findMany()) {
       const home = await this.prisma.home.findUniqueOrThrow({ where: { id: row.homeId } });
-      await this.mutate(home.id, async (s) => {
+      await this.mutate(home.id, async (s, tx) => {
         const now = Date.now();
         if (s.call) {
-          const m = await this.prisma.membership.findFirst({
+          const m = await tx.membership.findFirst({
             where: { organizationId: home.organizationId, userId: s.call.userId, disabledAt: null },
           });
           if (!m || !this.rights(s, m.userId, m.systemRole).call) this.finish(s, 'revoked');

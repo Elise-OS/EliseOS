@@ -114,6 +114,46 @@ describe('Resident display policy', () => {
       vi.unstubAllGlobals();
     }
   });
+  it('returns weather on the first snapshot after an API restart', async () => {
+    const { service, state } = fixture();
+    state.settings.weatherCity = 'Chécy cold start';
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            results: [{ name: 'Chécy', latitude: 47.89402, longitude: 2.02304 }],
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            current: { time: '2026-10-04T16:30', temperature_2m: 18.4, weather_code: 2 },
+            daily: {
+              temperature_2m_min: [11.2],
+              temperature_2m_max: [19.1],
+              weather_code: [2],
+            },
+          }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const snapshot = await service.snapshot('user1');
+      expect(snapshot.weather).toEqual({
+        city: 'Chécy',
+        temperature: 18.4,
+        minimum: 11.2,
+        maximum: 19.1,
+        weatherCode: 2,
+        observedAt: '2026-10-04T16:30',
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it('handles midnight and DST using household wall time', () => {
     const s = initialScreenState();
     expect(screenIsQuiet(s.settings, '23:00')).toBe(true);
@@ -150,6 +190,20 @@ describe('Resident display policy', () => {
     row.capabilities = { camera: false, microphone: false };
     await service.startCall('user1');
     expect(state.call?.userId).toBe('user1');
+    vi.unstubAllEnvs();
+  });
+  it('accepts a mobile call immediately so joining does not depend on the maintenance timer', async () => {
+    vi.stubEnv('ELISE_JITSI_URL', 'https://test.ts.net:8444');
+    vi.stubEnv('ELISE_JITSI_SECRET', 'secret');
+    const { service, state } = fixture();
+    await service.startCall('user1', 'mobile');
+    expect(state.call).toMatchObject({ client: 'mobile', automatic: true });
+    expect(state.call?.acceptedAt).toEqual(expect.any(Number));
+    await expect(service.join('user1', undefined, state.call!.id)).resolves.toMatchObject({
+      url: 'https://test.ts.net:8444',
+      room: state.call!.room,
+      name: 'Paul',
+    });
     vi.unstubAllEnvs();
   });
   it('rejects a concurrent call and does not overwrite it', async () => {

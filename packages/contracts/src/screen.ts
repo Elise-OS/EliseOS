@@ -165,6 +165,7 @@ export interface ScreenCall {
   room: string;
   userId: string;
   name: string;
+  client?: 'dashboard' | 'mobile' | undefined;
   automatic: boolean;
   createdAt: number;
   acceptedAt: number | null;

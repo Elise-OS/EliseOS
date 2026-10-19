@@ -282,8 +282,12 @@ export class ScreenController {
   @Delete('media/:id') remove(@Req() r: AuthenticatedRequest, @Param('id') id: string) {
     return this.screens.removeMedia(r.userId, id);
   }
-  @Post('calls') call(@Req() r: AuthenticatedRequest) {
-    return this.screens.startCall(r.userId);
+  @Post('calls') call(@Req() r: AuthenticatedRequest, @Body() body?: unknown) {
+    const client =
+      body === undefined || body === null
+        ? undefined
+        : parseRequest(z.object({ client: z.literal('mobile') }).strict(), body).client;
+    return this.screens.startCall(r.userId, client);
   }
   @Delete('calls/:id') end(@Req() r: AuthenticatedRequest, @Param('id') id: string) {
     return this.screens.endCall(r.userId, id);
