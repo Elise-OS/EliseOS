@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
     <key>CFBundleDevelopmentRegion</key>
@@ -58,7 +60,7 @@
     <key>NSFaceIDUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
     <key>NSLocalNetworkUsageDescription</key>
-    <string>Michel utilise le réseau local pour détecter votre serveur à domicile.</string>
+    <string>Élise utilise le réseau local pour détecter votre serveur à domicile.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Élise utilise le microphone pendant vos appels au résident ou lorsque vous utilisez l’interphone.</string>
     <key>NSPhotoLibraryUsageDescription</key>
