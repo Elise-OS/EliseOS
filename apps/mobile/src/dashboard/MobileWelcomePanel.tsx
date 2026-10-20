@@ -179,13 +179,13 @@ function dayNarrative(
   if (bedtime && hour(bedtime) >= 18 && wakeUp)
     sentences.push(
       fr
-        ? `${resident} s’est couché hier vers ${natural(bedtime)} et s’est réveillé ce matin vers ${natural(wakeUp)}.`
+        ? `Coucher hier vers ${natural(bedtime)}, réveil ce matin vers ${natural(wakeUp)}.`
         : `${resident} went to bed around ${natural(bedtime)} last night and woke up around ${natural(wakeUp)} this morning.`,
     );
   else if (wakeUp)
     sentences.push(
       fr
-        ? `${resident} s’est réveillé ce matin vers ${natural(wakeUp)}.`
+        ? `Réveil ce matin vers ${natural(wakeUp)}.`
         : `${resident} woke up around ${natural(wakeUp)} this morning.`,
     );
   const livingSeconds = living
@@ -198,7 +198,7 @@ function dayNarrative(
   if (livingSeconds >= 120)
     sentences.push(
       fr
-        ? `Il a passé environ ${duration(livingSeconds, locale)} dans le salon.`
+        ? `Environ ${duration(livingSeconds, locale)} passées dans le salon.`
         : `They spent about ${duration(livingSeconds, locale)} in the living room.`,
     );
   const lunch = kitchen
@@ -228,14 +228,12 @@ function dayNarrative(
   if (lunchAt)
     sentences.push(
       fr
-        ? `Vers ${natural(lunchAt)}, il est allé déjeuner dans la cuisine${afternoon ? ', puis il est retourné au salon pour l’après-midi' : ''}.`
+        ? `Vers ${natural(lunchAt)}, déjeuner dans la cuisine${afternoon ? ', puis retour au salon pour l’après-midi' : ''}.`
         : `Around ${natural(lunchAt)}, they went to the kitchen for lunch${afternoon ? ', then returned to the living room for the afternoon' : ''}.`,
     );
   else if (afternoon)
     sentences.push(
-      fr
-        ? 'Il a ensuite passé l’après-midi dans le salon.'
-        : 'They then spent the afternoon in the living room.',
+      fr ? 'Après-midi passé dans le salon.' : 'They then spent the afternoon in the living room.',
     );
   if (!sentences.length)
     return fr

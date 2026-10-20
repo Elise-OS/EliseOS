@@ -311,7 +311,7 @@ describe('Accueil wording', () => {
       previousSummary,
     );
     expect(narrative).toBe(
-      'Michel s’est couché hier vers 22 h 30 et s’est réveillé ce matin vers 8 h. Il a passé environ 3 h 30 min dans le salon. Vers 12 h 30, il est allé déjeuner dans la cuisine, puis il est retourné au salon pour l’après-midi.',
+      'Coucher hier vers 22 h 30, réveil ce matin vers 8 h. Environ 3 h 30 min passées dans le salon. Vers 12 h 30, déjeuner dans la cuisine, puis retour au salon pour l’après-midi.',
     );
     expect(narrative).not.toMatch(/toilettes|détect|observ|capteur/i);
   });

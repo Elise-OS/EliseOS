@@ -413,13 +413,13 @@ export function dayNarrativeText(
   if (bedtime && hourInTimeZone(bedtime, data.timezone) >= 18 && wakeUp)
     sentences.push(
       fr
-        ? `${resident} s’est couché hier vers ${naturalTime(bedtime, data.timezone, locale)} et s’est réveillé ce matin vers ${naturalTime(wakeUp, data.timezone, locale)}.`
+        ? `Coucher hier vers ${naturalTime(bedtime, data.timezone, locale)}, réveil ce matin vers ${naturalTime(wakeUp, data.timezone, locale)}.`
         : `${resident} went to bed around ${naturalTime(bedtime, data.timezone, locale)} last night and woke up around ${naturalTime(wakeUp, data.timezone, locale)} this morning.`,
     );
   else if (wakeUp)
     sentences.push(
       fr
-        ? `${resident} s’est réveillé ce matin vers ${naturalTime(wakeUp, data.timezone, locale)}.`
+        ? `Réveil ce matin vers ${naturalTime(wakeUp, data.timezone, locale)}.`
         : `${resident} woke up around ${naturalTime(wakeUp, data.timezone, locale)} this morning.`,
     );
 
@@ -434,8 +434,8 @@ export function dayNarrativeText(
   if (livingRoomSeconds >= 120)
     sentences.push(
       fr
-        ? `Il a passé environ ${narrativeDuration(livingRoomSeconds, locale)} dans le salon.`
-        : `He spent about ${narrativeDuration(livingRoomSeconds, locale)} in the living room.`,
+        ? `Environ ${narrativeDuration(livingRoomSeconds, locale)} passées dans le salon.`
+        : `They spent about ${narrativeDuration(livingRoomSeconds, locale)} in the living room.`,
     );
 
   const lunchSequence = kitchen
@@ -468,14 +468,12 @@ export function dayNarrativeText(
   if (lunchTime)
     sentences.push(
       fr
-        ? `Vers ${naturalTime(lunchTime, data.timezone, locale)}, il est allé déjeuner dans la cuisine${spentAfternoonInLivingRoom ? ', puis il est retourné au salon pour l’après-midi' : ''}.`
-        : `Around ${naturalTime(lunchTime, data.timezone, locale)}, he went to the kitchen for lunch${spentAfternoonInLivingRoom ? ', then returned to the living room for the afternoon' : ''}.`,
+        ? `Vers ${naturalTime(lunchTime, data.timezone, locale)}, déjeuner dans la cuisine${spentAfternoonInLivingRoom ? ', puis retour au salon pour l’après-midi' : ''}.`
+        : `Around ${naturalTime(lunchTime, data.timezone, locale)}, they went to the kitchen for lunch${spentAfternoonInLivingRoom ? ', then returned to the living room for the afternoon' : ''}.`,
     );
   else if (spentAfternoonInLivingRoom)
     sentences.push(
-      fr
-        ? 'Il a ensuite passé l’après-midi dans le salon.'
-        : 'He then spent the afternoon in the living room.',
+      fr ? 'Après-midi passé dans le salon.' : 'They then spent the afternoon in the living room.',
     );
 
   if (!sentences.length)

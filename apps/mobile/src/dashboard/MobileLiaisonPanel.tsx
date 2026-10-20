@@ -329,7 +329,11 @@ export function MobileLiaisonPanel({
               tone="green"
               title={task.assignee?.displayName ?? 'À répartir'}
               body={task.body}
-              detail={task.dueOn ? `Pour le ${task.dueOn}` : 'Sans échéance'}
+              detail={
+                task.dueOn
+                  ? `Pour le ${new Date(`${task.dueOn}T12:00:00Z`).toLocaleDateString('fr-FR', { timeZone: 'UTC', day: 'numeric', month: 'long' })}`
+                  : 'Sans échéance'
+              }
             />
           ))}
           {!reminderCount && (
