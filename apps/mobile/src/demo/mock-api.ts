@@ -1168,7 +1168,7 @@ function createDemoSession() {
       'NOTE',
       'Une matinée bien rythmée',
       'Jeanne a pris son petit-déjeuner puis s’est installée dans le séjour.',
-      -35,
+      lastWakeUp() + 2 * HOUR,
     ),
     journalEntry(
       'journal-2',
@@ -1236,7 +1236,7 @@ function createDemoSession() {
         kind: 'NOTE',
         body: 'Jeanne a apprécié son petit-déjeuner et a parlé de sa promenade de la veille.',
         tags: ['MEAL', 'MOOD'],
-        createdAt: iso(-50 * MINUTE),
+        createdAt: iso(lastWakeUp() + 90 * MINUTE),
         author: { id: 'person-sophie', displayName: 'Sophie Bernard' },
         assignee: null,
         dueOn: null,
