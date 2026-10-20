@@ -3,7 +3,7 @@
     "name": "Elise Os - Companion",
     "slug": "michel-mobile",
     "scheme": "michel",
-    "version": "0.1.8",
+    "version": "0.1.9",
     "icon": "./assets/logo.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
