@@ -530,7 +530,11 @@ export function DashboardApp({
             presence: ['presence', 'presence-history'],
           };
           for (const domain of domains[event.type] ?? []) {
-            if (event.type === 'activity' || event.type === 'presence') {
+            if (
+              event.type === 'activity' ||
+              event.type === 'presence' ||
+              event.type === 'household'
+            ) {
               pendingDomains.add(domain);
               refreshTimer ??= setTimeout(refreshDomains, 3_000);
             } else {
