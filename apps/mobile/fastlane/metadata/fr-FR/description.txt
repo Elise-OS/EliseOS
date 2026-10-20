@@ -1,0 +1,26 @@
+Élise OS – Companion est l’application iPhone des proches et des aidants qui accompagnent une personne vivant seule à domicile. Elle se connecte au serveur Élise OS installé chez la personne et vous informe de ce qui sort de l’ordinaire, sans surveillance permanente.
+
+Élise s’appuie sur des capteurs discrets (mouvement, présence, ouverture de porte, lit, température, fumée, fuite d’eau, chute…) et apprend les habitudes de la maison. Quand une situation inhabituelle apparaît, vous êtes prévenu.
+
+CE QUE VOUS POUVEZ FAIRE
+• Voir d’un coup d’œil si la journée se déroule normalement au domicile.
+• Recevoir une notification en cas de chute détectée, de fumée, de fuite d’eau, de monoxyde de carbone, d’appui sur le bouton d’assistance ou d’inactivité prolongée.
+• Choisir les notifications que vous souhaitez recevoir.
+• Suivre une alerte, la prendre en charge et voir les relevés qui l’ont déclenchée.
+• Échanger avec la famille et les intervenants grâce au carnet de liaison : messages, humeurs, tâches et visites.
+• Consulter l’agenda partagé : rendez-vous, visites et rappels.
+• Appeler la personne en visio sur sa télévision et lui envoyer des photos et des messages.
+• Voir les caméras du domicile en direct, uniquement si elles ont été installées avec l’accord de la personne.
+• Installer et placer les capteurs pièce par pièce grâce au plan du logement.
+
+VOS DONNÉES RESTENT À LA MAISON
+Élise OS fonctionne en local : les données des capteurs et l’analyse des habitudes restent sur le serveur installé au domicile, pas dans le cloud d’un fabricant. Depuis l’extérieur, l’application se connecte par un accès privé et chiffré. Les caméras sont facultatives, peuvent être mises en mode privé à tout moment et leurs images ne servent jamais à analyser le comportement.
+
+LOGICIEL LIBRE
+Élise OS est un logiciel libre et open source (licence AGPL-3.0).
+
+PRÉREQUIS
+Cette application nécessite un serveur Élise OS installé au domicile (Raspberry Pi ou serveur Ubuntu) et un compte créé par l’administrateur de ce serveur. Elle ne fonctionne pas seule.
+
+IMPORTANT
+Élise OS est un outil de bien-être et de tranquillité d’esprit. Ce n’est ni un dispositif médical, ni un service de téléassistance, ni un service d’urgence. En cas d’urgence, appelez le 112 ou le 15.

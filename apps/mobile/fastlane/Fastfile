@@ -1,0 +1,41 @@
+# App Store Connect publishing for the Élise companion app.
+#
+# Authentication uses an App Store Connect API key, never an Apple ID password:
+#   ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_PATH (path to the downloaded .p8 file).
+
+default_platform(:ios)
+
+platform :ios do
+  before_all do
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: ENV.fetch("ASC_KEY_PATH"),
+    )
+  end
+
+  desc "Upload the fr-FR store texts without touching screenshots or builds"
+  lane :metadata do
+    deliver(
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_app_version_update: true,
+      precheck_include_in_app_purchases: false,
+      submit_for_review: false,
+      force: true,
+    )
+  end
+
+  desc "Replace the App Store screenshots with fastlane/screenshots"
+  lane :screenshots do
+    deliver(
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_app_version_update: true,
+      overwrite_screenshots: true,
+      precheck_include_in_app_purchases: false,
+      submit_for_review: false,
+      force: true,
+    )
+  end
+end

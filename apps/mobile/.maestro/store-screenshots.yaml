@@ -1,0 +1,26 @@
+# App Store screenshots in demo mode: only fictional data from src/demo/mock-api.ts.
+# Run through scripts/store-screenshots.sh, which prepares the simulator status bar
+# and passes the output directory.
+appId: org.michel.mobile
+env:
+  OUT: screenshots
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+- tapOn: 'Découvrir la démonstration'
+- extendedWaitUntil:
+    visible: 'Accueil'
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/01-accueil
+- tapOn: 'Logement'
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/02-logement
+- tapOn: 'Liaison'
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/03-liaison
+- tapOn: 'Affichage TV'
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/04-affichage-tv
