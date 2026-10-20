@@ -53,6 +53,27 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const iso = (offsetMs = 0) => new Date(Date.now() + offsetMs).toISOString();
+// Offsets to local clock times keep demo events at plausible hours whenever the demo is opened.
+const untilClock = (days: number, hours: number, minutes = 0) => {
+  const target = new Date();
+  target.setDate(target.getDate() + days);
+  target.setHours(hours, minutes, 0, 0);
+  return target.getTime() - Date.now();
+};
+const untilNextClock = (hours: number, minutes = 0) => {
+  const today = untilClock(0, hours, minutes);
+  return today > 0 ? today : untilClock(1, hours, minutes);
+};
+// Evaluated when the demo state is built, so displayed times stay on the exact minute.
+const careVisitStart = () => untilNextClock(11, 30);
+const careVisitEnd = () => careVisitStart() + 1.5 * HOUR;
+const doctorStart = () => untilClock(1, 10);
+const doctorEnd = () => untilClock(1, 11);
+const lastWakeUp = () => {
+  const today = untilClock(0, 7, 40);
+  return today < 0 ? today : untilClock(-1, 7, 40);
+};
+const lastBedtime = () => lastWakeUp() - 9 * HOUR - 25 * 60_000;
 
 const DEMO_RADIOS = [
   {
@@ -217,7 +238,7 @@ function createDemoSession() {
       trackingDegraded: false,
     },
     rooms: [
-      { id: ROOM_IDS.entry, name: 'Entrée', kind: 'ENTRY' },
+      { id: ROOM_IDS.entry, name: 'Entrée', kind: 'ENTRANCE' },
       { id: ROOM_IDS.living, name: 'Séjour', kind: 'LIVING_ROOM' },
       { id: ROOM_IDS.kitchen, name: 'Cuisine', kind: 'KITCHEN' },
       { id: ROOM_IDS.bedroom, name: 'Chambre', kind: 'BEDROOM' },
@@ -227,7 +248,7 @@ function createDemoSession() {
       {
         roomId: ROOM_IDS.entry,
         name: 'Entrée',
-        kind: 'ENTRY',
+        kind: 'ENTRANCE',
         color: '#E8F0F3',
         sensors: [
           {
@@ -417,8 +438,8 @@ function createDemoSession() {
       configured: true,
       available: true,
       occupied: false,
-      bedtimeAt: iso(-14 * HOUR),
-      wakeAt: iso(-7 * HOUR),
+      bedtimeAt: iso(lastBedtime()),
+      wakeAt: iso(lastWakeUp()),
     },
     alert: {
       id: 'alert-door-open',
@@ -443,7 +464,7 @@ function createDemoSession() {
     },
     lastActivity: { occurredAt: iso(-18 * MINUTE), capability: 'motion', room: 'Séjour' },
     rooms: [
-      { id: ROOM_IDS.entry, name: 'Entrée', kind: 'ENTRY', sensors: 2 },
+      { id: ROOM_IDS.entry, name: 'Entrée', kind: 'ENTRANCE', sensors: 2 },
       { id: ROOM_IDS.living, name: 'Séjour', kind: 'LIVING_ROOM', sensors: 2 },
       { id: ROOM_IDS.kitchen, name: 'Cuisine', kind: 'KITCHEN', sensors: 2 },
       { id: ROOM_IDS.bedroom, name: 'Chambre', kind: 'BEDROOM', sensors: 1 },
@@ -775,7 +796,7 @@ function createDemoSession() {
       provider: 'onvif',
       status: 'ONLINE',
       compatibility: 'VALIDATED',
-      room: { id: ROOM_IDS.entry, name: 'Entrée', kind: 'ENTRY' },
+      room: { id: ROOM_IDS.entry, name: 'Entrée', kind: 'ENTRANCE' },
       capabilities: { live: true, talk: true, ptz: false, privacy: true, snapshot: true },
       privacyMode: true,
       consentedAt: iso(-30 * DAY),
@@ -929,7 +950,7 @@ function createDemoSession() {
         height: 520,
         scaleCmPerUnit: 5,
         rooms: [
-          room(ROOM_IDS.entry, 'Entrée', 'ENTRY', 0, 0, 150, 170, 7),
+          room(ROOM_IDS.entry, 'Entrée', 'ENTRANCE', 0, 0, 150, 170, 7),
           room(ROOM_IDS.living, 'Séjour', 'LIVING_ROOM', 170, 0, 340, 300, 28),
           room(ROOM_IDS.kitchen, 'Cuisine', 'KITCHEN', 530, 0, 210, 250, 16),
           room(ROOM_IDS.bedroom, 'Chambre', 'BEDROOM', 0, 190, 245, 300, 19),
@@ -1129,14 +1150,14 @@ function createDemoSession() {
       'visit-today',
       'VISIT',
       'Passage de Sophie, aide à domicile',
-      2.5 * HOUR,
+      careVisitStart(),
       'Aide au repas',
     ),
     scheduleItem(
       'appointment-tomorrow',
       'APPOINTMENT',
       'Rendez-vous chez le médecin',
-      26 * HOUR,
+      doctorStart(),
       'Cabinet du Dr Bernard',
     ),
     scheduleItem('visit-weekend', 'VISIT', 'Déjeuner avec Claire', 3 * DAY, 'Visite familiale'),
@@ -1259,8 +1280,8 @@ function createDemoSession() {
       {
         id: 'visit-today',
         visitorName: 'Sophie Bernard',
-        startsAt: iso(2.5 * HOUR),
-        endsAt: iso(4 * HOUR),
+        startsAt: iso(careVisitStart()),
+        endsAt: iso(careVisitEnd()),
         notes: 'Aide au repas',
         completedAt: null,
         completedBy: null,
@@ -1288,8 +1309,8 @@ function createDemoSession() {
       {
         id: 'appointment-tomorrow',
         title: 'Rendez-vous chez le médecin',
-        startsAt: iso(26 * HOUR),
-        endsAt: iso(27 * HOUR),
+        startsAt: iso(doctorStart()),
+        endsAt: iso(doctorEnd()),
         location: 'Cabinet du Dr Bernard',
         notes: 'Apporter les derniers résultats.',
       },
@@ -1345,8 +1366,8 @@ function createDemoSession() {
         id: 'calendar-visit-today',
         type: 'VISIT',
         title: 'Sophie, aide à domicile',
-        startsAt: iso(2.5 * HOUR),
-        endsAt: iso(4 * HOUR),
+        startsAt: iso(careVisitStart()),
+        endsAt: iso(careVisitEnd()),
         detail: 'Visite',
         notes: 'Aide au repas',
         seriesId: 'series-care',
@@ -1357,8 +1378,8 @@ function createDemoSession() {
         id: 'calendar-doctor',
         type: 'APPOINTMENT',
         title: 'Rendez-vous chez le médecin',
-        startsAt: iso(26 * HOUR),
-        endsAt: iso(27 * HOUR),
+        startsAt: iso(doctorStart()),
+        endsAt: iso(doctorEnd()),
         detail: 'Cabinet du Dr Bernard',
         notes: 'Apporter les derniers résultats.',
         seriesId: null,
@@ -1675,7 +1696,7 @@ function createScreenSnapshot(): ScreenSnapshot {
         type: 'appointment',
         pictogram: 'medical',
         title: 'Dr Bernard · 10 h',
-        startsAt: iso(26 * HOUR),
+        startsAt: iso(doctorStart()),
       },
       {
         id: 'visit-weekend',
