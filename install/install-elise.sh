@@ -42,7 +42,7 @@ github_get() {
   local auth=()
   [[ -z "$GITHUB_TOKEN" ]] || auth=(-H "Authorization: Bearer $GITHUB_TOKEN")
   curl -fsSL \
-    -H 'Accept: application/vnd.github+json' \
+    -H "Accept: ${GITHUB_ACCEPT:-application/vnd.github+json}" \
     "${auth[@]}" \
     -H 'X-GitHub-Api-Version: 2022-11-28' \
     -H 'User-Agent: elise-os-installer' \
@@ -70,7 +70,8 @@ else:
     raise SystemExit(f'asset absent: {sys.argv[2]}')
 PY
 )" || fail "asset GitHub absent : $asset_name"
-  github_get -H 'Accept: application/octet-stream' \
+  # GitHub honours only the first Accept header: a second one returns the asset's JSON.
+  GITHUB_ACCEPT=application/octet-stream github_get \
     "$GITHUB_API/repos/$REPOSITORY/releases/assets/$asset_id" -o "$destination" \
     || fail "téléchargement impossible : $asset_name"
 }
