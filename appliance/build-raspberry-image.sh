@@ -60,6 +60,14 @@ cp --dereference /etc/resolv.conf "$work_dir/root/etc/resolv.conf"
 # Services must not start inside the build chroot.
 printf '#!/bin/sh\nexit 101\n' > "$work_dir/root/usr/sbin/policy-rc.d"
 chmod 0755 "$work_dir/root/usr/sbin/policy-rc.d"
+# These apt hooks rebuild search indexes after each update: tens of minutes under emulation.
+apt_hooks="$work_dir/apt-hooks"
+mkdir -p "$apt_hooks"
+for hook in 20apt-esm-hook.conf 20packagekit 50appstream 50command-not-found 99needrestart 99update-notifier; do
+  if [[ -e "$work_dir/root/etc/apt/apt.conf.d/$hook" ]]; then
+    mv "$work_dir/root/etc/apt/apt.conf.d/$hook" "$apt_hooks/"
+  fi
+done
 chroot "$work_dir/root" /bin/bash -euc '
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
@@ -73,6 +81,7 @@ chroot "$work_dir/root" /bin/bash -euc '
   rm -rf /var/lib/apt/lists/*
 '
 rm -f "$work_dir/root/usr/sbin/policy-rc.d" "$work_dir/root/etc/resolv.conf"
+find "$apt_hooks" -mindepth 1 -maxdepth 1 -exec mv -t "$work_dir/root/etc/apt/apt.conf.d/" {} +
 ln -s "${resolv_link:-../run/systemd/resolve/stub-resolv.conf}" "$work_dir/root/etc/resolv.conf"
 
 runtime="$work_dir/root/usr/share/elise/runtime"

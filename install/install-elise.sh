@@ -337,9 +337,11 @@ done
 if [[ -n "$rollback_dump" ]]; then rm -f -- "$rollback_dump"; fi
 
 # The host's Avahi announces Élise reliably; the app checks the identity over HTTP.
+# Avahi reads the file as soon as it appears: write it aside, then rename it in place.
 install -d -m 0755 /etc/avahi/services
-sed "s/@PORT@/${http_port:-8080}/g" "$release_dir/appliance/avahi/elise.service" > /etc/avahi/services/elise.service
-chmod 0644 /etc/avahi/services/elise.service
+sed "s/@PORT@/${http_port:-8080}/g" "$release_dir/appliance/avahi/elise.service" > /etc/avahi/services/elise.tmp
+chmod 0644 /etc/avahi/services/elise.tmp
+mv /etc/avahi/services/elise.tmp /etc/avahi/services/elise.service
 
 # Confirms the coordinator driver, trying each family when the USB name is generic.
 systemctl start --no-block elise-zigbee-setup.service || true

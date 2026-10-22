@@ -4,8 +4,9 @@ ConditionPathExists=!/var/lib/elise/.firstboot-complete
 After=network.target avahi-daemon.service
 
 [Service]
-# Let the mobile app find the box before the final mDNS publisher starts.
-ExecStartPre=-/usr/bin/install -D -m 0644 /usr/share/elise/runtime/appliance/avahi/elise-preparation.service /etc/avahi/services/elise-preparation.service
+# Let the mobile app find the box before the final mDNS publisher starts. Avahi reads
+# the file as soon as it appears: it must arrive complete and readable, hence the rename.
+ExecStartPre=-/bin/sh -c 'install -D -m 0644 /usr/share/elise/runtime/appliance/avahi/elise-preparation.service /etc/avahi/services/elise-preparation.tmp && mv /etc/avahi/services/elise-preparation.tmp /etc/avahi/services/elise-preparation.service'
 ExecStart=/usr/lib/elise/elise-preparation.py
 ExecStopPost=-/usr/bin/rm -f /etc/avahi/services/elise-preparation.service
 Restart=always
