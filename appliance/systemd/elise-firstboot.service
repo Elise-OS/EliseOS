@@ -1,11 +1,14 @@
 [Unit]
 Description=Élise first boot installation
 ConditionPathExists=!/var/lib/elise/.firstboot-complete
-After=cloud-final.service network-online.target docker.service tailscaled.service elise-preparation.service
-Wants=cloud-final.service network-online.target elise-preparation.service
+# cloud-final.service runs after multi-user.target: ordering against it from a
+# multi-user.target dependency creates a cycle, so the script waits for cloud-init.
+After=network-online.target docker.service tailscaled.service elise-preparation.service
+Wants=network-online.target elise-preparation.service
 
 [Service]
-Type=oneshot
+# Not a oneshot: multi-user.target must not wait for the image downloads.
+Type=simple
 ExecStart=/usr/lib/elise/elise-firstboot.sh
 Restart=on-failure
 RestartSec=60

@@ -39,6 +39,30 @@ class UpdateAgentTests(unittest.TestCase):
                 self.assertNotIn("ghp_secret_value", str(result))
                 self.assertIn("ghp_secret_value", auth.read_text(encoding="utf-8"))
 
+    def test_checks_public_releases_without_account(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            env = root / "elise.env"
+            env.write_text("MICHEL_VERSION=v0.1.0\n", encoding="utf-8")
+            with patch.object(agent, "AUTH_FILE", root / "github-auth"), patch.object(
+                agent, "STATUS_FILE", root / "status.json"
+            ), patch.object(agent, "ENV_FILE", env), patch.object(
+                agent,
+                "latest_release",
+                return_value={"tag_name": "v0.1.1", "body": "", "draft": False, "prerelease": False},
+            ):
+                result = agent.check_release()
+                self.assertEqual(result["state"], "AVAILABLE")
+                self.assertFalse(result["authConfigured"])
+
+    def test_asks_for_account_when_repository_is_private(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            with patch.object(agent, "AUTH_FILE", root / "github-auth"), patch.object(
+                agent, "STATUS_FILE", root / "status.json"
+            ), patch.object(agent, "latest_release", side_effect=agent.AuthRequired("Dépôt privé")):
+                self.assertEqual(agent.check_release()["state"], "UNCONFIGURED")
+
     def test_replaces_secrets_in_error_messages(self):
         with tempfile.TemporaryDirectory() as folder:
             auth = Path(folder) / "github-auth"

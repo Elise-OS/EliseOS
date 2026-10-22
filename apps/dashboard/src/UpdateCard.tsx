@@ -160,7 +160,7 @@ export function UpdateCard({
 
         <details
           className="update-credentials"
-          open={credentialsOpen || !status?.authConfigured}
+          open={credentialsOpen || state === 'UNCONFIGURED'}
           onToggle={(event) => setCredentialsOpen(event.currentTarget.open)}
         >
           <summary>

@@ -20,10 +20,10 @@ This repository contains the first end-to-end product slice:
 
 Chaque version publie l’image flashable, ses sommes et signatures, le catalogue Raspberry Pi Imager, l’installateur et un manifeste de conteneurs épinglés par digest.
 
-Les releases et les images GHCR restent privées. Un compte bot GitHub en lecture seule
-(`repo` et `read:packages`) doit être provisionné dans **Réglages → Général → Mise à jour
-d’Élise OS** avant le premier téléchargement. Le secret est conservé uniquement par l’agent
-système root de la machine.
+Avec un dépôt et des images GHCR publics, l’installation et les mises à jour se font sans
+compte. Pour un dépôt privé, un compte bot GitHub en lecture seule (`repo` et `read:packages`)
+se renseigne sur la page de préparation du Raspberry Pi ou dans **Réglages → Général → Mise à
+jour d’Élise OS**. Le secret est conservé uniquement par l’agent système root de la machine.
 
 Any sensor made available to Home Assistant can appear in Élise. Recognized device classes work automatically; unknown entities remain visible to administrators and can be assigned a safe, bounded capability mapping without adding model-specific code. Camera person events use the same universal mapping. Live video requires a local RTSP stream, while two-way audio remains a model-level validated capability.
 

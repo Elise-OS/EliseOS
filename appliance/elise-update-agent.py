@@ -36,7 +36,6 @@ ENV_FILE = Path(os.environ.get("ELISE_CONFIG_FILE", "/etc/elise/elise.env"))
 INSTALL_PROCESS: subprocess.Popen[str] | None = None
 INSTALL_LOCK = threading.Lock()
 
-DEFAULT_STATE = "UNCONFIGURED"
 VALID_VERSION = re.compile(r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$")
 
 
@@ -96,7 +95,7 @@ def redact_error(error: str) -> str:
 def base_status() -> dict[str, Any]:
     auth = read_auth()
     return {
-        "state": DEFAULT_STATE if not auth else "UP_TO_DATE",
+        "state": "UP_TO_DATE",
         "currentVersion": current_version(),
         "latestVersion": None,
         "updateAvailable": False,
@@ -135,23 +134,29 @@ def save_status(status: dict[str, Any]) -> dict[str, Any]:
     return status
 
 
+class AuthRequired(RuntimeError):
+    pass
+
+
 def github_request(path: str) -> Any:
     auth = read_auth()
-    if not auth:
-        raise RuntimeError("Le compte bot GitHub n’est pas configuré.")
-    request = urllib.request.Request(
-        f"{GITHUB_API}{path}",
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {auth[1]}",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "elise-os-update-agent",
-        },
-    )
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "elise-os-update-agent",
+    }
+    # A public repository needs no account; the bot only unlocks a private one.
+    if auth:
+        headers["Authorization"] = f"Bearer {auth[1]}"
+    request = urllib.request.Request(f"{GITHUB_API}{path}", headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
             return json.loads(response.read().decode("utf-8"))
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
+    except urllib.error.HTTPError as error:
+        if not auth and error.code in (401, 403, 404):
+            raise AuthRequired("Dépôt privé : configurez le compte bot GitHub.") from error
+        raise RuntimeError(f"Impossible de vérifier GitHub : {error.reason}") from error
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
         reason = getattr(error, "reason", str(error))
         raise RuntimeError(f"Impossible de vérifier GitHub : {reason}") from error
 
@@ -168,8 +173,6 @@ def latest_release() -> dict[str, Any]:
 
 def check_release() -> dict[str, Any]:
     auth = read_auth()
-    if not auth:
-        return save_status({**base_status(), "state": "UNCONFIGURED", "message": "Configurez le compte bot GitHub."})
     current = current_version()
     status = {**load_status(), "state": "CHECKING", "error": None, "message": None}
     save_status(status)
@@ -183,13 +186,15 @@ def check_release() -> dict[str, Any]:
                 "state": "AVAILABLE" if available else "UP_TO_DATE",
                 "latestVersion": latest,
                 "updateAvailable": available,
-                "authConfigured": True,
-                "authUsername": auth[0],
+                "authConfigured": auth is not None,
+                "authUsername": auth[0] if auth else None,
                 "checkedAt": now(),
                 "releaseNotes": str(release.get("body") or "")[:12000],
                 "progress": None,
             }
         )
+    except AuthRequired as error:
+        return save_status({**base_status(), "state": "UNCONFIGURED", "checkedAt": now(), "message": str(error)})
     except RuntimeError as error:
         return save_status(
             {
@@ -220,7 +225,7 @@ def delete_auth() -> dict[str, Any]:
         AUTH_FILE.unlink()
     except FileNotFoundError:
         pass
-    return save_status({**base_status(), "state": "UNCONFIGURED", "message": "Compte bot supprimé."})
+    return save_status({**base_status(), "message": "Compte bot supprimé."})
 
 
 def finish_install(process: subprocess.Popen[str], version: str) -> None:
@@ -270,8 +275,6 @@ def install(version: str | None = None) -> dict[str, Any]:
     target = version or current.get("latestVersion")
     if not isinstance(target, str) or not VALID_VERSION.fullmatch(target):
         raise ValueError("Version de mise à jour invalide.")
-    if not read_auth():
-        raise RuntimeError("Configurez le compte bot GitHub avant la mise à jour.")
     if version_key(target) <= version_key(current_version()) and target != current.get("latestVersion"):
         raise ValueError("Cette version n’est pas plus récente.")
     with INSTALL_LOCK:

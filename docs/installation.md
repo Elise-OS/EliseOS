@@ -55,14 +55,22 @@ Les sauvegardes de production doivent être chiffrées. Ajoutez une clé publiqu
 ### Première installation depuis une release privée
 
 Les images et releases GitHub d’Élise OS sont privées. Créez un compte bot limité à la lecture
-du dépôt et des packages, puis un PAT classic avec `repo` et `read:packages`. Le fichier suivant
-doit être créé sur la machine avant le premier démarrage de l’image Raspberry Pi, avec les droits
-`root:root` et `0600` :
+du dépôt et des packages, puis un PAT classic avec `repo` et `read:packages`.
+
+Sur Raspberry Pi, deux possibilités :
+
+- au premier démarrage, la page « Préparation d’Élise » (http://elise.local) demande le nom du
+  compte bot et son jeton, les vérifie auprès de GitHub puis reprend l’installation ;
+- ou, juste après l’écriture de la carte, créez sur la partition de démarrage (`system-boot`,
+  lisible depuis Windows et macOS) un fichier `elise-github-auth.txt` :
 
 ```text
 username=elise-os-bot
 token=ghp_…
 ```
+
+Au démarrage, Élise le déplace dans `/etc/elise/github-auth` (`root:root`, `0600`) et l’efface de
+la partition de démarrage. Sur Ubuntu, créez directement `/etc/elise/github-auth` avec ces droits.
 
 Sur une installation déjà démarrée, le compte peut être remplacé depuis **Réglages → Général**.
 Le jeton n’est jamais enregistré dans la base Élise ni inclus dans une image publiée.

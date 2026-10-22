@@ -29,6 +29,14 @@ grep -q -- 'elise-screen-setup.timer' "$root/install/install-elise.sh"
 grep -q -- 'api dashboard' "$root/appliance/elise-screen-setup.sh"
 grep -q -- 'install -d -m 0750 -o 100 -g 102' "$root/scripts/install-jitsi.sh"
 grep -q -- 'up -d --force-recreate jvb' "$root/scripts/install-jitsi.sh"
+# cloud-final.service is ordered after multi-user.target: depending on it from the
+# first-boot unit creates an ordering cycle that systemd breaks by dropping a job.
+if grep -Eq '^(After|Wants|Requires)=.*cloud-final' "$root/appliance/systemd/elise-firstboot.service"; then
+  echo "elise-firstboot.service must wait for cloud-init in its script, not through unit ordering." >&2
+  exit 1
+fi
+grep -q -- '^Type=simple$' "$root/appliance/systemd/elise-firstboot.service"
+grep -q -- 'stub-resolv.conf' "$root/appliance/build-raspberry-image.sh"
 grep -q -- '/api/v1/auth/bootstrap' "$root/docker/dashboard/Caddyfile"
 grep -q -- '/api/docs\*' "$root/docker/dashboard/Caddyfile"
 if grep -Eq -- '/api/v1/(equipment|sensor-devices)/' "$root/docker/dashboard/Caddyfile"; then
