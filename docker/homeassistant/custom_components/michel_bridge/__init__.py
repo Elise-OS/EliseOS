@@ -540,7 +540,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
             mqtt_client.subscribe(INVENTORY_REQUEST_TOPIC, qos=1)
             mqtt_client.publish(
                 STATUS_TOPIC,
-                json.dumps({"status": "online", "version": "0.1.9"}),
+                json.dumps({"status": "online", "version": "0.1.10"}),
                 qos=1,
                 retain=True,
             )
