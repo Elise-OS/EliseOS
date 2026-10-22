@@ -37,6 +37,10 @@ if grep -Eq '^(After|Wants|Requires)=.*cloud-final' "$root/appliance/systemd/eli
 fi
 grep -q -- '^Type=simple$' "$root/appliance/systemd/elise-firstboot.service"
 grep -q -- 'stub-resolv.conf' "$root/appliance/build-raspberry-image.sh"
+# A fresh install must not mistake the missing current link for a previous release.
+grep -q -- '-L "$ELISE_ROOT/current"' "$root/install/install-elise.sh"
+# GitHub honours only the first Accept header; assets need octet-stream alone.
+grep -q -- 'GITHUB_ACCEPT=application/octet-stream' "$root/install/install-elise.sh"
 grep -q -- '/api/v1/auth/bootstrap' "$root/docker/dashboard/Caddyfile"
 grep -q -- '/api/docs\*' "$root/docker/dashboard/Caddyfile"
 if grep -Eq -- '/api/v1/(equipment|sensor-devices)/' "$root/docker/dashboard/Caddyfile"; then

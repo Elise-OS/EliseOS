@@ -202,7 +202,11 @@ release_dir="$ELISE_ROOT/releases/$VERSION"
 if [[ ! -d "$release_dir" ]]; then
   mv "$work_dir/runtime" "$release_dir"
 fi
-previous="$(readlink -f "$ELISE_ROOT/current" 2>/dev/null || true)"
+# readlink -f resolves a missing link to its own path: only a real link is a previous install.
+previous=""
+if [[ -L "$ELISE_ROOT/current" && -d "$ELISE_ROOT/current" ]]; then
+  previous="$(readlink -f "$ELISE_ROOT/current")"
+fi
 previous_env="$ELISE_STATE/previous.env"
 [[ -f "$ELISE_CONFIG/elise.env" ]] && cp "$ELISE_CONFIG/elise.env" "$previous_env"
 rollback_dump=""
@@ -212,6 +216,8 @@ if [[ -n "$previous" ]]; then
   rollback_dump="$(mktemp "$ELISE_STATE/rollback-XXXXXXXX.dump")"
   chmod 600 "$rollback_dump"
   progress "Sauvegarde de sécurité avant la mise à jour"
+  "${old_compose[@]}" up -d --wait postgres >/dev/null \
+    || fail "la base de la version installée ne démarre pas"
   "${old_compose[@]}" exec -T postgres pg_dump -U michel --format=custom michel > "$rollback_dump" \
     || fail "impossible de sauvegarder la base avant la mise à jour"
 fi
