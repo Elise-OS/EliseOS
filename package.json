@@ -21,6 +21,8 @@
     "db:migrate": "pnpm --filter @michel/api prisma:migrate",
     "dev:dashboard": "bash scripts/dev-dashboard.sh",
     "deploy:nas": "bash scripts/deploy-nas.sh",
+    "pi:image": "bash scripts/pi-image.sh",
+    "pi:flash": "bash scripts/pi-image.sh --no-build --flash",
     "nas:status": "bash scripts/nas-status.sh",
     "nas:reset-db": "bash scripts/nas-reset-database.sh",
     "nas:clean-install": "bash scripts/nas-clean-install.sh",
