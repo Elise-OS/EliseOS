@@ -1,0 +1,13 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<!-- Announces Élise to the mobile app while the first boot installation runs. -->
+<service-group>
+  <name>Élise OS</name>
+  <service>
+    <type>_michel._tcp</type>
+    <port>80</port>
+    <txt-record>path=/api/v1/discovery</txt-record>
+    <txt-record>port=80</txt-record>
+    <txt-record>state=preparing</txt-record>
+  </service>
+</service-group>

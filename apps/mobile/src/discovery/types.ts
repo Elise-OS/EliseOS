@@ -1,3 +1,23 @@
+export interface PreparationStep {
+  id: 'settings' | 'network' | 'clock' | 'verify' | 'download' | 'start';
+  label: string;
+  state: 'done' | 'current' | 'failed' | 'pending';
+  detail?: string | null;
+}
+
+/** Progress of a Raspberry Pi first boot, reported before the Élise API exists. */
+export interface PreparationStatus {
+  message: string;
+  error: boolean;
+  needsGithubAuth: boolean;
+  step: PreparationStep['id'];
+  steps: PreparationStep[];
+  percent: number;
+  address?: string | null;
+  ipAddress?: string | null;
+  version?: string | null;
+}
+
 export interface DiscoveryInfo {
   instanceId: string;
   instanceName: string;
@@ -8,6 +28,8 @@ export interface DiscoveryInfo {
   setupRequired: boolean;
   localUrl?: string | null;
   remoteUrl?: string | null;
+  preparing?: boolean;
+  preparation?: PreparationStatus | null;
 }
 
 export interface DiscoveredServer extends DiscoveryInfo {

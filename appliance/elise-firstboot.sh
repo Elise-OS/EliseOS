@@ -15,6 +15,13 @@ failed() {
 trap failed ERR
 
 status_message "Application des réglages du Raspberry Pi…"
+# Pin the identity announced by the preparation page so the final API keeps it
+# and the mobile app sees one Élise from the first minute.
+if [[ ! -L /opt/elise/current ]] && ! grep -q '^MICHEL_INSTANCE_ID=.' /etc/elise/elise.env; then
+  instance_id="$(python3 -c 'import uuid,sys; print(uuid.uuid5(uuid.NAMESPACE_URL, "elise-os:" + sys.argv[1]))' "$(cat /etc/machine-id)")"
+  sed -i '/^MICHEL_INSTANCE_ID=/d' /etc/elise/elise.env
+  printf 'MICHEL_INSTANCE_ID=%s\n' "$instance_id" >> /etc/elise/elise.env
+fi
 # Hostname, user, Wi-Fi and the root filesystem growth come from cloud-init.
 cloud-init status --wait >/dev/null 2>&1 || true
 

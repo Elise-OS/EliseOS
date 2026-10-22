@@ -73,7 +73,8 @@ case "${1:-}" in
     systemctl disable --now \
       elise-firstboot.service elise-preparation.service elise-remote-access-agent.service \
       elise-update-agent.service elise-tailscale-firewall.service elise-screen-setup.timer elise-screen-setup.service \
-      elise-screen-agent.service elise-jitsi-firewall.service 2>/dev/null || true
+      elise-screen-agent.service elise-jitsi-firewall.service elise-zigbee-setup.service 2>/dev/null || true
+    rm -f /etc/udev/rules.d/90-elise-zigbee.rules /etc/avahi/services/elise.service
     if [[ "${2:-}" == --purge ]]; then
       [[ "$ELISE_ROOT" == /opt/elise && "$ELISE_STATE" == /var/lib/elise && "$ELISE_ENV" == /etc/elise/elise.env ]] || {
         echo "Suppression refusée : chemins Élise non standards." >&2

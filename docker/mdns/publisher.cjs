@@ -27,7 +27,14 @@ const readInfo = async () => {
 };
 
 const publish = (info) => {
-  const nextSignature = JSON.stringify(info);
+  // serverTime changes on every read: republishing for it would send a goodbye every refresh.
+  const nextSignature = JSON.stringify([
+    info.instanceId,
+    info.instanceName,
+    info.version,
+    info.apiVersion,
+    Boolean(info.setupRequired),
+  ]);
   if (nextSignature === signature && service?.published) return;
   signature = nextSignature;
   stopPublication();

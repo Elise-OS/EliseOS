@@ -6,7 +6,9 @@ bash -n "$root/install/install-elise.sh" "$root/install/elise" \
   "$root/appliance/elise-firstboot.sh" "$root/appliance/build-raspberry-image.sh" \
   "$root/appliance/elise-tailscale-firewall.sh" "$root/appliance/elise-screen-setup.sh" \
   "$root/scripts/install-complete.sh" "$root/scripts/install-screen.sh" \
-  "$root/scripts/install-jitsi.sh" "$root/appliance/elise-screen-session.sh"
+  "$root/scripts/install-jitsi.sh" "$root/appliance/elise-screen-session.sh" \
+  "$root/appliance/elise-zigbee-setup.sh"
+bash "$root/scripts/detect-zigbee-adapter.test.sh"
 python3 - <<PY
 for path in ("$root/appliance/remote-access-agent.py", "$root/appliance/elise-update-agent.py", "$root/appliance/elise-preparation.py"):
     compile(open(path, encoding="utf-8").read(), path, "exec")

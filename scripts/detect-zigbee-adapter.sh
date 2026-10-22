@@ -3,6 +3,8 @@
 set -euo pipefail
 
 SERIAL_DIR="${MICHEL_SERIAL_BY_ID_DIR:-/dev/serial/by-id}"
+# Drivers confirmed by elise-zigbee-setup for adapters whose USB name says nothing.
+CACHE_FILE="${ZIGBEE_ADAPTER_CACHE:-/var/lib/elise/zigbee/adapters}"
 ENV_FILE=""
 CLASSIFY_NAME=""
 
@@ -129,6 +131,10 @@ else
 fi
 
 selected_type="$(classify_adapter "$(basename "$selected")")"
+if [[ "$selected_type" == "auto" && -r "$CACHE_FILE" ]]; then
+  cached_type="$(awk -v key="$selected" 'index($0, key "=") == 1 { value = substr($0, length(key) + 2) } END { print value }' "$CACHE_FILE")"
+  case "$cached_type" in zstack | ember | deconz | zigate | zboss) selected_type="$cached_type" ;; esac
+fi
 if [[ -n "$ENV_FILE" ]]; then
   set_env_value "$ENV_FILE" ZIGBEE_ADAPTER_MODE auto
   set_env_value "$ENV_FILE" ZIGBEE_ADAPTER "$selected"

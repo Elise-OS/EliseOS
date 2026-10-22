@@ -37,11 +37,19 @@ import {
   resetDemoSession,
 } from '../src/demo/mock-api';
 import { registerPushNotifications } from '../src/notifications';
+import { MobilePreparation } from '../src/setup/MobilePreparation';
 import { MobileSetup, type Locale } from '../src/setup/MobileSetup';
 import { WelcomeExperience } from '../src/welcome/WelcomeExperience';
 
 type Stage =
-  'boot' | 'welcome' | 'discovery' | 'login' | 'setup' | 'dashboard-preview' | 'dashboard';
+  | 'boot'
+  | 'welcome'
+  | 'discovery'
+  | 'preparing'
+  | 'login'
+  | 'setup'
+  | 'dashboard-preview'
+  | 'dashboard';
 type LoginOption = { id: string; displayName: string; identifier: string };
 
 const LOCALE_KEY = '@elise:locale';
@@ -322,6 +330,10 @@ export default function HomeScreen() {
       setEmail('');
       setPassword('');
       setLoginOptions([]);
+      if (current.preparing) {
+        setStage('preparing');
+        return;
+      }
       if (current.setupRequired) {
         setStage('setup');
         return;
@@ -339,6 +351,17 @@ export default function HomeScreen() {
       setBusy(false);
     }
   };
+
+  // The preparation screen polls with a stable callback; it reads the latest state here.
+  const chooseServerRef = useRef(chooseServer);
+  const serverRef = useRef(server);
+  useEffect(() => {
+    chooseServerRef.current = chooseServer;
+    serverRef.current = server;
+  });
+  const onPreparationReady = useCallback(() => {
+    if (serverRef.current) void chooseServerRef.current(asDiscovered(serverRef.current));
+  }, []);
 
   const connectManual = async () => {
     setBusy(true);
@@ -528,11 +551,13 @@ export default function HomeScreen() {
             name={
               candidate.instanceId === SETUP_PREVIEW_ID
                 ? 'construct-outline'
-                : remembered
-                  ? 'time-outline'
-                  : candidate.source === 'tailscale'
-                    ? 'cloud-outline'
-                    : 'home-outline'
+                : candidate.preparing
+                  ? 'hourglass-outline'
+                  : remembered
+                    ? 'time-outline'
+                    : candidate.source === 'tailscale'
+                      ? 'cloud-outline'
+                      : 'home-outline'
             }
             size={22}
             color={colors.blue}
@@ -550,23 +575,27 @@ export default function HomeScreen() {
           <View style={styles.serverStatus}>
             <View style={[styles.dot, candidate.setupRequired && styles.dotAmber]} />
             <Text style={styles.serverStatusText}>
-              {candidate.setupRequired
-                ? candidate.instanceId === SETUP_PREVIEW_ID
-                  ? locale === 'fr'
-                    ? 'DÉMO · ÉLISE OS À CONFIGURER'
-                    : 'DEMO · ÉLISE OS NEEDS SETUP'
-                  : locale === 'fr'
-                    ? 'ÉLISE OS À CONFIGURER'
-                    : 'ÉLISE OS NEEDS SETUP'
-                : remembered
-                  ? locale === 'fr'
-                    ? 'CONNEXION RÉCENTE'
-                    : 'RECENT CONNECTION'
-                  : candidate.source === 'tailscale'
-                    ? 'VIA TAILSCALE'
+              {candidate.preparing
+                ? locale === 'fr'
+                  ? `PRÉPARATION EN COURS · ${Math.round(candidate.preparation?.percent ?? 0)} %`
+                  : `GETTING READY · ${Math.round(candidate.preparation?.percent ?? 0)} %`
+                : candidate.setupRequired
+                  ? candidate.instanceId === SETUP_PREVIEW_ID
+                    ? locale === 'fr'
+                      ? 'DÉMO · ÉLISE OS À CONFIGURER'
+                      : 'DEMO · ÉLISE OS NEEDS SETUP'
                     : locale === 'fr'
-                      ? 'PRÊT À SE CONNECTER'
-                      : 'READY TO CONNECT'}
+                      ? 'ÉLISE OS À CONFIGURER'
+                      : 'ÉLISE OS NEEDS SETUP'
+                  : remembered
+                    ? locale === 'fr'
+                      ? 'CONNEXION RÉCENTE'
+                      : 'RECENT CONNECTION'
+                    : candidate.source === 'tailscale'
+                      ? 'VIA TAILSCALE'
+                      : locale === 'fr'
+                        ? 'PRÊT À SE CONNECTER'
+                        : 'READY TO CONNECT'}
             </Text>
           </View>
         </View>
@@ -864,6 +893,19 @@ export default function HomeScreen() {
           </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
+    );
+  }
+
+  if (stage === 'preparing' && server) {
+    return (
+      <MobilePreparation
+        url={server.url}
+        instanceName={server.instanceName}
+        initial={server.preparation}
+        locale={locale}
+        onBack={() => setStage('discovery')}
+        onReady={onPreparationReady}
+      />
     );
   }
 

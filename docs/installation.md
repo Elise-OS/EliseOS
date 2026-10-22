@@ -10,8 +10,10 @@ Prévoyez un modèle avec au moins 4 Go de mémoire et un stockage de 32 Go. Un 
 2. Dans « Système d’exploitation », choisissez « Utiliser une image personnalisée » puis l’image `elise-os-…img.xz` de la dernière version GitHub. Le fichier `os_list.json` publié avec chaque version peut aussi servir de dépôt personnalisé.
 3. Dans les réglages d’Imager, indiquez le nom `elise`, votre Wi-Fi, le pays, le fuseau horaire et, si nécessaire, votre clé SSH.
 4. Écrivez l’image, placez le stockage dans le Raspberry Pi et démarrez-le.
-5. Ouvrez [http://elise.local](http://elise.local). La page « Préparation d’Élise » affiche les téléchargements puis laisse automatiquement place à l’assistant.
+5. Ouvrez [http://elise.local](http://elise.local), ou l’app Élise sur un téléphone connecté au même Wi-Fi : le boîtier s’annonce sur le réseau dès la préparation. La page « Préparation d’Élise » suit chaque étape et le nombre de composants téléchargés, puis laisse automatiquement place à l’assistant.
 6. Associez Tailscale depuis l’assistant. Jitsi, Chromium plein écran, la sortie HDMI/DisplayPort et les permissions caméra/micro se terminent alors automatiquement, sans seconde commande.
+
+Branchez la clé Zigbee quand vous voulez, avant ou après l’installation. Élise la reconnaît à son nom quand c’est possible ; sinon elle essaie chaque famille de pilotes Zigbee2MQTT (Silicon Labs, Texas Instruments, ZiGate, deCONZ, ZBOSS), retient celui qui répond et relance Zigbee2MQTT. Débrancher la clé arrête proprement Zigbee2MQTT. L’état est consultable dans `/var/lib/elise/zigbee/status.json`.
 
 Une coupure d’Internet n’empêche pas le Raspberry Pi de démarrer. La page locale indique le problème et l’installation reprend automatiquement quand Internet revient.
 

@@ -16,7 +16,8 @@ type ErrorListener = (message: string) => void;
 const SERVICE_TYPE = 'michel';
 const SERVICE_PROTOCOL = 'tcp';
 const SERVICE_DOMAIN = 'local.';
-const PORTS = [8080, 8090] as const;
+// Raspberry Pi appliances answer on port 80, from the preparation page onwards.
+const PORTS = [80, 8080, 8090] as const;
 const PORT = PORTS[0];
 const PROBE_TIMEOUT = 700;
 const CONCURRENCY = 32;

@@ -217,9 +217,9 @@ if [[ -n "$previous" ]]; then
   chmod 600 "$rollback_dump"
   progress "Sauvegarde de sécurité avant la mise à jour"
   "${old_compose[@]}" up -d --wait postgres >/dev/null \
-    || fail "la base de la version installée ne démarre pas"
+    || { rm -f -- "$rollback_dump"; fail "la base de la version installée ne démarre pas"; }
   "${old_compose[@]}" exec -T postgres pg_dump -U michel --format=custom michel > "$rollback_dump" \
-    || fail "impossible de sauvegarder la base avant la mise à jour"
+    || { rm -f -- "$rollback_dump"; fail "impossible de sauvegarder la base avant la mise à jour"; }
 fi
 ln -sfn "$release_dir" "$ELISE_ROOT/current"
 
@@ -246,6 +246,10 @@ install -m 0644 "$release_dir/appliance/systemd/elise-tailscale-firewall.service
 install -m 0755 "$release_dir/appliance/elise-screen-setup.sh" /usr/lib/elise/elise-screen-setup
 install -m 0644 "$release_dir/appliance/systemd/elise-screen-setup.service" /etc/systemd/system/
 install -m 0644 "$release_dir/appliance/systemd/elise-screen-setup.timer" /etc/systemd/system/
+install -m 0755 "$release_dir/appliance/elise-zigbee-setup.sh" /usr/lib/elise/elise-zigbee-setup
+install -m 0644 "$release_dir/appliance/systemd/elise-zigbee-setup.service" /etc/systemd/system/
+install -m 0644 "$release_dir/appliance/udev/90-elise-zigbee.rules" /etc/udev/rules.d/
+udevadm control --reload-rules 2>/dev/null || true
 printf 'ELISE_AGENT_GID=%s\n' "$AGENT_GID" > "$ELISE_CONFIG/agent.env"
 
 if [[ ! -f "$ELISE_CONFIG/elise.env" ]]; then
@@ -275,6 +279,7 @@ fi
 
 systemctl daemon-reload
 systemctl enable --now elise-remote-access-agent.service elise-update-agent.service elise-tailscale-firewall.service
+systemctl enable elise-zigbee-setup.service
 
 progress "Détection des équipements Zigbee"
 "$release_dir/scripts/detect-zigbee-adapter.sh" --write-env "$ELISE_CONFIG/elise.env" || true
@@ -330,6 +335,14 @@ until curl --fail --silent "http://127.0.0.1:$(sed -n 's/^MICHEL_HTTP_PORT=//p' 
 done
 
 if [[ -n "$rollback_dump" ]]; then rm -f -- "$rollback_dump"; fi
+
+# The host's Avahi announces Élise reliably; the app checks the identity over HTTP.
+install -d -m 0755 /etc/avahi/services
+sed "s/@PORT@/${http_port:-8080}/g" "$release_dir/appliance/avahi/elise.service" > /etc/avahi/services/elise.service
+chmod 0644 /etc/avahi/services/elise.service
+
+# Confirms the coordinator driver, trying each family when the USB name is generic.
+systemctl start --no-block elise-zigbee-setup.service || true
 
 if [[ "$(sed -n 's/^ELISE_SCREEN_ENABLED=//p' "$ELISE_CONFIG/elise.env" | tail -1)" == true ]]; then
   progress "Planification de l’écran et de Jitsi"
