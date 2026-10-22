@@ -6,7 +6,6 @@ import {
   Animated,
   Image,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -19,6 +18,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import eliseLogo from '../../assets/logo.png';
 import { mobileApi } from '../api';
 import type { SavedServer } from '../discovery/types';
+import { isClock } from './clock';
+import { RemoteAccessStep } from './RemoteAccessStep';
+import { RoutineTimeField } from './RoutineTimeField';
+import { SetupSummary } from './SetupSummary';
 
 export type Locale = 'fr' | 'en';
 
@@ -104,36 +107,35 @@ function generateUsername(firstName: string, lastName: string): string {
 
 const copy = {
   fr: {
-    steps: ['Bienvenue', 'Vous', 'Résident', 'Apprentissage', 'Accès privé', 'Terminé'],
+    steps: ['Bienvenue', 'Vous', 'Résident', 'Apprentissage', 'Accès à distance', 'Récapitulatif'],
     eyebrows: [
       '',
       'VOTRE RÔLE',
       'PROFIL D’ACCOMPAGNEMENT',
       'PREMIERS REPÈRES',
-      'OPTION RECOMMANDÉE',
-      'ENVIRONNEMENT CRÉÉ',
+      'ACCÈS À DISTANCE · RECOMMANDÉ',
+      'RÉCAPITULATIF',
     ],
     titles: [
       'Préparons Élise pour une personne qui compte.',
       'Créons votre accès',
       'Qui Élise va-t-elle accompagner ?',
       'À quoi ressemble une journée habituelle ?',
-      'Retrouvez Élise, même à distance',
-      'Votre environnement Élise est créé',
+      'Gardez un œil sur Élise, même en déplacement',
+      'Tout est prêt',
     ],
     intros: [
       'La création de votre environnement se fait ici, directement sur votre téléphone.',
       'Vous serez le gestionnaire principal de cette installation.',
       'Ces quelques repères permettent à Élise de s’adresser naturellement au résident.',
       'Des plages approximatives suffisent. Élise les affinera progressivement.',
-      'L’accès passe par votre espace privé Tailscale. Il peut être activé maintenant ou plus tard depuis les réglages.',
-      'Découvrez maintenant les espaces essentiels de l’application. Vous créerez ensuite le logement accompagné pas à pas.',
+      'Tailscale relie votre téléphone à Élise par un tunnel privé et chiffré, sans rien ouvrir sur Internet.',
+      'Vérifiez ces informations : Élise crée ensuite votre environnement.',
     ],
     start: 'Commencer l’installation',
     next: 'Continuer',
     finish: 'Créer mon environnement',
     remoteContinue: 'Continuer',
-    done: 'Découvrir Élise',
     back: 'Retour',
     firstName: 'Prénom',
     lastName: 'Nom',
@@ -153,7 +155,6 @@ const copy = {
     routineHint: 'Des repères souples, à votre rythme',
     routineFrom: 'À partir de',
     routineUntil: 'Jusqu’à',
-    routineConnector: 'à',
     routineLearn: 'Élise l’apprendra progressivement',
     routineNote: 'Ces horaires sont des repères de départ, jamais des règles rigides.',
     localBadge: 'Entièrement local',
@@ -174,54 +175,40 @@ const copy = {
       'Finalisation de l’environnement',
     ],
     readyTitle: 'Votre environnement est prêt',
-    readyText: 'L’environnement est créé. L’accès privé peut être activé à l’étape suivante.',
-    remoteChecking: 'Vérification de l’accès privé…',
-    remoteUnavailable: 'Le service d’accès privé n’est pas disponible sur cet appareil.',
-    remoteSignedOut:
-      'Reliez Élise à Tailscale. Vous pourrez aussi le faire plus tard dans les réglages.',
-    remoteAuthorizing: 'Validez la connexion dans Tailscale pour continuer l’activation.',
-    remoteConfiguring: 'Élise prépare votre adresse privée.',
-    remoteReady: 'L’accès privé est activé.',
-    remoteDegraded:
-      'L’accès privé demande une vérification. Vous pourrez reprendre dans les réglages.',
-    remoteConnect: 'Activer l’accès privé',
-    remoteApprove: 'Ouvrir Tailscale',
-    remoteEnable: 'Terminer l’activation',
+    readyText: 'Tout est en place. Découvrons Élise ensemble.',
     remoteActionFailed:
       'Cette action est indisponible pour le moment. Vous pourrez réessayer dans les réglages.',
-    remoteAddress: 'Adresse privée',
   },
   en: {
-    steps: ['Welcome', 'You', 'Resident', 'Learning', 'Private access', 'Done'],
+    steps: ['Welcome', 'You', 'Resident', 'Learning', 'Remote access', 'Summary'],
     eyebrows: [
       '',
       'YOUR ROLE',
       'SUPPORT PROFILE',
       'FIRST ROUTINES',
-      'RECOMMENDED OPTION',
-      'ENVIRONMENT CREATED',
+      'REMOTE ACCESS · RECOMMENDED',
+      'SUMMARY',
     ],
     titles: [
       'Set up Élise for someone who matters.',
       'Create your access',
       'Who will Élise support?',
       'What does a typical day look like?',
-      'Reach Élise while away from home',
-      'Your Élise environment is ready',
+      'Keep an eye on Élise while away',
+      'Everything is ready',
     ],
     intros: [
       'Create your environment here, directly on your phone.',
       'You will be the primary manager for this installation.',
       'These details help Élise address the resident naturally.',
       'Approximate time ranges are enough. Élise will refine them over time.',
-      'Access uses your private Tailscale network. Enable it now or later from settings.',
-      'Discover the essential areas of the app. You can create the home step by step afterward.',
+      'Tailscale links your phone to Élise through a private, encrypted tunnel, without opening anything to the Internet.',
+      'Check these details: Élise then creates your environment.',
     ],
     start: 'Start setup',
     next: 'Continue',
     finish: 'Create my environment',
     remoteContinue: 'Continue',
-    done: 'Discover Élise',
     back: 'Back',
     firstName: 'First name',
     lastName: 'Last name',
@@ -240,7 +227,6 @@ const copy = {
     routineHint: 'Flexible starting points, at your pace',
     routineFrom: 'From',
     routineUntil: 'Until',
-    routineConnector: 'to',
     routineLearn: 'Élise can learn this over time',
     routineNote: 'These times are starting points, never rigid rules.',
     unknown: 'I don’t know',
@@ -262,19 +248,8 @@ const copy = {
       'Finalizing the environment',
     ],
     readyTitle: 'Your environment is ready',
-    readyText: 'The environment is ready. You can set up private access in the next step.',
-    remoteChecking: 'Checking private access…',
-    remoteUnavailable: 'The private access service is not available on this device.',
-    remoteSignedOut: 'Connect Élise to Tailscale. You can also do this later in settings.',
-    remoteAuthorizing: 'Approve the connection in Tailscale to continue setup.',
-    remoteConfiguring: 'Élise is preparing your private address.',
-    remoteReady: 'Private access is active.',
-    remoteDegraded: 'Private access needs attention. You can continue from settings later.',
-    remoteConnect: 'Enable private access',
-    remoteApprove: 'Open Tailscale',
-    remoteEnable: 'Finish activation',
+    readyText: 'Everything is in place. Let’s discover Élise together.',
     remoteActionFailed: 'This action is unavailable right now. You can retry in settings later.',
-    remoteAddress: 'Private address',
   },
 } as const;
 
@@ -328,6 +303,11 @@ export function MobileSetup({
   const [busy, setBusy] = useState(false);
   const [creationPhase, setCreationPhase] = useState<'form' | 'creating' | 'ready'>('form');
   const [creationStep, setCreationStep] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  // Every step opens at its top, not where the previous one was scrolled to.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [step, creationPhase]);
   const [session, setSession] = useState<{ token: string; displayName: string } | null>(null);
   const [remoteStatus, setRemoteStatus] = useState<RemoteAccessStatus | null>(null);
   const [remoteChecked, setRemoteChecked] = useState(false);
@@ -440,6 +420,15 @@ export function MobileSetup({
       setError(t.required);
       return false;
     }
+    if (
+      step === 3 &&
+      Object.values(draft.habits).some(
+        (habit) => !habit.unknown && (!isClock(habit.from) || !isClock(habit.to)),
+      )
+    ) {
+      setError(t.required);
+      return false;
+    }
     setError('');
     return true;
   };
@@ -457,11 +446,11 @@ export function MobileSetup({
     }
   };
 
-  const submit = async () => {
+  // Linking Élise to Tailscale needs an administrator session: the account is created
+  // when leaving the routines, and the creation screen plays once everything is chosen.
+  const createAccount = async () => {
     if (!valid()) return;
-    if (previewMode) {
-      await playCreation();
-      setCreationPhase('form');
+    if (previewMode || session) {
       setStep(4);
       return;
     }
@@ -496,63 +485,58 @@ export function MobileSetup({
       habits: draft.habits,
     };
     try {
-      const [result] = await Promise.all([
-        mobileApi.bootstrap(server, {
-          displayName: `${draft.firstName.trim()} ${draft.lastName.trim()}`,
-          password: draft.password,
-          installation,
-        }),
-        playCreation(),
-      ]);
-      setCreationPhase('ready');
-      await new Promise((resolve) => setTimeout(resolve, 900));
+      const result = await mobileApi.bootstrap(server, {
+        displayName: `${draft.firstName.trim()} ${draft.lastName.trim()}`,
+        password: draft.password,
+        installation,
+      });
       setSession({ token: result.accessToken, displayName: result.user.displayName });
       setRemoteStatus(null);
       setRemoteChecked(false);
       setStep(4);
-      setCreationPhase('form');
     } catch {
-      setCreationPhase('form');
       setError(t.failed);
     } finally {
       setBusy(false);
     }
   };
 
-  const next = async () => {
-    if (!valid()) return;
-    if (step === 3) void submit();
-    else if (step === 4) setStep(5);
-    else if (step === 5) {
-      if (previewMode) onPreviewCompleted?.();
-      else if (session) {
-        setBusy(true);
-        setError('');
-        try {
-          await onCompleted(session.token, session.displayName);
-        } catch {
-          setError(t.failed);
-        } finally {
-          setBusy(false);
-        }
-      }
-    } else setStep((value) => value + 1);
+  const finish = async () => {
+    setError('');
+    await playCreation();
+    setCreationPhase('ready');
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    if (previewMode) {
+      onPreviewCompleted?.();
+      return;
+    }
+    if (!session) {
+      setCreationPhase('form');
+      return;
+    }
+    try {
+      await onCompleted(session.token, session.displayName);
+    } catch {
+      setCreationPhase('form');
+      setError(t.failed);
+    }
   };
 
-  const remoteDescription = remoteStatus
-    ? {
-        UNAVAILABLE: t.remoteUnavailable,
-        SIGNED_OUT: t.remoteSignedOut,
-        AUTHORIZING: t.remoteAuthorizing,
-        CONFIGURING: t.remoteConfiguring,
-        READY: t.remoteReady,
-        DEGRADED: t.remoteDegraded,
-      }[remoteStatus.state]
-    : previewMode
-      ? t.remoteSignedOut
-      : remoteChecked
-        ? t.remoteUnavailable
-        : t.remoteChecking;
+  const next = () => {
+    if (!valid()) return;
+    if (step === 3) void createAccount();
+    else if (step === 5) void finish();
+    else setStep((value) => value + 1);
+  };
+
+  // Coming back from Tailscale, the last activation step needs no extra tap.
+  const autoEnabled = useRef(false);
+  useEffect(() => {
+    if (step !== 4 || remoteBusy || autoEnabled.current || remoteStatus?.state !== 'CONFIGURING')
+      return;
+    autoEnabled.current = true;
+    void runRemoteAction('enable');
+  }, [remoteBusy, remoteStatus?.state, runRemoteAction, step]);
 
   if (creationPhase !== 'form') {
     const ready = creationPhase === 'ready';
@@ -623,12 +607,12 @@ export function MobileSetup({
     >
       <SafeAreaView style={styles.shell}>
         <View style={styles.header}>
-          {step <= 3 ? (
+          {step <= 3 || step === 5 ? (
             <Pressable style={styles.back} onPress={step ? () => setStep(step - 1) : onBack}>
               <Ionicons name="arrow-back" size={20} color={colors.navy} />
             </Pressable>
           ) : (
-            <View style={styles.back} />
+            <View style={styles.backSpacer} />
           )}
           <Text style={styles.brand}>Élise</Text>
           <Text style={styles.counter}>
@@ -640,7 +624,11 @@ export function MobileSetup({
             style={[styles.progressValue, { width: `${((step + 1) / t.steps.length) * 100}%` }]}
           />
         </View>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+        >
           {previewMode ? (
             <View style={styles.previewBadge}>
               <Ionicons name="eye-outline" size={16} color={colors.blue} />
@@ -833,30 +821,25 @@ export function MobileSetup({
                           </Text>
                         </View>
                       </View>
-                      <View style={styles.routineTimeRow}>
-                        <View style={styles.routineTimeField}>
-                          <Text style={styles.routineTimeLabel}>{t.routineFrom}</Text>
-                          <TextInput
-                            style={[styles.timeInput, habit.unknown && styles.disabled]}
-                            editable={!habit.unknown}
-                            value={habit.from}
-                            onChangeText={(from) =>
-                              patch({ habits: { ...draft.habits, [name]: { ...habit, from } } })
-                            }
-                          />
-                        </View>
-                        <Text style={styles.routineTimeSeparator}>{t.routineConnector}</Text>
-                        <View style={styles.routineTimeField}>
-                          <Text style={styles.routineTimeLabel}>{t.routineUntil}</Text>
-                          <TextInput
-                            style={[styles.timeInput, habit.unknown && styles.disabled]}
-                            editable={!habit.unknown}
-                            value={habit.to}
-                            onChangeText={(to) =>
-                              patch({ habits: { ...draft.habits, [name]: { ...habit, to } } })
-                            }
-                          />
-                        </View>
+                      <View style={styles.routineTimes}>
+                        <RoutineTimeField
+                          label={t.routineFrom}
+                          value={habit.from}
+                          disabled={habit.unknown}
+                          locale={locale}
+                          onChange={(from) =>
+                            patch({ habits: { ...draft.habits, [name]: { ...habit, from } } })
+                          }
+                        />
+                        <RoutineTimeField
+                          label={t.routineUntil}
+                          value={habit.to}
+                          disabled={habit.unknown}
+                          locale={locale}
+                          onChange={(to) =>
+                            patch({ habits: { ...draft.habits, [name]: { ...habit, to } } })
+                          }
+                        />
                       </View>
                       <Choice
                         active={habit.unknown}
@@ -887,63 +870,34 @@ export function MobileSetup({
           ) : null}
 
           {step === 4 ? (
-            <View style={styles.remotePanel}>
-              <View style={styles.remoteStatus}>
-                <Ionicons name="shield-checkmark-outline" size={22} color={colors.green} />
-                <Text style={styles.remoteMessage}>{remoteDescription}</Text>
-              </View>
-              {remoteStatus?.state === 'SIGNED_OUT' && session ? (
-                <Pressable
-                  style={styles.remoteAction}
-                  disabled={remoteBusy}
-                  onPress={() => void runRemoteAction('connect')}
-                >
-                  {remoteBusy ? <ActivityIndicator color={colors.navy} /> : null}
-                  <Text style={styles.remoteActionText}>{t.remoteConnect}</Text>
-                </Pressable>
-              ) : null}
-              {remoteStatus?.state === 'AUTHORIZING' && remoteStatus.authUrl ? (
-                <Pressable
-                  style={styles.remoteAction}
-                  onPress={() =>
-                    void Linking.openURL(remoteStatus.authUrl!).catch(() =>
-                      setRemoteError(t.remoteActionFailed),
-                    )
-                  }
-                >
-                  <Text style={styles.remoteActionText}>{t.remoteApprove}</Text>
-                  <Ionicons name="open-outline" size={18} color={colors.navy} />
-                </Pressable>
-              ) : null}
-              {remoteStatus?.state === 'CONFIGURING' && session ? (
-                <Pressable
-                  style={styles.remoteAction}
-                  disabled={remoteBusy}
-                  onPress={() => void runRemoteAction('enable')}
-                >
-                  {remoteBusy ? <ActivityIndicator color={colors.navy} /> : null}
-                  <Text style={styles.remoteActionText}>{t.remoteEnable}</Text>
-                </Pressable>
-              ) : null}
-              {remoteStatus?.remoteUrl ? (
-                <Pressable
-                  style={styles.remoteAddress}
-                  onPress={() => void Linking.openURL(remoteStatus.remoteUrl!).catch(() => {})}
-                >
-                  <Text style={styles.remoteAddressLabel}>{t.remoteAddress}</Text>
-                  <Text style={styles.remoteAddressValue}>{remoteStatus.remoteUrl}</Text>
-                </Pressable>
-              ) : null}
-              {remoteError ? <Text style={styles.remoteError}>{remoteError}</Text> : null}
-            </View>
+            <RemoteAccessStep
+              locale={locale}
+              status={remoteStatus}
+              checked={remoteChecked}
+              busy={remoteBusy}
+              error={remoteError}
+              previewMode={previewMode}
+              onConnect={() => void runRemoteAction('connect')}
+              onEnable={() => void runRemoteAction('enable')}
+              onError={() => setRemoteError(t.remoteActionFailed)}
+            />
           ) : null}
 
           {step === 5 ? (
-            <View style={styles.readyPanel}>
-              <View style={styles.readyCheck}>
-                <Ionicons name="checkmark" size={34} color="#fff" />
-              </View>
-            </View>
+            <SetupSummary
+              locale={locale}
+              caregiver={{
+                name: `${draft.firstName.trim()} ${draft.lastName.trim()}`,
+                relation: draft.relation,
+                username: draft.username,
+              }}
+              resident={{
+                dailyName: draft.dailyName.trim(),
+                fullName: `${draft.residentFirstName.trim()} ${draft.residentLastName.trim()}`,
+              }}
+              habits={draft.habits}
+              remoteReady={remoteStatus?.state === 'READY'}
+            />
           ) : null}
 
           {error ? (
@@ -955,7 +909,7 @@ export function MobileSetup({
           <Pressable
             style={styles.primary}
             disabled={busy || (step === 5 && !previewMode && !session)}
-            onPress={step === 0 ? () => setStep(1) : () => void next()}
+            onPress={step === 0 ? () => setStep(1) : next}
           >
             {busy ? (
               <ActivityIndicator color="#fff" />
@@ -964,17 +918,13 @@ export function MobileSetup({
                 <Text style={styles.primaryText}>
                   {step === 0
                     ? t.start
-                    : step === 3
-                      ? previewMode
-                        ? t.previewFinish
-                        : t.finish
-                      : step === 4
-                        ? t.remoteContinue
-                        : step === 5
-                          ? previewMode
-                            ? t.previewFinish
-                            : t.done
-                          : t.next}
+                    : step === 4
+                      ? t.remoteContinue
+                      : step === 5
+                        ? previewMode
+                          ? t.previewFinish
+                          : t.finish
+                        : t.next}
                 </Text>
                 <Ionicons name="arrow-forward" size={19} color="#fff" />
               </>
@@ -995,6 +945,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  backSpacer: { width: 40, height: 40 },
   back: {
     width: 40,
     height: 40,
@@ -1114,12 +1065,13 @@ const styles = StyleSheet.create({
   residentFormHeading: { marginBottom: 10 },
   residentFormTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 21 },
   residentFormHint: { color: colors.muted, fontSize: 11, marginTop: 4 },
+  // The resident form has no gap: the label owns the space above its field.
   fieldLabel: {
     color: colors.navy,
     fontSize: 12,
     fontWeight: '800',
-    marginTop: 12,
-    marginBottom: -5,
+    marginTop: 14,
+    marginBottom: 7,
   },
   input: {
     minHeight: 52,
@@ -1195,10 +1147,7 @@ const styles = StyleSheet.create({
   habitHeadingCopy: { flex: 1 },
   habitName: { color: colors.navy, fontSize: 15, fontWeight: '800', marginTop: 2 },
   habitSummary: { color: colors.muted, fontSize: 10, marginTop: 3 },
-  routineTimeRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  routineTimeField: { flex: 1, gap: 5 },
-  routineTimeLabel: { color: colors.muted, fontSize: 9, fontWeight: '700' },
-  routineTimeSeparator: { color: colors.muted, fontSize: 10, paddingBottom: 14 },
+  routineTimes: { gap: 8 },
   routineNote: {
     borderRadius: 14,
     borderWidth: 1,
@@ -1211,46 +1160,6 @@ const styles = StyleSheet.create({
   },
   routineNoteText: { flex: 1, color: colors.muted, fontSize: 10, lineHeight: 16 },
   routineNoteTitle: { color: colors.navy, fontWeight: '800' },
-  remotePanel: {
-    backgroundColor: colors.paper,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: colors.line,
-    padding: 17,
-    gap: 14,
-  },
-  remoteStatus: { flexDirection: 'row', alignItems: 'flex-start', gap: 11 },
-  remoteMessage: { flex: 1, color: colors.navy, lineHeight: 21 },
-  remoteAction: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.line,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  remoteActionText: { color: colors.navy, fontWeight: '800' },
-  remoteAddress: { borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 13, gap: 4 },
-  remoteAddressLabel: { color: colors.muted, fontSize: 12 },
-  remoteAddressValue: { color: colors.navy, fontWeight: '700' },
-  remoteError: { color: colors.red, lineHeight: 19 },
-  readyPanel: { alignItems: 'center', paddingVertical: 15 },
-  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  timeInput: {
-    flex: 1,
-    minHeight: 43,
-    textAlign: 'center',
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: colors.line,
-    color: colors.navy,
-    backgroundColor: '#FBFCFA',
-    paddingHorizontal: 7,
-  },
-  disabled: { opacity: 0.45 },
   error: {
     flexDirection: 'row',
     gap: 8,
