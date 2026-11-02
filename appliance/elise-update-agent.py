@@ -4,6 +4,10 @@
 The web API talks to this process over a root-owned Unix socket.  GitHub
 credentials and the actual installer never cross into the application
 container; only redacted status is returned.
+
+An installation runs as `elise-update-agent.py apply <version>` in its own
+transient systemd unit: it outlives restarts of this agent and of the
+containers, and is not bound by this service's sandbox.
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ import os
 import random
 import re
 import subprocess
+import sys
 import threading
 import time
 import urllib.error
@@ -33,8 +38,24 @@ GITHUB_API = os.environ.get("ELISE_GITHUB_API", "https://api.github.com").rstrip
 INSTALLER = os.environ.get("ELISE_INSTALLER", "/usr/local/bin/elise")
 VERSION_FILE = Path(os.environ.get("ELISE_VERSION_FILE", "/usr/share/elise/version"))
 ENV_FILE = Path(os.environ.get("ELISE_CONFIG_FILE", "/etc/elise/elise.env"))
-INSTALL_PROCESS: subprocess.Popen[str] | None = None
+RUNNER_UNIT = os.environ.get("ELISE_UPDATE_RUNNER_UNIT", "elise-update-install")
+AGENT_SERVICE = "elise-update-agent.service"
+AGENT_PATH = os.path.abspath(__file__)
+# GitHub allows 60 anonymous API calls an hour: every dashboard load must not spend one.
+CHECK_MIN_INTERVAL = 60
 INSTALL_LOCK = threading.Lock()
+RUNNING_STATES = {"DOWNLOADING", "INSTALLING", "VERIFYING", "RESTARTING"}
+# The installer announces each step with "→ "; the step gives the state shown to the family.
+INSTALL_STEPS = (
+    ("Installation de l’outil de vérification", "DOWNLOADING", 8),
+    ("Téléchargement d’Élise OS", "DOWNLOADING", 12),
+    ("Sauvegarde de sécurité", "INSTALLING", 25),
+    ("Détection des équipements", "INSTALLING", 35),
+    ("Téléchargement des composants", "DOWNLOADING", 45),
+    ("Démarrage et vérification", "VERIFYING", 80),
+    ("Planification de l’écran", "RESTARTING", 92),
+    ("Élise est prête", "RESTARTING", 96),
+)
 
 VALID_VERSION = re.compile(r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$")
 
@@ -118,6 +139,15 @@ def load_status() -> dict[str, Any]:
             merged["currentVersion"] = current_version()
             merged["authConfigured"] = read_auth() is not None
             merged["authUsername"] = read_auth()[0] if read_auth() else None
+            if merged["state"] in RUNNING_STATES and not install_running():
+                merged.update(
+                    {
+                        "state": "FAILED",
+                        "progress": None,
+                        "message": f"La mise à jour a été interrompue ; Élise OS {merged['currentVersion']} reste installée.",
+                        "error": merged.get("error") or "Installation interrompue.",
+                    }
+                )
             return merged
     except (OSError, json.JSONDecodeError):
         pass
@@ -171,10 +201,26 @@ def latest_release() -> dict[str, Any]:
     return value
 
 
-def check_release() -> dict[str, Any]:
+def checked_recently(status: dict[str, Any]) -> bool:
+    if status.get("state") not in ("UP_TO_DATE", "AVAILABLE") or not status.get("checkedAt"):
+        return False
+    try:
+        checked = datetime.fromisoformat(str(status["checkedAt"]).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return (datetime.now(timezone.utc) - checked).total_seconds() < CHECK_MIN_INTERVAL
+
+
+def check_release(force: bool = False) -> dict[str, Any]:
+    if install_running():
+        # The installer owns the status file until it finishes.
+        return load_status()
+    current_status = load_status()
+    if not force and checked_recently(current_status):
+        return current_status
     auth = read_auth()
     current = current_version()
-    status = {**load_status(), "state": "CHECKING", "error": None, "message": None}
+    status = {**current_status, "state": "CHECKING", "error": None, "message": None}
     save_status(status)
     try:
         release = latest_release()
@@ -215,7 +261,7 @@ def write_auth(username: str, token: str) -> dict[str, Any]:
     temporary.write_text(f"username={username}\ntoken={token}\n", encoding="utf-8")
     os.chmod(temporary, 0o600)
     os.replace(temporary, AUTH_FILE)
-    checked = check_release()
+    checked = check_release(force=True)
     checked["message"] = "Compte bot GitHub enregistré."
     return save_status(checked)
 
@@ -228,128 +274,207 @@ def delete_auth() -> dict[str, Any]:
     return save_status({**base_status(), "message": "Compte bot supprimé."})
 
 
-def finish_install(process: subprocess.Popen[str], version: str) -> None:
-    global INSTALL_PROCESS
-    return_code = process.wait()
-    with INSTALL_LOCK:
-        INSTALL_PROCESS = None
-    if return_code == 0:
-        save_status(
-            {
-                **load_status(),
-                "state": "RESTARTING",
-                "progress": 95,
-                "message": "Les services redémarrent…",
-                "error": None,
-            }
+def lock_held() -> bool:
+    try:
+        handle = LOCK_FILE.open("a+")
+    except OSError:
+        return False
+    with handle:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        return False
+
+
+def runner_active() -> bool:
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-active", "--quiet", f"{RUNNER_UNIT}.service"],
+            timeout=10,
+            check=False,
         )
-        save_status(
-            {
-                **load_status(),
-                "state": "SUCCEEDED",
-                "currentVersion": current_version(),
-                "latestVersion": version,
-                "updateAvailable": False,
-                "checkedAt": now(),
-                "progress": 100,
-                "message": "Mise à jour installée.",
-                "error": None,
-            }
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0
+
+
+def install_running() -> bool:
+    # `elise update` run by hand holds the lock; the runner unit covers the start-up gap.
+    return lock_held() or runner_active()
+
+
+def launch_runner(version: str) -> None:
+    settings = {
+        "ELISE_UPDATE_STATUS_FILE": STATUS_FILE,
+        "ELISE_UPDATE_LOCK_FILE": LOCK_FILE,
+        "ELISE_UPDATE_AUTH_FILE": AUTH_FILE,
+        "ELISE_CONFIG_FILE": ENV_FILE,
+        "ELISE_VERSION_FILE": VERSION_FILE,
+        "ELISE_INSTALLER": INSTALLER,
+        "ELISE_REPOSITORY": REPOSITORY,
+        "ELISE_GITHUB_API": GITHUB_API,
+        "HOME": "/root",
+    }
+    try:
+        subprocess.run(
+            [
+                "systemd-run",
+                f"--unit={RUNNER_UNIT}",
+                "--description=Élise OS update",
+                "--collect",
+                "--quiet",
+                *[f"--setenv={name}={value}" for name, value in settings.items()],
+                "--",
+                AGENT_PATH,
+                "apply",
+                version,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=True,
         )
-    else:
-        save_status(
-            {
-                **load_status(),
-                "state": "ROLLED_BACK" if current_version() != version else "FAILED",
-                "updateAvailable": True,
-                "progress": None,
-                "message": "La version précédente a été conservée.",
-                "error": "L’installation a échoué.",
-            }
-        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise RuntimeError("La mise à jour n’a pas pu démarrer.") from error
 
 
 def install(version: str | None = None) -> dict[str, Any]:
-    global INSTALL_PROCESS
     current = load_status()
     target = version or current.get("latestVersion")
     if not isinstance(target, str) or not VALID_VERSION.fullmatch(target):
         raise ValueError("Version de mise à jour invalide.")
-    if version_key(target) <= version_key(current_version()) and target != current.get("latestVersion"):
-        raise ValueError("Cette version n’est pas plus récente.")
     with INSTALL_LOCK:
-        if INSTALL_PROCESS is not None and INSTALL_PROCESS.poll() is None:
+        if install_running():
             raise RuntimeError("Une mise à jour est déjà en cours.")
-        LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
-        lock_handle = LOCK_FILE.open("a+")
-        try:
-            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_NB)
-        except BlockingIOError as error:
-            lock_handle.close()
-            raise RuntimeError("Une mise à jour est déjà en cours.") from error
-        # Keep the descriptor open in the child thread's closure until install ends.
+        # Ask GitHub again: only the newest stable release may be installed, never an older one.
+        latest = str(latest_release()["tag_name"])
+        if target != latest:
+            raise ValueError(f"Seule la dernière version publiée ({latest}) peut être installée.")
+        if version_key(target) <= version_key(current_version()):
+            raise ValueError("Cette version n’est pas plus récente que la version installée.")
         status = save_status(
             {
                 **current,
                 "state": "DOWNLOADING",
                 "latestVersion": target,
                 "updateAvailable": True,
-                "progress": 5,
-                "message": "Téléchargement de la mise à jour…",
+                "progress": 2,
+                "message": "Préparation de la mise à jour…",
                 "error": None,
             }
         )
-        log_path = STATUS_FILE.with_name("install.log")
-        log = log_path.open("a", encoding="utf-8")
-        os.chmod(log_path, 0o600)
         try:
-            process = subprocess.Popen(
-                [INSTALLER, "update", "--version", target],
-                stdout=log,
+            launch_runner(target)
+        except RuntimeError as error:
+            save_status({**status, "state": "FAILED", "progress": None, "message": str(error), "error": None})
+            raise
+        return status
+
+
+def install_step(line: str) -> tuple[str, int, str] | None:
+    if not line.startswith("→ "):
+        return None
+    text = line[2:].strip()
+    for prefix, state, progress in INSTALL_STEPS:
+        if text.startswith(prefix):
+            return state, progress, f"{text}…"
+    return None
+
+
+def apply(version: str) -> int:
+    """Runs the installer and records its outcome; executed inside the runner unit."""
+    if not VALID_VERSION.fullmatch(version):
+        print("Version invalide.", file=sys.stderr)
+        return 2
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    lock_handle = LOCK_FILE.open("a+")
+    try:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        lock_handle.close()
+        print("Une mise à jour est déjà en cours.", file=sys.stderr)
+        return 1
+    status = save_status(
+        {
+            **load_status(),
+            "state": "DOWNLOADING",
+            "latestVersion": version,
+            "updateAvailable": True,
+            "progress": 5,
+            "message": "Téléchargement de la mise à jour…",
+            "error": None,
+        }
+    )
+    log_path = STATUS_FILE.with_name("install.log")
+    last_error: str | None = None
+    return_code = 1
+    try:
+        with log_path.open("a", encoding="utf-8") as log:
+            os.chmod(log_path, 0o600)
+            log.write(f"=== {now()} mise à jour vers {version}\n")
+            with subprocess.Popen(
+                [INSTALLER, "update", "--version", version],
+                stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                errors="replace",
                 env={
                     **os.environ,
                     "ELISE_SKIP_SYSTEM_PACKAGES": "true",
                     "ELISE_UPDATE_LOCK_HELD": "true",
-                    "ELISE_UPDATE_STATUS_FILE": str(STATUS_FILE),
                 },
                 pass_fds=(lock_handle.fileno(),),
-            )
-        except OSError:
-            log.close()
-            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
-            lock_handle.close()
-            save_status(
-                {
-                    **status,
-                    "state": "FAILED",
-                    "progress": None,
-                    "message": "La mise à jour n’a pas pu démarrer.",
-                    "error": "L’installateur est indisponible.",
-                }
-            )
-            raise
-        INSTALL_PROCESS = process
+            ) as process:
+                assert process.stdout is not None
+                for line in process.stdout:
+                    log.write(line)
+                    log.flush()
+                    text = line.strip()
+                    if text.startswith("Erreur : "):
+                        last_error = redact_error(text.removeprefix("Erreur : "))
+                    step = install_step(text)
+                    if step:
+                        state, progress, message = step
+                        status = save_status({**status, "state": state, "progress": progress, "message": message})
+                return_code = process.wait()
+    except OSError:
+        last_error = "L’installateur est indisponible."
+    installed = current_version()
+    if return_code == 0 and installed == version:
         save_status(
             {
                 **status,
-                "state": "INSTALLING",
-                "progress": 20,
-                "message": "Installation et vérification de la mise à jour…",
+                "state": "SUCCEEDED",
+                "currentVersion": installed,
+                "latestVersion": version,
+                "updateAvailable": False,
+                "checkedAt": now(),
+                "progress": 100,
+                "message": f"Élise OS {version} est installée.",
+                "error": None,
             }
         )
-
-        def wait_and_release() -> None:
-            try:
-                finish_install(process, target)
-            finally:
-                log.close()
-                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
-                lock_handle.close()
-
-        threading.Thread(target=wait_and_release, daemon=True).start()
-        return status
+    else:
+        save_status(
+            {
+                **status,
+                "state": "ROLLED_BACK" if installed != version else "FAILED",
+                "currentVersion": installed,
+                "updateAvailable": True,
+                "progress": None,
+                "message": f"Élise OS {installed} a été conservée."
+                if installed != version
+                else "La mise à jour s’est arrêtée avant la fin.",
+                "error": last_error or "L’installation a échoué.",
+            }
+        )
+    fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+    lock_handle.close()
+    # Load the agent shipped with whichever release is now installed.
+    subprocess.run(["systemctl", "try-restart", "--no-block", AGENT_SERVICE], check=False)
+    return 0 if return_code == 0 else 1
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -408,6 +533,8 @@ def periodic_check() -> None:
 
 
 def main() -> None:
+    if len(sys.argv) == 3 and sys.argv[1] == "apply":
+        raise SystemExit(apply(sys.argv[2]))
     Path(SOCKET_PATH).parent.mkdir(parents=True, exist_ok=True)
     if os.path.exists(SOCKET_PATH):
         os.unlink(SOCKET_PATH)

@@ -64,7 +64,7 @@ export function UpdateCard({
     RESTARTING: tr('Redémarrage…', 'Restarting…'),
     SUCCEEDED: tr('Mise à jour terminée', 'Update complete'),
     ROLLED_BACK: tr('Retour à la version précédente', 'Rolled back'),
-    FAILED: tr('Vérification impossible', 'Update check failed'),
+    FAILED: tr('Échec', 'Failed'),
   };
 
   return (
@@ -81,8 +81,8 @@ export function UpdateCard({
           <h2>{tr('Mise à jour d’Élise OS', 'Élise OS updates')}</h2>
           <p>
             {tr(
-              'Recevez les nouvelles versions et choisissez quand les installer sur cet appareil.',
-              'See new versions and choose when to install them on this device.',
+              'Chaque version est vérifiée avant installation ; en cas de problème, Élise revient seule à la version précédente.',
+              'Each version is verified before it installs; if anything goes wrong, Élise returns to the previous version on its own.',
             )}
           </p>
         </div>
@@ -144,6 +144,12 @@ export function UpdateCard({
               {tr(`Installer ${status.latestVersion}`, `Install ${status.latestVersion}`)}
             </Button>
           )}
+          {state === 'SUCCEEDED' && (
+            // This page still runs the previous dashboard until it reloads.
+            <Button onClick={() => window.location.reload()}>
+              <RefreshCw /> {tr('Ouvrir la nouvelle version', 'Open the new version')}
+            </Button>
+          )}
         </div>
 
         {status?.latestVersion && status.updateAvailable && (
@@ -158,59 +164,62 @@ export function UpdateCard({
         {status?.message && <p className="update-card-message">{status.message}</p>}
         {status?.error && <p className="update-card-error">{status.error}</p>}
 
-        <details
-          className="update-credentials"
-          open={credentialsOpen || state === 'UNCONFIGURED'}
-          onToggle={(event) => setCredentialsOpen(event.currentTarget.open)}
-        >
-          <summary>
-            <KeyRound />
-            {status?.authConfigured
-              ? tr('Changer le compte de téléchargement', 'Change download account')
-              : tr('Configurer le compte de téléchargement', 'Configure download account')}
-          </summary>
-          <p>
-            {tr(
-              'Le jeton reste sur cet appareil, protégé par le système, et n’est jamais enregistré dans Élise.',
-              'The token stays on this device, protected by the system, and is never stored in Élise.',
-            )}
-          </p>
-          <label>
-            {tr('Nom du compte bot', 'Bot account name')}
-            <input
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              autoComplete="username"
-              placeholder="elise-os-bot"
-            />
-          </label>
-          <label>
-            {tr('Jeton GitHub', 'GitHub token')}
-            <input
-              type="password"
-              value={token}
-              onChange={(event) => setToken(event.target.value)}
-              autoComplete="new-password"
-              placeholder="ghp_…"
-            />
-          </label>
-          <div className="update-credentials-actions">
-            <Button
-              onClick={() => {
-                onSaveCredentials(username, token);
-                setToken('');
-              }}
-              disabled={!username.trim() || !token.trim() || busy}
-            >
-              <ShieldCheck /> {tr('Enregistrer', 'Save')}
-            </Button>
-            {status?.authConfigured && (
-              <Button className="button-secondary" onClick={onDeleteCredentials} disabled={busy}>
-                {tr('Supprimer le compte', 'Remove account')}
+        {/* The public repository needs no account; the bot only unlocks a private one. */}
+        {(state === 'UNCONFIGURED' || status?.authConfigured) && (
+          <details
+            className="update-credentials"
+            open={credentialsOpen || state === 'UNCONFIGURED'}
+            onToggle={(event) => setCredentialsOpen(event.currentTarget.open)}
+          >
+            <summary>
+              <KeyRound />
+              {status?.authConfigured
+                ? tr('Changer le compte de téléchargement', 'Change download account')
+                : tr('Configurer le compte de téléchargement', 'Configure download account')}
+            </summary>
+            <p>
+              {tr(
+                'Le jeton reste sur cet appareil, protégé par le système, et n’est jamais enregistré dans Élise.',
+                'The token stays on this device, protected by the system, and is never stored in Élise.',
+              )}
+            </p>
+            <label>
+              {tr('Nom du compte bot', 'Bot account name')}
+              <input
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                autoComplete="username"
+                placeholder="elise-os-bot"
+              />
+            </label>
+            <label>
+              {tr('Jeton GitHub', 'GitHub token')}
+              <input
+                type="password"
+                value={token}
+                onChange={(event) => setToken(event.target.value)}
+                autoComplete="new-password"
+                placeholder="ghp_…"
+              />
+            </label>
+            <div className="update-credentials-actions">
+              <Button
+                onClick={() => {
+                  onSaveCredentials(username, token);
+                  setToken('');
+                }}
+                disabled={!username.trim() || !token.trim() || busy}
+              >
+                <ShieldCheck /> {tr('Enregistrer', 'Save')}
               </Button>
-            )}
-          </div>
-        </details>
+              {status?.authConfigured && (
+                <Button className="button-secondary" onClick={onDeleteCredentials} disabled={busy}>
+                  {tr('Supprimer le compte', 'Remove account')}
+                </Button>
+              )}
+            </div>
+          </details>
+        )}
       </div>
     </details>
   );

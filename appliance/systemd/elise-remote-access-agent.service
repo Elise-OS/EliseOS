@@ -13,6 +13,8 @@ Environment=ELISE_COMPOSE_DIR=/opt/elise/current
 EnvironmentFile=-/etc/elise/agent.env
 RuntimeDirectory=elise-remote-access
 RuntimeDirectoryMode=0755
+# The API container bind-mounts this folder: it must survive agent restarts.
+RuntimeDirectoryPreserve=yes
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

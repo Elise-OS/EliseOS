@@ -52,12 +52,63 @@ Les sauvegardes de production doivent être chiffrées. Ajoutez une clé publiqu
 
 ## Mise à jour sûre
 
-`elise update` télécharge une version signée, conserve la version précédente et vérifie la santé du dashboard et de l’API. Si le démarrage échoue, le lien `current`, le fichier d’environnement et les conteneurs reviennent à la version précédente.
+Élise vérifie les releases GitHub toutes les six heures. Une nouvelle version apparaît dans
+**Réglages → Général → Mise à jour d’Élise OS** (et par un « ! » dans le menu) ; un
+administrateur, sur le réseau local ou Tailscale, choisit quand l’installer. `elise update` fait la
+même chose en ligne de commande.
 
-### Première installation depuis une release privée
+Chaque mise à jour :
 
-Les images et releases GitHub d’Élise OS sont privées. Créez un compte bot limité à la lecture
-du dépôt et des packages, puis un PAT classic avec `repo` et `read:packages`.
+- n’accepte que la dernière release stable, plus récente que la version installée (un retour à une
+  version plus ancienne est refusé : sa base de données ne comprendrait pas les migrations récentes ;
+  `ELISE_ALLOW_DOWNGRADE=true elise update --version vX.Y.Z` reste possible à la main) ;
+- vérifie l’empreinte et la signature Sigstore de l’archive et du manifeste, émises par
+  `release.yml` sur `main`, puis télécharge les images par empreinte (`@sha256:…`) ;
+- sauvegarde la base, garde la version précédente, puis attend que l’API réponde avec la nouvelle
+  version ;
+- sur toute erreur, remet le lien `current`, `/etc/elise/elise.env`, les agents système, les
+  conteneurs et la base de la version précédente ;
+- ne garde ensuite que la version installée et la précédente, et supprime les images inutilisées.
+
+Lancée depuis le tableau de bord, la mise à jour tourne dans l’unité systemd
+`elise-update-install`, indépendante de l’agent et des conteneurs qu’elle redémarre. Journal :
+`/var/lib/elise/update/install.log`.
+
+Les appareils en v0.1.11 ou avant doivent passer une fois à la nouvelle version en SSH : leur agent
+ne sait pas installer depuis le tableau de bord, leur `elise update` confond la version d’Élise avec
+celle d’Ubuntu, et leur pare-feu Tailscale coupe le DNS dès que Tailscale est connecté. On lance
+donc directement l’installateur signé de la dernière release.
+
+Rétablir le DNS jusqu’au prochain redémarrage (inutile si Tailscale n’est pas connecté) :
+
+```bash
+sudo nft insert rule inet elise_remote input ct state established,related accept
+```
+
+Télécharger l’installateur et vérifier sa signature :
+
+```bash
+cd "$(mktemp -d)" && curl -fsSLO https://github.com/Elise-OS/EliseOS/releases/latest/download/install-elise.sh && curl -fsSLO https://github.com/Elise-OS/EliseOS/releases/latest/download/install-elise.sh.sigstore.json
+```
+
+```bash
+cosign verify-blob install-elise.sh --bundle install-elise.sh.sigstore.json --certificate-identity-regexp '^https://github.com/Elise-OS/EliseOS/.github/workflows/release.yml@refs/heads/main$' --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Installer :
+
+```bash
+sudo ELISE_SKIP_SYSTEM_PACKAGES=true bash install-elise.sh
+```
+
+L’installateur remplace le pare-feu et redémarre les agents : les mises à jour suivantes se font
+depuis le tableau de bord.
+
+### Dépôt privé (facultatif)
+
+Le dépôt Élise OS, ses releases et ses images sont publics : aucun compte n’est nécessaire. Pour
+une distribution depuis un dépôt privé, créez un compte bot limité à la lecture du dépôt et des
+packages, puis un PAT classic avec `repo` et `read:packages`.
 
 Sur Raspberry Pi, deux possibilités :
 

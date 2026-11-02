@@ -6,12 +6,16 @@ nft -f - <<'EOF'
 table inet elise_remote {
   chain input {
     type filter hook input priority -5; policy accept;
+    # Replies to connections Élise opened itself, starting with MagicDNS answers from
+    # 100.100.100.100: rejecting them leaves the whole system without DNS.
+    ct state established,related accept
     iifname "tailscale0" tcp dport { 8443, 8444, 8555 } accept
     iifname "tailscale0" udp dport { 8555, 10000 } accept
     iifname "tailscale0" reject
   }
   chain forward {
     type filter hook forward priority -5; policy accept;
+    ct state established,related accept
     iifname "tailscale0" tcp dport 8555 accept
     iifname "tailscale0" udp dport { 8555, 10000 } accept
     iifname "tailscale0" reject

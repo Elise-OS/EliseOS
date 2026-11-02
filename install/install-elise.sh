@@ -50,7 +50,7 @@ github_get() {
 }
 github_release() {
   github_get "$GITHUB_API/repos/$REPOSITORY/releases/$1" && return 0
-  [[ -n "$GITHUB_TOKEN" ]] || fail "dépôt Élise privé : configurez le compte bot GitHub"
+  [[ -n "$GITHUB_TOKEN" ]] || fail "release Élise $1 illisible sur GitHub (réseau indisponible, ou dépôt privé sans compte bot)"
   fail "release Élise introuvable : $1"
 }
 
@@ -83,12 +83,18 @@ if [[ "${ELISE_UPDATE_LOCK_HELD:-false}" != true ]]; then
   flock -n 9 || fail "une mise à jour est déjà en cours"
 fi
 [[ -r /etc/os-release ]] || fail "Ubuntu Server 24.04 est requis"
-. /etc/os-release
-[[ "${ID:-}" == ubuntu && "${VERSION_ID:-}" == 24.04 ]] || fail "Ubuntu Server 24.04 LTS est requis"
+# In a subshell: os-release defines VERSION too, which would replace the Élise version.
+os_release="$(. /etc/os-release && printf '%s %s' "${ID:-}" "${VERSION_ID:-}")"
+[[ "$os_release" == "ubuntu 24.04" ]] || fail "Ubuntu Server 24.04 LTS est requis"
 case "$(dpkg --print-architecture)" in amd64|arm64) ;; *) fail "architecture non prise en charge" ;; esac
 (( $(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo) >= 3500 )) || fail "4 Go de mémoire sont requis"
 (( $(df -Pm / | awk 'NR==2 {print $2}') >= 28672 )) || fail "un stockage de 32 Go minimum est requis"
-(( $(df -Pm / | awk 'NR==2 {print $4}') >= 16384 )) || fail "au moins 16 Go libres sont requis"
+if [[ -L "$ELISE_ROOT/current" ]]; then
+  # An update only adds one release and its images next to the running one.
+  (( $(df -Pm / | awk 'NR==2 {print $4}') >= 4096 )) || fail "au moins 4 Go libres sont requis pour la mise à jour"
+else
+  (( $(df -Pm / | awk 'NR==2 {print $4}') >= 16384 )) || fail "au moins 16 Go libres sont requis"
+fi
 getent hosts github.com >/dev/null || fail "connexion Internet indisponible"
 
 http_port_preflight=8080
@@ -144,7 +150,23 @@ else
 fi
 
 work_dir="$(mktemp -d)"
+previous=""
+rollback_dump=""
+# Set once `current` points at the new release, cleared once it is confirmed healthy:
+# any exit in between, even an unexpected one, puts the previous release back.
+restore_on_exit=false
+containers_changed=false
 cleanup() {
+  if [[ "$restore_on_exit" == true ]]; then
+    echo "Retour à la version précédente…" >&2
+    if [[ "$containers_changed" == true ]]; then
+      restore_previous || true
+    else
+      restore_previous_files || true
+    fi
+  fi
+  # A dump left at this point is one the database may still need by hand.
+  [[ -z "$rollback_dump" || "$containers_changed" == true ]] || rm -f -- "$rollback_dump"
   rm -rf -- "$work_dir"
   [[ -z "$docker_config_dir" ]] || rm -rf -- "$docker_config_dir"
 }
@@ -198,18 +220,32 @@ PY
     || fail "signature du manifeste non valide"
 fi
 
+installed_version="$(sed -n 's/^MICHEL_VERSION=//p' "$ELISE_CONFIG/elise.env" 2>/dev/null | tail -1)"
+if [[ "$VERSION" != dev && "$installed_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ && "${ELISE_ALLOW_DOWNGRADE:-false}" != true ]]; then
+  # An older release may not understand a database migrated by a newer one.
+  python3 - "$installed_version" "$VERSION" <<'PY' || fail "Élise OS $installed_version est plus récente que $VERSION ; retour arrière refusé"
+import re, sys
+def key(value):
+    major, minor, patch, suffix = re.match(r"^v(\d+)\.(\d+)\.(\d+)(?:-(.*))?$", value).groups()
+    return (int(major), int(minor), int(patch), suffix or "~stable")
+raise SystemExit(0 if key(sys.argv[2]) >= key(sys.argv[1]) else 1)
+PY
+fi
+
 release_dir="$ELISE_ROOT/releases/$VERSION"
+if [[ -d "$release_dir" && "$(readlink -f "$ELISE_ROOT/current" 2>/dev/null)" != "$(readlink -f "$release_dir")" ]]; then
+  # Left by an earlier attempt: install what was just verified, not what is on disk.
+  rm -rf -- "$release_dir"
+fi
 if [[ ! -d "$release_dir" ]]; then
   mv "$work_dir/runtime" "$release_dir"
 fi
 # readlink -f resolves a missing link to its own path: only a real link is a previous install.
-previous=""
 if [[ -L "$ELISE_ROOT/current" && -d "$ELISE_ROOT/current" ]]; then
   previous="$(readlink -f "$ELISE_ROOT/current")"
 fi
 previous_env="$ELISE_STATE/previous.env"
 [[ -f "$ELISE_CONFIG/elise.env" ]] && cp "$ELISE_CONFIG/elise.env" "$previous_env"
-rollback_dump=""
 if [[ -n "$previous" ]]; then
   old_compose=(docker compose --project-name michel-os --env-file "$previous_env" -f "$previous/compose.yaml" -f "$previous/compose.release.yaml")
   [[ "$(dpkg --print-architecture)" == arm64 ]] && old_compose+=(-f "$previous/compose.raspberry.yaml" -f "$previous/compose.raspberry.release.yaml")
@@ -222,34 +258,66 @@ if [[ -n "$previous" ]]; then
     || { rm -f -- "$rollback_dump"; fail "impossible de sauvegarder la base avant la mise à jour"; }
 fi
 ln -sfn "$release_dir" "$ELISE_ROOT/current"
+[[ -z "$previous" ]] || restore_on_exit=true
 
-restore_previous() {
+install_host_files() {
+  local source="$1" mode from to
+  # This installer copies another release's files: only what keeps updates working is required,
+  # so a release that drops or renames a component can still be installed (or rolled back to).
+  [[ -f "$source/appliance/elise-update-agent.py" && -f "$source/install/elise" ]] || return 1
+  install -d -m 0755 /usr/lib/elise
+  while read -r mode from to; do
+    if [[ -f "$source/$from" ]]; then
+      install -m "$mode" "$source/$from" "$to"
+    else
+      echo "Absent de $(basename "$source") : $from" >&2
+    fi
+  done <<'FILES'
+0755 appliance/elise-update-agent.py /usr/lib/elise/elise-update-agent.py
+0755 install/elise /usr/local/bin/elise
+0644 appliance/systemd/elise-update-agent.service /etc/systemd/system/
+0755 appliance/remote-access-agent.py /usr/lib/elise/remote-access-agent.py
+0644 appliance/systemd/elise-remote-access-agent.service /etc/systemd/system/
+0755 appliance/elise-tailscale-firewall.sh /usr/lib/elise/elise-tailscale-firewall.sh
+0644 appliance/systemd/elise-tailscale-firewall.service /etc/systemd/system/
+0755 appliance/elise-screen-setup.sh /usr/lib/elise/elise-screen-setup
+0644 appliance/systemd/elise-screen-setup.service /etc/systemd/system/
+0644 appliance/systemd/elise-screen-setup.timer /etc/systemd/system/
+0755 appliance/elise-zigbee-setup.sh /usr/lib/elise/elise-zigbee-setup
+0644 appliance/systemd/elise-zigbee-setup.service /etc/systemd/system/
+0644 appliance/udev/90-elise-zigbee.rules /etc/udev/rules.d/
+FILES
+  udevadm control --reload-rules 2>/dev/null || true
+}
+
+restore_previous_files() {
+  restore_on_exit=false
   [[ -n "$previous" ]] || return 0
   ln -sfn "$previous" "$ELISE_ROOT/current"
   cp "$previous_env" "$ELISE_CONFIG/elise.env"
+  # The agents and units must match the release that runs again.
+  install_host_files "$previous" || echo "Les fichiers système de $previous doivent être vérifiés." >&2
+  systemctl daemon-reload || true
+  systemctl restart elise-tailscale-firewall.service || true
+}
+
+restore_previous() {
+  restore_previous_files
+  [[ -n "$previous" ]] || return 0
   "${old_compose[@]}" up -d postgres
   if [[ -n "$rollback_dump" && -s "$rollback_dump" ]]; then
-    "${old_compose[@]}" exec -T postgres pg_restore -U michel --clean --if-exists --dbname=michel < "$rollback_dump" \
-      || echo "La restauration de la base doit être vérifiée manuellement : $rollback_dump" >&2
+    if "${old_compose[@]}" exec -T postgres pg_restore -U michel --clean --if-exists --dbname=michel < "$rollback_dump"; then
+      # The dump holds the family's data in clear: keep it only while it is still needed.
+      rm -f -- "$rollback_dump"
+      rollback_dump=""
+    else
+      echo "La restauration de la base doit être vérifiée manuellement : $rollback_dump" >&2
+    fi
   fi
   "${old_compose[@]}" up -d
 }
 
-install -d -m 0755 /usr/lib/elise
-install -m 0755 "$release_dir/appliance/remote-access-agent.py" /usr/lib/elise/remote-access-agent.py
-install -m 0755 "$release_dir/appliance/elise-update-agent.py" /usr/lib/elise/elise-update-agent.py
-install -m 0755 "$release_dir/install/elise" /usr/local/bin/elise
-install -m 0644 "$release_dir/appliance/systemd/elise-remote-access-agent.service" /etc/systemd/system/
-install -m 0644 "$release_dir/appliance/systemd/elise-update-agent.service" /etc/systemd/system/
-install -m 0755 "$release_dir/appliance/elise-tailscale-firewall.sh" /usr/lib/elise/elise-tailscale-firewall.sh
-install -m 0644 "$release_dir/appliance/systemd/elise-tailscale-firewall.service" /etc/systemd/system/
-install -m 0755 "$release_dir/appliance/elise-screen-setup.sh" /usr/lib/elise/elise-screen-setup
-install -m 0644 "$release_dir/appliance/systemd/elise-screen-setup.service" /etc/systemd/system/
-install -m 0644 "$release_dir/appliance/systemd/elise-screen-setup.timer" /etc/systemd/system/
-install -m 0755 "$release_dir/appliance/elise-zigbee-setup.sh" /usr/lib/elise/elise-zigbee-setup
-install -m 0644 "$release_dir/appliance/systemd/elise-zigbee-setup.service" /etc/systemd/system/
-install -m 0644 "$release_dir/appliance/udev/90-elise-zigbee.rules" /etc/udev/rules.d/
-udevadm control --reload-rules 2>/dev/null || true
+install_host_files "$release_dir"
 printf 'ELISE_AGENT_GID=%s\n' "$AGENT_GID" > "$ELISE_CONFIG/agent.env"
 
 if [[ ! -f "$ELISE_CONFIG/elise.env" ]]; then
@@ -279,7 +347,9 @@ fi
 
 systemctl daemon-reload
 systemctl enable --now elise-remote-access-agent.service elise-update-agent.service elise-tailscale-firewall.service
-systemctl enable elise-zigbee-setup.service
+# A oneshot unit already active is not run again by `enable --now`: apply this release's rules.
+systemctl restart elise-tailscale-firewall.service
+[[ ! -f /etc/systemd/system/elise-zigbee-setup.service ]] || systemctl enable elise-zigbee-setup.service
 
 progress "Détection des équipements Zigbee"
 "$release_dir/scripts/detect-zigbee-adapter.sh" --write-env "$ELISE_CONFIG/elise.env" || true
@@ -303,29 +373,35 @@ elif [[ -n "$GITHUB_TOKEN" ]]; then
 fi
 if [[ "$VERSION" == dev ]]; then
   progress "Construction des composants Élise"
+  containers_changed=true
   pull_or_build=(up -d --build)
 else
   progress "Téléchargement des composants Élise"
   pull_or_build=(pull)
 fi
 if ! "${compose[@]}" "${pull_or_build[@]}"; then
-  if [[ -n "$previous" ]]; then
-    ln -sfn "$previous" "$ELISE_ROOT/current"
-    cp "$previous_env" "$ELISE_CONFIG/elise.env"
-  fi
-  [[ -n "$rollback_dump" ]] && rm -f -- "$rollback_dump"
+  # The exit handler puts the previous release back; its containers never stopped.
   fail "le téléchargement a été interrompu ; relancez la même commande"
 fi
 progress "Démarrage et vérification d’Élise"
 if [[ "${ELISE_FIRST_BOOT:-false}" == true ]]; then systemctl stop elise-preparation.service || true; fi
+containers_changed=true
 if ! "${compose[@]}" up -d; then
   "${compose[@]}" down || true
   restore_previous
   fail "le démarrage a échoué ; la version précédente a été restaurée"
 fi
 
+release_healthy() {
+  local health
+  health="$(curl --fail --silent --max-time 10 "http://127.0.0.1:${http_port:-8080}/api/v1/system/health")" || return 1
+  [[ "$VERSION" == dev ]] && return 0
+  # The API reports its own MICHEL_VERSION: only the new containers answer with it.
+  python3 -c 'import json, sys; raise SystemExit(0 if json.loads(sys.argv[1]).get("version") == sys.argv[2] else 1)' \
+    "$health" "$VERSION"
+}
 deadline=$((SECONDS + 300))
-until curl --fail --silent "http://127.0.0.1:$(sed -n 's/^MICHEL_HTTP_PORT=//p' "$ELISE_CONFIG/elise.env" | tail -1)/api/v1/system/health" >/dev/null; do
+until release_healthy; do
   if (( SECONDS >= deadline )); then
     "${compose[@]}" down || true
     restore_previous
@@ -334,25 +410,49 @@ until curl --fail --silent "http://127.0.0.1:$(sed -n 's/^MICHEL_HTTP_PORT=//p' 
   sleep 3
 done
 
+restore_on_exit=false
 if [[ -n "$rollback_dump" ]]; then rm -f -- "$rollback_dump"; fi
+rollback_dump=""
+
+# The new release is confirmed: housekeeping below must never turn this success into a failure.
+set +e
+
+progress "Nettoyage des anciennes versions"
+for old_release in "$ELISE_ROOT"/releases/*; do
+  [[ -d "$old_release" ]] || continue
+  old_release="$(readlink -f "$old_release")"
+  [[ "$old_release" == "$(readlink -f "$release_dir")" || "$old_release" == "${previous:-}" ]] && continue
+  rm -rf -- "$old_release"
+done
+# Images of older releases lose their tag once replaced; running containers keep theirs.
+docker image prune --force >/dev/null 2>&1 || true
 
 # The host's Avahi announces Élise reliably; the app checks the identity over HTTP.
 # Avahi reads the file as soon as it appears: write it aside, then rename it in place.
-install -d -m 0755 /etc/avahi/services
-sed "s/@PORT@/${http_port:-8080}/g" "$release_dir/appliance/avahi/elise.service" > /etc/avahi/services/elise.tmp
-chmod 0644 /etc/avahi/services/elise.tmp
-mv /etc/avahi/services/elise.tmp /etc/avahi/services/elise.service
+if [[ -f "$release_dir/appliance/avahi/elise.service" ]]; then
+  install -d -m 0755 /etc/avahi/services
+  sed "s/@PORT@/${http_port:-8080}/g" "$release_dir/appliance/avahi/elise.service" > /etc/avahi/services/elise.tmp \
+    && chmod 0644 /etc/avahi/services/elise.tmp \
+    && mv /etc/avahi/services/elise.tmp /etc/avahi/services/elise.service
+fi
 
 # Confirms the coordinator driver, trying each family when the USB name is generic.
 systemctl start --no-block elise-zigbee-setup.service || true
 
 if [[ "$(sed -n 's/^ELISE_SCREEN_ENABLED=//p' "$ELISE_CONFIG/elise.env" | tail -1)" == true ]]; then
   progress "Planification de l’écran et de Jitsi"
-  systemctl enable --now elise-screen-setup.timer
+  [[ ! -f /etc/systemd/system/elise-screen-setup.timer ]] || systemctl enable --now elise-screen-setup.timer
   # Do not block the core installation if private-network pairing still awaits the user.
   systemctl start --no-block elise-screen-setup.service || true
 else
   systemctl disable --now elise-screen-setup.timer 2>/dev/null || true
+fi
+
+# Agents keep running their old code until restarted; their sockets survive it.
+systemctl try-restart elise-remote-access-agent.service || true
+if [[ "${ELISE_UPDATE_LOCK_HELD:-false}" != true ]]; then
+  # A manual `elise update`; the dashboard's runner restarts the update agent itself.
+  systemctl try-restart elise-update-agent.service || true
 fi
 
 progress "Élise est prête"

@@ -37,4 +37,44 @@ describe('UpdateCard', () => {
     expect(html).toContain('settings-disclosure-chevron');
     expect(html).not.toContain('ghp_secret_value');
   });
+
+  it('hides the bot account for the public repository', () => {
+    const html = renderToStaticMarkup(
+      <UpdateCard
+        locale="fr"
+        status={{ ...status, authConfigured: false, authUsername: null }}
+        busy={false}
+        onCheck={vi.fn()}
+        onSaveCredentials={vi.fn()}
+        onDeleteCredentials={vi.fn()}
+        onInstall={vi.fn()}
+      />,
+    );
+
+    expect(html).not.toContain('compte de téléchargement');
+  });
+
+  it('offers to open the new dashboard once the update succeeded', () => {
+    const html = renderToStaticMarkup(
+      <UpdateCard
+        locale="fr"
+        status={{
+          ...status,
+          state: 'SUCCEEDED',
+          currentVersion: 'v0.1.1',
+          updateAvailable: false,
+          progress: 100,
+          message: 'Élise OS v0.1.1 est installée.',
+        }}
+        busy={false}
+        onCheck={vi.fn()}
+        onSaveCredentials={vi.fn()}
+        onDeleteCredentials={vi.fn()}
+        onInstall={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('Ouvrir la nouvelle version');
+    expect(html).not.toContain('Installer v0.1.1');
+  });
 });

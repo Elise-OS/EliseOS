@@ -2582,32 +2582,44 @@ export function App() {
     }
   }, [refreshUpdate]);
 
-  const installUpdate = useCallback(async (version: string) => {
-    setUpdateBusy(true);
-    try {
-      const response = await fetch('/api/v1/system/update/install', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ version }),
-      });
-      if (response.ok) setUpdateStatus((await response.json()) as UpdateStatus);
-      if (!response.ok) return;
-      for (let attempt = 0; attempt < 100; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 3000));
-        try {
-          const statusResponse = await fetch('/api/v1/system/update');
-          if (!statusResponse.ok) continue;
-          const next = (await statusResponse.json()) as UpdateStatus;
-          setUpdateStatus(next);
-          if (['SUCCEEDED', 'ROLLED_BACK', 'FAILED'].includes(next.state)) break;
-        } catch {
-          // The API is expected to disappear briefly while the new release starts.
+  const installUpdate = useCallback(
+    async (version: string) => {
+      setUpdateBusy(true);
+      try {
+        const response = await fetch('/api/v1/system/update/install', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ version }),
+        });
+        if (response.ok) {
+          setUpdateStatus((await response.json()) as UpdateStatus);
+          return;
         }
+        // The agent explains a refusal (older version, update already running…).
+        const body = (await response.json().catch(() => null)) as { message?: unknown } | null;
+        const error =
+          typeof body?.message === 'string'
+            ? body.message
+            : locale === 'fr'
+              ? 'La mise à jour n’a pas pu démarrer.'
+              : 'The update could not start.';
+        setUpdateStatus((current) => current && { ...current, error });
+      } finally {
+        setUpdateBusy(false);
       }
-    } finally {
-      setUpdateBusy(false);
-    }
-  }, []);
+    },
+    [locale],
+  );
+
+  const updateRunning =
+    updateStatus !== null &&
+    ['DOWNLOADING', 'INSTALLING', 'VERIFYING', 'RESTARTING'].includes(updateStatus.state);
+  useEffect(() => {
+    // Follows an update started here or elsewhere, through the API restarting with the new release.
+    if (!updateRunning) return;
+    const timer = window.setInterval(() => void refreshUpdate(), 3000);
+    return () => window.clearInterval(timer);
+  }, [updateRunning, refreshUpdate]);
 
   const logout = async () => {
     if (loggingOut) return;

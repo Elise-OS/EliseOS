@@ -26,6 +26,13 @@ if grep -R -nE --exclude-dir=node_modules --exclude-dir=dist \
 fi
 grep -q -- 'SERVE_PORT = 8443' "$root/appliance/remote-access-agent.py"
 grep -q -- "8555" "$root/appliance/elise-tailscale-firewall.sh"
+# os-release defines VERSION: sourcing it in the installer replaced the requested Élise version.
+if grep -nE '^[[:space:]]*(\.|source) /etc/os-release' "$root/install/install-elise.sh"; then
+  echo "install-elise.sh must read /etc/os-release in a subshell." >&2
+  exit 1
+fi
+# Without it, MagicDNS answers arriving on tailscale0 are rejected and the host loses DNS.
+[[ "$(grep -c -- 'ct state established,related accept' "$root/appliance/elise-tailscale-firewall.sh")" -eq 2 ]]
 grep -q -- '^ELISE_SCREEN_ENABLED=true$' "$root/.env.example"
 grep -q -- 'elise-screen-setup.timer' "$root/install/install-elise.sh"
 grep -q -- 'api dashboard' "$root/appliance/elise-screen-setup.sh"
