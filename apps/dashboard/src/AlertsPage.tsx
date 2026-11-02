@@ -678,11 +678,13 @@ export function AlertsPage({
 
   return (
     <section className="alerts-page">
-      <header className="alerts-hero">
-        <div className="alerts-hero-copy">
-          <span>{label(['ALERTES DU DOMICILE', 'HOME ALERTS'], locale)}</span>
-          <h1>{label(['Alertes', 'Alerts'], locale)}</h1>
-          <p>
+      <header className="page-hero alerts-hero">
+        <div className="page-hero__copy alerts-hero-copy">
+          <span className="page-hero__eyebrow">
+            {label(['ALERTES DU DOMICILE', 'HOME ALERTS'], locale)}
+          </span>
+          <h1 className="page-hero__title">{label(['Alertes', 'Alerts'], locale)}</h1>
+          <p className="page-hero__text">
             {label(
               [
                 'Pour chaque situation : le fait détecté, l’heure de déclenchement et ce qui peut être vérifié.',
@@ -692,9 +694,11 @@ export function AlertsPage({
             )}
           </p>
         </div>
-        <button className="alerts-outline alerts-settings" type="button" onClick={onSettings}>
-          <Settings /> {label(['Règles des alertes', 'Alert rules'], locale)}
-        </button>
+        <div className="page-hero__actions">
+          <button className="alerts-outline alerts-settings" type="button" onClick={onSettings}>
+            <Settings /> {label(['Règles des alertes', 'Alert rules'], locale)}
+          </button>
+        </div>
       </header>
       <section
         className="alerts-safety-grid"

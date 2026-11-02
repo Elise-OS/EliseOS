@@ -17975,3 +17975,91 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* Shared page hero: every module header uses the same banner. */
+.page-hero {
+  position: relative;
+  min-height: 132px;
+  margin: 0 0 20px;
+  padding: clamp(24px, 2.8vw, 34px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+  overflow: visible;
+  border: 1px solid #e1ebef;
+  border-radius: 24px;
+  color: #17325d;
+  background:
+    radial-gradient(circle at 77% 0%, rgb(207 237 249 / 58%), transparent 43%),
+    linear-gradient(112deg, #fff 0%, #fafdff 56%, #eaf7fb 100%);
+  box-shadow: 0 17px 44px rgb(37 61 91 / 8%);
+}
+.page-hero::after {
+  content: none;
+}
+/* Same distance from the top of the content on every page. */
+:has(> .page-hero:first-child) {
+  margin-top: 0;
+  padding-top: 8px;
+}
+.page-hero__copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.page-hero .page-hero__eyebrow {
+  display: block;
+  margin: 0 0 8px;
+  color: #5d7294;
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.page-hero .page-hero__title {
+  margin: 0;
+  color: #112f5d;
+  font:
+    600 clamp(32px, 3.4vw, 48px) / 1.02 'Source Serif 4',
+    Georgia,
+    serif;
+  letter-spacing: -0.04em;
+}
+.page-hero .page-hero__text {
+  max-width: 680px;
+  margin: 8px 0 0;
+  color: #4f6489;
+  font-size: 16px;
+  font-weight: 400;
+  font-family: inherit;
+  line-height: 1.45;
+}
+.page-hero__actions {
+  min-width: 0;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+@media (max-width: 700px) {
+  .page-hero {
+    min-height: 0;
+    padding: 20px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    border-radius: 21px;
+  }
+  .page-hero .page-hero__title {
+    font-size: 32px;
+  }
+  .page-hero .page-hero__text {
+    font-size: 14px;
+  }
+  .page-hero__actions {
+    justify-content: flex-start;
+  }
+}

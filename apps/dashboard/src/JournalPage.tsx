@@ -157,11 +157,11 @@ export function JournalPage({
 
   return (
     <section className="house-journal-page">
-      <header className="house-journal-hero">
-        <div className="house-journal-hero-copy">
-          <h1>{tr('Journal du foyer', 'Household journal')}</h1>
+      <header className="page-hero house-journal-hero">
+        <div className="page-hero__copy house-journal-hero-copy">
+          <h1 className="page-hero__title">{tr('Journal du foyer', 'Household journal')}</h1>
         </div>
-        <div className="house-journal-hero-actions">
+        <div className="page-hero__actions house-journal-hero-actions">
           {onBack ? (
             <button className="house-journal-back" type="button" onClick={onBack}>
               <ChevronLeft size={20} aria-hidden="true" />

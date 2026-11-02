@@ -1278,10 +1278,12 @@ export function WelcomePage({
     );
   return (
     <section className="welcome-page">
-      <header className="welcome-hero">
-        <div className="welcome-greeting">
-          <h2>{fr ? `Bonjour ${caregiverFirstName},` : `Hello ${caregiverFirstName},`}</h2>
-          <p>
+      <header className="page-hero welcome-hero">
+        <div className="page-hero__copy welcome-greeting">
+          <h2 className="page-hero__title">
+            {fr ? `Bonjour ${caregiverFirstName},` : `Hello ${caregiverFirstName},`}
+          </h2>
+          <p className="page-hero__text">
             {fr ? `Élise veille sur ${residentName}.` : `Élise is watching over ${residentName}.`}
           </p>
         </div>

@@ -945,11 +945,11 @@ export function ScreenPanel({
       : undefined;
   return (
     <section className="screen-panel">
-      <header className="screen-panel__hero">
-        <div className="screen-panel__identity">
+      <header className="page-hero screen-panel__hero">
+        <div className="page-hero__copy screen-panel__identity">
           <div>
-            <p className="screen-panel__eyebrow">AFFICHAGE RÉSIDENT</p>
-            <h2>Écran et appels</h2>
+            <p className="page-hero__eyebrow screen-panel__eyebrow">AFFICHAGE RÉSIDENT</p>
+            <h2 className="page-hero__title">Écran et appels</h2>
             <span className={`screen-status ${screenOutputConnected ? 'is-online' : 'is-offline'}`}>
               {screenOutputConnected ? <Wifi aria-hidden="true" /> : <WifiOff aria-hidden="true" />}
               {status}
@@ -957,7 +957,7 @@ export function ScreenPanel({
           </div>
         </div>
         <div className="screen-panel__hero-side">
-          <div className="screen-panel__hero-actions">
+          <div className="page-hero__actions screen-panel__hero-actions">
             <a
               className="screen-button screen-button--secondary"
               href="/resident-screen"

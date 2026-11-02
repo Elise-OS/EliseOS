@@ -432,9 +432,9 @@ export function LiaisonPage({
 
   return (
     <section className="section-view liaison-page">
-      <header className="liaison-hero">
-        <div className="liaison-hero-copy">
-          <h1>{tr('Carnet de liaison', 'Family notebook')}</h1>
+      <header className="page-hero liaison-hero">
+        <div className="page-hero__copy liaison-hero-copy">
+          <h1 className="page-hero__title">{tr('Carnet de liaison', 'Family notebook')}</h1>
         </div>
         <time className="liaison-hero-date" dateTime={todayKey}>
           <span className="liaison-hero-date__icon" aria-hidden="true">
@@ -445,7 +445,7 @@ export function LiaisonPage({
             <strong>{todayDate}</strong>
           </span>
         </time>
-        <div className="liaison-hero-actions">
+        <div className="page-hero__actions liaison-hero-actions">
           {onCalendar && (
             <button className="liaison-calendar-button" type="button" onClick={onCalendar}>
               <CalendarDays aria-hidden="true" />

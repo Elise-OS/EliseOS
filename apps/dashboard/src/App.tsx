@@ -1177,15 +1177,19 @@ export function MedicationPanel({
 
   return (
     <section className="section-view medication-page">
-      <div className="page-heading medication-heading">
-        <span className="eyebrow">{locale === 'fr' ? 'Pilulier local' : 'Local pillbox'}</span>
-        <h2>{locale === 'fr' ? 'Médicaments' : 'Medications'}</h2>
-        <p>
-          {locale === 'fr'
-            ? 'Des repères simples pour accompagner les prises, sans remplacer un avis médical.'
-            : 'Simple reminders to support medication routines, without replacing medical advice.'}
-        </p>
-      </div>
+      <header className="page-hero medication-heading">
+        <div className="page-hero__copy">
+          <span className="page-hero__eyebrow">
+            {locale === 'fr' ? 'Pilulier local' : 'Local pillbox'}
+          </span>
+          <h2 className="page-hero__title">{locale === 'fr' ? 'Médicaments' : 'Medications'}</h2>
+          <p className="page-hero__text">
+            {locale === 'fr'
+              ? 'Des repères simples pour accompagner les prises, sans remplacer un avis médical.'
+              : 'Simple reminders to support medication routines, without replacing medical advice.'}
+          </p>
+        </div>
+      </header>
 
       <div className="medication-layout">
         <Card className={`next-dose-card ${focusDose?.status === 'MISSED' ? 'is-late' : ''}`}>
@@ -1467,24 +1471,24 @@ function CamerasPanel({
 
   return (
     <section className="section-view camera-page camera-page--designed">
-      <header className="camera-hero">
-        <div className="camera-hero-main">
+      <header className="page-hero camera-hero">
+        <div className="page-hero__copy camera-hero-main">
           <span className="camera-hero-icon">
             <Video aria-hidden="true" />
           </span>
           <div>
-            <span className="eyebrow">
+            <span className="page-hero__eyebrow">
               {locale === 'fr' ? 'Surveillance du domicile' : 'Home cameras'}
             </span>
-            <h1>{locale === 'fr' ? 'Caméras' : 'Cameras'}</h1>
-            <p>
+            <h1 className="page-hero__title">{locale === 'fr' ? 'Caméras' : 'Cameras'}</h1>
+            <p className="page-hero__text">
               {locale === 'fr'
                 ? 'Flux en direct et clips déclenchés par l’ouverture de l’entrée principale.'
                 : 'Live streams and clips triggered when the main entrance opens.'}
             </p>
           </div>
         </div>
-        <div className="camera-hero-actions">
+        <div className="page-hero__actions camera-hero-actions">
           <span className="camera-online-count">
             <span className="camera-online-dot" />
             {onlineCameras} {locale === 'fr' ? 'en ligne' : 'online'}
@@ -1955,14 +1959,14 @@ export function PeoplePanel({
 
   return (
     <section className="section-view people-page">
-      <div className="people-hero">
-        <div className="people-title-row">
+      <header className="page-hero people-hero">
+        <div className="page-hero__copy people-title-row">
           <div>
-            <span className="eyebrow">
+            <span className="page-hero__eyebrow">
               {locale === 'fr' ? 'Cercle de confiance' : 'Care circle'}
             </span>
-            <h2>{locale === 'fr' ? 'Les proches' : 'People'}</h2>
-            <p>
+            <h2 className="page-hero__title">{locale === 'fr' ? 'Les proches' : 'People'}</h2>
+            <p className="page-hero__text">
               {locale === 'fr'
                 ? 'Les bonnes personnes, avec le bon niveau d’accès.'
                 : 'The right people, with the right level of access.'}
@@ -1975,7 +1979,7 @@ export function PeoplePanel({
             {locale === 'fr' ? 'Ajouter un proche' : 'Add person'}
           </Button>
         )}
-      </div>
+      </header>
       <div className="people-overview" aria-label={locale === 'fr' ? 'Résumé' : 'Summary'}>
         <div>
           <span className="people-overview-icon people-overview-icon--family">
@@ -3216,17 +3220,17 @@ export function App() {
           <ScreenPanel initialSection={screenSection} locale={locale} />
         ) : active === 11 ? (
           <section className="section-view resident-page">
-            <header className="resident-hero">
-              <div>
-                <span className="eyebrow">
+            <header className="page-hero resident-hero">
+              <div className="page-hero__copy">
+                <span className="page-hero__eyebrow">
                   {locale === 'fr' ? 'Profil d’accompagnement' : 'Support profile'}
                 </span>
-                <h2>
+                <h2 className="page-hero__title">
                   {locale === 'fr' ? 'La fiche de ' : ''}
                   {resident?.preferredName ?? resident?.displayName ?? residentName}
                   {locale === 'fr' ? '' : '’s profile'}
                 </h2>
-                <p>
+                <p className="page-hero__text">
                   {locale === 'fr'
                     ? 'Les repères essentiels pour un accompagnement attentif et personnalisé.'
                     : 'Essential context for attentive, personal support.'}
@@ -3552,11 +3556,11 @@ export function App() {
           </section>
         ) : active === 8 ? (
           <section className="section-view settings-page">
-            <header className="settings-hero">
-              <div className="settings-hero-copy">
-                <span className="eyebrow">Élise OS</span>
-                <h2>{t.nav[8]}</h2>
-                <p>
+            <header className="page-hero settings-hero">
+              <div className="page-hero__copy settings-hero-copy">
+                <span className="page-hero__eyebrow">Élise OS</span>
+                <h2 className="page-hero__title">{t.nav[8]}</h2>
+                <p className="page-hero__text">
                   {locale === 'fr'
                     ? 'Adaptez Élise à votre quotidien et choisissez les situations qui méritent votre attention.'
                     : 'Adapt Élise to your daily life and choose which situations deserve your attention.'}

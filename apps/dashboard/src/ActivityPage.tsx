@@ -396,9 +396,9 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
 
   return (
     <section className="activity-overview-page">
-      <header className="activity-overview-hero">
-        <div className="activity-overview-hero-content">
-          <h2>{fr ? 'Activité' : 'Activity'}</h2>
+      <header className="page-hero activity-overview-hero">
+        <div className="page-hero__copy activity-overview-hero-content">
+          <h2 className="page-hero__title">{fr ? 'Activité' : 'Activity'}</h2>
           <div className="activity-hero-last-activity" role="status">
             <CircleCheck aria-hidden="true" />
             <span>{lastReliableActivity}</span>

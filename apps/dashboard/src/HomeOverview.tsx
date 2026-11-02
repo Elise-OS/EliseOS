@@ -607,11 +607,11 @@ export function HomeOverview({
 
   return (
     <section className="home-overview-page">
-      <header className="home-overview-hero">
-        <div className="home-overview-hero-copy">
+      <header className="page-hero home-overview-hero">
+        <div className="page-hero__copy home-overview-hero-copy">
           <div>
-            <span className="eyebrow">{fr ? 'Vue d’ensemble' : 'Overview'}</span>
-            <h2>{home?.name ?? (fr ? 'Mon logement' : 'My home')}</h2>
+            <span className="page-hero__eyebrow">{fr ? 'Vue d’ensemble' : 'Overview'}</span>
+            <h2 className="page-hero__title">{home?.name ?? (fr ? 'Mon logement' : 'My home')}</h2>
             <div className="home-overview-meta">
               <span>
                 {homeTypeLabels[home?.type ?? ''] ?? home?.type ?? (fr ? 'Logement' : 'Home')}
@@ -624,7 +624,7 @@ export function HomeOverview({
             </div>
           </div>
         </div>
-        <div className="home-overview-actions">
+        <div className="page-hero__actions home-overview-actions">
           {canManage && (
             <button className="primary" onClick={() => onManage()}>
               <Home /> {fr ? 'Modifier mon logement' : 'Manage my home'}

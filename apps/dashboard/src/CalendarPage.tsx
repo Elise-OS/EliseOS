@@ -215,19 +215,21 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
 
   return (
     <main className="calendar-page">
-      <header className="calendar-hero">
-        <div>
-          <span className="calendar-eyebrow">{fr ? 'Carnet de liaison' : 'Family notebook'}</span>
-          <h1>
+      <header className="page-hero calendar-hero">
+        <div className="page-hero__copy">
+          <span className="page-hero__eyebrow calendar-eyebrow">
+            {fr ? 'Carnet de liaison' : 'Family notebook'}
+          </span>
+          <h1 className="page-hero__title">
             <CalendarDays /> {fr ? 'Calendrier partagé' : 'Shared calendar'}
           </h1>
-          <p>
+          <p className="page-hero__text">
             {fr
               ? 'Les rendez-vous de la maison, au même endroit. Ceux du jour s’affichent aussi sur la TV.'
               : 'Appointments for the home, all in one place. Today’s appointments also appear on the TV.'}
           </p>
         </div>
-        <div className="calendar-hero-actions">
+        <div className="page-hero__actions calendar-hero-actions">
           <button className="calendar-back" onClick={onBack}>
             <ChevronLeft /> {fr ? 'Retour au carnet' : 'Back to notebook'}
           </button>
