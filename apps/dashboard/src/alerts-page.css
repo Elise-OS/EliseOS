@@ -29,7 +29,6 @@
 .alerts-page p {
   margin: 0;
 }
-.alerts-hero,
 .alerts-reassurance,
 .alerts-list-panel,
 .alerts-detail-panel {
@@ -37,17 +36,6 @@
   border-radius: 16px;
   box-shadow: 0 8px 22px rgba(19, 50, 98, 0.035);
 }
-.alerts-hero {
-  min-height: 130px;
-  display: flex;
-  align-items: center;
-  gap: 26px;
-  padding: 16px 24px;
-  background:
-    radial-gradient(ellipse at 85% 135%, #d3edff 0, #e8f7ff 35%, transparent 65%),
-    linear-gradient(105deg, #f6fcff, #fff 42%, #effaff);
-}
-.alerts-hero-icon,
 .alerts-reassurance-icon,
 .alerts-section-title > span,
 .alerts-detail-icon,
@@ -59,35 +47,9 @@
   background: #e7f7ff;
   color: #153e65;
 }
-.alerts-hero-icon {
-  width: 76px;
-  height: 76px;
-  border-radius: 16px;
-}
-.alerts-hero-icon svg {
-  width: 38px;
-  height: 38px;
-  stroke-width: 1.8;
-}
 .alerts-hero-copy {
   min-width: 0;
   flex: 1;
-}
-.alerts-hero-copy > span {
-  display: block;
-  color: var(--alerts-ink);
-  font-weight: 800;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-}
-.alerts-hero h1 {
-  margin: 1px 0 0;
-  font-size: clamp(42px, 5vw, 58px);
-  line-height: 0.95;
-}
-.alerts-hero p {
-  margin-top: 5px;
-  font-size: 16px;
 }
 .alerts-safety-grid {
   display: grid;
@@ -908,22 +870,6 @@
   }
   .alerts-hero {
     flex-wrap: wrap;
-    gap: 13px;
-    padding: 16px;
-  }
-  .alerts-hero-icon {
-    width: 58px;
-    height: 58px;
-  }
-  .alerts-hero-icon svg {
-    width: 30px;
-    height: 30px;
-  }
-  .alerts-hero h1 {
-    font-size: 42px;
-  }
-  .alerts-hero p {
-    font-size: 13px;
   }
   .alerts-settings {
     width: 100%;
@@ -1000,21 +946,6 @@
 }
 
 /* Compact, quieter alert list */
-.alerts-hero {
-  min-height: 108px;
-  padding: 17px 24px;
-  background: #f0f8fd;
-  box-shadow: none;
-}
-.alerts-hero-copy > span {
-  margin-bottom: 2px;
-}
-.alerts-hero h1 {
-  font-size: clamp(38px, 4vw, 48px);
-}
-.alerts-hero p {
-  font-size: 14px;
-}
 .alerts-reassurance {
   min-height: 76px;
   gap: 13px;
@@ -1310,10 +1241,6 @@
 /* Readable typography aligned with the Activity page. */
 .alerts-page {
   font-size: 15px;
-}
-
-.alerts-hero-copy > span {
-  font-size: 12px;
 }
 
 .alerts-reassurance p {

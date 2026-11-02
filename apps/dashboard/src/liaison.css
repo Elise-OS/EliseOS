@@ -38,31 +38,6 @@
   outline-offset: 3px;
 }
 
-.liaison-hero {
-  min-height: 132px;
-  padding: clamp(24px, 2.8vw, 34px);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 34px;
-  border: 1px solid #e1ebef;
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at 76% 0%, rgb(206 237 250 / 58%), transparent 44%),
-    linear-gradient(112deg, #fff 0%, #fafdff 56%, #eaf7fb 100%);
-  box-shadow: 0 17px 44px rgb(37 61 91 / 8%);
-}
-
-.liaison-hero-copy h1 {
-  margin: 0 0 4px;
-  color: #112f5d;
-  font:
-    600 clamp(32px, 3.4vw, 48px) / 0.98 'Source Serif 4',
-    Georgia,
-    serif;
-  letter-spacing: -0.04em;
-}
-
 .liaison-hero-date {
   min-width: 0;
   padding: 10px 17px 10px 11px;
@@ -1131,18 +1106,6 @@ button.liaison-highlight-card:hover {
 @media (max-width: 700px) {
   .liaison-page {
     padding-top: 0;
-  }
-  .liaison-hero {
-    min-height: 0;
-    padding: 24px;
-    display: flex;
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 20px;
-    border-radius: 18px;
-  }
-  .liaison-hero-copy h1 {
-    font-size: clamp(32px, 9vw, 40px);
   }
   .liaison-hero-date {
     max-width: 100%;

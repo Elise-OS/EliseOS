@@ -17,44 +17,8 @@
   outline-offset: 3px;
 }
 
-.house-journal-hero {
-  min-height: 132px;
-  padding: clamp(24px, 2.8vw, 34px);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 30px;
-  border: 1px solid #e1ebef;
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at 77% 0%, rgb(207 237 249 / 58%), transparent 43%),
-    linear-gradient(112deg, #fff 0%, #fafdff 56%, #eaf7fb 100%);
-  box-shadow: 0 17px 44px rgb(37 61 91 / 8%);
-}
-
-.house-journal-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: #5d7294;
-  font-size: 13px;
-  font-weight: 750;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
 .house-journal-eyebrow svg {
   color: #4274ab;
-}
-
-.house-journal-hero h1 {
-  margin: 0;
-  color: #112f5d;
-  font:
-    600 clamp(32px, 3.4vw, 48px) / 0.98 'Source Serif 4',
-    Georgia,
-    serif;
-  letter-spacing: -0.04em;
 }
 
 .house-journal-hero-copy > strong {
@@ -500,17 +464,6 @@
 @media (max-width: 680px) {
   .house-journal-page {
     padding-top: 8px;
-  }
-
-  .house-journal-hero {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 22px;
-    padding: 24px 20px;
-  }
-
-  .house-journal-hero h1 {
-    font-size: 34px;
   }
 
   .house-journal-hero-actions {

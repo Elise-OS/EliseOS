@@ -5,24 +5,9 @@
   color: #12385f;
 }
 
-.activity-overview-hero {
-  display: flex;
-  align-items: center;
-  min-height: 184px;
-  padding: 20px 30px;
-  border: 1px solid #edf0f0;
-  border-radius: 21px;
-  background:
-    radial-gradient(ellipse at 82% 15%, #dceff4 0%, transparent 44%),
-    linear-gradient(110deg, #fff 0%, #fafcfc 55%, #edf7fa 100%);
-  box-shadow: 0 10px 32px #223d5210;
-}
-
-.activity-overview-hero-copy,
 .activity-overview-meta,
 .activity-last-reliable,
 .activity-state-pill,
-.activity-overview-hero-actions,
 .activity-alert-link,
 .activity-date-control,
 .activity-mode-tabs,
@@ -40,54 +25,6 @@
 .activity-show-more {
   display: flex;
   align-items: center;
-}
-
-.activity-overview-hero-copy {
-  z-index: 1;
-  gap: 18px;
-  min-width: 0;
-}
-
-.activity-overview-status-icon {
-  display: grid;
-  flex: 0 0 58px;
-  width: 58px;
-  height: 58px;
-  place-items: center;
-  border-radius: 18px;
-  color: #fff;
-  background: #17456f;
-  box-shadow: 0 11px 25px rgb(23 69 111 / 18%);
-}
-
-.activity-overview-hero--attention .activity-overview-status-icon {
-  color: #74491f;
-  background: #f5d5aa;
-}
-
-.activity-overview-hero--learning .activity-overview-status-icon {
-  color: #1b6573;
-  background: #d9edef;
-}
-
-.activity-overview-hero--insufficient .activity-overview-status-icon {
-  color: #596978;
-  background: #e1e7e9;
-}
-
-.activity-overview-status-icon svg {
-  width: 28px;
-  height: 28px;
-}
-
-.activity-overview-hero h2 {
-  margin: 0;
-  color: #102f59;
-  font:
-    600 clamp(36px, 4.2vw, 54px) / 1.13 'Source Serif 4',
-    Georgia,
-    serif;
-  letter-spacing: -0.035em;
 }
 
 .activity-overview-meta {
@@ -146,14 +83,6 @@
 
 .activity-last-reliable--empty {
   color: #74818e;
-}
-
-.activity-overview-hero-actions {
-  z-index: 1;
-  align-items: stretch;
-  flex: 0 0 min(390px, 38%);
-  flex-direction: column;
-  gap: 9px;
 }
 
 .activity-alert-link {
@@ -1588,14 +1517,6 @@
   .activity-overview-page {
     padding-bottom: 35px;
   }
-  .activity-overview-hero {
-    min-height: 0;
-    padding: 21px 18px;
-    border-radius: 21px;
-  }
-  .activity-overview-hero h2 {
-    font-size: 36px;
-  }
   .activity-view-filters {
     align-items: stretch;
     flex-direction: column;
@@ -2117,10 +2038,6 @@
 }
 
 /* The reliable activity summary now lives directly in the hero. */
-.activity-overview-hero {
-  align-items: flex-start;
-  justify-content: flex-start;
-}
 
 .activity-overview-hero-content {
   display: grid;
@@ -2152,10 +2069,6 @@
 }
 
 @media (max-width: 640px) {
-  .activity-overview-hero {
-    min-height: 0;
-  }
-
   .activity-hero-last-activity {
     max-width: 100%;
     border-radius: 15px;

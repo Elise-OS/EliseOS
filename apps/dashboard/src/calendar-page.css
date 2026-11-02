@@ -3,42 +3,14 @@
   padding: 18px 0 40px;
   color: #17325d;
 }
-.calendar-hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  align-items: center;
-  padding: 28px 32px;
-  border: 1px solid #e1ebef;
-  border-radius: 24px;
-  background: linear-gradient(112deg, #fff, #eef8fb);
-  box-shadow: 0 17px 44px #253d5b14;
-}
-.calendar-eyebrow {
-  color: #5c7294;
-  font-size: 14px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
 .calendar-hero h1 {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 8px 0 4px;
-  font:
-    600 clamp(32px, 3.4vw, 48px)/1 'Source Serif 4',
-    Georgia,
-    serif;
 }
 .calendar-hero h1 svg {
   width: 38px;
   height: 38px;
-}
-.calendar-hero p {
-  margin: 0;
-  color: #4f6489;
-  font-size: 17px;
 }
 .calendar-hero-actions {
   display: flex;
@@ -394,11 +366,6 @@
   height: 18px;
 }
 @media (max-width: 700px) {
-  .calendar-hero {
-    padding: 22px;
-    align-items: flex-start;
-    flex-direction: column;
-  }
   .calendar-hero-actions {
     width: 100%;
   }

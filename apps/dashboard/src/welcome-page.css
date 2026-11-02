@@ -28,20 +28,6 @@
 .welcome-page h3 {
   margin: 0;
 }
-.welcome-hero {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 28px;
-  min-height: 184px;
-  padding: 20px 30px;
-  border: 1px solid #edf0f0;
-  border-radius: 21px;
-  background:
-    radial-gradient(ellipse at 82% 15%, #dceff4 0%, transparent 44%),
-    linear-gradient(110deg, #fff 0%, #fafcfc 55%, #edf7fa 100%);
-  box-shadow: 0 10px 32px #223d5210;
-}
 .welcome-playback {
   display: flex;
   align-items: center;
@@ -118,29 +104,6 @@
   font-size: 11px;
   font-weight: 650;
   white-space: nowrap;
-}
-.welcome-eyebrow {
-  display: block;
-  font-size: 13px;
-  font-weight: 750;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-.welcome-greeting h2 {
-  margin: 7px 0 10px;
-  color: var(--welcome-navy);
-  font:
-    600 clamp(36px, 4.2vw, 54px)/1.13 'Source Serif 4',
-    Georgia,
-    serif;
-  letter-spacing: -0.035em;
-}
-.welcome-greeting p {
-  color: #687386;
-  font:
-    400 23px/1.45 'Source Serif 4',
-    Georgia,
-    serif;
 }
 .welcome-context {
   display: flex;
@@ -882,16 +845,6 @@ main:has(> .welcome-page) > .topbar .top-actions {
     gap: 15px;
     padding-top: 14px;
   }
-  .welcome-hero {
-    padding: 22px;
-    gap: 18px;
-  }
-  .welcome-greeting h2 {
-    font-size: 36px;
-  }
-  .welcome-greeting p {
-    font-size: 19px;
-  }
   .welcome-date {
     font-size: 12px;
   }
@@ -951,10 +904,6 @@ main:has(> .welcome-page) > .topbar .top-actions {
 @media (max-width: 480px) {
   main:has(> .welcome-page) {
     padding-inline: 12px;
-  }
-  .welcome-hero {
-    flex-direction: column;
-    align-items: stretch;
   }
   .welcome-context {
     display: grid;
