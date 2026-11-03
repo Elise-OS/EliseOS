@@ -308,6 +308,8 @@ async function handlePush(row: OutboxRow): Promise<void> {
         title,
         body,
         priority: severity === 'URGENT' ? 'high' : 'default',
+        // Lets urgent alerts break through iOS Focus modes.
+        ...(severity === 'URGENT' ? { interruptionLevel: 'time-sensitive' } : {}),
         data: {
           kind: alertId ? 'alert' : (row.payload.kind ?? 'system'),
           ...(alertId ? { alertId } : {}),
