@@ -14,7 +14,7 @@ platform :ios do
     )
   end
 
-  desc "Upload the fr-FR store texts without touching screenshots or builds"
+  desc "Upload the fr-FR and en-US store texts without touching screenshots or builds"
   lane :metadata do
     deliver(
       skip_binary_upload: true,
