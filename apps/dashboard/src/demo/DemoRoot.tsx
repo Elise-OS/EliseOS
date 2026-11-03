@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { App } from '../App';
 import { ResidentScreen } from '../ResidentScreen';
+import { DemoCall } from './DemoCall';
 import './demo.css';
 
 type View = 'aidant' | 'tv';
@@ -61,6 +62,7 @@ export function DemoRoot() {
   return (
     <>
       {view === 'tv' ? <ResidentScreen /> : <App />}
+      <DemoCall lang={lang} />
       {collapsed ? (
         <button
           type="button"

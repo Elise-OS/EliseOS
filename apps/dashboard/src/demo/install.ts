@@ -1,3 +1,4 @@
+import { DEMO_CALL_EVENT } from './DemoCall';
 import { handleDemoRequest } from './router';
 
 // Imported right after the frozen clock: the page never reaches a real Élise API.
@@ -33,6 +34,9 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     path,
     typeof init?.body === 'string' ? init.body : undefined,
   );
+  // Calling the resident opens the pretend call instead of a video room.
+  if (method === 'POST' && path === '/screen/calls' && answer.status < 300)
+    window.dispatchEvent(new Event(DEMO_CALL_EVENT));
   if (answer.status === 404 && import.meta.env.DEV)
     console.warn(`[démo] ${method} ${path} sans réponse`);
   return new Response(answer.status === 204 ? null : JSON.stringify(answer.body ?? null), {

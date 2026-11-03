@@ -4,6 +4,7 @@ import { CalendarPage } from './CalendarPage';
 import { WelcomePage } from './WelcomePage';
 import { ScreenPanel, startResidentScreenCall } from './ScreenPanel';
 import { AlertsPage, type SafetyCategory } from './AlertsPage';
+import { AlertRulesPanel } from './AlertRulesPanel';
 import { Button, Card, StatusPill } from '@michel/ui';
 import {
   Accessibility,
@@ -659,15 +660,6 @@ function habitLabel(value: string, locale: Locale): string {
   );
 }
 
-function inputTime(value: number): string {
-  return `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
-}
-
-function timeMinute(value: string): number {
-  const [hour = 0, minute = 0] = value.split(':').map(Number);
-  return hour * 60 + minute;
-}
-
 function capabilityLabel(capability: string, locale: Locale): string {
   const labels: Record<string, [string, string]> = {
     motion: ['Mouvement', 'Motion'],
@@ -815,282 +807,6 @@ export function SimulationPanel({
         </p>
       )}
     </article>
-  );
-}
-
-export function AlertRulesPanel({
-  rules,
-  saving,
-  notice,
-  onChange,
-  onSave,
-}: {
-  rules: AlertRuleSettings;
-  saving: boolean;
-  notice: string;
-  onChange: (rules: AlertRuleSettings) => void;
-  onSave: () => void;
-}) {
-  const toggle = (key: keyof AlertRuleSettings, enabled: boolean) =>
-    onChange({ ...rules, [key]: { ...rules[key], enabled } });
-  return (
-    <details className="michel-card settings-section-card settings-disclosure settings-landmarks-card alert-rules-card">
-      <summary className="settings-section-heading">
-        <span className="settings-section-icon settings-section-icon--amber">
-          <Bell />
-        </span>
-        <div>
-          <span className="eyebrow">Repères du domicile</span>
-          <h2>Situations à signaler</h2>
-          <p>
-            Choisissez des seuils simples. Élise explique toujours ce qu’elle observe avant de
-            proposer une vérification.
-          </p>
-        </div>
-        <span className="settings-disclosure-chevron" aria-hidden="true">
-          <ChevronRight />
-        </span>
-      </summary>
-      <div className="alert-rule-list">
-        <label className="alert-rule-row">
-          <span>
-            <strong>Écarts aux habitudes apprises</strong>
-            <small>Disponible après 14 jours fiables et deux contrôles espacés.</small>
-          </span>
-          <input
-            aria-label="Activer les alertes comportementales"
-            type="checkbox"
-            checked={rules.behavioral.enabled}
-            onChange={(event) => toggle('behavioral', event.target.checked)}
-          />
-          <span className="rule-value">Validation manuelle</span>
-        </label>
-        <label className="alert-rule-row">
-          <span>
-            <strong>Absence de mouvement</strong>
-            <small>Seulement lorsque les capteurs répondent correctement.</small>
-          </span>
-          <input
-            aria-label="Activer l’absence de mouvement"
-            type="checkbox"
-            checked={rules.inactivity.enabled}
-            onChange={(event) => toggle('inactivity', event.target.checked)}
-          />
-          <span className="rule-value">
-            <input
-              aria-label="Durée sans mouvement"
-              type="number"
-              min="15"
-              max="1440"
-              value={rules.inactivity.minutes}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  inactivity: { ...rules.inactivity, minutes: Number(event.target.value) },
-                })
-              }
-            />
-            minutes
-          </span>
-        </label>
-        <label className="alert-rule-row">
-          <span>
-            <strong>Porte laissée ouverte</strong>
-            <small>Une ouverture brève reste un événement normal.</small>
-          </span>
-          <input
-            aria-label="Activer la porte ouverte"
-            type="checkbox"
-            checked={rules.doorOpen.enabled}
-            onChange={(event) => toggle('doorOpen', event.target.checked)}
-          />
-          <span className="rule-value">
-            <input
-              aria-label="Durée porte ouverte"
-              type="number"
-              min="1"
-              max="120"
-              value={rules.doorOpen.minutes}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  doorOpen: { ...rules.doorOpen, minutes: Number(event.target.value) },
-                })
-              }
-            />
-            minutes
-          </span>
-        </label>
-        <div className="alert-rule-row temperature-rule">
-          <span>
-            <strong>Température inhabituelle</strong>
-            <small>Le seuil doit persister avant qu’Élise le signale.</small>
-          </span>
-          <label className="rule-inline-toggle">
-            <input
-              aria-label="Activer les températures inhabituelles"
-              type="checkbox"
-              checked={rules.lowTemperature.enabled || rules.highTemperature.enabled}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  lowTemperature: { ...rules.lowTemperature, enabled: event.target.checked },
-                  highTemperature: { ...rules.highTemperature, enabled: event.target.checked },
-                })
-              }
-            />
-            Active
-          </label>
-          <span className="temperature-values">
-            <label>
-              Sous
-              <input
-                aria-label="Température minimale"
-                type="number"
-                value={rules.lowTemperature.celsius}
-                onChange={(event) =>
-                  onChange({
-                    ...rules,
-                    lowTemperature: {
-                      ...rules.lowTemperature,
-                      celsius: Number(event.target.value),
-                    },
-                  })
-                }
-              />
-              °C
-            </label>
-            <label>
-              Au-dessus de
-              <input
-                aria-label="Température maximale"
-                type="number"
-                value={rules.highTemperature.celsius}
-                onChange={(event) =>
-                  onChange({
-                    ...rules,
-                    highTemperature: {
-                      ...rules.highTemperature,
-                      celsius: Number(event.target.value),
-                    },
-                  })
-                }
-              />
-              °C
-            </label>
-          </span>
-        </div>
-        <label className="alert-rule-row">
-          <span>
-            <strong>Activité nocturne répétée</strong>
-            <small>Plusieurs mouvements, jamais un passage isolé.</small>
-          </span>
-          <input
-            aria-label="Activer l’activité nocturne"
-            type="checkbox"
-            checked={rules.nightActivity.enabled}
-            onChange={(event) => toggle('nightActivity', event.target.checked)}
-          />
-          <span className="night-values">
-            <input
-              aria-label="Début de la nuit"
-              type="time"
-              value={inputTime(rules.nightActivity.startMinute)}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  nightActivity: {
-                    ...rules.nightActivity,
-                    startMinute: timeMinute(event.target.value),
-                  },
-                })
-              }
-            />
-            à
-            <input
-              aria-label="Fin de la nuit"
-              type="time"
-              value={inputTime(rules.nightActivity.endMinute)}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  nightActivity: {
-                    ...rules.nightActivity,
-                    endMinute: timeMinute(event.target.value),
-                  },
-                })
-              }
-            />
-          </span>
-        </label>
-        <label className="alert-rule-row">
-          <span>
-            <strong>Capteur silencieux</strong>
-            <small>Évite de confondre une panne avec une absence d’activité.</small>
-          </span>
-          <input
-            aria-label="Activer le capteur silencieux"
-            type="checkbox"
-            checked={rules.sensorOffline.enabled}
-            onChange={(event) => toggle('sensorOffline', event.target.checked)}
-          />
-          <span className="rule-value">
-            <input
-              aria-label="Délai capteur silencieux"
-              type="number"
-              min="15"
-              max="10080"
-              value={rules.sensorOffline.minutes}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  sensorOffline: { ...rules.sensorOffline, minutes: Number(event.target.value) },
-                })
-              }
-            />
-            minutes
-          </span>
-        </label>
-        <label className="alert-rule-row">
-          <span>
-            <strong>Batterie faible</strong>
-            <small>Une information calme pour anticiper le remplacement.</small>
-          </span>
-          <input
-            aria-label="Activer la batterie faible"
-            type="checkbox"
-            checked={rules.lowBattery.enabled}
-            onChange={(event) => toggle('lowBattery', event.target.checked)}
-          />
-          <span className="rule-value">
-            <input
-              aria-label="Seuil de batterie"
-              type="number"
-              min="1"
-              max="50"
-              value={rules.lowBattery.percent}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  lowBattery: { ...rules.lowBattery, percent: Number(event.target.value) },
-                })
-              }
-            />
-            %
-          </span>
-        </label>
-      </div>
-      <div className="rule-actions">
-        <Button type="button" disabled={saving} onClick={onSave}>
-          {saving ? 'Enregistrement…' : 'Enregistrer les repères'}
-        </Button>
-        {notice && (
-          <p role="status">
-            <CircleCheck /> {notice}
-          </p>
-        )}
-      </div>
-    </details>
   );
 }
 
@@ -2788,7 +2504,7 @@ export function App() {
     setRunningSimulation(null);
   };
   const saveAlertRules = async () => {
-    if (!alertRules) return;
+    if (!alertRules) return false;
     setSavingRules(true);
     setRuleNotice('');
     const response = await fetch('/api/v1/alerts/rules', {
@@ -2796,12 +2512,18 @@ export function App() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(alertRules),
     });
+    if (response.ok) setAlertRules((await response.json()) as AlertRuleSettings);
     setRuleNotice(
       response.ok
-        ? 'Les repères ont été enregistrés localement.'
-        : 'Les repères n’ont pas pu être enregistrés.',
+        ? locale === 'fr'
+          ? 'Les repères ont été enregistrés.'
+          : 'Your landmarks have been saved.'
+        : locale === 'fr'
+          ? 'Les repères n’ont pas pu être enregistrés. Vérifiez les valeurs et réessayez.'
+          : 'Your landmarks could not be saved. Check the values and try again.',
     );
     setSavingRules(false);
+    return response.ok;
   };
   const createMedication = async (draft: MedicationDraft): Promise<boolean> => {
     setSavingMedication(true);
@@ -3727,10 +3449,11 @@ export function App() {
             {settingsTab === 'rules' && alertRules && (
               <AlertRulesPanel
                 rules={alertRules}
+                locale={locale}
                 saving={savingRules}
                 notice={ruleNotice}
                 onChange={setAlertRules}
-                onSave={() => void saveAlertRules()}
+                onSave={saveAlertRules}
               />
             )}
           </section>

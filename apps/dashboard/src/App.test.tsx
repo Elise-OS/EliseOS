@@ -1,9 +1,9 @@
+import { AlertRulesPanel } from './AlertRulesPanel';
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { copy } from './i18n';
 import {
   activityDescription,
-  AlertRulesPanel,
   Login,
   MedicationPanel,
   SidebarBehaviorSetting,
@@ -265,11 +265,12 @@ describe('Élise alert rule design', () => {
       />,
     );
     expect(html).toContain('Situations à signaler');
-    expect(html).toContain('<details');
-    expect(html).toContain('settings-disclosure-chevron');
-    expect(html).not.toContain('<details open=""');
+    expect(html).toContain('7/8');
+    expect(html).toContain('Prévenir si la porte d’entrée reste ouverte plus de 5 min.');
+    expect(html).toContain('Prévenir si aucun mouvement n’est vu pendant 3 h en journée.');
     expect(html).toContain('Évite de confondre une panne avec une absence d’activité');
     expect(html).toContain('Enregistrer les repères');
+    expect(html).toContain('role="switch"');
     expect(html).not.toContain('MQTT');
   });
 });

@@ -56,13 +56,13 @@ describe('demo router', () => {
     expect(missing).toEqual([]);
   });
 
-  it('shows the frozen Martin home with one open alert', () => {
+  it('shows the frozen Martin home with two open alerts', () => {
     const overview = handleDemoRequest('GET', '/overview').body as {
       home: { name: string };
       openAlerts: number;
     };
     expect(overview.home.name).toBe('Maison Martin');
-    expect(overview.openAlerts).toBe(1);
+    expect(overview.openAlerts).toBe(2);
   });
 
   it('keeps the visitor’s actions in memory until the demo restarts', () => {
@@ -88,6 +88,31 @@ describe('demo router', () => {
     resetDemo();
     const reset = handleDemoRequest('GET', '/alerts').body as Array<{ id: string; status: string }>;
     expect(reset.find((alert) => alert.id === 'alert-door-open')?.status).toBe('OPEN');
+  });
+
+  it('saves the alert rules and gives every alert its own evidence', () => {
+    const rules = handleDemoRequest('GET', '/alerts/rules').body as {
+      doorOpen: { enabled: boolean; minutes: number };
+    };
+    const saved = handleDemoRequest(
+      'PATCH',
+      '/alerts/rules',
+      JSON.stringify({ ...rules, doorOpen: { enabled: true, minutes: 12 } }),
+    ).body as typeof rules;
+    expect(saved.doorOpen.minutes).toBe(12);
+    expect((handleDemoRequest('GET', '/alerts/rules').body as typeof rules).doorOpen.minutes).toBe(
+      12,
+    );
+
+    const cold = handleDemoRequest('GET', '/alerts/alert-bedroom-cold/detail').body as {
+      type: string;
+      sensor: { capability: string } | null;
+      observations: unknown[];
+    };
+    expect(cold.type).toBe('TEMPERATURE');
+    expect(cold.sensor?.capability).toBe('temperature');
+    expect(cold.observations.length).toBeGreaterThan(3);
+    resetDemo();
   });
 
   it('refuses actions that would leave the page', () => {

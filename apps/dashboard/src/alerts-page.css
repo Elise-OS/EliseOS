@@ -557,6 +557,7 @@
 }
 .alerts-detail-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 13px;
 }
@@ -583,7 +584,7 @@
   stroke-width: 1.7;
 }
 .alerts-detail-header > div {
-  min-width: 0;
+  min-width: min(240px, 100%);
   flex: 1;
 }
 .alerts-detail-header h2 {
@@ -598,7 +599,7 @@
 }
 .alerts-detail-meta {
   white-space: nowrap;
-  align-self: center;
+  align-self: flex-start;
   font-size: 12px;
 }
 .alerts-detail-explanation {
@@ -1175,6 +1176,8 @@
   margin-top: 10px;
 }
 .alerts-call-dialog {
+  /* The CSS reset zeroes margins, which removes the native centring of a modal <dialog>. */
+  margin: auto;
   width: min(440px, calc(100vw - 32px));
   max-width: none;
   padding: 0;

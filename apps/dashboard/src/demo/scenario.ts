@@ -758,8 +758,21 @@ function createDemoSession() {
       transitions: [],
     },
     {
+      id: 'alert-bedroom-cold',
+      type: 'TEMPERATURE',
+      severity: 'ATTENTION',
+      status: 'OPEN',
+      title: 'Chambre plus fraîche que d’habitude',
+      explanation:
+        'La chambre est descendue à 16,8 °C ce matin (seuil : 17 °C), contre 19,5 °C d’habitude. Le radiateur est peut-être éteint ou la fenêtre restée entrouverte.',
+      confidence: 0.9,
+      openedAt: iso(-5 * HOUR),
+      room: { id: ROOM_IDS.bedroom, name: 'Chambre' },
+      transitions: [],
+    },
+    {
       id: 'alert-sensor-low-battery',
-      type: 'SENSOR_LOW_BATTERY',
+      type: 'LOW_BATTERY',
       severity: 'INFO',
       status: 'ACKNOWLEDGED',
       title: 'Pile bientôt à remplacer',
@@ -772,22 +785,107 @@ function createDemoSession() {
           id: 'transition-battery-1',
           from: 'OPEN',
           to: 'ACKNOWLEDGED',
-          note: null,
+          note: 'Claire apporte une pile CR2032 cet après-midi.',
           createdAt: iso(-3.5 * HOUR),
         },
       ],
     },
     {
-      id: 'alert-temperature',
-      type: 'TEMPERATURE_CHANGE',
+      id: 'alert-living-heat',
+      type: 'TEMPERATURE',
       severity: 'INFO',
       status: 'RESOLVED',
-      title: 'Température revenue dans la plage habituelle',
-      explanation: 'La température du séjour est revenue à 21,4 °C.',
+      title: 'Séjour très chaud en fin d’après-midi',
+      explanation:
+        'Le séjour a atteint 27,8 °C vers 17 h. La température est revenue à 21,4 °C après l’ouverture des volets.',
       confidence: 0.95,
       openedAt: iso(-2 * DAY),
-      resolvedAt: iso(-2 * DAY + 30 * MINUTE),
+      resolvedAt: iso(-2 * DAY + 90 * MINUTE),
       room: { id: ROOM_IDS.living, name: 'Séjour' },
+      transitions: [],
+    },
+    {
+      id: 'alert-water-offline',
+      type: 'SENSOR_OFFLINE',
+      severity: 'INFO',
+      status: 'RESOLVED',
+      title: 'Détecteur de fuite d’eau ne répond plus',
+      explanation:
+        'Le détecteur sous l’évier n’a rien envoyé pendant 6 heures. Il est revenu après avoir été remis en place.',
+      confidence: 1,
+      openedAt: iso(-3 * DAY),
+      resolvedAt: iso(-3 * DAY + 6 * HOUR),
+      room: { id: ROOM_IDS.kitchen, name: 'Cuisine' },
+      transitions: [],
+    },
+    {
+      id: 'alert-medication',
+      type: 'MEDICATION_MISSED',
+      severity: 'ATTENTION',
+      status: 'RESOLVED',
+      title: 'Prise du matin non confirmée',
+      explanation:
+        'Le Levothyrox de 8 h n’avait pas été confirmé à 9 h 30. Jeanne l’a pris après l’appel de Claire.',
+      confidence: 1,
+      openedAt: iso(-4 * DAY),
+      resolvedAt: iso(-4 * DAY + 40 * MINUTE),
+      room: null,
+      transitions: [],
+    },
+    {
+      id: 'alert-smoke',
+      type: 'SMOKE',
+      severity: 'URGENT',
+      status: 'RESOLVED',
+      title: 'Fumée détectée',
+      explanation:
+        'Le détecteur du séjour a sonné 2 minutes. Sophie était sur place : une tartine oubliée dans le grille-pain.',
+      confidence: 1,
+      openedAt: iso(-5 * DAY),
+      resolvedAt: iso(-5 * DAY + 6 * MINUTE),
+      room: { id: ROOM_IDS.living, name: 'Séjour' },
+      transitions: [],
+    },
+    {
+      id: 'alert-inactivity',
+      type: 'INACTIVITY',
+      severity: 'ATTENTION',
+      status: 'RESOLVED',
+      title: 'Pas de mouvement ce matin',
+      explanation: 'Aucun mouvement n’avait été vu à l’heure habituelle du lever.',
+      confidence: 0.78,
+      openedAt: iso(-6 * DAY),
+      resolvedAt: iso(-6 * DAY + 25 * MINUTE),
+      room: { id: ROOM_IDS.bedroom, name: 'Chambre' },
+      lastMovement: { occurredAt: iso(-6 * DAY - 9 * HOUR), roomName: 'Chambre' },
+      transitions: [],
+    },
+    {
+      id: 'alert-sos',
+      type: 'SOS',
+      severity: 'URGENT',
+      status: 'RESOLVED',
+      title: 'Bouton d’assistance activé',
+      explanation:
+        'Jeanne a appuyé sur le bouton de l’entrée. C’était un essai avec Sophie, qui a confirmé que tout allait bien.',
+      confidence: 1,
+      openedAt: iso(-8 * DAY),
+      resolvedAt: iso(-8 * DAY + 4 * MINUTE),
+      room: { id: ROOM_IDS.entry, name: 'Entrée' },
+      transitions: [],
+    },
+    {
+      id: 'alert-fall',
+      type: 'FALL_DETECTION',
+      severity: 'URGENT',
+      status: 'DISMISSED',
+      title: 'Alerte de chute',
+      explanation:
+        'Le détecteur de la salle de bains a signalé une chute possible. Jeanne avait laissé tomber une serviette ; fausse alerte.',
+      confidence: 0.64,
+      openedAt: iso(-11 * DAY),
+      resolvedAt: iso(-11 * DAY + 7 * MINUTE),
+      room: { id: ROOM_IDS.bathroom, name: 'Salle de bains' },
       transitions: [],
     },
   ];
@@ -830,7 +928,19 @@ function createDemoSession() {
       'INACTIVE',
       86,
       -90,
-      'SNZB-04',
+      '3RDS17BZ',
+      'Third Reality',
+    ),
+    sensor(
+      'sensor-entry-button',
+      'Bouton d’assistance',
+      'Entrée',
+      'button',
+      'ONLINE',
+      88,
+      -95,
+      '3RSB22BZ',
+      'Third Reality',
     ),
     sensor(
       'sensor-entry-motion',
@@ -840,7 +950,8 @@ function createDemoSession() {
       'ONLINE',
       78,
       -46,
-      'SNZB-03',
+      '3RMS16BZ',
+      'Third Reality',
     ),
     sensor(
       'sensor-living-motion',
@@ -850,7 +961,8 @@ function createDemoSession() {
       'ONLINE',
       64,
       -18,
-      'SNZB-03',
+      '3RMS16BZ',
+      'Third Reality',
     ),
     sensor(
       'sensor-living-climate',
@@ -870,7 +982,8 @@ function createDemoSession() {
       'ONLINE',
       73,
       -38,
-      'SNZB-04',
+      '3RDS17BZ',
+      'Third Reality',
     ),
     sensor(
       'sensor-kitchen-motion',
@@ -880,7 +993,8 @@ function createDemoSession() {
       'ONLINE',
       58,
       -34,
-      'SNZB-03',
+      '3RMS16BZ',
+      'Third Reality',
     ),
     sensor(
       'sensor-bedroom-climate',
@@ -902,7 +1016,17 @@ function createDemoSession() {
       -4 * 60,
       'SNZB-02P',
     ),
-    sensor('sensor-kettle-plug', 'Bouilloire', 'Cuisine', 'power', 'ONLINE', 67, -132, 'SNZB-01P6'),
+    sensor(
+      'sensor-kettle-plug',
+      'Bouilloire',
+      'Cuisine',
+      'power',
+      'ONLINE',
+      67,
+      -132,
+      '3RSPE01044BZ',
+      'Third Reality',
+    ),
     sensor(
       'sensor-bathroom-fall',
       'Détecteur de chute',
@@ -911,8 +1035,8 @@ function createDemoSession() {
       'ONLINE',
       96,
       -8,
-      'DEMO-FALL',
-      'DÉMO',
+      'HS2FD-EF1-3.0',
+      'Heiman',
     ),
     sensor(
       'sensor-living-smoke',
@@ -922,8 +1046,8 @@ function createDemoSession() {
       'ONLINE',
       94,
       -14,
-      'DEMO-SMOKE',
-      'DÉMO',
+      'HS1SA-E',
+      'Heiman',
     ),
     sensor(
       'sensor-kitchen-water',
@@ -933,8 +1057,8 @@ function createDemoSession() {
       'ONLINE',
       91,
       -11,
-      'DEMO-WATER',
-      'DÉMO',
+      '3RWS18BZ',
+      'Third Reality',
     ),
   ];
 
@@ -1088,6 +1212,7 @@ function createDemoSession() {
         id: `placement-${device.id}`,
         kind: 'SENSOR' as const,
         equipmentId: device.id,
+        equipmentRefKind: 'DEVICE' as const,
         roomId: device.room?.id ?? ROOM_IDS.living,
         floorId: 'level-ground',
         openingId: device.id.includes('door') ? 'door-main' : null,
@@ -1097,7 +1222,12 @@ function createDemoSession() {
         capabilityBindings: device.capabilities.map((capability) => ({
           sensorId: capability.sensorId,
           capability: capability.capability,
-          role: capability.label,
+          role:
+            capability.capability === 'contact'
+              ? device.id.includes('door')
+                ? 'MAIN_ENTRANCE'
+                : 'FRIDGE'
+              : capability.label,
         })),
         x:
           60 +
@@ -1546,6 +1676,120 @@ function sensor(
   };
 }
 
+type AlertEvidence = Pick<AlertDetail, 'sensor' | 'observations'>;
+
+/** What each demo alert was built from, newest first as the API returns it. */
+function alertEvidence(alert: AlertItem): AlertEvidence {
+  const evidence = alertEvidenceInOrder(alert);
+  return {
+    ...evidence,
+    observations: [...evidence.observations].sort((a, b) =>
+      b.occurredAt.localeCompare(a.occurredAt),
+    ),
+  };
+}
+
+function alertEvidenceInOrder(alert: AlertItem): AlertEvidence {
+  const observation = (
+    id: string,
+    occurredAt: string,
+    capability: string,
+    payload: unknown,
+  ): AlertEvidence['observations'][number] => ({
+    id,
+    occurredAt,
+    capability,
+    quality: 'GOOD',
+    payload,
+  });
+  const opened = Date.parse(alert.openedAt) - Date.now();
+  // Like the API: readings from half an hour before the alert until it closed (or until now).
+  const temperatures = (sensorId: string, sourceName: string, values: number[]): AlertEvidence => {
+    const from = opened - 30 * MINUTE;
+    const to = alert.resolvedAt ? Date.parse(alert.resolvedAt) - Date.now() : -15 * MINUTE;
+    const step = (to - from) / Math.max(1, values.length - 1);
+    return {
+      sensor: { id: sensorId, sourceName, capability: 'temperature', unit: '°C' },
+      observations: values.map((value, index) =>
+        observation(`${alert.id}-temperature-${index}`, iso(from + index * step), 'temperature', {
+          value,
+        }),
+      ),
+    };
+  };
+  switch (alert.id) {
+    case 'alert-door-open':
+      return {
+        sensor: {
+          id: 'sensor-entry-door',
+          sourceName: 'Porte d’entrée',
+          capability: 'contact',
+          unit: null,
+        },
+        observations: [
+          observation('observation-open', alert.openedAt, 'contact', { open: true }),
+          observation('observation-close', iso(-44 * MINUTE), 'contact', { open: false }),
+        ],
+      };
+    case 'alert-bedroom-cold':
+      return temperatures(
+        'sensor-bedroom-climate',
+        'Température chambre',
+        [17.4, 16.9, 16.8, 16.9, 17.1, 17.2],
+      );
+    case 'alert-living-heat':
+      return temperatures(
+        'sensor-living-climate',
+        'Température séjour',
+        [26.4, 27.8, 27.1, 25.0, 23.2, 21.4],
+      );
+    case 'alert-smoke':
+      return {
+        sensor: {
+          id: 'sensor-living-smoke',
+          sourceName: 'Détecteur de fumée',
+          capability: 'smoke',
+          unit: null,
+        },
+        observations: [
+          observation('observation-smoke-on', alert.openedAt, 'smoke', { active: true }),
+          observation('observation-smoke-off', iso(opened + 2 * MINUTE), 'smoke', {
+            active: false,
+          }),
+        ],
+      };
+    case 'alert-fall':
+      return {
+        sensor: {
+          id: 'sensor-bathroom-fall',
+          sourceName: 'Détecteur de chute',
+          capability: 'fall_detection',
+          unit: null,
+        },
+        observations: [
+          observation('observation-fall', alert.openedAt, 'fall_detection', {
+            fallStatus: 'fall_warning',
+          }),
+          observation('observation-fall-normal', iso(opened + 3 * MINUTE), 'fall_detection', {
+            fallStatus: 'normal',
+          }),
+        ],
+      };
+    case 'alert-sos':
+      return {
+        sensor: {
+          id: 'sensor-entry-button',
+          sourceName: 'Bouton d’assistance',
+          capability: 'button',
+          unit: null,
+        },
+        observations: [observation('observation-sos', alert.openedAt, 'button', { active: true })],
+      };
+    default:
+      return { sensor: null, observations: [] };
+  }
+}
+
 function capabilityLabel(capability: string) {
   return (
     (
@@ -1556,6 +1800,7 @@ function capabilityLabel(capability: string) {
         humidity: 'Humidité',
         power: 'Puissance',
         occupancy: 'Présence',
+        button: 'Appel à l’aide',
       } as Record<string, string>
     )[capability] ?? capability
   );
@@ -2032,34 +2277,10 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
   if (/^\/alerts\/[^/]+\/detail$/.test(pathname)) {
     const id = pathname.split('/')[2];
     const alert = state.alerts.find((item) => item.id === id) ?? state.alerts[0]!;
-    const detail: AlertDetail = {
-      ...alert,
-      sensor: {
-        id: 'sensor-entry-door',
-        sourceName: 'Porte d’entrée',
-        capability: 'contact',
-        unit: null,
-      },
-      observations: [
-        {
-          id: 'observation-open',
-          occurredAt: alert.openedAt,
-          capability: 'contact',
-          quality: 'GOOD',
-          payload: { state: 'open', durationMinutes: 8 },
-        },
-        {
-          id: 'observation-close',
-          occurredAt: iso(-44 * MINUTE),
-          capability: 'contact',
-          quality: 'GOOD',
-          payload: { state: 'closed' },
-        },
-      ],
-    };
+    const detail: AlertDetail = { ...alert, ...alertEvidence(alert) };
     return detail as T;
   }
-  if (/^\/alerts\/[^/]+$/.test(pathname) && method === 'PATCH') {
+  if (/^\/alerts\/[^/]+$/.test(pathname) && pathname !== '/alerts/rules' && method === 'PATCH') {
     const id = pathname.split('/')[2];
     const alert = state.alerts.find((item) => item.id === id);
     if (alert) {
