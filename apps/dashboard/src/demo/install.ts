@@ -1,0 +1,85 @@
+import { handleDemoRequest } from './router';
+
+// Imported right after the frozen clock: the page never reaches a real Élise API.
+
+const API_PREFIX = '/api/v1';
+const realFetch = window.fetch.bind(window);
+const pause = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const openStream = () =>
+  new Response(new ReadableStream<Uint8Array>({ start() {} }), {
+    status: 200,
+    headers: { 'content-type': 'text/event-stream' },
+  });
+
+window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  const url = new URL(href, window.location.origin);
+  // Demo radios and podcasts point to a reserved domain: answer at once instead of trying the network.
+  if (url.hostname.endsWith('.invalid')) return new Response(null, { status: 404 });
+  if (url.origin !== window.location.origin) return realFetch(input, init);
+  // The resident screen checks for a newer kiosk shell; the demo shell never changes.
+  if (url.pathname === '/resident-screen') return new Response(null, { status: 204 });
+  if (!url.pathname.startsWith(`${API_PREFIX}/`)) return realFetch(input, init);
+
+  const path = `${url.pathname.slice(API_PREFIX.length)}${url.search}`;
+  const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+  if (path.split('?')[0]?.endsWith('/events')) return openStream();
+
+  // A short pause keeps loading states and transitions as they are on a real installation.
+  await pause(method === 'GET' ? 90 : 180);
+  const answer = handleDemoRequest(
+    method,
+    path,
+    typeof init?.body === 'string' ? init.body : undefined,
+  );
+  if (answer.status === 404 && import.meta.env.DEV)
+    console.warn(`[démo] ${method} ${path} sans réponse`);
+  return new Response(answer.status === 204 ? null : JSON.stringify(answer.body ?? null), {
+    status: answer.status,
+    headers: { 'content-type': 'application/json' },
+  });
+};
+
+/** Live updates are not needed: the demo home only changes when the visitor acts. */
+class DemoEventSource extends EventTarget {
+  public static readonly CONNECTING = 0;
+  public static readonly OPEN = 1;
+  public static readonly CLOSED = 2;
+  public readonly CONNECTING = 0;
+  public readonly OPEN = 1;
+  public readonly CLOSED = 2;
+  public readonly url: string;
+  public readonly withCredentials = false;
+  public readyState = 1;
+  public onopen: ((event: Event) => void) | null = null;
+  public onmessage: ((event: MessageEvent) => void) | null = null;
+  public onerror: ((event: Event) => void) | null = null;
+
+  public constructor(url: string | URL) {
+    super();
+    this.url = String(url);
+    window.setTimeout(() => this.onopen?.(new Event('open')), 0);
+  }
+
+  public close() {
+    this.readyState = 2;
+  }
+}
+window.EventSource = DemoEventSource as unknown as typeof EventSource;
+
+// The resident screen registers a kiosk service worker; the demo must not install one on the site.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register = () =>
+    Promise.reject(new Error('Service worker disabled in the demo'));
+}
+
+const lang = new URLSearchParams(window.location.search).get('lang');
+try {
+  if (lang === 'fr' || lang === 'en') window.localStorage.setItem('michel_locale', lang);
+  // Visitors discover the app through its navigation, so the sidebar starts open in the demo.
+  if (window.localStorage.getItem('elise_sidebar_auto_hide') === null)
+    window.localStorage.setItem('elise_sidebar_auto_hide', 'false');
+} catch {
+  // Private browsing: the dashboard keeps its defaults.
+}
