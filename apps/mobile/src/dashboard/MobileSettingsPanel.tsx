@@ -350,11 +350,19 @@ export function MobileSettingsPanel({
       const result = await mobileApi.runSimulation(server, token, scenario.id, runId);
       setSimulationNotice(
         result.accepted > 0
-          ? `${result.accepted} événement(s) ajouté(s) au journal d’activité.`
-          : 'Ce scénario avait déjà été appliqué.',
+          ? fr
+            ? `${result.accepted} événement(s) ajouté(s) au journal d’activité.`
+            : `${result.accepted} event(s) added to the activity log.`
+          : fr
+            ? 'Ce scénario avait déjà été appliqué.'
+            : 'This scenario had already been applied.',
       );
     } catch {
-      setSimulationNotice('La situation n’a pas pu être simulée. Réessayez dans un instant.');
+      setSimulationNotice(
+        fr
+          ? 'La situation n’a pas pu être simulée. Réessayez dans un instant.'
+          : 'The situation could not be simulated. Try again in a moment.',
+      );
     } finally {
       setRunningScenario(null);
     }
@@ -636,10 +644,15 @@ export function MobileSettingsPanel({
             ) : null}
 
             {scenarios.length ? (
-              <Card eyebrow="MODE DÉMONSTRATION" title="Tester une situation" icon="pulse-outline">
+              <Card
+                eyebrow={fr ? 'MODE DÉMONSTRATION' : 'DEMO MODE'}
+                title={fr ? 'Tester une situation' : 'Test a situation'}
+                icon="pulse-outline"
+              >
                 <Text style={s.body}>
-                  Ces scénarios utilisent le même parcours que les capteurs du domicile. Ils restent
-                  réservés à cette installation de test.
+                  {fr
+                    ? 'Ces scénarios utilisent le même parcours que les capteurs du domicile. Ils restent réservés à cette installation de test.'
+                    : 'These scenarios follow the same path as the home’s sensors. They are reserved for this test installation.'}
                 </Text>
                 {scenarios.map((scenario) => (
                   <Pressable
@@ -653,7 +666,13 @@ export function MobileSettingsPanel({
                       <Text style={s.body}>{scenario.description}</Text>
                     </View>
                     <Text style={s.smallButtonText}>
-                      {runningScenario === scenario.id ? 'Simulation…' : 'Lancer'}
+                      {runningScenario === scenario.id
+                        ? fr
+                          ? 'Simulation…'
+                          : 'Simulating…'
+                        : fr
+                          ? 'Lancer'
+                          : 'Run'}
                     </Text>
                   </Pressable>
                 ))}

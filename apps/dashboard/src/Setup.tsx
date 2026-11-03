@@ -297,11 +297,12 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
     window.localStorage.setItem('elise_setup_draft', JSON.stringify(safeDraft));
   }, [draft]);
 
-  const residentName = draft.resident.dailyName || draft.resident.firstName || 'le résident';
+  const tr = (fr: string, en: string) => (locale === 'fr' ? fr : en);
+  const residentName =
+    draft.resident.dailyName || draft.resident.firstName || tr('le résident', 'the resident');
   const stepLabels = steps[locale];
   const visibleStep = Math.max(0, setupFlow.indexOf(step as (typeof setupFlow)[number]));
   const progress = Math.round(((visibleStep + 1) / stepLabels.length) * 100);
-  const tr = (fr: string, en: string) => (locale === 'fr' ? fr : en);
   const passwordStrength = useMemo(
     () =>
       [
@@ -346,18 +347,31 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       const c = draft.caregiver;
       if (!c.firstName || !c.lastName || !c.username || !c.relation || c.password.length < 12)
         return (
-          setError('Complétez les champs et choisissez un mot de passe d’au moins 12 caractères.'),
+          setError(
+            tr(
+              'Complétez les champs et choisissez un mot de passe d’au moins 12 caractères.',
+              'Fill in the fields and choose a password of at least 12 characters.',
+            ),
+          ),
           false
         );
       if (c.password !== c.confirmation)
-        return (setError('Les mots de passe ne correspondent pas.'), false);
+        return (
+          setError(tr('Les mots de passe ne correspondent pas.', 'The passwords do not match.')),
+          false
+        );
     }
     if (
       step === 2 &&
       (!draft.resident.firstName || !draft.resident.lastName || !draft.resident.dailyName)
     )
       return (
-        setError('Indiquez au moins le nom, le prénom et le prénom utilisé au quotidien.'),
+        setError(
+          tr(
+            'Indiquez au moins le nom, le prénom et le prénom utilisé au quotidien.',
+            'Enter at least the last name, the first name and the name used every day.',
+          ),
+        ),
         false
       );
     return true;
@@ -431,19 +445,30 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
           );
         } else if (response.status === 403)
           setError(
-            'Accès refusé. Ouvrez Élise depuis le réseau local ou son accès privé Tailscale.',
+            tr(
+              'Accès refusé. Ouvrez Élise depuis le réseau local ou son accès privé Tailscale.',
+              'Access denied. Open Élise from the local network or its private Tailscale access.',
+            ),
           );
         else
           setError(
             body?.message ??
-              'Élise n’a pas pu finaliser l’installation. Réessayez dans un instant.',
+              tr(
+                'Élise n’a pas pu finaliser l’installation. Réessayez dans un instant.',
+                'Élise could not finish the setup. Try again in a moment.',
+              ),
           );
         return;
       }
       window.localStorage.removeItem('elise_setup_draft');
       setStep(12);
     } catch {
-      setError('Impossible de joindre Élise. Vérifiez votre connexion locale ou Tailscale.');
+      setError(
+        tr(
+          'Impossible de joindre Élise. Vérifiez votre connexion locale ou Tailscale.',
+          'Cannot reach Élise. Check your local connection or Tailscale.',
+        ),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -469,12 +494,20 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
     if (contactForm.role === 'administrateur') {
       if (!contactForm.username || (contactForm.temporaryPassword?.length ?? 0) < 12) {
         setError(
-          'Un identifiant et un mot de passe temporaire de 12 caractères sont requis pour cet administrateur.',
+          tr(
+            'Un identifiant et un mot de passe temporaire de 12 caractères sont requis pour cet administrateur.',
+            'A username and a 12-character temporary password are required for this administrator.',
+          ),
         );
         return;
       }
       if (contactForm.temporaryPassword !== contactForm.passwordConfirmation) {
-        setError('Les mots de passe temporaires ne correspondent pas.');
+        setError(
+          tr(
+            'Les mots de passe temporaires ne correspondent pas.',
+            'The temporary passwords do not match.',
+          ),
+        );
         return;
       }
     }
@@ -511,7 +544,10 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       }));
     } catch {
       setError(
-        'La détection réelle n’est pas disponible. Vous pouvez terminer sans équipement et reprendre plus tard.',
+        tr(
+          'La détection réelle n’est pas disponible. Vous pouvez terminer sans équipement et reprendre plus tard.',
+          'Real detection is not available. You can finish without equipment and come back later.',
+        ),
       );
     } finally {
       setTesting(false);
@@ -533,7 +569,7 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
             )}
           >
             <div className="elise-fields two-cols">
-              <Field label="Prénom">
+              <Field label={tr('Prénom', 'First name')}>
                 <input
                   autoFocus
                   autoComplete="given-name"
@@ -541,38 +577,44 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
                   onChange={(e) => patchCaregiverName('firstName', e.target.value)}
                 />
               </Field>
-              <Field label="Nom">
+              <Field label={tr('Nom', 'Last name')}>
                 <input
                   autoComplete="family-name"
                   value={draft.caregiver.lastName}
                   onChange={(e) => patchCaregiverName('lastName', e.target.value)}
                 />
               </Field>
-              <Field label="Identifiant" hint="Il servira à vous connecter depuis le domicile.">
+              <Field
+                label={tr('Identifiant', 'Username')}
+                hint={tr(
+                  'Il servira à vous connecter depuis le domicile.',
+                  'You will use it to sign in from home.',
+                )}
+              >
                 <input
                   autoComplete="username"
-                  placeholder="ex. paul.breton"
+                  placeholder={tr('ex. paul.breton', 'e.g. paul.breton')}
                   value={draft.caregiver.username}
                   onChange={(e) =>
                     patchCaregiver({ username: e.target.value, usernameEdited: true })
                   }
                 />
               </Field>
-              <Field label="Lien avec le résident">
+              <Field label={tr('Lien avec le résident', 'Relationship to the resident')}>
                 <Segmented
                   value={draft.caregiver.relation}
-                  options={[
-                    'Enfant',
-                    'Petit-enfant',
-                    'Conjoint',
-                    'Ami(e)',
-                    'Professionnel',
-                    'Autre',
-                  ]}
+                  options={
+                    locale === 'fr'
+                      ? ['Enfant', 'Petit-enfant', 'Conjoint', 'Ami(e)', 'Professionnel', 'Autre']
+                      : ['Child', 'Grandchild', 'Partner', 'Friend', 'Professional', 'Other']
+                  }
                   onChange={(relation) => patchCaregiver({ relation })}
                 />
               </Field>
-              <Field label="Mot de passe" hint="12 caractères minimum">
+              <Field
+                label={tr('Mot de passe', 'Password')}
+                hint={tr('12 caractères minimum', '12 characters minimum')}
+              >
                 <input
                   type="password"
                   autoComplete="new-password"
@@ -585,7 +627,7 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
                   ))}
                 </span>
               </Field>
-              <Field label="Confirmer le mot de passe">
+              <Field label={tr('Confirmer le mot de passe', 'Confirm the password')}>
                 <input
                   type="password"
                   autoComplete="new-password"
@@ -1109,6 +1151,15 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
                       : name === 'Déjeuner'
                         ? tr('Le repas du midi', 'The midday meal')
                         : tr('Le repas du soir', 'The evening meal');
+                const label =
+                  locale === 'fr'
+                    ? name
+                    : ({
+                        Lever: 'Waking up',
+                        Coucher: 'Bedtime',
+                        Déjeuner: 'Lunch',
+                        Dîner: 'Dinner',
+                      }[name] ?? name);
                 return (
                   <article
                     className={`elise-habit-card ${value.unknown ? 'is-unknown' : ''}`}
@@ -1119,7 +1170,7 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
                         <Icon />
                       </span>
                       <div>
-                        <strong>{name}</strong>
+                        <strong>{label}</strong>
                         <span>{moment}</span>
                       </div>
                     </div>
@@ -1127,7 +1178,7 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
                       <label>
                         <span>{tr('À partir de', 'From')}</span>
                         <input
-                          aria-label={`${tr('Début', 'Start')} ${name}`}
+                          aria-label={`${tr('Début', 'Start')} ${label}`}
                           type="time"
                           value={value.from}
                           disabled={value.unknown}
@@ -1143,7 +1194,7 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
                       <label>
                         <span>{tr('Jusqu’à', 'Until')}</span>
                         <input
-                          aria-label={`${tr('Fin', 'End')} ${name}`}
+                          aria-label={`${tr('Fin', 'End')} ${label}`}
                           type="time"
                           value={value.to}
                           disabled={value.unknown}

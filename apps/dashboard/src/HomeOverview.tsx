@@ -71,10 +71,9 @@ const emptyCoverage: EquipmentCoverage = {
   },
 };
 
-const homeTypeLabels: Record<string, string> = {
-  HOUSE: 'Maison',
-  APARTMENT: 'Appartement',
-  SENIOR_RESIDENCE: 'Résidence',
+const homeTypeLabels: Record<'fr' | 'en', Record<string, string>> = {
+  fr: { HOUSE: 'Maison', APARTMENT: 'Appartement', SENIOR_RESIDENCE: 'Résidence' },
+  en: { HOUSE: 'House', APARTMENT: 'Apartment', SENIOR_RESIDENCE: 'Residence' },
 };
 
 export const roomAreaM2 = (room: PlanRoom) =>
@@ -348,18 +347,21 @@ function MiniPlan({
   plan,
   presence,
   onSelect,
+  locale,
 }: {
   floor: FloorLayout;
   plan: HomePlan;
   presence: PresenceEstimate | null;
   onSelect: (roomId: string) => void;
+  locale: 'fr' | 'en';
 }) {
+  const fr = locale === 'fr';
   return (
     <svg
       className="home-overview-map"
       viewBox={`0 0 ${Math.max(floor.width, 400)} ${Math.max(floor.height, 300)}`}
       role="img"
-      aria-label={`Plan de ${floor.name}`}
+      aria-label={fr ? `Plan de ${floor.name}` : `${floor.name} floor plan`}
     >
       <defs>
         <pattern id="overview-grid" width="25" height="25" patternUnits="userSpaceOnUse">
@@ -392,7 +394,9 @@ function MiniPlan({
               <g
                 className="presence-marker"
                 transform={`translate(${center.x} ${center.y + 52})`}
-                aria-label={`Présence probable dans ${room.name}`}
+                aria-label={
+                  fr ? `Présence probable dans ${room.name}` : `Likely presence in ${room.name}`
+                }
               >
                 <circle className="presence-marker-pulse" cx="0" cy="0" r="24" />
                 <circle className="presence-marker-core" cx="0" cy="0" r="13" />
@@ -614,7 +618,9 @@ export function HomeOverview({
             <h2 className="page-hero__title">{home?.name ?? (fr ? 'Mon logement' : 'My home')}</h2>
             <div className="home-overview-meta">
               <span>
-                {homeTypeLabels[home?.type ?? ''] ?? home?.type ?? (fr ? 'Logement' : 'Home')}
+                {homeTypeLabels[locale][home?.type ?? ''] ??
+                  home?.type ??
+                  (fr ? 'Logement' : 'Home')}
               </span>
               {equipmentProblems === 0 && (
                 <span className={`home-overview-status ${statusClass}`}>
@@ -693,7 +699,13 @@ export function HomeOverview({
               {!showStairs && (
                 <div className="home-overview-plan-layout">
                   {floor && (
-                    <MiniPlan floor={floor} plan={plan} presence={presence} onSelect={onManage} />
+                    <MiniPlan
+                      floor={floor}
+                      plan={plan}
+                      presence={presence}
+                      onSelect={onManage}
+                      locale={locale}
+                    />
                   )}
                 </div>
               )}

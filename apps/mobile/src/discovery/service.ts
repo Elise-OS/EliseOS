@@ -9,6 +9,7 @@ import {
   subnetCandidates,
 } from './helpers';
 import type { DiscoveredServer, SavedServer } from './types';
+import { tr } from '../locale';
 
 type Listener = (servers: DiscoveredServer[]) => void;
 type ErrorListener = (message: string) => void;
@@ -64,7 +65,12 @@ export class DiscoveryService {
       }
       void this.scanFallback(session);
     } catch {
-      this.emitError('La découverte réseau local est indisponible sur cet appareil.');
+      this.emitError(
+        tr(
+          'La découverte réseau local est indisponible sur cet appareil.',
+          'Local network discovery is unavailable on this device.',
+        ),
+      );
     }
   }
 

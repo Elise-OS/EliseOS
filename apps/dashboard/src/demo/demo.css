@@ -79,7 +79,20 @@
   background: rgb(255 255 255 / 10%);
 }
 
-.demo-bar-views button[aria-pressed='true'] {
+.demo-bar-lang {
+  display: flex;
+  padding: 3px;
+  border-radius: 11px;
+  background: rgb(255 255 255 / 8%);
+}
+
+.demo-bar-lang button {
+  padding: 0 10px;
+  letter-spacing: 0.04em;
+}
+
+.demo-bar-views button[aria-pressed='true'],
+.demo-bar-lang button[aria-pressed='true'] {
   background: #f3eee6;
   color: #0b2948;
 }

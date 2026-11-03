@@ -53,6 +53,7 @@ import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import { connectionBoundary, connectionCurve } from './plan-connections';
 import './plan-connections.css';
+import { tr } from './screen-locale';
 
 type Sensor = {
   id: string;
@@ -117,19 +118,19 @@ export function sensorDevicePresentation(device: SensorDevice) {
     : '';
   const kind =
     capabilities.has('temperature') && capabilities.has('humidity')
-      ? 'Capteur de température et d’humidité'
+      ? tr('Capteur de température et d’humidité', 'Temperature and humidity sensor')
       : capabilities.has('temperature')
-        ? 'Capteur de température'
+        ? tr('Capteur de température', 'Temperature sensor')
         : capabilities.has('humidity')
-          ? 'Capteur d’humidité'
+          ? tr('Capteur d’humidité', 'Humidity sensor')
           : capabilities.has('person_presence') || capabilities.has('occupancy')
-            ? 'Capteur de présence'
+            ? tr('Capteur de présence', 'Presence sensor')
             : capabilities.has('motion')
-              ? 'Détecteur de mouvement'
+              ? tr('Détecteur de mouvement', 'Motion detector')
               : capabilities.has('contact')
-                ? 'Capteur d’ouverture'
+                ? tr('Capteur d’ouverture', 'Contact sensor')
                 : capabilities.has('water_leak')
-                  ? 'Détecteur de fuite'
+                  ? tr('Détecteur de fuite', 'Leak detector')
                   : device.name;
   return {
     name:
@@ -287,17 +288,24 @@ const migratePlanDevices = (plan: HomePlan, devices: SensorDevice[]) => {
   return migrated;
 };
 
-const roomKinds = [
-  ['LIVING_ROOM', 'Salon'],
-  ['KITCHEN', 'Cuisine'],
-  ['BEDROOM', 'Chambre'],
-  ['BATHROOM', 'Salle de bain'],
-  ['TOILET', 'Toilettes'],
-  ['ENTRANCE', 'Entrée'],
-  ['HALLWAY', 'Couloir'],
-  ['DINING_ROOM', 'Salle à manger'],
-  ['OTHER', 'Autre'],
-] as const;
+const roomKinds = () =>
+  [
+    ['LIVING_ROOM', tr('Salon', 'Living room')],
+    ['KITCHEN', tr('Cuisine', 'Kitchen')],
+    ['BEDROOM', tr('Chambre', 'Bedroom')],
+    ['BATHROOM', tr('Salle de bain', 'Bathroom')],
+    ['TOILET', tr('Toilettes', 'Toilet')],
+    ['ENTRANCE', tr('Entrée', 'Entrance')],
+    ['HALLWAY', tr('Couloir', 'Hallway')],
+    ['DINING_ROOM', tr('Salle à manger', 'Dining room')],
+    ['OTHER', tr('Autre', 'Other')],
+  ] as const;
+
+const levelName = (floor: number) =>
+  tr(
+    floor === 0 ? 'Rez-de-chaussée' : floor === 1 ? '1er étage' : `${floor}e étage`,
+    floor === 0 ? 'Ground floor' : `Floor ${floor}`,
+  );
 
 const colors = ['#E8F0F3', '#F5EAD8', '#E6EFE7', '#EEE8F3', '#F3E5E5', '#E8EAF2'];
 
@@ -879,8 +887,8 @@ export function HomePlanEditor({
         name:
           requestedRoom?.name ??
           (corridor
-            ? `Couloir ${draft.levels.flatMap((item) => item.rooms).filter(({ kind }) => kind === 'HALLWAY').length + 1}`
-            : `Pièce ${draft.levels.flatMap((item) => item.rooms).length + 1}`),
+            ? `${tr('Couloir', 'Hallway')} ${draft.levels.flatMap((item) => item.rooms).filter(({ kind }) => kind === 'HALLWAY').length + 1}`
+            : `${tr('Pièce', 'Room')} ${draft.levels.flatMap((item) => item.rooms).length + 1}`),
         kind: requestedRoom?.kind ?? (corridor ? 'HALLWAY' : 'OTHER'),
         areaM2: geometryAreaM2(points),
         geometry: { points, color: colors[floor.rooms.length % colors.length]! },
@@ -940,7 +948,12 @@ export function HomePlanEditor({
           : relatedRooms;
       const wall = closestWall(at, movableRooms);
       if (!opening || !wall || wall.distance > 100) {
-        setMessage('Touchez le mur de l’une des pièces reliées pour déplacer cette ouverture.');
+        setMessage(
+          tr(
+            'Touchez le mur de l’une des pièces reliées pour déplacer cette ouverture.',
+            'Tap the wall of one of the connected rooms to move this opening.',
+          ),
+        );
         return;
       }
       commit((draft) => {
@@ -969,7 +982,10 @@ export function HomePlanEditor({
       });
       setMovingOpeningId(null);
       setMessage(
-        `${opening.kind === 'WINDOW' ? 'Fenêtre' : opening.kind === 'PASSAGE' ? 'Passage' : 'Porte'} déplacé${opening.kind === 'WINDOW' ? 'e' : ''} sur le mur de ${wall.room.name}.`,
+        tr(
+          `${opening.kind === 'WINDOW' ? 'Fenêtre' : opening.kind === 'PASSAGE' ? 'Passage' : 'Porte'} déplacé${opening.kind === 'WINDOW' ? 'e' : ''} sur le mur de ${wall.room.name}.`,
+          `${opening.kind === 'WINDOW' ? 'Window' : opening.kind === 'PASSAGE' ? 'Passage' : 'Door'} moved to the wall of ${wall.room.name}.`,
+        ),
       );
       return;
     }
@@ -1005,7 +1021,12 @@ export function HomePlanEditor({
       ? currentFloor.rooms.find(({ id }) => id === targetRoomId)
       : connectionTargetAt(sourceRoomId, at);
     if (!source || !target) {
-      setMessage('Déposez le lien dans une autre pièce du même niveau.');
+      setMessage(
+        tr(
+          'Déposez le lien dans une autre pièce du même niveau.',
+          'Drop the link in another room on the same level.',
+        ),
+      );
       return;
     }
     const exists = currentFloor.openings.some(
@@ -1015,7 +1036,12 @@ export function HomePlanEditor({
         roomIds.includes(target.id),
     );
     if (exists) {
-      setMessage(`${source.name} et ${target.name} sont déjà reliés.`);
+      setMessage(
+        tr(
+          `${source.name} et ${target.name} sont déjà reliés.`,
+          `${source.name} and ${target.name} are already connected.`,
+        ),
+      );
       return;
     }
     const shared = sharedWallPoint(source, target);
@@ -1046,7 +1072,12 @@ export function HomePlanEditor({
     setSelectedPlacementId(null);
     setSelectedOpeningId(openingId);
     setMovingOpeningId(null);
-    setMessage(`${source.name} est maintenant relié à ${target.name}.`);
+    setMessage(
+      tr(
+        `${source.name} est maintenant relié à ${target.name}.`,
+        `${source.name} is now connected to ${target.name}.`,
+      ),
+    );
   };
   const moveStairAnchor = (at: Point) => {
     const drag = stairDrag.current;
@@ -1261,7 +1292,7 @@ export function HomePlanEditor({
     commit((draft) =>
       draft.levels.push({
         id,
-        name: floor === 0 ? 'Rez-de-chaussée' : floor === 1 ? '1er étage' : `${floor}e étage`,
+        name: levelName(floor),
         floor,
         order: draft.levels.length,
         width: 1_200,
@@ -1281,7 +1312,14 @@ export function HomePlanEditor({
   const deleteCurrentFloor = () => {
     if (!plan || !currentFloor || plan.levels.length <= 1) return;
     const deletingFloor = currentFloor;
-    if (!window.confirm(`Supprimer le niveau « ${deletingFloor.name} » et toutes ses pièces ?`))
+    if (
+      !window.confirm(
+        tr(
+          `Supprimer le niveau « ${deletingFloor.name} » et toutes ses pièces ?`,
+          `Delete the level “${deletingFloor.name}” and all its rooms?`,
+        ),
+      )
+    )
       return;
     const sorted = [...plan.levels].sort((a, b) => a.order - b.order);
     const fallback = sorted.find(({ id }) => id !== deletingFloor.id)!;
@@ -1305,8 +1343,7 @@ export function HomePlanEditor({
         .forEach((level, index) => {
           level.order = index;
           level.floor = index;
-          level.name =
-            index === 0 ? 'Rez-de-chaussée' : index === 1 ? '1er étage' : `${index}e étage`;
+          level.name = levelName(index);
         });
     });
     setFloorId(fallback.id);
@@ -1332,7 +1369,12 @@ export function HomePlanEditor({
           (stair.fromRoomId === toRoomId && stair.toRoomId === fromRoomId),
       );
     if (alreadyExists) {
-      setMessage('Ces deux espaces sont déjà reliés par un escalier.');
+      setMessage(
+        tr(
+          'Ces deux espaces sont déjà reliés par un escalier.',
+          'These two spaces are already connected by a staircase.',
+        ),
+      );
       return false;
     }
     const at = stairDockPoint(departureRoom, departureFloor);
@@ -1363,7 +1405,12 @@ export function HomePlanEditor({
     setFloorId(departureFloor.id);
     setSelectedRoomId(departureRoom.id);
     setTool('SELECT');
-    setMessage('Escalier ajouté. Déplacez ensuite chaque flèche autour de sa pièce.');
+    setMessage(
+      tr(
+        'Escalier ajouté. Déplacez ensuite chaque flèche autour de sa pièce.',
+        'Staircase added. Then move each arrow around its room.',
+      ),
+    );
     return true;
   };
 
@@ -1878,54 +1925,59 @@ export function HomePlanEditor({
             </button>
           ))}
         <button className="add-floor" onClick={addFloor}>
-          <Plus /> Niveau
+          <Plus /> {tr('Niveau', 'Level')}
         </button>
         {plan.levels.length > 1 && (
           <button className="remove-floor" onClick={deleteCurrentFloor}>
-            <Trash2 /> Supprimer ce niveau
+            <Trash2 /> {tr('Supprimer ce niveau', 'Delete this level')}
           </button>
         )}
-        <span className="construction-mode-label">Construction libre · pièces espacées</span>
+        <span className="construction-mode-label">
+          {tr('Construction libre · pièces espacées', 'Free building · spaced rooms')}
+        </span>
         <span className={`save-indicator ${saveState.toLowerCase()}`}>
           {saveState === 'SAVING' ? (
             <>
-              <RotateCcw className="spin" /> Sauvegarde…
+              <RotateCcw className="spin" /> {tr('Sauvegarde…', 'Saving…')}
             </>
           ) : saveState === 'SAVED' ? (
             <>
-              <Save /> Enregistré
+              <Save /> {tr('Enregistré', 'Saved')}
             </>
           ) : (
             <button onClick={() => void (saveState === 'CONFLICT' ? load() : save())}>
-              {message || 'Réessayer'}
+              {message || tr('Réessayer', 'Try again')}
             </button>
           )}
         </span>
       </div>
 
-      <div className="home-plan-toolbar" aria-label="Outils du plan">
+      <div className="home-plan-toolbar" aria-label={tr('Outils du plan', 'Plan tools')}>
         <button className={tool === 'SELECT' ? 'active' : ''} onClick={() => setTool('SELECT')}>
-          <MousePointer2 /> Sélectionner
+          <MousePointer2 /> {tr('Sélectionner', 'Select')}
         </button>
         <button className={tool === 'ROOM' ? 'active' : ''} onClick={() => setTool('ROOM')}>
-          <Square /> Pièce
+          <Square /> {tr('Pièce', 'Room')}
         </button>
         <button className={tool === 'ROOM_L' ? 'active' : ''} onClick={() => setTool('ROOM_L')}>
-          <Grid2X2 /> Pièce en L
+          <Grid2X2 /> {tr('Pièce en L', 'L-shaped room')}
         </button>
         <button className={tool === 'CORRIDOR' ? 'active' : ''} onClick={() => setTool('CORRIDOR')}>
-          <MoveHorizontal /> Couloir
+          <MoveHorizontal /> {tr('Couloir', 'Hallway')}
         </button>
         <button
           className={tool === 'CONNECT' ? 'active' : ''}
           onClick={() => {
             setTool('CONNECT');
             setMessage(
-              'Glissez d’une pièce vers une autre. Relâchez quand la pièce cible devient verte.',
+              tr(
+                'Glissez d’une pièce vers une autre. Relâchez quand la pièce cible devient verte.',
+                'Drag from one room to another. Release when the target room turns green.',
+              ),
             );
           }}
         >
-          <Link2 /> Relier les pièces
+          <Link2 /> {tr('Relier les pièces', 'Connect rooms')}
         </button>
         <button
           disabled={plan.levels.length < 2}
@@ -1935,13 +1987,13 @@ export function HomePlanEditor({
             setStairModalOpen(true);
           }}
         >
-          <MoveUpRight /> Escalier
+          <MoveUpRight /> {tr('Escalier', 'Staircase')}
         </button>
         <i />
-        <button disabled={!history.length} onClick={undo} title="Annuler">
+        <button disabled={!history.length} onClick={undo} title={tr('Annuler', 'Undo')}>
           <Undo2 />
         </button>
-        <button disabled={!future.length} onClick={redo} title="Rétablir">
+        <button disabled={!future.length} onClick={redo} title={tr('Rétablir', 'Redo')}>
           <Redo2 />
         </button>
       </div>
@@ -1954,7 +2006,7 @@ export function HomePlanEditor({
             viewBox={`0 0 ${currentFloor.width} ${currentFloor.height}`}
             style={{ aspectRatio: `${currentFloor.width} / ${currentFloor.height}` }}
             role="application"
-            aria-label={`Plan du niveau ${currentFloor.name}`}
+            aria-label={tr(`Plan du niveau ${currentFloor.name}`, `${currentFloor.name} plan`)}
             onPointerDownCapture={(event) => {
               if (!movingOpeningId) return;
               onCanvasDown(event);
@@ -2255,7 +2307,7 @@ export function HomePlanEditor({
               className="plan-canvas-resize"
               transform={`translate(${currentFloor.width - 27} ${currentFloor.height - 27})`}
               role="button"
-              aria-label="Agrandir la zone du plan"
+              aria-label={tr('Agrandir la zone du plan', 'Enlarge the plan area')}
               onPointerDown={(event) => {
                 event.stopPropagation();
                 event.currentTarget.setPointerCapture(event.pointerId);
@@ -2278,11 +2330,19 @@ export function HomePlanEditor({
           </svg>
           <PlanLegend plan={plan} floor={currentFloor} showSensors={false} />
           {(tool === 'ROOM' || tool === 'ROOM_L' || tool === 'CORRIDOR') && (
-            <div className="canvas-hint">Touchez et faites glisser pour dessiner la pièce.</div>
+            <div className="canvas-hint">
+              {tr(
+                'Touchez et faites glisser pour dessiner la pièce.',
+                'Tap and drag to draw the room.',
+              )}
+            </div>
           )}
           {tool === 'CONNECT' && (
             <div className="canvas-hint">
-              Glissez d’une pièce vers une autre, puis relâchez sur la pièce en vert.
+              {tr(
+                'Glissez d’une pièce vers une autre, puis relâchez sur la pièce en vert.',
+                'Drag from one room to another, then release on the green room.',
+              )}
             </div>
           )}
         </div>
@@ -2292,15 +2352,15 @@ export function HomePlanEditor({
             <div className="plan-room-summary">
               <div className="inspector-heading">
                 <div>
-                  <span className="eyebrow">Pièce aménagée</span>
+                  <span className="eyebrow">{tr('Pièce aménagée', 'Furnished room')}</span>
                   <h3>{selectedRoom.name}</h3>
                 </div>
-                <button onClick={requestDeleteRoom} aria-label="Supprimer">
+                <button onClick={requestDeleteRoom} aria-label={tr('Supprimer', 'Delete')}>
                   <Trash2 />
                 </button>
               </div>
               <label className="room-field">
-                <span>Nom de la pièce</span>
+                <span>{tr('Nom de la pièce', 'Room name')}</span>
                 <input
                   value={selectedRoom.name}
                   onChange={(event) => {
@@ -2314,23 +2374,23 @@ export function HomePlanEditor({
                 />
               </label>
               <label className="room-field">
-                <span>Type prédéfini</span>
+                <span>{tr('Type prédéfini', 'Preset type')}</span>
                 <select
                   value={selectedRoom.kind}
                   onChange={(event) => {
                     const kind = event.target.value;
-                    const definition = roomKinds.find(([value]) => value === kind);
+                    const definition = roomKinds().find(([value]) => value === kind);
                     commit((draft) => {
                       const target = draft.levels
                         .flatMap(({ rooms }) => rooms)
                         .find(({ id }) => id === selectedRoom.id)!;
-                      const genericName = /^(Pièce|Couloir)\s*\d*$/i.test(target.name);
+                      const genericName = /^(Pièce|Couloir|Room|Hallway)\s*\d*$/i.test(target.name);
                       target.kind = kind;
                       if (genericName && definition) target.name = definition[1];
                     });
                   }}
                 >
-                  {roomKinds.map(([value, label]) => (
+                  {roomKinds().map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -2338,7 +2398,7 @@ export function HomePlanEditor({
                 </select>
               </label>
               <label className="room-area-editor">
-                <span>Surface de la pièce</span>
+                <span>{tr('Surface de la pièce', 'Room area')}</span>
                 <div>
                   <input
                     key={`${selectedRoom.id}-${roomAreaM2(selectedRoom).toFixed(1)}`}
@@ -2351,18 +2411,21 @@ export function HomePlanEditor({
                   <strong>m²</strong>
                 </div>
                 <small>
-                  Surface réelle, indépendante de la taille visuelle utilisée sur le plan.
+                  {tr(
+                    'Surface réelle, indépendante de la taille visuelle utilisée sur le plan.',
+                    'Actual area, independent of the visual size used on the plan.',
+                  )}
                 </small>
               </label>
               <button className="rotate-room" onClick={rotateSelectedRoom}>
-                <RotateCcw /> Pivoter la pièce de 90°
+                <RotateCcw /> {tr('Pivoter la pièce de 90°', 'Rotate the room 90°')}
               </button>
               <button
                 className="open-room-studio"
                 disabled={dirty || saveState !== 'SAVED'}
                 onClick={() => setEditingRoomId(selectedRoom.id)}
               >
-                Aménager cette pièce →
+                {tr('Aménager cette pièce →', 'Furnish this room →')}
               </button>
             </div>
           ) : selectedOpening ? (
@@ -2372,7 +2435,12 @@ export function HomePlanEditor({
               moving={movingOpeningId === selectedOpening.id}
               onMove={() => {
                 setMovingOpeningId(selectedOpening.id);
-                setMessage('Touchez le mur où vous souhaitez placer cette ouverture.');
+                setMessage(
+                  tr(
+                    'Touchez le mur où vous souhaitez placer cette ouverture.',
+                    'Tap the wall where you want to place this opening.',
+                  ),
+                );
               }}
               onRemove={() => {
                 commit((draft) => {
@@ -2389,7 +2457,12 @@ export function HomePlanEditor({
                 });
                 setSelectedOpeningId(null);
                 setMovingOpeningId(null);
-                setMessage('Ouverture supprimée. Vous pouvez l’annuler avec Cmd + Z.');
+                setMessage(
+                  tr(
+                    'Ouverture supprimée. Vous pouvez l’annuler avec Cmd + Z.',
+                    'Opening removed. You can undo it with Cmd + Z.',
+                  ),
+                );
               }}
             />
           ) : selectedPlacementId ? (
@@ -2408,8 +2481,13 @@ export function HomePlanEditor({
           ) : (
             <div className="inspector-empty">
               <MousePointer2 />
-              <h3>Sélectionnez une pièce</h3>
-              <p>Modifiez son nom, ses dimensions et son aménagement.</p>
+              <h3>{tr('Sélectionnez une pièce', 'Select a room')}</h3>
+              <p>
+                {tr(
+                  'Modifiez son nom, ses dimensions et son aménagement.',
+                  'Edit its name, size and layout.',
+                )}
+              </p>
             </div>
           )}
         </aside>
@@ -2580,22 +2658,22 @@ export function PlanLegend({
   const hasCamera = floorPlacements.some(({ kind }) => kind === 'CAMERA');
   if (!hasStair && !hasSensor && !hasCamera) return null;
   return (
-    <aside className="plan-legend" aria-label="Légende du plan">
-      <strong>Légende</strong>
+    <aside className="plan-legend" aria-label={tr('Légende du plan', 'Plan legend')}>
+      <strong>{tr('Légende', 'Legend')}</strong>
       <div>
         {hasStair && (
           <span>
-            <i className="legend-stair">⌃</i> Escalier
+            <i className="legend-stair">⌃</i> {tr('Escalier', 'Staircase')}
           </span>
         )}
         {hasSensor && (
           <span>
-            <i className="legend-device sensor">●</i> Capteur
+            <i className="legend-device sensor">●</i> {tr('Capteur', 'Sensor')}
           </span>
         )}
         {hasCamera && (
           <span>
-            <i className="legend-device camera">◉</i> Caméra
+            <i className="legend-device camera">◉</i> {tr('Caméra', 'Camera')}
           </span>
         )}
       </div>
@@ -2912,16 +2990,21 @@ export function StairModal({
           <MoveUpRight />
         </span>
         <div>
-          <span className="eyebrow">Nouvel escalier</span>
-          <h3 id="stair-modal-title">Relier deux niveaux</h3>
-          <p>Choisissez précisément son départ et son arrivée.</p>
+          <span className="eyebrow">{tr('Nouvel escalier', 'New staircase')}</span>
+          <h3 id="stair-modal-title">{tr('Relier deux niveaux', 'Connect two levels')}</h3>
+          <p>
+            {tr(
+              'Choisissez précisément son départ et son arrivée.',
+              'Choose exactly where it starts and ends.',
+            )}
+          </p>
         </div>
 
         <div className="stair-modal-fields">
           <fieldset>
-            <legend>Départ</legend>
+            <legend>{tr('Départ', 'Start')}</legend>
             <label>
-              <span>Niveau</span>
+              <span>{tr('Niveau', 'Level')}</span>
               <select
                 value={departureFloorId}
                 onChange={(event) => setDepartureFloorId(event.target.value)}
@@ -2934,12 +3017,14 @@ export function StairModal({
               </select>
             </label>
             <label>
-              <span>Pièce de départ</span>
+              <span>{tr('Pièce de départ', 'Starting room')}</span>
               <select
                 value={departureRoomId}
                 onChange={(event) => setDepartureRoomId(event.target.value)}
               >
-                {!departureFloor?.rooms.length && <option value="">Aucune pièce disponible</option>}
+                {!departureFloor?.rooms.length && (
+                  <option value="">{tr('Aucune pièce disponible', 'No room available')}</option>
+                )}
                 {departureFloor?.rooms.map((room) => (
                   <option value={room.id} key={room.id}>
                     {room.name}
@@ -2952,9 +3037,9 @@ export function StairModal({
           <span className="stair-modal-arrow">→</span>
 
           <fieldset>
-            <legend>Arrivée</legend>
+            <legend>{tr('Arrivée', 'End')}</legend>
             <label>
-              <span>Niveau</span>
+              <span>{tr('Niveau', 'Level')}</span>
               <select
                 value={targetFloorId}
                 onChange={(event) => setTargetFloorId(event.target.value)}
@@ -2967,12 +3052,14 @@ export function StairModal({
               </select>
             </label>
             <label>
-              <span>Pièce d’arrivée</span>
+              <span>{tr('Pièce d’arrivée', 'Destination room')}</span>
               <select
                 value={targetRoomId}
                 onChange={(event) => setTargetRoomId(event.target.value)}
               >
-                {!targetFloor?.rooms.length && <option value="">Aucune pièce disponible</option>}
+                {!targetFloor?.rooms.length && (
+                  <option value="">{tr('Aucune pièce disponible', 'No room available')}</option>
+                )}
                 {targetFloor?.rooms.map((room) => (
                   <option value={room.id} key={room.id}>
                     {room.name}
@@ -2984,25 +3071,30 @@ export function StairModal({
         </div>
 
         <div className="stair-route stair-modal-route">
-          <strong>{departureFloor?.name}</strong> · {departureRoom?.name || 'Pièce à choisir'}
+          <strong>{departureFloor?.name}</strong> ·{' '}
+          {departureRoom?.name || tr('Pièce à choisir', 'Room to choose')}
           <span>→</span>
-          <strong>{targetFloor?.name}</strong> · {targetRoom?.name || 'Pièce à choisir'}
+          <strong>{targetFloor?.name}</strong> ·{' '}
+          {targetRoom?.name || tr('Pièce à choisir', 'Room to choose')}
         </div>
 
         <small className="stair-modal-help">
-          Après validation, les deux flèches pourront être déplacées librement autour des pièces.
+          {tr(
+            'Après validation, les deux flèches pourront être déplacées librement autour des pièces.',
+            'Once confirmed, both arrows can be moved freely around the rooms.',
+          )}
         </small>
 
         <footer>
           <button className="secondary" onClick={onClose}>
-            Annuler
+            {tr('Annuler', 'Cancel')}
           </button>
           <button
             className="primary"
             disabled={!departureRoomId || !targetFloorId || !targetRoomId}
             onClick={() => onAdd(departureFloorId, departureRoomId, targetFloorId, targetRoomId)}
           >
-            <MoveUpRight /> Ajouter l’escalier
+            <MoveUpRight /> {tr('Ajouter l’escalier', 'Add the staircase')}
           </button>
         </footer>
       </div>
@@ -3028,44 +3120,53 @@ function OpeningInspector({
     ({ id }) => id === (opening.hostRoomId ?? opening.roomIds[opening.roomIds.length - 1]),
   );
   const label = opening.isMainEntrance
-    ? 'Entrée principale'
+    ? tr('Entrée principale', 'Main entrance')
     : opening.kind === 'WINDOW'
-      ? 'Fenêtre'
+      ? tr('Fenêtre', 'Window')
       : opening.kind === 'PASSAGE'
-        ? 'Passage ouvert'
-        : 'Porte intérieure';
+        ? tr('Passage ouvert', 'Open passage')
+        : tr('Porte intérieure', 'Interior door');
   const noun =
     opening.kind === 'WINDOW'
-      ? 'la fenêtre'
+      ? tr('la fenêtre', 'the window')
       : opening.kind === 'PASSAGE'
-        ? 'le passage'
-        : 'la porte';
+        ? tr('le passage', 'the passage')
+        : tr('la porte', 'the door');
   return (
     <div className="opening-inspector">
       <span className={`opening-inspector-icon ${opening.kind.toLowerCase()}`}>
         {opening.kind === 'WINDOW' ? <Waves /> : <DoorOpen />}
       </span>
-      <span className="eyebrow">Ouverture sélectionnée</span>
+      <span className="eyebrow">{tr('Ouverture sélectionnée', 'Selected opening')}</span>
       <h3>{label}</h3>
       <p>
         {rooms.length === 2
           ? `${rooms[0]!.name} ↔ ${rooms[1]!.name}`
-          : `Accès à ${rooms[0]?.name ?? 'la pièce'}`}
+          : tr(
+              `Accès à ${rooms[0]?.name ?? 'la pièce'}`,
+              `Access to ${rooms[0]?.name ?? 'the room'}`,
+            )}
       </p>
       {hostRoom && (
         <div className="opening-host-room">
-          <small>Placée sur le mur de</small>
+          <small>{tr('Placée sur le mur de', 'Placed on the wall of')}</small>
           <strong>{hostRoom.name}</strong>
         </div>
       )}
       <button className={`move-opening ${moving ? 'active' : ''}`} onClick={onMove}>
-        <MoveHorizontal /> {moving ? 'Choisissez maintenant un mur…' : `Déplacer ${noun}`}
+        <MoveHorizontal />{' '}
+        {moving
+          ? tr('Choisissez maintenant un mur…', 'Now choose a wall…')
+          : tr(`Déplacer ${noun}`, `Move ${noun}`)}
       </button>
       <button className="delete-opening" onClick={onRemove}>
-        <Trash2 /> Supprimer {noun}
+        <Trash2 /> {tr(`Supprimer ${noun}`, `Delete ${noun}`)}
       </button>
       <small className="opening-inspector-help">
-        Les connexions et capteurs associés resteront synchronisés pendant le déplacement.
+        {tr(
+          'Les connexions et capteurs associés resteront synchronisés pendant le déplacement.',
+          'Linked connections and sensors stay in sync while moving.',
+        )}
       </small>
     </div>
   );
@@ -3086,11 +3187,11 @@ function PlacementInspector({
   return (
     <div className="placement-inspector">
       <Radio />
-      <span className="eyebrow">Équipement positionné</span>
-      <h3>{placement.kind === 'CAMERA' ? 'Caméra' : 'Capteur'}</h3>
+      <span className="eyebrow">{tr('Équipement positionné', 'Placed equipment')}</span>
+      <h3>{placement.kind === 'CAMERA' ? tr('Caméra', 'Camera') : tr('Capteur', 'Sensor')}</h3>
       <p>{room?.name}</p>
       <button onClick={onRemove}>
-        <Trash2 /> Retirer du plan
+        <Trash2 /> {tr('Retirer du plan', 'Remove from the plan')}
       </button>
     </div>
   );

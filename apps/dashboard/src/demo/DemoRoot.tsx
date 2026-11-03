@@ -20,6 +20,7 @@ const copy = {
     show: 'Afficher le bandeau de démonstration',
     closeSidebar: 'Fermer le menu latéral',
     openSidebar: 'Ouvrir le menu latéral',
+    language: 'Langue de la démonstration',
   },
   en: {
     badge: 'Demo',
@@ -33,6 +34,7 @@ const copy = {
     show: 'Show the demo banner',
     closeSidebar: 'Close the side menu',
     openSidebar: 'Open the side menu',
+    language: 'Demo language',
   },
 } as const;
 
@@ -47,6 +49,13 @@ function currentLang(): 'fr' | 'en' {
   } catch {
     return 'fr';
   }
+}
+
+/** The demo home is built in one language, so switching reloads it in the other. */
+function switchLang(next: 'fr' | 'en') {
+  const url = new URL(window.location.href);
+  url.searchParams.set('lang', next);
+  window.location.replace(url);
 }
 
 const SIDEBAR_KEY = 'elise_demo_sidebar_closed';
@@ -131,6 +140,19 @@ export function DemoRoot() {
                 onClick={() => show(item)}
               >
                 {t.views[item]}
+              </button>
+            ))}
+          </div>
+          <div className="demo-bar-lang" role="group" aria-label={t.language}>
+            {(['fr', 'en'] as const).map((item) => (
+              <button
+                key={item}
+                type="button"
+                lang={item}
+                aria-pressed={lang === item}
+                onClick={() => item !== lang && switchLang(item)}
+              >
+                {item.toUpperCase()}
               </button>
             ))}
           </div>

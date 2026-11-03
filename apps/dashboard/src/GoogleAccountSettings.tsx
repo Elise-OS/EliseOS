@@ -168,7 +168,8 @@ export function GoogleAccountSettings({ locale }: { locale: 'fr' | 'en' }) {
                 target="_blank"
                 rel="noreferrer"
               >
-                Ouvrir Google Cloud <ExternalLink aria-hidden="true" />
+                {french ? 'Ouvrir Google Cloud' : 'Open Google Cloud'}{' '}
+                <ExternalLink aria-hidden="true" />
               </a>
             </li>
             <li>
@@ -209,7 +210,8 @@ export function GoogleAccountSettings({ locale }: { locale: 'fr' | 'en' }) {
                 target="_blank"
                 rel="noreferrer"
               >
-                Écran de consentement <ExternalLink aria-hidden="true" />
+                {french ? 'Écran de consentement' : 'Consent screen'}{' '}
+                <ExternalLink aria-hidden="true" />
               </a>
             </li>
             <li>
@@ -278,7 +280,11 @@ export function GoogleAccountSettings({ locale }: { locale: 'fr' | 'en' }) {
                 value={clientSecret}
                 onChange={(event) => setClientSecret(event.target.value)}
                 placeholder={
-                  settings?.configured ? 'Laisser vide pour conserver le secret' : 'GOCSPX-…'
+                  settings?.configured
+                    ? french
+                      ? 'Laisser vide pour conserver le secret'
+                      : 'Leave empty to keep the secret'
+                    : 'GOCSPX-…'
                 }
                 autoComplete="new-password"
               />

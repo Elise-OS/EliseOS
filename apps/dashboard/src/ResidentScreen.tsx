@@ -1,5 +1,6 @@
 import { appointmentPictograms } from '@michel/contracts';
 import { residentMessageAt } from './resident-messages';
+import { dateLocale, tr, uiLocale } from './screen-locale';
 import { ResidentVideo, type VideoStatus } from './ResidentVideo';
 import { subscribeScreenEvents } from './screen-events';
 import { advanceScreenSchedule } from '@michel/contracts';
@@ -50,7 +51,7 @@ async function cachedMedia(media: ScreenMedia, token?: string) {
   let response = await cache.match(cacheKey);
   if (!response) {
     response = await fetch(url, token ? { headers: { 'x-screen-token': token } } : undefined);
-    if (!response.ok) throw new Error('Contenu indisponible');
+    if (!response.ok) throw new Error(tr('Contenu indisponible', 'Content unavailable'));
     await cache.put(cacheKey, response.clone());
   }
   return URL.createObjectURL(await response.blob());
@@ -103,7 +104,7 @@ export function callerInitials(name: string): string {
   return (
     words
       .slice(0, 2)
-      .map((word) => word[0]?.toLocaleUpperCase('fr-FR') ?? '')
+      .map((word) => word[0]?.toLocaleUpperCase(dateLocale()) ?? '')
       .join('') || 'É'
   );
 }
@@ -178,22 +179,22 @@ export function IncomingCallOverlay({
       className="incoming-call-screen"
       role="alert"
       aria-live="assertive"
-      aria-label={`${callerName} vous appelle`}
+      aria-label={tr(`${callerName} vous appelle`, `${callerName} is calling you`)}
     >
       <div className="incoming-call-screen__glow" aria-hidden="true" />
       <div className="incoming-call-screen__content">
-        <p className="incoming-call-screen__eyebrow">Appel entrant</p>
+        <p className="incoming-call-screen__eyebrow">{tr('Appel entrant', 'Incoming call')}</p>
         <div className="incoming-call-screen__identity" aria-hidden="true">
           <span>{callerInitials(callerName)}</span>
         </div>
         <h1>
           <strong>{callerName}</strong>
-          <span>vous appelle</span>
+          <span>{tr('vous appelle', 'is calling you')}</span>
         </h1>
         <p className="incoming-call-screen__instruction">
           {automatic
-            ? 'L’appel va commencer dans un instant'
-            : 'Appuyez sur le bouton pour répondre'}
+            ? tr('L’appel va commencer dans un instant', 'The call will start in a moment')
+            : tr('Appuyez sur le bouton pour répondre', 'Press the button to answer')}
         </p>
         <div className="incoming-call-screen__sound" aria-hidden="true">
           <i />
@@ -272,16 +273,16 @@ function FamilyMessageBanner({ state, now }: { state: ScreenSnapshot['state']; n
 
 function ClockDate({ now, timezone }: { now: Date; timezone?: string }) {
   return (
-    <section className="tv-card tv-clock" aria-label="Heure et date">
+    <section className="tv-card tv-clock" aria-label={tr('Heure et date', 'Time and date')}>
       <strong>
-        {now.toLocaleTimeString('fr-FR', {
+        {now.toLocaleTimeString(dateLocale(), {
           hour: '2-digit',
           minute: '2-digit',
           timeZone: timezone,
         })}
       </strong>
       <span>
-        {now.toLocaleDateString('fr-FR', {
+        {now.toLocaleDateString(dateLocale(), {
           weekday: 'long',
           day: 'numeric',
           month: 'long',
@@ -294,32 +295,39 @@ function ClockDate({ now, timezone }: { now: Date; timezone?: string }) {
 }
 
 function weatherPresentation(code: number): { label: string; Icon: LucideIcon } {
-  if (code === 0) return { label: 'Ensoleillé', Icon: Sun };
-  if (code <= 2) return { label: 'Éclaircies', Icon: CloudSun };
-  if (code === 3) return { label: 'Nuageux', Icon: Cloud };
-  if (code === 45 || code === 48) return { label: 'Brouillard', Icon: CloudFog };
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return { label: 'Neige', Icon: CloudSnow };
-  if (code >= 95) return { label: 'Orage', Icon: CloudLightning };
-  return { label: 'Pluie', Icon: CloudRain };
+  if (code === 0) return { label: tr('Ensoleillé', 'Sunny'), Icon: Sun };
+  if (code <= 2) return { label: tr('Éclaircies', 'Sunny spells'), Icon: CloudSun };
+  if (code === 3) return { label: tr('Nuageux', 'Cloudy'), Icon: Cloud };
+  if (code === 45 || code === 48) return { label: tr('Brouillard', 'Fog'), Icon: CloudFog };
+  if ([71, 73, 75, 77, 85, 86].includes(code))
+    return { label: tr('Neige', 'Snow'), Icon: CloudSnow };
+  if (code >= 95) return { label: tr('Orage', 'Thunderstorm'), Icon: CloudLightning };
+  return { label: tr('Pluie', 'Rain'), Icon: CloudRain };
 }
 
 function WeatherPanel({ weather }: { weather: ScreenSnapshot['weather'] }) {
   if (!weather) {
     return (
-      <section className="tv-card tv-weather tv-weather--empty" aria-label="Météo à configurer">
+      <section
+        className="tv-card tv-weather tv-weather--empty"
+        aria-label={tr('Météo à configurer', 'Weather to set up')}
+      >
         <CloudSun aria-hidden="true" />
         <div className="tv-weather-current">
-          <strong>Météo</strong>
-          <span>Ville à renseigner</span>
+          <strong>{tr('Météo', 'Weather')}</strong>
+          <span>{tr('Ville à renseigner', 'City not set yet')}</span>
         </div>
       </section>
     );
   }
   const { label, Icon } = weatherPresentation(weather.weatherCode);
   const format = (value: number) =>
-    new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(value);
+    new Intl.NumberFormat(dateLocale(), { maximumFractionDigits: 0 }).format(value);
   return (
-    <section className="tv-card tv-weather" aria-label={`Météo à ${weather.city}`}>
+    <section
+      className="tv-card tv-weather"
+      aria-label={tr(`Météo à ${weather.city}`, `Weather in ${weather.city}`)}
+    >
       <Icon aria-hidden="true" />
       <div className="tv-weather-current">
         <strong>{format(weather.temperature)}°C</strong>
@@ -349,9 +357,12 @@ function UpcomingEvents({
   timezone?: string;
 }) {
   return (
-    <section className="tv-card tv-agenda" aria-label="Rendez-vous du jour">
+    <section
+      className="tv-card tv-agenda"
+      aria-label={tr('Rendez-vous du jour', 'Today’s appointments')}
+    >
       <h2>
-        <CalendarDays aria-hidden="true" /> Rendez-vous du jour
+        <CalendarDays aria-hidden="true" /> {tr('Rendez-vous du jour', 'Today’s appointments')}
       </h2>
       {agenda.length ? (
         <ul>
@@ -365,8 +376,9 @@ function UpcomingEvents({
                     className="tv-agenda-pictogram"
                     role="img"
                     aria-label={
-                      appointmentPictograms.find((option) => option.value === item.pictogram)
-                        ?.label ?? 'Rendez-vous'
+                      appointmentPictograms.find((option) => option.value === item.pictogram)?.[
+                        uiLocale() === 'fr' ? 'label' : 'labelEn'
+                      ] ?? tr('Rendez-vous', 'Appointment')
                     }
                   >
                     {appointmentPictograms.find((option) => option.value === item.pictogram)
@@ -377,10 +389,10 @@ function UpcomingEvents({
                 )}
                 <span>
                   <strong>{item.title}</strong>
-                  <small>Aujourd’hui</small>
+                  <small>{tr('Aujourd’hui', 'Today')}</small>
                 </span>
                 <time dateTime={item.startsAt}>
-                  {date.toLocaleTimeString('fr-FR', {
+                  {date.toLocaleTimeString(dateLocale(), {
                     hour: '2-digit',
                     minute: '2-digit',
                     timeZone: timezone,
@@ -391,7 +403,9 @@ function UpcomingEvents({
           })}
         </ul>
       ) : (
-        <p className="tv-agenda-empty">Aucun rendez-vous aujourd’hui</p>
+        <p className="tv-agenda-empty">
+          {tr('Aucun rendez-vous aujourd’hui', 'No appointments today')}
+        </p>
       )}
     </section>
   );
@@ -601,7 +615,7 @@ export function ResidentScreen() {
           })
           .catch(() => {
             setMediaStatus('error');
-            setError('Contenu local indisponible.');
+            setError(tr('Contenu local indisponible.', 'Local content unavailable.'));
           });
       else setSource(media.url);
     }
@@ -685,9 +699,9 @@ export function ResidentScreen() {
         continue;
       const error =
         c.revision !== state.playback.revision
-          ? 'Remplacée par une commande plus récente.'
+          ? tr('Remplacée par une commande plus récente.', 'Replaced by a more recent command.')
           : ['play', 'resume', 'next'].includes(c.action) && contentStatus === 'error'
-            ? 'Lecture indisponible.'
+            ? tr('Lecture indisponible.', 'Playback unavailable.')
             : undefined;
       void screenRequest(
         `screen-device/commands/${c.id}/ack`,
@@ -709,8 +723,13 @@ export function ResidentScreen() {
   if (!snapshot)
     return (
       <main className="resident-pair">
-        <h1>Préparation de l’affichage TV…</h1>
-        <p>La page résident est configurée automatiquement par Élise sur cet ordinateur.</p>
+        <h1>{tr('Préparation de l’affichage TV…', 'Preparing the TV display…')}</h1>
+        <p>
+          {tr(
+            'La page résident est configurée automatiquement par Élise sur cet ordinateur.',
+            'Élise sets up the resident page automatically on this computer.',
+          )}
+        </p>
         <p role="alert">{error}</p>
       </main>
     );
@@ -762,7 +781,10 @@ export function ResidentScreen() {
             />
             {currentVideoStatus === 'error' && (
               <p className="resident-video-error" role="alert">
-                Lecture indisponible. Vérifiez la connexion Internet ou choisissez une autre vidéo.
+                {tr(
+                  'Lecture indisponible. Vérifiez la connexion Internet ou choisissez une autre vidéo.',
+                  'Playback unavailable. Check the Internet connection or choose another video.',
+                )}
               </p>
             )}
           </>
@@ -775,7 +797,11 @@ export function ResidentScreen() {
         {activeAudio && (
           <section
             className={`resident-radio-banner ${activePodcast ? 'resident-radio-banner--podcast' : ''}`}
-            aria-label={activePodcast ? 'Podcast en cours' : 'Radio en cours'}
+            aria-label={
+              activePodcast
+                ? tr('Podcast en cours', 'Podcast playing')
+                : tr('Radio en cours', 'Radio playing')
+            }
             aria-live="polite"
           >
             <audio
@@ -814,29 +840,29 @@ export function ResidentScreen() {
               <span>
                 {activePodcast
                   ? state.playback.paused
-                    ? 'Podcast en pause'
-                    : 'Podcast en cours'
+                    ? tr('Podcast en pause', 'Podcast paused')
+                    : tr('Podcast en cours', 'Podcast playing')
                   : state.playback.paused
-                    ? 'Radio en pause'
-                    : 'En cours de lecture'}
+                    ? tr('Radio en pause', 'Radio paused')
+                    : tr('En cours de lecture', 'Now playing')}
               </span>
               <strong>{activeAudio.title}</strong>
               {activePodcast && <small>{activePodcast.podcastShowTitle}</small>}
             </div>
             <b className={radioStatus === 'error' ? 'is-error' : ''}>
               {radioStatus === 'error'
-                ? 'Indisponible'
+                ? tr('Indisponible', 'Unavailable')
                 : state.playback.paused
                   ? 'Pause'
                   : activePodcast
-                    ? 'Lecture'
-                    : 'En direct'}
+                    ? tr('Lecture', 'Playing')
+                    : tr('En direct', 'Live')}
             </b>
           </section>
         )}
         <section
           className="resident-content"
-          aria-label="Album photo"
+          aria-label={tr('Album photo', 'Photo album')}
           style={{ display: activeVideo ? 'none' : undefined }}
         >
           {source && media ? (
@@ -857,7 +883,7 @@ export function ResidentScreen() {
                 <>
                   <button
                     className="tv-photo-nav tv-photo-nav--previous"
-                    aria-label="Photo précédente"
+                    aria-label={tr('Photo précédente', 'Previous photo')}
                     onClick={() =>
                       setPhotoIndex((index) => (index - 1 + photos.length) % photos.length)
                     }
@@ -866,7 +892,7 @@ export function ResidentScreen() {
                   </button>
                   <button
                     className="tv-photo-nav tv-photo-nav--next"
-                    aria-label="Photo suivante"
+                    aria-label={tr('Photo suivante', 'Next photo')}
                     onClick={() => setPhotoIndex((index) => (index + 1) % photos.length)}
                   >
                     <ChevronRight />
@@ -886,7 +912,12 @@ export function ResidentScreen() {
             <div className="tv-photo-empty">
               <ImageIcon aria-hidden="true" />
               <h1>{snapshot?.resident}</h1>
-              <p>Aucune photo familiale n’a encore été ajoutée.</p>
+              <p>
+                {tr(
+                  'Aucune photo familiale n’a encore été ajoutée.',
+                  'No family photos have been added yet.',
+                )}
+              </p>
             </div>
           )}
         </section>
