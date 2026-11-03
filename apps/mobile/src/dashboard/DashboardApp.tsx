@@ -2437,7 +2437,10 @@ function HouseTab({
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
       {!roomDetailOpen && (
-        <SectionTitle eyebrow="FOYER" title={locale === 'fr' ? 'Le logement' : 'The home'} />
+        <SectionTitle
+          eyebrow={tr('FOYER', 'HOUSEHOLD')}
+          title={locale === 'fr' ? 'Le logement' : 'The home'}
+        />
       )}
       <MobileHomePlanPanel
         plan={homePlan}

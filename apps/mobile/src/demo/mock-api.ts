@@ -1764,7 +1764,7 @@ function createScreenSnapshot(): ScreenSnapshot {
     {
       id: mediaId,
       kind: 'photo',
-      title: 'Le jardin au printemps',
+      title: t('Le jardin au printemps', 'The garden in spring'),
       url: 'https://demo.invalid/jardin.jpg',
     },
     {
@@ -1825,7 +1825,7 @@ function createScreenSnapshot(): ScreenSnapshot {
       id: 'screen-activity-2',
       kind: 'content',
       title: t('Photo affichée', 'Photo shown'),
-      detail: 'Le jardin au printemps',
+      detail: t('Le jardin au printemps', 'The garden in spring'),
       actor: 'Claire Martin',
       createdAt: Date.now() - 2 * HOUR,
       status: 'applied',

@@ -104,14 +104,14 @@ function mobilePresenceText(data: HomeSummary, locale: 'fr' | 'en') {
   if (latest)
     return fr
       ? `${resident} est dans ${roomLabel(latest, locale)}.`
-      : `${resident} is in ${latest.name}.`;
+      : `${resident} is in ${roomLabel(latest, locale)}.`;
   const currentRoom = data.rooms.find(
     ({ id }) => id === (data.presence.confirmedRoomId ?? data.presence.roomId),
   );
   if (data.presence.trackingState === 'CONFIRMED' && !data.presence.trackingDegraded && currentRoom)
     return fr
       ? `${resident} est dans ${roomLabel(currentRoom, locale)}.`
-      : `${resident} is in ${currentRoom.name}.`;
+      : `${resident} is in ${roomLabel(currentRoom, locale)}.`;
   if (data.presence.trackingState === 'IN_TRANSIT')
     return fr
       ? `${resident} semble se déplacer dans le logement.`
