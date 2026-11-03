@@ -1,0 +1,36 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mobile-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@michel/mobile",
+        "exec",
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8099"
+      ],
+      "port": 8099
+    },
+    {
+      "name": "dashboard-demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@michel/dashboard",
+        "exec",
+        "vite",
+        "--mode",
+        "demo",
+        "--port",
+        "5180",
+        "--strictPort"
+      ],
+      "port": 5180
+    }
+  ]
+}
