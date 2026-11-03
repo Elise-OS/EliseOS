@@ -54,7 +54,7 @@ export function MobileDateTimePicker({
       color: '#17325d',
       backgroundColor: '#fff',
       fontFamily: 'inherit',
-      fontSize: 16,
+      fontSize: 18,
     },
   });
 }

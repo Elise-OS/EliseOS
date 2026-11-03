@@ -238,7 +238,7 @@ export function MobileCalendarPanel({
                   onPress={() => setEndsAt(null)}
                   style={s.clearEnd}
                 >
-                  <Ionicons name="close-circle-outline" size={18} color="#657b91" />
+                  <Ionicons name="close-circle-outline" size={18} color="#516981" />
                   <Text style={s.clearEndText}>Retirer</Text>
                 </Pressable>
               )}
@@ -452,8 +452,8 @@ function Choice({
 const s = StyleSheet.create({
   page: { padding: 18, gap: 12, paddingBottom: 40 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 8 },
-  eyebrow: { color: '#6c7c8b', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-  title: { color: '#0B2948', fontSize: 28, fontWeight: '700' },
+  eyebrow: { color: '#55687B', fontSize: 14, fontWeight: '700', letterSpacing: 0.6 },
+  title: { color: '#0B2948', fontSize: 30, fontWeight: '700' },
   add: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -484,13 +484,13 @@ const s = StyleSheet.create({
   },
   dateTimeButtonCopy: { minWidth: 0, flex: 1, gap: 3 },
   dateTimeButtonLabel: {
-    color: '#6c7c8b',
-    fontSize: 10,
+    color: '#55687B',
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-  dateTimeButtonValue: { color: '#17325d', fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  dateTimeButtonValue: { color: '#17325d', fontSize: 16, fontWeight: '700', flexShrink: 1 },
   endHeading: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -498,7 +498,7 @@ const s = StyleSheet.create({
     gap: 8,
   },
   clearEnd: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 },
-  clearEndText: { color: '#657b91', fontSize: 12, fontWeight: '600' },
+  clearEndText: { color: '#516981', fontSize: 15, fontWeight: '600' },
   addEnd: {
     minHeight: 48,
     paddingHorizontal: 12,
@@ -511,7 +511,7 @@ const s = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#f9fcfe',
   },
-  addEndText: { color: '#315A82', fontSize: 13, fontWeight: '600' },
+  addEndText: { color: '#315A82', fontSize: 16, fontWeight: '600' },
   choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   choice: {
     minWidth: 112,
@@ -525,9 +525,9 @@ const s = StyleSheet.create({
     backgroundColor: '#fff',
   },
   choiceActive: { backgroundColor: '#e6f1fa', borderColor: '#7ca8ca' },
-  choiceText: { color: '#5d7188', fontSize: 12 },
+  choiceText: { color: '#536880', fontSize: 15 },
   choiceTextActive: { color: '#214b85', fontWeight: '700' },
-  label: { color: '#526b84', fontSize: 12, fontWeight: '700', marginBottom: 5 },
+  label: { color: '#526b84', fontSize: 15, fontWeight: '700', marginBottom: 5 },
   input: {
     borderWidth: 1,
     borderColor: '#d1dee7',
@@ -558,16 +558,16 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pickerCancel: { color: '#526b84', fontSize: 14, fontWeight: '600' },
+  pickerCancel: { color: '#526b84', fontSize: 17, fontWeight: '600' },
   pickerTitle: {
     minWidth: 0,
     flex: 1,
     color: '#17325d',
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: '700',
     textAlign: 'center',
   },
-  pickerConfirm: { color: '#214b85', fontSize: 14, fontWeight: '700' },
+  pickerConfirm: { color: '#214b85', fontSize: 17, fontWeight: '700' },
   picker: { width: '100%' },
   card: {
     flexDirection: 'row',
@@ -587,9 +587,9 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#edf6ff',
   },
-  cardTitle: { color: '#17325d', fontSize: 17, fontWeight: '700' },
-  muted: { color: '#697b90', fontSize: 13 },
+  cardTitle: { color: '#17325d', fontSize: 19, fontWeight: '700' },
+  muted: { color: '#52677F', fontSize: 16 },
   note: { color: '#526b84', marginTop: 4 },
   empty: { alignItems: 'center', paddingVertical: 70, gap: 8 },
-  emptyTitle: { color: '#21416d', fontSize: 18, fontWeight: '700' },
+  emptyTitle: { color: '#21416d', fontSize: 20, fontWeight: '700' },
 });

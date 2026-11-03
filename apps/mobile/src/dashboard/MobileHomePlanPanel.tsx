@@ -900,7 +900,7 @@ export function MobileHomePlanPanel({
                     {fr ? `capteur${count === 1 ? '' : 's'}` : `sensor${count === 1 ? '' : 's'}`}
                   </Text>
                 </View>
-                <ChevronRight size={18} color="#84909d" />
+                <ChevronRight size={18} color="#54677B" />
               </Pressable>
             );
           })}
@@ -1006,7 +1006,7 @@ function SensorCategoryCard({
       {configured ? (
         <CheckCircle2 size={17} color="#267256" />
       ) : (
-        <ChevronRight size={18} color="#84909d" />
+        <ChevronRight size={18} color="#54677B" />
       )}
     </Pressable>
   );
@@ -1026,7 +1026,7 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   levelTabsHeading: { paddingHorizontal: 2, paddingTop: 5 },
-  eyebrow: { color: '#376884', fontSize: 9, letterSpacing: 1.15, fontWeight: '900' },
+  eyebrow: { color: '#376884', fontSize: 12, letterSpacing: 0.6, fontWeight: '900' },
   levelTabs: { gap: 7, paddingVertical: 2, paddingRight: 20 },
   levelBadge: {
     minHeight: 38,
@@ -1041,7 +1041,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   levelBadgeActive: { borderColor: '#2c7185', backgroundColor: '#eaf5f6' },
-  levelBadgeText: { color: '#667384', fontSize: 13, fontWeight: '700' },
+  levelBadgeText: { color: '#57677A', fontSize: 16, fontWeight: '700' },
   levelBadgeTextActive: { color: '#15536a' },
   sectionHeading: {
     flexDirection: 'row',
@@ -1051,9 +1051,9 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   flex: { flex: 1 },
-  subheading: { marginTop: 3, color: '#12385f', fontSize: 18, fontWeight: '700' },
-  sectionDescription: { marginTop: 5, color: '#6b7b89', fontSize: 13, lineHeight: 19 },
-  sectionCount: { color: '#657587', fontSize: 12, fontWeight: '600', paddingBottom: 2 },
+  subheading: { marginTop: 3, color: '#12385f', fontSize: 20, fontWeight: '700' },
+  sectionDescription: { marginTop: 5, color: '#56697B', fontSize: 16, lineHeight: 23 },
+  sectionCount: { color: '#55677C', fontSize: 15, fontWeight: '600', paddingBottom: 2 },
   roomList: { gap: 9 },
   roomCard: {
     minHeight: 82,
@@ -1087,9 +1087,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   roomCopy: { flex: 1, minWidth: 0 },
-  roomName: { color: '#173e64', fontSize: 14, fontWeight: '700' },
-  roomSubline: { marginTop: 3, color: '#657587', fontSize: 11 },
-  roomSensorCount: { marginTop: 6, color: '#84909d', fontSize: 10, fontWeight: '700' },
+  roomName: { color: '#173e64', fontSize: 17, fontWeight: '700' },
+  roomSubline: { marginTop: 3, color: '#55677C', fontSize: 14 },
+  roomSensorCount: { marginTop: 6, color: '#54677B', fontSize: 13, fontWeight: '700' },
   emptyCard: {
     minHeight: 92,
     alignItems: 'center',
@@ -1101,14 +1101,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#fff',
   },
-  emptyText: { color: '#657587', fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  emptyText: { color: '#55677C', fontSize: 16, lineHeight: 23, textAlign: 'center' },
   retryButton: {
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 11,
     backgroundColor: '#15536a',
   },
-  retryText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  retryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   detailPage: { gap: 14, paddingBottom: 5 },
   backButton: {
     alignSelf: 'flex-start',
@@ -1118,7 +1118,7 @@ const styles = StyleSheet.create({
     gap: 7,
     paddingRight: 8,
   },
-  backText: { color: '#15536a', fontSize: 13, fontWeight: '700' },
+  backText: { color: '#15536a', fontSize: 16, fontWeight: '700' },
   roomHeading: {
     padding: 18,
     borderWidth: 1,
@@ -1129,12 +1129,12 @@ const styles = StyleSheet.create({
   roomTitle: {
     marginTop: 4,
     color: '#12385f',
-    fontSize: 25,
+    fontSize: 27,
     fontWeight: '700',
     letterSpacing: -0.4,
   },
   roomMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 11 },
-  roomMeta: { color: '#5b6e7c', fontSize: 11, fontWeight: '600' },
+  roomMeta: { color: '#5b6e7c', fontSize: 14, fontWeight: '600' },
   categoryList: { gap: 9 },
   categoryCard: {
     minHeight: 91,
@@ -1157,9 +1157,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   categoryCopy: { flex: 1, minWidth: 0 },
-  categoryTitle: { color: '#173e64', fontSize: 15, fontWeight: '700' },
-  categoryDescription: { marginTop: 3, color: '#6b7b89', fontSize: 11, lineHeight: 15 },
-  categoryStatus: { marginTop: 5, color: '#5b6e7c', fontSize: 10, fontWeight: '600' },
+  categoryTitle: { color: '#173e64', fontSize: 17, fontWeight: '700' },
+  categoryDescription: { marginTop: 3, color: '#56697B', fontSize: 14, lineHeight: 19 },
+  categoryStatus: { marginTop: 5, color: '#5b6e7c', fontSize: 13, fontWeight: '600' },
   categoryStatusConfigured: { color: '#267256' },
   categoryDetailHeading: {
     flexDirection: 'row',
@@ -1219,10 +1219,10 @@ const styles = StyleSheet.create({
   },
   devicePhoto: { width: '100%', height: '100%' },
   devicePhotoLarge: { width: '100%', height: '100%' },
-  devicePhotoFallback: { color: '#527083', fontSize: 12, fontWeight: '700' },
-  deviceName: { color: '#173e64', fontSize: 15, fontWeight: '700' },
-  deviceModel: { color: '#657587', fontSize: 11, lineHeight: 16 },
-  deviceMeta: { marginTop: 4, color: '#657587', fontSize: 10 },
+  devicePhotoFallback: { color: '#527083', fontSize: 15, fontWeight: '700' },
+  deviceName: { color: '#173e64', fontSize: 17, fontWeight: '700' },
+  deviceModel: { color: '#55677C', fontSize: 14, lineHeight: 20 },
+  deviceMeta: { marginTop: 4, color: '#55677C', fontSize: 13 },
   deviceStatusBadge: {
     alignSelf: 'flex-start',
     marginTop: 3,
@@ -1233,15 +1233,15 @@ const styles = StyleSheet.create({
   deviceStatusOnline: { backgroundColor: '#e7f4ed' },
   deviceStatusAttention: { backgroundColor: '#fff2dc' },
   deviceStatusOffline: { backgroundColor: '#fceceb' },
-  deviceStatusText: { color: '#326b4e', fontSize: 10, fontWeight: '700' },
+  deviceStatusText: { color: '#326b4e', fontSize: 13, fontWeight: '700' },
   deviceReadingCard: {
     paddingHorizontal: 13,
     paddingVertical: 11,
     borderRadius: 12,
     backgroundColor: '#f2f6f8',
   },
-  deviceReadingLabel: { color: '#657587', fontSize: 11, fontWeight: '600' },
-  deviceReadingValue: { marginTop: 3, color: '#173e64', fontSize: 18, fontWeight: '700' },
+  deviceReadingLabel: { color: '#55677C', fontSize: 14, fontWeight: '600' },
+  deviceReadingValue: { marginTop: 3, color: '#173e64', fontSize: 20, fontWeight: '700' },
   deviceInfoList: { gap: 7 },
   deviceInfoRow: {
     flexDirection: 'row',
@@ -1249,11 +1249,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
   },
-  deviceInfoLabel: { color: '#657587', fontSize: 11 },
+  deviceInfoLabel: { color: '#55677C', fontSize: 14 },
   deviceInfoValue: {
     flex: 1,
     color: '#173e64',
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: '600',
     textAlign: 'right',
   },

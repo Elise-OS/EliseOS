@@ -363,7 +363,7 @@ function SensorScene({
         <Text style={styles.sensorChipText}>{t.motion}</Text>
       </View>
       <View style={[styles.sensorChip, styles.sensorChipBottom]}>
-        <Thermometer size={18} color="#477BA5" />
+        <Thermometer size={18} color="#3A6991" />
         <Text style={styles.sensorChipText}>{t.temperature}</Text>
       </View>
       <View style={styles.sensorFooter}>
@@ -403,7 +403,7 @@ function MobileScene({
         </View>
       </View>
       <View style={styles.alertChip}>
-        <Bell size={17} color="#9A6130" />
+        <Bell size={17} color="#8C5B32" />
         <Text style={styles.alertChipText}>{t.alert}</Text>
       </View>
     </SceneSurface>
@@ -793,8 +793,8 @@ const styles = StyleSheet.create({
   brandLogoCompact: { width: 32, height: 32, borderRadius: 10 },
   brandText: { color: palette.ink, fontSize: 25, fontFamily: fonts.serif, letterSpacing: -0.8 },
   brandTextCompact: { fontSize: 22 },
-  brandOs: { color: palette.mint, fontSize: 9, fontFamily: fonts.bold, letterSpacing: 0.7 },
-  brandOsCompact: { fontSize: 8 },
+  brandOs: { color: palette.mint, fontSize: 12, fontFamily: fonts.bold, letterSpacing: 0.6 },
+  brandOsCompact: { fontSize: 12 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerActionsCompact: { gap: 5 },
   demoButton: {
@@ -811,7 +811,7 @@ const styles = StyleSheet.create({
   },
   demoButtonCompact: { paddingHorizontal: 8 },
   demoButtonPressed: { backgroundColor: '#E6EFEB', transform: [{ scale: 0.98 }] },
-  demoButtonText: { color: palette.ink, fontSize: 11, fontFamily: fonts.bold, letterSpacing: 0.2 },
+  demoButtonText: { color: palette.ink, fontSize: 14, fontFamily: fonts.bold, letterSpacing: 0.2 },
   languageSwitch: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -829,16 +829,16 @@ const styles = StyleSheet.create({
     borderRadius: 11,
   },
   languageOptionActive: { backgroundColor: palette.ink },
-  languageText: { color: palette.muted, fontSize: 11, fontFamily: fonts.bold, letterSpacing: 0.5 },
+  languageText: { color: palette.muted, fontSize: 14, fontFamily: fonts.bold, letterSpacing: 0.5 },
   languageTextActive: { color: palette.paper },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 34 },
   hero: { paddingTop: 28 },
   eyebrow: {
     color: palette.mint,
-    fontSize: 10,
+    fontSize: 13,
     fontFamily: fonts.bold,
-    letterSpacing: 1.45,
+    letterSpacing: 0.6,
     marginBottom: 13,
   },
   heroTitle: {
@@ -910,9 +910,9 @@ const styles = StyleSheet.create({
   heroCoreLogo: { width: 59, height: 59, borderRadius: 17 },
   heroCoreText: {
     color: palette.ink,
-    fontSize: 10,
+    fontSize: 13,
     fontFamily: fonts.bold,
-    letterSpacing: 1.4,
+    letterSpacing: 0.6,
     marginTop: 8,
   },
   orbitIcon: {
@@ -939,7 +939,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 18,
   },
-  scrollHintText: { color: palette.faint, fontSize: 11, fontFamily: fonts.medium },
+  scrollHintText: { color: palette.faint, fontSize: 14, fontFamily: fonts.medium },
   storyThread: { marginTop: 42, marginLeft: 6 },
   threadLine: {
     position: 'absolute',
@@ -1022,7 +1022,7 @@ const styles = StyleSheet.create({
   sensorChipTop: { left: '7%', top: '12%' },
   sensorChipMiddle: { right: '6%', top: '29%' },
   sensorChipBottom: { left: '8%', bottom: '20%' },
-  sensorChipText: { color: palette.text, fontSize: 11, fontFamily: fonts.medium },
+  sensorChipText: { color: palette.text, fontSize: 14, fontFamily: fonts.medium },
   sensorFooter: {
     position: 'absolute',
     bottom: 13,
@@ -1036,7 +1036,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: palette.coral },
-  sensorFooterText: { color: palette.muted, fontSize: 9, fontFamily: fonts.medium },
+  sensorFooterText: { color: palette.muted, fontSize: 12, fontFamily: fonts.medium },
   phoneHalo: {
     position: 'absolute',
     width: 206,
@@ -1071,7 +1071,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#B6C6C3',
     marginBottom: 14,
   },
-  phoneEyebrow: { color: palette.mint, fontSize: 8, fontFamily: fonts.bold, letterSpacing: 1.2 },
+  phoneEyebrow: { color: palette.mint, fontSize: 12, fontFamily: fonts.bold, letterSpacing: 0.6 },
   phoneTitle: {
     color: palette.ink,
     fontSize: 18,
@@ -1086,7 +1086,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E3EDEB',
   },
-  phoneCardTitle: { color: palette.ink, fontSize: 9, fontFamily: fonts.medium },
+  phoneCardTitle: { color: palette.ink, fontSize: 12, fontFamily: fonts.medium },
   phoneCueRow: { flexDirection: 'row', gap: 4, marginTop: 10 },
   phoneCue: { height: 35, flex: 1, borderRadius: 7 },
   phoneActivity: {
@@ -1121,7 +1121,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 10,
   },
-  alertChipText: { color: '#754D2E', fontSize: 10, fontFamily: fonts.bold },
+  alertChipText: { color: '#754D2E', fontSize: 13, fontFamily: fonts.bold },
   tvFrame: {
     position: 'absolute',
     left: '7%',
@@ -1136,7 +1136,7 @@ const styles = StyleSheet.create({
   },
   tvTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tvStatusDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: palette.coral },
-  tvTopText: { color: palette.muted, fontSize: 9, fontFamily: fonts.medium },
+  tvTopText: { color: palette.muted, fontSize: 12, fontFamily: fonts.medium },
   tvMessage: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 7 },
   tvMessageText: {
     color: palette.text,
@@ -1155,7 +1155,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E9F0ED',
     minHeight: 30,
   },
-  tvTileText: { color: palette.text, fontSize: 9, fontFamily: fonts.medium },
+  tvTileText: { color: palette.text, fontSize: 12, fontFamily: fonts.medium },
   tvStand: {
     position: 'absolute',
     width: 68,
@@ -1181,7 +1181,7 @@ const styles = StyleSheet.create({
   privacyNodeCompact: { width: 96, height: 104 },
   privacyHome: { left: '9%' },
   privacyPhone: { right: '9%' },
-  privacyNodeText: { color: palette.text, fontSize: 10, fontFamily: fonts.medium },
+  privacyNodeText: { color: palette.text, fontSize: 13, fontFamily: fonts.medium },
   privacyOptional: {
     position: 'absolute',
     bottom: '10%',
@@ -1193,11 +1193,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E4D4BB',
   },
-  privacyOptionalText: { color: '#765D3F', fontSize: 10, fontFamily: fonts.medium },
+  privacyOptionalText: { color: '#765D3F', fontSize: 13, fontFamily: fonts.medium },
   disclaimer: {
     color: palette.faint,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 15,
+    lineHeight: 23,
     textAlign: 'center',
     paddingHorizontal: 17,
     marginTop: -4,

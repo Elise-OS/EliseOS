@@ -496,8 +496,11 @@ export function MobileScreenTabs({
             style={[s.mainTab, activeTab === tab.id && s.mainTabActive]}
             onPress={() => setSelectedTab(tab.id)}
           >
-            <Ionicons name={tab.icon} size={17} color={activeTab === tab.id ? '#fff' : c.muted} />
-            <Text style={[s.mainTabText, activeTab === tab.id && s.mainTabTextActive]}>
+            <Ionicons name={tab.icon} size={19} color={activeTab === tab.id ? '#fff' : c.muted} />
+            <Text
+              numberOfLines={1}
+              style={[s.mainTabText, activeTab === tab.id && s.mainTabTextActive]}
+            >
               {tab.title}
             </Text>
           </Pressable>
@@ -1239,7 +1242,7 @@ export function MobileScreenTabs({
                   {savedYoutube.map((media) => (
                     <View key={media.id} style={s.mediaRow}>
                       <View style={s.mediaPlaceholder}>
-                        <Ionicons name="logo-youtube" size={18} color="#D94942" />
+                        <Ionicons name="logo-youtube" size={18} color="#AC4243" />
                       </View>
                       <View style={s.flex}>
                         <Text numberOfLines={1} style={s.mediaTitle}>
@@ -1528,16 +1531,16 @@ const s = StyleSheet.create({
   },
   mainTab: {
     flex: 1,
-    minHeight: 46,
+    minHeight: 56,
     paddingHorizontal: 5,
+    paddingVertical: 7,
     borderRadius: 12,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 4,
   },
   mainTabActive: { backgroundColor: c.blue },
-  mainTabText: { color: c.muted, fontSize: 9, fontWeight: '800' },
+  mainTabText: { color: c.muted, fontSize: 13, fontWeight: '800' },
   mainTabTextActive: { color: '#fff' },
   card: {
     padding: 13,
@@ -1558,8 +1561,8 @@ const s = StyleSheet.create({
   },
   headingGreen: { backgroundColor: c.paleGreen },
   headingAmber: { backgroundColor: c.paleAmber },
-  title: { color: c.navy, fontFamily: 'Georgia', fontSize: 18 },
-  detail: { color: c.muted, fontSize: 10, lineHeight: 15 },
+  title: { color: c.navy, fontFamily: 'Georgia', fontSize: 20 },
+  detail: { color: c.muted, fontSize: 13, lineHeight: 20 },
   pickButton: {
     minHeight: 60,
     paddingHorizontal: 11,
@@ -1571,8 +1574,8 @@ const s = StyleSheet.create({
     gap: 10,
     backgroundColor: '#F7F6F2',
   },
-  pickTitle: { color: c.navy, fontSize: 11, fontWeight: '800' },
-  pickDetail: { marginTop: 3, color: c.muted, fontSize: 9 },
+  pickTitle: { color: c.navy, fontSize: 14, fontWeight: '800' },
+  pickDetail: { marginTop: 3, color: c.muted, fontSize: 12 },
   photoDraft: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   photoPreview: { width: 54, height: 54, borderRadius: 11, backgroundColor: c.paleBlue },
   input: {
@@ -1583,11 +1586,11 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: c.line,
     color: c.navy,
-    fontSize: 11,
+    fontSize: 14,
     backgroundColor: '#fff',
   },
   messageInput: { minHeight: 95, textAlignVertical: 'top' },
-  counter: { color: c.muted, textAlign: 'right', fontSize: 9 },
+  counter: { color: c.muted, textAlign: 'right', fontSize: 12 },
   primaryButton: {
     minHeight: 44,
     paddingHorizontal: 12,
@@ -1599,7 +1602,7 @@ const s = StyleSheet.create({
     backgroundColor: c.blue,
   },
   disabledButton: { opacity: 0.45 },
-  primaryButtonText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  primaryButtonText: { color: '#fff', fontSize: 13, fontWeight: '900' },
   secondaryButton: {
     minHeight: 38,
     paddingHorizontal: 11,
@@ -1612,9 +1615,9 @@ const s = StyleSheet.create({
     gap: 6,
     backgroundColor: c.paper,
   },
-  secondaryButtonText: { color: c.navy, fontSize: 10, fontWeight: '800' },
+  secondaryButtonText: { color: c.navy, fontSize: 13, fontWeight: '800' },
   subheadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  subheading: { color: c.navy, fontSize: 12, fontWeight: '900' },
+  subheading: { color: c.navy, fontSize: 15, fontWeight: '900' },
   speedControl: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   roundButton: {
     width: 29,
@@ -1624,7 +1627,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: c.paleBlue,
   },
-  speedValue: { minWidth: 36, color: c.navy, textAlign: 'center', fontSize: 10, fontWeight: '900' },
+  speedValue: { minWidth: 36, color: c.navy, textAlign: 'center', fontSize: 13, fontWeight: '900' },
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
   photoCard: {
     width: '48%',
@@ -1636,7 +1639,7 @@ const s = StyleSheet.create({
     gap: 6,
   },
   libraryPhoto: { width: '100%', aspectRatio: 1, borderRadius: 9, backgroundColor: c.paleBlue },
-  photoTitle: { minHeight: 28, color: c.navy, fontSize: 9, fontWeight: '800' },
+  photoTitle: { minHeight: 28, color: c.navy, fontSize: 12, fontWeight: '800' },
   photoActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
   iconAction: {
     width: 34,
@@ -1646,8 +1649,8 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#F1F0EC',
   },
-  emptyText: { paddingVertical: 9, color: c.muted, textAlign: 'center', fontSize: 10 },
-  fieldLabel: { color: c.navy, fontSize: 10, fontWeight: '900' },
+  emptyText: { paddingVertical: 9, color: c.muted, textAlign: 'center', fontSize: 13 },
+  fieldLabel: { color: c.navy, fontSize: 13, fontWeight: '900' },
   chipRow: { alignItems: 'center', gap: 7 },
   favoriteChip: {
     minHeight: 34,
@@ -1658,8 +1661,8 @@ const s = StyleSheet.create({
     gap: 5,
     backgroundColor: c.paleAmber,
   },
-  favoriteEmoji: { fontSize: 13 },
-  favoriteText: { color: c.navy, fontSize: 9, fontWeight: '800' },
+  favoriteEmoji: { fontSize: 16 },
+  favoriteText: { color: c.navy, fontSize: 12, fontWeight: '800' },
   messageChip: {
     minHeight: 34,
     paddingHorizontal: 10,
@@ -1668,7 +1671,7 @@ const s = StyleSheet.create({
     backgroundColor: '#EEEBE5',
   },
   messageChipActive: { backgroundColor: c.blue },
-  messageChipText: { color: c.navy, fontSize: 9, fontWeight: '800' },
+  messageChipText: { color: c.navy, fontSize: 12, fontWeight: '800' },
   messageChipTextActive: { color: '#fff' },
   addMessageChip: {
     minHeight: 34,
@@ -1688,7 +1691,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#F3F0EA',
   },
-  emojiText: { fontSize: 14 },
+  emojiText: { fontSize: 17 },
   messageTiming: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 7 },
   secondsInput: {
     width: 54,
@@ -1699,7 +1702,7 @@ const s = StyleSheet.create({
     borderColor: c.line,
     color: c.navy,
     textAlign: 'center',
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: '800',
     backgroundColor: '#fff',
   },
@@ -1723,7 +1726,7 @@ const s = StyleSheet.create({
     gap: 3,
     backgroundColor: c.paleBlue,
   },
-  scheduleActionText: { color: c.blue, fontSize: 9, fontWeight: '800' },
+  scheduleActionText: { color: c.blue, fontSize: 12, fontWeight: '800' },
   clearScheduleAction: {
     width: 30,
     height: 30,
@@ -1743,7 +1746,7 @@ const s = StyleSheet.create({
     backgroundColor: '#EEEBE5',
   },
   sourceTabActive: { backgroundColor: c.paleBlue },
-  sourceTabText: { color: c.muted, fontSize: 9, fontWeight: '800' },
+  sourceTabText: { color: c.muted, fontSize: 12, fontWeight: '800' },
   sourceTabTextActive: { color: c.blue },
   mediaList: { gap: 9 },
   mediaRow: {
@@ -1774,10 +1777,10 @@ const s = StyleSheet.create({
   channelBrandArte: { backgroundColor: '#FFF4EC' },
   channelBrandRmc: { backgroundColor: '#19365B' },
   channelBrandText: { fontWeight: '900' },
-  channelBrandTextArte: { color: '#F0673C', fontSize: 21, letterSpacing: -2 },
-  channelBrandTextRmc: { color: '#fff', fontSize: 12, letterSpacing: -0.3 },
-  mediaTitle: { color: c.navy, fontSize: 10, fontWeight: '900' },
-  mediaSubtitle: { marginTop: 3, color: c.muted, fontSize: 9 },
+  channelBrandTextArte: { color: '#F0673C', fontSize: 23, letterSpacing: -2 },
+  channelBrandTextRmc: { color: '#fff', fontSize: 15, letterSpacing: -0.3 },
+  mediaTitle: { color: c.navy, fontSize: 13, fontWeight: '900' },
+  mediaSubtitle: { marginTop: 3, color: c.muted, fontSize: 12 },
   sourceCard: {
     minHeight: 64,
     padding: 8,
@@ -1796,8 +1799,8 @@ const s = StyleSheet.create({
     gap: 4,
     backgroundColor: c.blue,
   },
-  playButtonText: { color: '#fff', fontSize: 9, fontWeight: '900' },
-  footnote: { color: c.muted, fontSize: 9, lineHeight: 14 },
+  playButtonText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  footnote: { color: c.muted, fontSize: 12, lineHeight: 19 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   searchButton: {
     width: 43,
@@ -1843,9 +1846,9 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
   },
   pickerHeaderButton: { minWidth: 62, paddingVertical: 9 },
-  pickerCancel: { color: c.muted, fontSize: 12 },
-  pickerTitle: { color: c.navy, fontSize: 13, fontWeight: '800' },
-  pickerConfirm: { color: c.blue, textAlign: 'right', fontSize: 12, fontWeight: '900' },
+  pickerCancel: { color: c.muted, fontSize: 15 },
+  pickerTitle: { color: c.navy, fontSize: 16, fontWeight: '800' },
+  pickerConfirm: { color: c.blue, textAlign: 'right', fontSize: 15, fontWeight: '900' },
   picker: { height: 210 },
-  error: { padding: 9, borderRadius: 10, color: c.red, backgroundColor: c.paleAmber, fontSize: 10 },
+  error: { padding: 9, borderRadius: 10, color: c.red, backgroundColor: c.paleAmber, fontSize: 13 },
 });

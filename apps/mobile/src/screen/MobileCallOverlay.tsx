@@ -272,8 +272,8 @@ const styles = StyleSheet.create({
   },
   headerCopy: { flex: 1, gap: 3 },
   cameraControls: { alignItems: 'flex-end', paddingHorizontal: 18, paddingVertical: 12 },
-  eyebrow: { color: '#AFCDD1', fontSize: 9, fontWeight: '900', letterSpacing: 1.1 },
-  headerTitle: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  eyebrow: { color: '#AFCDD1', fontSize: 12, fontWeight: '900', letterSpacing: 0.6 },
+  headerTitle: { color: '#fff', fontSize: 19, fontWeight: '800' },
   cameraSwitchButton: {
     width: 44,
     height: 44,
@@ -311,14 +311,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#DCE9E5',
   },
   avatarText: { color: '#12385F', fontSize: 36, fontWeight: '800' },
-  waitingTitle: { color: '#fff', fontSize: 22, fontWeight: '800', textAlign: 'center' },
+  waitingTitle: { color: '#fff', fontSize: 24, fontWeight: '800', textAlign: 'center' },
   waitingDetail: {
     maxWidth: 330,
     marginTop: 12,
     marginBottom: 30,
     color: '#D0E0E3',
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 17,
+    lineHeight: 26,
     textAlign: 'center',
   },
   hangupButton: {
@@ -333,5 +333,5 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: '#B74747',
   },
-  hangupText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  hangupText: { color: '#fff', fontSize: 17, fontWeight: '800' },
 });

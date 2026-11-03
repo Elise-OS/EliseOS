@@ -55,27 +55,12 @@ import {
 import { subscribeNotificationNavigation } from '../notifications';
 import { relativeTime } from './formatters';
 import { isDemoServer } from '../demo/mock-api';
+import { colors } from '../theme';
 
 type Tab = 'home' | 'activity' | 'alerts' | 'house' | 'journal' | 'screen' | 'people' | 'settings';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 type SafetyCategory = Extract<RoomSensorCategory, 'fall_detection' | 'smoke' | 'water_leak'>;
 type SafetyCoverage = { devices: SensorDevice[]; attentionCount: number };
-
-const colors = {
-  navy: '#0B2948',
-  blue: '#12385F',
-  accent: '#376884',
-  cream: '#F5F0E8',
-  paper: '#FDFBF7',
-  line: '#DED8CE',
-  muted: '#687382',
-  green: '#4F8569',
-  paleGreen: '#E5EFE8',
-  amber: '#D99A55',
-  paleAmber: '#F7E9D7',
-  red: '#B74747',
-  paleBlue: '#E8F0F3',
-};
 
 const tabs: Array<{ id: Tab; label: string; icon: IconName; active: IconName }> = [
   { id: 'home', label: 'Accueil', icon: 'home-outline', active: 'home' },
@@ -852,22 +837,28 @@ export function DashboardApp({
                 setTab(item.id);
               }}
             >
-              <View>
+              <View style={[styles.tabIcon, active && styles.tabIconActive]}>
                 {item.id === 'house' ? (
                   <Sofa
-                    color={active ? colors.blue : '#8A9299'}
+                    color={active ? colors.blue : colors.muted}
                     size={24}
                     strokeWidth={active ? 2.25 : 1.9}
                   />
                 ) : (
                   <Ionicons
                     name={active ? item.active : item.icon}
-                    color={active ? colors.blue : '#8A9299'}
-                    size={21}
+                    color={active ? colors.blue : colors.muted}
+                    size={22}
                   />
                 )}
               </View>
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>{item.label}</Text>
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={[styles.tabText, active && styles.tabTextActive]}
+              >
+                {item.label}
+              </Text>
             </Pressable>
           );
         })}
@@ -2586,7 +2577,7 @@ function JournalTab({
                         <Ionicons
                           name="chevron-forward"
                           size={17}
-                          color="#607795"
+                          color="#4F6786"
                           style={styles.journalEntryChevron}
                         />
                       </View>
@@ -2678,9 +2669,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   demoBannerLabel: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  demoBannerText: { color: colors.blue, fontSize: 9, fontWeight: '900', letterSpacing: 0.65 },
+  demoBannerText: { color: colors.blue, fontSize: 12, fontWeight: '900', letterSpacing: 0.6 },
   demoExitButton: { minHeight: 32, justifyContent: 'center', paddingHorizontal: 8 },
-  demoExitText: { color: colors.blue, fontSize: 11, fontWeight: '900' },
+  demoExitText: { color: colors.blue, fontSize: 14, fontWeight: '900' },
   content: { flex: 1, paddingTop: 16 },
   appHeader: {
     minHeight: 52,
@@ -2712,9 +2703,11 @@ const styles = StyleSheet.create({
         }
       : {}),
   },
-  tabButton: { flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', gap: 4 },
-  tabText: { color: '#858D94', fontSize: 9, fontWeight: '700' },
-  tabTextActive: { color: colors.blue },
+  tabButton: { flex: 1, minHeight: 58, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  tabIcon: { paddingHorizontal: 14, paddingVertical: 4, borderRadius: 16 },
+  tabIconActive: { backgroundColor: colors.paleBlue },
+  tabText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
+  tabTextActive: { color: colors.blue, fontWeight: '800' },
   hero: {
     padding: 21,
     borderWidth: 1,
@@ -2730,28 +2723,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  eyebrow: { color: colors.accent, fontSize: 9, letterSpacing: 1.25, fontWeight: '900' },
+  eyebrow: { color: colors.accent, fontSize: 12, letterSpacing: 0.6, fontWeight: '900' },
   heroTitle: {
     marginTop: 7,
     color: colors.navy,
     textAlign: 'center',
     fontFamily: 'Georgia',
-    fontSize: 23,
+    fontSize: 25,
   },
   heroDetail: {
     marginTop: 7,
     color: colors.muted,
     textAlign: 'center',
-    fontSize: 11,
-    lineHeight: 17,
+    fontSize: 14,
+    lineHeight: 22,
   },
   presenceSummaryHead: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
   presenceSummaryCopy: { flex: 1 },
   presenceSummaryTitle: {
     color: colors.navy,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '800',
-    lineHeight: 22,
+    lineHeight: 25,
     marginTop: 5,
   },
   presenceWarningIcon: { backgroundColor: '#fff3d6' },
@@ -2764,7 +2757,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     padding: 10,
   },
-  presenceWarningText: { color: '#795418', flex: 1, fontSize: 10, lineHeight: 15 },
+  presenceWarningText: { color: '#795418', flex: 1, fontSize: 13, lineHeight: 20 },
   presenceActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 },
   presenceWhy: {
     backgroundColor: colors.paleBlue,
@@ -2773,13 +2766,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
     padding: 12,
   },
-  presenceWhyText: { color: colors.muted, fontSize: 10, lineHeight: 16 },
+  presenceWhyText: { color: colors.muted, fontSize: 13, lineHeight: 21 },
   presenceDecisionRow: {
     borderTopColor: colors.line,
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: 8,
   },
-  presenceDecisionTime: { color: colors.accent, fontSize: 8, fontWeight: '900', marginBottom: 3 },
+  presenceDecisionTime: { color: colors.accent, fontSize: 12, fontWeight: '900', marginBottom: 3 },
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   metric: {
     width: '48.5%',
@@ -2799,9 +2792,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.paleBlue,
   },
-  metricLabel: { color: colors.muted, fontSize: 8, letterSpacing: 0.65, fontWeight: '900' },
-  metricValue: { marginTop: 6, color: colors.navy, fontSize: 15, fontWeight: '800' },
-  metricDetail: { marginTop: 4, color: colors.muted, fontSize: 9 },
+  metricLabel: { color: colors.muted, fontSize: 12, letterSpacing: 0.6, fontWeight: '900' },
+  metricValue: { marginTop: 6, color: colors.navy, fontSize: 17, fontWeight: '800' },
+  metricDetail: { marginTop: 4, color: colors.muted, fontSize: 12 },
   card: {
     padding: 17,
     borderWidth: 1,
@@ -2815,10 +2808,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
   },
-  sectionTitle: { marginTop: 4, color: colors.navy, fontFamily: 'Georgia', fontSize: 20 },
-  link: { color: colors.blue, fontSize: 10, fontWeight: '900' },
+  sectionTitle: { marginTop: 4, color: colors.navy, fontFamily: 'Georgia', fontSize: 28 },
+  link: { color: colors.blue, fontSize: 13, fontWeight: '900' },
   chartLabels: { marginTop: -12, flexDirection: 'row', justifyContent: 'space-between' },
-  chartLabel: { color: colors.muted, fontSize: 8 },
+  chartLabel: { color: colors.muted, fontSize: 12 },
   listRow: {
     minHeight: 65,
     paddingVertical: 11,
@@ -2837,9 +2830,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paleBlue,
   },
   rowCopy: { flex: 1 },
-  rowTitle: { color: colors.navy, fontSize: 12, fontWeight: '800' },
-  rowDetail: { marginTop: 4, color: colors.muted, fontSize: 9 },
-  rowTime: { color: colors.muted, fontSize: 8 },
+  rowTitle: { color: colors.navy, fontSize: 15, fontWeight: '800' },
+  rowDetail: { marginTop: 4, color: colors.muted, fontSize: 12 },
+  rowTime: { color: colors.muted, fontSize: 12 },
   segment: { padding: 4, borderRadius: 13, flexDirection: 'row', backgroundColor: '#E7E2DA' },
   segmentButton: {
     flex: 1,
@@ -2850,7 +2843,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   segmentActive: { backgroundColor: colors.paper },
-  segmentText: { color: colors.muted, fontSize: 10, fontWeight: '800' },
+  segmentText: { color: colors.muted, fontSize: 13, fontWeight: '800' },
   segmentTextActive: { color: colors.navy },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   bigNumber: { marginTop: 4, color: colors.navy, fontFamily: 'Georgia', fontSize: 36 },
@@ -2863,7 +2856,7 @@ const styles = StyleSheet.create({
     gap: 5,
     backgroundColor: colors.paleGreen,
   },
-  trendText: { color: colors.green, fontSize: 8, fontWeight: '900' },
+  trendText: { color: colors.green, fontSize: 12, fontWeight: '900' },
   barBlock: { marginBottom: 13 },
   barLabels: { marginBottom: 7, flexDirection: 'row', justifyContent: 'space-between' },
   barTrack: { height: 7, borderRadius: 4, overflow: 'hidden', backgroundColor: '#E5E8E9' },
@@ -2880,10 +2873,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
   },
   chipActive: { borderColor: colors.blue, backgroundColor: colors.blue },
-  chipText: { color: colors.muted, fontSize: 9, fontWeight: '800' },
+  chipText: { color: colors.muted, fontSize: 12, fontWeight: '800' },
   chipTextActive: { color: '#fff' },
   empty: { minHeight: 105, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  emptyText: { color: colors.muted, textAlign: 'center', fontSize: 10 },
+  emptyText: { color: colors.muted, textAlign: 'center', fontSize: 13 },
   loadMore: {
     minHeight: 44,
     marginTop: 7,
@@ -2903,9 +2896,9 @@ const styles = StyleSheet.create({
   },
   severity: { width: 4, height: 58, borderRadius: 2 },
   alertMeta: { flexDirection: 'row', justifyContent: 'space-between' },
-  statusText: { color: colors.accent, fontSize: 8, fontWeight: '900', letterSpacing: 0.6 },
-  alertTitle: { marginTop: 6, color: colors.navy, fontSize: 13, fontWeight: '800' },
-  alertExplanation: { marginTop: 4, color: colors.muted, fontSize: 10, lineHeight: 15 },
+  statusText: { color: colors.accent, fontSize: 12, fontWeight: '900', letterSpacing: 0.6 },
+  alertTitle: { marginTop: 6, color: colors.navy, fontSize: 16, fontWeight: '800' },
+  alertExplanation: { marginTop: 4, color: colors.muted, fontSize: 13, lineHeight: 20 },
   modal: { flex: 1, backgroundColor: colors.cream },
   modalHeader: {
     minHeight: 62,
@@ -2922,7 +2915,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.paper,
   },
-  modalLabel: { color: colors.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  modalLabel: { color: colors.accent, fontSize: 12, fontWeight: '900', letterSpacing: 0.6 },
   modalContent: { padding: 23, alignItems: 'center', paddingBottom: 50 },
   largeAlertIcon: {
     width: 65,
@@ -2936,9 +2929,9 @@ const styles = StyleSheet.create({
     color: colors.navy,
     textAlign: 'center',
     fontFamily: 'Georgia',
-    fontSize: 29,
+    fontSize: 31,
   },
-  modalDate: { marginTop: 8, color: colors.muted, fontSize: 10 },
+  modalDate: { marginTop: 8, color: colors.muted, fontSize: 13 },
   explanationCard: {
     width: '100%',
     marginTop: 25,
@@ -2946,12 +2939,12 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     backgroundColor: colors.paper,
   },
-  explanationTitle: { color: colors.navy, fontSize: 12, fontWeight: '900' },
-  explanationText: { marginTop: 9, color: colors.muted, fontSize: 12, lineHeight: 19 },
+  explanationTitle: { color: colors.navy, fontSize: 15, fontWeight: '900' },
+  explanationText: { marginTop: 9, color: colors.muted, fontSize: 15, lineHeight: 24 },
   timeline: { width: '100%', marginTop: 25 },
   timelineRow: { minHeight: 37, flexDirection: 'row', alignItems: 'center', gap: 10 },
   timelineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
-  timelineText: { color: colors.muted, fontSize: 10 },
+  timelineText: { color: colors.muted, fontSize: 13 },
   alertActions: { width: '100%', marginTop: 25, gap: 10 },
   primaryButton: {
     minHeight: 51,
@@ -2960,7 +2953,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.blue,
   },
-  primaryButtonText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '900' },
   secondaryButton: {
     minHeight: 51,
     borderWidth: 1,
@@ -2969,12 +2962,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryButtonText: { color: colors.blue, fontSize: 11, fontWeight: '900' },
+  secondaryButtonText: { color: colors.blue, fontSize: 14, fontWeight: '900' },
   dismissText: {
     padding: 13,
     color: colors.red,
     textAlign: 'center',
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: '800',
   },
   roomGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
@@ -2997,9 +2990,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paleBlue,
   },
   healthDot: { width: 8, height: 8, borderRadius: 4 },
-  roomName: { marginTop: 14, color: colors.navy, fontSize: 14, fontWeight: '900' },
-  roomStatus: { marginTop: 5, color: colors.muted, fontSize: 9 },
-  roomValue: { marginTop: 10, color: colors.accent, fontSize: 12, fontWeight: '900' },
+  roomName: { marginTop: 14, color: colors.navy, fontSize: 17, fontWeight: '900' },
+  roomStatus: { marginTop: 5, color: colors.muted, fontSize: 12 },
+  roomValue: { marginTop: 10, color: colors.accent, fontSize: 15, fontWeight: '900' },
   sensorRow: {
     minHeight: 75,
     paddingVertical: 10,
@@ -3017,8 +3010,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sensorRight: { alignItems: 'flex-end' },
-  sensorValue: { color: colors.navy, fontSize: 12, fontWeight: '900' },
-  sensorState: { marginTop: 4, fontSize: 7, fontWeight: '900' },
+  sensorValue: { color: colors.navy, fontSize: 15, fontWeight: '900' },
+  sensorState: { marginTop: 4, fontSize: 12, fontWeight: '900' },
   personRow: {
     minHeight: 68,
     paddingVertical: 9,
@@ -3036,14 +3029,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.blue,
   },
-  personInitials: { color: '#fff', fontSize: 11, fontWeight: '900' },
+  personInitials: { color: '#fff', fontSize: 14, fontWeight: '900' },
   primaryPill: {
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 10,
     backgroundColor: colors.paleGreen,
   },
-  primaryPillText: { color: colors.green, fontSize: 7, fontWeight: '900' },
+  primaryPillText: { color: colors.green, fontSize: 12, fontWeight: '900' },
   journalHero: {
     minHeight: 104,
     padding: 17,
@@ -3061,7 +3054,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
     color: '#112F5D',
     fontFamily: 'Georgia',
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '600',
   },
   journalBack: {
@@ -3075,7 +3068,7 @@ const styles = StyleSheet.create({
     gap: 1,
     backgroundColor: '#FFFFFF',
   },
-  journalBackText: { color: colors.blue, fontSize: 9, fontWeight: '800' },
+  journalBackText: { color: colors.blue, fontSize: 12, fontWeight: '800' },
   journalFeed: {
     padding: 16,
     borderWidth: 1,
@@ -3104,16 +3097,16 @@ const styles = StyleSheet.create({
   journalSectionTitle: {
     color: '#17345F',
     fontFamily: 'Georgia',
-    fontSize: 21,
+    fontSize: 23,
     fontWeight: '600',
   },
   journalSectionDescription: {
     marginTop: 6,
     color: '#516889',
-    fontSize: 10,
-    lineHeight: 15,
+    fontSize: 13,
+    lineHeight: 20,
   },
-  journalCount: { marginTop: 2, color: '#5C6E8C', fontSize: 9, fontWeight: '600' },
+  journalCount: { marginTop: 2, color: '#5C6E8C', fontSize: 12, fontWeight: '600' },
   journalTimeline: { marginTop: 20 },
   journalDay: { marginBottom: 19 },
   journalDayHeading: {
@@ -3125,11 +3118,11 @@ const styles = StyleSheet.create({
   },
   journalDayTitle: {
     color: '#24466F',
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '800',
     textTransform: 'capitalize',
   },
-  journalDayCount: { color: '#6F8099', fontSize: 8 },
+  journalDayCount: { color: '#536882', fontSize: 12 },
   journalDayItems: { gap: 8 },
   journalEntry: {
     minHeight: 70,
@@ -3159,7 +3152,7 @@ const styles = StyleSheet.create({
   journalEntryIconAmber: { backgroundColor: '#FFF0D7' },
   journalEntryCopy: { flex: 1, minWidth: 0 },
   journalEntryMeta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
-  journalEntryTime: { color: '#6A7E9D', fontSize: 8 },
+  journalEntryTime: { color: '#516887', fontSize: 12 },
   journalEntryKind: {
     overflow: 'hidden',
     paddingHorizontal: 7,
@@ -3167,18 +3160,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     color: '#466B75',
     backgroundColor: '#EEF4F4',
-    fontSize: 7,
+    fontSize: 11,
     fontWeight: '700',
   },
   journalEntryTitle: {
     marginTop: 5,
     color: '#1D3C68',
     fontFamily: 'Georgia',
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '600',
-    lineHeight: 17,
+    lineHeight: 21,
   },
-  journalEntryBody: { marginTop: 4, color: '#526987', fontSize: 9, lineHeight: 14 },
+  journalEntryBody: { marginTop: 4, color: '#526987', fontSize: 12, lineHeight: 19 },
   journalEntryChevron: { marginLeft: 0 },
   journalEmpty: {
     minHeight: 240,
@@ -3195,13 +3188,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#E5F1FF',
   },
-  journalEmptyTitle: { color: '#1D3C68', fontFamily: 'Georgia', fontSize: 17, fontWeight: '600' },
+  journalEmptyTitle: { color: '#1D3C68', fontFamily: 'Georgia', fontSize: 19, fontWeight: '600' },
   journalEmptyText: {
     marginTop: 7,
     color: '#526987',
     textAlign: 'center',
-    fontSize: 10,
-    lineHeight: 15,
+    fontSize: 13,
+    lineHeight: 20,
   },
   journalEmptyAction: {
     minHeight: 38,
@@ -3215,7 +3208,7 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: '#FFFFFF',
   },
-  journalEmptyActionText: { color: colors.blue, fontSize: 9, fontWeight: '800' },
+  journalEmptyActionText: { color: colors.blue, fontSize: 12, fontWeight: '800' },
   note: {
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -3231,10 +3224,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.paleBlue,
   },
-  noteDay: { color: colors.navy, fontSize: 17, fontWeight: '900' },
-  noteMonth: { color: colors.accent, fontSize: 7, fontWeight: '900' },
-  noteBody: { marginTop: 6, color: colors.muted, fontSize: 10, lineHeight: 15 },
-  noteKind: { marginTop: 7, color: colors.accent, fontSize: 7, fontWeight: '900' },
+  noteDay: { color: colors.navy, fontSize: 19, fontWeight: '900' },
+  noteMonth: { color: colors.accent, fontSize: 12, fontWeight: '900' },
+  noteBody: { marginTop: 6, color: colors.muted, fontSize: 13, lineHeight: 20 },
+  noteKind: { marginTop: 7, color: colors.accent, fontSize: 12, fontWeight: '900' },
   healthCard: { backgroundColor: colors.paper },
   alertCount: { color: colors.red },
   dashboard: { flex: 1 },
@@ -3252,9 +3245,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row' },
   fill: { flex: 1 },
   hidden: { opacity: 0 },
-  caption: { fontSize: 9 },
-  body: { fontSize: 12 },
-  title: { fontSize: 20 },
+  caption: { fontSize: 12 },
+  body: { fontSize: 15 },
+  title: { fontSize: 22 },
   rounded: { borderRadius: 12 },
   shadow: {
     shadowColor: colors.navy,
@@ -3271,8 +3264,8 @@ const styles = StyleSheet.create({
   textCenter: { textAlign: 'center' },
   overflow: { overflow: 'hidden' },
   absolute: { position: 'absolute' },
-  small: { fontSize: 10 },
-  large: { fontSize: 24 },
+  small: { fontSize: 13 },
+  large: { fontSize: 26 },
   top: { marginTop: 10 },
   bottom: { marginBottom: 10 },
   left: { marginLeft: 10 },
@@ -3305,9 +3298,9 @@ const styles = StyleSheet.create({
   semibold: { fontWeight: '600' },
   extraBold: { fontWeight: '900' },
   serif: { fontFamily: 'Georgia' },
-  tiny: { fontSize: 8 },
-  medium: { fontSize: 14 },
-  extraLarge: { fontSize: 30 },
+  tiny: { fontSize: 12 },
+  medium: { fontSize: 17 },
+  extraLarge: { fontSize: 31 },
   icon: { width: 40, height: 40 },
   pill: { borderRadius: 20 },
   divider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
@@ -3391,7 +3384,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 13,
   },
-  cameraPrivacyText: { color: colors.green, flex: 1, fontSize: 11, fontWeight: '700' },
+  cameraPrivacyText: { color: colors.green, flex: 1, fontSize: 14, fontWeight: '700' },
   mobileCameraGrid: { gap: 12 },
   mobileCameraCard: {
     backgroundColor: colors.paper,
@@ -3419,23 +3412,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
   },
-  mobileCameraStatusText: { color: '#fff', fontSize: 8, fontWeight: '900' },
+  mobileCameraStatusText: { color: '#fff', fontSize: 12, fontWeight: '900' },
   mobileCameraRoom: {
     color: colors.green,
-    fontSize: 9,
+    fontSize: 12,
     fontWeight: '900',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
     marginHorizontal: 15,
     textTransform: 'uppercase',
   },
   mobileCameraName: {
     color: colors.navy,
     fontFamily: 'Georgia',
-    fontSize: 19,
+    fontSize: 21,
     marginHorizontal: 15,
     marginTop: 4,
   },
-  mobileCameraDetail: { color: colors.muted, fontSize: 11, marginHorizontal: 15, marginTop: 4 },
+  mobileCameraDetail: { color: colors.muted, fontSize: 14, marginHorizontal: 15, marginTop: 4 },
   mobileCameraActions: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -3452,7 +3445,7 @@ const styles = StyleSheet.create({
     minHeight: 42,
     paddingHorizontal: 16,
   },
-  mobileCameraOpenText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  mobileCameraOpenText: { color: '#fff', fontSize: 15, fontWeight: '800' },
   mobilePrivacyButton: {
     alignItems: 'center',
     borderColor: colors.line,
@@ -3470,9 +3463,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 18,
   },
-  cameraModalLive: { color: colors.red, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
-  cameraModalTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 24, marginTop: 4 },
-  cameraModalRoom: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  cameraModalLive: { color: colors.red, fontSize: 12, fontWeight: '900', letterSpacing: 0.6 },
+  cameraModalTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 26, marginTop: 4 },
+  cameraModalRoom: { color: colors.muted, fontSize: 15, marginTop: 2 },
   modalClose: {
     alignItems: 'center',
     borderColor: colors.line,
@@ -3494,8 +3487,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   cameraTalkButtonActive: { backgroundColor: colors.red },
-  cameraTalkText: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  cameraAudioNote: { color: colors.muted, fontSize: 10 },
+  cameraTalkText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  cameraAudioNote: { color: colors.muted, fontSize: 13 },
   mobileAlertSnapshot: { marginTop: 14, width: '100%' },
   mobileAlertSnapshotImage: {
     aspectRatio: 16 / 9,
@@ -3503,7 +3496,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     width: '100%',
   },
-  mobileAlertSnapshotNote: { color: colors.muted, fontSize: 9, marginTop: 7 },
+  mobileAlertSnapshotNote: { color: colors.muted, fontSize: 12, marginTop: 7 },
   mobileSnapshotButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
@@ -3514,7 +3507,7 @@ const styles = StyleSheet.create({
     minHeight: 42,
     paddingHorizontal: 13,
   },
-  mobileSnapshotButtonText: { color: colors.green, fontSize: 11, fontWeight: '800' },
+  mobileSnapshotButtonText: { color: colors.green, fontSize: 14, fontWeight: '800' },
   sensorAddButton: {
     alignItems: 'center',
     backgroundColor: colors.blue,
@@ -3525,18 +3518,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     minHeight: 48,
   },
-  sensorAddText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  sensorAddText: { color: '#fff', fontSize: 16, fontWeight: '900' },
   sensorSetupShell: { backgroundColor: colors.paper, flex: 1 },
   sensorSetupContent: { padding: 20, paddingBottom: 50 },
-  sensorSetupTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 28, marginTop: 6 },
-  sensorSetupLead: { color: colors.muted, fontSize: 13, lineHeight: 20, marginTop: 7 },
+  sensorSetupTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 30, marginTop: 6 },
+  sensorSetupLead: { color: colors.muted, fontSize: 16, lineHeight: 25, marginTop: 7 },
   sensorSetupSection: {
     borderTopColor: colors.line,
     borderTopWidth: StyleSheet.hairlineWidth,
     marginTop: 24,
     paddingTop: 20,
   },
-  sensorSetupHeading: { color: colors.navy, fontSize: 16, fontWeight: '900', marginTop: 8 },
+  sensorSetupHeading: { color: colors.navy, fontSize: 18, fontWeight: '900', marginTop: 8 },
   sensorChoiceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   sensorChoice: {
     backgroundColor: colors.paleBlue,
@@ -3547,15 +3540,15 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   sensorChoiceActive: { backgroundColor: colors.paleGreen, borderColor: colors.green },
-  sensorChoiceText: { color: colors.navy, fontSize: 11, fontWeight: '800' },
+  sensorChoiceText: { color: colors.navy, fontSize: 14, fontWeight: '800' },
   sensorGuide: { backgroundColor: '#EEF4F4', borderRadius: 16, marginTop: 24, padding: 17 },
-  sensorGuideStep: { color: colors.navy, fontSize: 12, lineHeight: 19, marginTop: 8 },
+  sensorGuideStep: { color: colors.navy, fontSize: 15, lineHeight: 24, marginTop: 8 },
   sensorSafety: {
     borderLeftColor: colors.amber,
     borderLeftWidth: 3,
     color: '#76512F',
-    fontSize: 11,
-    lineHeight: 17,
+    fontSize: 14,
+    lineHeight: 22,
     marginTop: 14,
     paddingLeft: 10,
   },
@@ -3567,7 +3560,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     justifyContent: 'center',
   },
-  sensorConfirmText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  sensorConfirmText: { color: '#fff', fontSize: 16, fontWeight: '900' },
   sensorTestButton: {
     alignItems: 'center',
     borderColor: colors.blue,
@@ -3579,14 +3572,14 @@ const styles = StyleSheet.create({
     marginTop: 10,
     minHeight: 48,
   },
-  sensorTestText: { color: colors.blue, fontSize: 12, fontWeight: '900' },
+  sensorTestText: { color: colors.blue, fontSize: 15, fontWeight: '900' },
   buttonDisabled: { opacity: 0.45 },
   sensorProtocolList: { gap: 10, marginTop: 20 },
   sensorGroupLabel: {
     color: colors.muted,
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: '900',
-    letterSpacing: 1,
+    letterSpacing: 0.6,
     marginTop: 25,
   },
   mobilePreparationList: { gap: 9, marginTop: 22 },
@@ -3605,10 +3598,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paleBlue,
     borderRadius: 19,
     color: colors.accent,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '900',
     height: 38,
-    lineHeight: 38,
+    lineHeight: 47,
     textAlign: 'center',
     width: 38,
   },
@@ -3648,7 +3641,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  unavailableProtocolText: { color: colors.muted, fontSize: 9, fontWeight: '800' },
+  unavailableProtocolText: { color: colors.muted, fontSize: 12, fontWeight: '800' },
   mobilePairing: { alignItems: 'center', gap: 8, marginTop: 70, paddingHorizontal: 20 },
   mobilePairingRadar: {
     alignItems: 'center',
@@ -3661,7 +3654,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     width: 96,
   },
-  mobilePairingTime: { color: colors.accent, fontSize: 13, fontWeight: '900' },
+  mobilePairingTime: { color: colors.accent, fontSize: 16, fontWeight: '900' },
   mobileNetworkChip: {
     alignItems: 'center',
     backgroundColor: '#fff',
@@ -3675,7 +3668,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   mobileNetworkDot: { borderRadius: 4, height: 8, width: 8 },
-  mobileNetworkText: { color: colors.muted, fontSize: 10, fontWeight: '800' },
+  mobileNetworkText: { color: colors.muted, fontSize: 13, fontWeight: '800' },
   mobileFoundBadge: {
     alignItems: 'center',
     alignSelf: 'flex-start',
@@ -3687,7 +3680,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  mobileFoundBadgeText: { color: colors.green, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  mobileFoundBadgeText: {
+    color: colors.green,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
   mobileDetectedCard: {
     alignItems: 'center',
     backgroundColor: '#fff',
@@ -3701,15 +3699,15 @@ const styles = StyleSheet.create({
   },
   mobileCapabilityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 9 },
   mobileCapability: { backgroundColor: '#EEF4F4', borderRadius: 11, minWidth: '47%', padding: 11 },
-  mobileCapabilityLabel: { color: colors.muted, fontSize: 9, fontWeight: '800' },
-  mobileCapabilityValue: { color: colors.navy, fontSize: 13, fontWeight: '900', marginTop: 3 },
+  mobileCapabilityLabel: { color: colors.muted, fontSize: 12, fontWeight: '800' },
+  mobileCapabilityValue: { color: colors.navy, fontSize: 16, fontWeight: '900', marginTop: 3 },
   mobileSensorNameInput: {
     backgroundColor: '#fff',
     borderColor: colors.line,
     borderRadius: 13,
     borderWidth: 1,
     color: colors.navy,
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: '800',
     marginTop: 9,
     minHeight: 48,
@@ -3727,7 +3725,7 @@ const styles = StyleSheet.create({
     minHeight: 55,
     paddingHorizontal: 12,
   },
-  mobileFloorGroup: { color: colors.accent, fontSize: 10, fontWeight: '900', marginTop: 17 },
+  mobileFloorGroup: { color: colors.accent, fontSize: 13, fontWeight: '900', marginTop: 17 },
   mobilePlanShell: {
     backgroundColor: '#fff',
     borderColor: colors.line,
@@ -3747,7 +3745,7 @@ const styles = StyleSheet.create({
     minHeight: 42,
   },
   mobilePlanModeActive: { backgroundColor: colors.navy },
-  mobilePlanModeText: { color: colors.blue, fontSize: 11, fontWeight: '900' },
+  mobilePlanModeText: { color: colors.blue, fontSize: 14, fontWeight: '900' },
   mobilePlanModeTextActive: { color: '#fff' },
   mobileFloorTabs: {
     alignItems: 'center',
@@ -3763,7 +3761,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   mobileFloorTabActive: { backgroundColor: colors.paleBlue },
-  mobileFloorText: { color: colors.muted, fontSize: 9, fontWeight: '800' },
+  mobileFloorText: { color: colors.muted, fontSize: 12, fontWeight: '800' },
   mobileFloorTextActive: { color: colors.blue },
   mobilePlanTools: {
     alignItems: 'center',
@@ -3785,8 +3783,8 @@ const styles = StyleSheet.create({
   },
   mobilePresenceDot: { backgroundColor: colors.green, borderRadius: 6, height: 11, width: 11 },
   mobilePresenceDotTransit: { backgroundColor: colors.amber },
-  mobilePresenceTitle: { color: colors.navy, fontSize: 10, fontWeight: '900' },
-  mobilePresenceDetail: { color: colors.muted, fontSize: 8, marginTop: 2 },
+  mobilePresenceTitle: { color: colors.navy, fontSize: 13, fontWeight: '900' },
+  mobilePresenceDetail: { color: colors.muted, fontSize: 12, marginTop: 2 },
   mobileRoomInspector: {
     borderTopColor: colors.line,
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -3797,14 +3795,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  mobileInspectorTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 20, marginTop: 3 },
+  mobileInspectorTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 22, marginTop: 3 },
   mobilePlanInput: {
     backgroundColor: colors.paper,
     borderColor: colors.line,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
     color: colors.navy,
-    fontSize: 12,
+    fontSize: 15,
     height: 44,
     marginTop: 12,
     paddingHorizontal: 12,
@@ -3816,19 +3814,19 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     borderWidth: StyleSheet.hairlineWidth,
     color: colors.navy,
-    fontSize: 12,
+    fontSize: 15,
     height: 40,
     paddingHorizontal: 10,
     width: 72,
   },
-  mobileDimensionLabel: { color: colors.muted, fontSize: 10 },
+  mobileDimensionLabel: { color: colors.muted, fontSize: 13 },
   mobileInspectorActions: { gap: 7, marginTop: 12 },
   mobileEquipmentTray: {
     borderTopColor: colors.line,
     borderTopWidth: StyleSheet.hairlineWidth,
     padding: 13,
   },
-  mobileTrayTitle: { color: colors.navy, fontSize: 10, fontWeight: '900', marginBottom: 9 },
+  mobileTrayTitle: { color: colors.navy, fontSize: 13, fontWeight: '900', marginBottom: 9 },
   mobileEquipmentChip: {
     alignItems: 'center',
     backgroundColor: colors.paleBlue,
@@ -3860,18 +3858,18 @@ const styles = StyleSheet.create({
   mobileWizardTitle: {
     color: colors.navy,
     fontFamily: 'Georgia',
-    fontSize: 27,
+    fontSize: 29,
     marginTop: 5,
     textAlign: 'center',
   },
   mobileWizardText: {
     color: colors.muted,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 15,
+    lineHeight: 23,
     marginTop: 7,
     textAlign: 'center',
   },
-  mobileWizardLabel: { color: colors.navy, fontSize: 10, fontWeight: '900', marginTop: 22 },
+  mobileWizardLabel: { color: colors.navy, fontSize: 13, fontWeight: '900', marginTop: 22 },
   mobileWizardLevels: { flexDirection: 'row', gap: 8, marginTop: 9 },
   mobileWizardLevel: {
     alignItems: 'center',
@@ -3882,7 +3880,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mobileWizardLevelActive: { backgroundColor: colors.blue },
-  mobileWizardLevelText: { color: colors.navy, fontSize: 12, fontWeight: '900' },
+  mobileWizardLevelText: { color: colors.navy, fontSize: 15, fontWeight: '900' },
   mobileWizardLevelTextActive: { color: '#fff' },
   mobileWizardButton: {
     alignItems: 'center',
@@ -3892,7 +3890,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 22,
   },
-  mobileWizardFoot: { color: colors.muted, fontSize: 9, marginTop: 10, textAlign: 'center' },
+  mobileWizardFoot: { color: colors.muted, fontSize: 12, marginTop: 10, textAlign: 'center' },
   headerMenuButton: {
     width: 40,
     height: 40,
@@ -3919,7 +3917,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  pagesTitle: { marginTop: 5, color: colors.navy, fontFamily: 'Georgia', fontSize: 23 },
+  pagesTitle: { marginTop: 5, color: colors.navy, fontFamily: 'Georgia', fontSize: 25 },
   pageMenuRow: {
     minHeight: 64,
     paddingHorizontal: 12,
@@ -3937,7 +3935,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.paleBlue,
   },
-  pageMenuLabel: { flex: 1, color: colors.navy, fontSize: 12, fontWeight: '800' },
+  pageMenuLabel: { flex: 1, color: colors.navy, fontSize: 15, fontWeight: '800' },
   pageMenuLabelDanger: { color: colors.red },
   alertReassurance: {
     minHeight: 72,
@@ -3963,13 +3961,13 @@ const styles = StyleSheet.create({
   },
   alertSafetyEyebrow: {
     color: colors.muted,
-    fontSize: 8,
+    fontSize: 11,
     fontWeight: '900',
-    letterSpacing: 0.65,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
-  alertSafetyTitle: { marginTop: 3, color: colors.navy, fontSize: 14, fontWeight: '800' },
-  alertSafetyDetail: { marginTop: 5, color: colors.muted, fontSize: 9, lineHeight: 13 },
+  alertSafetyTitle: { marginTop: 3, color: colors.navy, fontSize: 17, fontWeight: '800' },
+  alertSafetyDetail: { marginTop: 5, color: colors.muted, fontSize: 12, lineHeight: 17 },
   alertSafetyOnline: { color: colors.green, fontWeight: '700' },
   alertSafetyAttention: { color: '#925819', fontWeight: '700' },
   filterToggle: {
@@ -3984,7 +3982,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
   },
   filterToggleActive: { borderColor: '#A9C3DD', backgroundColor: '#F3F8FC' },
-  filterToggleText: { flex: 1, color: colors.navy, fontSize: 11, fontWeight: '800' },
+  filterToggleText: { flex: 1, color: colors.navy, fontSize: 14, fontWeight: '800' },
   filterCountBadge: {
     minWidth: 22,
     height: 22,
@@ -3994,7 +3992,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.blue,
   },
-  filterCountText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  filterCountText: { color: '#fff', fontSize: 13, fontWeight: '900' },
   alertFilterPanel: {
     padding: 14,
     borderWidth: 1,
@@ -4012,8 +4010,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
   },
-  alertFilterPanelTitle: { color: colors.navy, fontSize: 12, fontWeight: '900' },
-  alertFilterPanelDetail: { marginTop: 3, color: colors.muted, fontSize: 9 },
+  alertFilterPanelTitle: { color: colors.navy, fontSize: 15, fontWeight: '900' },
+  alertFilterPanelDetail: { marginTop: 3, color: colors.muted, fontSize: 12 },
   alertFilterReset: {
     minHeight: 31,
     paddingHorizontal: 10,
@@ -4021,9 +4019,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.paleBlue,
   },
-  alertFilterResetText: { color: colors.blue, fontSize: 9, fontWeight: '800' },
+  alertFilterResetText: { color: colors.blue, fontSize: 12, fontWeight: '800' },
   alertFilterGroup: { gap: 8 },
-  alertFilterLabel: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 0.7 },
+  alertFilterLabel: { color: colors.muted, fontSize: 12, fontWeight: '900', letterSpacing: 0.6 },
   alertFilterOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, paddingRight: 2 },
   alertFilterRoomOptions: { flexDirection: 'row', gap: 7, paddingRight: 2 },
   alertFilterPill: {
@@ -4040,7 +4038,7 @@ const styles = StyleSheet.create({
     borderColor: colors.blue,
     backgroundColor: colors.blue,
   },
-  alertFilterPillText: { color: colors.muted, fontSize: 9, fontWeight: '800' },
+  alertFilterPillText: { color: colors.muted, fontSize: 12, fontWeight: '800' },
   alertFilterPillTextActive: { color: '#fff' },
   alertPaginationButton: {
     minHeight: 42,
@@ -4055,7 +4053,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: colors.paper,
   },
-  alertPaginationText: { color: colors.blue, fontSize: 10, fontWeight: '800' },
+  alertPaginationText: { color: colors.blue, fontSize: 13, fontWeight: '800' },
   alertHistoryButton: {
     minHeight: 38,
     marginTop: 7,
@@ -4064,7 +4062,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  alertHistoryText: { color: colors.muted, fontSize: 9, fontWeight: '800' },
+  alertHistoryText: { color: colors.muted, fontSize: 12, fontWeight: '800' },
   filterPanel: {
     padding: 13,
     borderWidth: 1,
@@ -4100,7 +4098,7 @@ const styles = StyleSheet.create({
     color: colors.navy,
     textAlignVertical: 'top',
     backgroundColor: colors.paper,
-    fontSize: 11,
+    fontSize: 14,
   },
   dismissButtons: { flexDirection: 'row', gap: 8 },
   confirmBackdrop: {
@@ -4122,9 +4120,9 @@ const styles = StyleSheet.create({
   activityReliableText: {
     flex: 1,
     color: colors.green,
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: '700',
-    lineHeight: 15,
+    lineHeight: 20,
   },
   datePickerButton: {
     minHeight: 37,
@@ -4136,7 +4134,7 @@ const styles = StyleSheet.create({
     gap: 5,
     backgroundColor: colors.paleBlue,
   },
-  datePickerText: { flexShrink: 1, color: colors.blue, fontSize: 9, fontWeight: '800' },
+  datePickerText: { flexShrink: 1, color: colors.blue, fontSize: 12, fontWeight: '800' },
   compareToggle: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 7 },
   toggleTrack: {
     width: 38,
@@ -4159,7 +4157,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.paper,
   },
-  comparisonValue: { color: colors.navy, fontSize: 13, fontWeight: '900' },
+  comparisonValue: { color: colors.navy, fontSize: 16, fontWeight: '900' },
   momentStats: { marginTop: 13, flexDirection: 'row', gap: 7 },
   momentStat: {
     flex: 1,
@@ -4180,10 +4178,10 @@ const styles = StyleSheet.create({
   },
   momentIconGreen: { backgroundColor: colors.paleGreen },
   momentIconAmber: { backgroundColor: colors.paleAmber },
-  momentValue: { marginTop: 6, color: colors.navy, fontSize: 15, fontWeight: '900' },
+  momentValue: { marginTop: 6, color: colors.navy, fontSize: 17, fontWeight: '900' },
   liveMomentRow: { minHeight: 73, flexDirection: 'row', alignItems: 'center', gap: 9 },
   liveTime: { width: 57, alignItems: 'flex-end' },
-  liveTimeText: { color: colors.navy, fontSize: 10, fontWeight: '900' },
+  liveTimeText: { color: colors.navy, fontSize: 13, fontWeight: '900' },
   timelineDotLive: {
     width: 11,
     height: 11,
@@ -4238,12 +4236,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 7,
   },
-  sequenceEventTime: { width: 35, color: colors.muted, fontSize: 8 },
+  sequenceEventTime: { width: 35, color: colors.muted, fontSize: 12 },
   reliability: {
     paddingHorizontal: 6,
     paddingVertical: 4,
     borderRadius: 7,
-    fontSize: 7,
+    fontSize: 11,
     fontWeight: '900',
   },
   reliable: { color: colors.green, backgroundColor: colors.paleGreen },
@@ -4271,7 +4269,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   equipmentStateDot: { width: 8, height: 8, borderRadius: 4 },
-  equipmentStateValue: { marginLeft: 'auto', color: colors.navy, fontSize: 11, fontWeight: '900' },
+  equipmentStateValue: { marginLeft: 'auto', color: colors.navy, fontSize: 14, fontWeight: '900' },
   protocolRow: {
     minHeight: 44,
     marginTop: 6,
@@ -4282,5 +4280,5 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: colors.paleBlue,
   },
-  protocolState: { marginLeft: 'auto', color: colors.accent, fontSize: 9, fontWeight: '800' },
+  protocolState: { marginLeft: 'auto', color: colors.accent, fontSize: 12, fontWeight: '800' },
 });

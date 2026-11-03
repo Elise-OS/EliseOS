@@ -22,6 +22,7 @@ import { isClock } from './clock';
 import { RemoteAccessStep } from './RemoteAccessStep';
 import { RoutineTimeField } from './RoutineTimeField';
 import { SetupSummary } from './SetupSummary';
+import { colors } from '../theme';
 
 export type Locale = 'fr' | 'en';
 
@@ -77,18 +78,6 @@ const previewDraft: Draft = {
     Déjeuner: { from: '12:00', to: '13:30', unknown: true },
     Dîner: { from: '19:00', to: '20:30', unknown: true },
   },
-};
-
-const colors = {
-  navy: '#0B2948',
-  blue: '#12385F',
-  accent: '#376884',
-  cream: '#F5F0E8',
-  paper: '#FDFBF7',
-  line: '#DED8CE',
-  muted: '#687382',
-  green: '#4F8569',
-  red: '#B74747',
 };
 
 function generateUsername(firstName: string, lastName: string): string {
@@ -956,7 +945,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brand: { color: colors.navy, fontFamily: 'Georgia', fontWeight: '600', fontSize: 20 },
+  brand: { color: colors.navy, fontFamily: 'Georgia', fontWeight: '600', fontSize: 22 },
   counter: { width: 40, textAlign: 'right', color: colors.muted, fontWeight: '700' },
   progress: { height: 3, backgroundColor: colors.line },
   progressValue: { height: 3, backgroundColor: colors.accent },
@@ -972,17 +961,17 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     marginBottom: 16,
   },
-  previewBadgeText: { color: colors.blue, fontSize: 10, fontWeight: '900', letterSpacing: 0.6 },
+  previewBadgeText: { color: colors.blue, fontSize: 13, fontWeight: '900', letterSpacing: 0.6 },
   eyebrow: {
     color: colors.accent,
-    fontSize: 10,
-    letterSpacing: 1.5,
+    fontSize: 13,
+    letterSpacing: 0.6,
     fontWeight: '800',
     marginTop: 8,
     marginBottom: 8,
   },
-  title: { color: colors.navy, fontFamily: 'Georgia', fontSize: 31, lineHeight: 38 },
-  intro: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 11, marginBottom: 24 },
+  title: { color: colors.navy, fontFamily: 'Georgia', fontSize: 32, lineHeight: 40 },
+  intro: { color: colors.muted, fontSize: 17, lineHeight: 26, marginTop: 11, marginBottom: 24 },
   heroCard: {
     backgroundColor: colors.paper,
     borderRadius: 22,
@@ -993,7 +982,7 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   heroLogo: { width: 112, height: 112, marginBottom: 15 },
-  heroName: { color: colors.navy, fontFamily: 'Georgia', fontSize: 24 },
+  heroName: { color: colors.navy, fontFamily: 'Georgia', fontSize: 26 },
   heroUrl: { color: colors.muted, marginTop: 5 },
   welcomePills: {
     flexDirection: 'row',
@@ -1012,7 +1001,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  welcomePillText: { color: colors.navy, fontSize: 11, fontWeight: '700' },
+  welcomePillText: { color: colors.navy, fontSize: 14, fontWeight: '700' },
   fields: { gap: 12, marginBottom: 20 },
   residentLayout: { gap: 13, marginBottom: 8 },
   residentPreview: {
@@ -1034,17 +1023,17 @@ const styles = StyleSheet.create({
   },
   residentPreviewKicker: {
     color: '#C8D9DC',
-    fontSize: 9,
+    fontSize: 12,
     fontWeight: '800',
-    letterSpacing: 1.2,
+    letterSpacing: 0.6,
   },
   residentPreviewName: {
     color: '#fff',
     fontFamily: 'Georgia',
-    fontSize: 27,
+    fontSize: 29,
     marginTop: 7,
   },
-  residentPreviewFullName: { color: '#D6E0E2', fontSize: 12, marginTop: 5 },
+  residentPreviewFullName: { color: '#D6E0E2', fontSize: 15, marginTop: 5 },
   residentPreviewNote: {
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,.16)',
@@ -1054,7 +1043,7 @@ const styles = StyleSheet.create({
     marginTop: 17,
     paddingTop: 12,
   },
-  residentPreviewNoteText: { flex: 1, color: '#F4F7F4', fontSize: 11, lineHeight: 17 },
+  residentPreviewNoteText: { flex: 1, color: '#F4F7F4', fontSize: 14, lineHeight: 22 },
   residentForm: {
     borderRadius: 19,
     borderWidth: 1,
@@ -1063,12 +1052,12 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   residentFormHeading: { marginBottom: 10 },
-  residentFormTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 21 },
-  residentFormHint: { color: colors.muted, fontSize: 11, marginTop: 4 },
+  residentFormTitle: { color: colors.navy, fontFamily: 'Georgia', fontSize: 23 },
+  residentFormHint: { color: colors.muted, fontSize: 14, marginTop: 4 },
   // The resident form has no gap: the label owns the space above its field.
   fieldLabel: {
     color: colors.navy,
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '800',
     marginTop: 14,
     marginBottom: 7,
@@ -1081,7 +1070,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
     color: colors.navy,
     paddingHorizontal: 15,
-    fontSize: 15,
+    fontSize: 17,
   },
   label: { color: colors.navy, fontWeight: '800', marginTop: 8, marginBottom: 2 },
   choiceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -1116,8 +1105,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  routinesOverviewTitle: { color: colors.navy, fontSize: 12, fontWeight: '800' },
-  routinesOverviewHint: { color: colors.muted, fontSize: 10, marginTop: 3 },
+  routinesOverviewTitle: { color: colors.navy, fontSize: 15, fontWeight: '800' },
+  routinesOverviewHint: { color: colors.muted, fontSize: 13, marginTop: 3 },
   routinesCount: {
     width: 34,
     height: 34,
@@ -1126,7 +1115,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  routinesCountText: { color: colors.green, fontSize: 14, fontWeight: '900' },
+  routinesCountText: { color: colors.green, fontSize: 17, fontWeight: '900' },
   habit: {
     padding: 15,
     borderRadius: 18,
@@ -1145,8 +1134,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   habitHeadingCopy: { flex: 1 },
-  habitName: { color: colors.navy, fontSize: 15, fontWeight: '800', marginTop: 2 },
-  habitSummary: { color: colors.muted, fontSize: 10, marginTop: 3 },
+  habitName: { color: colors.navy, fontSize: 17, fontWeight: '800', marginTop: 2 },
+  habitSummary: { color: colors.muted, fontSize: 13, marginTop: 3 },
   routineTimes: { gap: 8 },
   routineNote: {
     borderRadius: 14,
@@ -1158,7 +1147,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 9,
   },
-  routineNoteText: { flex: 1, color: colors.muted, fontSize: 10, lineHeight: 16 },
+  routineNoteText: { flex: 1, color: colors.muted, fontSize: 13, lineHeight: 21 },
   routineNoteTitle: { color: colors.navy, fontWeight: '800' },
   error: {
     flexDirection: 'row',
@@ -1178,7 +1167,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  primaryText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  primaryText: { color: '#fff', fontSize: 17, fontWeight: '800' },
   creationScreen: {
     flex: 1,
     backgroundColor: colors.navy,
@@ -1211,22 +1200,22 @@ const styles = StyleSheet.create({
   creationLogo: { width: 126, height: 126 },
   creationEyebrow: {
     color: '#A9C4D5',
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: '900',
-    letterSpacing: 2,
+    letterSpacing: 0.6,
     marginBottom: 9,
   },
   creationTitle: {
     color: '#fff',
     fontFamily: 'Georgia',
-    fontSize: 30,
-    lineHeight: 37,
+    fontSize: 31,
+    lineHeight: 39,
     textAlign: 'center',
   },
   creationIntro: {
     color: '#CAD6DF',
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 17,
+    lineHeight: 26,
     textAlign: 'center',
     marginTop: 11,
     maxWidth: 330,
@@ -1243,7 +1232,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   creationCheckActive: { backgroundColor: colors.green, borderColor: colors.green },
-  creationRowText: { color: '#7E94A7', fontSize: 14 },
+  creationRowText: { color: '#7E94A7', fontSize: 17 },
   creationRowTextActive: { color: '#fff', fontWeight: '700' },
   readyCheck: {
     width: 62,
@@ -1258,7 +1247,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 34,
     color: '#90A6B8',
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: '800',
     letterSpacing: 0.5,
     textAlign: 'center',

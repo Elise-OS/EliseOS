@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import type { Locale } from './MobileSetup';
+import { colors } from '../theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -18,20 +19,6 @@ const TAILSCALE_APP =
   Platform.OS === 'ios'
     ? 'https://apps.apple.com/app/tailscale/id1470499037'
     : 'https://play.google.com/store/apps/details?id=com.tailscale.ipn';
-
-const colors = {
-  navy: '#0B2948',
-  blue: '#12385F',
-  accent: '#376884',
-  cream: '#F5F0E8',
-  paper: '#FDFBF7',
-  line: '#DED8CE',
-  muted: '#687382',
-  green: '#4F8569',
-  greenSoft: '#E7F1EB',
-  amberSoft: '#FBF0E3',
-  red: '#B74747',
-};
 
 const copy = {
   fr: {
@@ -298,7 +285,7 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     backgroundColor: colors.greenSoft,
   },
-  benefitText: { color: colors.navy, fontSize: 13, fontWeight: '600' },
+  benefitText: { color: colors.navy, fontSize: 16, fontWeight: '600' },
   card: {
     padding: 16,
     borderRadius: 19,
@@ -320,14 +307,14 @@ const styles = StyleSheet.create({
   },
   dotDone: { backgroundColor: colors.green, borderColor: colors.green },
   dotCurrent: { borderColor: colors.accent },
-  dotNumber: { color: colors.muted, fontWeight: '700', fontSize: 13 },
+  dotNumber: { color: colors.muted, fontWeight: '700', fontSize: 16 },
   dotNumberCurrent: { color: colors.accent },
   line: { flex: 1, width: 2, minHeight: 18, backgroundColor: colors.line, marginVertical: 4 },
   lineDone: { backgroundColor: colors.green },
   stepBody: { flex: 1, paddingBottom: 18, gap: 4 },
-  stepTitle: { color: colors.navy, fontSize: 15, fontWeight: '700' },
+  stepTitle: { color: colors.navy, fontSize: 17, fontWeight: '700' },
   stepTitleMuted: { color: colors.muted },
-  stepHint: { color: colors.muted, fontSize: 12, lineHeight: 18 },
+  stepHint: { color: colors.muted, fontSize: 15, lineHeight: 23 },
   actionGroup: { gap: 10, marginTop: 8 },
   action: {
     marginTop: 8,
@@ -340,9 +327,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
   },
-  actionText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  actionText: { color: '#fff', fontWeight: '700', fontSize: 17 },
   waitingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  waitingText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
+  waitingText: { color: colors.accent, fontSize: 16, fontWeight: '600' },
   readyCard: {
     padding: 16,
     borderRadius: 19,
@@ -358,16 +345,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  readyTitle: { color: colors.navy, fontSize: 17, fontWeight: '700' },
+  readyTitle: { color: colors.navy, fontSize: 19, fontWeight: '700' },
   address: {
     padding: 12,
     borderRadius: 13,
     backgroundColor: colors.paper,
     gap: 3,
   },
-  addressLabel: { color: colors.muted, fontSize: 11, fontWeight: '700', letterSpacing: 0.6 },
-  addressValue: { color: colors.navy, fontSize: 13, fontWeight: '600' },
-  readyHint: { color: colors.navy, fontSize: 13, lineHeight: 19 },
+  addressLabel: { color: colors.muted, fontSize: 14, fontWeight: '700', letterSpacing: 0.6 },
+  addressValue: { color: colors.navy, fontSize: 16, fontWeight: '600' },
+  readyHint: { color: colors.navy, fontSize: 16, lineHeight: 23 },
   secondary: {
     minHeight: 44,
     borderRadius: 13,
@@ -379,7 +366,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  secondaryText: { color: colors.navy, fontWeight: '700', fontSize: 14 },
+  secondaryText: { color: colors.navy, fontWeight: '700', fontSize: 17 },
   notice: {
     flexDirection: 'row',
     gap: 10,
@@ -387,7 +374,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: colors.amberSoft,
   },
-  noticeText: { flex: 1, color: colors.navy, fontSize: 13, lineHeight: 19 },
-  later: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
-  error: { color: colors.red, fontSize: 13, textAlign: 'center' },
+  noticeText: { flex: 1, color: colors.navy, fontSize: 16, lineHeight: 23 },
+  later: { color: colors.muted, fontSize: 15, lineHeight: 23, textAlign: 'center' },
+  error: { color: colors.red, fontSize: 16, textAlign: 'center' },
 });

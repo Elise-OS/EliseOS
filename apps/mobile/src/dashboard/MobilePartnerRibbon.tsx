@@ -174,9 +174,9 @@ const styles = StyleSheet.create({
   heading: {
     paddingHorizontal: 14,
     color: '#52616C',
-    fontSize: 9,
+    fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 1.2,
+    letterSpacing: 0.6,
   },
   window: { marginTop: 6, overflow: 'hidden' },
   track: { flexDirection: 'row', alignItems: 'stretch' },
@@ -196,8 +196,8 @@ const styles = StyleSheet.create({
   lifePlusLogo: { width: 132, height: 50 },
   smlightLogo: { height: 50, flexDirection: 'row', alignItems: 'center', gap: 8 },
   smlightSymbol: { width: 30, height: 30 },
-  smlightName: { color: '#101820', fontSize: 17, fontWeight: '700', letterSpacing: 1.8 },
-  role: { color: '#52616C', fontSize: 9, textAlign: 'center' },
+  smlightName: { color: '#101820', fontSize: 19, fontWeight: '700', letterSpacing: 1.8 },
+  role: { color: '#52616C', fontSize: 12, textAlign: 'center' },
   staticGrid: { marginTop: 6, flexDirection: 'row', flexWrap: 'wrap' },
   compactBrand: {
     width: '50%',

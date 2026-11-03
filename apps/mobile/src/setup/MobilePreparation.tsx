@@ -15,22 +15,9 @@ import eliseLogo from '../../assets/logo.png';
 import { fetchPreparation } from '../discovery/preparation';
 import type { DiscoveryInfo, PreparationStatus, PreparationStep } from '../discovery/types';
 import type { Locale } from './MobileSetup';
+import { colors } from '../theme';
 
 const POLL_MS = 3000;
-
-const colors = {
-  navy: '#0B2948',
-  blue: '#12385F',
-  accent: '#376884',
-  cream: '#F5F0E8',
-  paper: '#FDFBF7',
-  line: '#DED8CE',
-  muted: '#687382',
-  green: '#4F8569',
-  amber: '#D99A55',
-  red: '#B74747',
-  redSoft: '#F8E7E7',
-};
 
 const englishLabels: Record<PreparationStep['id'], string> = {
   settings: 'Raspberry Pi settings',
@@ -240,24 +227,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
   },
   iconSpacer: { width: 40 },
-  navCaption: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  navCaption: { color: colors.muted, fontSize: 16, fontWeight: '600' },
   hero: { alignItems: 'center', paddingHorizontal: 6 },
   logo: { width: 72, height: 72, borderRadius: 22, marginBottom: 16 },
   eyebrow: {
     color: colors.accent,
-    fontSize: 10,
-    letterSpacing: 1.5,
+    fontSize: 13,
+    letterSpacing: 0.6,
     fontWeight: '800',
     marginBottom: 7,
   },
   title: {
     color: colors.navy,
     fontFamily: 'Georgia',
-    fontSize: 31,
-    lineHeight: 37,
+    fontSize: 32,
+    lineHeight: 40,
     textAlign: 'center',
   },
-  text: { color: colors.muted, fontSize: 13, lineHeight: 20, marginTop: 9, textAlign: 'center' },
+  text: { color: colors.muted, fontSize: 16, lineHeight: 25, marginTop: 9, textAlign: 'center' },
   card: {
     padding: 18,
     borderRadius: 22,
@@ -266,7 +253,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.paper,
     gap: 14,
   },
-  message: { color: colors.blue, fontSize: 15, lineHeight: 21, fontWeight: '600' },
+  message: { color: colors.blue, fontSize: 17, lineHeight: 24, fontWeight: '600' },
   messageError: { color: colors.red },
   meter: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   track: {
@@ -302,14 +289,14 @@ const styles = StyleSheet.create({
   dotCurrent: { borderColor: colors.accent, borderTopColor: 'transparent' },
   dotDone: { backgroundColor: colors.green, borderColor: colors.green },
   dotFailed: { backgroundColor: colors.red, borderColor: colors.red },
-  dotMark: { color: '#fff', fontWeight: '800', fontSize: 13 },
-  stepLabel: { flex: 1, color: colors.blue, fontSize: 14 },
+  dotMark: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  stepLabel: { flex: 1, color: colors.blue, fontSize: 17 },
   stepPending: { color: colors.muted },
   stepLabelStrong: { color: colors.navy, fontWeight: '700' },
   stepLabelFailed: { color: colors.red, fontWeight: '700' },
   stepDetail: {
     color: colors.muted,
-    fontSize: 12,
+    fontSize: 15,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
@@ -320,7 +307,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: '#FBF0E3',
   },
-  noticeText: { flex: 1, color: colors.navy, fontSize: 13, lineHeight: 19 },
+  noticeText: { flex: 1, color: colors.navy, fontSize: 16, lineHeight: 23 },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  footerText: { color: colors.muted, fontSize: 12 },
+  footerText: { color: colors.muted, fontSize: 15 },
 });

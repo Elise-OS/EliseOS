@@ -2,18 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps, ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { Locale } from './MobileSetup';
+import { colors as themeColors } from '../theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
-const colors = {
-  navy: '#0B2948',
-  paper: '#FDFBF7',
-  line: '#DED8CE',
-  muted: '#687382',
-  green: '#4F8569',
-  greenSoft: '#E7F1EB',
-  amber: '#B7742F',
-};
+const colors = { ...themeColors, amber: '#B7742F' };
 
 const habitNames: Record<string, string> = {
   Lever: 'Wake up',
@@ -122,14 +115,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sectionTitle: { color: colors.muted, fontSize: 12, fontWeight: '800', letterSpacing: 0.4 },
-  primary: { color: colors.navy, fontSize: 17, fontWeight: '700' },
-  secondary: { color: colors.muted, fontSize: 13 },
+  sectionTitle: { color: colors.muted, fontSize: 15, fontWeight: '800', letterSpacing: 0.4 },
+  primary: { color: colors.navy, fontSize: 19, fontWeight: '700' },
+  secondary: { color: colors.muted, fontSize: 16 },
   habit: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
-  habitName: { color: colors.navy, fontSize: 14 },
+  habitName: { color: colors.navy, fontSize: 17 },
   habitValue: {
     color: colors.navy,
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
@@ -142,7 +135,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.greenSoft,
   },
   badgeLater: { backgroundColor: '#FBF0E3' },
-  badgeText: { color: colors.green, fontWeight: '700', fontSize: 13 },
+  badgeText: { color: colors.green, fontWeight: '700', fontSize: 16 },
   badgeTextLater: { color: colors.amber },
-  note: { color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: 4 },
+  note: { color: colors.muted, fontSize: 15, textAlign: 'center', marginTop: 4 },
 });
