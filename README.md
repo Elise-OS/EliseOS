@@ -18,7 +18,7 @@ et relie le proche âgé à sa famille par la télévision du salon — sans jam
 
 **🇫🇷 Français** · [🇬🇧 English](README.en.md)
 
-[Démo en ligne](https://eliseos.paulbreton.dev/demo/) · [Site et documentation](https://eliseos.paulbreton.dev) · [Télécharger](https://github.com/Elise-OS/EliseOS/releases/latest)
+[Démo en ligne](https://eliseos.paulbreton.dev/demo/) · [Site et documentation](https://eliseos.paulbreton.dev) · [Télécharger](https://github.com/Elise-OS/EliseOS/releases/latest) · [☕ Soutenir le projet](https://buymeacoffee.com/drsamourai)
 
 <img src="docs/images/accueil.jpg" alt="Accueil de l’espace aidant d’Élise OS" width="900" />
 
@@ -423,4 +423,6 @@ Chaque push exécute `format:check`, `lint`, `typecheck`, `test` et `build` sur 
 
 <div align="center">
 <sub>Fait avec soin, pour Michel et pour toutes les familles qui veillent sur un proche.</sub>
+
+<a href="https://buymeacoffee.com/drsamourai">☕ Élise OS est gratuit et open source : vous pouvez soutenir son développement sur Buy Me a Coffee.</a>
 </div>

@@ -18,7 +18,7 @@ and connects an older relative to their family through the living-room TV — wi
 
 [🇫🇷 Français](README.md) · **🇬🇧 English**
 
-[Live demo](https://eliseos.paulbreton.dev/demo/?lang=en) · [Website and docs](https://eliseos.paulbreton.dev/en/) · [Download](https://github.com/Elise-OS/EliseOS/releases/latest)
+[Live demo](https://eliseos.paulbreton.dev/demo/?lang=en) · [Website and docs](https://eliseos.paulbreton.dev/en/) · [Download](https://github.com/Elise-OS/EliseOS/releases/latest) · [☕ Support the project](https://buymeacoffee.com/drsamourai)
 
 <img src="docs/images/home-en.jpg" alt="Élise OS caregiver home screen" width="900" />
 
@@ -419,4 +419,6 @@ Every push runs `format:check`, `lint`, `typecheck`, `test` and `build` across t
 
 <div align="center">
 <sub>Made with care, for Michel and for every family looking after a loved one.</sub>
+
+<a href="https://buymeacoffee.com/drsamourai">☕ Élise OS is free and open source: you can support its development on Buy Me a Coffee.</a>
 </div>
