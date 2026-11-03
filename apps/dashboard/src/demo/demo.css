@@ -342,3 +342,76 @@
     animation: none;
   }
 }
+
+/* Demo only: a chevron folds the side menu away on wide screens. */
+.demo-sidebar-toggle {
+  display: none;
+}
+
+@media (min-width: 961px) {
+  .demo-sidebar-toggle {
+    position: fixed;
+    z-index: 30;
+    top: 34px;
+    left: 258px;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid #d4e1e4;
+    border-radius: 50%;
+    background: #fff;
+    color: #12385f;
+    box-shadow: 0 6px 16px rgb(29 55 79 / 12%);
+    cursor: pointer;
+    transition:
+      left 200ms ease,
+      background 160ms ease;
+  }
+
+  .demo-sidebar-toggle:hover {
+    background: #eef4f5;
+  }
+
+  .demo-sidebar-toggle:focus-visible {
+    outline: 3px solid rgb(55 104 132 / 40%);
+    outline-offset: 2px;
+  }
+
+  .demo-sidebar-toggle svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .app-shell {
+    transition: grid-template-columns 200ms ease;
+  }
+
+  .sidebar {
+    transition:
+      transform 200ms ease,
+      visibility 200ms;
+  }
+
+  html.demo-sidebar-closed .app-shell {
+    grid-template-columns: 0 minmax(0, 1fr);
+  }
+
+  html.demo-sidebar-closed .sidebar {
+    transform: translateX(-100%);
+    visibility: hidden;
+  }
+
+  html.demo-sidebar-closed .demo-sidebar-toggle {
+    left: 12px;
+  }
+}
+
+@media (min-width: 961px) and (prefers-reduced-motion: reduce) {
+  .demo-sidebar-toggle,
+  .app-shell,
+  .sidebar {
+    transition: none;
+  }
+}

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { App } from '../App';
 import { ResidentScreen } from '../ResidentScreen';
 import { DemoCall } from './DemoCall';
@@ -17,6 +18,8 @@ const copy = {
     exit: 'Retour au site',
     hide: 'Réduire le bandeau',
     show: 'Afficher le bandeau de démonstration',
+    closeSidebar: 'Fermer le menu latéral',
+    openSidebar: 'Ouvrir le menu latéral',
   },
   en: {
     badge: 'Demo',
@@ -28,6 +31,8 @@ const copy = {
     exit: 'Back to the site',
     hide: 'Collapse the banner',
     show: 'Show the demo banner',
+    closeSidebar: 'Close the side menu',
+    openSidebar: 'Open the side menu',
   },
 } as const;
 
@@ -44,12 +49,36 @@ function currentLang(): 'fr' | 'en' {
   }
 }
 
+const SIDEBAR_KEY = 'elise_demo_sidebar_closed';
+
+function initialSidebarClosed() {
+  try {
+    return window.localStorage.getItem(SIDEBAR_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 /** The caregiver space or the resident's TV, on the in-memory Martin home, with the demo banner. */
 export function DemoRoot() {
   const [view, setView] = useState<View>(initialView);
   const [collapsed, setCollapsed] = useState(false);
+  const [sidebarClosed, setSidebarClosed] = useState(initialSidebarClosed);
   const lang = currentLang();
   const t = copy[lang];
+
+  // Demo only: on wide screens the visitor can fold the side menu away to see more of a page.
+  useEffect(() => {
+    document.documentElement.classList.toggle(
+      'demo-sidebar-closed',
+      sidebarClosed && view === 'aidant',
+    );
+    try {
+      window.localStorage.setItem(SIDEBAR_KEY, String(sidebarClosed));
+    } catch {
+      // Private browsing: the choice simply lasts for this visit.
+    }
+  }, [sidebarClosed, view]);
 
   const show = (next: View) => {
     const url = new URL(window.location.href);
@@ -63,6 +92,18 @@ export function DemoRoot() {
     <>
       {view === 'tv' ? <ResidentScreen /> : <App />}
       <DemoCall lang={lang} />
+      {view === 'aidant' && (
+        <button
+          type="button"
+          className="demo-sidebar-toggle"
+          aria-label={sidebarClosed ? t.openSidebar : t.closeSidebar}
+          aria-expanded={!sidebarClosed}
+          title={sidebarClosed ? t.openSidebar : t.closeSidebar}
+          onClick={() => setSidebarClosed((value) => !value)}
+        >
+          {sidebarClosed ? <ChevronRight aria-hidden="true" /> : <ChevronLeft aria-hidden="true" />}
+        </button>
+      )}
       {collapsed ? (
         <button
           type="button"
