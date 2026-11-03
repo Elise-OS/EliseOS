@@ -4,7 +4,7 @@
 
 ## Raspberry Pi 4 ou 5
 
-Prévoyez un modèle avec au moins 4 Go de mémoire et un stockage de 32 Go. Un SSD USB ou un NVMe sur Pi 5 est recommandé.
+Prévoyez de préférence un Raspberry Pi 4 avec 8 Go de mémoire (un Pi 5 8 Go convient aussi) et un stockage de 32 Go. Avec 4 Go, Élise démarre, mais l’écran TV et les appels vidéo laissent trop peu de marge. Un SSD USB ou un NVMe sur Pi 5 est recommandé.
 
 1. Installez Raspberry Pi Imager sur votre ordinateur.
 2. Dans « Système d’exploitation », choisissez « Utiliser une image personnalisée » puis l’image `elise-os-…img.xz` de la dernière version GitHub. Le fichier `os_list.json` publié avec chaque version peut aussi servir de dépôt personnalisé.
@@ -19,7 +19,7 @@ Une coupure d’Internet n’empêche pas le Raspberry Pi de démarrer. La page 
 
 ## Ubuntu Server 24.04
 
-Sur un serveur AMD64 ou ARM64 avec au moins 4 Go de mémoire et 32 Go de stockage :
+Sur un serveur AMD64 ou ARM64 avec 8 Go de mémoire conseillés (4 Go au minimum) et 32 Go de stockage :
 
 ```bash
 curl -fsSL https://github.com/Elise-OS/EliseOS/releases/latest/download/install-elise.sh | sudo bash

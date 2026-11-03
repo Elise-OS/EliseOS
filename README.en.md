@@ -210,14 +210,14 @@ Details: [docs/privacy.md](docs/privacy.md). This engineering policy supports pr
 
 ## Hardware
 
-| Item    | Recommendation                                                                    |
-| ------- | --------------------------------------------------------------------------------- |
-| Hub     | Raspberry Pi 4 or 5 (4 GB RAM minimum) **or** Ubuntu 24.04 AMD64 / ARM64 server   |
-| Storage | 32 GB minimum; USB SSD or NVMe (Pi 5) recommended                                 |
-| Radio   | USB Zigbee adapter (Sonoff, SMLIGHT, ConBee, ZiGate…) — optional                  |
-| Sensors | Motion, contact, temperature/humidity, water leak, smoke, smart plug, SOS button… |
-| Screen  | Any TV over HDMI or DisplayPort; USB webcam with microphone for two-way calls     |
-| Cameras | Optional: any local RTSP / ONVIF camera                                           |
+| Item    | Recommendation                                                                                                   |
+| ------- | ---------------------------------------------------------------------------------------------------------------- |
+| Hub     | **Raspberry Pi 4 with 8 GB RAM** (recommended), or Pi 5 8 GB, **or** Ubuntu 24.04 AMD64 / ARM64 server with 8 GB |
+| Storage | 32 GB minimum; USB SSD or NVMe (Pi 5) recommended                                                                |
+| Radio   | USB Zigbee adapter (Sonoff, SMLIGHT, ConBee, ZiGate…) — optional                                                 |
+| Sensors | Motion, contact, temperature/humidity, water leak, smoke, smart plug, SOS button…                                |
+| Screen  | Any TV over HDMI or DisplayPort; USB webcam with microphone for two-way calls                                    |
+| Cameras | Optional: any local RTSP / ONVIF camera                                                                          |
 
 ---
 

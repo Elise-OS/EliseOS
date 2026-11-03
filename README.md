@@ -212,14 +212,14 @@ Détails : [docs/privacy.md](docs/privacy.md). Cette politique soutient la prote
 
 ## Matériel
 
-| Élément  | Recommandation                                                                               |
-| -------- | -------------------------------------------------------------------------------------------- |
-| Boîtier  | Raspberry Pi 4 ou 5 (4 Go de RAM minimum) **ou** serveur Ubuntu 24.04 AMD64 / ARM64          |
-| Stockage | 32 Go minimum ; SSD USB ou NVMe (Pi 5) recommandé                                            |
-| Radio    | Clé Zigbee USB (Sonoff, SMLIGHT, ConBee, ZiGate…) — facultative                              |
-| Capteurs | Mouvement, ouverture, température/humidité, fuite d’eau, fumée, prise connectée, bouton SOS… |
-| Écran    | Toute TV en HDMI ou DisplayPort ; webcam USB avec micro pour les appels dans les deux sens   |
-| Caméras  | Facultatives : toute caméra locale RTSP / ONVIF                                              |
+| Élément  | Recommandation                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------ |
+| Boîtier  | **Raspberry Pi 4 avec 8 Go de RAM** (conseillé), ou Pi 5 8 Go, **ou** serveur Ubuntu 24.04 AMD64 / ARM64 avec 8 Go |
+| Stockage | 32 Go minimum ; SSD USB ou NVMe (Pi 5) recommandé                                                                  |
+| Radio    | Clé Zigbee USB (Sonoff, SMLIGHT, ConBee, ZiGate…) — facultative                                                    |
+| Capteurs | Mouvement, ouverture, température/humidité, fuite d’eau, fumée, prise connectée, bouton SOS…                       |
+| Écran    | Toute TV en HDMI ou DisplayPort ; webcam USB avec micro pour les appels dans les deux sens                         |
+| Caméras  | Facultatives : toute caméra locale RTSP / ONVIF                                                                    |
 
 Une liste d’achat indicative est disponible dans [docs/liste-achat-domadoo.md](docs/liste-achat-domadoo.md).
 
