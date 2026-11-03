@@ -15,6 +15,7 @@ et relie le proche âgé à sa famille par la télévision du salon — sans jam
 ![Ubuntu 24.04](https://img.shields.io/badge/Ubuntu-24.04-e95420)
 ![iOS et Android](https://img.shields.io/badge/app-iPhone%20%C2%B7%20iPad%20%C2%B7%20Android-555)
 ![100 % local](https://img.shields.io/badge/donn%C3%A9es-100%20%25%20locales-2e7d32)
+[![Soutenir sur Buy Me a Coffee](https://img.shields.io/badge/soutenir-Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/drsamourai)
 
 **🇫🇷 Français** · [🇬🇧 English](README.en.md)
 

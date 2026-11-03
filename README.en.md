@@ -15,6 +15,7 @@ and connects an older relative to their family through the living-room TV — wi
 ![Ubuntu 24.04](https://img.shields.io/badge/Ubuntu-24.04-e95420)
 ![iOS and Android](https://img.shields.io/badge/app-iPhone%20%C2%B7%20iPad%20%C2%B7%20Android-555)
 ![100% local](https://img.shields.io/badge/data-100%25%20local-2e7d32)
+[![Support on Buy Me a Coffee](https://img.shields.io/badge/support-Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/drsamourai)
 
 [🇫🇷 Français](README.md) · **🇬🇧 English**
 
