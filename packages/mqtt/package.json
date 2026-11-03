@@ -13,6 +13,6 @@
   },
   "dependencies": {
     "@michel/contracts": "workspace:*",
-    "mqtt": "^5.13.3"
+    "mqtt": "^5.16.1"
   }
 }

@@ -14,11 +14,11 @@
   "dependencies": {
     "@michel/ai-client": "workspace:*",
     "@michel/contracts": "workspace:*",
-    "pg": "^8.16.3"
+    "pg": "^8.23.1"
   },
   "devDependencies": {
-    "@types/pg": "^8.15.5",
-    "tsx": "^4.20.3",
-    "vitest": "^3.2.4"
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "vitest": "^5.0.5"
   }
 }
