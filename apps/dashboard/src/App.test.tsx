@@ -21,7 +21,7 @@ describe('Élise copy', () => {
     expect(copy.fr.nav).toContain('Affichage TV');
   });
 
-  it('hides the removed sensors page, medications and journal from the sidebar', () => {
+  it('hides the removed sensors page, medications, journal and cameras from the sidebar', () => {
     for (const labels of [copy.fr.nav, copy.en.nav]) {
       const html = renderToStaticMarkup(
         <SidebarNavigation labels={labels} active={0} openAlerts={0} onSelect={() => undefined} />,
@@ -30,9 +30,9 @@ describe('Élise copy', () => {
       expect(html).not.toContain(labels[4]);
       expect(html).not.toContain(labels[5]);
       expect(html).not.toContain(labels[6]);
+      expect(html).not.toContain(labels[9]);
       expect(html).toContain(labels[10]);
       expect(html).toContain(labels[11]);
-      expect(html).toContain(labels[9]);
       expect(html.indexOf(labels[10])).toBeLessThan(html.indexOf(labels[3]));
     }
   });

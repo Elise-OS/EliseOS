@@ -330,7 +330,7 @@ const navIcons = [
   Tv,
   BookOpen,
 ];
-export const sidebarHiddenNavIndexes = new Set([4, 5, 6]);
+export const sidebarHiddenNavIndexes = new Set([4, 5, 6, 9]);
 export const sidebarNavOrder = [0, 1, 2, 11, 9, 10, 3, 7, 8] as const;
 export function SidebarNavigation({
   labels,
