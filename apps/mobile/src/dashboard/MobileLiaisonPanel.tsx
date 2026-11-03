@@ -23,12 +23,14 @@ import {
 } from '@michel/contracts';
 import { mobileApi, type AlertItem } from '../api';
 import type { SavedServer } from '../discovery/types';
+import { appLocale, dateLocale, tr } from '../locale';
 
 const MOODS = [
   {
     id: 'HAPPY',
     icon: Laugh,
     fr: 'Heureux',
+    en: 'Happy',
     color: '#22795E',
     background: '#EAF6EF',
   },
@@ -36,6 +38,7 @@ const MOODS = [
     id: 'GOOD',
     icon: Smile,
     fr: 'Bien',
+    en: 'Good',
     color: '#3A6B89',
     background: '#EAF3F8',
   },
@@ -43,6 +46,7 @@ const MOODS = [
     id: 'NEUTRAL',
     icon: Meh,
     fr: 'Neutre',
+    en: 'Neutral',
     color: '#54687D',
     background: '#EFF2F5',
   },
@@ -50,6 +54,7 @@ const MOODS = [
     id: 'LOW',
     icon: Annoyed,
     fr: 'Pas très bien',
+    en: 'Not so good',
     color: '#B27831',
     background: '#FBF1E4',
   },
@@ -57,6 +62,7 @@ const MOODS = [
     id: 'SAD',
     icon: Frown,
     fr: 'Triste',
+    en: 'Sad',
     color: '#4A6793',
     background: '#EDF1FA',
   },
@@ -106,12 +112,15 @@ export function MobileLiaisonPanel({
       setBody('');
       setNoteOpen(false);
       setError('');
-      setNotice('Votre contribution a été partagée.');
+      setNotice(tr('Votre contribution a été partagée.', 'Your contribution was shared.'));
       await refresh();
     },
     onError: () =>
       setError(
-        'Non enregistré. Vérifiez la connexion et vos droits, puis réessayez. Votre texte est conservé.',
+        tr(
+          'Non enregistré. Vérifiez la connexion et vos droits, puis réessayez. Votre texte est conservé.',
+          'Not saved. Check the connection and your permissions, then try again. Your text has been kept.',
+        ),
       ),
     retry: false,
   });
@@ -120,12 +129,17 @@ export function MobileLiaisonPanel({
     onSuccess: async () => {
       setMoodOpen(false);
       setError('');
-      setNotice('Humeur ajoutée au carnet.');
+      setNotice(tr('Humeur ajoutée au carnet.', 'Mood added to the notebook.'));
       await refresh();
     },
     onError: () => {
       setMoodOpen(false);
-      setError('Humeur non enregistrée. Vérifiez la connexion et vos droits, puis réessayez.');
+      setError(
+        tr(
+          'Humeur non enregistrée. Vérifiez la connexion et vos droits, puis réessayez.',
+          'Mood not saved. Check the connection and your permissions, then try again.',
+        ),
+      );
     },
     retry: false,
   });
@@ -134,12 +148,15 @@ export function MobileLiaisonPanel({
       mobileApi.completeLiaison(server, token, input.id, input.completed),
     onSuccess: async () => {
       setError('');
-      setNotice('Le cahier a été mis à jour.');
+      setNotice(tr('Le cahier a été mis à jour.', 'The notebook was updated.'));
       await refresh();
     },
     onError: () =>
       setError(
-        'Modification non enregistrée. Vérifiez la connexion et vos droits, puis réessayez.',
+        tr(
+          'Modification non enregistrée. Vérifiez la connexion et vos droits, puis réessayez.',
+          'Change not saved. Check the connection and your permissions, then try again.',
+        ),
       ),
     retry: false,
   });
@@ -148,7 +165,7 @@ export function MobileLiaisonPanel({
   const submit = () => {
     const parsed = liaisonCreateSchema.safeParse({ kind: 'NOTE', body });
     if (!parsed.success) {
-      setError('Ajoutez un texte.');
+      setError(tr('Ajoutez un texte.', 'Add some text.'));
       return;
     }
     setNotice('');
@@ -165,7 +182,7 @@ export function MobileLiaisonPanel({
     createMood.mutate(parsed.data);
   };
   const date = (value: string) =>
-    new Date(value).toLocaleString('fr-FR', {
+    new Date(value).toLocaleString(dateLocale(), {
       timeZone: data?.timezone,
       dateStyle: 'medium',
       timeStyle: 'short',
@@ -182,7 +199,7 @@ export function MobileLiaisonPanel({
     return `${part('year')}-${part('month')}-${part('day')}`;
   };
   const time = (value: string) =>
-    new Date(value).toLocaleTimeString('fr-FR', {
+    new Date(value).toLocaleTimeString(dateLocale(), {
       timeZone: data?.timezone ?? 'Europe/Paris',
       hour: '2-digit',
       minute: '2-digit',
@@ -223,15 +240,17 @@ export function MobileLiaisonPanel({
       <View style={s.hero}>
         <View style={s.heroHeadingRow}>
           <View style={s.heroHeadingCopy}>
-            <Text style={s.heroEyebrow}>PARTAGE ENTRE AIDANTS</Text>
+            <Text style={s.heroEyebrow}>
+              {tr('PARTAGE ENTRE AIDANTS', 'SHARED BETWEEN CAREGIVERS')}
+            </Text>
             <Text accessibilityRole="header" style={s.title}>
-              Carnet de liaison
+              {tr('Carnet de liaison', 'Notebook')}
             </Text>
           </View>
           <View style={s.heroNavigation}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Ouvrir le calendrier"
+              accessibilityLabel={tr('Ouvrir le calendrier', 'Open the calendar')}
               onPress={onCalendar}
               style={s.heroNavigationButton}
             >
@@ -239,7 +258,7 @@ export function MobileLiaisonPanel({
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Ouvrir le journal du foyer"
+              accessibilityLabel={tr('Ouvrir le journal du foyer', 'Open the household log')}
               onPress={onJournal}
               style={s.heroNavigationButton}
             >
@@ -247,7 +266,12 @@ export function MobileLiaisonPanel({
             </Pressable>
           </View>
         </View>
-        <Text style={s.heroCopy}>Les dernières informations partagées entre aidants.</Text>
+        <Text style={s.heroCopy}>
+          {tr(
+            'Les dernières informations partagées entre aidants.',
+            'The latest information shared between caregivers.',
+          )}
+        </Text>
         <View style={s.heroFooter}>
           {data?.canWrite && (
             <>
@@ -257,7 +281,7 @@ export function MobileLiaisonPanel({
                 style={[s.heroAction, s.secondaryAction]}
               >
                 <Ionicons name="happy-outline" size={19} color="#214b85" />
-                <Text style={s.secondaryActionText}>Ajouter une humeur</Text>
+                <Text style={s.secondaryActionText}>{tr('Ajouter une humeur', 'Add a mood')}</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -265,7 +289,7 @@ export function MobileLiaisonPanel({
                 style={[s.heroAction, s.primaryAction]}
               >
                 <Ionicons name="create-outline" size={19} color="#fff" />
-                <Text style={s.primaryActionText}>Ajouter une note</Text>
+                <Text style={s.primaryActionText}>{tr('Ajouter une note', 'Add a note')}</Text>
               </Pressable>
             </>
           )}
@@ -274,9 +298,13 @@ export function MobileLiaisonPanel({
       {(error || query.isError) && (
         <View style={s.warning}>
           <Text accessibilityRole="alert">
-            {error || 'Le cahier est inaccessible. Tirez vers le bas pour réessayer.'}
+            {error ||
+              tr(
+                'Le cahier est inaccessible. Tirez vers le bas pour réessayer.',
+                'The notebook is unreachable. Pull down to try again.',
+              )}
           </Text>
-          <Action label="Réessayer" onPress={() => void query.refetch()} />
+          <Action label={tr('Réessayer', 'Try again')} onPress={() => void query.refetch()} />
         </View>
       )}
       {notice ? (
@@ -284,10 +312,13 @@ export function MobileLiaisonPanel({
           {notice}
         </Text>
       ) : null}
-      {query.isPending && <Text>Chargement du cahier…</Text>}
+      {query.isPending && <Text>{tr('Chargement du cahier…', 'Loading the notebook…')}</Text>}
       {data && !data.canWrite && (
         <Text style={s.muted}>
-          Vous pouvez consulter le cahier. Les aidants peuvent y contribuer.
+          {tr(
+            'Vous pouvez consulter le cahier. Les aidants peuvent y contribuer.',
+            'You can read the notebook. Caregivers can contribute to it.',
+          )}
         </Text>
       )}
       {data && (
@@ -299,16 +330,18 @@ export function MobileLiaisonPanel({
                 accessibilityRole="header"
                 style={[s.sectionTitle, compact && s.sectionTitleCompact]}
               >
-                À retenir
+                {tr('À retenir', 'Worth remembering')}
               </Text>
             </View>
-            <Text style={[s.muted, compact && s.compactText]}>{reminderCount} éléments</Text>
+            <Text style={[s.muted, compact && s.compactText]}>
+              {reminderCount} {tr('éléments', 'items')}
+            </Text>
           </View>
           {upcoming && (
             <ReminderCard
               icon="calendar-outline"
               tone="blue"
-              title="Prochain rendez-vous"
+              title={tr('Prochain rendez-vous', 'Next appointment')}
               body={upcoming.title}
               detail={date(upcoming.startsAt)}
             />
@@ -317,7 +350,7 @@ export function MobileLiaisonPanel({
             <ReminderCard
               icon="warning-outline"
               tone="amber"
-              title="Point d’attention"
+              title={tr('Point d’attention', 'Point of attention')}
               body={attention.title}
               detail={attention.explanation}
             />
@@ -327,12 +360,12 @@ export function MobileLiaisonPanel({
               key={task.id}
               icon="checkbox-outline"
               tone="green"
-              title={task.assignee?.displayName ?? 'À répartir'}
+              title={task.assignee?.displayName ?? tr('À répartir', 'Unassigned')}
               body={task.body}
               detail={
                 task.dueOn
-                  ? `Pour le ${new Date(`${task.dueOn}T12:00:00Z`).toLocaleDateString('fr-FR', { timeZone: 'UTC', day: 'numeric', month: 'long' })}`
-                  : 'Sans échéance'
+                  ? `${tr('Pour le', 'Due')} ${new Date(`${task.dueOn}T12:00:00Z`).toLocaleDateString(dateLocale(), { timeZone: 'UTC', day: 'numeric', month: 'long' })}`
+                  : tr('Sans échéance', 'No due date')
               }
             />
           ))}
@@ -342,9 +375,9 @@ export function MobileLiaisonPanel({
                 <Ionicons name="checkmark" size={23} color="#24694C" />
               </View>
               <View style={[s.reminderCopy, compact && s.reminderCopyCompact]}>
-                <Text style={s.reminderTitle}>Rien à signaler</Text>
+                <Text style={s.reminderTitle}>{tr('Rien à signaler', 'Nothing to report')}</Text>
                 <Text style={[s.muted, compact && s.compactText]}>
-                  Aucune tâche ou visite prochaine.
+                  {tr('Aucune tâche ou visite prochaine.', 'No upcoming task or visit.')}
                 </Text>
               </View>
             </View>
@@ -363,37 +396,40 @@ export function MobileLiaisonPanel({
         >
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Fermer"
+            accessibilityLabel={tr('Fermer', 'Close')}
             onPress={() => setNoteOpen(false)}
             style={StyleSheet.absoluteFill}
           />
           <View accessibilityViewIsModal style={[s.noteDialog, compact && s.noteDialogCompact]}>
             <View style={s.moodDialogHeading}>
               <View style={s.moodDialogCopy}>
-                <Text style={s.moodEyebrow}>CARNET DE LIAISON</Text>
+                <Text style={s.moodEyebrow}>{tr('CARNET DE LIAISON', 'NOTEBOOK')}</Text>
                 <Text accessibilityRole="header" style={s.moodDialogTitle}>
-                  Ajouter une note
+                  {tr('Ajouter une note', 'Add a note')}
                 </Text>
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Fermer"
+                accessibilityLabel={tr('Fermer', 'Close')}
                 onPress={() => setNoteOpen(false)}
                 style={s.moodClose}
               >
                 <Ionicons name="close" size={22} color="#385577" />
               </Pressable>
             </View>
-            <Text style={s.label}>Votre message</Text>
+            <Text style={s.label}>{tr('Votre message', 'Your message')}</Text>
             <TextInput
-              accessibilityLabel="Votre message"
+              accessibilityLabel={tr('Votre message', 'Your message')}
               autoFocus
               multiline
               maxLength={3000}
               value={body}
               editable={!busy}
               onChangeText={setBody}
-              placeholder="Je suis passé ce matin, le frigo est rempli…"
+              placeholder={tr(
+                'Je suis passé ce matin, le frigo est rempli…',
+                'I stopped by this morning, the fridge is stocked…',
+              )}
               style={[s.input, s.textarea]}
               textAlignVertical="top"
             />
@@ -403,7 +439,7 @@ export function MobileLiaisonPanel({
               </Text>
             ) : null}
             <Action
-              label={busy ? 'Enregistrement…' : 'Partager'}
+              label={busy ? tr('Enregistrement…', 'Saving…') : tr('Partager', 'Share')}
               disabled={blocked || !body.trim()}
               onPress={submit}
             />
@@ -419,24 +455,24 @@ export function MobileLiaisonPanel({
         <View style={[s.modalOverlay, compact && s.modalOverlayCompact]}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Fermer"
+            accessibilityLabel={tr('Fermer', 'Close')}
             onPress={() => setMoodOpen(false)}
             style={StyleSheet.absoluteFill}
           />
           <View accessibilityViewIsModal style={[s.moodDialog, compact && s.moodDialogCompact]}>
             <View style={s.moodDialogHeading}>
               <View style={s.moodDialogCopy}>
-                <Text style={s.moodEyebrow}>CARNET DE LIAISON</Text>
+                <Text style={s.moodEyebrow}>{tr('CARNET DE LIAISON', 'NOTEBOOK')}</Text>
                 <Text
                   accessibilityRole="header"
                   style={[s.moodDialogTitle, compact && s.moodDialogTitleCompact]}
                 >
-                  Ajouter une humeur
+                  {tr('Ajouter une humeur', 'Add a mood')}
                 </Text>
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Fermer"
+                accessibilityLabel={tr('Fermer', 'Close')}
                 onPress={() => setMoodOpen(false)}
                 style={s.moodClose}
               >
@@ -444,11 +480,14 @@ export function MobileLiaisonPanel({
               </Pressable>
             </View>
             <Text style={s.moodDialogPrompt}>
-              Comment se sent {moodResidentName || 'le résident'} ?
+              {tr(
+                `Comment se sent ${moodResidentName || 'le résident'} ?`,
+                `How is ${moodResidentName || 'the resident'} feeling?`,
+              )}
             </Text>
             {offline && (
               <Text accessibilityRole="alert" style={s.offlineMoodHint}>
-                Reconnectez-vous pour enregistrer une humeur.
+                {tr('Reconnectez-vous pour enregistrer une humeur.', 'Reconnect to save a mood.')}
               </Text>
             )}
             <View style={[s.moodOptions, compact && s.moodOptionsCompact]}>
@@ -470,7 +509,7 @@ export function MobileLiaisonPanel({
                     <View style={[s.moodPictogram, { backgroundColor: mood.background }]}>
                       <MoodIcon size={23} color={mood.color} strokeWidth={1.8} />
                     </View>
-                    <Text style={s.moodLabel}>{mood.fr}</Text>
+                    <Text style={s.moodLabel}>{tr(mood.fr, mood.en)}</Text>
                   </Pressable>
                 );
               })}
@@ -485,11 +524,12 @@ export function MobileLiaisonPanel({
             accessibilityRole="header"
             style={[s.sectionTitle, compact && s.sectionTitleCompact]}
           >
-            Fil de la journée
+            {tr('Fil de la journée', 'Today’s thread')}
           </Text>
         </View>
         <Text style={[s.muted, compact && s.compactText]}>
-          {todayItems.length} {todayItems.length === 1 ? 'événement' : 'événements'}
+          {todayItems.length}{' '}
+          {todayItems.length === 1 ? tr('événement', 'event') : tr('événements', 'events')}
         </Text>
       </View>
       {data && (
@@ -497,7 +537,9 @@ export function MobileLiaisonPanel({
           <View style={s.timelineList}>
             {todayItems.map((item, index) => {
               const late = Boolean(!item.completedAt && item.dueOn && item.dueOn < data.today);
-              const mood = item.tags.includes('MOOD') ? liaisonMoodLabel(item.body) : null;
+              const mood = item.tags.includes('MOOD')
+                ? liaisonMoodLabel(item.body, appLocale())
+                : null;
               return (
                 <View key={item.id} style={s.timelineEvent}>
                   <View style={s.timelineRow}>
@@ -518,7 +560,7 @@ export function MobileLiaisonPanel({
                     <View style={[s.timelineCard, compact && s.timelineCardCompact]}>
                       <View style={s.timelineHeader}>
                         <Text numberOfLines={1} style={s.timelineAuthor}>
-                          {item.author?.displayName ?? 'Un ancien proche'}
+                          {item.author?.displayName ?? tr('Un ancien proche', 'A former member')}
                         </Text>
                         {item.kind === 'TASK' ? (
                           <Text
@@ -527,13 +569,16 @@ export function MobileLiaisonPanel({
                               item.completedAt ? s.timelineStateDone : s.timelineStateOpen,
                             ]}
                           >
-                            {item.completedAt ? 'Terminée' : 'À faire'}
+                            {item.completedAt ? tr('Terminée', 'Done') : tr('À faire', 'To do')}
                           </Text>
                         ) : null}
                       </View>
                       <Text style={s.timelineBody}>
                         {mood
-                          ? `${moodResidentName ? `Humeur de ${moodResidentName}` : 'Humeur'} : ${mood}`
+                          ? tr(
+                              `${moodResidentName ? `Humeur de ${moodResidentName}` : tr('Humeur', 'Mood')} : ${mood}`,
+                              `${moodResidentName ? `${moodResidentName}’s mood` : 'Mood'}: ${mood}`,
+                            )
                           : item.body}
                       </Text>
                       {item.tags.length > 0 && (
@@ -541,12 +586,12 @@ export function MobileLiaisonPanel({
                           {item.tags.map((tag) => (
                             <Text key={tag} style={s.timelineTag}>
                               {tag === 'MEAL'
-                                ? 'Repas'
+                                ? tr('Repas', 'Meal')
                                 : tag === 'TREATMENT'
-                                  ? 'Traitement'
+                                  ? tr('Traitement', 'Treatment')
                                   : tag === 'MOOD'
-                                    ? 'Humeur'
-                                    : 'Repos'}
+                                    ? tr('Humeur', 'Mood')
+                                    : tr('Repos', 'Rest')}
                             </Text>
                           ))}
                         </View>
@@ -554,15 +599,16 @@ export function MobileLiaisonPanel({
                       {item.kind === 'TASK' ? (
                         <>
                           <Text style={[s.timelineDetail, late && s.timelineDetailLate]}>
-                            Responsable : {item.assignee?.displayName ?? 'À répartir'}
+                            {tr('Responsable :', 'Assigned to:')}{' '}
+                            {item.assignee?.displayName ?? tr('À répartir', 'Unassigned')}
                             {item.dueOn
-                              ? ` · Pour le ${new Date(`${item.dueOn}T12:00:00Z`).toLocaleDateString('fr-FR', { timeZone: 'UTC', day: 'numeric', month: 'short' })}`
+                              ? ` · ${tr('Pour le', 'Due')} ${new Date(`${item.dueOn}T12:00:00Z`).toLocaleDateString(dateLocale(), { timeZone: 'UTC', day: 'numeric', month: 'short' })}`
                               : ''}
-                            {late ? ' · En retard' : ''}
+                            {late ? tr(' · En retard', ' · Overdue') : ''}
                           </Text>
                           {item.completedAt ? (
                             <Text style={s.timelineDetail}>
-                              Fait par {item.completedBy?.displayName ?? '—'} ·{' '}
+                              {tr('Fait par', 'Done by')} {item.completedBy?.displayName ?? '—'} ·{' '}
                               {date(item.completedAt)}
                             </Text>
                           ) : null}
@@ -582,7 +628,9 @@ export function MobileLiaisonPanel({
                                 color="#214b85"
                               />
                               <Text style={s.timelineTaskActionText}>
-                                {item.completedAt ? 'Remettre à faire' : 'C’est fait'}
+                                {item.completedAt
+                                  ? tr('Remettre à faire', 'Mark as to do')
+                                  : tr('C’est fait', 'Done')}
                               </Text>
                             </Pressable>
                           ) : null}
@@ -596,8 +644,13 @@ export function MobileLiaisonPanel({
           </View>
           {!todayItems.length && (
             <View style={[s.card, compact && s.cardCompact]}>
-              <Text style={s.subtitle}>Aucun événement aujourd’hui</Text>
-              <Text style={s.muted}>Les informations partagées aujourd’hui apparaîtront ici.</Text>
+              <Text style={s.subtitle}>{tr('Aucun événement aujourd’hui', 'No events today')}</Text>
+              <Text style={s.muted}>
+                {tr(
+                  'Les informations partagées aujourd’hui apparaîtront ici.',
+                  'Information shared today will appear here.',
+                )}
+              </Text>
             </View>
           )}
         </>

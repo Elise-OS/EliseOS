@@ -23,6 +23,10 @@ import type {
   TrustedPerson,
 } from '../api';
 import type { SavedServer } from '../discovery/types';
+import { appLocale } from '../locale';
+
+// The demo home follows the app language; it is rebuilt when the language changes.
+const t = (fr: string, en: string) => (appLocale() === 'fr' ? fr : en);
 
 export const DEMO_SERVER_ID = 'elise-demo';
 export const DEMO_TOKEN = 'elise-demo-session';
@@ -34,7 +38,7 @@ export function createDemoServer(): SavedServer {
   return {
     id: DEMO_SERVER_ID,
     instanceId: DEMO_SERVER_ID,
-    instanceName: 'Élise OS · Maison Martin',
+    instanceName: t('Élise OS · Maison Martin', 'Élise OS · Martin home'),
     version: '0.1.6-demo',
     apiVersion: 1,
     serverTime: now,
@@ -129,10 +133,10 @@ const DEMO_PODCASTS = [
   },
   {
     id: '100002',
-    title: 'Les Pieds sur terre',
+    title: t('Les Pieds sur terre', 'Les Pieds sur terre'),
     author: 'France Culture',
     episodeCount: 4700,
-    genre: 'Société',
+    genre: t('Société', 'Society'),
     feedUrl: 'https://demo.invalid/podcasts/les-pieds-sur-terre.xml',
   },
 ];
@@ -149,8 +153,14 @@ const DEMO_PODCAST_EPISODES = {
     },
     {
       id: 'demo-affaires-mitterrand',
-      title: 'François Mitterrand et la nuit de l’Observatoire',
-      description: 'Le récit de l’attentat de l’Observatoire et de ses suites politiques.',
+      title: t(
+        'François Mitterrand et la nuit de l’Observatoire',
+        'François Mitterrand and the Observatory night',
+      ),
+      description: t(
+        'Le récit de l’attentat de l’Observatoire et de ses suites politiques.',
+        'The story of the Observatory attack and its political aftermath.',
+      ),
       enclosureUrl: 'https://demo.invalid/podcasts/affaires-mitterrand.mp3',
       durationSeconds: 54 * 60,
       publishedAt: Date.parse('2021-07-06T13:00:00Z'),
@@ -167,8 +177,11 @@ const DEMO_PODCAST_EPISODES = {
     },
     {
       id: 'demo-pieds-oublier-pour-survivre',
-      title: 'Oublier pour survivre',
-      description: 'Deux récits autour de la mémoire après un accident ou un traumatisme.',
+      title: t('Oublier pour survivre', 'Forgetting to survive'),
+      description: t(
+        'Deux récits autour de la mémoire après un accident ou un traumatisme.',
+        'Two stories about memory after an accident or a trauma.',
+      ),
       enclosureUrl: 'https://demo.invalid/podcasts/pieds-oublier.mp3',
       durationSeconds: 28 * 60,
       publishedAt: Date.parse('2021-06-17T13:00:00Z'),
@@ -223,7 +236,10 @@ function createDemoSession() {
       pathRoomIds: [ROOM_IDS.entry, ROOM_IDS.living],
       confidenceScore: 0.94,
       reasonCodes: ['RECENT_MOTION', 'CONNECTED_ROOMS'],
-      explanation: 'Un mouvement récent a été relevé dans le séjour.',
+      explanation: t(
+        'Un mouvement récent a été relevé dans le séjour.',
+        'Recent movement was noticed in the living room.',
+      ),
       lastEvidenceAt: iso(-18 * MINUTE),
       evidenceSummary: [
         {
@@ -238,16 +254,16 @@ function createDemoSession() {
       trackingDegraded: false,
     },
     rooms: [
-      { id: ROOM_IDS.entry, name: 'Entrée', kind: 'ENTRANCE' },
-      { id: ROOM_IDS.living, name: 'Séjour', kind: 'LIVING_ROOM' },
-      { id: ROOM_IDS.kitchen, name: 'Cuisine', kind: 'KITCHEN' },
-      { id: ROOM_IDS.bedroom, name: 'Chambre', kind: 'BEDROOM' },
-      { id: ROOM_IDS.bathroom, name: 'Salle de bains', kind: 'BATHROOM' },
+      { id: ROOM_IDS.entry, name: t('Entrée', 'Entrance'), kind: 'ENTRANCE' },
+      { id: ROOM_IDS.living, name: t('Séjour', 'Living room'), kind: 'LIVING_ROOM' },
+      { id: ROOM_IDS.kitchen, name: t('Cuisine', 'Kitchen'), kind: 'KITCHEN' },
+      { id: ROOM_IDS.bedroom, name: t('Chambre', 'Bedroom'), kind: 'BEDROOM' },
+      { id: ROOM_IDS.bathroom, name: t('Salle de bains', 'Bathroom'), kind: 'BATHROOM' },
     ],
     roomSummaries: [
       {
         roomId: ROOM_IDS.entry,
-        name: 'Entrée',
+        name: t('Entrée', 'Entrance'),
         kind: 'ENTRANCE',
         color: '#E8F0F3',
         sensors: [
@@ -261,7 +277,7 @@ function createDemoSession() {
           },
           {
             capability: 'motion',
-            value: 'Aucun mouvement récent',
+            value: t('Aucun mouvement récent', 'No recent movement'),
             unit: null,
             state: 'INACTIVE',
             available: true,
@@ -271,13 +287,13 @@ function createDemoSession() {
       },
       {
         roomId: ROOM_IDS.living,
-        name: 'Séjour',
+        name: t('Séjour', 'Living room'),
         kind: 'LIVING_ROOM',
         color: '#F2E9D9',
         sensors: [
           {
             capability: 'motion',
-            value: 'Mouvement détecté',
+            value: t('Mouvement détecté', 'Movement detected'),
             unit: null,
             state: 'ACTIVE',
             available: true,
@@ -295,7 +311,7 @@ function createDemoSession() {
       },
       {
         roomId: ROOM_IDS.kitchen,
-        name: 'Cuisine',
+        name: t('Cuisine', 'Kitchen'),
         kind: 'KITCHEN',
         color: '#E4EDE5',
         sensors: [
@@ -309,7 +325,7 @@ function createDemoSession() {
           },
           {
             capability: 'motion',
-            value: 'Mouvement détecté',
+            value: t('Mouvement détecté', 'Movement detected'),
             unit: null,
             state: 'ACTIVE',
             available: true,
@@ -319,13 +335,13 @@ function createDemoSession() {
       },
       {
         roomId: ROOM_IDS.bedroom,
-        name: 'Chambre',
+        name: t('Chambre', 'Bedroom'),
         kind: 'BEDROOM',
         color: '#ECE8F3',
         sensors: [
           {
             capability: 'occupancy',
-            value: 'Repos terminé à 07:18',
+            value: t('Repos terminé à 07:18', 'Rest ended at 07:18'),
             unit: null,
             state: 'INACTIVE',
             available: true,
@@ -335,7 +351,7 @@ function createDemoSession() {
       },
       {
         roomId: ROOM_IDS.bathroom,
-        name: 'Salle de bains',
+        name: t('Salle de bains', 'Bathroom'),
         kind: 'BATHROOM',
         color: '#E3EFF0',
         shower: {
@@ -365,7 +381,12 @@ function createDemoSession() {
       occurredAt: iso(-18 * MINUTE),
       capability: 'motion',
     },
-    activityRooms: ['Cuisine', 'Séjour', 'Salle de bains', 'Chambre'],
+    activityRooms: [
+      t('Cuisine', 'Kitchen'),
+      t('Séjour', 'Living room'),
+      t('Salle de bains', 'Bathroom'),
+      t('Chambre', 'Bedroom'),
+    ],
     entrance: {
       state: 'INSIDE_ACTIVITY',
       reason: 'FOLLOWED_BY_MOVEMENT',
@@ -374,12 +395,12 @@ function createDemoSession() {
       evidenceAt: iso(-4.9 * HOUR),
       evaluateAfter: null,
       windowSeconds: 120,
-      roomName: 'Entrée',
+      roomName: t('Entrée', 'Entrance'),
     },
     cards: [
       {
         id: 'opening-main',
-        label: 'Porte d’entrée',
+        label: t('Porte d’entrée', 'Front door'),
         kind: 'OPENING',
         available: true,
         observedToday: true,
@@ -390,7 +411,7 @@ function createDemoSession() {
       },
       {
         id: 'fridge-kitchen',
-        label: 'Réfrigérateur',
+        label: t('Réfrigérateur', 'Fridge'),
         kind: 'FRIDGE',
         available: true,
         observedToday: true,
@@ -401,7 +422,7 @@ function createDemoSession() {
       },
       {
         id: 'toilet-bathroom',
-        label: 'Salle de bains',
+        label: t('Salle de bains', 'Bathroom'),
         kind: 'TOILET',
         available: true,
         observedToday: true,
@@ -412,7 +433,7 @@ function createDemoSession() {
       },
       {
         id: 'comfort-living',
-        label: 'Température du séjour',
+        label: t('Température du séjour', 'Living room temperature'),
         kind: 'COMFORT',
         available: true,
         observedToday: true,
@@ -423,7 +444,7 @@ function createDemoSession() {
       },
       {
         id: 'appliance-kitchen',
-        label: 'Bouilloire',
+        label: t('Bouilloire', 'Kettle'),
         kind: 'APPLIANCE',
         available: true,
         observedToday: true,
@@ -443,15 +464,18 @@ function createDemoSession() {
     },
     alert: {
       id: 'alert-door-open',
-      title: 'Porte d’entrée ouverte plus longtemps que d’habitude',
+      title: t(
+        'Porte d’entrée ouverte plus longtemps que d’habitude',
+        'Front door open longer than usual',
+      ),
       severity: 'ATTENTION',
-      roomName: 'Entrée',
+      roomName: t('Entrée', 'Entrance'),
     },
   };
 
   const overview: Overview = {
     onboardingRequired: false,
-    home: { id: 'home-martin', name: 'Maison Martin', resident: 'Jeanne Martin' },
+    home: { id: 'home-martin', name: t('Maison Martin', 'Martin home'), resident: 'Jeanne Martin' },
     reassurance: 'ATTENTION',
     learningDays: 42,
     openAlerts: 2,
@@ -459,38 +483,82 @@ function createDemoSession() {
     nextSchedule: {
       id: 'visit-tomorrow',
       type: 'VISIT',
-      title: 'Visite de Claire',
+      title: t('Visite de Claire', 'Claire’s visit'),
       startsAt: iso(22 * HOUR),
     },
-    lastActivity: { occurredAt: iso(-18 * MINUTE), capability: 'motion', room: 'Séjour' },
+    lastActivity: {
+      occurredAt: iso(-18 * MINUTE),
+      capability: 'motion',
+      room: t('Séjour', 'Living room'),
+    },
     rooms: [
-      { id: ROOM_IDS.entry, name: 'Entrée', kind: 'ENTRANCE', sensors: 2 },
-      { id: ROOM_IDS.living, name: 'Séjour', kind: 'LIVING_ROOM', sensors: 2 },
-      { id: ROOM_IDS.kitchen, name: 'Cuisine', kind: 'KITCHEN', sensors: 2 },
-      { id: ROOM_IDS.bedroom, name: 'Chambre', kind: 'BEDROOM', sensors: 1 },
-      { id: ROOM_IDS.bathroom, name: 'Salle de bains', kind: 'BATHROOM', sensors: 2 },
+      { id: ROOM_IDS.entry, name: t('Entrée', 'Entrance'), kind: 'ENTRANCE', sensors: 2 },
+      { id: ROOM_IDS.living, name: t('Séjour', 'Living room'), kind: 'LIVING_ROOM', sensors: 2 },
+      { id: ROOM_IDS.kitchen, name: t('Cuisine', 'Kitchen'), kind: 'KITCHEN', sensors: 2 },
+      { id: ROOM_IDS.bedroom, name: t('Chambre', 'Bedroom'), kind: 'BEDROOM', sensors: 1 },
+      {
+        id: ROOM_IDS.bathroom,
+        name: t('Salle de bains', 'Bathroom'),
+        kind: 'BATHROOM',
+        sensors: 2,
+      },
     ],
   };
 
   const activityFeed: ActivityItem[] = [
-    [-18, 'Séjour', 'motion', 'Mouvement détecté'],
-    [-34, 'Cuisine', 'motion', 'Passage relevé'],
-    [-38, 'Cuisine', 'contact', 'Réfrigérateur ouvert'],
-    [-64, 'Séjour', 'motion', 'Présence dans le séjour'],
-    [-112, 'Entrée', 'contact', 'Porte refermée'],
-    [-116, 'Entrée', 'contact', 'Porte ouverte'],
-    [-138, 'Séjour', 'temperature', 'Température stable à 21,4 °C'],
-    [-210, 'Salle de bains', 'humidity', 'Humidité en baisse après la douche'],
-    [-235, 'Salle de bains', 'occupancy', 'Passage dans la salle de bains'],
-    [-310, 'Cuisine', 'motion', 'Passage relevé'],
-    [-342, 'Cuisine', 'contact', 'Réfrigérateur ouvert'],
-    [-405, 'Séjour', 'motion', 'Présence dans le séjour'],
-    [-438, 'Cuisine', 'button', 'Bouilloire utilisée'],
-    [-486, 'Chambre', 'occupancy', 'Fin de la période de repos'],
-    [-550, 'Séjour', 'motion', 'Passage relevé'],
-    [-610, 'Entrée', 'contact', 'Porte refermée'],
-    [-614, 'Entrée', 'contact', 'Porte ouverte'],
-    [-660, 'Cuisine', 'motion', 'Premier passage du matin'],
+    [-18, t('Séjour', 'Living room'), 'motion', t('Mouvement détecté', 'Movement detected')],
+    [-34, t('Cuisine', 'Kitchen'), 'motion', t('Passage relevé', 'Movement noticed')],
+    [-38, t('Cuisine', 'Kitchen'), 'contact', t('Réfrigérateur ouvert', 'Fridge opened')],
+    [
+      -64,
+      t('Séjour', 'Living room'),
+      'motion',
+      t('Présence dans le séjour', 'Presence in the living room'),
+    ],
+    [-112, t('Entrée', 'Entrance'), 'contact', t('Porte refermée', 'Door closed')],
+    [-116, t('Entrée', 'Entrance'), 'contact', t('Porte ouverte', 'Door opened')],
+    [
+      -138,
+      t('Séjour', 'Living room'),
+      'temperature',
+      t('Température stable à 21,4 °C', 'Temperature steady at 21.4 °C'),
+    ],
+    [
+      -210,
+      t('Salle de bains', 'Bathroom'),
+      'humidity',
+      t('Humidité en baisse après la douche', 'Humidity dropping after the shower'),
+    ],
+    [
+      -235,
+      t('Salle de bains', 'Bathroom'),
+      'occupancy',
+      t('Passage dans la salle de bains', 'Movement in the bathroom'),
+    ],
+    [-310, t('Cuisine', 'Kitchen'), 'motion', t('Passage relevé', 'Movement noticed')],
+    [-342, t('Cuisine', 'Kitchen'), 'contact', t('Réfrigérateur ouvert', 'Fridge opened')],
+    [
+      -405,
+      t('Séjour', 'Living room'),
+      'motion',
+      t('Présence dans le séjour', 'Presence in the living room'),
+    ],
+    [-438, t('Cuisine', 'Kitchen'), 'button', t('Bouilloire utilisée', 'Kettle used')],
+    [
+      -486,
+      t('Chambre', 'Bedroom'),
+      'occupancy',
+      t('Fin de la période de repos', 'End of the rest period'),
+    ],
+    [-550, t('Séjour', 'Living room'), 'motion', t('Passage relevé', 'Movement noticed')],
+    [-610, t('Entrée', 'Entrance'), 'contact', t('Porte refermée', 'Door closed')],
+    [-614, t('Entrée', 'Entrance'), 'contact', t('Porte ouverte', 'Door opened')],
+    [
+      -660,
+      t('Cuisine', 'Kitchen'),
+      'motion',
+      t('Premier passage du matin', 'First movement of the morning'),
+    ],
   ].map(([minutes, room, capability, label], index) => ({
     id: `demo-event-${index + 1}`,
     capability: String(capability),
@@ -512,9 +580,9 @@ function createDemoSession() {
       quality: 'GOOD',
       payload: { state: 'on' },
       roomId: ROOM_IDS.living,
-      roomName: 'Séjour',
+      roomName: t('Séjour', 'Living room'),
       sensorId: 'sensor-living-motion',
-      sensorName: 'Détecteur de mouvement',
+      sensorName: t('Détecteur de mouvement', 'Motion detector'),
       sensorStatus: 'ONLINE',
       unit: null,
       targetType: 'ROOM' as const,
@@ -528,9 +596,9 @@ function createDemoSession() {
       quality: 'GOOD',
       payload: { state: 'on' },
       roomId: ROOM_IDS.kitchen,
-      roomName: 'Cuisine',
+      roomName: t('Cuisine', 'Kitchen'),
       sensorId: 'sensor-kitchen-motion',
-      sensorName: 'Détecteur de mouvement',
+      sensorName: t('Détecteur de mouvement', 'Motion detector'),
       sensorStatus: 'ONLINE',
       unit: null,
       targetType: 'ROOM' as const,
@@ -544,9 +612,9 @@ function createDemoSession() {
       quality: 'GOOD',
       payload: { state: 'open' },
       roomId: ROOM_IDS.kitchen,
-      roomName: 'Cuisine',
+      roomName: t('Cuisine', 'Kitchen'),
       sensorId: 'sensor-fridge-contact',
-      sensorName: 'Contact du réfrigérateur',
+      sensorName: t('Contact du réfrigérateur', 'Fridge contact'),
       sensorStatus: 'ONLINE',
       unit: null,
       targetType: 'ITEM' as const,
@@ -566,11 +634,11 @@ function createDemoSession() {
       count: [1, 3, 5, 2, 6, 4, 7, 3][index] ?? 0,
     })),
     byRoom: [
-      { id: ROOM_IDS.kitchen, name: 'Cuisine', count: 11 },
-      { id: ROOM_IDS.living, name: 'Séjour', count: 9 },
-      { id: ROOM_IDS.entry, name: 'Entrée', count: 5 },
-      { id: ROOM_IDS.bathroom, name: 'Salle de bains', count: 4 },
-      { id: ROOM_IDS.bedroom, name: 'Chambre', count: 2 },
+      { id: ROOM_IDS.kitchen, name: t('Cuisine', 'Kitchen'), count: 11 },
+      { id: ROOM_IDS.living, name: t('Séjour', 'Living room'), count: 9 },
+      { id: ROOM_IDS.entry, name: t('Entrée', 'Entrance'), count: 5 },
+      { id: ROOM_IDS.bathroom, name: t('Salle de bains', 'Bathroom'), count: 4 },
+      { id: ROOM_IDS.bedroom, name: t('Chambre', 'Bedroom'), count: 2 },
     ],
     byCapability: [
       { capability: 'motion', count: 17 },
@@ -581,7 +649,7 @@ function createDemoSession() {
     dwellByRoom: [
       {
         id: ROOM_IDS.living,
-        name: 'Séjour',
+        name: t('Séjour', 'Living room'),
         totalSeconds: 3 * 60 * 60,
         averageSeconds: 2700,
         medianSeconds: 2400,
@@ -592,7 +660,7 @@ function createDemoSession() {
       },
       {
         id: ROOM_IDS.kitchen,
-        name: 'Cuisine',
+        name: t('Cuisine', 'Kitchen'),
         totalSeconds: 95 * 60,
         averageSeconds: 1425,
         medianSeconds: 1200,
@@ -603,7 +671,7 @@ function createDemoSession() {
       },
       {
         id: ROOM_IDS.bathroom,
-        name: 'Salle de bains',
+        name: t('Salle de bains', 'Bathroom'),
         totalSeconds: 26 * 60,
         averageSeconds: 780,
         medianSeconds: 750,
@@ -629,7 +697,7 @@ function createDemoSession() {
     rooms: [
       {
         id: ROOM_IDS.living,
-        name: 'Séjour',
+        name: t('Séjour', 'Living room'),
         kind: 'LIVING_ROOM',
         floor: 0,
         state: 'OBSERVED',
@@ -656,7 +724,7 @@ function createDemoSession() {
       },
       {
         id: ROOM_IDS.kitchen,
-        name: 'Cuisine',
+        name: t('Cuisine', 'Kitchen'),
         kind: 'KITCHEN',
         floor: 0,
         state: 'OBSERVED',
@@ -668,7 +736,7 @@ function createDemoSession() {
       },
       {
         id: ROOM_IDS.bedroom,
-        name: 'Chambre',
+        name: t('Chambre', 'Bedroom'),
         kind: 'BEDROOM',
         floor: 0,
         state: 'OBSERVED',
@@ -686,7 +754,7 @@ function createDemoSession() {
         endedAt: iso(-14 * MINUTE),
         durationSeconds: 240,
         roomIds: [ROOM_IDS.living],
-        roomNames: ['Séjour'],
+        roomNames: [t('Séjour', 'Living room')],
         passages: [],
         totalEventCount: 2,
         hiddenEventCount: 0,
@@ -698,7 +766,7 @@ function createDemoSession() {
         endedAt: iso(-32 * MINUTE),
         durationSeconds: 480,
         roomIds: [ROOM_IDS.kitchen],
-        roomNames: ['Cuisine'],
+        roomNames: [t('Cuisine', 'Kitchen')],
         passages: [],
         totalEventCount: 4,
         hiddenEventCount: 1,
@@ -710,13 +778,13 @@ function createDemoSession() {
         endedAt: iso(-58 * MINUTE),
         durationSeconds: 420,
         roomIds: [ROOM_IDS.entry, ROOM_IDS.living],
-        roomNames: ['Entrée', 'Séjour'],
+        roomNames: [t('Entrée', 'Entrance'), t('Séjour', 'Living room')],
         passages: [
           {
             fromLevelId: 'level-ground',
-            fromLevelName: 'Rez-de-chaussée',
+            fromLevelName: t('Rez-de-chaussée', 'Ground floor'),
             toLevelId: 'level-ground',
-            toLevelName: 'Rez-de-chaussée',
+            toLevelName: t('Rez-de-chaussée', 'Ground floor'),
           },
         ],
         totalEventCount: 3,
@@ -729,7 +797,7 @@ function createDemoSession() {
         endedAt: iso(-4.1 * HOUR),
         durationSeconds: 1440,
         roomIds: [ROOM_IDS.bathroom],
-        roomNames: ['Salle de bains'],
+        roomNames: [t('Salle de bains', 'Bathroom')],
         passages: [],
         totalEventCount: 5,
         hiddenEventCount: 2,
@@ -745,13 +813,18 @@ function createDemoSession() {
       type: 'DOOR_OPEN_LONG',
       severity: 'ATTENTION',
       status: 'OPEN',
-      title: 'Porte d’entrée ouverte plus longtemps que d’habitude',
-      explanation:
+      title: t(
+        'Porte d’entrée ouverte plus longtemps que d’habitude',
+        'Front door open longer than usual',
+      ),
+      explanation: t(
         'La porte est restée ouverte 8 minutes. Ce repère invite à vérifier la situation et à prendre des nouvelles si nécessaire.',
+        'The door stayed open for 8 minutes. This cue suggests checking the situation and getting in touch if needed.',
+      ),
       confidence: 0.82,
       openedAt: iso(-52 * MINUTE),
-      room: { id: ROOM_IDS.entry, name: 'Entrée' },
-      lastMovement: { occurredAt: iso(-48 * MINUTE), roomName: 'Entrée' },
+      room: { id: ROOM_IDS.entry, name: t('Entrée', 'Entrance') },
+      lastMovement: { occurredAt: iso(-48 * MINUTE), roomName: t('Entrée', 'Entrance') },
       transitions: [],
     },
     {
@@ -759,11 +832,14 @@ function createDemoSession() {
       type: 'SENSOR_LOW_BATTERY',
       severity: 'INFO',
       status: 'ACKNOWLEDGED',
-      title: 'Pile bientôt à remplacer',
-      explanation: 'Le détecteur de la chambre indique une pile faible (18 %).',
+      title: t('Pile bientôt à remplacer', 'Battery to replace soon'),
+      explanation: t(
+        'Le détecteur de la chambre indique une pile faible (18 %).',
+        'The bedroom detector reports a low battery (18%).',
+      ),
       confidence: 1,
       openedAt: iso(-4 * HOUR),
-      room: { id: ROOM_IDS.bedroom, name: 'Chambre' },
+      room: { id: ROOM_IDS.bedroom, name: t('Chambre', 'Bedroom') },
       transitions: [
         {
           id: 'transition-battery-1',
@@ -779,12 +855,18 @@ function createDemoSession() {
       type: 'TEMPERATURE_CHANGE',
       severity: 'INFO',
       status: 'RESOLVED',
-      title: 'Température revenue dans la plage habituelle',
-      explanation: 'La température du séjour est revenue à 21,4 °C.',
+      title: t(
+        'Température revenue dans la plage habituelle',
+        'Temperature back in the usual range',
+      ),
+      explanation: t(
+        'La température du séjour est revenue à 21,4 °C.',
+        'The living room temperature went back to 21.4 °C.',
+      ),
       confidence: 0.95,
       openedAt: iso(-2 * DAY),
       resolvedAt: iso(-2 * DAY + 30 * MINUTE),
-      room: { id: ROOM_IDS.living, name: 'Séjour' },
+      room: { id: ROOM_IDS.living, name: t('Séjour', 'Living room') },
       transitions: [],
     },
   ];
@@ -792,11 +874,11 @@ function createDemoSession() {
   const cameras: CameraItem[] = [
     {
       id: 'camera-entry',
-      name: 'Entrée',
+      name: t('Entrée', 'Entrance'),
       provider: 'onvif',
       status: 'ONLINE',
       compatibility: 'VALIDATED',
-      room: { id: ROOM_IDS.entry, name: 'Entrée', kind: 'ENTRANCE' },
+      room: { id: ROOM_IDS.entry, name: t('Entrée', 'Entrance'), kind: 'ENTRANCE' },
       capabilities: { live: true, talk: true, ptz: false, privacy: true, snapshot: true },
       privacyMode: true,
       consentedAt: iso(-30 * DAY),
@@ -805,11 +887,11 @@ function createDemoSession() {
     },
     {
       id: 'camera-living',
-      name: 'Séjour',
+      name: t('Séjour', 'Living room'),
       provider: 'onvif',
       status: 'ONLINE',
       compatibility: 'RECOGNIZED',
-      room: { id: ROOM_IDS.living, name: 'Séjour', kind: 'LIVING_ROOM' },
+      room: { id: ROOM_IDS.living, name: t('Séjour', 'Living room'), kind: 'LIVING_ROOM' },
       capabilities: { live: true, talk: false, ptz: true, privacy: true, snapshot: true },
       privacyMode: true,
       consentedAt: iso(-30 * DAY),
@@ -821,8 +903,8 @@ function createDemoSession() {
   const sensorDevices: SensorDevice[] = [
     sensor(
       'sensor-entry-door',
-      'Porte d’entrée',
-      'Entrée',
+      t('Porte d’entrée', 'Front door'),
+      t('Entrée', 'Entrance'),
       'contact',
       'INACTIVE',
       86,
@@ -831,8 +913,8 @@ function createDemoSession() {
     ),
     sensor(
       'sensor-entry-motion',
-      'Mouvement entrée',
-      'Entrée',
+      t('Mouvement entrée', 'Entrance motion'),
+      t('Entrée', 'Entrance'),
       'motion',
       'ONLINE',
       78,
@@ -841,8 +923,8 @@ function createDemoSession() {
     ),
     sensor(
       'sensor-living-motion',
-      'Mouvement séjour',
-      'Séjour',
+      t('Mouvement séjour', 'Living room motion'),
+      t('Séjour', 'Living room'),
       'motion',
       'ONLINE',
       64,
@@ -851,8 +933,8 @@ function createDemoSession() {
     ),
     sensor(
       'sensor-living-climate',
-      'Température séjour',
-      'Séjour',
+      t('Température séjour', 'Living room temperature'),
+      t('Séjour', 'Living room'),
       'temperature',
       'ONLINE',
       91,
@@ -861,8 +943,8 @@ function createDemoSession() {
     ),
     sensor(
       'sensor-fridge-contact',
-      'Contact réfrigérateur',
-      'Cuisine',
+      t('Contact réfrigérateur', 'Fridge contact'),
+      t('Cuisine', 'Kitchen'),
       'contact',
       'ONLINE',
       73,
@@ -871,8 +953,8 @@ function createDemoSession() {
     ),
     sensor(
       'sensor-kitchen-motion',
-      'Mouvement cuisine',
-      'Cuisine',
+      t('Mouvement cuisine', 'Kitchen motion'),
+      t('Cuisine', 'Kitchen'),
       'motion',
       'ONLINE',
       58,
@@ -881,8 +963,8 @@ function createDemoSession() {
     ),
     sensor(
       'sensor-bedroom-climate',
-      'Température chambre',
-      'Chambre',
+      t('Température chambre', 'Bedroom temperature'),
+      t('Chambre', 'Bedroom'),
       'temperature',
       'ATTENTION',
       18,
@@ -891,47 +973,56 @@ function createDemoSession() {
     ),
     sensor(
       'sensor-bathroom-climate',
-      'Humidité salle de bains',
-      'Salle de bains',
+      t('Humidité salle de bains', 'Bathroom humidity'),
+      t('Salle de bains', 'Bathroom'),
       'humidity',
       'ONLINE',
       82,
       -4 * 60,
       'SNZB-02P',
     ),
-    sensor('sensor-kettle-plug', 'Bouilloire', 'Cuisine', 'power', 'ONLINE', 67, -132, 'SNZB-01P6'),
+    sensor(
+      'sensor-kettle-plug',
+      t('Bouilloire', 'Kettle'),
+      t('Cuisine', 'Kitchen'),
+      'power',
+      'ONLINE',
+      67,
+      -132,
+      'SNZB-01P6',
+    ),
     sensor(
       'sensor-bathroom-fall',
-      'Détecteur de chute',
-      'Salle de bains',
+      t('Détecteur de chute', 'Fall detector'),
+      t('Salle de bains', 'Bathroom'),
       'fall_detection',
       'ONLINE',
       96,
       -8,
       'DEMO-FALL',
-      'DÉMO',
+      t('DÉMO', 'DEMO'),
     ),
     sensor(
       'sensor-living-smoke',
-      'Détecteur de fumée',
-      'Séjour',
+      t('Détecteur de fumée', 'Smoke detector'),
+      t('Séjour', 'Living room'),
       'smoke',
       'ONLINE',
       94,
       -14,
       'DEMO-SMOKE',
-      'DÉMO',
+      t('DÉMO', 'DEMO'),
     ),
     sensor(
       'sensor-kitchen-water',
-      'Détecteur de fuite d’eau',
-      'Cuisine',
+      t('Détecteur de fuite d’eau', 'Water leak detector'),
+      t('Cuisine', 'Kitchen'),
       'water_leak',
       'ONLINE',
       91,
       -11,
       'DEMO-WATER',
-      'DÉMO',
+      t('DÉMO', 'DEMO'),
     ),
   ];
 
@@ -943,18 +1034,27 @@ function createDemoSession() {
     levels: [
       {
         id: 'level-ground',
-        name: 'Rez-de-chaussée',
+        name: t('Rez-de-chaussée', 'Ground floor'),
         floor: 0,
         order: 0,
         width: 760,
         height: 520,
         scaleCmPerUnit: 5,
         rooms: [
-          room(ROOM_IDS.entry, 'Entrée', 'ENTRANCE', 0, 0, 150, 170, 7),
-          room(ROOM_IDS.living, 'Séjour', 'LIVING_ROOM', 170, 0, 340, 300, 28),
-          room(ROOM_IDS.kitchen, 'Cuisine', 'KITCHEN', 530, 0, 210, 250, 16),
-          room(ROOM_IDS.bedroom, 'Chambre', 'BEDROOM', 0, 190, 245, 300, 19),
-          room(ROOM_IDS.bathroom, 'Salle de bains', 'BATHROOM', 265, 330, 180, 160, 8),
+          room(ROOM_IDS.entry, t('Entrée', 'Entrance'), 'ENTRANCE', 0, 0, 150, 170, 7),
+          room(ROOM_IDS.living, t('Séjour', 'Living room'), 'LIVING_ROOM', 170, 0, 340, 300, 28),
+          room(ROOM_IDS.kitchen, t('Cuisine', 'Kitchen'), 'KITCHEN', 530, 0, 210, 250, 16),
+          room(ROOM_IDS.bedroom, t('Chambre', 'Bedroom'), 'BEDROOM', 0, 190, 245, 300, 19),
+          room(
+            ROOM_IDS.bathroom,
+            t('Salle de bains', 'Bathroom'),
+            'BATHROOM',
+            265,
+            330,
+            180,
+            160,
+            8,
+          ),
         ],
         openings: [
           {
@@ -1090,7 +1190,10 @@ function createDemoSession() {
         openingId: device.id.includes('door') ? 'door-main' : null,
         targetType: device.id.includes('door') ? ('OPENING' as const) : ('ROOM' as const),
         targetId: device.id.includes('door') ? 'door-main' : (device.room?.id ?? ROOM_IDS.living),
-        placementNote: 'Position fictive pour la démonstration.',
+        placementNote: t(
+          'Position fictive pour la démonstration.',
+          'Fictional position for the demo.',
+        ),
         capabilityBindings: device.capabilities.map((capability) => ({
           sensorId: capability.sensorId,
           capability: capability.capability,
@@ -1149,68 +1252,86 @@ function createDemoSession() {
     scheduleItem(
       'visit-today',
       'VISIT',
-      'Passage de Sophie, aide à domicile',
+      t('Passage de Sophie, aide à domicile', 'Visit from Sophie, home help'),
       careVisitStart(),
-      'Aide au repas',
+      t('Aide au repas', 'Help with meals'),
     ),
     scheduleItem(
       'appointment-tomorrow',
       'APPOINTMENT',
-      'Rendez-vous chez le médecin',
+      t('Rendez-vous chez le médecin', 'Doctor’s appointment'),
       doctorStart(),
-      'Cabinet du Dr Bernard',
+      t('Cabinet du Dr Bernard', 'Dr Bernard’s practice'),
     ),
-    scheduleItem('visit-weekend', 'VISIT', 'Déjeuner avec Claire', 3 * DAY, 'Visite familiale'),
+    scheduleItem(
+      'visit-weekend',
+      'VISIT',
+      t('Déjeuner avec Claire', 'Lunch with Claire'),
+      3 * DAY,
+      t('Visite familiale', 'Family visit'),
+    ),
   ];
   const journal: JournalItem[] = [
     journalEntry(
       'journal-1',
       'NOTE',
-      'Une matinée bien rythmée',
-      'Jeanne a pris son petit-déjeuner puis s’est installée dans le séjour.',
+      t('Une matinée bien rythmée', 'A well-paced morning'),
+      t(
+        'Jeanne a pris son petit-déjeuner puis s’est installée dans le séjour.',
+        'Jeanne had breakfast, then settled in the living room.',
+      ),
       lastWakeUp() + 2 * HOUR,
     ),
     journalEntry(
       'journal-2',
       'VISIT',
-      'Visite de Claire',
-      'Un moment partagé autour d’un café.',
+      t('Visite de Claire', 'Claire’s visit'),
+      t('Un moment partagé autour d’un café.', 'A moment shared over coffee.'),
       -DAY,
     ),
     journalEntry(
       'journal-3',
       'ALERT',
-      'Porte d’entrée',
-      'Claire a vérifié le passage et refermé la porte.',
+      t('Porte d’entrée', 'Front door'),
+      t(
+        'Claire a vérifié le passage et refermé la porte.',
+        'Claire checked the doorway and closed the door.',
+      ),
       -2 * DAY,
     ),
     journalEntry(
       'journal-4',
       'APPOINTMENT',
-      'Rendez-vous médical',
-      'Consultation de suivi avec le Dr Bernard.',
+      t('Rendez-vous médical', 'Medical appointment'),
+      t('Consultation de suivi avec le Dr Bernard.', 'Follow-up consultation with Dr Bernard.'),
       -3 * DAY,
     ),
     journalEntry(
       'journal-5',
       'NOTE',
-      'Repas du dimanche',
-      'Déjeuner familial chez Jeanne.',
+      t('Repas du dimanche', 'Sunday meal'),
+      t('Déjeuner familial chez Jeanne.', 'Family lunch at Jeanne’s.'),
       -4 * DAY,
     ),
     journalEntry(
       'journal-6',
       'MOOD',
-      'Humeur du jour',
-      'Jeanne s’est dite de bonne humeur.',
+      t('Humeur du jour', 'Mood of the day'),
+      t('Jeanne s’est dite de bonne humeur.', 'Jeanne said she was in a good mood.'),
       -5 * DAY,
     ),
-    journalEntry('journal-7', 'VISIT', 'Passage de Sophie', 'Aide à domicile le matin.', -6 * DAY),
+    journalEntry(
+      'journal-7',
+      'VISIT',
+      t('Passage de Sophie', 'Sophie’s visit'),
+      t('Aide à domicile le matin.', 'Home help in the morning.'),
+      -6 * DAY,
+    ),
     journalEntry(
       'journal-8',
       'NOTE',
-      'La radio était allumée',
-      'France Inter dans le séjour.',
+      t('La radio était allumée', 'The radio was on'),
+      t('France Inter dans le séjour.', 'France Inter in the living room.'),
       -7 * DAY,
     ),
   ];
@@ -1222,7 +1343,10 @@ function createDemoSession() {
       {
         id: 'liaison-task-meds',
         kind: 'TASK',
-        body: 'Appeler la pharmacie pour renouveler le traitement.',
+        body: t(
+          'Appeler la pharmacie pour renouveler le traitement.',
+          'Call the pharmacy to renew the prescription.',
+        ),
         tags: ['TREATMENT'],
         createdAt: iso(-2 * HOUR),
         author: { id: 'person-claire', displayName: 'Claire Martin' },
@@ -1234,7 +1358,10 @@ function createDemoSession() {
       {
         id: 'liaison-note-breakfast',
         kind: 'NOTE',
-        body: 'Jeanne a apprécié son petit-déjeuner et a parlé de sa promenade de la veille.',
+        body: t(
+          'Jeanne a apprécié son petit-déjeuner et a parlé de sa promenade de la veille.',
+          'Jeanne enjoyed her breakfast and talked about yesterday’s walk.',
+        ),
         tags: ['MEAL', 'MOOD'],
         createdAt: iso(lastWakeUp() + 90 * MINUTE),
         author: { id: 'person-sophie', displayName: 'Sophie Bernard' },
@@ -1246,7 +1373,7 @@ function createDemoSession() {
       {
         id: 'liaison-task-flowers',
         kind: 'TASK',
-        body: 'Penser à arroser les plantes du balcon.',
+        body: t('Penser à arroser les plantes du balcon.', 'Remember to water the balcony plants.'),
         tags: [],
         createdAt: iso(-DAY),
         author: { id: 'person-claire', displayName: 'Claire Martin' },
@@ -1258,7 +1385,10 @@ function createDemoSession() {
       {
         id: 'liaison-note-weekend',
         kind: 'NOTE',
-        body: 'Le déjeuner de dimanche est confirmé. Claire apporte le dessert.',
+        body: t(
+          'Le déjeuner de dimanche est confirmé. Claire apporte le dessert.',
+          'Sunday lunch is confirmed. Claire is bringing dessert.',
+        ),
         tags: ['MEAL'],
         createdAt: iso(-DAY),
         author: { id: 'person-luc', displayName: 'Luc Martin' },
@@ -1282,7 +1412,7 @@ function createDemoSession() {
         visitorName: 'Sophie Bernard',
         startsAt: iso(careVisitStart()),
         endsAt: iso(careVisitEnd()),
-        notes: 'Aide au repas',
+        notes: t('Aide au repas', 'Help with meals'),
         completedAt: null,
         completedBy: null,
       },
@@ -1291,7 +1421,7 @@ function createDemoSession() {
         visitorName: 'Claire Martin',
         startsAt: iso(3 * DAY),
         endsAt: iso(3 * DAY + 2 * HOUR),
-        notes: 'Déjeuner en famille',
+        notes: t('Déjeuner en famille', 'Family lunch'),
         completedAt: null,
         completedBy: null,
       },
@@ -1300,7 +1430,7 @@ function createDemoSession() {
         visitorName: 'Luc Martin',
         startsAt: iso(-DAY),
         endsAt: iso(-DAY + 2 * HOUR),
-        notes: 'Courses et promenade',
+        notes: t('Courses et promenade', 'Shopping and a walk'),
         completedAt: iso(-DAY + 2 * HOUR),
         completedBy: { id: 'person-luc', displayName: 'Luc Martin' },
       },
@@ -1308,18 +1438,18 @@ function createDemoSession() {
     appointments: [
       {
         id: 'appointment-tomorrow',
-        title: 'Rendez-vous chez le médecin',
+        title: t('Rendez-vous chez le médecin', 'Doctor’s appointment'),
         startsAt: iso(doctorStart()),
         endsAt: iso(doctorEnd()),
-        location: 'Cabinet du Dr Bernard',
-        notes: 'Apporter les derniers résultats.',
+        location: t('Cabinet du Dr Bernard', 'Dr Bernard’s practice'),
+        notes: t('Apporter les derniers résultats.', 'Bring the latest results.'),
       },
       {
         id: 'appointment-past',
-        title: 'Coiffeuse à domicile',
+        title: t('Coiffeuse à domicile', 'Home hairdresser'),
         startsAt: iso(-4 * DAY),
         endsAt: iso(-4 * DAY + HOUR),
-        location: 'Maison',
+        location: t('Maison', 'Home'),
         notes: null,
       },
     ],
@@ -1331,20 +1461,40 @@ function createDemoSession() {
   liaison.openTasks = liaison.items.filter((item) => item.kind === 'TASK' && !item.completedAt);
 
   const people: TrustedPerson[] = [
-    person('person-claire', 'Claire', 'Martin', 'Fille', 'OWNER', true, 0, true, true),
-    person('person-luc', 'Luc', 'Martin', 'Fils', 'CAREGIVER', true, 1, true, false),
+    person(
+      'person-claire',
+      'Claire',
+      'Martin',
+      t('Fille', 'Daughter'),
+      'OWNER',
+      true,
+      0,
+      true,
+      true,
+    ),
+    person('person-luc', 'Luc', 'Martin', t('Fils', 'Son'), 'CAREGIVER', true, 1, true, false),
     person(
       'person-sophie',
       'Sophie',
       'Bernard',
-      'Aide à domicile',
+      t('Aide à domicile', 'Home help'),
       'VIEWER',
       false,
       2,
       true,
       false,
     ),
-    person('person-marie', 'Marie', 'Martin', 'Petite-fille', null, false, 3, false, false),
+    person(
+      'person-marie',
+      'Marie',
+      'Martin',
+      t('Petite-fille', 'Granddaughter'),
+      null,
+      false,
+      3,
+      false,
+      false,
+    ),
   ];
 
   const rules: AlertRuleSettings = {
@@ -1365,11 +1515,11 @@ function createDemoSession() {
       {
         id: 'calendar-visit-today',
         type: 'VISIT',
-        title: 'Sophie, aide à domicile',
+        title: t('Sophie, aide à domicile', 'Sophie, home help'),
         startsAt: iso(careVisitStart()),
         endsAt: iso(careVisitEnd()),
-        detail: 'Visite',
-        notes: 'Aide au repas',
+        detail: t('Visite', 'Visit'),
+        notes: t('Aide au repas', 'Help with meals'),
         seriesId: 'series-care',
         recurrence: 'WEEKLY',
         recurrenceUntil: iso(30 * DAY),
@@ -1377,11 +1527,11 @@ function createDemoSession() {
       {
         id: 'calendar-doctor',
         type: 'APPOINTMENT',
-        title: 'Rendez-vous chez le médecin',
+        title: t('Rendez-vous chez le médecin', 'Doctor’s appointment'),
         startsAt: iso(doctorStart()),
         endsAt: iso(doctorEnd()),
-        detail: 'Cabinet du Dr Bernard',
-        notes: 'Apporter les derniers résultats.',
+        detail: t('Cabinet du Dr Bernard', 'Dr Bernard’s practice'),
+        notes: t('Apporter les derniers résultats.', 'Bring the latest results.'),
         seriesId: null,
         recurrence: 'NONE',
         recurrenceUntil: null,
@@ -1389,11 +1539,11 @@ function createDemoSession() {
       {
         id: 'calendar-claire',
         type: 'VISIT',
-        title: 'Déjeuner avec Claire',
+        title: t('Déjeuner avec Claire', 'Lunch with Claire'),
         startsAt: iso(3 * DAY),
         endsAt: iso(3 * DAY + 2 * HOUR),
-        detail: 'Visite',
-        notes: 'Déjeuner en famille',
+        detail: t('Visite', 'Visit'),
+        notes: t('Déjeuner en famille', 'Family lunch'),
         seriesId: null,
         recurrence: 'NONE',
         recurrenceUntil: null,
@@ -1401,10 +1551,10 @@ function createDemoSession() {
       {
         id: 'calendar-past',
         type: 'APPOINTMENT',
-        title: 'Coiffeuse à domicile',
+        title: t('Coiffeuse à domicile', 'Home hairdresser'),
         startsAt: iso(-4 * DAY),
         endsAt: iso(-4 * DAY + HOUR),
-        detail: 'Maison',
+        detail: t('Maison', 'Home'),
         notes: null,
         seriesId: null,
         recurrence: 'NONE',
@@ -1474,11 +1624,11 @@ function sensor(
   const roomId =
     Object.entries(ROOM_IDS).find(([key]) => {
       const names: Record<string, string> = {
-        entry: 'Entrée',
-        living: 'Séjour',
-        kitchen: 'Cuisine',
-        bedroom: 'Chambre',
-        bathroom: 'Salle de bains',
+        entry: t('Entrée', 'Entrance'),
+        living: t('Séjour', 'Living room'),
+        kitchen: t('Cuisine', 'Kitchen'),
+        bedroom: t('Chambre', 'Bedroom'),
+        bathroom: t('Salle de bains', 'Bathroom'),
       };
       return names[key] === roomName;
     })?.[1] ?? ROOM_IDS.living;
@@ -1496,7 +1646,10 @@ function sensor(
     installationStatus: state === 'ATTENTION' ? 'ATTENTION' : 'OPERATIONAL',
     enabled: true,
     placementConfirmedAt: iso(-30 * DAY),
-    placementNote: 'Installé et vérifié dans ce foyer de démonstration.',
+    placementNote: t(
+      'Installé et vérifié dans ce foyer de démonstration.',
+      'Installed and checked in this demo home.',
+    ),
     lastSeenAt: iso(minutesAgo * MINUTE),
     batteryPercent,
     capabilities: [
@@ -1523,7 +1676,7 @@ function sensor(
               sensorId: `${id}-humidity`,
               entityId: `sensor.${id}_humidity`,
               capability: 'humidity',
-              label: 'Humidité',
+              label: t('Humidité', 'Humidity'),
               primary: false,
               status,
               value: { value: 48 },
@@ -1547,12 +1700,12 @@ function capabilityLabel(capability: string) {
   return (
     (
       {
-        motion: 'Mouvement',
-        contact: 'Ouverture',
-        temperature: 'Température',
-        humidity: 'Humidité',
-        power: 'Puissance',
-        occupancy: 'Présence',
+        motion: t('Mouvement', 'Motion'),
+        contact: t('Ouverture', 'Opening'),
+        temperature: t('Température', 'Temperature'),
+        humidity: t('Humidité', 'Humidity'),
+        power: t('Puissance', 'Power'),
+        occupancy: t('Présence', 'Presence'),
       } as Record<string, string>
     )[capability] ?? capability
   );
@@ -1593,8 +1746,17 @@ function createScreenSnapshot(): ScreenSnapshot {
     },
     schedule: [],
   };
-  state.message = 'Bonjour Jeanne, on pense à vous ! À tout à l’heure, Claire ❤️';
-  state.messages = [state.message, 'Le rendez-vous est demain à 10 h. Claire vient vous chercher.'];
+  state.message = t(
+    'Bonjour Jeanne, on pense à vous ! À tout à l’heure, Claire ❤️',
+    'Hello Jeanne, thinking of you! See you soon, Claire ❤️',
+  );
+  state.messages = [
+    state.message,
+    t(
+      'Le rendez-vous est demain à 10 h. Claire vient vous chercher.',
+      'The appointment is tomorrow at 10 am. Claire is picking you up.',
+    ),
+  ];
   state.messageIntervalSeconds = 30;
   state.messageAuthor = 'Claire Martin';
   state.messageUpdatedAt = Date.now() - 20 * MINUTE;
@@ -1642,19 +1804,19 @@ function createScreenSnapshot(): ScreenSnapshot {
   state.call = null;
   state.tvControl = {
     id: 'tv-living-room',
-    name: 'Télévision du séjour',
+    name: t('Télévision du séjour', 'Living room TV'),
     manufacturer: 'Samsung',
     model: 'The Frame',
     protocols: ['cec', 'network'],
     homeAssistantEntityId: 'media_player.sejour',
-    homeAssistantName: 'Télévision du séjour',
+    homeAssistantName: t('Télévision du séjour', 'Living room TV'),
   };
   state.activity = [
     {
       id: 'screen-activity-1',
       kind: 'message',
-      title: 'Message envoyé',
-      detail: 'Bonjour Jeanne, on pense à vous !',
+      title: t('Message envoyé', 'Message sent'),
+      detail: t('Bonjour Jeanne, on pense à vous !', 'Hello Jeanne, thinking of you!'),
       actor: 'Claire Martin',
       createdAt: Date.now() - 20 * MINUTE,
       status: 'applied',
@@ -1662,7 +1824,7 @@ function createScreenSnapshot(): ScreenSnapshot {
     {
       id: 'screen-activity-2',
       kind: 'content',
-      title: 'Photo affichée',
+      title: t('Photo affichée', 'Photo shown'),
       detail: 'Le jardin au printemps',
       actor: 'Claire Martin',
       createdAt: Date.now() - 2 * HOUR,
@@ -1671,8 +1833,8 @@ function createScreenSnapshot(): ScreenSnapshot {
     {
       id: 'screen-activity-3',
       kind: 'appointment',
-      title: 'Rendez-vous ajouté',
-      detail: 'Demain à 10 h · Dr Bernard',
+      title: t('Rendez-vous ajouté', 'Appointment added'),
+      detail: t('Demain à 10 h · Dr Bernard', 'Tomorrow at 10 am · Dr Bernard'),
       actor: 'Claire Martin',
       createdAt: Date.now() - DAY,
       status: 'applied',
@@ -1702,7 +1864,7 @@ function createScreenSnapshot(): ScreenSnapshot {
         id: 'visit-weekend',
         type: 'visit',
         pictogram: 'family',
-        title: 'Déjeuner avec Claire',
+        title: t('Déjeuner avec Claire', 'Lunch with Claire'),
         startsAt: iso(3 * DAY),
       },
     ],
@@ -1782,10 +1944,12 @@ function person(
 }
 
 let demoSession: DemoSession = createDemoSession();
+let demoSessionLocale = appLocale();
 let demoNotificationPreferences = { ...DEFAULT_NOTIFICATION_PREFERENCES };
 
 export function resetDemoSession() {
   demoSession = createDemoSession();
+  demoSessionLocale = appLocale();
   demoNotificationPreferences = { ...DEFAULT_NOTIFICATION_PREFERENCES };
 }
 
@@ -1818,6 +1982,8 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
   const [pathname, search = ''] = path.split('?');
   const params = new URLSearchParams(search);
   const method = init?.method?.toUpperCase() ?? 'GET';
+  // The fictional home is written in one language: switching languages starts it afresh.
+  if (demoSessionLocale !== appLocale()) resetDemoSession();
   const body =
     typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : {};
   const state = demoSession;
@@ -1891,7 +2057,7 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
         scheduledAt: Date.now() + HOUR,
         createdAt: Date.now(),
         actor: 'Claire Martin',
-        title: 'Contenu programmé',
+        title: t('Contenu programmé', 'Scheduled content'),
       },
     ];
     return state.screen as T;
@@ -2018,7 +2184,7 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
       ...alert,
       sensor: {
         id: 'sensor-entry-door',
-        sourceName: 'Porte d’entrée',
+        sourceName: t('Porte d’entrée', 'Front door'),
         capability: 'contact',
         unit: null,
       },
@@ -2080,7 +2246,7 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
         `person-demo-${Date.now()}`,
         typeof body.firstName === 'string' ? body.firstName : 'Alex',
         typeof body.lastName === 'string' ? body.lastName : 'Martin',
-        typeof body.relation === 'string' ? body.relation : 'Proche',
+        typeof body.relation === 'string' ? body.relation : t('Proche', 'Relative'),
         null,
         Boolean(body.isEmergency),
         state.people.length,
@@ -2152,12 +2318,12 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
             ? body.title
             : typeof body.visitorName === 'string'
               ? body.visitorName
-              : 'Visite',
+              : t('Visite', 'Visit'),
         startsAt: typeof body.startsAt === 'string' ? body.startsAt : iso(HOUR),
         endsAt: typeof body.endsAt === 'string' ? body.endsAt : null,
         detail:
           body.type === 'VISIT'
-            ? 'Visite'
+            ? t('Visite', 'Visit')
             : typeof body.location === 'string'
               ? body.location
               : null,
@@ -2194,22 +2360,28 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
         id: `demo-simulation-${Date.now()}-1`,
         capability: 'motion',
         quality: 'GOOD',
-        payload: { label: 'Passage simulé dans le séjour', state: 'observed' },
+        payload: {
+          label: t('Passage simulé dans le séjour', 'Simulated movement in the living room'),
+          state: 'observed',
+        },
         occurredAt: iso(),
-        room: 'Séjour',
+        room: t('Séjour', 'Living room'),
         sensor: {
           entityId: 'sensor-demo-simulation',
-          room: { id: ROOM_IDS.living, name: 'Séjour' },
+          room: { id: ROOM_IDS.living, name: t('Séjour', 'Living room') },
         },
       },
       {
         id: `demo-simulation-${Date.now()}-2`,
         capability: 'contact',
         quality: 'GOOD',
-        payload: { label: 'Événement de démonstration', state: 'observed' },
+        payload: { label: t('Événement de démonstration', 'Demo event'), state: 'observed' },
         occurredAt: iso(-MINUTE),
-        room: 'Entrée',
-        sensor: { entityId: 'sensor-demo-door', room: { id: ROOM_IDS.entry, name: 'Entrée' } },
+        room: t('Entrée', 'Entrance'),
+        sensor: {
+          entityId: 'sensor-demo-door',
+          room: { id: ROOM_IDS.entry, name: t('Entrée', 'Entrance') },
+        },
       },
     );
     return { accepted: 2, duplicates: 0 } as T;
@@ -2233,8 +2405,8 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
       detectedDevice: {
         ...sensor(
           'sensor-new-demo',
-          'Nouveau détecteur',
-          'Séjour',
+          t('Nouveau détecteur', 'New detector'),
+          t('Séjour', 'Living room'),
           'motion',
           'ONLINE',
           100,
@@ -2257,7 +2429,8 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
     if (body.roomId === null) device.room = null;
     else if (typeof body.roomId === 'string') {
       const name =
-        state.homeSummary.rooms.find((item) => item.id === body.roomId)?.name ?? 'Séjour';
+        state.homeSummary.rooms.find((item) => item.id === body.roomId)?.name ??
+        t('Séjour', 'Living room');
       device.room = { id: body.roomId, name, kind: name.toUpperCase().replaceAll(' ', '_') };
     }
     state.sensorDevices.push(device);
@@ -2271,16 +2444,31 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
   }
   if (pathname.startsWith('/sensor-devices/') && pathname.includes('/placement-guide'))
     return {
-      title: 'Positionner le capteur',
-      summary: 'Choisissez un emplacement dégagé et adapté à son usage.',
+      title: t('Positionner le capteur', 'Position the sensor'),
+      summary: t(
+        'Choisissez un emplacement dégagé et adapté à son usage.',
+        'Choose a clear spot suited to its use.',
+      ),
       steps: [
-        'Placez le capteur dans la pièce concernée.',
-        'Évitez les sources de chaleur et les objets métalliques.',
-        'Vérifiez le signal depuis le logement.',
+        t('Placez le capteur dans la pièce concernée.', 'Place the sensor in the relevant room.'),
+        t(
+          'Évitez les sources de chaleur et les objets métalliques.',
+          'Avoid heat sources and metal objects.',
+        ),
+        t('Vérifiez le signal depuis le logement.', 'Check the signal from the home.'),
       ],
-      avoid: ['Derrière un meuble métallique', 'À proximité immédiate d’un radiateur'],
-      testInstruction: 'Déclenchez le capteur pour vérifier qu’il répond.',
-      safetyNote: 'Un capteur apporte un repère et ne remplace pas une visite.',
+      avoid: [
+        'Derrière un meuble métallique',
+        t('À proximité immédiate d’un radiateur', 'Right next to a radiator'),
+      ],
+      testInstruction: t(
+        'Déclenchez le capteur pour vérifier qu’il répond.',
+        'Trigger the sensor to check that it responds.',
+      ),
+      safetyNote: t(
+        'Un capteur apporte un repère et ne remplace pas une visite.',
+        'A sensor gives a cue and does not replace a visit.',
+      ),
     } as T;
   if (pathname.includes('/verification-sessions'))
     return {
@@ -2338,18 +2526,27 @@ const DEMO_USER: CurrentUser = {
 const DEMO_SCENARIOS: SimulationScenario[] = [
   {
     id: 'morning-routine',
-    title: 'Matinée habituelle',
-    description: 'Quelques passages dans la cuisine, le séjour et la salle de bains.',
+    title: t('Matinée habituelle', 'Usual morning'),
+    description: t(
+      'Quelques passages dans la cuisine, le séjour et la salle de bains.',
+      'A few movements in the kitchen, living room and bathroom.',
+    ),
   },
   {
     id: 'door-open',
-    title: 'Porte ouverte plus longtemps',
-    description: 'Une ouverture suivie de mouvements à proximité.',
+    title: t('Porte ouverte plus longtemps', 'Door open longer'),
+    description: t(
+      'Une ouverture suivie de mouvements à proximité.',
+      'An opening followed by nearby movement.',
+    ),
   },
   {
     id: 'quiet-morning',
-    title: 'Matinée plus calme',
-    description: 'Peu de mouvements observés au début de la journée.',
+    title: t('Matinée plus calme', 'Quieter morning'),
+    description: t(
+      'Peu de mouvements observés au début de la journée.',
+      'Little movement observed at the start of the day.',
+    ),
   },
 ];
 

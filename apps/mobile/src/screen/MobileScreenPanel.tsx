@@ -6,6 +6,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { mobileApi, type ScreenTvStatus } from '../api';
 import type { SavedServer } from '../discovery/types';
 import { MobileScreenTabs } from './MobileScreenTabs';
+import { tr } from '../locale';
 
 const c = {
   navy: '#0B2948',
@@ -48,23 +49,23 @@ export function MobileScreenPanel({
     ? (snapshot?.state.media.find((item) => item.id === playback.mediaId) ?? null)
     : null;
   const currentContent = snapshot?.state.call
-    ? 'Appel en cours'
+    ? tr('Appel en cours', 'Call in progress')
     : playback?.asleep
-      ? 'TV au repos'
-      : (currentMedia?.title ?? 'Écran d’accueil');
+      ? tr('TV au repos', 'TV resting')
+      : (currentMedia?.title ?? tr('Écran d’accueil', 'Home screen'));
   const playbackLabel = !snapshot
-    ? 'Chargement…'
+    ? tr('Chargement…', 'Loading…')
     : !snapshot.online
-      ? 'Écran hors ligne'
+      ? tr('Écran hors ligne', 'Screen offline')
       : snapshot.state.call
-        ? 'En communication'
+        ? tr('En communication', 'On a call')
         : playback?.asleep
-          ? 'Au repos'
+          ? tr('Au repos', 'Resting')
           : playback?.paused
-            ? 'En pause'
+            ? tr('En pause', 'Paused')
             : currentMedia
-              ? 'En cours de lecture'
-              : 'En attente';
+              ? tr('En cours de lecture', 'Now playing')
+              : tr('En attente', 'Waiting');
 
   const tvStatus = tvStatusQuery.data;
   const nowSeconds = Date.now() / 1000;
@@ -76,17 +77,23 @@ export function MobileScreenPanel({
   const connectedOutputs = tvStatus?.display?.connected ?? [];
   const videoOutputLabel = !tvStatus
     ? tvStatusQuery.isPending
-      ? 'Chargement…'
-      : 'État HDMI indisponible'
+      ? tr('Chargement…', 'Loading…')
+      : tr('État HDMI indisponible', 'HDMI status unavailable')
     : !tvStatus.installed
-      ? 'Agent vidéo absent'
+      ? tr('Agent vidéo absent', 'Video agent missing')
       : !displayFresh
-        ? 'État HDMI indisponible'
+        ? tr('État HDMI indisponible', 'HDMI status unavailable')
         : videoOutputReady
-          ? `Sortie ${tvStatus.display?.selected} · ${tvStatus.display?.mode}`
+          ? tr(
+              `Sortie ${tvStatus.display?.selected} · ${tvStatus.display?.mode}`,
+              `Output ${tvStatus.display?.selected} · ${tvStatus.display?.mode}`,
+            )
           : connectedOutputs.length > 0
-            ? `${connectedOutputs.join(', ')} détectée sans mode actif`
-            : 'Aucune sortie vidéo détectée';
+            ? tr(
+                `${connectedOutputs.join(', ')} détectée sans mode actif`,
+                `${connectedOutputs.join(', ')} detected with no active mode`,
+              )
+            : tr('Aucune sortie vidéo détectée', 'No video output detected');
   const cecFresh =
     typeof tvStatus?.cec?.updatedAt === 'number' && nowSeconds - tvStatus.cec.updatedAt < 45;
   const cecReady =
@@ -97,11 +104,11 @@ export function MobileScreenPanel({
       : tvStatus.cec.activeSourceSent === true);
   const cecLabel = !tvStatus
     ? tvStatusQuery.isPending
-      ? 'Chargement…'
-      : 'État CEC indisponible'
+      ? tr('Chargement…', 'Loading…')
+      : tr('État CEC indisponible', 'CEC status unavailable')
     : cecReady
-      ? 'CEC opérationnel'
-      : 'CEC à vérifier';
+      ? tr('CEC opérationnel', 'CEC working')
+      : tr('CEC à vérifier', 'CEC to check');
   const selectedNetworkTv = tvStatus?.networkTv?.id ? tvStatus.networkTv : undefined;
   const networkStatusFresh =
     typeof tvStatus?.networkTvStatus?.updatedAt === 'number' &&
@@ -112,25 +119,34 @@ export function MobileScreenPanel({
   );
   const networkStatusLabel = !tvStatus
     ? tvStatusQuery.isPending
-      ? 'Chargement…'
-      : 'Réseau : état indisponible'
+      ? tr('Chargement…', 'Loading…')
+      : tr('Réseau : état indisponible', 'Network: status unavailable')
     : !selectedNetworkTv
-      ? 'Réseau : TV non associée'
+      ? tr('Réseau : TV non associée', 'Network: TV not paired')
       : networkReachable
-        ? `Réseau : ${selectedNetworkTv.name ?? 'TV'} joignable`
+        ? tr(
+            `Réseau : ${selectedNetworkTv.name ?? 'TV'} joignable`,
+            `Network: ${selectedNetworkTv.name ?? 'TV'} reachable`,
+          )
         : tvStatus.homeAssistantTv?.available
-          ? `Réseau : ${selectedNetworkTv.name ?? 'TV'} disponible via Home Assistant`
-          : `Réseau : ${selectedNetworkTv.name ?? 'TV'} en veille`;
+          ? tr(
+              `Réseau : ${selectedNetworkTv.name ?? 'TV'} disponible via Home Assistant`,
+              `Network: ${selectedNetworkTv.name ?? 'TV'} available through Home Assistant`,
+            )
+          : tr(
+              `Réseau : ${selectedNetworkTv.name ?? 'TV'} en veille`,
+              `Network: ${selectedNetworkTv.name ?? 'TV'} on standby`,
+            );
   const tvReclaimReady = Boolean(cecReady || networkControlReady);
   const statusTone =
     snapshot?.online && videoOutputReady ? 'ready' : snapshot?.online ? 'warning' : 'offline';
   const statusLabel = !snapshot
-    ? 'État de l’écran indisponible'
+    ? tr('État de l’écran indisponible', 'Screen status unavailable')
     : !snapshot.online
-      ? 'Écran hors ligne'
+      ? tr('Écran hors ligne', 'Screen offline')
       : videoOutputReady
-        ? 'TV connectée'
-        : 'TV à vérifier';
+        ? tr('TV connectée', 'TV connected')
+        : tr('TV à vérifier', 'TV to check');
 
   const run = async (command: ScreenCommand) => {
     if (!snapshot?.grant.control || !snapshot.online || busy) return;
@@ -140,7 +156,11 @@ export function MobileScreenPanel({
       await mobileApi.screenCommand(server, token, command);
       onChanged();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'La commande n’a pas été envoyée.');
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : tr('La commande n’a pas été envoyée.', 'The command was not sent.'),
+      );
     } finally {
       setBusy(false);
     }
@@ -156,7 +176,11 @@ export function MobileScreenPanel({
       await tvStatusQuery.refetch();
       onChanged();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible de reprendre la TV.');
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : tr('Impossible de reprendre la TV.', 'Could not take over the TV.'),
+      );
     } finally {
       setBusy(false);
     }
@@ -166,12 +190,12 @@ export function MobileScreenPanel({
     <View style={s.page}>
       <View style={s.pageHeader}>
         <View>
-          <Text style={s.eyebrow}>ÉCRAN DU FOYER</Text>
-          <Text style={s.title}>Affichage TV</Text>
+          <Text style={s.eyebrow}>{tr('ÉCRAN DU FOYER', 'HOUSEHOLD SCREEN')}</Text>
+          <Text style={s.title}>{tr('Affichage TV', 'TV display')}</Text>
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${statusLabel}. Afficher l’état détaillé de la TV`}
+          accessibilityLabel={`${statusLabel}. ${tr('Afficher l’état détaillé de la TV', 'Show the detailed TV status')}`}
           accessibilityState={{ expanded: statusOpen }}
           style={s.statusButton}
           onPress={() => setStatusOpen(true)}
@@ -186,16 +210,16 @@ export function MobileScreenPanel({
             <Ionicons name="desktop-outline" size={18} color={c.blue} />
           </View>
           <View style={s.flex}>
-            <Text style={s.cardTitle}>Sur la TV maintenant</Text>
+            <Text style={s.cardTitle}>{tr('Sur la TV maintenant', 'On the TV now')}</Text>
             <Text style={s.detail}>
-              {snapshot?.state.tvControl?.name ?? 'TV non associée'} ·{' '}
-              {snapshot?.online ? 'En ligne' : 'Hors ligne'}
+              {snapshot?.state.tvControl?.name ?? tr('TV non associée', 'TV not paired')} ·{' '}
+              {snapshot?.online ? tr('En ligne', 'Online') : tr('Hors ligne', 'Offline')}
             </Text>
           </View>
           {snapshot?.paired ? (
-            <Text style={s.badge}>Associée</Text>
+            <Text style={s.badge}>{tr('Associée', 'Paired')}</Text>
           ) : (
-            <Text style={s.badgeMuted}>À préparer</Text>
+            <Text style={s.badgeMuted}>{tr('À préparer', 'To prepare')}</Text>
           )}
         </View>
         <View style={s.playback}>
@@ -214,7 +238,9 @@ export function MobileScreenPanel({
           </View>
           <View style={s.flex}>
             <Text style={s.eyebrow}>
-              {currentMedia ? playbackLabel.toLocaleUpperCase('fr-FR') : 'CONTENU AFFICHÉ'}
+              {currentMedia
+                ? playbackLabel.toLocaleUpperCase('fr-FR')
+                : tr('CONTENU AFFICHÉ', 'ON SCREEN')}
             </Text>
             <Text style={s.contentTitle}>{currentContent}</Text>
           </View>
@@ -236,7 +262,7 @@ export function MobileScreenPanel({
                     color={c.blue}
                   />
                   <Text style={s.commandLabel}>
-                    {playback?.paused || playback?.asleep ? 'Reprendre' : 'Pause'}
+                    {playback?.paused || playback?.asleep ? tr('Reprendre', 'Resume') : 'Pause'}
                   </Text>
                 </Pressable>
               ) : null}
@@ -247,7 +273,7 @@ export function MobileScreenPanel({
                   onPress={() => void run({ action: 'stop' })}
                 >
                   <Ionicons name="stop" size={17} color={c.blue} />
-                  <Text style={s.commandLabel}>Arrêter</Text>
+                  <Text style={s.commandLabel}>{tr('Arrêter', 'Stop')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -255,7 +281,7 @@ export function MobileScreenPanel({
               <Ionicons name="volume-low-outline" size={18} color={c.accent} />
               <Text style={s.volumeLabel}>Volume</Text>
               <Pressable
-                accessibilityLabel="Baisser le volume"
+                accessibilityLabel={tr('Baisser le volume', 'Volume down')}
                 disabled={busy}
                 style={s.volumeButton}
                 onPress={() =>
@@ -266,7 +292,7 @@ export function MobileScreenPanel({
               </Pressable>
               <Text style={s.volumeValue}>{playback?.volume ?? 0}%</Text>
               <Pressable
-                accessibilityLabel="Augmenter le volume"
+                accessibilityLabel={tr('Augmenter le volume', 'Volume up')}
                 disabled={busy}
                 style={s.volumeButton}
                 onPress={() =>
@@ -278,7 +304,12 @@ export function MobileScreenPanel({
             </View>
           </>
         ) : (
-          <Text style={s.detail}>Les commandes TV ne sont pas activées pour votre compte.</Text>
+          <Text style={s.detail}>
+            {tr(
+              'Les commandes TV ne sont pas activées pour votre compte.',
+              'TV controls are not enabled for your account.',
+            )}
+          </Text>
         )}
       </View>
 
@@ -292,10 +323,17 @@ export function MobileScreenPanel({
             </View>
             <View style={s.flex}>
               <Text style={s.cardTitle}>
-                {snapshot.visit ? 'Prochain rendez-vous' : 'Agenda à venir'}
+                {snapshot.visit
+                  ? tr('Prochain rendez-vous', 'Next appointment')
+                  : tr('Agenda à venir', 'Upcoming schedule')}
               </Text>
               {snapshot.visit ? (
-                <Text style={s.detail}>Visite de {snapshot.visit.visitorName}</Text>
+                <Text style={s.detail}>
+                  {tr(
+                    `Visite de ${snapshot.visit.visitorName}`,
+                    `Visit from ${snapshot.visit.visitorName}`,
+                  )}
+                </Text>
               ) : null}
             </View>
           </View>
@@ -345,16 +383,16 @@ export function MobileScreenPanel({
         <View style={s.statusOverlay}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Fermer la fenêtre d’état"
+            accessibilityLabel={tr('Fermer la fenêtre d’état', 'Close the status window')}
             style={s.statusBackdrop}
             onPress={() => setStatusOpen(false)}
           />
           <View style={s.statusDialog}>
             <View style={s.modalHeader}>
-              <Text style={s.statusModalTitle}>État de la TV</Text>
+              <Text style={s.statusModalTitle}>{tr('État de la TV', 'TV status')}</Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Fermer l’état de la TV"
+                accessibilityLabel={tr('Fermer l’état de la TV', 'Close the TV status')}
                 onPress={() => setStatusOpen(false)}
                 style={s.close}
               >
@@ -364,17 +402,26 @@ export function MobileScreenPanel({
             <View style={s.statusList}>
               <EquipmentLine
                 icon="camera-outline"
-                text={`Caméra ${snapshot?.capabilities.camera ? 'prête' : 'à tester'}`}
+                text={tr(
+                  `Caméra ${snapshot?.capabilities.camera ? 'prête' : 'à tester'}`,
+                  `Camera ${snapshot?.capabilities.camera ? 'ready' : 'to test'}`,
+                )}
                 ready={Boolean(snapshot?.capabilities.camera)}
               />
               <EquipmentLine
                 icon="mic-outline"
-                text={`Micro ${snapshot?.capabilities.microphone ? 'prêt' : 'à tester'}`}
+                text={tr(
+                  `Micro ${snapshot?.capabilities.microphone ? 'prêt' : 'à tester'}`,
+                  `Microphone ${snapshot?.capabilities.microphone ? 'ready' : 'to test'}`,
+                )}
                 ready={Boolean(snapshot?.capabilities.microphone)}
               />
               <EquipmentLine
                 icon="globe-outline"
-                text={`Navigateur kiosque ${snapshot?.online ? 'connecté' : 'à vérifier'}`}
+                text={tr(
+                  `Navigateur kiosque ${snapshot?.online ? 'connecté' : 'à vérifier'}`,
+                  `Kiosk browser ${snapshot?.online ? 'connected' : 'to check'}`,
+                )}
                 ready={Boolean(snapshot?.online)}
               />
               <EquipmentLine
@@ -384,7 +431,10 @@ export function MobileScreenPanel({
               />
               <EquipmentLine
                 icon={tvReclaimReady ? 'checkmark-circle-outline' : 'close-circle-outline'}
-                text={`Reprise TV ${tvReclaimReady ? 'disponible' : 'à vérifier'}`}
+                text={tr(
+                  `Reprise TV ${tvReclaimReady ? 'disponible' : 'à vérifier'}`,
+                  `TV takeover ${tvReclaimReady ? 'available' : 'to check'}`,
+                )}
                 ready={tvReclaimReady}
               />
               <EquipmentLine icon="power-outline" text={cecLabel} ready={Boolean(cecReady)} />
@@ -408,7 +458,9 @@ export function MobileScreenPanel({
               >
                 <Ionicons name="power-outline" size={18} color="#fff" />
                 <Text style={s.reclaimButtonText}>
-                  {busy ? 'Reprise en cours…' : 'Reprendre la TV'}
+                  {busy
+                    ? tr('Reprise en cours…', 'Taking over…')
+                    : tr('Reprendre la TV', 'Take over the TV')}
                 </Text>
               </Pressable>
             ) : null}

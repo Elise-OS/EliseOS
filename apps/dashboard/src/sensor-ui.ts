@@ -1,3 +1,4 @@
+import { tr } from './screen-locale';
 import { deviceSupportsCategory, type RoomSensorCategory } from '@michel/contracts';
 
 export type SensorRoom = {
@@ -72,7 +73,10 @@ export async function sensorRequest<T>(url: string, init?: RequestInit): Promise
         'message' in result &&
         typeof result.message === 'string'
         ? result.message
-        : `Connexion impossible (${response.status}).`,
+        : tr(
+            `Connexion impossible (${response.status}).`,
+            `Connection failed (${response.status}).`,
+          ),
     );
   return result as T;
 }

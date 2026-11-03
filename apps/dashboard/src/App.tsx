@@ -650,6 +650,11 @@ function habitLabel(value: string, locale: Locale): string {
     DINNER: ['Dîner', 'Dinner'],
     BEDTIME: ['Coucher', 'Bedtime'],
     NIGHT: ['Nuit', 'Night'],
+    // Habits named during the first setup keep their French names.
+    Lever: ['Lever', 'Waking up'],
+    Déjeuner: ['Déjeuner', 'Lunch'],
+    Dîner: ['Dîner', 'Dinner'],
+    Coucher: ['Coucher', 'Bedtime'],
   };
   return (
     labels[value]?.[locale === 'fr' ? 0 : 1] ??
@@ -764,12 +769,15 @@ export function SimulationPanel({
   running,
   notice,
   onRun,
+  locale = 'fr',
 }: {
   scenarios: SimulationScenario[];
   running: string | null;
   notice: string;
   onRun: (scenario: string) => void;
+  locale?: Locale;
 }) {
+  const fr = locale === 'fr';
   return (
     <article className="settings-option-row settings-demo-row simulation-card">
       <div className="settings-option-copy">
@@ -777,11 +785,12 @@ export function SimulationPanel({
           <Radar />
         </span>
         <div>
-          <span className="eyebrow">Mode démonstration</span>
-          <h2>Tester une situation</h2>
+          <span className="eyebrow">{fr ? 'Mode démonstration' : 'Demo mode'}</span>
+          <h2>{fr ? 'Tester une situation' : 'Test a situation'}</h2>
           <p>
-            Ces scénarios utilisent le même parcours que les capteurs du domicile. Ils restent
-            réservés à cette installation de test.
+            {fr
+              ? 'Ces scénarios utilisent le même parcours que les capteurs du domicile. Ils restent réservés à cette installation de test.'
+              : 'These scenarios follow the same path as the home’s sensors. They are reserved for this test installation.'}
           </p>
         </div>
       </div>
@@ -797,7 +806,15 @@ export function SimulationPanel({
               <strong>{scenario.title}</strong>
               <small>{scenario.description}</small>
             </span>
-            <b>{running === scenario.id ? 'Simulation…' : 'Lancer'}</b>
+            <b>
+              {running === scenario.id
+                ? fr
+                  ? 'Simulation…'
+                  : 'Simulating…'
+                : fr
+                  ? 'Lancer'
+                  : 'Run'}
+            </b>
           </button>
         ))}
       </div>
@@ -2148,6 +2165,9 @@ export function App() {
     setLocale(nextLocale);
     window.localStorage.setItem('michel_locale', nextLocale);
   };
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
   const changeSidebarAutoHide = (enabled: boolean) => {
     setSidebarAutoHide(enabled);
     window.localStorage.setItem('elise_sidebar_auto_hide', String(enabled));
@@ -2494,12 +2514,20 @@ export function App() {
       const result = (await response.json()) as { accepted: number; duplicates: number };
       setSimulationNotice(
         result.accepted > 0
-          ? `${result.accepted} événement(s) ajouté(s) au journal d’activité.`
-          : 'Ce scénario avait déjà été appliqué.',
+          ? locale === 'fr'
+            ? `${result.accepted} événement(s) ajouté(s) au journal d’activité.`
+            : `${result.accepted} event(s) added to the activity log.`
+          : locale === 'fr'
+            ? 'Ce scénario avait déjà été appliqué.'
+            : 'This scenario had already been applied.',
       );
       await refresh();
     } else {
-      setSimulationNotice('La situation n’a pas pu être simulée. Réessayez dans un instant.');
+      setSimulationNotice(
+        locale === 'fr'
+          ? 'La situation n’a pas pu être simulée. Réessayez dans un instant.'
+          : 'The situation could not be simulated. Try again in a moment.',
+      );
     }
     setRunningSimulation(null);
   };
@@ -2668,9 +2696,19 @@ export function App() {
         <span className="boot-mark">
           <img src="/logo.png" alt="" />
         </span>
-        <h1>Élise est momentanément inaccessible</h1>
-        <p>Vérifiez que le service local est démarré, puis réessayez.</p>
-        <Button onClick={() => void refresh()}>Réessayer</Button>
+        <h1>
+          {locale === 'fr'
+            ? 'Élise est momentanément inaccessible'
+            : 'Élise is temporarily unreachable'}
+        </h1>
+        <p>
+          {locale === 'fr'
+            ? 'Vérifiez que le service local est démarré, puis réessayez.'
+            : 'Check that the local service is running, then try again.'}
+        </p>
+        <Button onClick={() => void refresh()}>
+          {locale === 'fr' ? 'Réessayer' : 'Try again'}
+        </Button>
       </main>
     );
   }
@@ -2699,7 +2737,7 @@ export function App() {
         <button
           className="mobile-close"
           onClick={() => setMenuOpen(false)}
-          aria-label="Fermer le menu"
+          aria-label={locale === 'fr' ? 'Fermer le menu' : 'Close the menu'}
         >
           <X />
         </button>
@@ -2764,7 +2802,7 @@ export function App() {
           <button
             className="mobile-menu"
             onClick={() => setMenuOpen(true)}
-            aria-label="Ouvrir le menu"
+            aria-label={locale === 'fr' ? 'Ouvrir le menu' : 'Open the menu'}
           >
             <Menu />
           </button>
@@ -3422,6 +3460,7 @@ export function App() {
                       running={runningSimulation}
                       notice={simulationNotice}
                       onRun={(scenario) => void runSimulation(scenario)}
+                      locale={locale}
                     />
                   )}
                 </div>

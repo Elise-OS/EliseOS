@@ -41,6 +41,7 @@ import type { Installation } from '@michel/contracts';
 import type { SavedServer } from './discovery/types';
 import { preferredServerUrls, rememberActiveServerUrl } from './discovery/helpers';
 import { isDemoServer, mockDemoRequest } from './demo/mock-api';
+import { appLocale, tr } from './locale';
 
 export interface Overview {
   onboardingRequired: boolean;
@@ -262,13 +263,18 @@ const fetchWithTimeout = async (
     if (parentSignal?.aborted) throw error;
     if (controller.signal.aborted) {
       throw new MobileApiError(
-        'Élise ne répond pas dans le délai attendu.',
+        tr('Élise ne répond pas dans le délai attendu.', 'Élise did not answer in time.'),
         'TIMEOUT',
         undefined,
         url,
       );
     }
-    throw new MobileApiError('Élise est momentanément injoignable.', 'NETWORK', undefined, url);
+    throw new MobileApiError(
+      tr('Élise est momentanément injoignable.', 'Élise is temporarily unreachable.'),
+      'NETWORK',
+      undefined,
+      url,
+    );
   } finally {
     clearTimeout(timeout);
     parentSignal?.removeEventListener('abort', abortFromParent);
@@ -294,6 +300,7 @@ const request = async <T>(
           ...init,
           headers: {
             accept: 'application/json',
+            'x-elise-locale': appLocale(),
             ...(typeof init?.body === 'string' ? { 'content-type': 'application/json' } : {}),
             ...(token ? { authorization: `Bearer ${token}` } : {}),
             ...init?.headers,
@@ -310,7 +317,10 @@ const request = async <T>(
   if (!response) {
     throw lastError instanceof Error
       ? lastError
-      : new MobileApiError('Élise est momentanément injoignable.', 'NETWORK');
+      : new MobileApiError(
+          tr('Élise est momentanément injoignable.', 'Élise is temporarily unreachable.'),
+          'NETWORK',
+        );
   }
   if (!response.ok) {
     throw new MobileApiError(`HTTP ${response.status}`, 'HTTP', response.status);

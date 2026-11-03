@@ -1,5 +1,8 @@
 import type { EquipmentCoverage, UpdateStatus } from '@michel/contracts';
+import { uiLocale } from '../screen-locale';
 import { DemoRouteNotFound, demoState, mockDemoRequest, resetDemoSession } from './scenario';
+
+const t = (fr: string, en: string) => (uiLocale() === 'fr' ? fr : en);
 
 export interface DemoResponse {
   status: number;
@@ -15,7 +18,10 @@ const atClock = (day: Date, hours: number, minutes = 0) => {
   return value;
 };
 
-export const UNAVAILABLE_IN_DEMO = 'Indisponible en démonstration : rien ne quitte cette page.';
+export const UNAVAILABLE_IN_DEMO = t(
+  'Indisponible en démonstration : rien ne quitte cette page.',
+  'Not available in the demo: nothing leaves this page.',
+);
 
 const unavailable = (): DemoResponse => ({ status: 403, body: { message: UNAVAILABLE_IN_DEMO } });
 
@@ -41,7 +47,10 @@ function createWebState() {
       id: 'medication-levothyrox',
       name: 'Levothyrox',
       dosage: '75 µg',
-      instructions: 'À jeun, avec un verre d’eau.',
+      instructions: t(
+        'À jeun, avec un verre d’eau.',
+        'On an empty stomach, with a glass of water.',
+      ),
       active: true,
       schedules: [
         {
@@ -57,7 +66,7 @@ function createWebState() {
       id: 'medication-doliprane',
       name: 'Doliprane',
       dosage: '500 mg',
-      instructions: 'Si douleur, pas plus de 3 par jour.',
+      instructions: t('Si douleur, pas plus de 3 par jour.', 'If in pain, no more than 3 a day.'),
       active: true,
       schedules: [
         {
@@ -73,9 +82,9 @@ function createWebState() {
   return {
     home: {
       id: 'home-martin',
-      name: 'Maison Martin',
+      name: t('Maison Martin', 'Martin home'),
       timezone: 'Europe/Paris',
-      type: 'Maison',
+      type: t('Maison', 'House'),
       address: 'Lyon',
       floorCount: 1,
       installationStatus: 'ACTIVE',
@@ -142,7 +151,7 @@ function household() {
         lastName: 'Martin',
         preferredName: 'Jeanne',
         birthDate: '1941-03-18',
-        spokenLanguage: 'Français',
+        spokenLanguage: t('Français', 'English'),
         formOfAddress: 'VOUS',
         photoUrl: null,
         primary: true,
@@ -158,33 +167,37 @@ function household() {
           visualDifficulty: false,
         },
         supportNeeds: [
-          { id: 'need-hearing', kind: 'HEARING', note: 'Parler distinctement, face à elle.' },
+          {
+            id: 'need-hearing',
+            kind: 'HEARING',
+            note: t('Parler distinctement, face à elle.', 'Speak clearly, facing her.'),
+          },
         ],
         habits: [
           {
             id: 'habit-wake',
-            kind: 'Lever',
+            kind: 'WAKE_UP',
             status: 'CONFIRMED',
             startMinute: 7 * 60 + 30,
             endMinute: 9 * 60,
           },
           {
             id: 'habit-lunch',
-            kind: 'Déjeuner',
+            kind: 'LUNCH',
             status: 'LEARNING',
             startMinute: 12 * 60,
             endMinute: 13 * 60 + 30,
           },
           {
             id: 'habit-dinner',
-            kind: 'Dîner',
+            kind: 'DINNER',
             status: 'LEARNING',
             startMinute: 19 * 60,
             endMinute: 20 * 60 + 30,
           },
           {
             id: 'habit-bed',
-            kind: 'Coucher',
+            kind: 'BEDTIME',
             status: 'CONFIRMED',
             startMinute: 21 * 60,
             endMinute: 23 * 60,
@@ -346,7 +359,7 @@ export function handleDemoRequest(method: string, path: string, rawBody?: string
     if (method === 'POST') {
       const created = {
         id: `medication-${Date.now()}`,
-        name: typeof body.name === 'string' ? body.name : 'Médicament',
+        name: typeof body.name === 'string' ? body.name : t('Médicament', 'Medication'),
         dosage: typeof body.dosage === 'string' ? body.dosage : '',
         instructions: typeof body.instructions === 'string' ? body.instructions : null,
         active: true,

@@ -39,6 +39,7 @@ import {
 import { registerPushNotifications } from '../src/notifications';
 import { MobilePreparation } from '../src/setup/MobilePreparation';
 import { MobileSetup, type Locale } from '../src/setup/MobileSetup';
+import { setAppLocale, tr } from '../src/locale';
 import { WelcomeExperience } from '../src/welcome/WelcomeExperience';
 import { colors } from '../src/theme';
 
@@ -74,11 +75,11 @@ const setupPreviewServer: DiscoveredServer = {
 };
 
 const relativeTime = (value?: string) => {
-  if (!value) return 'Aucune activité';
+  if (!value) return tr('Aucune activité', 'No activity');
   const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000));
-  if (minutes < 60) return `Il y a ${minutes} min`;
+  if (minutes < 60) return tr(`Il y a ${minutes} min`, `${minutes} min ago`);
   const hours = Math.round(minutes / 60);
-  return `Il y a ${hours} h`;
+  return tr(`Il y a ${hours} h`, `${hours} hr ago`);
 };
 
 const asDiscovered = (server: SavedServer): DiscoveredServer => {
@@ -96,6 +97,8 @@ export default function HomeScreen() {
   const incomingUrl = Linking.useURL();
   const [stage, setStage] = useState<Stage>('boot');
   const [locale, setLocale] = useState<Locale>('fr');
+  // Helpers outside React read the language from here; set it before children render.
+  setAppLocale(locale);
   const [servers, setServers] = useState<DiscoveredServer[]>([]);
   const [knownServers, setKnownServers] = useState<SavedServer[]>([]);
   const [server, setServer] = useState<SavedServer | null>(null);
@@ -430,8 +433,11 @@ export default function HomeScreen() {
   };
 
   const changeLocale = (next: Locale) => {
+    setAppLocale(next);
     setLocale(next);
     void AsyncStorage.setItem(LOCALE_KEY, next);
+    // Fetched texts (demo data, labels from the server) are fetched again in the new language.
+    void queryClient.invalidateQueries();
   };
 
   const completeSetup = async (accessToken: string, displayName: string) => {
@@ -942,7 +948,9 @@ export default function HomeScreen() {
               {locale === 'fr' ? 'SITUATION ACTUELLE' : 'CURRENT SITUATION'}
             </Text>
             <Text style={styles.statusTitle}>
-              {locale === 'fr' ? 'Tout semble normal' : 'Everything looks normal'}
+              {locale === 'fr'
+                ? tr('Tout semble normal', 'Everything looks normal')
+                : 'Everything looks normal'}
             </Text>
             <Text style={styles.statusDetail}>
               {locale === 'fr'
@@ -968,7 +976,9 @@ export default function HomeScreen() {
                 <Ionicons name="home-outline" size={20} color={colors.blue} />
               </View>
               <Text style={styles.metricLabel}>{locale === 'fr' ? 'PRÉSENCE' : 'PRESENCE'}</Text>
-              <Text style={styles.metricValue}>{locale === 'fr' ? 'À domicile' : 'At home'}</Text>
+              <Text style={styles.metricValue}>
+                {locale === 'fr' ? tr('À domicile', 'At home') : 'At home'}
+              </Text>
               <Text style={styles.metricDetail}>
                 {locale === 'fr' ? 'Configuration terminée' : 'Setup complete'}
               </Text>
@@ -1015,42 +1025,60 @@ export default function HomeScreen() {
 
   const status = offline
     ? {
-        title: 'Élise est inaccessible',
-        detail: 'Vérifiez le Raspberry Pi et votre connexion Wi-Fi.',
+        title: tr('Élise est inaccessible', 'Élise is unreachable'),
+        detail: tr(
+          'Vérifiez le Raspberry Pi et votre connexion Wi-Fi.',
+          'Check the Raspberry Pi and your Wi-Fi connection.',
+        ),
         tone: colors.red,
         icon: 'cloud-offline-outline' as const,
       }
     : overview?.onboardingRequired
       ? {
-          title: 'Foyer à finaliser',
-          detail: 'Terminez la configuration du foyer depuis le dashboard web.',
+          title: tr('Foyer à finaliser', 'Household to finish'),
+          detail: tr(
+            'Terminez la configuration du foyer depuis le dashboard web.',
+            'Finish setting up the household from the web dashboard.',
+          ),
           tone: colors.amber,
           icon: 'construct-outline' as const,
         }
       : overview?.reassurance === 'ATTENTION'
         ? {
-            title: 'Une situation demande votre attention',
-            detail: 'Consultez les alertes ouvertes ci-dessous.',
+            title: tr('Une situation demande votre attention', 'A situation needs your attention'),
+            detail: tr(
+              'Consultez les alertes ouvertes ci-dessous.',
+              'Review the open alerts below.',
+            ),
             tone: colors.amber,
             icon: 'alert-circle-outline' as const,
           }
         : overview?.reassurance === 'INSUFFICIENT_DATA'
           ? {
-              title: 'Données insuffisantes',
-              detail: 'Certains capteurs ne répondent pas correctement.',
+              title: tr('Données insuffisantes', 'Not enough data'),
+              detail: tr(
+                'Certains capteurs ne répondent pas correctement.',
+                'Some sensors are not responding correctly.',
+              ),
               tone: colors.amber,
               icon: 'help-circle-outline' as const,
             }
           : overview?.reassurance === 'LEARNING'
             ? {
-                title: 'Élise apprend les habitudes',
-                detail: `Jour ${overview.learningDays ?? 0} sur 14 d’apprentissage.`,
+                title: tr('Élise apprend les habitudes', 'Élise is learning the routine'),
+                detail: tr(
+                  `Jour ${overview.learningDays ?? 0} sur 14 d’apprentissage.`,
+                  `Learning day ${overview.learningDays ?? 0} of 14.`,
+                ),
                 tone: colors.accent,
                 icon: 'sparkles-outline' as const,
               }
             : {
-                title: 'Tout semble normal',
-                detail: 'Aucune situation inhabituelle détectée aujourd’hui.',
+                title: tr('Tout semble normal', 'Everything looks normal'),
+                detail: tr(
+                  'Aucune situation inhabituelle détectée aujourd’hui.',
+                  'No unusual situation detected today.',
+                ),
                 tone: colors.green,
                 icon: 'checkmark-circle-outline' as const,
               };
@@ -1069,7 +1097,9 @@ export default function HomeScreen() {
       >
         <View style={styles.dashboardHeader}>
           <View>
-            <Text style={styles.dashboardHello}>Bonjour {userName.split(' ')[0] || userName},</Text>
+            <Text style={styles.dashboardHello}>
+              {tr('Bonjour', 'Hello')} {userName.split(' ')[0] || userName},
+            </Text>
             <Text style={styles.dashboardHome}>
               {overview?.home?.name ?? server?.instanceName ?? 'Élise'}
             </Text>
@@ -1088,14 +1118,16 @@ export default function HomeScreen() {
         {offline && (
           <View style={styles.offlineBanner}>
             <Ionicons name="cloud-offline-outline" size={17} color="#fff" />
-            <Text style={styles.offlineBannerText}>Connexion locale interrompue</Text>
+            <Text style={styles.offlineBannerText}>
+              {tr('Connexion locale interrompue', 'Local connection lost')}
+            </Text>
           </View>
         )}
         <View style={[styles.statusCard, { borderColor: `${status.tone}55` }]}>
           <View style={[styles.statusIcon, { backgroundColor: status.tone }]}>
             <Ionicons name={status.icon} size={27} color="#fff" />
           </View>
-          <Text style={styles.statusLabel}>SITUATION ACTUELLE</Text>
+          <Text style={styles.statusLabel}>{tr('SITUATION ACTUELLE', 'CURRENT SITUATION')}</Text>
           <Text style={styles.statusTitle}>{status.title}</Text>
           <Text style={styles.statusDetail}>{status.detail}</Text>
         </View>
@@ -1104,33 +1136,39 @@ export default function HomeScreen() {
             <View style={styles.metricIcon}>
               <Ionicons name="pulse-outline" size={20} color={colors.blue} />
             </View>
-            <Text style={styles.metricLabel}>DERNIÈRE ACTIVITÉ</Text>
+            <Text style={styles.metricLabel}>{tr('DERNIÈRE ACTIVITÉ', 'LAST ACTIVITY')}</Text>
             <Text style={styles.metricValue}>
-              {offline ? 'Indisponible' : (overview?.lastActivity?.room ?? '—')}
+              {offline ? tr('Indisponible', 'Unavailable') : (overview?.lastActivity?.room ?? '—')}
             </Text>
             <Text style={styles.metricDetail}>
-              {offline ? 'État non actualisé' : relativeTime(overview?.lastActivity?.occurredAt)}
+              {offline
+                ? tr('État non actualisé', 'Status not refreshed')
+                : relativeTime(overview?.lastActivity?.occurredAt)}
             </Text>
           </View>
           <View style={styles.metricCard}>
             <View style={styles.metricIcon}>
               <Ionicons name="home-outline" size={20} color={colors.blue} />
             </View>
-            <Text style={styles.metricLabel}>PRÉSENCE ESTIMÉE</Text>
+            <Text style={styles.metricLabel}>{tr('PRÉSENCE ESTIMÉE', 'ESTIMATED PRESENCE')}</Text>
             <Text style={styles.metricValue}>
-              {offline || !overview?.home ? '—' : 'À domicile'}
+              {offline || !overview?.home ? '—' : tr('À domicile', 'At home')}
             </Text>
             <Text style={styles.metricDetail}>
-              {offline ? 'État non actualisé' : 'Selon l’activité locale'}
+              {offline
+                ? tr('État non actualisé', 'Status not refreshed')
+                : tr('Selon l’activité locale', 'Based on local activity')}
             </Text>
           </View>
         </View>
         <View style={styles.alertSection}>
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.sectionLabel}>ALERTES</Text>
+              <Text style={styles.sectionLabel}>{tr('ALERTES', 'ALERTS')}</Text>
               <Text style={styles.sectionTitle}>
-                {alerts.length ? `${alerts.length} en cours` : 'Aucune alerte'}
+                {alerts.length
+                  ? tr(`${alerts.length} en cours`, `${alerts.length} ongoing`)
+                  : tr('Aucune alerte', 'No alerts')}
               </Text>
             </View>
             <View style={[styles.alertCount, alerts.length > 0 && styles.alertCountActive]}>
@@ -1138,7 +1176,9 @@ export default function HomeScreen() {
             </View>
           </View>
           {offline ? (
-            <Text style={styles.emptyText}>Les alertes ne peuvent pas être actualisées.</Text>
+            <Text style={styles.emptyText}>
+              {tr('Les alertes ne peuvent pas être actualisées.', 'Alerts cannot be refreshed.')}
+            </Text>
           ) : alerts.length ? (
             alerts.slice(0, 2).map((alert) => (
               <View style={styles.alertRow} key={alert.id}>
@@ -1161,7 +1201,10 @@ export default function HomeScreen() {
             <View style={styles.emptyAlerts}>
               <Ionicons name="checkmark-circle-outline" size={24} color={colors.green} />
               <Text style={styles.emptyAlertsText}>
-                Aucune situation ne demande votre attention.
+                {tr(
+                  'Aucune situation ne demande votre attention.',
+                  'No situation needs your attention.',
+                )}
               </Text>
             </View>
           )}
@@ -1169,7 +1212,7 @@ export default function HomeScreen() {
         <View style={styles.dashboardFooter}>
           <Ionicons name="shield-checkmark-outline" size={16} color={colors.blue} />
           <Text style={styles.dashboardFooterText}>
-            Connecté localement à {server?.instanceName}
+            {tr('Connecté localement à', 'Connected locally to')} {server?.instanceName}
           </Text>
         </View>
       </ScrollView>

@@ -175,7 +175,22 @@ function roomWithArticle(
   room: Pick<HomeSummary['rooms'][number], 'kind' | 'name'>,
   locale: Locale,
 ) {
-  if (locale !== 'fr') return room.name;
+  if (locale !== 'fr') {
+    const english: Record<string, string> = {
+      LIVING_ROOM: 'the living room',
+      KITCHEN: 'the kitchen',
+      BEDROOM: 'the bedroom',
+      BATHROOM: 'the bathroom',
+      TOILET: 'the toilet',
+      ENTRANCE: 'the entrance',
+      HALLWAY: 'the hallway',
+      DINING_ROOM: 'the dining room',
+      GARAGE: 'the garage',
+      GARDEN: 'the garden',
+      TERRACE: 'the terrace',
+    };
+    return english[roomIconKey(room)] ?? room.name;
+  }
   const labels: Record<string, string> = {
     LIVING_ROOM: 'le salon',
     KITCHEN: 'la cuisine',

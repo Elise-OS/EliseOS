@@ -14,6 +14,7 @@ import {
 import * as Linking from 'expo-linking';
 import { mobileApi, type TrustedPerson } from '../api';
 import type { SavedServer } from '../discovery/types';
+import { tr } from '../locale';
 
 const c = {
   navy: '#0B2948',
@@ -58,14 +59,14 @@ const blankDraft = (): PersonDraft => ({
 
 const roleLabel = (role: MembershipRole | null) =>
   role === 'OWNER'
-    ? 'Propriétaire'
+    ? tr('Propriétaire', 'Owner')
     : role === 'ADMINISTRATOR'
-      ? 'Administrateur'
+      ? tr('Administrateur', 'Administrator')
       : role === 'CAREGIVER'
-        ? 'Aidant'
+        ? tr('Aidant', 'Caregiver')
         : role === 'VIEWER'
-          ? 'Lecture seule'
-          : 'Contact';
+          ? tr('Lecture seule', 'Read only')
+          : tr('Contact', 'Contact');
 
 export function MobilePeoplePanel({
   server,
@@ -96,7 +97,12 @@ export function MobilePeoplePanel({
       setPeople(await mobileApi.people(server, token));
       setNotice('');
     } catch {
-      setNotice('Les proches ne sont pas accessibles pour le moment.');
+      setNotice(
+        tr(
+          'Les proches ne sont pas accessibles pour le moment.',
+          'People are not available right now.',
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -135,12 +141,19 @@ export function MobilePeoplePanel({
       !draft.lastName.trim() ||
       (!draft.phone.trim() && !draft.email.trim())
     ) {
-      setError('Indiquez le nom et un moyen de contact.');
+      setError(
+        tr('Indiquez le nom et un moyen de contact.', 'Enter the name and a way to get in touch.'),
+      );
       return;
     }
     const needsNewAccess = draft.hasAccess && (!existing || !existing.hasAccount);
     if (needsNewAccess && (!draft.username.trim() || draft.temporaryPassword.length < 12)) {
-      setError('Un identifiant et un mot de passe temporaire de 12 caractères sont requis.');
+      setError(
+        tr(
+          'Un identifiant et un mot de passe temporaire de 12 caractères sont requis.',
+          'A username and a 12-character temporary password are required.',
+        ),
+      );
       return;
     }
 
@@ -192,7 +205,11 @@ export function MobilePeoplePanel({
       setDraft(blankDraft());
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Impossible d’enregistrer cette fiche.');
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : tr('Impossible d’enregistrer cette fiche.', 'This profile could not be saved.'),
+      );
     } finally {
       setSaving(false);
     }
@@ -201,17 +218,27 @@ export function MobilePeoplePanel({
   const access = (person: TrustedPerson, action: 'disable' | 'enable' | 'restore') => {
     const question =
       action === 'restore'
-        ? 'Restaurer cette fiche ? Son accès restera suspendu jusqu’à sa réactivation.'
-        : 'Confirmer cette modification d’accès ?';
+        ? tr(
+            'Restaurer cette fiche ? Son accès restera suspendu jusqu’à sa réactivation.',
+            'Restore this profile? Their access will stay suspended until it is reactivated.',
+          )
+        : tr('Confirmer cette modification d’accès ?', 'Confirm this access change?');
     Alert.alert(question, undefined, [
-      { text: 'Annuler', style: 'cancel' },
+      { text: tr('Annuler', 'Cancel'), style: 'cancel' },
       {
-        text: 'Confirmer',
+        text: tr('Confirmer', 'Confirm'),
         onPress: () => {
           void mobileApi
             .updatePersonAccess(server, token, person.id, { action })
             .then(load)
-            .catch(() => setNotice('La modification d’accès n’a pas abouti.'));
+            .catch(() =>
+              setNotice(
+                tr(
+                  'La modification d’accès n’a pas abouti.',
+                  'The access change did not go through.',
+                ),
+              ),
+            );
         },
       },
     ]);
@@ -226,26 +253,40 @@ export function MobilePeoplePanel({
       });
       setPasswordTarget(null);
       setTemporaryPassword('');
-      setNotice('Le mot de passe temporaire a été enregistré.');
+      setNotice(
+        tr('Le mot de passe temporaire a été enregistré.', 'The temporary password was saved.'),
+      );
     } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : 'La réinitialisation a échoué.');
+      setNotice(
+        cause instanceof Error
+          ? cause.message
+          : tr('La réinitialisation a échoué.', 'The reset failed.'),
+      );
     }
   };
 
   const archive = (person: TrustedPerson) =>
-    Alert.alert('Archiver cette fiche ?', 'Son historique sera conservé.', [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Archiver',
-        style: 'destructive',
-        onPress: () => {
-          void mobileApi
-            .archivePerson(server, token, person.id)
-            .then(load)
-            .catch(() => setNotice('La fiche n’a pas pu être archivée.'));
+    Alert.alert(
+      tr('Archiver cette fiche ?', 'Archive this profile?'),
+      tr('Son historique sera conservé.', 'Their history will be kept.'),
+      [
+        { text: tr('Annuler', 'Cancel'), style: 'cancel' },
+        {
+          text: tr('Archiver', 'Archive'),
+          style: 'destructive',
+          onPress: () => {
+            void mobileApi
+              .archivePerson(server, token, person.id)
+              .then(load)
+              .catch(() =>
+                setNotice(
+                  tr('La fiche n’a pas pu être archivée.', 'The profile could not be archived.'),
+                ),
+              );
+          },
         },
-      },
-    ]);
+      ],
+    );
 
   const visible = useMemo(
     () =>
@@ -278,40 +319,53 @@ export function MobilePeoplePanel({
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Retour aux réglages"
+          accessibilityLabel={tr('Retour aux réglages', 'Back to settings')}
           style={s.backButton}
           onPress={onBackToSettings}
         >
           <Ionicons name="arrow-back-outline" size={17} color={c.blue} />
-          <Text style={s.backButtonText}>Retour aux réglages</Text>
+          <Text style={s.backButtonText}>{tr('Retour aux réglages', 'Back to settings')}</Text>
         </Pressable>
         <View style={s.hero}>
           <View style={s.heroHeadingRow}>
             <View style={s.heroHeadingCopy}>
-              <Text style={s.heroEyebrow}>CERCLE DE CONFIANCE</Text>
-              <Text style={s.heroTitle}>Les proches</Text>
+              <Text style={s.heroEyebrow}>{tr('CERCLE DE CONFIANCE', 'CIRCLE OF TRUST')}</Text>
+              <Text style={s.heroTitle}>{tr('Les proches', 'People')}</Text>
             </View>
           </View>
-          <Text style={s.heroSubtitle}>Les bonnes personnes, avec le bon niveau d’accès.</Text>
+          <Text style={s.heroSubtitle}>
+            {tr(
+              'Les bonnes personnes, avec le bon niveau d’accès.',
+              'The right people, with the right level of access.',
+            )}
+          </Text>
           {canManage ? (
             <View style={s.heroFooter}>
               <Pressable accessibilityRole="button" style={s.addButton} onPress={() => edit()}>
                 <Ionicons name="add" size={19} color="#fff" />
-                <Text style={s.addText}>Ajouter un proche</Text>
+                <Text style={s.addText}>{tr('Ajouter un proche', 'Add a person')}</Text>
               </Pressable>
             </View>
           ) : null}
         </View>
 
         <View style={s.summary}>
-          <Summary icon="people-outline" value={activePeople} label="proches enregistrés" />
+          <Summary
+            icon="people-outline"
+            value={activePeople}
+            label={tr('proches enregistrés', 'people saved')}
+          />
           <View style={s.summaryDivider} />
-          <Summary icon="shield-checkmark-outline" value={activeAccess} label="accès à Élise" />
+          <Summary
+            icon="shield-checkmark-outline"
+            value={activeAccess}
+            label={tr('accès à Élise', 'with Élise access')}
+          />
           <View style={s.summaryDivider} />
           <Summary
             icon="notifications-outline"
             value={emergencyContacts}
-            label="contacts prioritaires"
+            label={tr('contacts prioritaires', 'priority contacts')}
           />
         </View>
 
@@ -320,9 +374,12 @@ export function MobilePeoplePanel({
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Rechercher par nom, lien ou email"
+            placeholder={tr(
+              'Rechercher par nom, lien ou email',
+              'Search by name, relationship or email',
+            )}
             placeholderTextColor="#92999f"
-            accessibilityLabel="Rechercher parmi les proches"
+            accessibilityLabel={tr('Rechercher parmi les proches', 'Search people')}
             style={s.searchInput}
           />
         </View>
@@ -334,10 +391,10 @@ export function MobilePeoplePanel({
         >
           {(
             [
-              ['ALL', 'Tous'],
-              ['ACCESS', 'Avec accès'],
-              ['EMERGENCY', 'Urgence'],
-              ['DISABLED', 'Désactivés'],
+              ['ALL', tr('Tous', 'All')],
+              ['ACCESS', tr('Avec accès', 'With access')],
+              ['EMERGENCY', tr('Urgence', 'Emergency')],
+              ['DISABLED', tr('Désactivés', 'Disabled')],
             ] as const
           ).map(([key, label]) => (
             <Pressable
@@ -357,12 +414,21 @@ export function MobilePeoplePanel({
             {notice}
           </Text>
         ) : null}
-        {loading ? <Text style={s.muted}>Chargement des proches…</Text> : null}
+        {loading ? (
+          <Text style={s.muted}>{tr('Chargement des proches…', 'Loading people…')}</Text>
+        ) : null}
         {!loading && !visible.length ? (
           <View style={s.empty}>
             <Ionicons name="people-outline" size={28} color={c.accent} />
-            <Text style={s.cardTitle}>Personne ne correspond à cette vue</Text>
-            <Text style={s.muted}>Modifiez la recherche ou choisissez un autre filtre.</Text>
+            <Text style={s.cardTitle}>
+              {tr('Personne ne correspond à cette vue', 'Nobody matches this view')}
+            </Text>
+            <Text style={s.muted}>
+              {tr(
+                'Modifiez la recherche ou choisissez un autre filtre.',
+                'Change the search or choose another filter.',
+              )}
+            </Text>
           </View>
         ) : null}
 
@@ -381,7 +447,9 @@ export function MobilePeoplePanel({
                 <Text style={s.cardTitle}>
                   {person.firstName} {person.lastName}
                 </Text>
-                <Text style={s.muted}>{person.relation || 'Lien non précisé'}</Text>
+                <Text style={s.muted}>
+                  {person.relation || tr('Lien non précisé', 'Relationship not specified')}
+                </Text>
               </View>
               {person.isEmergency ? (
                 <View style={s.priority}>
@@ -400,10 +468,16 @@ export function MobilePeoplePanel({
                 <Text style={s.roleText}>{roleLabel(person.role)}</Text>
               </View>
               {person.isEmergency ? (
-                <Text style={s.emergencyBadge}>Contact prioritaire</Text>
+                <Text style={s.emergencyBadge}>
+                  {tr('Contact prioritaire', 'Priority contact')}
+                </Text>
               ) : null}
-              {person.accessDisabled ? <Text style={s.disabledBadge}>Accès désactivé</Text> : null}
-              {person.archived ? <Text style={s.disabledBadge}>Archivé</Text> : null}
+              {person.accessDisabled ? (
+                <Text style={s.disabledBadge}>{tr('Accès désactivé', 'Access disabled')}</Text>
+              ) : null}
+              {person.archived ? (
+                <Text style={s.disabledBadge}>{tr('Archivé', 'Archived')}</Text>
+              ) : null}
             </View>
             {person.phone ? (
               <Pressable
@@ -433,21 +507,23 @@ export function MobilePeoplePanel({
               <Text style={[s.accessState, person.accessDisabled && s.accessOff]}>
                 {person.hasAccount
                   ? person.accessDisabled
-                    ? 'Accès suspendu'
-                    : 'Accès actif'
-                  : 'Contact uniquement'}
+                    ? tr('Accès suspendu', 'Access suspended')
+                    : tr('Accès actif', 'Access active')
+                  : tr('Contact uniquement', 'Contact only')}
               </Text>
-              {person.isCurrentUser ? <Text style={s.muted}>Votre compte</Text> : null}
+              {person.isCurrentUser ? (
+                <Text style={s.muted}>{tr('Votre compte', 'Your account')}</Text>
+              ) : null}
             </View>
             {canManage && !person.isCurrentUser ? (
               <View style={s.actions}>
                 <Pressable style={s.outlineButton} onPress={() => edit(person)}>
-                  <Text style={s.outlineText}>Voir la fiche</Text>
+                  <Text style={s.outlineText}>{tr('Voir la fiche', 'View profile')}</Text>
                   <Ionicons name="chevron-forward" size={16} color={c.blue} />
                 </Pressable>
                 {person.archived ? (
                   <Pressable style={s.actionButton} onPress={() => void access(person, 'restore')}>
-                    <Text style={s.actionText}>Restaurer</Text>
+                    <Text style={s.actionText}>{tr('Restaurer', 'Restore')}</Text>
                   </Pressable>
                 ) : person.hasAccount ? (
                   <Pressable
@@ -457,7 +533,9 @@ export function MobilePeoplePanel({
                     }
                   >
                     <Text style={s.actionText}>
-                      {person.accessDisabled ? 'Réactiver' : 'Suspendre'}
+                      {person.accessDisabled
+                        ? tr('Réactiver', 'Reactivate')
+                        : tr('Suspendre', 'Suspend')}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -469,12 +547,16 @@ export function MobilePeoplePanel({
                       setTemporaryPassword('');
                     }}
                   >
-                    <Text style={s.actionText}>Réinitialiser le mot de passe</Text>
+                    <Text style={s.actionText}>
+                      {tr('Réinitialiser le mot de passe', 'Reset the password')}
+                    </Text>
                   </Pressable>
                 ) : null}
                 {!person.archived ? (
                   <Pressable style={s.archiveButton} onPress={() => archive(person)}>
-                    <Text style={s.archiveText}>Archiver la fiche</Text>
+                    <Text style={s.archiveText}>
+                      {tr('Archiver la fiche', 'Archive the profile')}
+                    </Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -493,18 +575,20 @@ export function MobilePeoplePanel({
           <View style={s.modalHeader}>
             <View>
               <Text style={s.eyebrow}>
-                {editor === 'new' ? 'NOUVEAU PROCHE' : 'MODIFIER LA FICHE'}
+                {editor === 'new'
+                  ? tr('NOUVEAU PROCHE', 'NEW PERSON')
+                  : tr('MODIFIER LA FICHE', 'EDIT PROFILE')}
               </Text>
               <Text style={s.modalTitle}>
                 {editor === 'new'
-                  ? 'Ajouter au cercle'
+                  ? tr('Ajouter au cercle', 'Add to the circle')
                   : editor
                     ? `${editor.firstName} ${editor.lastName}`
                     : ''}
               </Text>
             </View>
             <Pressable
-              accessibilityLabel="Fermer"
+              accessibilityLabel={tr('Fermer', 'Close')}
               style={s.closeButton}
               onPress={() => setEditor(null)}
             >
@@ -513,17 +597,17 @@ export function MobilePeoplePanel({
           </View>
           <ScrollView contentContainerStyle={s.form} keyboardShouldPersistTaps="handled">
             <Field
-              label="Prénom"
+              label={tr('Prénom', 'First name')}
               value={draft.firstName}
               onChange={(value) => setDraft({ ...draft, firstName: value })}
             />
             <Field
-              label="Nom"
+              label={tr('Nom', 'Last name')}
               value={draft.lastName}
               onChange={(value) => setDraft({ ...draft, lastName: value })}
             />
             <Field
-              label="Téléphone"
+              label={tr('Téléphone', 'Phone')}
               keyboardType="phone-pad"
               value={draft.phone}
               onChange={(value) => setDraft({ ...draft, phone: value })}
@@ -535,20 +619,26 @@ export function MobilePeoplePanel({
               onChange={(value) => setDraft({ ...draft, email: value })}
             />
             <Field
-              label="Lien avec le résident"
+              label={tr('Lien avec le résident', 'Relationship to the resident')}
               value={draft.relation}
               onChange={(value) => setDraft({ ...draft, relation: value })}
             />
             <Toggle
-              label="Contact d’urgence"
-              detail="Visible dans l’ordre d’appel prioritaire."
+              label={tr('Contact d’urgence', 'Emergency contact')}
+              detail={tr(
+                'Visible dans l’ordre d’appel prioritaire.',
+                'Shown in the priority call order.',
+              )}
               value={draft.isEmergency}
               onChange={(value) => setDraft({ ...draft, isEmergency: value })}
             />
             {editor === 'new' || (editor && !editor.hasAccount) ? (
               <Toggle
-                label="Donner accès à Élise"
-                detail="Le mot de passe devra être changé à la première connexion."
+                label={tr('Donner accès à Élise', 'Give access to Élise')}
+                detail={tr(
+                  'Le mot de passe devra être changé à la première connexion.',
+                  'The password must be changed at first sign-in.',
+                )}
                 value={draft.hasAccess}
                 onChange={(value) => setDraft({ ...draft, hasAccess: value })}
               />
@@ -557,12 +647,14 @@ export function MobilePeoplePanel({
             editor !== null &&
             (editor === 'new' || editor.role !== 'OWNER') ? (
               <>
-                <Text style={s.fieldLabel}>Rôle dans Élise</Text>
+                <Text style={s.fieldLabel}>{tr('Rôle dans Élise', 'Role in Élise')}</Text>
                 <View style={s.roleChoices}>
                   {[
-                    ...(role === 'OWNER' ? [['ADMINISTRATOR', 'Administrateur'] as const] : []),
-                    ['CAREGIVER', 'Aidant'] as const,
-                    ['VIEWER', 'Lecture seule'] as const,
+                    ...(role === 'OWNER'
+                      ? [['ADMINISTRATOR', tr('Administrateur', 'Administrator')] as const]
+                      : []),
+                    ['CAREGIVER', tr('Aidant', 'Caregiver')] as const,
+                    ['VIEWER', tr('Lecture seule', 'Read only')] as const,
                   ].map(([value, label]) => (
                     <Pressable
                       key={value}
@@ -578,13 +670,16 @@ export function MobilePeoplePanel({
                 {editor === 'new' || !editor.hasAccount ? (
                   <>
                     <Field
-                      label="Identifiant"
+                      label={tr('Identifiant', 'Username')}
                       autoCapitalize="none"
                       value={draft.username}
                       onChange={(value) => setDraft({ ...draft, username: value })}
                     />
                     <Field
-                      label="Mot de passe temporaire (12 caractères minimum)"
+                      label={tr(
+                        'Mot de passe temporaire (12 caractères minimum)',
+                        'Temporary password (12 characters minimum)',
+                      )}
                       secure
                       value={draft.temporaryPassword}
                       onChange={(value) => setDraft({ ...draft, temporaryPassword: value })}
@@ -600,14 +695,16 @@ export function MobilePeoplePanel({
             ) : null}
             <View style={s.formActions}>
               <Pressable style={s.outlineButton} onPress={() => setEditor(null)}>
-                <Text style={s.outlineText}>Annuler</Text>
+                <Text style={s.outlineText}>{tr('Annuler', 'Cancel')}</Text>
               </Pressable>
               <Pressable
                 disabled={saving}
                 style={[s.saveButton, saving && s.disabled]}
                 onPress={() => void save()}
               >
-                <Text style={s.saveText}>{saving ? 'Enregistrement…' : 'Enregistrer'}</Text>
+                <Text style={s.saveText}>
+                  {saving ? tr('Enregistrement…', 'Saving…') : tr('Enregistrer', 'Save')}
+                </Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -622,9 +719,14 @@ export function MobilePeoplePanel({
       >
         <View style={s.passwordBackdrop}>
           <View style={s.passwordDialog}>
-            <Text style={s.modalTitle}>Nouveau mot de passe temporaire</Text>
+            <Text style={s.modalTitle}>
+              {tr('Nouveau mot de passe temporaire', 'New temporary password')}
+            </Text>
             <Text style={s.muted}>
-              12 caractères minimum. La personne devra le changer à la prochaine connexion.
+              {tr(
+                '12 caractères minimum. La personne devra le changer à la prochaine connexion.',
+                '12 characters minimum. They will have to change it at the next sign-in.',
+              )}
             </Text>
             <TextInput
               style={s.input}
@@ -632,18 +734,18 @@ export function MobilePeoplePanel({
               onChangeText={setTemporaryPassword}
               secureTextEntry
               autoCapitalize="none"
-              placeholder="Mot de passe temporaire"
+              placeholder={tr('Mot de passe temporaire', 'Temporary password')}
             />
             <View style={s.formActions}>
               <Pressable style={s.outlineButton} onPress={() => setPasswordTarget(null)}>
-                <Text style={s.outlineText}>Annuler</Text>
+                <Text style={s.outlineText}>{tr('Annuler', 'Cancel')}</Text>
               </Pressable>
               <Pressable
                 disabled={temporaryPassword.length < 12}
                 style={[s.saveButton, temporaryPassword.length < 12 && s.disabled]}
                 onPress={() => void resetPassword()}
               >
-                <Text style={s.saveText}>Enregistrer</Text>
+                <Text style={s.saveText}>{tr('Enregistrer', 'Save')}</Text>
               </Pressable>
             </View>
           </View>

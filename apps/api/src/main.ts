@@ -1,10 +1,15 @@
 import 'reflect-metadata';
 import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
-import { NestFactory } from '@nestjs/core';
+import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import {
+  LOCALE_HEADER,
+  LocaleExceptionFilter,
+  LocaleInterceptor,
+} from './platform/i18n/locale.interceptor';
 
 const mobileWebCorsOrigins = new Set([
   'http://localhost:8081',
@@ -21,13 +26,16 @@ const mobileWebCorsOptions: CorsOptions = {
     callback(null, origin && mobileWebCorsOrigins.has(origin) ? origin : false);
   },
   methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Accept', 'Authorization', 'Content-Type'],
+  allowedHeaders: ['Accept', 'Authorization', 'Content-Type', LOCALE_HEADER],
 };
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { cors: false });
   app.enableCors(mobileWebCorsOptions);
   app.setGlobalPrefix('api/v1');
+  // Texts Élise writes itself reach English-speaking caregivers in English.
+  app.useGlobalInterceptors(new LocaleInterceptor());
+  app.useGlobalFilters(new LocaleExceptionFilter(app.get(HttpAdapterHost).httpAdapter));
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cookieParser());
   app.enableShutdownHooks();

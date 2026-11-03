@@ -59,7 +59,7 @@ export function CameraNetworkOnboarding({
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState('');
   const [complete, setComplete] = useState(false);
-  const [name, setName] = useState(`Caméra ${roomName}`);
+  const [name, setName] = useState(fr ? `Caméra ${roomName}` : `${roomName} camera`);
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [consented, setConsented] = useState(false);

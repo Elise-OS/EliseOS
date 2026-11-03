@@ -13,6 +13,7 @@ import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } 
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { mobileApi, type ActivityItem, type Overview } from '../api';
 import type { SavedServer } from '../discovery/types';
+import { tr } from '../locale';
 import { caregiverPresenceCopy } from './presence-copy';
 import { friendlyValue, relativeTime, roomOf } from './formatters';
 import { dateKeyInZone, shiftDate } from './homeDates';
@@ -54,7 +55,22 @@ const sensorToneColors: Record<SensorTone, string> = {
 };
 
 function roomLabel(room: Pick<HomeSummary['rooms'][number], 'kind' | 'name'>, locale: 'fr' | 'en') {
-  if (locale !== 'fr') return room.name;
+  if (locale !== 'fr') {
+    const english: Record<string, string> = {
+      LIVING_ROOM: 'the living room',
+      KITCHEN: 'the kitchen',
+      BEDROOM: 'the bedroom',
+      BATHROOM: 'the bathroom',
+      TOILET: 'the toilet',
+      ENTRANCE: 'the entrance',
+      HALLWAY: 'the hallway',
+      DINING_ROOM: 'the dining room',
+      GARAGE: 'the garage',
+      GARDEN: 'the garden',
+      TERRACE: 'the terrace',
+    };
+    return english[room.kind] ?? room.name;
+  }
   const labels: Record<string, string> = {
     LIVING_ROOM: 'le salon',
     KITCHEN: 'la cuisine',
@@ -585,13 +601,16 @@ export function MobileWelcomePanel({
     ? (() => {
         const room = homeSummary.rooms.find(({ id }) => id === homeSummary.latestPresence?.roomId);
         return room
-          ? `Dernière détection dans ${roomLabel(room, locale)} à ${time(homeSummary.latestPresence.occurredAt)}.`
+          ? tr(
+              `Dernière détection dans ${roomLabel(room, locale)} à ${time(homeSummary.latestPresence.occurredAt)}.`,
+              `Last detected in ${roomLabel(room, locale)} at ${time(homeSummary.latestPresence.occurredAt)}.`,
+            )
           : '';
       })()
     : '';
   const narrative = homeSummary
     ? dayNarrative(homeSummary, todaySummary.data, previousSummary.data, locale)
-    : 'Le résumé de la journée se prépare.';
+    : tr('Le résumé de la journée se prépare.', 'The day’s summary is being prepared.');
   const appointmentTime = nextAppointment ? time(nextAppointment.startsAt) : '';
   const launchCall = async () => {
     if (!canStartCall || callPending) return;
@@ -626,7 +645,9 @@ export function MobileWelcomePanel({
           <View style={s.headerCopy}>
             <Text style={s.eyebrow}>{greetingDate}</Text>
             <View style={s.greetingRow}>
-              <Text style={s.greeting}>Bonjour {firstName},</Text>
+              <Text style={s.greeting}>
+                {tr('Bonjour', 'Hello')} {firstName},
+              </Text>
               <View style={s.headerActions}>
                 <Pressable
                   accessibilityRole="button"
@@ -702,7 +723,9 @@ export function MobileWelcomePanel({
                 </View>
               </View>
             </View>
-            <Text style={s.subtitle}>Élise veille sur {resident}.</Text>
+            <Text style={s.subtitle}>
+              {tr(`Élise veille sur ${resident}.`, `Élise is watching over ${resident}.`)}
+            </Text>
           </View>
         </View>
 
@@ -745,7 +768,7 @@ export function MobileWelcomePanel({
           <View style={s.card}>
             <View style={s.cardHeader}>
               <View style={[s.statusDot, homeSummary.alert && s.statusDotWarning]} />
-              <Text style={s.cardTitle}>En ce moment</Text>
+              <Text style={s.cardTitle}>{tr('En ce moment', 'Right now')}</Text>
               <Text style={s.timePill}>{time(homeSummary.to)}</Text>
             </View>
             <Text style={s.presenceText}>{presence}</Text>
@@ -763,19 +786,26 @@ export function MobileWelcomePanel({
           </View>
         ) : (
           <View style={s.card}>
-            <Text style={s.cardTitle}>En ce moment</Text>
-            <Text style={s.body}>Les informations du logement sont indisponibles.</Text>
+            <Text style={s.cardTitle}>{tr('En ce moment', 'Right now')}</Text>
+            <Text style={s.body}>
+              {tr(
+                'Les informations du logement sont indisponibles.',
+                'Home information is unavailable.',
+              )}
+            </Text>
           </View>
         )}
 
         <View style={s.card}>
           <View style={s.cardHeader}>
             <View style={s.statusDot} />
-            <Text style={s.cardTitle}>La journée de {resident.split(/\s+/)[0]}</Text>
+            <Text style={s.cardTitle}>
+              {tr(`La journée de ${resident.split(/\s+/)[0]}`, `${resident.split(/\s+/)[0]}’s day`)}
+            </Text>
           </View>
           <Text style={s.bodyLarge}>{narrative}</Text>
           <Pressable style={s.linkRow} onPress={() => onNavigate('activity')}>
-            <Text style={s.link}>Voir toute l’activité</Text>
+            <Text style={s.link}>{tr('Voir toute l’activité', 'View all activity')}</Text>
             <Ionicons name="chevron-forward" size={17} color={c.blue} />
           </Pressable>
         </View>
@@ -798,7 +828,9 @@ export function MobileWelcomePanel({
           </Svg>
           <View style={s.cardHeader}>
             <View style={[s.statusDot, s.essentialsDot]} />
-            <Text style={[s.cardTitle, s.essentialsTitle]}>Repères du quotidien</Text>
+            <Text style={[s.cardTitle, s.essentialsTitle]}>
+              {tr('Repères du quotidien', 'Daily essentials')}
+            </Text>
           </View>
           {essentials.length ? (
             <View style={s.sensorGrid}>
@@ -831,7 +863,10 @@ export function MobileWelcomePanel({
             </View>
           ) : (
             <Text style={s.body}>
-              Les repères apparaîtront ici lorsque les données du logement seront disponibles.
+              {tr(
+                'Les repères apparaîtront ici lorsque les données du logement seront disponibles.',
+                'Daily essentials will appear here once home data is available.',
+              )}
             </Text>
           )}
         </View>
@@ -839,15 +874,17 @@ export function MobileWelcomePanel({
         <View style={s.card}>
           <View style={s.cardHeader}>
             <Ionicons name="time-outline" size={18} color={c.accent} />
-            <Text style={s.cardTitle}>Derniers événements</Text>
+            <Text style={s.cardTitle}>{tr('Derniers événements', 'Latest events')}</Text>
             <Pressable onPress={() => onNavigate('activity')}>
-              <Text style={s.link}>Tout voir</Text>
+              <Text style={s.link}>{tr('Tout voir', 'View all')}</Text>
             </Pressable>
           </View>
           {recentEvents.map((item) => (
             <EventRow key={item.id} item={item} timezone={timezone} />
           ))}
-          {!recentEvents.length ? <Text style={s.body}>Aucun événement récent.</Text> : null}
+          {!recentEvents.length ? (
+            <Text style={s.body}>{tr('Aucun événement récent.', 'No recent events.')}</Text>
+          ) : null}
         </View>
       </ScrollView>
       <Modal
@@ -951,15 +988,15 @@ function capabilityLabel(capability: string) {
   return (
     (
       {
-        motion: 'Mouvement',
-        occupancy: 'Présence',
-        person_presence: 'Présence',
-        contact: 'Ouverture',
-        temperature: 'Température',
-        humidity: 'Humidité',
-        power: 'Puissance',
-        energy: 'Énergie',
-        button: 'Bouton d’appel',
+        motion: tr('Mouvement', 'Motion'),
+        occupancy: tr('Présence', 'Presence'),
+        person_presence: tr('Présence', 'Presence'),
+        contact: tr('Ouverture', 'Opening'),
+        temperature: tr('Température', 'Temperature'),
+        humidity: tr('Humidité', 'Humidity'),
+        power: tr('Puissance', 'Power'),
+        energy: tr('Énergie', 'Energy'),
+        button: tr('Bouton d’appel', 'Call button'),
       } as Record<string, string>
     )[capability] ?? capability
   );

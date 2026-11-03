@@ -1,4 +1,5 @@
 import { createElement, type ChangeEvent } from 'react';
+import { tr } from './locale';
 import type { MobileDateTimePickerProps } from './MobileDateTimePicker';
 
 const pad = (value: number) => String(value).padStart(2, '0');
@@ -42,7 +43,10 @@ export function MobileDateTimePicker({
     value: mode === 'date' ? dateInputValue(value) : timeInputValue(value),
     min: mode === 'date' && minimumDate ? dateInputValue(minimumDate) : undefined,
     step: mode === 'time' ? minuteInterval * 60 : undefined,
-    'aria-label': mode === 'date' ? 'Choisir la date' : 'Choisir l’heure',
+    'aria-label':
+      mode === 'date'
+        ? tr('Choisir la date', 'Choose the date')
+        : tr('Choisir l’heure', 'Choose the time'),
     onChange: handleChange,
     style: {
       boxSizing: 'border-box',

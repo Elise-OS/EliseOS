@@ -201,14 +201,14 @@ export interface ScreenActivity {
   status: 'pending' | 'applied' | 'failed' | 'expired';
 }
 export const appointmentPictograms = [
-  { value: 'calendar', label: 'Rendez-vous', emoji: '📅' },
-  { value: 'medical', label: 'Médecin / soins', emoji: '🩺' },
-  { value: 'hairdresser', label: 'Coiffeur', emoji: '✂️' },
-  { value: 'family', label: 'Famille / visite', emoji: '👋' },
-  { value: 'meal', label: 'Repas', emoji: '🍽️' },
-  { value: 'activity', label: 'Activité / sortie', emoji: '🎨' },
-  { value: 'walk', label: 'Promenade', emoji: '🌳' },
-  { value: 'transport', label: 'Transport', emoji: '🚗' },
+  { value: 'calendar', label: 'Rendez-vous', labelEn: 'Appointment', emoji: '📅' },
+  { value: 'medical', label: 'Médecin / soins', labelEn: 'Doctor / care', emoji: '🩺' },
+  { value: 'hairdresser', label: 'Coiffeur', labelEn: 'Hairdresser', emoji: '✂️' },
+  { value: 'family', label: 'Famille / visite', labelEn: 'Family / visit', emoji: '👋' },
+  { value: 'meal', label: 'Repas', labelEn: 'Meal', emoji: '🍽️' },
+  { value: 'activity', label: 'Activité / sortie', labelEn: 'Activity / outing', emoji: '🎨' },
+  { value: 'walk', label: 'Promenade', labelEn: 'Walk', emoji: '🌳' },
+  { value: 'transport', label: 'Transport', labelEn: 'Transport', emoji: '🚗' },
 ] as const;
 export const appointmentPictogramSchema = z.enum([
   'calendar',
