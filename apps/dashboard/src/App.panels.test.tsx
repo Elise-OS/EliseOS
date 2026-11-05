@@ -4,7 +4,6 @@ import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PeoplePanel } from './App';
-import { GoogleAccountSettings } from './GoogleAccountSettings';
 
 const roots: Root[] = [];
 
@@ -46,36 +45,5 @@ describe('People access design', () => {
     expect(viewer.textContent).not.toContain('Ajouter un proche');
     expect(owner.textContent).toContain('Ajouter un proche');
     expect(owner.textContent).toContain('contacts prioritaires');
-  });
-});
-
-describe('Google account setup', () => {
-  it('exposes a dedicated Google account section after loading settings', async () => {
-    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
-        Promise.resolve(
-          jsonResponse({
-            configured: false,
-            clientId: '',
-            redirectUri: null,
-            youtubeEnabled: true,
-            calendarEnabled: true,
-            youtubeConnected: false,
-          }),
-        ),
-      ),
-    );
-
-    const settings = mount(<GoogleAccountSettings locale="fr" />);
-
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(settings.textContent).toContain('Compte Google');
-    expect(settings.textContent).toContain('Un seul réglage pour vos playlists YouTube');
-    expect(settings.textContent).toContain('À configurer');
   });
 });

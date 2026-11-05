@@ -60,7 +60,6 @@ import { DataLoadingScreen } from './DataLoadingScreen';
 import { FRFlag, GBFlag } from './FlagIcons';
 import { RemoteAccessCard } from './RemoteAccessCard';
 import { ActivityPage } from './ActivityPage';
-import { GoogleAccountSettings } from './GoogleAccountSettings';
 import { UpdateCard } from './UpdateCard';
 import type { UpdateStatus } from '@michel/contracts';
 
@@ -2130,7 +2129,7 @@ export function App() {
   const [homeSection, setHomeSection] = useState<'OVERVIEW' | 'EDITOR'>('OVERVIEW');
   const [homeSensorCategory, setHomeSensorCategory] = useState<SafetyCategory | null>(null);
   const clearHomeSensorCategory = useCallback(() => setHomeSensorCategory(null), []);
-  const [settingsTab, setSettingsTab] = useState<'general' | 'google' | 'rules'>('general');
+  const [settingsTab, setSettingsTab] = useState<'general' | 'rules'>('general');
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
   const [homeEditorRoomId, setHomeEditorRoomId] = useState<string | null>(null);
@@ -3345,15 +3344,6 @@ export function App() {
               </button>
               <button
                 type="button"
-                className={settingsTab === 'google' ? 'is-selected' : ''}
-                aria-selected={settingsTab === 'google'}
-                onClick={() => setSettingsTab('google')}
-              >
-                <KeyRound aria-hidden="true" />{' '}
-                {locale === 'fr' ? 'Compte Google' : 'Google account'}
-              </button>
-              <button
-                type="button"
                 className={settingsTab === 'rules' ? 'is-selected' : ''}
                 aria-selected={settingsTab === 'rules'}
                 onClick={() => setSettingsTab('rules')}
@@ -3484,7 +3474,6 @@ export function App() {
                   onInstall={(version) => void installUpdate(version)}
                 />
               )}
-            {settingsTab === 'google' && <GoogleAccountSettings locale={locale} />}
             {settingsTab === 'rules' && alertRules && (
               <AlertRulesPanel
                 rules={alertRules}
