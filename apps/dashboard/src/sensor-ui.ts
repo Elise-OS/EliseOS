@@ -1,5 +1,5 @@
 import { tr } from './screen-locale';
-import { deviceSupportsCategory, type RoomSensorCategory } from '@michel/contracts';
+import { deviceSupportsCategory, type RoomSensorCategory } from '@elise/contracts';
 
 export type SensorRoom = {
   id: string;

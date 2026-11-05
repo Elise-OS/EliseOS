@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { ScreenSnapshot } from '@michel/contracts';
+import type { ScreenSnapshot } from '@elise/contracts';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { mobileApi, type WeatherCity } from '../api';

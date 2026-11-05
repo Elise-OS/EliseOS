@@ -54,11 +54,11 @@ jobs:
           target: api
           platforms: linux/amd64,linux/arm64
           push: false
-          tags: michel-os/api:ci
+          tags: elise-os/api:ci
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile.ai
           platforms: linux/amd64,linux/arm64
           push: false
-          tags: michel-os/ai:ci
+          tags: elise-os/ai:ci

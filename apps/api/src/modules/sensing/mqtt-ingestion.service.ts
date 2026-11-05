@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { MQTT_TOPICS } from '@michel/contracts';
-import { connectMichelMqtt } from '@michel/mqtt';
+import { MQTT_TOPICS } from '@elise/contracts';
+import { connectEliseMqtt } from '@elise/mqtt';
 import type { MqttClient } from 'mqtt';
 import { randomUUID } from 'node:crypto';
 import { IngestionService } from './ingestion.service';
@@ -44,9 +44,9 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
     if (process.env.MQTT_DISABLED === 'true') return;
     const username = process.env.MQTT_USERNAME;
     const password = process.env.MQTT_PASSWORD;
-    this.client = connectMichelMqtt({
+    this.client = connectEliseMqtt({
       url: process.env.MQTT_URL ?? 'mqtt://localhost:1883',
-      clientId: 'michel-core',
+      clientId: 'elise-core',
       ...(username ? { username } : {}),
       ...(password ? { password } : {}),
     });
@@ -62,8 +62,8 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
           'zigbee2mqtt/bridge/event',
           'zigbee2mqtt/bridge/response/permit_join',
           'zigbee2mqtt/bridge/response/device/remove',
-          'michel/v1/discovery',
-          'michel/v1/discovery/results/#',
+          'elise/v1/discovery',
+          'elise/v1/discovery/results/#',
         ],
         { qos: 1 },
       ),
@@ -96,7 +96,7 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
         }
         return;
       }
-      if (topic === 'michel/v1/discovery') {
+      if (topic === 'elise/v1/discovery') {
         void this.equipment
           .ingestDiscoverySnapshot(parsed)
           .catch((error: unknown) =>
@@ -104,7 +104,7 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
           );
         return;
       }
-      if (topic.startsWith('michel/v1/discovery/results/')) {
+      if (topic.startsWith('elise/v1/discovery/results/')) {
         const response = parsed as Record<string, unknown>;
         const commandId = typeof response.commandId === 'string' ? response.commandId : '';
         const pending = this.pendingDiscoveryCommands.get(commandId);
@@ -361,7 +361,7 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
       }, 20_000);
       this.pendingDiscoveryCommands.set(commandId, { resolve, reject, timer });
       this.client?.publish(
-        `michel/v1/discovery/commands/${commandId}`,
+        `elise/v1/discovery/commands/${commandId}`,
         JSON.stringify({ commandId, ...command }),
         { qos: 1 },
       );

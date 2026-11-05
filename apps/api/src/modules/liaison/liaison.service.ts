@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { LiaisonCreate, LiaisonQuery, LiaisonUpdate } from '@michel/contracts';
+import type { LiaisonCreate, LiaisonQuery, LiaisonUpdate } from '@elise/contracts';
 import { PrismaService } from '../../platform/prisma.service';
 import { activeMembership } from '../auth/access-policy';
 import { scheduledDate } from '../medications/medication-time';

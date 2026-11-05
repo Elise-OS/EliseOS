@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { createConnection, isIP } from 'node:net';
-import type { CameraNetworkDevice } from '@michel/contracts';
+import type { CameraNetworkDevice } from '@elise/contracts';
 
 const RTSP_PORTS = [554, 8554, 10554] as const;
 const PROBE_PORTS = [...RTSP_PORTS];
@@ -110,7 +110,7 @@ export class CameraNetworkDiscoveryService {
   }
 
   private ranges(): NetworkRange[] {
-    const configured = process.env.MICHEL_CAMERA_DISCOVERY_CIDRS ?? '192.168.1.0/24';
+    const configured = process.env.ELISE_CAMERA_DISCOVERY_CIDRS ?? '192.168.1.0/24';
     return configured.split(',').map((cidr) => parseRange(cidr));
   }
 

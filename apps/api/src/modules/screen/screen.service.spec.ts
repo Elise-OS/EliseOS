@@ -6,7 +6,7 @@ import {
   advanceScreenSchedule,
   screenIsQuiet,
   screenLocalTime,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import type { PrismaService } from '../../platform/prisma.service';
 import { scheduledDate } from '../medications/medication-time';
 function fixture() {

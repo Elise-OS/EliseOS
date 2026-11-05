@@ -176,15 +176,15 @@ def configure_webrtc(candidate: str) -> None:
         return
     with open(env_file, encoding="utf-8") as source:
         lines = source.read().splitlines()
-    lines = [line for line in lines if not line.startswith("MICHEL_WEBRTC_CANDIDATE=")]
-    lines.append(f"MICHEL_WEBRTC_CANDIDATE={candidate}")
+    lines = [line for line in lines if not line.startswith("ELISE_WEBRTC_CANDIDATE=")]
+    lines.append(f"ELISE_WEBRTC_CANDIDATE={candidate}")
     temporary = f"{env_file}.tmp"
     with open(temporary, "w", encoding="utf-8") as output:
         output.write("\n".join(lines) + "\n")
     os.chmod(temporary, 0o600)
     os.replace(temporary, env_file)
     compose = [
-        "docker", "compose", "--project-name", "michel-os", "--env-file", env_file,
+        "docker", "compose", "--project-name", "elise-os", "--env-file", env_file,
         "-f", os.path.join(COMPOSE_DIR, "compose.yaml"),
         "-f", os.path.join(COMPOSE_DIR, "compose.release.yaml"),
     ]

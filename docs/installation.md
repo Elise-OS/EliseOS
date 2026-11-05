@@ -48,7 +48,7 @@ elise uninstall
 
 `elise uninstall` conserve les données. La suppression définitive nécessite l’option explicite `--purge` et ne déconnecte jamais Tailscale.
 
-Les sauvegardes de production doivent être chiffrées. Ajoutez une clé publique `age` dans `MICHEL_BACKUP_RECIPIENT` dans `/etc/elise/elise.env` avant d’exécuter `elise backup`.
+Les sauvegardes de production doivent être chiffrées. Ajoutez une clé publique `age` dans `ELISE_BACKUP_RECIPIENT` dans `/etc/elise/elise.env` avant d’exécuter `elise backup`.
 
 ## Mise à jour sûre
 

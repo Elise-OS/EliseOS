@@ -2371,7 +2371,7 @@
 }
 
 /* ==========================================================================
-   Modern Sensor Management (Michel OS / Élise)
+   Modern Sensor Management (Élise OS / Élise)
    ========================================================================== */
 
 .modern-sensors-page {
@@ -5671,7 +5671,7 @@ p {
   font-weight: 800;
   cursor: pointer;
 }
-.michel-status {
+.elise-status {
   display: inline-flex;
   align-items: center;
   border-radius: 99px;
@@ -5681,15 +5681,15 @@ p {
   font-size: 11px;
   font-weight: 750;
 }
-.michel-status--attention {
+.elise-status--attention {
   background: #fae9d6;
   color: #815326;
 }
-.michel-status--urgent {
+.elise-status--urgent {
   background: #f9dcdc;
   color: #842d2d;
 }
-.michel-card {
+.elise-card {
   background: color-mix(in srgb, var(--paper) 92%, transparent);
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -5723,7 +5723,7 @@ p {
   margin-top: 9px;
   font-size: 25px;
 }
-.michel-button {
+.elise-button {
   border: 1px solid var(--navy);
   color: #fff;
   background: var(--navy);
@@ -5737,7 +5737,7 @@ p {
     transform 0.15s ease,
     background 0.15s ease;
 }
-.michel-button:hover {
+.elise-button:hover {
   transform: translateY(-1px);
   background: var(--navy-deep);
 }
@@ -5772,7 +5772,7 @@ p {
   display: grid;
   gap: 12px;
 }
-.michel-metric {
+.elise-metric {
   min-height: 89px;
   border: 1px solid var(--line);
   background: var(--paper);
@@ -5783,7 +5783,7 @@ p {
   gap: 12px;
   box-shadow: var(--shadow);
 }
-.michel-metric__icon {
+.elise-metric__icon {
   width: 42px;
   height: 42px;
   display: grid;
@@ -5792,23 +5792,23 @@ p {
   color: var(--navy);
   border-radius: 10px;
 }
-.michel-metric__icon svg {
+.elise-metric__icon svg {
   width: 20px;
 }
-.michel-metric span,
-.michel-metric strong,
-.michel-metric small {
+.elise-metric span,
+.elise-metric strong,
+.elise-metric small {
   display: block;
 }
-.michel-metric span {
+.elise-metric span {
   font-size: 11px;
   color: var(--muted);
 }
-.michel-metric strong {
+.elise-metric strong {
   color: var(--navy-deep);
   margin-top: 3px;
 }
-.michel-metric small {
+.elise-metric small {
   font-weight: 500;
   color: var(--muted);
   margin-top: 2px;
@@ -6026,7 +6026,7 @@ p {
   display: grid;
   place-items: center;
 }
-.placeholder-view .michel-card {
+.placeholder-view .elise-card {
   text-align: center;
   padding: 50px;
   max-width: 540px;
@@ -6362,8 +6362,8 @@ p {
 .remote-access-action small {
   color: var(--muted, #65736d);
 }
-.remote-access-action .michel-button svg,
-.remote-access-share .michel-button svg {
+.remote-access-action .elise-button svg,
+.remote-access-share .elise-button svg {
   width: 16px;
 }
 .remote-access-ready {
@@ -6434,7 +6434,7 @@ p {
   gap: 10px;
 }
 
-.remote-access-controls .michel-button svg {
+.remote-access-controls .elise-button svg {
   width: 16px;
 }
 .remote-access-share {
@@ -6462,7 +6462,7 @@ p {
   color: #397662;
 }
 .remote-access-share p,
-.remote-access-share .michel-button {
+.remote-access-share .elise-button {
   grid-column: 2;
   margin: 0;
 }
@@ -6470,7 +6470,7 @@ p {
   color: var(--muted, #65736d);
   line-height: 1.5;
 }
-.remote-access-share .michel-button {
+.remote-access-share .elise-button {
   justify-self: start;
   margin-top: 5px;
 }
@@ -8129,7 +8129,7 @@ footer svg:last-child {
   .top-actions {
     margin-left: auto;
   }
-  .top-actions .michel-status {
+  .top-actions .elise-status {
     display: none;
   }
   main {
@@ -13233,7 +13233,7 @@ footer svg:last-child {
   gap: 9px;
   margin-top: 22px;
 }
-.dose-actions .michel-button {
+.dose-actions .elise-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -13864,7 +13864,7 @@ textarea:focus-visible {
     align-items: stretch;
     flex-direction: column;
   }
-  .dose-actions .michel-button {
+  .dose-actions .elise-button {
     width: 100%;
   }
   .dose-history article {

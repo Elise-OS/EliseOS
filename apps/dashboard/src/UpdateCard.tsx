@@ -1,5 +1,5 @@
-import type { UpdateStatus } from '@michel/contracts';
-import { Button } from '@michel/ui';
+import type { UpdateStatus } from '@elise/contracts';
+import { Button } from '@elise/ui';
 import {
   Check,
   CircleAlert,
@@ -69,7 +69,7 @@ export function UpdateCard({
 
   return (
     <details
-      className="michel-card settings-section-card settings-disclosure update-card"
+      className="elise-card settings-section-card settings-disclosure update-card"
       data-testid="update-card"
     >
       <summary className="settings-section-heading update-card-heading">

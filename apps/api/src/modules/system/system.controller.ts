@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { updateCredentialsSchema } from '@michel/contracts';
+import { updateCredentialsSchema } from '@elise/contracts';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { PrismaService } from '../../platform/prisma.service';
@@ -43,8 +43,8 @@ export class SystemController {
     });
     return {
       status: 'ok',
-      service: 'michel-core',
-      version: process.env.MICHEL_VERSION ?? 'dev',
+      service: 'elise-core',
+      version: process.env.ELISE_VERSION ?? 'dev',
       localOnly: true,
       integrations: {
         homeAssistant: {

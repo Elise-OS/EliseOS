@@ -1,10 +1,10 @@
-import { homeSummarySchema } from '@michel/contracts';
+import { homeSummarySchema } from '@elise/contracts';
 import type {
   ActivityEvent,
   ActivitySequence,
   ActivitySummary,
   HomeSummary,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import {
   Activity,
   AlertTriangle,

@@ -6,7 +6,7 @@ import type {
   PlanRoom,
   RequestedRoom,
   SensorDevice,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -47,7 +47,7 @@ import {
 } from './HomeSetupOnboarding';
 import { RoomEquipmentPage } from './RoomEquipmentPage';
 import { StairEquipmentPage } from './StairEquipmentPage';
-import { retireFurniture } from '@michel/contracts';
+import { retireFurniture } from '@elise/contracts';
 import { sensorRequest } from './sensor-ui';
 import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';
 import { DataLoadingScreen } from './DataLoadingScreen';

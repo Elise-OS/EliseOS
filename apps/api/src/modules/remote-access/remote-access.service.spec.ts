@@ -1,7 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { Request } from 'express';
-import type { RemoteAccessStatus } from '@michel/contracts';
+import type { RemoteAccessStatus } from '@elise/contracts';
 import { RemoteAccessService } from './remote-access.service';
 
 const ready: RemoteAccessStatus = {
@@ -64,7 +64,7 @@ describe('RemoteAccessService', () => {
     };
     const agent = { status: vi.fn().mockResolvedValue(authorizing) };
     const remoteRequest = request('remote');
-    remoteRequest.cookies = { michel_session: 'secret' };
+    remoteRequest.cookies = { elise_session: 'secret' };
     const service = new RemoteAccessService(prisma as never, agent as never);
 
     await expect(service.status(remoteRequest)).resolves.toEqual({ ...authorizing, authUrl: null });

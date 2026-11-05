@@ -1369,13 +1369,13 @@ export type ScheduleItem = z.infer<typeof scheduleItemSchema>;
 export type RealtimeEvent = z.infer<typeof realtimeEventSchema>;
 
 export const MQTT_TOPICS = {
-  events: 'michel/v1/events',
-  entityStates: 'michel/v1/entity-states',
-  inventory: 'michel/v1/inventory',
-  inventoryRequest: 'michel/v1/inventory/request',
-  bridgeStatus: 'michel/v1/bridge/status',
-  commands: 'michel/v1/commands',
-  commandResults: 'michel/v1/commands/results',
+  events: 'elise/v1/events',
+  entityStates: 'elise/v1/entity-states',
+  inventory: 'elise/v1/inventory',
+  inventoryRequest: 'elise/v1/inventory/request',
+  bridgeStatus: 'elise/v1/bridge/status',
+  commands: 'elise/v1/commands',
+  commandResults: 'elise/v1/commands/results',
 } as const;
 
 export * from './screen.js';

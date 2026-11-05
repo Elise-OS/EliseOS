@@ -98,7 +98,7 @@ fi
 getent hosts github.com >/dev/null || fail "connexion Internet indisponible"
 
 http_port_preflight=8080
-[[ -f "$ELISE_CONFIG/elise.env" ]] && http_port_preflight="$(sed -n 's/^MICHEL_HTTP_PORT=//p' "$ELISE_CONFIG/elise.env" | tail -1)"
+[[ -f "$ELISE_CONFIG/elise.env" ]] && http_port_preflight="$(sed -n 's/^ELISE_HTTP_PORT=//p' "$ELISE_CONFIG/elise.env" | tail -1)"
 for port in "${http_port_preflight:-8080}" 18080 8555; do
   if [[ "${ELISE_FIRST_BOOT:-false}" == true && "$port" == "${http_port_preflight:-8080}" ]] \
     && systemctl is-active --quiet elise-preparation.service; then
@@ -220,7 +220,7 @@ PY
     || fail "signature du manifeste non valide"
 fi
 
-installed_version="$(sed -n 's/^MICHEL_VERSION=//p' "$ELISE_CONFIG/elise.env" 2>/dev/null | tail -1)"
+installed_version="$(sed -n 's/^ELISE_VERSION=//p' "$ELISE_CONFIG/elise.env" 2>/dev/null | tail -1)"
 if [[ "$VERSION" != dev && "$installed_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ && "${ELISE_ALLOW_DOWNGRADE:-false}" != true ]]; then
   # An older release may not understand a database migrated by a newer one.
   python3 - "$installed_version" "$VERSION" <<'PY' || fail "Élise OS $installed_version est plus récente que $VERSION ; retour arrière refusé"
@@ -247,14 +247,14 @@ fi
 previous_env="$ELISE_STATE/previous.env"
 [[ -f "$ELISE_CONFIG/elise.env" ]] && cp "$ELISE_CONFIG/elise.env" "$previous_env"
 if [[ -n "$previous" ]]; then
-  old_compose=(docker compose --project-name michel-os --env-file "$previous_env" -f "$previous/compose.yaml" -f "$previous/compose.release.yaml")
+  old_compose=(docker compose --project-name elise-os --env-file "$previous_env" -f "$previous/compose.yaml" -f "$previous/compose.release.yaml")
   [[ "$(dpkg --print-architecture)" == arm64 ]] && old_compose+=(-f "$previous/compose.raspberry.yaml" -f "$previous/compose.raspberry.release.yaml")
   rollback_dump="$(mktemp "$ELISE_STATE/rollback-XXXXXXXX.dump")"
   chmod 600 "$rollback_dump"
   progress "Sauvegarde de sécurité avant la mise à jour"
   "${old_compose[@]}" up -d --wait postgres >/dev/null \
     || { rm -f -- "$rollback_dump"; fail "la base de la version installée ne démarre pas"; }
-  "${old_compose[@]}" exec -T postgres pg_dump -U michel --format=custom michel > "$rollback_dump" \
+  "${old_compose[@]}" exec -T postgres pg_dump -U elise --format=custom elise > "$rollback_dump" \
     || { rm -f -- "$rollback_dump"; fail "impossible de sauvegarder la base avant la mise à jour"; }
 fi
 ln -sfn "$release_dir" "$ELISE_ROOT/current"
@@ -306,7 +306,7 @@ restore_previous() {
   [[ -n "$previous" ]] || return 0
   "${old_compose[@]}" up -d postgres
   if [[ -n "$rollback_dump" && -s "$rollback_dump" ]]; then
-    if "${old_compose[@]}" exec -T postgres pg_restore -U michel --clean --if-exists --dbname=michel < "$rollback_dump"; then
+    if "${old_compose[@]}" exec -T postgres pg_restore -U elise --clean --if-exists --dbname=elise < "$rollback_dump"; then
       # The dump holds the family's data in clear: keep it only while it is still needed.
       rm -f -- "$rollback_dump"
       rollback_dump=""
@@ -323,13 +323,13 @@ printf 'ELISE_AGENT_GID=%s\n' "$AGENT_GID" > "$ELISE_CONFIG/agent.env"
 if [[ ! -f "$ELISE_CONFIG/elise.env" ]]; then
   cp "$release_dir/.env.example" "$ELISE_CONFIG/elise.env"
 fi
-sed -i "s/^MICHEL_VERSION=.*/MICHEL_VERSION=$VERSION/" "$ELISE_CONFIG/elise.env"
+sed -i "s/^ELISE_VERSION=.*/ELISE_VERSION=$VERSION/" "$ELISE_CONFIG/elise.env"
 sed -i "s/^ELISE_AGENT_GID=.*/ELISE_AGENT_GID=$AGENT_GID/" "$ELISE_CONFIG/elise.env"
 hostname_value="$(hostname -s | tr '[:upper:]_' '[:lower:]-' | tr -cd 'a-z0-9-')"
-http_port="$(sed -n 's/^MICHEL_HTTP_PORT=//p' "$ELISE_CONFIG/elise.env" | tail -1)"
+http_port="$(sed -n 's/^ELISE_HTTP_PORT=//p' "$ELISE_CONFIG/elise.env" | tail -1)"
 local_suffix=":${http_port:-8080}"
 [[ "${http_port:-8080}" == 80 ]] && local_suffix=""
-sed -i "s|^MICHEL_LOCAL_URL=.*|MICHEL_LOCAL_URL=http://${hostname_value:-elise}.local${local_suffix}|" "$ELISE_CONFIG/elise.env"
+sed -i "s|^ELISE_LOCAL_URL=.*|ELISE_LOCAL_URL=http://${hostname_value:-elise}.local${local_suffix}|" "$ELISE_CONFIG/elise.env"
 if [[ -f "$work_dir/release-manifest.json" ]]; then
   sed -i '/^ELISE_.*_IMAGE=/d' "$ELISE_CONFIG/elise.env"
   python3 - "$work_dir/release-manifest.json" "$ELISE_CONFIG/elise.env" "$VERSION" <<'PY'
@@ -354,12 +354,12 @@ systemctl restart elise-tailscale-firewall.service
 progress "Détection des équipements Zigbee"
 "$release_dir/scripts/detect-zigbee-adapter.sh" --write-env "$ELISE_CONFIG/elise.env" || true
 
-compose=(docker compose --project-name michel-os --env-file "$ELISE_CONFIG/elise.env" -f "$release_dir/compose.yaml" -f "$release_dir/compose.release.yaml")
+compose=(docker compose --project-name elise-os --env-file "$ELISE_CONFIG/elise.env" -f "$release_dir/compose.yaml" -f "$release_dir/compose.release.yaml")
 if [[ "$(dpkg --print-architecture)" == arm64 ]]; then
   compose+=(-f "$release_dir/compose.raspberry.yaml" -f "$release_dir/compose.raspberry.release.yaml")
 fi
 if [[ "$VERSION" == dev ]]; then
-  compose=(docker compose --project-name michel-os --env-file "$ELISE_CONFIG/elise.env" -f "$release_dir/compose.yaml")
+  compose=(docker compose --project-name elise-os --env-file "$ELISE_CONFIG/elise.env" -f "$release_dir/compose.yaml")
   if [[ "$(dpkg --print-architecture)" == arm64 ]]; then
     compose+=(-f "$release_dir/compose.raspberry.yaml")
   fi
@@ -396,7 +396,7 @@ release_healthy() {
   local health
   health="$(curl --fail --silent --max-time 10 "http://127.0.0.1:${http_port:-8080}/api/v1/system/health")" || return 1
   [[ "$VERSION" == dev ]] && return 0
-  # The API reports its own MICHEL_VERSION: only the new containers answer with it.
+  # The API reports its own ELISE_VERSION: only the new containers answer with it.
   python3 -c 'import json, sys; raise SystemExit(0 if json.loads(sys.argv[1]).get("version") == sys.argv[2] else 1)' \
     "$health" "$VERSION"
 }

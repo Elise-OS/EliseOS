@@ -10,7 +10,7 @@ Camera setup is a network flow, separate from Zigbee pairing. Start it from **Mo
 
 Use the camera's local streaming account, not the Imou Life cloud account unless the camera uses the same credential. For Imou cameras the username is often `admin`; use the device password configured during setup. A password-protected RTSP stream cannot be opened without that password. Credentials are submitted only through this setup form; do not send them in chat or support logs. ONVIF or RTSP must be enabled in the camera settings.
 
-The API discovery range defaults to `192.168.1.0/24`, which matches the NAS network used for the Imou camera. Override `MICHEL_CAMERA_DISCOVERY_CIDRS` with comma-separated private IPv4 CIDRs when the cameras use another LAN. Each range must contain at most 256 addresses (`/24` through `/32`).
+The API discovery range defaults to `192.168.1.0/24`, which matches the NAS network used for the Imou camera. Override `ELISE_CAMERA_DISCOVERY_CIDRS` with comma-separated private IPv4 CIDRs when the cameras use another LAN. Each range must contain at most 256 addresses (`/24` through `/32`).
 
 Only the live stream and event recording are supported by this flow. Push-to-talk, PTZ, hardware privacy, and person recognition remain disabled unless they are implemented and validated for that camera. Continuous recording stays disabled.
 
@@ -29,7 +29,7 @@ tailscale serve status
 
 Use the resulting `https://…ts.net` address. Do not use Tailscale Funnel: camera access must remain inside the tailnet. The WebRTC port `8555/tcp` and `8555/udp` is published by Compose; restrict it at the host firewall to the LAN and Tailscale interfaces.
 
-Set `MICHEL_WEBRTC_CANDIDATE` in `.env` to the Raspberry Pi's Tailscale MagicDNS hostname (without `https://` or a port), for example `elise-pi.example-tailnet.ts.net`. An IPv4 LAN or Tailscale address also works. This explicit candidate is required because go2rtc deliberately excludes Docker bridge addresses from WebRTC discovery. Recreate `bootstrap` and `go2rtc` after changing it:
+Set `ELISE_WEBRTC_CANDIDATE` in `.env` to the Raspberry Pi's Tailscale MagicDNS hostname (without `https://` or a port), for example `elise-pi.example-tailnet.ts.net`. An IPv4 LAN or Tailscale address also works. This explicit candidate is required because go2rtc deliberately excludes Docker bridge addresses from WebRTC discovery. Recreate `bootstrap` and `go2rtc` after changing it:
 
 ```bash
 docker compose up -d --force-recreate bootstrap go2rtc api worker dashboard

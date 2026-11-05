@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
 import { tr } from './screen-locale';
-import { youtubeVideoId, type ScreenMedia } from '@michel/contracts';
+import { youtubeVideoId, type ScreenMedia } from '@elise/contracts';
 export type VideoStatus = 'loading' | 'ready' | 'error';
 type YoutubePlayer = {
   loadPlaylist(ids: string[]): void;

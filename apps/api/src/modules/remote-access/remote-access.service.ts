@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
-import type { RemoteAccessStatus } from '@michel/contracts';
+import type { RemoteAccessStatus } from '@elise/contracts';
 import { createHash } from 'node:crypto';
 import type { Request } from 'express';
 import { PrismaService } from '../../platform/prisma.service';
@@ -48,7 +48,7 @@ export class RemoteAccessService {
 
     const authorization = request.header('authorization');
     const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
-    const token = bearer ?? (request.cookies?.michel_session as string | undefined);
+    const token = bearer ?? (request.cookies?.elise_session as string | undefined);
     if (!token) throw new UnauthorizedException('Authentication required');
     const session = await this.prisma.session.findUnique({
       where: { tokenHash: createHash('sha256').update(token).digest('hex') },

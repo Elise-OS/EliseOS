@@ -5,7 +5,7 @@ import {
   presenceCapabilityForDevice,
   type HomePlan,
   type NormalizedEvent,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../platform/prisma.service';
 import { connectionsFromPlan, PresenceSessionService } from './presence-session.service';

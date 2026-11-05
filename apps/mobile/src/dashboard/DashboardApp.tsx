@@ -9,7 +9,7 @@ import { AppleLiquidGlassBackground } from './AppleLiquidGlassBackground';
 import { MobileCallOverlay } from '../screen/MobileCallOverlay';
 import { Ionicons } from '@expo/vector-icons';
 import { Sofa } from 'lucide-react-native';
-import { configuredHomeDevicesForCategory } from '@michel/contracts';
+import { configuredHomeDevicesForCategory } from '@elise/contracts';
 import NetInfo from '@react-native-community/netinfo';
 import type {
   ActivityEvent,
@@ -19,7 +19,7 @@ import type {
   RoomSensorCategory,
   ScreenJoin,
   SensorDevice,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -248,7 +248,7 @@ export function DashboardApp({
   onLogout,
 }: DashboardAppProps) {
   const queryClient = useQueryClient();
-  const rootKey = useMemo(() => ['michel', server.id] as const, [server.id]);
+  const rootKey = useMemo(() => ['elise', server.id] as const, [server.id]);
   const [tab, setTab] = useState<Tab>('home');
   const [legacyJournal, setLegacyJournal] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -1028,11 +1028,11 @@ function ActivityTab({
   const [expanded, setExpanded] = useState<string | null>(null);
   const [visibleSequences, setVisibleSequences] = useState(8);
   const daySummary = useQuery({
-    queryKey: ['michel', server.id, 'activity-summary-day', selectedDate],
+    queryKey: ['elise', server.id, 'activity-summary-day', selectedDate],
     queryFn: () => mobileApi.activitySummary(server, token, selectedDate),
   });
   const compareSummary = useQuery({
-    queryKey: ['michel', server.id, 'activity-summary-day', comparisonDate],
+    queryKey: ['elise', server.id, 'activity-summary-day', comparisonDate],
     queryFn: () => mobileApi.activitySummary(server, token, comparisonDate),
     enabled: compare && Boolean(comparisonDate) && comparisonDate !== selectedDate,
   });
@@ -1634,11 +1634,11 @@ function AlertsTab({
   const [dismissReason, setDismissReason] = useState('');
   const [callOpen, setCallOpen] = useState(false);
   const urgentCount = useQuery({
-    queryKey: ['michel', server.id, 'alert-summary'],
+    queryKey: ['elise', server.id, 'alert-summary'],
     queryFn: () => mobileApi.alertSummary(server, token),
   });
   const detail = useQuery({
-    queryKey: ['michel', server.id, 'alert-detail', selected?.id],
+    queryKey: ['elise', server.id, 'alert-detail', selected?.id],
     queryFn: () => mobileApi.alertDetail(server, token, selected!.id),
     enabled: Boolean(selected),
   });
@@ -1692,7 +1692,7 @@ function AlertsTab({
       setSelected(null);
       setDismissOpen(false);
       setDismissReason('');
-      await client.invalidateQueries({ queryKey: ['michel', server.id] });
+      await client.invalidateQueries({ queryKey: ['elise', server.id] });
     },
   });
   const act = (status: 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED', note?: string) => {

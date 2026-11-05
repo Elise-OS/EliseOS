@@ -1,4 +1,4 @@
-import type { HomeSetupStage, RequestedRoom } from '@michel/contracts';
+import type { HomeSetupStage, RequestedRoom } from '@elise/contracts';
 import {
   ArrowLeft,
   ArrowRight,

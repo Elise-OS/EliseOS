@@ -7,7 +7,7 @@ set -euo pipefail
 ELISE_ROOT_DIR="${ELISE_ROOT_DIR:-/opt/elise}"
 ELISE_CONFIG_FILE="${ELISE_CONFIG_FILE:-/etc/elise/elise.env}"
 STATE_DIR="${ELISE_ZIGBEE_STATE_DIR:-/var/lib/elise/zigbee}"
-SERIAL_DIR="${MICHEL_SERIAL_BY_ID_DIR:-/dev/serial/by-id}"
+SERIAL_DIR="${ELISE_SERIAL_BY_ID_DIR:-/dev/serial/by-id}"
 CACHE_FILE="$STATE_DIR/adapters"
 STATUS_FILE="$STATE_DIR/status.json"
 TRY_SECONDS="${ELISE_ZIGBEE_TRY_SECONDS:-75}"
@@ -50,14 +50,14 @@ remember_driver() {
 serial_snapshot() { find "$SERIAL_DIR" -mindepth 1 -maxdepth 1 -type l 2>/dev/null | sort | tr '\n' ' '; }
 
 compose=(
-  docker compose --project-name michel-os --env-file "$ELISE_CONFIG_FILE"
+  docker compose --project-name elise-os --env-file "$ELISE_CONFIG_FILE"
   -f "$release_dir/compose.yaml" -f "$release_dir/compose.release.yaml"
 )
 if [[ "$(uname -m)" == aarch64 ]]; then
   compose+=(-f "$release_dir/compose.raspberry.yaml" -f "$release_dir/compose.raspberry.release.yaml")
 fi
-[[ "$(env_value MICHEL_VERSION)" == dev ]] && compose=(
-  docker compose --project-name michel-os --env-file "$ELISE_CONFIG_FILE" -f "$release_dir/compose.yaml"
+[[ "$(env_value ELISE_VERSION)" == dev ]] && compose=(
+  docker compose --project-name elise-os --env-file "$ELISE_CONFIG_FILE" -f "$release_dir/compose.yaml"
 )
 
 container_id() { "${compose[@]}" ps -q zigbee2mqtt 2>/dev/null || true; }
@@ -68,7 +68,7 @@ started_with() {
   [[ -n "$id" ]] || return 1
   [[ "$(docker inspect -f '{{range .HostConfig.Devices}}{{.PathOnHost}}{{end}}' "$id" 2>/dev/null)" == "$1" ]] || return 1
   [[ "$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$id" 2>/dev/null \
-    | sed -n 's/^MICHEL_ZIGBEE_ADAPTER_TYPE=//p')" == "$2" ]] || return 1
+    | sed -n 's/^ELISE_ZIGBEE_ADAPTER_TYPE=//p')" == "$2" ]] || return 1
   docker logs "$id" 2>&1 | grep -q 'Zigbee2MQTT started'
 }
 try_driver() {

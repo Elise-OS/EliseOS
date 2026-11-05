@@ -1,6 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { calendarCreateSchema } from '@michel/contracts';
+import { calendarCreateSchema } from '@elise/contracts';
 import { CalendarService } from './calendar.service';
 
 function fixture() {

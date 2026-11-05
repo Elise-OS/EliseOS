@@ -2,7 +2,7 @@ import {
   appointmentPictogramSchema,
   screenMessageSchema,
   screenScheduledContentInputSchema,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import {
   Body,
   Controller,
@@ -55,7 +55,7 @@ export class ScreenController {
   @Post('mobile-session') mobileSession(@Req() r: AuthenticatedRequest, @Res() res: Response) {
     const bearer = r.headers.authorization?.replace(/^Bearer\s+/i, '');
     if (!bearer) throw new BadRequestException();
-    res.cookie('michel_session', bearer, {
+    res.cookie('elise_session', bearer, {
       httpOnly: true,
       secure: true,
       sameSite: 'strict',

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { Installation, RemoteAccessStatus } from '@michel/contracts';
+import type { Installation, RemoteAccessStatus } from '@elise/contracts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,

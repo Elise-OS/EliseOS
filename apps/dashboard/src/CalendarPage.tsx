@@ -14,7 +14,7 @@ import {
   calendarCreateSchema,
   type CalendarEvent,
   type CalendarPage as CalendarData,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import type { Locale } from './i18n';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import './calendar-page.css';

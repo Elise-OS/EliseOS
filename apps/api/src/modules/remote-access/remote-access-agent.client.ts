@@ -1,6 +1,6 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
-import type { RemoteAccessStatus } from '@michel/contracts';
-import { remoteAccessStatusSchema } from '@michel/contracts';
+import type { RemoteAccessStatus } from '@elise/contracts';
+import { remoteAccessStatusSchema } from '@elise/contracts';
 import http from 'node:http';
 
 @Injectable()

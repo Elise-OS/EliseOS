@@ -262,7 +262,7 @@ Every release publishes the flashable image, its checksums and signatures, the R
 
 **Remote access.** Élise is never published on the Internet. The family reaches the hub through its private [Tailscale](https://tailscale.com) network, on a dedicated HTTPS port. It is enabled in four steps from Settings; see [docs/acces-distant-prive.md](docs/acces-distant-prive.md).
 
-**“Élise OS – Companion” mobile app.** Available on **iPhone and iPad (App Store)** and **Android** (APK attached to every release). It discovers the hub on the local network (`_michel._tcp.local`), verifies its identity, receives push notifications, and lets you video-call the resident or send photos to the TV.
+**“Élise OS – Companion” mobile app.** Available on **iPhone and iPad (App Store)** and **Android** (APK attached to every release). It discovers the hub on the local network (`_elise._tcp.local`), verifies its identity, receives push notifications, and lets you video-call the resident or send photos to the TV.
 
 ---
 
@@ -289,7 +289,7 @@ docker compose up -d bootstrap postgres mosquitto ai api worker dashboard
 
 Open **http://localhost:8080**. On a fresh install, a local three-step assistant creates the first administrator account (reachable only from the local network). PostgreSQL, MQTT, AI and session secrets are generated on first start into a private Docker volume.
 
-> `MICHEL_DEMO_MODE=true` enables a V0 demo account (`paul@michel.local` / `Michel-Demo-2026!`), for development only.
+> `ELISE_DEMO_MODE=true` enables a V0 demo account (`paul@elise.local` / `Elise-Demo-2026!`), for development only.
 
 On Raspberry Pi, enable mobile discovery with the appliance overlay:
 
@@ -320,7 +320,7 @@ pnpm build
 The caregiver space ships a complete demo mode with no server or network (in-memory mocked API, frozen clock):
 
 ```bash
-pnpm --filter @michel/dashboard exec vite --mode demo
+pnpm --filter @elise/dashboard exec vite --mode demo
 ```
 
 The scenario lives in `apps/dashboard/src/demo/`. `bash scripts/build-landing-demo.sh` publishes the demo into the `eliselanding` site.

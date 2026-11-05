@@ -4,7 +4,7 @@ import {
   RMC_LIFE_LIVE_URL,
   RMC_STORY_LIVE_URL,
   youtubeVideoId,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { subscribeScreenEvents } from './screen-events';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -18,7 +18,7 @@ import type {
   ScreenSnapshot,
   ScreenJoin,
   ScreenSettings,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import {
   Activity,
   CalendarClock,

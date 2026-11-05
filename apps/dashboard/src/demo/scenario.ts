@@ -12,7 +12,7 @@ import {
   type ScreenSnapshot,
   type SensorDevice,
   type SensorOnboardingSession,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import type {
   ActivityItem,
   AlertDetail,

@@ -52,7 +52,7 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
     client.on('end', () => this.scheduleReconnect(client));
     try {
       await client.connect();
-      await client.query('LISTEN michel_updates');
+      await client.query('LISTEN elise_updates');
     } catch (error) {
       this.logger.error('Connexion au canal temps réel impossible', error);
       this.scheduleReconnect(client);

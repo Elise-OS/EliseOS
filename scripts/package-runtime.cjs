@@ -11,7 +11,7 @@ function manifest(folder) {
   return JSON.parse(fs.readFileSync(path.join(folder, 'package.json'), 'utf8'));
 }
 function resolve(name, from) {
-  if (name.startsWith('@michel/')) {
+  if (name.startsWith('@elise/')) {
     const local = path.join(root, 'packages', name.slice(8));
     if (fs.existsSync(path.join(local, 'package.json'))) return local;
   }

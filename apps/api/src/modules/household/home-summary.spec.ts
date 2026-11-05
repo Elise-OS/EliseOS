@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildHomeCards, buildSleepSummary, latestPresenceEvidence } from './home-summary';
-import type { HomePlan } from '@michel/contracts';
+import type { HomePlan } from '@elise/contracts';
 const room = { id: 'wc', kind: 'TOILET', name: 'Toilettes' };
 const bathroom = { id: 'bathroom', kind: 'BATHROOM', name: 'Salle de bain' };
 const event = (active: boolean, hour = 10) => ({
@@ -674,7 +674,7 @@ describe('home daily facts', () => {
 
 import { vi, afterEach } from 'vitest';
 import { ActivityService } from './activity.service';
-import { presenceEstimateSchema } from '@michel/contracts';
+import { presenceEstimateSchema } from '@elise/contracts';
 const unknownPresence = presenceEstimateSchema.parse({
   roomId: null,
   detectedAt: null,

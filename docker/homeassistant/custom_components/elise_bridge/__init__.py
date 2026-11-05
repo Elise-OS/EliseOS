@@ -1,4 +1,4 @@
-"""Home Assistant event bridge for Michel OS."""
+"""Home Assistant event bridge for Élise OS."""
 from __future__ import annotations
 
 import json
@@ -18,18 +18,18 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
-DOMAIN = "michel_bridge"
+DOMAIN = "elise_bridge"
 _LOGGER = logging.getLogger(__name__)
-EVENT_TOPIC = "michel/v1/events"
-ENTITY_STATE_TOPIC = "michel/v1/entity-states"
-INVENTORY_TOPIC = "michel/v1/inventory"
-INVENTORY_REQUEST_TOPIC = "michel/v1/inventory/request"
-STATUS_TOPIC = "michel/v1/bridge/status"
-COMMAND_TOPIC = "michel/v1/commands/#"
-COMMAND_RESULT_TOPIC = "michel/v1/commands/results"
-DISCOVERY_TOPIC = "michel/v1/discovery"
-DISCOVERY_COMMAND_TOPIC = "michel/v1/discovery/commands/#"
-DISCOVERY_RESULT_TOPIC = "michel/v1/discovery/results"
+EVENT_TOPIC = "elise/v1/events"
+ENTITY_STATE_TOPIC = "elise/v1/entity-states"
+INVENTORY_TOPIC = "elise/v1/inventory"
+INVENTORY_REQUEST_TOPIC = "elise/v1/inventory/request"
+STATUS_TOPIC = "elise/v1/bridge/status"
+COMMAND_TOPIC = "elise/v1/commands/#"
+COMMAND_RESULT_TOPIC = "elise/v1/commands/results"
+DISCOVERY_TOPIC = "elise/v1/discovery"
+DISCOVERY_COMMAND_TOPIC = "elise/v1/discovery/commands/#"
+DISCOVERY_RESULT_TOPIC = "elise/v1/discovery/results"
 
 ALLOWED_COMMANDS = {
     "light": {"turn_on", "turn_off", "toggle"},
@@ -155,7 +155,7 @@ def _protocol(platform: str | None, device: Any | None = None) -> str:
         return "zigbee"
     # Zigbee2MQTT entities are created by Home Assistant's MQTT integration,
     # therefore their platform is "mqtt". The discovery identifiers retain the
-    # Zigbee2MQTT origin and let Michel distinguish them from regular Wi-Fi MQTT
+    # Zigbee2MQTT origin and let Élise distinguish them from regular Wi-Fi MQTT
     # devices during onboarding.
     if platform == "mqtt" and device is not None:
         identifiers = getattr(device, "identifiers", set())
@@ -173,7 +173,7 @@ def _protocol(platform: str | None, device: Any | None = None) -> str:
 
 
 def _secret(name: str) -> str:
-    path = Path(os.getenv("MICHEL_SECRETS_DIR", "/run/michel-secrets")) / name
+    path = Path(os.getenv("ELISE_SECRETS_DIR", "/run/elise-secrets")) / name
     return path.read_text(encoding="utf-8").strip()
 
 
@@ -208,13 +208,13 @@ def _payload(capability: str, state: Any) -> dict[str, Any]:
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="michel-ha-bridge")
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="elise-ha-bridge")
     mqtt_password = await hass.async_add_executor_job(_secret, "mqtt_password")
     client.username_pw_set("homeassistant", mqtt_password)
-    home_id = os.getenv("MICHEL_HOME_ID", "home_demo")
+    home_id = os.getenv("ELISE_HOME_ID", "home_demo")
 
     async def ensure_home_assistant_mqtt() -> None:
-        """Connect Home Assistant itself to Michel's local MQTT broker once."""
+        """Connect Home Assistant itself to Élise's local MQTT broker once."""
         broker = os.getenv("MQTT_HOST", "mosquitto")
         port = int(os.getenv("MQTT_PORT", "1883"))
         existing_entries = hass.config_entries.async_entries("mqtt")
@@ -555,7 +555,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
                 raise ValueError("Command payload must be an object")
         except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
             return
-        handler = execute_discovery_command if message.topic.startswith("michel/v1/discovery/commands/") else execute_command
+        handler = execute_discovery_command if message.topic.startswith("elise/v1/discovery/commands/") else execute_command
         hass.loop.call_soon_threadsafe(hass.async_create_task, handler(command))
 
     client.on_connect = connected

@@ -1,5 +1,5 @@
-import type { RemoteAccessStatus } from '@michel/contracts';
-import { Button } from '@michel/ui';
+import type { RemoteAccessStatus } from '@elise/contracts';
+import { Button } from '@elise/ui';
 import {
   Check,
   ChevronRight,
@@ -61,7 +61,7 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
   }, [refresh, status]);
 
   const deepLink = useMemo(
-    () => (status?.remoteUrl ? `michel://connect?url=${encodeURIComponent(status.remoteUrl)}` : ''),
+    () => (status?.remoteUrl ? `elise://connect?url=${encodeURIComponent(status.remoteUrl)}` : ''),
     [status?.remoteUrl],
   );
 

@@ -4,14 +4,14 @@ import { SimulationService } from './simulation.service';
 
 describe('SimulationService', () => {
   afterEach(() => {
-    delete process.env.MICHEL_SIMULATION_MODE;
-    delete process.env.MICHEL_DEMO_MODE;
+    delete process.env.ELISE_SIMULATION_MODE;
+    delete process.env.ELISE_DEMO_MODE;
   });
 
   it('returns no scenarios unless simulation or demo mode is explicit', () => {
     const service = new SimulationService({} as never, {} as never);
     expect(service.list()).toEqual([]);
-    process.env.MICHEL_DEMO_MODE = 'true';
+    process.env.ELISE_DEMO_MODE = 'true';
     expect(service.list().length).toBeGreaterThan(0);
   });
 
@@ -21,7 +21,7 @@ describe('SimulationService', () => {
   });
 
   it('sends a scenario through ingestion and reports duplicate replays', async () => {
-    process.env.MICHEL_SIMULATION_MODE = 'true';
+    process.env.ELISE_SIMULATION_MODE = 'true';
     const prisma = {
       home: { findFirst: vi.fn().mockResolvedValue({ id: 'home-1' }) },
     };
@@ -65,7 +65,7 @@ describe('SimulationService', () => {
   });
 
   it('refuses a user without administrative access', async () => {
-    process.env.MICHEL_SIMULATION_MODE = 'true';
+    process.env.ELISE_SIMULATION_MODE = 'true';
     const prisma = { home: { findFirst: vi.fn().mockResolvedValue(null) } };
     const service = new SimulationService(prisma as never, { ingest: vi.fn() } as never);
 

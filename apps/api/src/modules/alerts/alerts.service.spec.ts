@@ -1,6 +1,6 @@
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_ALERT_RULE_SETTINGS } from '@michel/contracts';
+import { DEFAULT_ALERT_RULE_SETTINGS } from '@elise/contracts';
 import { AlertsService } from './alerts.service';
 
 describe('AlertsService rules', () => {

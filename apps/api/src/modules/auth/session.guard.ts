@@ -18,7 +18,7 @@ export class SessionGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const authorization = request.header('authorization');
     const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
-    const token = bearer ?? (request.cookies?.michel_session as string | undefined);
+    const token = bearer ?? (request.cookies?.elise_session as string | undefined);
     if (!token) throw new UnauthorizedException('Authentication required');
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const session = await this.prisma.session.findUnique({

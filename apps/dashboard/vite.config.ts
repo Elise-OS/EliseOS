@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
-const apiTarget = process.env.MICHEL_DEV_API_TARGET ?? 'http://localhost:3000';
+const apiTarget = process.env.ELISE_DEV_API_TARGET ?? 'http://localhost:3000';
 const DEMO_BASE = '/demo/';
 
 /** The app names its public files by absolute path; under /demo/ they must carry the base. */

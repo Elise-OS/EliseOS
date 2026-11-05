@@ -54,7 +54,7 @@ describe('SeedService', () => {
   beforeEach(() => vi.setSystemTime(new Date('2026-08-30T12:00:00.000Z')));
 
   afterEach(() => {
-    delete process.env.MICHEL_DEMO_MODE;
+    delete process.env.ELISE_DEMO_MODE;
     delete process.env.DEMO_PASSWORD;
     vi.useRealTimers();
   });
@@ -69,7 +69,7 @@ describe('SeedService', () => {
   });
 
   it('does not duplicate demo data when an organization already exists', async () => {
-    process.env.MICHEL_DEMO_MODE = 'true';
+    process.env.ELISE_DEMO_MODE = 'true';
     const { prisma } = createPrisma(1);
 
     await new SeedService(prisma as never).onModuleInit();
@@ -79,7 +79,7 @@ describe('SeedService', () => {
   });
 
   it('creates a complete, directly accessible demo household', async () => {
-    process.env.MICHEL_DEMO_MODE = 'true';
+    process.env.ELISE_DEMO_MODE = 'true';
     const { prisma, tx } = createPrisma();
 
     await new SeedService(prisma as never).onModuleInit();

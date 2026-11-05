@@ -1,4 +1,4 @@
-import type { EquipmentCoverage, HomePlan, SensorDevice } from '@michel/contracts';
+import type { EquipmentCoverage, HomePlan, SensorDevice } from '@elise/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   assembleFloorForOverview,

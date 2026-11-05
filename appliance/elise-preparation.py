@@ -193,7 +193,7 @@ def read_env(key: str) -> str:
 
 def instance_id() -> str:
     # elise-firstboot.sh pins the id so the final API keeps the identity the app saw here.
-    configured = read_env("MICHEL_INSTANCE_ID")
+    configured = read_env("ELISE_INSTANCE_ID")
     if configured:
         return configured
     try:
@@ -306,7 +306,7 @@ def discovery() -> dict:
     host = socket.gethostname().split(".")[0]
     return {
         "instanceId": instance_id(),
-        "instanceName": read_env("MICHEL_DISCOVERY_NAME") or "Élise OS",
+        "instanceName": read_env("ELISE_DISCOVERY_NAME") or "Élise OS",
         "version": version(),
         "apiVersion": 1,
         "serverTime": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),

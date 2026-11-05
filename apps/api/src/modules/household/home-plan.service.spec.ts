@@ -1,4 +1,4 @@
-import type { HomePlan } from '@michel/contracts';
+import type { HomePlan } from '@elise/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import { HomePlanService } from './home-plan.service';
 

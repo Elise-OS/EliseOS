@@ -3,10 +3,9 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import type { DiscoveredServer, SavedServer } from './types';
 
-const SERVERS_KEY = '@michel:servers';
-const LAST_SERVER_KEY = '@michel:last-server';
-const tokenKey = (serverId: string) =>
-  `michel-session-${serverId.replace(/[^A-Za-z0-9._-]/g, '_')}`;
+const SERVERS_KEY = '@elise:servers';
+const LAST_SERVER_KEY = '@elise:last-server';
+const tokenKey = (serverId: string) => `elise-session-${serverId.replace(/[^A-Za-z0-9._-]/g, '_')}`;
 const webTokens = new Map<string, string>();
 
 const webSessionStorage = (): Storage | null => {

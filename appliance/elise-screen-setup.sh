@@ -26,7 +26,7 @@ echo "→ Installation automatique de Jitsi et de l’affichage résident"
 ELISE_APPLICATION_ENV="$ELISE_CONFIG_FILE" bash "$release_dir/scripts/install-jitsi.sh"
 
 compose=(
-  docker compose --project-name michel-os --env-file "$ELISE_CONFIG_FILE"
+  docker compose --project-name elise-os --env-file "$ELISE_CONFIG_FILE"
   -f "$release_dir/compose.yaml" -f "$release_dir/compose.release.yaml"
 )
 if [[ "$(uname -m)" == aarch64 ]]; then

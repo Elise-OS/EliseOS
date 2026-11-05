@@ -1,6 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import type { DiscoveryInfo } from '@michel/contracts';
+import type { DiscoveryInfo } from '@elise/contracts';
 import { PrismaService } from '../../platform/prisma.service';
 import { RemoteAccessAgentClient } from '../remote-access/remote-access-agent.client';
 
@@ -21,19 +21,19 @@ export class DiscoveryService {
     ]);
     return {
       instanceId,
-      instanceName: process.env.MICHEL_DISCOVERY_NAME?.trim() || 'Élise OS',
-      version: process.env.MICHEL_VERSION ?? 'dev',
+      instanceName: process.env.ELISE_DISCOVERY_NAME?.trim() || 'Élise OS',
+      version: process.env.ELISE_VERSION ?? 'dev',
       apiVersion: 1,
       serverTime: new Date().toISOString(),
       supportsMobile: true,
       setupRequired: userCount === 0,
-      localUrl: process.env.MICHEL_LOCAL_URL?.trim() || null,
-      remoteUrl: remote?.remoteUrl ?? process.env.MICHEL_REMOTE_URL?.trim() ?? null,
+      localUrl: process.env.ELISE_LOCAL_URL?.trim() || null,
+      remoteUrl: remote?.remoteUrl ?? process.env.ELISE_REMOTE_URL?.trim() ?? null,
     };
   }
 
   private async instanceId(): Promise<string> {
-    const configured = process.env.MICHEL_INSTANCE_ID?.trim();
+    const configured = process.env.ELISE_INSTANCE_ID?.trim();
     if (configured) return configured;
 
     const existing = await this.prisma.systemSetting.findUnique({

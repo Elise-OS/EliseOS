@@ -7,8 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/nas-common.sh"
 load_nas_config
 
-echo "État d'Élise OS sur $MICHEL_NAS_TARGET"
-ssh "$MICHEL_NAS_TARGET" "$(remote_shell_command)" <<'REMOTE_SCRIPT'
+echo "État d'Élise OS sur $ELISE_NAS_TARGET"
+ssh "$ELISE_NAS_TARGET" "$(remote_shell_command)" <<'REMOTE_SCRIPT'
 set -euo pipefail
 cd "$REMOTE_PATH"
 
@@ -32,4 +32,4 @@ else
 fi
 REMOTE_SCRIPT
 
-echo "Interface : $MICHEL_NAS_URL"
+echo "Interface : $ELISE_NAS_URL"

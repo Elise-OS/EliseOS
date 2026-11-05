@@ -8,8 +8,8 @@ les dépendances, les images et les services Docker sont construits et exécuté
 
 - Interface Élise OS : <http://192.168.1.55:8090>
 - Projet sur le Mac : `/Users/paulbreton/Desktop/Michel`
-- Projet sur le NAS : `/home/drsam/michel-os`
-- Cible SSH utilisée par le script : `michel-nas`
+- Projet sur le NAS : `/home/drsam/elise-os`
+- Cible SSH utilisée par le script : `elise-nas`
 
 ## 1. Préparer une fois la connexion depuis le Mac
 
@@ -31,7 +31,7 @@ cat ~/.ssh/elise_nas.pub | ssh drsam@192.168.1.55 \
 Ajouter ensuite ce bloc dans `~/.ssh/config` sur le Mac :
 
 ```sshconfig
-Host michel-nas
+Host elise-nas
   HostName 192.168.1.55
   User drsam
   IdentityFile ~/.ssh/elise_nas
@@ -41,7 +41,7 @@ Host michel-nas
 Vérifier la connexion :
 
 ```bash
-ssh michel-nas 'hostname && docker compose version'
+ssh elise-nas 'hostname && docker compose version'
 ```
 
 ### Configurer le déploiement du projet
@@ -56,13 +56,13 @@ cp config/nas-deploy.env.example config/nas-deploy.env
 Le fichier local `config/nas-deploy.env` doit contenir :
 
 ```dotenv
-MICHEL_NAS_TARGET=michel-nas
-MICHEL_NAS_PATH=/home/drsam/michel-os
-MICHEL_NAS_URL=http://192.168.1.55:8090
-MICHEL_NAS_HTTP_PORT=8090
+ELISE_NAS_TARGET=elise-nas
+ELISE_NAS_PATH=/home/drsam/elise-os
+ELISE_NAS_URL=http://192.168.1.55:8090
+ELISE_NAS_HTTP_PORT=8090
 ```
 
-Le réglage facultatif `MICHEL_NAS_BUILDER` sélectionne un constructeur Docker dédié pour les déploiements. Sur ce NAS, `michel-deploy` utilise des serveurs DNS accessibles depuis les étapes de construction, afin d’éviter les délais du résolveur Tailscale. Le constructeur est sélectionné uniquement pour ce projet, sans changer celui des autres applications.
+Le réglage facultatif `ELISE_NAS_BUILDER` sélectionne un constructeur Docker dédié pour les déploiements. Sur ce NAS, `elise-deploy` utilise des serveurs DNS accessibles depuis les étapes de construction, afin d’éviter les délais du résolveur Tailscale. Le constructeur est sélectionné uniquement pour ce projet, sans changer celui des autres applications.
 
 Ce fichier est ignoré par Git. Le script conserve également le `.env`, les secrets,
 les sauvegardes et les volumes Docker présents sur le NAS.
@@ -129,10 +129,10 @@ bash scripts/deploy-nas.sh --dry-run
 bash scripts/deploy-nas.sh --dashboard
 
 # Afficher l'état des services sur le NAS
-ssh michel-nas 'cd /home/drsam/michel-os && docker compose ps'
+ssh elise-nas 'cd /home/drsam/elise-os && docker compose ps'
 
 # Suivre les journaux applicatifs
-ssh michel-nas 'cd /home/drsam/michel-os && docker compose logs -f --tail=100 api worker dashboard'
+ssh elise-nas 'cd /home/drsam/elise-os && docker compose logs -f --tail=100 api worker dashboard'
 ```
 
 Après le déploiement, vérifier :
@@ -167,7 +167,7 @@ Pour une configuration automatisée, `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET
 
 Le script suivant lance seulement Vite et le dashboard React sur le Mac. Il ne lance ni
 Docker, ni PostgreSQL, ni l'API, ni l'IA localement. Les appels `/api` sont redirigés vers
-l'adresse du NAS définie par `MICHEL_NAS_URL` dans `config/nas-deploy.env`.
+l'adresse du NAS définie par `ELISE_NAS_URL` dans `config/nas-deploy.env`.
 
 ```bash
 cd /Users/paulbreton/Desktop/Michel
@@ -219,8 +219,8 @@ Les commandes manuelles correspondantes sont détaillées ci-dessous pour le dia
 Se connecter au NAS :
 
 ```bash
-ssh michel-nas
-cd /home/drsam/michel-os
+ssh elise-nas
+cd /home/drsam/elise-os
 ```
 
 Arrêter les services qui utilisent la base Élise, recréer la base, puis relancer
@@ -228,10 +228,10 @@ l'application. L'API réappliquera automatiquement toutes les migrations :
 
 ```bash
 docker compose stop dashboard worker api
-docker compose exec -T postgres psql -U michel -d postgres -v ON_ERROR_STOP=1 \
-  -c 'DROP DATABASE michel WITH (FORCE);'
-docker compose exec -T postgres psql -U michel -d postgres -v ON_ERROR_STOP=1 \
-  -c 'CREATE DATABASE michel OWNER michel;'
+docker compose exec -T postgres psql -U elise -d postgres -v ON_ERROR_STOP=1 \
+  -c 'DROP DATABASE elise WITH (FORCE);'
+docker compose exec -T postgres psql -U elise -d postgres -v ON_ERROR_STOP=1 \
+  -c 'CREATE DATABASE elise OWNER elise;'
 docker compose up -d api worker dashboard
 ```
 
@@ -267,27 +267,27 @@ documentées ci-dessous.
 Pour une sauvegarde de test non chiffrée stockée hors du dossier synchronisé :
 
 ```bash
-ssh michel-nas
-cd /home/drsam/michel-os
-mkdir -p /home/drsam/michel-backups
-MICHEL_BACKUP_ALLOW_PLAINTEXT=true ./scripts/backup.sh /home/drsam/michel-backups
+ssh elise-nas
+cd /home/drsam/elise-os
+mkdir -p /home/drsam/elise-backups
+ELISE_BACKUP_ALLOW_PLAINTEXT=true ./scripts/backup.sh /home/drsam/elise-backups
 ```
 
 Cette sauvegarde peut contenir des données personnelles et doit rester sur un stockage privé.
-Pour une sauvegarde durable, utiliser `MICHEL_BACKUP_RECIPIENT` avec une clé `age`.
+Pour une sauvegarde durable, utiliser `ELISE_BACKUP_RECIPIENT` avec une clé `age`.
 
 ### Supprimer les volumes et réinstaller
 
 Toujours vérifier le dossier avant la commande destructive :
 
 ```bash
-ssh michel-nas
-cd /home/drsam/michel-os
+ssh elise-nas
+cd /home/drsam/elise-os
 pwd
 docker compose ps
 ```
 
-La commande `pwd` doit afficher exactement `/home/drsam/michel-os`. Ensuite :
+La commande `pwd` doit afficher exactement `/home/drsam/elise-os`. Ensuite :
 
 ```bash
 docker compose down --volumes --remove-orphans
@@ -331,18 +331,18 @@ Puis ouvrir <http://192.168.1.55:8090> et créer le premier compte administrateu
 
 ```bash
 # Tous les conteneurs et leur état
-ssh michel-nas 'cd /home/drsam/michel-os && docker compose ps -a'
+ssh elise-nas 'cd /home/drsam/elise-os && docker compose ps -a'
 
 # Journaux des services principaux
-ssh michel-nas \
-  'cd /home/drsam/michel-os && docker compose logs --tail=150 api worker dashboard homeassistant'
+ssh elise-nas \
+  'cd /home/drsam/elise-os && docker compose logs --tail=150 api worker dashboard homeassistant'
 
 # Espace disque disponible
-ssh michel-nas 'df -h / && docker system df'
+ssh elise-nas 'df -h / && docker system df'
 
 # Redémarrage applicatif sans supprimer les données
-ssh michel-nas \
-  'cd /home/drsam/michel-os && docker compose restart api worker dashboard'
+ssh elise-nas \
+  'cd /home/drsam/elise-os && docker compose restart api worker dashboard'
 ```
 
 Ne pas utiliser `docker compose down --volumes` pour un simple redémarrage : l'option

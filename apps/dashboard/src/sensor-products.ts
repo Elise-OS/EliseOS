@@ -2,7 +2,7 @@ import {
   isBedOccupancySensorModel,
   type RoomSensorCategory,
   type SensorProduct,
-} from '@michel/contracts';
+} from '@elise/contracts';
 
 const zigbee = (model: string) => `https://www.zigbee2mqtt.io/devices/${model}.html`;
 // Product pictures ship with the dashboard so the catalogue remains usable

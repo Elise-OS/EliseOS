@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nes
 import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { installationSchema } from '@michel/contracts';
+import { installationSchema } from '@elise/contracts';
 import { parseRequest } from '../../platform/zod-validation';
 import type { AuthenticatedRequest } from './authenticated-request';
 import { AuthService } from './auth.service';
@@ -43,7 +43,7 @@ export class AuthController {
   public bootstrapEquipment(@Req() request: Request) {
     const authorization = request.header('authorization');
     const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
-    const token = bearer ?? (request.cookies?.michel_session as string | undefined);
+    const token = bearer ?? (request.cookies?.elise_session as string | undefined);
     return this.auth.bootstrapEquipment(token);
   }
 
@@ -107,12 +107,12 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
     await this.auth.logout(request.sessionId);
-    response.clearCookie('michel_session', { path: '/' });
+    response.clearCookie('elise_session', { path: '/' });
   }
 
   private setSessionCookie(request: Request, response: Response, token: string): void {
     const forwardedProtocol = request.header('x-forwarded-proto')?.split(',')[0]?.trim();
-    response.cookie('michel_session', token, {
+    response.cookie('elise_session', token, {
       httpOnly: true,
       sameSite: 'strict',
       secure: process.env.COOKIE_SECURE === 'true' || forwardedProtocol === 'https',

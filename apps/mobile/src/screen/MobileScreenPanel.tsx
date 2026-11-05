@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { ScreenCommand, ScreenSnapshot } from '@michel/contracts';
+import type { ScreenCommand, ScreenSnapshot } from '@elise/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -39,7 +39,7 @@ export function MobileScreenPanel({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const tvStatusQuery = useQuery<ScreenTvStatus>({
-    queryKey: ['michel', server.id, 'screen-tv'],
+    queryKey: ['elise', server.id, 'screen-tv'],
     queryFn: () => mobileApi.screenTvStatus(server, token),
     enabled: Boolean(snapshot?.grant.control),
     refetchInterval: 5_000,

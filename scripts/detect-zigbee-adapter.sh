@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-SERIAL_DIR="${MICHEL_SERIAL_BY_ID_DIR:-/dev/serial/by-id}"
+SERIAL_DIR="${ELISE_SERIAL_BY_ID_DIR:-/dev/serial/by-id}"
 # Drivers confirmed by elise-zigbee-setup for adapters whose USB name says nothing.
 CACHE_FILE="${ZIGBEE_ADAPTER_CACHE:-/var/lib/elise/zigbee/adapters}"
 ENV_FILE=""
@@ -13,7 +13,7 @@ usage() {
 Usage: scripts/detect-zigbee-adapter.sh [--write-env FILE] [--classify NAME]
 
 Détecte un coordinateur Zigbee USB et détermine le pilote Zigbee2MQTT.
-La variable MICHEL_SERIAL_BY_ID_DIR permet d'utiliser un dossier différent pour les tests.
+La variable ELISE_SERIAL_BY_ID_DIR permet d'utiliser un dossier différent pour les tests.
 EOF
 }
 

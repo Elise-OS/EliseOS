@@ -5,7 +5,7 @@ import { WelcomePage } from './WelcomePage';
 import { ScreenPanel, startResidentScreenCall } from './ScreenPanel';
 import { AlertsPage, type SafetyCategory } from './AlertsPage';
 import { AlertRulesPanel } from './AlertRulesPanel';
-import { Button, Card, StatusPill } from '@michel/ui';
+import { Button, Card, StatusPill } from '@elise/ui';
 import {
   Accessibility,
   Activity,
@@ -61,7 +61,7 @@ import { FRFlag, GBFlag } from './FlagIcons';
 import { RemoteAccessCard } from './RemoteAccessCard';
 import { ActivityPage } from './ActivityPage';
 import { UpdateCard } from './UpdateCard';
-import type { UpdateStatus } from '@michel/contracts';
+import type { UpdateStatus } from '@elise/contracts';
 
 interface Overview {
   onboardingRequired: boolean;
@@ -2096,7 +2096,7 @@ export function PeoplePanel({
 export function App() {
   const [locale, setLocale] = useState<Locale>(() => {
     if (typeof window === 'undefined') return 'fr';
-    return window.localStorage.getItem('michel_locale') === 'en' ? 'en' : 'fr';
+    return window.localStorage.getItem('elise_locale') === 'en' ? 'en' : 'fr';
   });
   const [overview, setOverview] = useState<Overview | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
@@ -2162,7 +2162,7 @@ export function App() {
   const sidebarAutoHideActive = sidebarAutoHide && !sidebarAutoHideLocked;
   const changeLocale = (nextLocale: Locale) => {
     setLocale(nextLocale);
-    window.localStorage.setItem('michel_locale', nextLocale);
+    window.localStorage.setItem('elise_locale', nextLocale);
   };
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -2958,6 +2958,7 @@ export function App() {
             locale={locale}
             items={journal}
             timezone={household?.home.timezone ?? 'Europe/Paris'}
+            residentName={residentName}
             onBack={() => setActive(11)}
           />
         ) : active === 7 ? (
@@ -3353,7 +3354,7 @@ export function App() {
             </nav>
 
             {settingsTab === 'general' && (
-              <details className="michel-card settings-section-card settings-disclosure settings-general-card">
+              <details className="elise-card settings-section-card settings-disclosure settings-general-card">
                 <summary className="settings-section-heading">
                   <span className="settings-section-icon">
                     <Settings />

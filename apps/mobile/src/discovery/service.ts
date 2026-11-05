@@ -14,7 +14,7 @@ import { tr } from '../locale';
 type Listener = (servers: DiscoveredServer[]) => void;
 type ErrorListener = (message: string) => void;
 
-const SERVICE_TYPE = 'michel';
+const SERVICE_TYPE = 'elise';
 const SERVICE_PROTOCOL = 'tcp';
 const SERVICE_DOMAIN = 'local.';
 // Raspberry Pi appliances answer on port 80, from the preparation page onwards.
@@ -156,7 +156,7 @@ export class DiscoveryService {
         try {
           this.add(await this.probe(url, 'subnet', PROBE_TIMEOUT));
         } catch {
-          // Most candidate addresses are expected not to contain Michel.
+          // Most candidate addresses are expected not to contain Élise.
         }
       }
     };

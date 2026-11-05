@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { ScreenJoin } from '@michel/contracts';
+import type { ScreenJoin } from '@elise/contracts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,7 +52,7 @@ const callPage = (join: ScreenJoin) => {
                   send('camera-switch-unavailable');
                 });
               }
-              window.__michelToggleCamera=function(){
+              window.__eliseToggleCamera=function(){
                 if(switchingCamera)return;
                 switchingCamera=true;
                 Promise.all([api.getAvailableDevices(),api.getCurrentDevices()]).then(function(results){
@@ -193,7 +193,7 @@ export function MobileCallOverlay({
                 disabled={!cameraSwitchAvailable}
                 onPress={() =>
                   webViewRef.current?.injectJavaScript(
-                    'window.__michelToggleCamera && window.__michelToggleCamera(); true;',
+                    'window.__eliseToggleCamera && window.__eliseToggleCamera(); true;',
                   )
                 }
                 style={[

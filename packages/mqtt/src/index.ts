@@ -1,13 +1,13 @@
 import mqtt, { type IClientOptions, type MqttClient } from 'mqtt';
 
-export interface MichelMqttOptions {
+export interface EliseMqttOptions {
   url: string;
   clientId: string;
   username?: string;
   password?: string;
 }
 
-export function connectMichelMqtt(options: MichelMqttOptions): MqttClient {
+export function connectEliseMqtt(options: EliseMqttOptions): MqttClient {
   const clientOptions: IClientOptions = {
     clientId: options.clientId,
     clean: false,

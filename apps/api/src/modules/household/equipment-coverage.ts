@@ -2,14 +2,14 @@ import {
   deviceSupportsCategory,
   visibleRoomCategories,
   ROOM_SENSOR_CATEGORIES,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import type {
   EquipmentCoverage,
   EquipmentTarget,
   HomePlan,
   SensorProfile,
   TargetRecommendation,
-} from '@michel/contracts';
+} from '@elise/contracts';
 
 type CoverageDevice = {
   id: string;

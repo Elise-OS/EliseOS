@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronRight, Radio } from 'lucide-react';
-import { ROOM_SENSOR_CATEGORIES, type SensorProduct } from '@michel/contracts';
+import { ROOM_SENSOR_CATEGORIES, type SensorProduct } from '@elise/contracts';
 
 export function ProductPhoto({ product }: { product: SensorProduct }) {
   const [failed, setFailed] = useState(false);

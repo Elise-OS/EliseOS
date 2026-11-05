@@ -1,5 +1,5 @@
-import type { HomePlan, RoomSensorCategory, SensorDevice, SensorProduct } from '@michel/contracts';
-import { deviceSupportsCategory, ROOM_SENSOR_CATEGORIES } from '@michel/contracts';
+import type { HomePlan, RoomSensorCategory, SensorDevice, SensorProduct } from '@elise/contracts';
+import { deviceSupportsCategory, ROOM_SENSOR_CATEGORIES } from '@elise/contracts';
 import {
   Activity,
   ArrowLeft,

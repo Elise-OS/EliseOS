@@ -5,7 +5,7 @@ import {
   type AlertRuleSettings,
   type HomePlan,
   type HomeSummary,
-} from '@michel/contracts';
+} from '@elise/contracts';
 
 export type HomeEvent = {
   id?: string;

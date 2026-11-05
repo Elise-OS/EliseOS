@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { homeAssistantInventorySchema, normalizedEventSchema } from '@michel/contracts';
+import { homeAssistantInventorySchema, normalizedEventSchema } from '@elise/contracts';
 import { IngestionService } from './ingestion.service';
 
-describe('normalized Michel event', () => {
+describe('normalized Élise event', () => {
   it('accepts a privacy-minimised motion event', () => {
     const event = normalizedEventSchema.parse({
       schemaVersion: '1.0',

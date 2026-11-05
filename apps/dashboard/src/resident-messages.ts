@@ -1,4 +1,4 @@
-import type { ScreenState } from '@michel/contracts';
+import type { ScreenState } from '@elise/contracts';
 
 export function residentMessageAt(
   state: Pick<ScreenState, 'message' | 'messages' | 'messageIntervalSeconds' | 'messageUpdatedAt'>,

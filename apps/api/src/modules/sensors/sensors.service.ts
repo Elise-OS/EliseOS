@@ -18,7 +18,7 @@ import {
   sensorProtocolSchema,
   type HomePlan,
   type SensorOnboardingCompletion,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import {
   type ObservationEvent,
   Prisma,

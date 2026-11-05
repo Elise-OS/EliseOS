@@ -2,12 +2,12 @@ import { createHmac } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { MichelAiClient } from '@michel/ai-client';
+import { EliseAiClient } from '@elise/ai-client';
 import {
   alertRuleSettingsSchema,
   DEFAULT_ALERT_RULE_SETTINGS,
   type AlertRuleSettings,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import pg from 'pg';
 import type { PoolClient } from 'pg';
 import { LEARNED_HABIT_STATUS } from './policy.js';
@@ -29,7 +29,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   options: '-c timezone=UTC',
 });
-const ai = new MichelAiClient(
+const ai = new EliseAiClient(
   process.env.AI_BASE_URL ?? 'http://ai:8000',
   process.env.AI_SHARED_SECRET ?? 'development-secret-change-me',
 );
@@ -197,7 +197,7 @@ async function handleWebhook(row: OutboxRow): Promise<void> {
   const signature = createHmac('sha256', secret).update(body).digest('hex');
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-michel-signature': `sha256=${signature}` },
+    headers: { 'content-type': 'application/json', 'x-elise-signature': `sha256=${signature}` },
     body,
   });
   if (!response.ok) throw new Error(`Webhook returned ${response.status}`);
@@ -1776,7 +1776,7 @@ async function trainEligibleHomes(): Promise<void> {
         [
           home.homeId,
           trained.model_version,
-          `michel-ai://${home.homeId}/${trained.model_version}`,
+          `elise-ai://${home.homeId}/${trained.model_version}`,
           trained.sha256,
           first,
           last,

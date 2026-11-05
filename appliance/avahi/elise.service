@@ -4,7 +4,7 @@
 <service-group>
   <name>Élise OS</name>
   <service>
-    <type>_michel._tcp</type>
+    <type>_elise._tcp</type>
     <port>@PORT@</port>
     <txt-record>path=/api/v1/discovery</txt-record>
     <txt-record>port=@PORT@</txt-record>

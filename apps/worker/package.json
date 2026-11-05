@@ -1,5 +1,5 @@
 {
-  "name": "@michel/worker",
+  "name": "@elise/worker",
   "version": "0.1.12",
   "private": true,
   "type": "module",
@@ -12,8 +12,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@michel/ai-client": "workspace:*",
-    "@michel/contracts": "workspace:*",
+    "@elise/ai-client": "workspace:*",
+    "@elise/contracts": "workspace:*",
     "pg": "^8.16.3"
   },
   "devDependencies": {

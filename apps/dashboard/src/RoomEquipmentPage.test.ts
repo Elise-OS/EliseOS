@@ -6,7 +6,7 @@ import {
   visibleRoomCategories,
   type HomePlan,
   type SensorDevice,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import {
   RoomEquipmentPage,
   deviceBedOccupiedWhen,

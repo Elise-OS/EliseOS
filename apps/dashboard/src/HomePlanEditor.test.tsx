@@ -1,4 +1,4 @@
-import type { HomePlan, SensorDevice } from '@michel/contracts';
+import type { HomePlan, SensorDevice } from '@elise/contracts';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {

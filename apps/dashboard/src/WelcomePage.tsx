@@ -7,7 +7,7 @@ import {
   type EntranceSummary,
   type ScreenSnapshot,
   type ShowerDetection,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import {
   Activity,
   AlertTriangle,

@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { notificationPreferencesSchema } from '@michel/contracts';
+import { notificationPreferencesSchema } from '@elise/contracts';
 import { z } from 'zod';
 import { parseRequest } from '../../platform/zod-validation';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';

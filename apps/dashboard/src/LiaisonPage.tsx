@@ -29,7 +29,7 @@ import {
   type LiaisonEntry,
   type LiaisonFilter,
   type LiaisonPage as Page,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import type { Locale } from './i18n';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import './liaison.css';
@@ -703,7 +703,12 @@ export function LiaisonPage({
                     <X aria-hidden="true" />
                   </button>
                 </header>
-                <p>{tr('Comment se sent Michel ?', 'How is Michel feeling?')}</p>
+                <p>
+                  {tr(
+                    `Comment se sent ${data?.residentName ?? 'le résident'} ?`,
+                    `How is ${data?.residentName ?? 'the resident'} feeling?`,
+                  )}
+                </p>
                 <div className="liaison-mood-options">
                   {MOODS.map((mood, index) => {
                     const Icon = mood.icon;

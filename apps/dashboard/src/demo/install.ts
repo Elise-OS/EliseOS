@@ -81,7 +81,7 @@ if ('serviceWorker' in navigator) {
 
 const lang = new URLSearchParams(window.location.search).get('lang');
 try {
-  if (lang === 'fr' || lang === 'en') window.localStorage.setItem('michel_locale', lang);
+  if (lang === 'fr' || lang === 'en') window.localStorage.setItem('elise_locale', lang);
   // The demo home is built in one language: a language picked in the settings reloads it in that one.
   // Patched on the prototype: assigning to localStorage itself would store a key instead.
   // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -89,7 +89,7 @@ try {
   Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
     const previous = this.getItem(key);
     setItem.call(this, key, value);
-    if (this === window.localStorage && key === 'michel_locale' && value !== previous) {
+    if (this === window.localStorage && key === 'elise_locale' && value !== previous) {
       const url = new URL(window.location.href);
       url.searchParams.set('lang', value);
       window.location.replace(url);

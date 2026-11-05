@@ -13,8 +13,8 @@ import {
   Wind,
   Zap,
 } from 'lucide-react';
-import type { EquipmentCoverage, SensorProduct } from '@michel/contracts';
-import { ROOM_SENSOR_CATEGORIES } from '@michel/contracts';
+import type { EquipmentCoverage, SensorProduct } from '@elise/contracts';
+import { ROOM_SENSOR_CATEGORIES } from '@elise/contracts';
 import { EquipmentDialog } from './EquipmentDialog';
 import { ProductPhoto, SensorProductCard } from './SensorProductCard';
 import {

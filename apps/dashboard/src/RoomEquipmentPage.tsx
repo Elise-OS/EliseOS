@@ -39,7 +39,7 @@ import {
   type HomePlan,
   type RoomSensorCategory,
   type SensorProduct,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { EquipmentDialog } from './EquipmentDialog';
 import { CameraNetworkOnboarding } from './CameraNetworkOnboarding';
 import { SensorOnboardingDialog } from './SensorOnboardingDialog';

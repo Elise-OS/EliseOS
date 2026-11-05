@@ -10,7 +10,7 @@ import {
   type HomePlan,
   type PlanRoom,
   type RoomAdjacency,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { Prisma, type MembershipRole } from '@prisma/client';
 import { parseRequest } from '../../platform/zod-validation';
 import { PrismaService } from '../../platform/prisma.service';

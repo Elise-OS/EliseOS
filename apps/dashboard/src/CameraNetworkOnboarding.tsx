@@ -1,4 +1,4 @@
-import type { CameraNetworkDevice } from '@michel/contracts';
+import type { CameraNetworkDevice } from '@elise/contracts';
 import {
   ArrowLeft,
   ArrowRight,

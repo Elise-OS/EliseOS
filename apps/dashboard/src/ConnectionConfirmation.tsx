@@ -1,4 +1,4 @@
-import type { PlanRoom } from '@michel/contracts';
+import type { PlanRoom } from '@elise/contracts';
 import { ArrowRight, Check, Link2, X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { roomIcon } from './home-visuals';

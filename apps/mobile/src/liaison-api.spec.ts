@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { LiaisonCreate } from '@michel/contracts';
+import type { LiaisonCreate } from '@elise/contracts';
 import { mobileApi } from './api';
 import type { SavedServer } from './discovery/types';
 

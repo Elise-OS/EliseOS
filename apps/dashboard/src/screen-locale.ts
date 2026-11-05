@@ -6,7 +6,7 @@ export function uiLocale(): Locale {
   const asked = new URLSearchParams(window.location.search).get('lang');
   if (asked === 'fr' || asked === 'en') return asked;
   try {
-    return window.localStorage.getItem('michel_locale') === 'en' ? 'en' : 'fr';
+    return window.localStorage.getItem('elise_locale') === 'en' ? 'en' : 'fr';
   } catch {
     return 'fr';
   }

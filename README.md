@@ -266,7 +266,7 @@ Chaque version publie l’image flashable, ses sommes et signatures, le catalogu
 
 **Accès à distance.** Élise n’est jamais publiée sur Internet. La famille accède au boîtier par son réseau privé [Tailscale](https://tailscale.com), sur un port dédié en HTTPS. L’activation se fait en quatre étapes depuis les réglages ; voir [docs/acces-distant-prive.md](docs/acces-distant-prive.md).
 
-**Application mobile « Élise OS – Companion ».** Disponible sur **iPhone et iPad (App Store)** et **Android** (APK publié avec chaque version). Elle découvre automatiquement le boîtier sur le réseau local (`_michel._tcp.local`), vérifie son identité, reçoit les notifications push et permet d’appeler le résident en visio ou d’envoyer des photos à la TV.
+**Application mobile « Élise OS – Companion ».** Disponible sur **iPhone et iPad (App Store)** et **Android** (APK publié avec chaque version). Elle découvre automatiquement le boîtier sur le réseau local (`_elise._tcp.local`), vérifie son identité, reçoit les notifications push et permet d’appeler le résident en visio ou d’envoyer des photos à la TV.
 
 ---
 
@@ -293,7 +293,7 @@ docker compose up -d bootstrap postgres mosquitto ai api worker dashboard
 
 Ouvrez **http://localhost:8080**. Sur une installation neuve, un assistant local en trois étapes crée le premier compte administrateur (accessible uniquement depuis le réseau local). Les secrets PostgreSQL, MQTT, IA et de session sont générés au premier démarrage dans un volume Docker privé.
 
-> `MICHEL_DEMO_MODE=true` active un compte de démonstration V0 (`paul@michel.local` / `Michel-Demo-2026!`), à réserver au développement.
+> `ELISE_DEMO_MODE=true` active un compte de démonstration V0 (`paul@elise.local` / `Elise-Demo-2026!`), à réserver au développement.
 
 Sur Raspberry Pi, activez la découverte mobile avec la surcouche dédiée :
 
@@ -324,7 +324,7 @@ pnpm build
 L’espace aidant possède un mode démonstration complet, sans serveur ni réseau (API simulée en mémoire, horloge figée) :
 
 ```bash
-pnpm --filter @michel/dashboard exec vite --mode demo
+pnpm --filter @elise/dashboard exec vite --mode demo
 ```
 
 Le scénario vit dans `apps/dashboard/src/demo/`. `bash scripts/build-landing-demo.sh` publie cette démo dans le site `eliselanding`.

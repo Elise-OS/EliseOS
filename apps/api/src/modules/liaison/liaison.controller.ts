@@ -15,7 +15,7 @@ import {
   liaisonCreateSchema,
   liaisonQuerySchema,
   liaisonUpdateSchema,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { parseRequest } from '../../platform/zod-validation';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
 import { SessionGuard } from '../auth/session.guard';

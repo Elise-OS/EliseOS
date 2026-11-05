@@ -8,7 +8,7 @@ import {
   ROOM_SENSOR_CATEGORIES,
   type RoomSensorCategory,
   type SensorProduct,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import type { Locale } from './i18n';
 import { EquipmentDialog } from './EquipmentDialog';
 import { ProductPhoto } from './SensorProductCard';

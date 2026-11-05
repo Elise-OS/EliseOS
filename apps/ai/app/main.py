@@ -15,7 +15,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 from sklearn.ensemble import IsolationForest
 
-MODEL_ROOT = Path(os.getenv("MODEL_ROOT", "/var/lib/michel-ai"))
+MODEL_ROOT = Path(os.getenv("MODEL_ROOT", "/var/lib/elise-ai"))
 LEGACY_FEATURE_ORDER = ["hour_sin", "hour_cos", "capability_code", "quality"]
 FEATURE_ORDER = [
     "hour_sin",
@@ -70,22 +70,22 @@ class TrainResponse(BaseModel):
 
 
 app = FastAPI(
-    title="Michel AI",
+    title="Élise AI",
     version="1.0.0",
     description=(
         "Local, explainable routine anomaly scoring. "
-        "Michel Core remains the decision authority."
+        "Élise Core remains the decision authority."
     ),
 )
 
 
-def require_secret(x_michel_secret: Annotated[str | None, Header()] = None) -> None:
+def require_secret(x_elise_secret: Annotated[str | None, Header()] = None) -> None:
     expected = os.getenv("AI_SHARED_SECRET")
     secret_file = os.getenv("AI_SHARED_SECRET_FILE")
     if not expected and secret_file:
         expected = Path(secret_file).read_text(encoding="utf-8").strip()
     expected = expected or "development-secret-change-me"
-    if not x_michel_secret or not hmac.compare_digest(x_michel_secret, expected):
+    if not x_elise_secret or not hmac.compare_digest(x_elise_secret, expected):
         raise HTTPException(status_code=401, detail="Invalid service credential")
 
 
@@ -103,7 +103,7 @@ def vector(features: dict[str, float]) -> np.ndarray:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "michel-ai"}
+    return {"status": "ok", "service": "elise-ai"}
 
 
 @app.post("/v1/models/train", response_model=TrainResponse, dependencies=[Depends(require_secret)])
@@ -153,7 +153,7 @@ def score(request: ScoreRequest) -> ScoreResponse:
                 Factor(
                     feature="history",
                     contribution=0,
-                    message="Michel apprend encore les habitudes de ce domicile.",
+                    message="Élise apprend encore les habitudes de ce domicile.",
                 )
             ],
         )

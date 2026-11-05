@@ -61,7 +61,7 @@ describe('Accueil initial loading', () => {
     finishSummaries?.(response({ sequences: [] }));
     await pending;
 
-    expect(client.getQueryData(['michel', server.id, 'home-summary'])).toEqual({
+    expect(client.getQueryData(['elise', server.id, 'home-summary'])).toEqual({
       timezone: 'Indian/Reunion',
     });
     expect(resolved).toBe(true);

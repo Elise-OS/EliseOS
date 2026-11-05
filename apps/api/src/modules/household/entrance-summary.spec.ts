@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { HomePlan } from '@michel/contracts';
+import type { HomePlan } from '@elise/contracts';
 import { buildEntranceSummary } from './entrance-summary';
 import type { HomeEvent, HomeSensor } from './home-summary';
 const event = (

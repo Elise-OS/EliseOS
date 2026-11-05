@@ -6,7 +6,7 @@ if [[ "${EUID}" -ne 0 ]]; then exec sudo -E "$0" "$@"; fi
 ELISE_ROOT="${ELISE_ROOT:-/opt/elise}"
 ELISE_STATE="${ELISE_STATE:-/var/lib/elise}"
 ELISE_ENV="${ELISE_ENV:-/etc/elise/elise.env}"
-COMPOSE=(docker compose --project-name michel-os --env-file "$ELISE_ENV" -f "$ELISE_ROOT/current/compose.yaml" -f "$ELISE_ROOT/current/compose.release.yaml")
+COMPOSE=(docker compose --project-name elise-os --env-file "$ELISE_ENV" -f "$ELISE_ROOT/current/compose.yaml" -f "$ELISE_ROOT/current/compose.release.yaml")
 if [[ -f "$ELISE_ROOT/current/compose.raspberry.yaml" && "$(uname -m)" == aarch64 ]]; then
   COMPOSE+=(-f "$ELISE_ROOT/current/compose.raspberry.yaml" -f "$ELISE_ROOT/current/compose.raspberry.release.yaml")
 fi
@@ -49,10 +49,10 @@ case "${1:-}" in
     ;;
   backup)
     destination="${2:-$ELISE_STATE/backups}"
-    recipient="$(sed -n 's/^MICHEL_BACKUP_RECIPIENT=//p' "$ELISE_ENV" | tail -1)"
+    recipient="$(sed -n 's/^ELISE_BACKUP_RECIPIENT=//p' "$ELISE_ENV" | tail -1)"
     compose_files='compose.yaml:compose.release.yaml'
     [[ "$(uname -m)" == aarch64 ]] && compose_files+=':compose.raspberry.yaml:compose.raspberry.release.yaml'
-    (cd "$ELISE_ROOT/current" && MICHEL_BACKUP_RECIPIENT="$recipient" COMPOSE_PROJECT_NAME=michel-os COMPOSE_FILE="$compose_files" COMPOSE_ENV_FILES="$ELISE_ENV" ./scripts/backup.sh "$destination")
+    (cd "$ELISE_ROOT/current" && ELISE_BACKUP_RECIPIENT="$recipient" COMPOSE_PROJECT_NAME=elise-os COMPOSE_FILE="$compose_files" COMPOSE_ENV_FILES="$ELISE_ENV" ./scripts/backup.sh "$destination")
     ;;
   restore)
     archive="${2:-}"
@@ -60,7 +60,7 @@ case "${1:-}" in
     [[ "${3:-}" == --confirm ]] || { echo "Ajoutez --confirm pour restaurer cette sauvegarde." >&2; exit 2; }
     compose_files='compose.yaml:compose.release.yaml'
     [[ "$(uname -m)" == aarch64 ]] && compose_files+=':compose.raspberry.yaml:compose.raspberry.release.yaml'
-    (cd "$ELISE_ROOT/current" && COMPOSE_PROJECT_NAME=michel-os COMPOSE_FILE="$compose_files" COMPOSE_ENV_FILES="$ELISE_ENV" ./scripts/restore.sh "$archive")
+    (cd "$ELISE_ROOT/current" && COMPOSE_PROJECT_NAME=elise-os COMPOSE_FILE="$compose_files" COMPOSE_ENV_FILES="$ELISE_ENV" ./scripts/restore.sh "$archive")
     echo "Sauvegarde restaurée."
     ;;
   uninstall)

@@ -1,17 +1,17 @@
-name: michel-os
+name: elise-os
 
 x-node-common: &node-common
   restart: unless-stopped
   volumes:
-    - michel_secrets:/run/michel-secrets:ro
+    - elise_secrets:/run/elise-secrets:ro
   environment:
-    MICHEL_VERSION: ${MICHEL_VERSION:-0.1.12}
-    MICHEL_SECRETS_DIR: /run/michel-secrets
+    ELISE_VERSION: ${ELISE_VERSION:-0.1.12}
+    ELISE_SECRETS_DIR: /run/elise-secrets
     POSTGRES_HOST: postgres
-    POSTGRES_DB: michel
-    POSTGRES_USER: michel
+    POSTGRES_DB: elise
+    POSTGRES_USER: elise
     MQTT_URL: mqtt://mosquitto:1883
-    MQTT_USERNAME: michel_core
+    MQTT_USERNAME: elise_core
     AI_BASE_URL: http://ai:8000
     COOKIE_SECURE: 'false'
     TZ: ${TZ:-Europe/Paris}
@@ -32,11 +32,11 @@ services:
     image: alpine:3.22
     restart: 'no'
     volumes:
-      - michel_secrets:/secrets
+      - elise_secrets:/secrets
       - go2rtc_config:/go2rtc
       - ./docker/go2rtc/go2rtc.yaml:/go2rtc-template.yaml:ro
     environment:
-      MICHEL_WEBRTC_CANDIDATE: ${MICHEL_WEBRTC_CANDIDATE:-}
+      ELISE_WEBRTC_CANDIDATE: ${ELISE_WEBRTC_CANDIDATE:-}
     command:
       - /bin/sh
       - -ec
@@ -49,11 +49,11 @@ services:
         done
         chmod 0444 /secrets/*
         cp /go2rtc-template.yaml /go2rtc/go2rtc.yaml
-        if [ -n "$${MICHEL_WEBRTC_CANDIDATE:-}" ]; then
-          case "$${MICHEL_WEBRTC_CANDIDATE}" in
-            *[!A-Za-z0-9._:-]*) echo 'Invalid MICHEL_WEBRTC_CANDIDATE' >&2; exit 1 ;;
+        if [ -n "$${ELISE_WEBRTC_CANDIDATE:-}" ]; then
+          case "$${ELISE_WEBRTC_CANDIDATE}" in
+            *[!A-Za-z0-9._:-]*) echo 'Invalid ELISE_WEBRTC_CANDIDATE' >&2; exit 1 ;;
           esac
-          sed -i "s|candidates: \[\]|candidates: ['$${MICHEL_WEBRTC_CANDIDATE}:8555']|" /go2rtc/go2rtc.yaml
+          sed -i "s|candidates: \[\]|candidates: ['$${ELISE_WEBRTC_CANDIDATE}:8555']|" /go2rtc/go2rtc.yaml
         fi
 
   postgres:
@@ -63,18 +63,18 @@ services:
       bootstrap:
         condition: service_completed_successfully
     environment:
-      POSTGRES_DB: michel
-      POSTGRES_USER: michel
-      POSTGRES_PASSWORD_FILE: /run/michel-secrets/postgres_password
+      POSTGRES_DB: elise
+      POSTGRES_USER: elise
+      POSTGRES_PASSWORD_FILE: /run/elise-secrets/postgres_password
       TZ: ${TZ:-Europe/Paris}
     volumes:
       - postgres_data:/var/lib/postgresql
-      - michel_secrets:/run/michel-secrets:ro
+      - elise_secrets:/run/elise-secrets:ro
       - ./docker/postgres/init-homeassistant.sql:/docker-entrypoint-initdb.d/10-homeassistant.sql:ro
     ports:
-      - '127.0.0.1:${MICHEL_POSTGRES_HOST_PORT:-5433}:5432'
+      - '127.0.0.1:${ELISE_POSTGRES_HOST_PORT:-5433}:5432'
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U michel -d michel']
+      test: ['CMD-SHELL', 'pg_isready -U elise -d elise']
       interval: 5s
       timeout: 5s
       retries: 20
@@ -88,17 +88,17 @@ services:
     volumes:
       - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./docker/mosquitto/acl:/mosquitto/config/acl:ro
-      - ./docker/mosquitto/entrypoint.sh:/usr/local/bin/michel-mosquitto-entrypoint:ro
+      - ./docker/mosquitto/entrypoint.sh:/usr/local/bin/elise-mosquitto-entrypoint:ro
       - mosquitto_data:/mosquitto/data
-      - michel_secrets:/run/michel-secrets:ro
-    entrypoint: ['/bin/sh', '/usr/local/bin/michel-mosquitto-entrypoint']
+      - elise_secrets:/run/elise-secrets:ro
+    entrypoint: ['/bin/sh', '/usr/local/bin/elise-mosquitto-entrypoint']
     ports:
-      - '127.0.0.1:${MICHEL_MQTT_HOST_PORT:-1884}:1883'
+      - '127.0.0.1:${ELISE_MQTT_HOST_PORT:-1884}:1883'
     healthcheck:
       test:
         [
           'CMD-SHELL',
-          "mosquitto_sub -u michel_core -P $$(cat /run/michel-secrets/mqtt_password) -t '$$SYS/broker/uptime' -C 1 -W 3 >/dev/null",
+          "mosquitto_sub -u elise_core -P $$(cat /run/elise-secrets/mqtt_password) -t '$$SYS/broker/uptime' -C 1 -W 3 >/dev/null",
         ]
       interval: 10s
       timeout: 5s
@@ -113,13 +113,13 @@ services:
     environment:
       TZ: ${TZ:-Europe/Paris}
       ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/ttyACM0
-      MICHEL_ZIGBEE_ADAPTER_TYPE: ${ZIGBEE_ADAPTER_TYPE:-auto}
+      ELISE_ZIGBEE_ADAPTER_TYPE: ${ZIGBEE_ADAPTER_TYPE:-auto}
     volumes:
       - zigbee2mqtt_data:/app/data
-      - ./docker/zigbee2mqtt/configuration.yaml:/usr/local/share/michel/zigbee2mqtt-configuration.yaml:ro
-      - ./docker/zigbee2mqtt/entrypoint.sh:/usr/local/bin/michel-zigbee-entrypoint:ro
-      - michel_secrets:/run/michel-secrets:ro
-    entrypoint: ['/bin/sh', '/usr/local/bin/michel-zigbee-entrypoint']
+      - ./docker/zigbee2mqtt/configuration.yaml:/usr/local/share/elise/zigbee2mqtt-configuration.yaml:ro
+      - ./docker/zigbee2mqtt/entrypoint.sh:/usr/local/bin/elise-zigbee-entrypoint:ro
+      - elise_secrets:/run/elise-secrets:ro
+    entrypoint: ['/bin/sh', '/usr/local/bin/elise-zigbee-entrypoint']
     devices:
       - ${ZIGBEE_ADAPTER:-/dev/null}:/dev/ttyACM0
 
@@ -138,19 +138,19 @@ services:
     environment:
       TZ: ${TZ:-Europe/Paris}
       MQTT_HOST: 127.0.0.1
-      MQTT_PORT: ${MICHEL_MQTT_HOST_PORT:-1884}
+      MQTT_PORT: ${ELISE_MQTT_HOST_PORT:-1884}
       POSTGRES_HOST: 127.0.0.1
-      POSTGRES_PORT: ${MICHEL_POSTGRES_HOST_PORT:-5433}
-      HA_HTTP_PORT: ${MICHEL_HA_HTTP_PORT:-8124}
-      MICHEL_HOME_ID: ${MICHEL_HOME_ID:-home_demo}
-      MICHEL_SECRETS_DIR: /run/michel-secrets
+      POSTGRES_PORT: ${ELISE_POSTGRES_HOST_PORT:-5433}
+      HA_HTTP_PORT: ${ELISE_HA_HTTP_PORT:-8124}
+      ELISE_HOME_ID: ${ELISE_HOME_ID:-home_demo}
+      ELISE_SECRETS_DIR: /run/elise-secrets
     volumes:
       - homeassistant_data:/config
       - ./docker/homeassistant/configuration.yaml:/config/configuration.yaml:ro
       - ./docker/homeassistant/custom_components:/config/custom_components:ro
-      - ./docker/homeassistant/entrypoint.sh:/usr/local/bin/michel-ha-entrypoint:ro
-      - michel_secrets:/run/michel-secrets:ro
-    entrypoint: ['/bin/bash', '/usr/local/bin/michel-ha-entrypoint']
+      - ./docker/homeassistant/entrypoint.sh:/usr/local/bin/elise-ha-entrypoint:ro
+      - elise_secrets:/run/elise-secrets:ro
+    entrypoint: ['/bin/bash', '/usr/local/bin/elise-ha-entrypoint']
 
   go2rtc:
     image: ghcr.io/alexxit/go2rtc:1.9.14
@@ -161,8 +161,8 @@ services:
     volumes:
       - go2rtc_config:/config:ro
     ports:
-      - '${MICHEL_WEBRTC_BIND:-0.0.0.0}:8555:8555/tcp'
-      - '${MICHEL_WEBRTC_BIND:-0.0.0.0}:8555:8555/udp'
+      - '${ELISE_WEBRTC_BIND:-0.0.0.0}:8555:8555/tcp'
+      - '${ELISE_WEBRTC_BIND:-0.0.0.0}:8555:8555/udp'
     healthcheck:
       test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:1984/api']
       interval: 10s
@@ -173,17 +173,17 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.ai
-    image: michel-os/ai:${MICHEL_VERSION:-0.1.12}
+    image: elise-os/ai:${ELISE_VERSION:-0.1.12}
     restart: unless-stopped
     depends_on:
       bootstrap:
         condition: service_completed_successfully
     environment:
-      AI_SHARED_SECRET_FILE: /run/michel-secrets/ai_shared_secret
-      MODEL_ROOT: /var/lib/michel-ai
+      AI_SHARED_SECRET_FILE: /run/elise-secrets/ai_shared_secret
+      MODEL_ROOT: /var/lib/elise-ai
     volumes:
-      - ai_models:/var/lib/michel-ai
-      - michel_secrets:/run/michel-secrets:ro
+      - ai_models:/var/lib/elise-ai
+      - elise_secrets:/run/elise-secrets:ro
     healthcheck:
       test:
         [
@@ -202,7 +202,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.node
       target: api
-    image: michel-os/api:${MICHEL_VERSION:-0.1.12}
+    image: elise-os/api:${ELISE_VERSION:-0.1.12}
     depends_on:
       screen-bootstrap:
         condition: service_completed_successfully
@@ -215,29 +215,29 @@ services:
       go2rtc:
         condition: service_healthy
     environment:
-      MICHEL_VERSION: ${MICHEL_VERSION:-0.1.12}
-      MICHEL_WEB_CORS_ORIGINS: ${MICHEL_WEB_CORS_ORIGINS:-}
-      MICHEL_SECRETS_DIR: /run/michel-secrets
+      ELISE_VERSION: ${ELISE_VERSION:-0.1.12}
+      ELISE_WEB_CORS_ORIGINS: ${ELISE_WEB_CORS_ORIGINS:-}
+      ELISE_SECRETS_DIR: /run/elise-secrets
       POSTGRES_HOST: postgres
-      POSTGRES_DB: michel
-      POSTGRES_USER: michel
+      POSTGRES_DB: elise
+      POSTGRES_USER: elise
       MQTT_URL: mqtt://mosquitto:1883
-      MQTT_USERNAME: michel_core
+      MQTT_USERNAME: elise_core
       AI_BASE_URL: http://ai:8000
       COOKIE_SECURE: 'false'
-      MICHEL_DEMO_MODE: ${MICHEL_DEMO_MODE:-false}
-      MICHEL_SIMULATION_MODE: ${MICHEL_SIMULATION_MODE:-false}
+      ELISE_DEMO_MODE: ${ELISE_DEMO_MODE:-false}
+      ELISE_SIMULATION_MODE: ${ELISE_SIMULATION_MODE:-false}
       TOPOLOGY_TRACKING_ENABLED: ${TOPOLOGY_TRACKING_ENABLED:-true}
-      MICHEL_HOME_ID: ${MICHEL_HOME_ID:-home_demo}
-      MICHEL_DISCOVERY_NAME: ${MICHEL_DISCOVERY_NAME:-Élise OS}
-      MICHEL_INSTANCE_ID: ${MICHEL_INSTANCE_ID:-}
-      MICHEL_LOCAL_URL: ${MICHEL_LOCAL_URL:-http://elise.local}
-      MICHEL_REMOTE_URL: ${MICHEL_REMOTE_URL:-}
+      ELISE_HOME_ID: ${ELISE_HOME_ID:-home_demo}
+      ELISE_DISCOVERY_NAME: ${ELISE_DISCOVERY_NAME:-Élise OS}
+      ELISE_INSTANCE_ID: ${ELISE_INSTANCE_ID:-}
+      ELISE_LOCAL_URL: ${ELISE_LOCAL_URL:-http://elise.local}
+      ELISE_REMOTE_URL: ${ELISE_REMOTE_URL:-}
       YOUTUBE_CLIENT_ID: ${YOUTUBE_CLIENT_ID:-}
       YOUTUBE_CLIENT_SECRET: ${YOUTUBE_CLIENT_SECRET:-}
       YOUTUBE_REDIRECT_URI: ${YOUTUBE_REDIRECT_URI:-}
       ELISE_SCREEN_AGENT_SOCKET: /run/elise-screen/agent.sock
-      ELISE_SCREEN_LOCAL_URL: http://127.0.0.1:${MICHEL_HTTP_PORT:-8080}
+      ELISE_SCREEN_LOCAL_URL: http://127.0.0.1:${ELISE_HTTP_PORT:-8080}
       ELISE_REMOTE_AGENT_SOCKET: /run/elise-remote-access/agent.sock
       ELISE_UPDATE_AGENT_SOCKET: /run/elise-update/agent.sock
       ELISE_JITSI_URL: ${ELISE_JITSI_URL:-}
@@ -245,7 +245,7 @@ services:
       MEDIA_ROOT: /var/lib/elise/media
       CAMERA_MEDIA_ROOT: /var/lib/elise/camera-media
       GO2RTC_URL: http://go2rtc:1984
-      MICHEL_CAMERA_DISCOVERY_CIDRS: ${MICHEL_CAMERA_DISCOVERY_CIDRS:-192.168.1.0/24}
+      ELISE_CAMERA_DISCOVERY_CIDRS: ${ELISE_CAMERA_DISCOVERY_CIDRS:-192.168.1.0/24}
       MATTER_SERVER_ENABLED: ${MATTER_SERVER_ENABLED:-false}
       ZWAVE_SERVER_ENABLED: ${ZWAVE_SERVER_ENABLED:-false}
       BLUETOOTH_ENABLED: ${BLUETOOTH_ENABLED:-true}
@@ -253,7 +253,7 @@ services:
       HA_CONFIG_FLOW_ENABLED: ${HA_CONFIG_FLOW_ENABLED:-false}
       TZ: ${TZ:-Europe/Paris}
     volumes:
-      - michel_secrets:/run/michel-secrets:ro
+      - elise_secrets:/run/elise-secrets:ro
       - resident_media:/var/lib/elise/media
       - camera_media:/var/lib/elise/camera-media
       - /run/elise-screen:/run/elise-screen
@@ -285,15 +285,15 @@ services:
       context: .
       dockerfile: docker/Dockerfile.node
       target: worker
-    image: michel-os/worker:${MICHEL_VERSION:-0.1.12}
+    image: elise-os/worker:${ELISE_VERSION:-0.1.12}
     depends_on:
       api:
         condition: service_healthy
     environment:
-      MICHEL_SECRETS_DIR: /run/michel-secrets
+      ELISE_SECRETS_DIR: /run/elise-secrets
       POSTGRES_HOST: postgres
-      POSTGRES_DB: michel
-      POSTGRES_USER: michel
+      POSTGRES_DB: elise
+      POSTGRES_USER: elise
       AI_BASE_URL: http://ai:8000
       WEBHOOK_URL: ${WEBHOOK_URL:-}
       WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
@@ -302,7 +302,7 @@ services:
       TOPOLOGY_TRACKING_ENABLED: ${TOPOLOGY_TRACKING_ENABLED:-true}
       TZ: ${TZ:-Europe/Paris}
     volumes:
-      - michel_secrets:/run/michel-secrets:ro
+      - elise_secrets:/run/elise-secrets:ro
       - camera_media:/var/lib/elise/camera-media
 
   dashboard:
@@ -310,7 +310,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.node
       target: dashboard
-    image: michel-os/dashboard:${MICHEL_VERSION:-0.1.12}
+    image: elise-os/dashboard:${ELISE_VERSION:-0.1.12}
     environment:
       ELISE_JITSI_URL: ${ELISE_JITSI_URL:-https://jitsi.invalid}
     restart: unless-stopped
@@ -318,8 +318,8 @@ services:
       api:
         condition: service_healthy
     ports:
-      - '${MICHEL_HTTP_PORT:-8080}:8080'
-      - '127.0.0.1:${MICHEL_TAILSCALE_PROXY_PORT:-18080}:8081'
+      - '${ELISE_HTTP_PORT:-8080}:8080'
+      - '127.0.0.1:${ELISE_TAILSCALE_PROXY_PORT:-18080}:8081'
     healthcheck:
       test: ['CMD', 'wget', '-q', '--spider', 'http://localhost:8080/']
       interval: 10s
@@ -327,7 +327,7 @@ services:
       retries: 10
 
 volumes:
-  michel_secrets:
+  elise_secrets:
   go2rtc_config:
   postgres_data:
   mosquitto_data:

@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { PushPlatform } from '@prisma/client';
-import { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '@michel/contracts';
+import { DEFAULT_NOTIFICATION_PREFERENCES, type NotificationPreferences } from '@elise/contracts';
 import { PrismaService } from '../../platform/prisma.service';
 
 @Injectable()

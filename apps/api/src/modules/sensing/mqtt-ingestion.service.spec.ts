@@ -1,15 +1,15 @@
 import { EventEmitter } from 'node:events';
-import { connectMichelMqtt } from '@michel/mqtt';
-import { MQTT_TOPICS } from '@michel/contracts';
+import { connectEliseMqtt } from '@elise/mqtt';
+import { MQTT_TOPICS } from '@elise/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import { MqttIngestionService } from './mqtt-ingestion.service';
 
-vi.mock('@michel/mqtt', () => ({ connectMichelMqtt: vi.fn() }));
+vi.mock('@elise/mqtt', () => ({ connectEliseMqtt: vi.fn() }));
 
 function connectedService(ingest = vi.fn().mockResolvedValue({ accepted: true })) {
   const client = new EventEmitter();
   Object.assign(client, { subscribe: vi.fn(), publish: vi.fn(), end: vi.fn() });
-  vi.mocked(connectMichelMqtt).mockReturnValue(client as never);
+  vi.mocked(connectEliseMqtt).mockReturnValue(client as never);
   const service = new MqttIngestionService({ ingest } as never, {} as never);
   service.onModuleInit();
   return { client, service, ingest };

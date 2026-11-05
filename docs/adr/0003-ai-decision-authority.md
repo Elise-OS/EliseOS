@@ -4,7 +4,7 @@ Status: accepted
 
 ## Decision
 
-Run Michel AI as a local Python/FastAPI service using explainable Isolation Forest scoring. Michel Core owns facts and alerts; a worker supplies features through a versioned API and applies confidence, persistence, coverage and rule gates.
+Run Élise AI as a local Python/FastAPI service using explainable Isolation Forest scoring. Élise Core owns facts and alerts; a worker supplies features through a versioned API and applies confidence, persistence, coverage and rule gates.
 
 ## Alternatives
 

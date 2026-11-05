@@ -1,4 +1,4 @@
-import type { NormalizedEvent } from '@michel/contracts';
+import type { NormalizedEvent } from '@elise/contracts';
 
 export const SIMULATION_SCENARIOS = [
   'normal_morning',

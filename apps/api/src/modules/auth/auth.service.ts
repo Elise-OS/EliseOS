@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { hash, verify } from '@node-rs/argon2';
 import type { Prisma } from '@prisma/client';
-import type { Installation } from '@michel/contracts';
-import type { AccessCapability, MembershipRole } from '@michel/contracts';
+import type { Installation } from '@elise/contracts';
+import type { AccessCapability, MembershipRole } from '@elise/contracts';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../../platform/prisma.service';
 import { activeMembership, capabilitiesFor } from './access-policy';
@@ -159,7 +159,7 @@ export class AuthService {
       const setup = input.installation;
       const home = await tx.home.create({
         data: {
-          id: process.env.MICHEL_HOME_ID?.trim() || 'home_demo',
+          id: process.env.ELISE_HOME_ID?.trim() || 'home_demo',
           organizationId: organization.id,
           name: `Logement de ${setup.resident.dailyName}`,
           timezone: setup.timezone,

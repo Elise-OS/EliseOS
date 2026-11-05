@@ -1,4 +1,4 @@
-import type { HomePlan } from '@michel/contracts';
+import type { HomePlan } from '@elise/contracts';
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- Vitest asymmetric matchers use `any`. */
 import { describe, expect, it } from 'vitest';
 import { equipmentCoverage, profileFor, SENSOR_PROFILES } from './equipment-coverage';

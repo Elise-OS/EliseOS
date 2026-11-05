@@ -72,7 +72,7 @@ describe('AuthService bootstrap', () => {
     const result = await service.bootstrap({
       email: 'Paul@Example.com',
       displayName: 'Paul Martin',
-      password: 'Michel-Test-2026!',
+      password: 'Elise-Test-2026!',
       installation,
     });
 
@@ -105,7 +105,7 @@ describe('AuthService bootstrap', () => {
       data: { settings: unknown };
     };
     expect(JSON.stringify(revision.data.settings)).not.toContain('Temporaire-2026!');
-    expect(JSON.stringify(revision.data.settings)).not.toContain('Michel-Test-2026!');
+    expect(JSON.stringify(revision.data.settings)).not.toContain('Elise-Test-2026!');
   });
 
   it('refuses a second owner claim', async () => {
@@ -121,7 +121,7 @@ describe('AuthService bootstrap', () => {
       service.bootstrap({
         email: 'second@example.com',
         displayName: 'Second Owner',
-        password: 'Michel-Test-2026!',
+        password: 'Elise-Test-2026!',
         installation,
       }),
     ).rejects.toBeInstanceOf(ConflictException);

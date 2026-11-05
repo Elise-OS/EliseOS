@@ -7,7 +7,7 @@ import {
   type PlanRoom,
   type RoomSensorCategory,
   type SensorDevice,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import {
   Activity,
   ArrowLeft,

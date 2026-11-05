@@ -4,7 +4,7 @@ import {
   type EquipmentCoverage,
   type HomePlan,
   type RoomSensorCategory,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { SENSOR_PRODUCTS } from './sensor-products';
 import { sensorCapabilitiesForHealth, type SensorUiDevice } from './sensor-ui';
 

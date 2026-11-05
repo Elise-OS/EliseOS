@@ -1,5 +1,5 @@
 {
-  "name": "@michel/mobile",
+  "name": "@elise/mobile",
   "version": "0.1.12",
   "private": true,
   "main": "expo-router/entry",
@@ -15,7 +15,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
     "@expo/vector-icons": "^15.1.1",
-    "@michel/contracts": "workspace:*",
+    "@elise/contracts": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-native-community/netinfo": "11.4.1",

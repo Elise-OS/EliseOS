@@ -10,11 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import {
-  calendarCreateSchema,
-  calendarDeleteSchema,
-  calendarUpdateSchema,
-} from '@michel/contracts';
+import { calendarCreateSchema, calendarDeleteSchema, calendarUpdateSchema } from '@elise/contracts';
 import { parseRequest } from '../../platform/zod-validation';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
 import { SessionGuard } from '../auth/session.guard';

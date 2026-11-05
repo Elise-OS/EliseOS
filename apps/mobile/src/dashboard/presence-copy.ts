@@ -1,4 +1,4 @@
-import type { PresenceEstimate } from '@michel/contracts';
+import type { PresenceEstimate } from '@elise/contracts';
 import { tr } from '../locale';
 
 export function caregiverPresenceCopy(presence: PresenceEstimate | null) {

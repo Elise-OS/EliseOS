@@ -1,6 +1,6 @@
 import { ArrowLeft, ChevronRight, Radio } from 'lucide-react';
 import { useState } from 'react';
-import { ROOM_SENSOR_CATEGORIES, type SensorProduct } from '@michel/contracts';
+import { ROOM_SENSOR_CATEGORIES, type SensorProduct } from '@elise/contracts';
 import { EquipmentDialog } from './EquipmentDialog';
 import { SENSOR_PRODUCTS } from './sensor-products';
 import type { Locale } from './i18n';

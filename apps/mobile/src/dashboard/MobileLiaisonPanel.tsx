@@ -20,7 +20,7 @@ import {
   liaisonMoodLabel,
   type LiaisonCreate,
   type ScheduleItem,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { mobileApi, type AlertItem } from '../api';
 import type { SavedServer } from '../discovery/types';
 import { appLocale, dateLocale, tr } from '../locale';
@@ -96,7 +96,7 @@ export function MobileLiaisonPanel({
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const query = useInfiniteQuery({
-    queryKey: ['michel', server.id, 'liaison', 'ALL'],
+    queryKey: ['elise', server.id, 'liaison', 'ALL'],
     queryFn: ({ pageParam }) => mobileApi.liaison(server, token, 'ALL', pageParam),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
@@ -105,7 +105,7 @@ export function MobileLiaisonPanel({
   const data = query.data?.pages[0];
   const moodResidentName = (data?.residentName ?? residentName).trim().split(/\s+/)[0] ?? '';
   const items = query.data?.pages.flatMap((page) => page.items) ?? [];
-  const refresh = () => client.invalidateQueries({ queryKey: ['michel', server.id, 'liaison'] });
+  const refresh = () => client.invalidateQueries({ queryKey: ['elise', server.id, 'liaison'] });
   const create = useMutation({
     mutationFn: (input: LiaisonCreate) => mobileApi.createLiaison(server, token, input),
     onSuccess: async () => {

@@ -8,7 +8,7 @@ import {
   type ScreenPodcastSearchResult,
   type ScreenPodcastSubscription,
   type ScreenMedia,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { request as httpRequest } from 'node:http';
 import {
   BadRequestException,
@@ -39,7 +39,7 @@ import {
   type ScreenGrant,
   type ScreenSnapshot,
   type ScreenTvControl,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { PrismaService } from '../../platform/prisma.service';
 import { parseRequest } from '../../platform/zod-validation';
 import { decryptCameraSecret, encryptCameraSecret } from '../cameras/camera-crypto';
@@ -378,7 +378,7 @@ function parseXmlTvGuide(xml: string): Map<string, XmlTvProgram[]> {
 
 async function refreshTvGuide(): Promise<void> {
   const response = await fetch(TV_GUIDE_SOURCE_URL, {
-    headers: { 'user-agent': 'Michel household TV guide/1.0' },
+    headers: { 'user-agent': 'Elise household TV guide/1.0' },
     signal: AbortSignal.timeout(10_000),
   });
   if (!response.ok) throw new Error(`XMLTV source returned HTTP ${response.status}.`);
@@ -543,7 +543,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       if (JSON.stringify(s) === before) return s;
       await tx.residentScreen.update({ where: { homeId }, data: { state: json(s) } });
       if (notify)
-        await tx.$executeRaw`SELECT pg_notify('michel_updates', ${JSON.stringify({ homeId, type: 'screen' })})`;
+        await tx.$executeRaw`SELECT pg_notify('elise_updates', ${JSON.stringify({ homeId, type: 'screen' })})`;
       return s;
     });
   }
@@ -1247,7 +1247,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
   }
   private async podcastCatalogRequest(url: URL): Promise<PodcastDirectoryResponse> {
     const response = await fetch(url, {
-      headers: { 'user-agent': 'MichelOS/0.1 (+https://elise.local)' },
+      headers: { 'user-agent': 'EliseOS/0.1 (+https://elise.local)' },
       signal: AbortSignal.timeout(8000),
     });
     if (!response.ok) throw new Error(`Podcast catalog HTTP ${response.status}.`);
@@ -1622,8 +1622,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     const clientId = process.env.YOUTUBE_CLIENT_ID?.trim();
     const clientSecret = process.env.YOUTUBE_CLIENT_SECRET?.trim();
     const configuredRedirect = process.env.YOUTUBE_REDIRECT_URI?.trim();
-    const publicUrl =
-      process.env.MICHEL_REMOTE_URL?.trim() || process.env.MICHEL_PUBLIC_URL?.trim();
+    const publicUrl = process.env.ELISE_REMOTE_URL?.trim() || process.env.ELISE_PUBLIC_URL?.trim();
     const redirectUri =
       configuredRedirect ||
       (publicUrl ? new URL('/api/v1/screen/youtube/callback', publicUrl).toString() : undefined);
@@ -1649,9 +1648,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
   }
   private defaultGoogleRedirectUri(requestOrigin?: string): string | null {
     const publicUrl =
-      process.env.MICHEL_REMOTE_URL?.trim() ||
-      process.env.MICHEL_PUBLIC_URL?.trim() ||
-      requestOrigin;
+      process.env.ELISE_REMOTE_URL?.trim() || process.env.ELISE_PUBLIC_URL?.trim() || requestOrigin;
     if (!publicUrl) return null;
     return new URL('/api/v1/screen/youtube/callback', publicUrl).toString();
   }

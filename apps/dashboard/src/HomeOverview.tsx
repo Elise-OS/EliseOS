@@ -6,7 +6,7 @@ import type {
   PresenceEstimate,
   RoomSensorCategory,
   SensorDevice,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import {
   AlertTriangle,
   ArrowRight,

@@ -2,7 +2,7 @@ import { lookup } from 'node:dns/promises';
 import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
 import { DOMParser, type Element as XmlElement } from '@xmldom/xmldom';
-import type { ScreenPodcastEpisode } from '@michel/contracts';
+import type { ScreenPodcastEpisode } from '@elise/contracts';
 
 // Popular shows often publish large RSS archives, including over 10 MiB after
 // decompression. Keep a firm memory/network bound while allowing those feeds.
@@ -79,7 +79,7 @@ async function readFeed(url: URL): Promise<string> {
       redirect: 'manual',
       headers: {
         accept: 'application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.1',
-        'user-agent': 'MichelOS/0.1 (+https://elise.local)',
+        'user-agent': 'EliseOS/0.1 (+https://elise.local)',
       },
       signal: AbortSignal.timeout(9000),
     });

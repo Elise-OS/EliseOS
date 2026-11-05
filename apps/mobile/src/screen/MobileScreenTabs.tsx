@@ -4,7 +4,7 @@ import {
   RMC_LIFE_LIVE_URL,
   RMC_STORY_LIVE_URL,
   youtubeVideoId,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import type {
   ScreenMedia,
   ScreenPodcastEpisode,
@@ -12,7 +12,7 @@ import type {
   ScreenScheduledContentInput,
   ScreenSettings,
   ScreenSnapshot,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';

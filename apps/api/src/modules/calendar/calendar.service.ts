@@ -9,7 +9,7 @@ import {
   calendarRecurrenceSchema,
   type CalendarCreate,
   type CalendarUpdate,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { PrismaService } from '../../platform/prisma.service';
 import { activeMembership } from '../auth/access-policy';
 import { scheduledDate } from '../medications/medication-time';
@@ -208,7 +208,7 @@ export class CalendarService {
           metadata: { type: input.type, recurrence: input.recurrence, seriesId },
         },
       });
-      await tx.$executeRaw`SELECT pg_notify('michel_updates', ${JSON.stringify({ homeId: home.id, type: 'schedule', entityId: rows[0]?.id })})`;
+      await tx.$executeRaw`SELECT pg_notify('elise_updates', ${JSON.stringify({ homeId: home.id, type: 'schedule', entityId: rows[0]?.id })})`;
       return { id: rows[0]?.id, seriesId, count: rows.length };
     });
   }
@@ -271,7 +271,7 @@ export class CalendarService {
           metadata: { scope, seriesId },
         },
       });
-      await tx.$executeRaw`SELECT pg_notify('michel_updates', ${JSON.stringify({ homeId: home.id, type: 'schedule', entityId: id })})`;
+      await tx.$executeRaw`SELECT pg_notify('elise_updates', ${JSON.stringify({ homeId: home.id, type: 'schedule', entityId: id })})`;
       return { id, scope };
     });
   }
@@ -309,7 +309,7 @@ export class CalendarService {
           metadata: { scope, seriesId: existing.seriesId },
         },
       });
-      await tx.$executeRaw`SELECT pg_notify('michel_updates', ${JSON.stringify({ homeId: home.id, type: 'schedule', entityId: id })})`;
+      await tx.$executeRaw`SELECT pg_notify('elise_updates', ${JSON.stringify({ homeId: home.id, type: 'schedule', entityId: id })})`;
       return { id, scope };
     });
   }

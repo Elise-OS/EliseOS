@@ -6,7 +6,7 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
         "--filter",
-        "@michel/mobile",
+        "@elise/mobile",
         "exec",
         "expo",
         "start",
@@ -21,7 +21,7 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
         "--filter",
-        "@michel/dashboard",
+        "@elise/dashboard",
         "exec",
         "vite",
         "--mode",

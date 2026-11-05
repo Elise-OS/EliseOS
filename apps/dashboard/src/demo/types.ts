@@ -1,4 +1,4 @@
-import type { MembershipRole } from '@michel/contracts';
+import type { MembershipRole } from '@elise/contracts';
 
 // API shapes used by the demo scenario. They mirror the real endpoints, as typed by the mobile client.
 

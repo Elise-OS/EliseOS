@@ -3,7 +3,7 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { HomePlan, SensorDevice } from '@michel/contracts';
+import type { HomePlan, SensorDevice } from '@elise/contracts';
 import { RoomEquipmentPage } from './RoomEquipmentPage';
 
 describe('managing a room sensor', () => {

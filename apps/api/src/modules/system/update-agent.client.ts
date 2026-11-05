@@ -4,7 +4,7 @@ import {
   updateStatusSchema,
   type UpdateCredentials,
   type UpdateStatus,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import http from 'node:http';
 
 @Injectable()

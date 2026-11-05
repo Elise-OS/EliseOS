@@ -7,7 +7,7 @@ import {
   initialScreenState,
   type ScreenSettings,
   type ScreenSnapshot,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { WelcomePage } from './WelcomePage';
 
 vi.mock('./screen-events', () => ({ subscribeScreenEvents: () => () => undefined }));

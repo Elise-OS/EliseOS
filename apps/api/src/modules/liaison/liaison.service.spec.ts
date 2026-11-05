@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { liaisonCreateSchema, liaisonDateSchema, liaisonUpdateSchema } from '@michel/contracts';
+import { liaisonCreateSchema, liaisonDateSchema, liaisonUpdateSchema } from '@elise/contracts';
 import { LiaisonService } from './liaison.service';
 
 function fixture() {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Elise Os - Companion",
     "slug": "michel-mobile",
-    "scheme": "michel",
+    "scheme": "elise",
     "version": "0.1.12",
     "icon": "./assets/logo.png",
     "orientation": "portrait",
@@ -43,7 +43,7 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocalNetworkUsageDescription": "Élise utilise le réseau local pour détecter votre serveur à domicile.",
         "NSMicrophoneUsageDescription": "Élise utilise le microphone pendant vos appels au résident ou lorsque vous utilisez l’interphone.",
-        "NSBonjourServices": ["_michel._tcp"],
+        "NSBonjourServices": ["_elise._tcp"],
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },

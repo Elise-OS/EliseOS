@@ -3,7 +3,7 @@ import {
   isBedOccupancySensorModel,
   type HomePlan,
   type SensorOnboardingCompletion,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { ConflictException, UnprocessableEntityException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 

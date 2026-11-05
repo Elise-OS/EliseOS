@@ -27,7 +27,7 @@ class UpdateAgentTests(unittest.TestCase):
             auth = root / "github-auth"
             status = root / "status.json"
             env = root / "elise.env"
-            env.write_text("MICHEL_VERSION=v0.1.0\n", encoding="utf-8")
+            env.write_text("ELISE_VERSION=v0.1.0\n", encoding="utf-8")
             with patch.object(agent, "AUTH_FILE", auth), patch.object(
                 agent, "STATUS_FILE", status
             ), patch.object(agent, "ENV_FILE", env), patch.object(
@@ -46,7 +46,7 @@ class UpdateAgentTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             env = root / "elise.env"
-            env.write_text("MICHEL_VERSION=v0.1.0\n", encoding="utf-8")
+            env.write_text("ELISE_VERSION=v0.1.0\n", encoding="utf-8")
             with patch.object(agent, "AUTH_FILE", root / "github-auth"), patch.object(
                 agent, "STATUS_FILE", root / "status.json"
             ), patch.object(agent, "ENV_FILE", env), patch.object(
@@ -79,7 +79,7 @@ class InstallTests(unittest.TestCase):
         self.folder = tempfile.TemporaryDirectory()
         root = Path(self.folder.name)
         self.env = root / "elise.env"
-        self.env.write_text("MICHEL_VERSION=v0.1.0\n", encoding="utf-8")
+        self.env.write_text("ELISE_VERSION=v0.1.0\n", encoding="utf-8")
         self.status = root / "update" / "status.json"
         self.installer = root / "elise"
         self.patches = [
@@ -111,7 +111,7 @@ class InstallTests(unittest.TestCase):
             launch.assert_not_called()
 
     def test_refuses_to_reinstall_or_downgrade(self):
-        self.env.write_text("MICHEL_VERSION=v0.1.2\n", encoding="utf-8")
+        self.env.write_text("ELISE_VERSION=v0.1.2\n", encoding="utf-8")
         with self.latest("v0.1.2"), patch.object(agent, "launch_runner") as launch:
             with self.assertRaises(ValueError):
                 agent.install("v0.1.2")
@@ -142,7 +142,7 @@ class InstallTests(unittest.TestCase):
     def test_apply_records_a_successful_update(self):
         self.fake_installer(
             'echo "→ Téléchargement des composants Élise"\n'
-            f'echo MICHEL_VERSION=v0.1.1 > "{self.env}"\n'
+            f'echo ELISE_VERSION=v0.1.1 > "{self.env}"\n'
             'echo "→ Élise est prête"\n'
         )
         with patch.object(agent.subprocess, "run") as systemctl:

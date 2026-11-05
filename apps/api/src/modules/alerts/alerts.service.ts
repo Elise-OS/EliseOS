@@ -8,7 +8,7 @@ import {
   alertRuleSettingsSchema,
   DEFAULT_ALERT_RULE_SETTINGS,
   type AlertRuleSettings,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../platform/prisma.service';
 import { rolesFor } from '../auth/access-policy';

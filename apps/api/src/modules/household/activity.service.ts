@@ -8,7 +8,7 @@ import {
   type HomeSummary,
   type PresenceEstimate,
   type HomePlan,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { Prisma, type ObservationEvent } from '@prisma/client';
 import { buildEntranceSummary, ENTRANCE_WINDOW_MS } from './entrance-summary';
 import { buildHomeCards, buildSleepSummary, latestPresenceEvidence } from './home-summary';

@@ -101,14 +101,17 @@ export function JournalPage({
   locale = 'fr',
   items,
   timezone = 'Europe/Paris',
+  residentName,
   onBack,
 }: {
   locale?: Locale;
   items: JournalPageItem[];
   timezone?: string;
+  residentName?: string | null;
   onBack?: () => void;
 }) {
   const tr = (fr: string, en: string) => (locale === 'fr' ? fr : en);
+  const resident = residentName?.trim() || null;
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -306,8 +309,12 @@ export function JournalPage({
               <strong>{tr('Un espace partagé', 'A shared space')}</strong>
               <p>
                 {tr(
-                  'Les proches peuvent transmettre ici les informations utiles au quotidien de Michel.',
-                  'Loved ones can share useful information about Michel’s daily life here.',
+                  resident
+                    ? `Les proches peuvent transmettre ici les informations utiles au quotidien de ${resident}.`
+                    : 'Les proches peuvent transmettre ici les informations utiles au quotidien du résident.',
+                  resident
+                    ? `Loved ones can share useful information about ${resident}’s daily life here.`
+                    : 'Loved ones can share useful information about the resident’s daily life here.',
                 )}
               </p>
             </div>

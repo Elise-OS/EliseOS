@@ -1,4 +1,4 @@
-import type { AccessCapability, MembershipRole } from '@michel/contracts';
+import type { AccessCapability, MembershipRole } from '@elise/contracts';
 
 const READ_CAPABILITIES: AccessCapability[] = ['people:read', 'configuration:read', 'cameras:view'];
 

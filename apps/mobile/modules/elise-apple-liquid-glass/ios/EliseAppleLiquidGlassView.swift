@@ -1,7 +1,7 @@
 import ExpoModulesCore
 import UIKit
 
-final class MichelAppleLiquidGlassView: ExpoView {
+final class EliseAppleLiquidGlassView: ExpoView {
   private let glassView = UIVisualEffectView()
 
   required init(appContext: AppContext? = nil) {

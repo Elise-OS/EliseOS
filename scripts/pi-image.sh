@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CONFIG_FILE="${MICHEL_NAS_CONFIG:-$ROOT_DIR/config/nas-deploy.env}"
+CONFIG_FILE="${ELISE_NAS_CONFIG:-$ROOT_DIR/config/nas-deploy.env}"
 BUILD=true
 FLASH=false
 BASE_VERSION=""
@@ -25,8 +25,8 @@ Options :
   -h, --help     Affiche cette aide.
 
 Réglages facultatifs dans config/nas-deploy.env :
-  MICHEL_PI_BUILD_DIR, MICHEL_PI_HOSTNAME, MICHEL_PI_USER, MICHEL_PI_SSH_KEY,
-  MICHEL_PI_WIFI_SSID, MICHEL_PI_WIFI_PASSWORD, MICHEL_PI_WIFI_COUNTRY
+  ELISE_PI_BUILD_DIR, ELISE_PI_HOSTNAME, ELISE_PI_USER, ELISE_PI_SSH_KEY,
+  ELISE_PI_WIFI_SSID, ELISE_PI_WIFI_PASSWORD, ELISE_PI_WIFI_COUNTRY
 EOF
 }
 
@@ -57,16 +57,16 @@ done
 }
 # shellcheck disable=SC1090
 source "$CONFIG_FILE"
-: "${MICHEL_NAS_TARGET:?MICHEL_NAS_TARGET est requis}"
-BUILD_DIR="${MICHEL_PI_BUILD_DIR:-/mnt/data/elise-os-builds/local}"
+: "${ELISE_NAS_TARGET:?ELISE_NAS_TARGET est requis}"
+BUILD_DIR="${ELISE_PI_BUILD_DIR:-/mnt/data/elise-os-builds/local}"
 [[ "$BUILD_DIR" =~ ^/mnt/data/elise-os-builds/[A-Za-z0-9._-]+$ ]] || {
   echo "Dossier de build refusé par sécurité : $BUILD_DIR" >&2
   exit 1
 }
 # The image build may reach the NAS another way than deploy:nas, e.g. on the local network.
-NAS_TARGET="${MICHEL_PI_NAS_TARGET:-$MICHEL_NAS_TARGET}"
+NAS_TARGET="${ELISE_PI_NAS_TARGET:-$ELISE_NAS_TARGET}"
 ssh_command=(ssh -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30)
-[[ -z "${MICHEL_PI_NAS_IDENTITY:-}" ]] || ssh_command+=(-i "$MICHEL_PI_NAS_IDENTITY" -o IdentitiesOnly=yes)
+[[ -z "${ELISE_PI_NAS_IDENTITY:-}" ]] || ssh_command+=(-i "$ELISE_PI_NAS_IDENTITY" -o IdentitiesOnly=yes)
 remote() { "${ssh_command[@]}" "$NAS_TARGET" "$@"; }
 sync_to_nas() { rsync -e "${ssh_command[*]}" "$@"; }
 
@@ -108,17 +108,17 @@ fi
 
 [[ "$FLASH" == true ]] || exit 0
 
-ssh_key="${MICHEL_PI_SSH_KEY:-$HOME/.ssh/toquehub_pi_test_ed25519.pub}"
+ssh_key="${ELISE_PI_SSH_KEY:-$HOME/.ssh/toquehub_pi_test_ed25519.pub}"
 [[ -f "$ssh_key" ]] || { echo "Clé SSH publique absente : $ssh_key" >&2; exit 1; }
 work="$(mktemp -d)"
 trap 'rm -rf -- "$work"' EXIT
 cat > "$work/user-data" <<EOF
 #cloud-config
 # Same settings Raspberry Pi Imager would apply: name, user, SSH key, locale.
-hostname: ${MICHEL_PI_HOSTNAME:-elise}
+hostname: ${ELISE_PI_HOSTNAME:-elise}
 manage_etc_hosts: true
 users:
-  - name: ${MICHEL_PI_USER:-elise}
+  - name: ${ELISE_PI_USER:-elise}
     groups: [adm, sudo, video, audio, plugdev, netdev]
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
@@ -132,12 +132,12 @@ keyboard:
   layout: fr
 EOF
 network_arg=""
-if [[ -n "${MICHEL_PI_WIFI_SSID:-}" ]]; then
-  MICHEL_PI_WIFI_SSID="$MICHEL_PI_WIFI_SSID" MICHEL_PI_WIFI_PASSWORD="${MICHEL_PI_WIFI_PASSWORD:-}" \
-    MICHEL_PI_WIFI_COUNTRY="${MICHEL_PI_WIFI_COUNTRY:-FR}" python3 - "$work/network-config" <<'PY'
+if [[ -n "${ELISE_PI_WIFI_SSID:-}" ]]; then
+  ELISE_PI_WIFI_SSID="$ELISE_PI_WIFI_SSID" ELISE_PI_WIFI_PASSWORD="${ELISE_PI_WIFI_PASSWORD:-}" \
+    ELISE_PI_WIFI_COUNTRY="${ELISE_PI_WIFI_COUNTRY:-FR}" python3 - "$work/network-config" <<'PY'
 import json, os, sys
-ssid, password = os.environ["MICHEL_PI_WIFI_SSID"], os.environ.get("MICHEL_PI_WIFI_PASSWORD", "")
-country = os.environ.get("MICHEL_PI_WIFI_COUNTRY", "FR")
+ssid, password = os.environ["ELISE_PI_WIFI_SSID"], os.environ.get("ELISE_PI_WIFI_PASSWORD", "")
+country = os.environ.get("ELISE_PI_WIFI_COUNTRY", "FR")
 # JSON strings are valid YAML scalars, whatever the Wi-Fi name contains.
 with open(sys.argv[1], "w", encoding="utf-8") as output:
     output.write(

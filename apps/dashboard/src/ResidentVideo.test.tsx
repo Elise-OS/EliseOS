@@ -9,7 +9,7 @@ import {
   IncomingCallOverlay,
   startIncomingCallRingtone,
 } from './ResidentScreen';
-import { ARTE_LIVE_URL, youtubeVideoId, type ScreenMedia } from '@michel/contracts';
+import { ARTE_LIVE_URL, youtubeVideoId, type ScreenMedia } from '@elise/contracts';
 
 const hlsMocks = vi.hoisted(() => ({
   loadSource: vi.fn(),

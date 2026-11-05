@@ -6,7 +6,7 @@ import { dateKeyInZone, shiftDate } from './homeDates';
 const MAX_INITIAL_WAIT_MS = 20_000;
 
 async function loadHomeData(queryClient: QueryClient, server: SavedServer, token: string) {
-  const rootKey = ['michel', server.id] as const;
+  const rootKey = ['elise', server.id] as const;
   const homeSummary = queryClient.fetchQuery({
     queryKey: [...rootKey, 'home-summary'],
     queryFn: () => mobileApi.homeSummary(server, token),

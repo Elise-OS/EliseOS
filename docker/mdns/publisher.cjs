@@ -1,8 +1,8 @@
 const { Bonjour } = require('bonjour-service');
 
-const discoveryUrl = process.env.MICHEL_DISCOVERY_URL || 'http://127.0.0.1:8080/api/v1/discovery';
-const port = Number(process.env.MICHEL_DISCOVERY_PORT || 8080);
-const host = String(process.env.MICHEL_DISCOVERY_HOST || '').trim();
+const discoveryUrl = process.env.ELISE_DISCOVERY_URL || 'http://127.0.0.1:8080/api/v1/discovery';
+const port = Number(process.env.ELISE_DISCOVERY_PORT || 8080);
+const host = String(process.env.ELISE_DISCOVERY_HOST || '').trim();
 const refreshMs = 15000;
 
 let bonjour;
@@ -21,7 +21,7 @@ const readInfo = async () => {
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const data = await response.json();
   if (!data?.instanceId || !data?.instanceName || data?.supportsMobile !== true) {
-    throw new Error('Invalid Michel discovery payload');
+    throw new Error('Invalid Élise discovery payload');
   }
   return data;
 };
@@ -43,10 +43,10 @@ const publish = (info) => {
     .replace(/[^a-zA-Z0-9]/g, '')
     .slice(0, 8);
   const serviceName = suffix ? `${info.instanceName} (${suffix})` : info.instanceName;
-  bonjour = new Bonjour(undefined, (error) => console.warn(`Michel mDNS: ${error.message}`));
+  bonjour = new Bonjour(undefined, (error) => console.warn(`Élise mDNS: ${error.message}`));
   service = bonjour.publish({
     name: serviceName,
-    type: 'michel',
+    type: 'elise',
     protocol: 'tcp',
     port,
     host: host || undefined,
@@ -63,16 +63,16 @@ const publish = (info) => {
     },
   });
   service.on('up', () =>
-    console.log(`${serviceName}._michel._tcp.local -> ${host || 'host'}:${port}`),
+    console.log(`${serviceName}._elise._tcp.local -> ${host || 'host'}:${port}`),
   );
-  service.on('error', (error) => console.warn(`Michel mDNS publish failed: ${error.message}`));
+  service.on('error', (error) => console.warn(`Élise mDNS publish failed: ${error.message}`));
 };
 
 const refresh = async () => {
   try {
     publish(await readInfo());
   } catch (error) {
-    console.warn(`Waiting for Michel at ${discoveryUrl}: ${error.message}`);
+    console.warn(`Waiting for Élise at ${discoveryUrl}: ${error.message}`);
   }
 };
 

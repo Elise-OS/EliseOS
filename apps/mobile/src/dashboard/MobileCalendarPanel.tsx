@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { calendarCreateSchema, type CalendarRecurrence } from '@michel/contracts';
+import { calendarCreateSchema, type CalendarRecurrence } from '@elise/contracts';
 import { mobileApi } from '../api';
 import type { SavedServer } from '../discovery/types';
 import { dateLocale, tr } from '../locale';
@@ -59,7 +59,7 @@ export function MobileCalendarPanel({
   onBack: () => void;
 }) {
   const client = useQueryClient();
-  const queryKey = ['michel', server.id, 'calendar'];
+  const queryKey = ['elise', server.id, 'calendar'];
   const calendar = useQuery({
     queryKey,
     queryFn: () => mobileApi.calendar(server, token),
@@ -160,7 +160,7 @@ export function MobileCalendarPanel({
       setRecurrenceCount('7');
       setError('');
       await client.invalidateQueries({ queryKey });
-      await client.invalidateQueries({ queryKey: ['michel', server.id, 'schedule'] });
+      await client.invalidateQueries({ queryKey: ['elise', server.id, 'schedule'] });
     },
     onError: () =>
       setError(
@@ -171,7 +171,7 @@ export function MobileCalendarPanel({
     mutationFn: (id: string) => mobileApi.deleteCalendar(server, token, id),
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey });
-      await client.invalidateQueries({ queryKey: ['michel', server.id, 'schedule'] });
+      await client.invalidateQueries({ queryKey: ['elise', server.id, 'schedule'] });
     },
   });
   const events = calendar.data?.items ?? [];

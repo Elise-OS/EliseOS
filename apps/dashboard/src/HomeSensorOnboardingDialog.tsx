@@ -1,10 +1,10 @@
 import { ProductPhoto, SensorProductCard } from './SensorProductCard';
-import type { HomePlan, RoomSensorCategory, SensorProduct } from '@michel/contracts';
+import type { HomePlan, RoomSensorCategory, SensorProduct } from '@elise/contracts';
 import {
   ROOM_SENSOR_CATEGORIES,
   isBedOccupancySensorModel,
   roomSupportsCategory,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import {
   Activity,
   Camera,

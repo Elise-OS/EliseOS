@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Query, Req, Res, UseGuards } from 
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { z } from 'zod';
-import { alertRuleSettingsSchema } from '@michel/contracts';
+import { alertRuleSettingsSchema } from '@elise/contracts';
 import { parseRequest } from '../../platform/zod-validation';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
 import { AlertsService } from './alerts.service';

@@ -52,7 +52,7 @@ export const preferredServerUrls = (server: {
 export const remoteUrlFromDeepLink = (input: string) => {
   try {
     const parsed = new URL(input);
-    if (parsed.protocol !== 'michel:' || parsed.hostname !== 'connect') return '';
+    if (parsed.protocol !== 'elise:' || parsed.hostname !== 'connect') return '';
     const target = new URL(parsed.searchParams.get('url') ?? '');
     if (
       target.protocol !== 'https:' ||
@@ -77,7 +77,7 @@ export const subnetCandidates = (
 ) => {
   const candidates = ports.flatMap((port) => [
     `http://elise.local:${port}`,
-    `http://michel.local:${port}`,
+    `http://elise.local:${port}`,
   ]);
   const prefix = subnetPrefix(address);
   if (!prefix) return candidates;
@@ -98,7 +98,7 @@ export const parseDiscoveryInfo = (value: unknown): DiscoveryInfo => {
     info.apiVersion !== 1 ||
     typeof info.setupRequired !== 'boolean'
   ) {
-    throw new Error('Serveur Michel invalide');
+    throw new Error('Serveur Élise invalide');
   }
   return info as DiscoveryInfo;
 };

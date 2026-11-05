@@ -3,7 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiaisonPage } from './LiaisonPage';
-import type { LiaisonPage as Page } from '@michel/contracts';
+import type { LiaisonPage as Page } from '@elise/contracts';
 
 const interact = (callback: () => unknown) =>
   act(async () => {

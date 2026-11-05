@@ -45,7 +45,7 @@ function currentLang(): 'fr' | 'en' {
   const asked = new URLSearchParams(window.location.search).get('lang');
   if (asked === 'en' || asked === 'fr') return asked;
   try {
-    return window.localStorage.getItem('michel_locale') === 'en' ? 'en' : 'fr';
+    return window.localStorage.getItem('elise_locale') === 'en' ? 'en' : 'fr';
   } catch {
     return 'fr';
   }

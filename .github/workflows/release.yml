@@ -87,8 +87,8 @@ jobs:
             package.json \
             compose.yaml \
             compose.raspberry.yaml \
-            docker/homeassistant/custom_components/michel_bridge/__init__.py \
-            docker/homeassistant/custom_components/michel_bridge/manifest.json
+            docker/homeassistant/custom_components/elise_bridge/__init__.py \
+            docker/homeassistant/custom_components/elise_bridge/manifest.json
           git diff --cached --check
           git commit -m "chore(release): synchronize metadata to $RELEASE_VERSION [skip ci]"
           git push origin HEAD:main

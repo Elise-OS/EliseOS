@@ -11,11 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import {
-  createPersonSchema,
-  updatePersonAccessSchema,
-  updatePersonSchema,
-} from '@michel/contracts';
+import { createPersonSchema, updatePersonAccessSchema, updatePersonSchema } from '@elise/contracts';
 import { z } from 'zod';
 import { parseRequest } from '../../platform/zod-validation';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';

@@ -1,5 +1,5 @@
 {
-  "name": "@michel/api",
+  "name": "@elise/api",
   "version": "0.1.12",
   "private": true,
   "type": "commonjs",
@@ -14,8 +14,8 @@
     "prisma:migrate": "prisma migrate deploy"
   },
   "dependencies": {
-    "@michel/contracts": "workspace:*",
-    "@michel/mqtt": "workspace:*",
+    "@elise/contracts": "workspace:*",
+    "@elise/mqtt": "workspace:*",
     "@nestjs/common": "^11.1.6",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.6",

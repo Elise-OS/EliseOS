@@ -3,9 +3,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-NAS_CONFIG_FILE="${MICHEL_NAS_CONFIG:-$ROOT_DIR/config/nas-deploy.env}"
-API_TARGET="${MICHEL_DEV_API_TARGET:-}"
-DEV_PORT="${MICHEL_DEV_PORT:-5173}"
+NAS_CONFIG_FILE="${ELISE_NAS_CONFIG:-$ROOT_DIR/config/nas-deploy.env}"
+API_TARGET="${ELISE_DEV_API_TARGET:-}"
+DEV_PORT="${ELISE_DEV_PORT:-5173}"
 FORCE_INSTALL=false
 OPEN_BROWSER=true
 
@@ -65,7 +65,7 @@ fi
 
 if [[ -z "$API_TARGET" && -f "$NAS_CONFIG_FILE" ]]; then
   # Lire uniquement l'URL ; ne pas exécuter le fichier de configuration.
-  API_TARGET="$(sed -n 's/^MICHEL_NAS_URL=//p' "$NAS_CONFIG_FILE" | tail -n 1)"
+  API_TARGET="$(sed -n 's/^ELISE_NAS_URL=//p' "$NAS_CONFIG_FILE" | tail -n 1)"
 fi
 API_TARGET="${API_TARGET:-http://192.168.1.55:8090}"
 API_TARGET="${API_TARGET%/}"
@@ -99,7 +99,7 @@ cd "$ROOT_DIR"
 
 if [[ "$FORCE_INSTALL" == true || ! -x apps/dashboard/node_modules/.bin/vite ]]; then
   echo "Installation des dépendances du frontend uniquement…"
-  "${PNPM[@]}" install --filter '@michel/dashboard...' --frozen-lockfile
+  "${PNPM[@]}" install --filter '@elise/dashboard...' --frozen-lockfile
 fi
 
 if command -v curl >/dev/null \
@@ -116,5 +116,5 @@ if [[ "$OPEN_BROWSER" == true ]]; then
   vite_args+=(--open)
 fi
 
-export MICHEL_DEV_API_TARGET="$API_TARGET"
-exec "${PNPM[@]}" --filter @michel/dashboard exec vite "${vite_args[@]}"
+export ELISE_DEV_API_TARGET="$API_TARGET"
+exec "${PNPM[@]}" --filter @elise/dashboard exec vite "${vite_args[@]}"

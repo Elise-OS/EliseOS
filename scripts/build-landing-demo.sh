@@ -7,6 +7,6 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 out="${ELISE_DEMO_OUT_DIR:-$root/eliselanding/public/demo}"
 
 cd "$root"
-pnpm --filter @michel/contracts --filter @michel/ui build
-ELISE_DEMO_OUT_DIR="$out" pnpm --filter @michel/dashboard build:demo
+pnpm --filter @elise/contracts --filter @elise/ui build
+ELISE_DEMO_OUT_DIR="$out" pnpm --filter @elise/dashboard build:demo
 echo "Demo built in $out"

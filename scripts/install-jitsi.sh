@@ -24,7 +24,7 @@ if env.exists(): values=dict(line.split('=',1) for line in env.read_text().split
 for key in ['JICOFO_AUTH_PASSWORD','JVB_AUTH_PASSWORD','JWT_APP_SECRET']: values.setdefault(key,secrets.token_hex(32))
 values.update(CONFIG=str(state/'config'),JITSI_IMAGE_VERSION='stable-10978',HTTP_PORT='18084',DISABLE_HTTPS='1',PUBLIC_URL='https://'+os.environ['ELISE_INSTALL_DNS']+':8444',ELISE_JITSI_BIND_IP=os.environ['ELISE_INSTALL_IP'],JVB_ADVERTISE_IPS=os.environ['ELISE_INSTALL_IP'],JVB_DISABLE_STUN='1',ENABLE_AUTH='1',AUTH_TYPE='jwt',ENABLE_GUESTS='0',JWT_APP_ID='elise',JWT_ACCEPTED_ISSUERS='elise',JWT_ACCEPTED_AUDIENCES='elise',JWT_ALLOW_EMPTY='0',ENABLE_P2P='0',ENABLE_PREJOIN_PAGE='0',ENABLE_WELCOME_PAGE='0',ENABLE_CLOSE_PAGE='0',ENABLE_RECORDING='0',ENABLE_LIVESTREAMING='0',ENABLE_TRANSCRIPTIONS='0',ENABLE_THIRD_PARTY_REQUESTS='0',DISABLE_LOCAL_RECORDING='1',ENABLE_XMPP_WEBSOCKET='1',XMPP_MUC_MODULES='elise_guard',MAX_PARTICIPANTS='2',JICOFO_MAX_MEMORY='512m',VIDEOBRIDGE_MAX_MEMORY='1024m',RESOLUTION='720',TZ='Europe/Paris',TOOLBAR_BUTTONS='microphone,camera,hangup')
 # Use the existing Elise network rather than assuming the Compose project name.
-cid=subprocess.check_output(['docker','ps','--filter','label=com.docker.compose.service=api','--filter','label=com.docker.compose.project=michel-os','-q'],text=True).strip()
+cid=subprocess.check_output(['docker','ps','--filter','label=com.docker.compose.service=api','--filter','label=com.docker.compose.project=elise-os','-q'],text=True).strip()
 if cid:
  networks=json.loads(subprocess.check_output(['docker','inspect',cid],text=True))[0]['NetworkSettings']['Networks']; values['ELISE_DOCKER_NETWORK']=next(iter(networks))
 env.write_text(''.join(k+'='+v+'\n' for k,v in values.items()));env.chmod(0o600)

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ROOM_SENSOR_CATEGORIES, type EquipmentCoverage, type HomePlan } from '@michel/contracts';
+import { ROOM_SENSOR_CATEGORIES, type EquipmentCoverage, type HomePlan } from '@elise/contracts';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';

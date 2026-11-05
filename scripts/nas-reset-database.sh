@@ -18,8 +18,8 @@ confirm_action \
   "VIDER ELISE" \
   "Cette opération supprime les comptes, logements, alertes et observations d'Élise. Les autres volumes sont conservés."
 
-echo "Remise à zéro de la base Élise sur $MICHEL_NAS_TARGET"
-ssh "$MICHEL_NAS_TARGET" "$(remote_shell_command)" <<'REMOTE_SCRIPT'
+echo "Remise à zéro de la base Élise sur $ELISE_NAS_TARGET"
+ssh "$ELISE_NAS_TARGET" "$(remote_shell_command)" <<'REMOTE_SCRIPT'
 set -euo pipefail
 cd "$REMOTE_PATH"
 
@@ -34,10 +34,10 @@ restart_apps() {
 trap restart_apps EXIT
 
 docker compose stop dashboard worker api
-docker compose exec -T postgres psql -U michel -d postgres -v ON_ERROR_STOP=1 \
-  -c 'DROP DATABASE michel WITH (FORCE);'
-docker compose exec -T postgres psql -U michel -d postgres -v ON_ERROR_STOP=1 \
-  -c 'CREATE DATABASE michel OWNER michel;'
+docker compose exec -T postgres psql -U elise -d postgres -v ON_ERROR_STOP=1 \
+  -c 'DROP DATABASE elise WITH (FORCE);'
+docker compose exec -T postgres psql -U elise -d postgres -v ON_ERROR_STOP=1 \
+  -c 'CREATE DATABASE elise OWNER elise;'
 docker compose up -d api worker dashboard
 trap - EXIT
 
@@ -53,4 +53,4 @@ done
 docker compose ps api worker dashboard
 REMOTE_SCRIPT
 
-echo "Base Élise recréée. Ouvrez $MICHEL_NAS_URL pour créer le nouvel administrateur."
+echo "Base Élise recréée. Ouvrez $ELISE_NAS_URL pour créer le nouvel administrateur."

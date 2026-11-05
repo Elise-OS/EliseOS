@@ -20,7 +20,7 @@ import type {
   ScreenSnapshot,
   UpdatePerson,
   UpdatePersonAccess,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import type {
   ActivitySummary,
   DashboardPeriod,
@@ -36,8 +36,8 @@ import type {
   SensorVerificationSession,
   RemoteAccessStatus,
   UpdateStatus,
-} from '@michel/contracts';
-import type { Installation } from '@michel/contracts';
+} from '@elise/contracts';
+import type { Installation } from '@elise/contracts';
 import type { SavedServer } from './discovery/types';
 import { preferredServerUrls, rememberActiveServerUrl } from './discovery/helpers';
 import { isDemoServer, mockDemoRequest } from './demo/mock-api';

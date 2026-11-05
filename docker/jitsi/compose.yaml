@@ -521,5 +521,5 @@ services:
 networks:
   elise:
     external: true
-    name: ${ELISE_DOCKER_NETWORK:-michel-os_default}
+    name: ${ELISE_DOCKER_NETWORK:-elise-os_default}
   meet.jitsi:

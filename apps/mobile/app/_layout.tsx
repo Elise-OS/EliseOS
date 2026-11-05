@@ -30,7 +30,7 @@ export const queryClient = new QueryClient({
 
 const persister = createAsyncStoragePersister({
   storage: AsyncStorage,
-  key: '@michel:dashboard-cache',
+  key: '@elise:dashboard-cache',
 });
 
 export default function Layout() {

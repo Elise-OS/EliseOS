@@ -10,7 +10,7 @@ import type {
   MembershipRole,
   UpdatePerson,
   UpdatePersonAccess,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { PrismaService } from '../../platform/prisma.service';
 import { activeMembership } from '../auth/access-policy';
 

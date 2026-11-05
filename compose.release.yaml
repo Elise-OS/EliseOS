@@ -12,17 +12,17 @@ services:
   go2rtc:
     image: ${ELISE_GO2RTC_IMAGE:-ghcr.io/alexxit/go2rtc:1.9.14}
   ai:
-    image: ${ELISE_AI_IMAGE:-ghcr.io/elise-os/eliseos-ai:${MICHEL_VERSION}}
+    image: ${ELISE_AI_IMAGE:-ghcr.io/elise-os/eliseos-ai:${ELISE_VERSION}}
     build: !reset null
   api:
-    image: ${ELISE_API_IMAGE:-ghcr.io/elise-os/eliseos-api:${MICHEL_VERSION}}
+    image: ${ELISE_API_IMAGE:-ghcr.io/elise-os/eliseos-api:${ELISE_VERSION}}
     build: !reset null
   worker:
-    image: ${ELISE_WORKER_IMAGE:-ghcr.io/elise-os/eliseos-worker:${MICHEL_VERSION}}
+    image: ${ELISE_WORKER_IMAGE:-ghcr.io/elise-os/eliseos-worker:${ELISE_VERSION}}
     build: !reset null
   dashboard:
-    image: ${ELISE_DASHBOARD_IMAGE:-ghcr.io/elise-os/eliseos-dashboard:${MICHEL_VERSION}}
+    image: ${ELISE_DASHBOARD_IMAGE:-ghcr.io/elise-os/eliseos-dashboard:${ELISE_VERSION}}
     build: !reset null
   mdns:
-    image: ${ELISE_MDNS_IMAGE:-ghcr.io/elise-os/eliseos-mdns:${MICHEL_VERSION}}
+    image: ${ELISE_MDNS_IMAGE:-ghcr.io/elise-os/eliseos-mdns:${ELISE_VERSION}}
     build: !reset null

@@ -415,7 +415,7 @@ export default function HomeScreen() {
 
   const logout = async () => {
     if (server?.id === DEMO_SERVER_ID) {
-      queryClient.removeQueries({ queryKey: ['michel', DEMO_SERVER_ID] });
+      queryClient.removeQueries({ queryKey: ['elise', DEMO_SERVER_ID] });
       setToken(null);
       setServer(null);
       setOverview(null);
@@ -454,7 +454,7 @@ export default function HomeScreen() {
   const enterDemo = async () => {
     const demoServer = createDemoServer();
     resetDemoSession();
-    queryClient.removeQueries({ queryKey: ['michel', DEMO_SERVER_ID] });
+    queryClient.removeQueries({ queryKey: ['elise', DEMO_SERVER_ID] });
     setServer(demoServer);
     setToken(DEMO_TOKEN);
     setUserName('Claire Martin');

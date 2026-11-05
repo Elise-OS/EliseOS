@@ -1,4 +1,4 @@
-import type { EquipmentCoverage, UpdateStatus } from '@michel/contracts';
+import type { EquipmentCoverage, UpdateStatus } from '@elise/contracts';
 import { uiLocale } from '../screen-locale';
 import { DemoRouteNotFound, demoState, mockDemoRequest, resetDemoSession } from './scenario';
 

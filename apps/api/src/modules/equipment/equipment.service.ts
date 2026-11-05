@@ -9,7 +9,7 @@ import {
   mappingTransformSchema,
   type Capability,
   type HomeAssistantInventory,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../platform/prisma.service';
 import { rolesFor } from '../auth/access-policy';

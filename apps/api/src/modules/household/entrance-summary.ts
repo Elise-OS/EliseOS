@@ -1,4 +1,4 @@
-import type { EntranceSummary, HomePlan } from '@michel/contracts';
+import type { EntranceSummary, HomePlan } from '@elise/contracts';
 import { observedState, type HomeEvent, type HomeSensor } from './home-summary';
 
 export const ENTRANCE_WINDOW_MS = 3 * 60_000;

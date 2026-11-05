@@ -1,5 +1,5 @@
-import type { AlertRuleSettings } from '@michel/contracts';
-import { Button } from '@michel/ui';
+import type { AlertRuleSettings } from '@elise/contracts';
+import { Button } from '@elise/ui';
 import {
   BatteryLow,
   Bell,
@@ -526,7 +526,7 @@ export function AlertRulesPanel({
 
   return (
     <section
-      className="michel-card settings-section-card alert-rules-card"
+      className="elise-card settings-section-card alert-rules-card"
       aria-labelledby="alert-rules-title"
     >
       <header className="alert-rules-head">

@@ -76,7 +76,7 @@ systemctl status lightdm elise-screen-agent
 journalctl -u elise-screen-agent -n 50
 ```
 
-Les sauvegardes NAS sont dans `/home/drsam/michel-backups/screen-*`. Elles contiennent `database.dump`, `environment` et `source.tar.gz`. Ne pas lancer les scripts de remise à zéro pour mettre à jour ce module. Pour revenir en arrière, restaurer d’abord les sources/configuration de la sauvegarde puis reconstruire l’ancienne version ; la migration écran est additive et peut rester en base. Une restauration de base écrase les changements postérieurs : elle doit être une opération de récupération délibérée.
+Les sauvegardes NAS sont dans `/home/drsam/elise-backups/screen-*`. Elles contiennent `database.dump`, `environment` et `source.tar.gz`. Ne pas lancer les scripts de remise à zéro pour mettre à jour ce module. Pour revenir en arrière, restaurer d’abord les sources/configuration de la sauvegarde puis reconstruire l’ancienne version ; la migration écran est additive et peut rester en base. Une restauration de base écrase les changements postérieurs : elle doit être une opération de récupération délibérée.
 
 ## Limites de validation
 

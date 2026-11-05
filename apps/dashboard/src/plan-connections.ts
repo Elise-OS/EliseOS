@@ -1,4 +1,4 @@
-import type { PlanRoom } from '@michel/contracts';
+import type { PlanRoom } from '@elise/contracts';
 
 type Point = { x: number; y: number };
 

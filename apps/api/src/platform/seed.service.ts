@@ -23,10 +23,10 @@ export class SeedService implements OnModuleInit {
   public constructor(private readonly prisma: PrismaService) {}
 
   public async onModuleInit(): Promise<void> {
-    if (process.env.MICHEL_DEMO_MODE !== 'true') return;
+    if (process.env.ELISE_DEMO_MODE !== 'true') return;
     if ((await this.prisma.organization.count()) > 0) return;
 
-    const passwordHash = await hash(process.env.DEMO_PASSWORD ?? 'Michel-Demo-2026!');
+    const passwordHash = await hash(process.env.DEMO_PASSWORD ?? 'Elise-Demo-2026!');
     const now = Date.now();
     await this.prisma.$transaction(async (tx) => {
       const organization = await tx.organization.create({
@@ -63,7 +63,7 @@ export class SeedService implements OnModuleInit {
       const user = await tx.user.create({
         data: {
           id: DEMO_IDS.user,
-          email: 'paul@michel.local',
+          email: 'paul@elise.local',
           displayName: 'Paul Martin',
           passwordHash,
         },
@@ -106,7 +106,7 @@ export class SeedService implements OnModuleInit {
             firstName: 'Paul',
             lastName: 'Martin',
             phone: '+33 6 12 34 56 78',
-            email: 'paul@michel.local',
+            email: 'paul@elise.local',
             relation: 'Petit-fils',
             isEmergency: true,
             priority: 1,

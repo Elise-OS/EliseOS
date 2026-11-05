@@ -91,7 +91,7 @@ def synchronize(version: str, check: bool) -> int:
     json_paths = [
         *package_manifests(),
         ROOT / "apps/mobile/app.json",
-        ROOT / "docker/homeassistant/custom_components/michel_bridge/manifest.json",
+        ROOT / "docker/homeassistant/custom_components/elise_bridge/manifest.json",
     ]
     write = not check
     for path in json_paths:
@@ -107,21 +107,21 @@ def synchronize(version: str, check: bool) -> int:
         ),
         (
             ROOT / ".env.example",
-            re.compile(r"(?m)^MICHEL_VERSION=.*$"),
-            f"MICHEL_VERSION={plain_version}",
+            re.compile(r"(?m)^ELISE_VERSION=.*$"),
+            f"ELISE_VERSION={plain_version}",
         ),
         (
             ROOT / "compose.yaml",
-            re.compile(r"(MICHEL_VERSION:-)\d+\.\d+\.\d+"),
+            re.compile(r"(ELISE_VERSION:-)\d+\.\d+\.\d+"),
             rf"\g<1>{plain_version}",
         ),
         (
             ROOT / "compose.raspberry.yaml",
-            re.compile(r"(MICHEL_VERSION:-)\d+\.\d+\.\d+"),
+            re.compile(r"(ELISE_VERSION:-)\d+\.\d+\.\d+"),
             rf"\g<1>{plain_version}",
         ),
         (
-            ROOT / "docker/homeassistant/custom_components/michel_bridge/__init__.py",
+            ROOT / "docker/homeassistant/custom_components/elise_bridge/__init__.py",
             re.compile(r'("status": "online", "version": ")[^"]+(")'),
             rf"\g<1>{plain_version}\g<2>",
         ),

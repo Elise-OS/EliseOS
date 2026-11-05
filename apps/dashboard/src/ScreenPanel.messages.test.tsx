@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { initialScreenState } from '@michel/contracts';
+import { initialScreenState } from '@elise/contracts';
 import { ScreenPanel } from './ScreenPanel';
 
 vi.mock('./screen-events', () => ({ subscribeScreenEvents: () => () => undefined }));

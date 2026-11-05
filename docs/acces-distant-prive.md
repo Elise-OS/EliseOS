@@ -16,7 +16,7 @@ Le dashboard HTTPS passe par le port 8443. La caméra et l’interphone utilisen
 1. Créez d’abord l’aidant dans Élise et choisissez son rôle.
 2. Dans l’administration Tailscale, partagez uniquement la machine Élise avec son adresse e-mail.
 3. Envoyez l’invitation et demandez-lui d’installer Tailscale sur son téléphone ou son ordinateur.
-4. Envoyez le lien privé ou faites scanner le QR code depuis Réglages. L’app ouvre automatiquement `michel://connect?url=…` et mémorise les adresses locale et distante de la même installation.
+4. Envoyez le lien privé ou faites scanner le QR code depuis Réglages. L’app ouvre automatiquement `elise://connect?url=…` et mémorise les adresses locale et distante de la même installation.
 
 Pour une machine domestique permanente, la famille peut désactiver l’expiration de clé uniquement pour le serveur Élise. La révocation dans Tailscale coupe immédiatement le chemin réseau ; désactiver le compte dans Élise coupe aussi sa session et ses droits.
 

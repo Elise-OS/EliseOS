@@ -16,7 +16,7 @@ const mobileWebCorsOrigins = new Set([
   'http://localhost:8082',
   'http://127.0.0.1:8081',
   'http://127.0.0.1:8082',
-  ...(process.env.MICHEL_WEB_CORS_ORIGINS ?? '')
+  ...(process.env.ELISE_WEB_CORS_ORIGINS ?? '')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
@@ -43,10 +43,10 @@ async function bootstrap(): Promise<void> {
   const document = SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
-      .setTitle('Michel Core API')
-      .setDescription('Local-first API for Michel OS')
+      .setTitle('Élise Core API')
+      .setDescription('Local-first API for Élise OS')
       .setVersion('1.0')
-      .addCookieAuth('michel_session')
+      .addCookieAuth('elise_session')
       .build(),
   );
   SwaggerModule.setup('api/docs', app, document);

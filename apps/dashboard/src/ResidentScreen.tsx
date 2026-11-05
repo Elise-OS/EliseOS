@@ -1,9 +1,9 @@
-import { appointmentPictograms } from '@michel/contracts';
+import { appointmentPictograms } from '@elise/contracts';
 import { residentMessageAt } from './resident-messages';
 import { dateLocale, tr, uiLocale } from './screen-locale';
 import { ResidentVideo, type VideoStatus } from './ResidentVideo';
 import { subscribeScreenEvents } from './screen-events';
-import { advanceScreenSchedule } from '@michel/contracts';
+import { advanceScreenSchedule } from '@elise/contracts';
 import {
   BellRing,
   CalendarDays,
@@ -24,7 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import type { ScreenSnapshot, ScreenJoin, ScreenMedia } from '@michel/contracts';
+import type { ScreenSnapshot, ScreenJoin, ScreenMedia } from '@elise/contracts';
 import { JitsiFrame, screenRequest } from './ScreenPanel';
 import './screen.css';
 const key = 'elise-screen-token';

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { MembershipRole } from '@michel/contracts';
+import type { MembershipRole } from '@elise/contracts';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,

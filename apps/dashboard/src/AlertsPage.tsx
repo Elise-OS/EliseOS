@@ -27,7 +27,7 @@ import {
   type HomePlan,
   type RoomSensorCategory,
   type SensorDevice,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Locale } from './i18n';
 import { DataLoadingScreen } from './DataLoadingScreen';

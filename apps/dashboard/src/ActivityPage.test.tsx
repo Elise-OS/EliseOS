@@ -6,7 +6,7 @@ import {
   type HomePlan,
   type HomeSummary,
   type RoutinesSummary,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';

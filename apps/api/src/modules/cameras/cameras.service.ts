@@ -12,7 +12,7 @@ import {
   cameraNetworkConfigurationSchema,
   cameraPrivacySchema,
   type CameraConfiguration,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Prisma, type MembershipRole } from '@prisma/client';
 import { createReadStream, promises as fs } from 'node:fs';

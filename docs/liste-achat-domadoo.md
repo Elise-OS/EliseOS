@@ -6,7 +6,7 @@ Vérification des prix et disponibilités : 16 août 2026. Les prix et stocks pe
 
 | Quantité | Produit                                                                                                                                                                                                           | Usage prévu                                        | Prix unitaire constaté | Sous-total |
 | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ---------------------: | ---------: |
-|        1 | [SONOFF ZBDongle-E — coordinateur Zigbee USB](https://www.domadoo.fr/fr/dongle-zigbee/6315-sonoff-dongle-usb-zigbee-30-antenne-externe-v2-zbdongle-e-compatible-home-assistant-et-zigbee2mqtt-6920075777659.html) | Relie tous les capteurs à Michel                   |                17,21 € |    17,21 € |
+|        1 | [SONOFF ZBDongle-E — coordinateur Zigbee USB](https://www.domadoo.fr/fr/dongle-zigbee/6315-sonoff-dongle-usb-zigbee-30-antenne-externe-v2-zbdongle-e-compatible-home-assistant-et-zigbee2mqtt-6920075777659.html) | Relie tous les capteurs à Élise                    |                17,21 € |    17,21 € |
 |        4 | [SONOFF SNZB-03P — détecteur de mouvement](https://www.domadoo.fr/fr/securite/6923-sonoff-detecteur-de-mouvement-zigbee-30-compatible-zigbee2mqtt-snzb-03p.html)                                                  | Entrée, couloir, séjour et chambre                 |                10,22 € |    40,88 € |
 |        3 | [SONOFF SNZB-04P — ouverture porte/fenêtre](https://www.domadoo.fr/fr/produits-de-domotique/7058-sonoff-capteur-de-porte-ou-fenetre-zigbee-30-snzb-04p.html)                                                      | Porte d'entrée et deux ouvrants importants         |                 9,99 € |    29,97 € |
 |        2 | [SONOFF SNZB-02P — température et humidité](https://www.domadoo.fr/fr/chauffage-connecte/6732-sonoff-capteur-de-temperature-et-d-humidite-zigbee-30-avec-support.html)                                            | Séjour et chambre                                  |                 9,99 € |    19,98 € |
@@ -39,7 +39,7 @@ Vérification des prix et disponibilités : 16 août 2026. Les prix et stocks pe
 
 ## Périmètre couvert
 
-Ce panier couvre les neuf scénarios de simulation de Michel : matinée normale, cycle de porte, porte laissée ouverte, inactivité, température basse, activité nocturne, batterie faible, capteur hors ligne et SOS. Il est dimensionné pour un premier logement pilote, pas pour un déploiement industriel.
+Ce panier couvre les neuf scénarios de simulation d’Élise : matinée normale, cycle de porte, porte laissée ouverte, inactivité, température basse, activité nocturne, batterie faible, capteur hors ligne et SOS. Il est dimensionné pour un premier logement pilote, pas pour un déploiement industriel.
 
 ## Option sécurité incendie — relevée le 2 octobre 2026
 

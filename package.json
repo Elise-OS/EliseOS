@@ -1,5 +1,5 @@
 {
-  "name": "michel-os",
+  "name": "elise-os",
   "version": "0.1.12",
   "private": true,
   "description": "Local-first home reassurance platform for families and caregivers.",
@@ -17,8 +17,8 @@
     "typecheck": "turbo run typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:generate": "pnpm --filter @michel/api prisma:generate",
-    "db:migrate": "pnpm --filter @michel/api prisma:migrate",
+    "db:generate": "pnpm --filter @elise/api prisma:generate",
+    "db:migrate": "pnpm --filter @elise/api prisma:migrate",
     "dev:dashboard": "bash scripts/dev-dashboard.sh",
     "deploy:nas": "bash scripts/deploy-nas.sh",
     "pi:image": "bash scripts/pi-image.sh",

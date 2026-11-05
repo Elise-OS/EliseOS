@@ -6,7 +6,7 @@ import {
   type HomeSummary,
   type ScheduleItem,
   type ScreenSnapshot,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -504,12 +504,12 @@ export function MobileWelcomePanel({
   const today = dateKeyInZone(now, timezone);
   const previousDate = shiftDate(today, -1);
   const previousSummary = useQuery({
-    queryKey: ['michel', server.id, 'activity-summary-day', previousDate],
+    queryKey: ['elise', server.id, 'activity-summary-day', previousDate],
     queryFn: () => mobileApi.activitySummary(server, token, previousDate),
     enabled: Boolean(homeSummary),
   });
   const todaySummary = useQuery({
-    queryKey: ['michel', server.id, 'activity-summary-day', today],
+    queryKey: ['elise', server.id, 'activity-summary-day', today],
     queryFn: () => mobileApi.activitySummary(server, token, today),
     enabled: Boolean(homeSummary),
   });

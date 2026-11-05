@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { presenceEstimateSchema, type ActivitySummary, type HomeSummary } from '@michel/contracts';
+import { presenceEstimateSchema, type ActivitySummary, type HomeSummary } from '@elise/contracts';
 import {
   currentMomentText,
   dayNarrativeText,

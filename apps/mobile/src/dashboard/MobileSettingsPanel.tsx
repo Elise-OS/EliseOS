@@ -4,7 +4,7 @@ import type {
   MembershipRole,
   RemoteAccessStatus,
   ScreenSnapshot,
-} from '@michel/contracts';
+} from '@elise/contracts';
 import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import { useCallback, useEffect, useState } from 'react';
@@ -20,7 +20,7 @@ import {
   View,
 } from 'react-native';
 import { mobileApi, type SimulationScenario } from '../api';
-import type { NotificationPreferences } from '@michel/contracts';
+import type { NotificationPreferences } from '@elise/contracts';
 import { registerPushNotifications, type PushRegistrationStatus } from '../notifications';
 import type { SavedServer } from '../discovery/types';
 import { isDemoServer } from '../demo/mock-api';

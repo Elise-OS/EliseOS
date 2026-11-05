@@ -1,4 +1,4 @@
-import { presenceCapabilityForDevice } from '@michel/contracts';
+import { presenceCapabilityForDevice } from '@elise/contracts';
 import type { PresenceConfidence, PresenceSource, Prisma } from '@prisma/client';
 
 const PRESENCE_CAPABILITIES = new Set(['motion', 'occupancy', 'person_presence']);

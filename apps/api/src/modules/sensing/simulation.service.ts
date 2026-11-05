@@ -56,6 +56,6 @@ export class SimulationService {
   }
 
   private enabled(): boolean {
-    return process.env.MICHEL_SIMULATION_MODE === 'true' || process.env.MICHEL_DEMO_MODE === 'true';
+    return process.env.ELISE_SIMULATION_MODE === 'true' || process.env.ELISE_DEMO_MODE === 'true';
   }
 }

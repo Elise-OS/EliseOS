@@ -1,4 +1,4 @@
-import type { PresenceEstimate } from '@michel/contracts';
+import type { PresenceEstimate } from '@elise/contracts';
 import { describe, expect, it } from 'vitest';
 import { caregiverPresenceCopy } from './presence-copy';
 

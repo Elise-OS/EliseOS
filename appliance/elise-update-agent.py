@@ -82,7 +82,7 @@ def read_auth() -> tuple[str, str] | None:
 def current_version() -> str:
     try:
         for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
-            if line.startswith("MICHEL_VERSION="):
+            if line.startswith("ELISE_VERSION="):
                 value = line.split("=", 1)[1].strip()
                 if value:
                     return value

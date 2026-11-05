@@ -18,8 +18,8 @@ confirm_action \
   "REINSTALLER ELISE" \
   "ATTENTION : cette opération supprime toutes les données et tous les volumes Docker d'Élise OS."
 
-echo "Réinstallation complète d'Élise OS sur $MICHEL_NAS_TARGET"
-ssh "$MICHEL_NAS_TARGET" "$(remote_shell_command)" <<'REMOTE_SCRIPT'
+echo "Réinstallation complète d'Élise OS sur $ELISE_NAS_TARGET"
+ssh "$ELISE_NAS_TARGET" "$(remote_shell_command)" <<'REMOTE_SCRIPT'
 set -euo pipefail
 cd "$REMOTE_PATH"
 
@@ -73,4 +73,4 @@ else
 fi
 REMOTE_SCRIPT
 
-echo "Installation propre terminée. Ouvrez $MICHEL_NAS_URL"
+echo "Installation propre terminée. Ouvrez $ELISE_NAS_URL"

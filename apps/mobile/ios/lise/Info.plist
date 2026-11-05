@@ -29,7 +29,7 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>michel</string>
+          <string>elise</string>
           <string>org.michel.mobile</string>
         </array>
       </dict>
@@ -53,7 +53,7 @@
     </dict>
     <key>NSBonjourServices</key>
     <array>
-      <string>_michel._tcp</string>
+      <string>_elise._tcp</string>
     </array>
     <key>NSCameraUsageDescription</key>
     <string>Élise utilise la caméra lorsque vous appelez le résident en visioconférence.</string>
