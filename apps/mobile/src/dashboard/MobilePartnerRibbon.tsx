@@ -13,15 +13,14 @@ import {
   Text,
   View,
 } from 'react-native';
+import { type Language, t } from '../i18n';
 
-type Locale = 'fr' | 'en';
+type Locale = Language;
 
 type Partner = {
   id: 'nodon' | 'thirdreality' | 'smlight' | 'lifeplus';
   name: string;
   image: ImageSourcePropType;
-  roleFr: string;
-  roleEn: string;
 };
 
 const partners: Partner[] = [
@@ -29,34 +28,25 @@ const partners: Partner[] = [
     id: 'nodon',
     name: 'NodOn',
     image: nodonLogo,
-    roleFr: 'Partenaire principal',
-    roleEn: 'Lead partner',
   },
   {
     id: 'thirdreality',
     name: 'ThirdReality',
     image: thirdrealityLogo,
-    roleFr: 'Partenaire matériel',
-    roleEn: 'Hardware partner',
   },
   {
     id: 'smlight',
     name: 'SMLIGHT',
     image: smlightLogo,
-    roleFr: 'Partenaire matériel',
-    roleEn: 'Hardware partner',
   },
   {
     id: 'lifeplus',
     name: 'Life Plus',
     image: lifeplusLogo,
-    roleFr: 'Conseils & intimité du résident',
-    roleEn: 'Resident guidance & privacy',
   },
 ];
 
 export function MobilePartnerRibbon({ locale }: { locale: Locale }) {
-  const fr = locale === 'fr';
   const offset = useRef(new Animated.Value(0)).current;
   const [groupWidth, setGroupWidth] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -89,15 +79,11 @@ export function MobilePartnerRibbon({ locale }: { locale: Locale }) {
     return () => animation.stop();
   }, [groupWidth, offset, reducedMotion]);
 
-  const accessibleDescription = fr
-    ? 'Ils accompagnent le projet : NodOn, partenaire principal ; ThirdReality et SMLIGHT, partenaires matériels ; Life Plus, conseils et intimité du résident.'
-    : 'Supporting the project: NodOn, lead partner; ThirdReality and SMLIGHT, hardware partners; Life Plus, resident guidance and privacy.';
+  const accessibleDescription = t('mobilePartnerRibbon.supportingTheProjectNodonLead');
 
   return (
     <View style={styles.container} accessible accessibilityLabel={accessibleDescription}>
-      <Text style={styles.heading}>
-        {fr ? 'ILS ACCOMPAGNENT LE PROJET' : 'SUPPORTING THE PROJECT'}
-      </Text>
+      <Text style={styles.heading}>{t('mobilePartnerRibbon.supportingTheProject')}</Text>
       {reducedMotion ? (
         <View style={styles.staticGrid}>
           {partners.map((partner) => (
@@ -131,7 +117,6 @@ export function MobilePartnerRibbon({ locale }: { locale: Locale }) {
 
 function PartnerBrand({
   partner,
-  locale,
   compact = false,
 }: {
   partner: Partner;
@@ -156,7 +141,7 @@ function PartnerBrand({
           resizeMode="contain"
         />
       )}
-      <Text style={styles.role}>{locale === 'fr' ? partner.roleFr : partner.roleEn}</Text>
+      <Text style={styles.role}>{t(`mobilePartnerRibbon.role.${partner.id}`)}</Text>
     </View>
   );
 }

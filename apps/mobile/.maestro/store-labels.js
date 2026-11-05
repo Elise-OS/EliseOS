@@ -11,6 +11,12 @@ output.labels = {
   room: fr ? '.*Séjour.*' : '.*Living room.*',
   journal: '(.*, )?' + (fr ? 'Liaison' : 'Notebook'),
   screen: '(.*, )?' + (fr ? 'Affichage TV' : 'TV display'),
+  // A text only shown once each page is open, to retry a tap the app missed.
+  alertsPage: fr ? 'ALERTES DU DOMICILE' : 'HOME ALERTS',
+  housePage: fr ? 'FOYER' : 'HOUSEHOLD',
+  roomPage: fr ? 'Retour au logement' : 'Back to home',
+  journalPage: fr ? 'PARTAGE ENTRE AIDANTS' : 'SHARED BETWEEN CAREGIVERS',
+  screenPage: fr ? 'ÉCRAN DU FOYER' : 'HOUSEHOLD SCREEN',
   welcomeFile: fr ? 'bienvenue' : 'welcome',
   dashboardFile: fr ? 'tableau-de-bord' : 'dashboard',
   alertsFile: fr ? 'alertes' : 'alerts',

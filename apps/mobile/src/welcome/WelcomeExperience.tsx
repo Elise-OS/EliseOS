@@ -41,6 +41,8 @@ import interBold from '../../assets/fonts/Inter-Bold.ttf';
 import sourceSerifRegular from '../../assets/fonts/SourceSerif4-Regular.ttf';
 import sourceSerifItalic from '../../assets/fonts/SourceSerif4-Italic.ttf';
 import type { Locale } from '../setup/MobileSetup';
+import { t as i18nT } from '../i18n';
+import { LanguageMenu } from '../i18n/LanguagePicker';
 
 type Props = {
   locale: Locale;
@@ -70,106 +72,8 @@ const fonts = {
   serifItalic: 'SourceSerif4Italic',
 } as const;
 
-const copy = {
-  fr: {
-    discover: 'Rechercher mon Élise',
-    demo: 'Démo',
-    language: 'Langue',
-    scroll: 'Défiler pour découvrir',
-    hero: {
-      eyebrow: 'UNE AUTRE FAÇON DE GARDER LE LIEN',
-      title: 'Un lien discret',
-      italic: 'avec son quotidien.',
-      body: 'Élise relie les repères du logement, votre application et la télévision d’un proche pour aider la famille à garder le contact.',
-    },
-    sensors: {
-      eyebrow: '01 / LE LOGEMENT',
-      title: 'La maison donne des repères.',
-      body: 'Une ouverture, un mouvement ou une température apportent du contexte. Aucun de ces indices ne peut, à lui seul, dire que tout va bien.',
-      door: 'Ouverture',
-      motion: 'Mouvement',
-      temperature: 'Température',
-      local: 'Événements traités au domicile',
-    },
-    mobile: {
-      eyebrow: '02 / L’APPLICATION',
-      title: 'L’essentiel, dans votre poche.',
-      body: 'Consultez les faits du jour, les événements et les alertes. Une situation inhabituelle invite à vérifier et à prendre des nouvelles, jamais à conclure à distance.',
-      today: 'Aujourd’hui',
-      cues: 'Repères du jour',
-      activity: 'Activité récente',
-      alert: 'À vérifier',
-    },
-    tv: {
-      eyebrow: '03 / LE LIEN',
-      title: 'Le lien arrive aussi sur la TV.',
-      body: 'Messages, médias et rendez-vous sont pensés pour un écran simple. La visio et son lancement automatique doivent encore être éprouvés avec le résident, selon son accord.',
-      screen: 'Écran du résident',
-      message: 'Un message de la famille',
-      radio: 'Radio',
-      call: 'Visio',
-    },
-    privacy: {
-      eyebrow: '04 / VOTRE ESPACE',
-      title: 'Le cœur du système reste chez soi.',
-      body: 'Les événements sont traités au domicile. Les proches autorisés accèdent à leur espace par un réseau privé. Aucune caméra n’est nécessaire pour les repères du logement.',
-      home: 'Au domicile',
-      private: 'Accès privé',
-      optional: 'Caméra facultative',
-      disclaimer:
-        'Élise est un prototype en cours d’intégration. Ni dispositif médical ni service d’urgence.',
-    },
-  },
-  en: {
-    discover: 'Find my Élise',
-    demo: 'Demo',
-    language: 'Language',
-    scroll: 'Scroll to discover',
-    hero: {
-      eyebrow: 'A DIFFERENT WAY TO STAY CONNECTED',
-      title: 'A gentle link',
-      italic: 'to everyday life.',
-      body: 'Élise connects cues from the home, your app and a loved one’s television to help families stay in touch.',
-    },
-    sensors: {
-      eyebrow: '01 / THE HOME',
-      title: 'The home offers useful cues.',
-      body: 'An opening, movement or temperature provides context. None of these cues alone can tell you that everything is fine.',
-      door: 'Opening',
-      motion: 'Movement',
-      temperature: 'Temperature',
-      local: 'Events processed at home',
-    },
-    mobile: {
-      eyebrow: '02 / THE APP',
-      title: 'What matters, in your pocket.',
-      body: 'See the day’s facts, events and alerts. An unusual situation is a reason to check in, never a conclusion to draw from afar.',
-      today: 'Today',
-      cues: 'Daily cues',
-      activity: 'Recent activity',
-      alert: 'Check in',
-    },
-    tv: {
-      eyebrow: '03 / STAYING CLOSE',
-      title: 'The connection reaches the TV.',
-      body: 'Messages, media and appointments are designed for a simple screen. Video calling and automatic launch still need to be tested with the resident and their consent.',
-      screen: 'Resident’s screen',
-      message: 'A message from family',
-      radio: 'Radio',
-      call: 'Video call',
-    },
-    privacy: {
-      eyebrow: '04 / YOUR SPACE',
-      title: 'The heart of the system stays at home.',
-      body: 'Events are processed at home. Authorised relatives access their space through a private network. A camera is not needed for the home’s activity cues.',
-      home: 'At home',
-      private: 'Private access',
-      optional: 'Camera optional',
-      disclaimer:
-        'Élise is a prototype under integration. It is neither a medical device nor an emergency service.',
-    },
-  },
-} as const;
+// Texts of this screen, kept as one block in the catalogs (welcomeExperience.copy).
+const copyText = () => i18nT('welcomeExperience.copy', { returnObjects: true });
 
 function useReducedMotion() {
   const [reducedMotion, setReducedMotion] = useState<boolean | null>(null);
@@ -335,7 +239,7 @@ function SensorScene({
   pulse,
 }: {
   height: number;
-  t: typeof copy.fr.sensors | typeof copy.en.sensors;
+  t: ReturnType<typeof copyText>['sensors'];
   pulse: Animated.Value;
 }) {
   return (
@@ -374,13 +278,7 @@ function SensorScene({
   );
 }
 
-function MobileScene({
-  height,
-  t,
-}: {
-  height: number;
-  t: typeof copy.fr.mobile | typeof copy.en.mobile;
-}) {
+function MobileScene({ height, t }: { height: number; t: ReturnType<typeof copyText>['mobile'] }) {
   return (
     <SceneSurface height={height} variant="mobile">
       <View style={styles.phoneHalo} />
@@ -410,7 +308,7 @@ function MobileScene({
   );
 }
 
-function TvScene({ height, t }: { height: number; t: typeof copy.fr.tv | typeof copy.en.tv }) {
+function TvScene({ height, t }: { height: number; t: ReturnType<typeof copyText>['tv'] }) {
   return (
     <SceneSurface height={height} variant="tv">
       <View style={styles.tvFrame}>
@@ -444,7 +342,7 @@ function PrivacyScene({
   compact,
 }: {
   height: number;
-  t: typeof copy.fr.privacy | typeof copy.en.privacy;
+  t: ReturnType<typeof copyText>['privacy'];
   compact: boolean;
 }) {
   return (
@@ -514,7 +412,7 @@ export function WelcomeExperience({ locale, onLocaleChange, onDiscover, onDemo }
     SourceSerif4Regular: sourceSerifRegular,
     SourceSerif4Italic: sourceSerifItalic,
   });
-  const t = copy[locale];
+  const t = copyText();
   const { width, height } = useWindowDimensions();
   const compact = width < 360;
   const sceneHeight = compact ? 224 : 250;
@@ -642,30 +540,18 @@ export function WelcomeExperience({ locale, onLocaleChange, onDiscover, onDemo }
               ]}
               onPress={onDemo}
               accessibilityRole="button"
-              accessibilityLabel={
-                locale === 'fr' ? 'Découvrir la démonstration' : 'Explore the demo'
-              }
+              accessibilityLabel={i18nT('welcomeExperience.exploreTheDemo')}
             >
               <Play size={14} color={palette.ink} fill={palette.ink} />
               <Text style={styles.demoButtonText}>{t.demo}</Text>
             </Pressable>
           ) : null}
-          <View style={styles.languageSwitch} accessibilityLabel={t.language}>
-            {(['fr', 'en'] as const).map((option) => (
-              <Pressable
-                key={option}
-                style={[styles.languageOption, locale === option && styles.languageOptionActive]}
-                onPress={() => onLocaleChange(option)}
-                accessibilityRole="button"
-                accessibilityLabel={option === 'fr' ? 'Français' : 'English'}
-                accessibilityState={{ selected: locale === option }}
-              >
-                <Text style={[styles.languageText, locale === option && styles.languageTextActive]}>
-                  {option.toUpperCase()}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <LanguageMenu
+            value={locale}
+            onChange={onLocaleChange}
+            label={t.language}
+            textStyle={styles.languageText}
+          />
         </View>
       </View>
 
@@ -812,25 +698,7 @@ const styles = StyleSheet.create({
   demoButtonCompact: { paddingHorizontal: 8 },
   demoButtonPressed: { backgroundColor: '#E6EFEB', transform: [{ scale: 0.98 }] },
   demoButtonText: { color: palette.ink, fontSize: 14, fontFamily: fonts.bold, letterSpacing: 0.2 },
-  languageSwitch: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 3,
-    borderRadius: 15,
-    backgroundColor: '#F1F3EF',
-    borderWidth: 1,
-    borderColor: '#DDE3DE',
-  },
-  languageOption: {
-    minWidth: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 11,
-  },
-  languageOptionActive: { backgroundColor: palette.ink },
-  languageText: { color: palette.muted, fontSize: 14, fontFamily: fonts.bold, letterSpacing: 0.5 },
-  languageTextActive: { color: palette.paper },
+  languageText: { fontFamily: fonts.bold },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 34 },
   hero: { paddingTop: 28 },

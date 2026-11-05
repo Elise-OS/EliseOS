@@ -63,8 +63,9 @@ import {
 } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
 import type { CameraItem } from '../api';
+import { dateLocale, type Language, t } from '../i18n';
 
-type Locale = 'fr' | 'en';
+type Locale = Language;
 type IconComponent = typeof Home;
 
 const roomIcons: Record<string, IconComponent> = {
@@ -161,21 +162,21 @@ const sensorPhotoAssets: Record<string, ImageSourcePropType> = {
   TS0601_bed_presence_sensor: imageTuyaBedPressure,
 };
 
-const roomLabels: Record<string, [string, string]> = {
-  LIVING_ROOM: ['Salon', 'Living room'],
-  BEDROOM: ['Chambre', 'Bedroom'],
-  KITCHEN: ['Cuisine', 'Kitchen'],
-  BATHROOM: ['Salle de bain', 'Bathroom'],
-  TOILET: ['Toilettes', 'Toilet'],
-  ENTRANCE: ['Entrée', 'Entrance'],
-  HALLWAY: ['Couloir', 'Hallway'],
-  DINING_ROOM: ['Salle à manger', 'Dining room'],
-  GARAGE: ['Garage', 'Garage'],
-  GARDEN: ['Jardin', 'Garden'],
-  TERRACE: ['Terrasse', 'Terrace'],
-  STORAGE: ['Rangement', 'Storage'],
-  OTHER: ['Autre', 'Other'],
-};
+const ROOM_KINDS = [
+  'LIVING_ROOM',
+  'BEDROOM',
+  'KITCHEN',
+  'BATHROOM',
+  'TOILET',
+  'ENTRANCE',
+  'HALLWAY',
+  'DINING_ROOM',
+  'GARAGE',
+  'GARDEN',
+  'TERRACE',
+  'STORAGE',
+  'OTHER',
+] as const;
 
 const sensorTone = { foreground: '#3d719f', background: '#edf3f9' };
 
@@ -200,8 +201,9 @@ function roomIcon(room: Pick<PlanRoom, 'kind' | 'name'>): IconComponent {
   return Home;
 }
 
-function roomKindLabel(kind: string, locale: Locale) {
-  return roomLabels[kind]?.[locale === 'fr' ? 0 : 1] ?? kind;
+function roomKindLabel(kind: string) {
+  const known = ROOM_KINDS.find((candidate) => candidate === kind);
+  return known ? t(`roomKinds.${known}`) : kind;
 }
 
 function sensorDevicePhotoModel(device: SensorDevice) {
@@ -327,18 +329,18 @@ function mainEntranceDevices(plan: HomePlan, roomId: string, devices: SensorDevi
   );
 }
 
-function deviceStatus(device: SensorDevice, locale: Locale) {
+function deviceStatus(device: SensorDevice) {
   const primary = device.capabilities.filter(({ primary }) => primary);
   const capabilities = primary.length ? primary : device.capabilities;
   const statuses = capabilities.map(({ status }) => status);
   if (!device.enabled || !statuses.length || statuses.every((status) => status === 'OFFLINE'))
-    return locale === 'fr' ? 'Hors ligne' : 'Offline';
+    return t('mobileHomePlanPanel.offline');
   if (statuses.some((status) => ['DEGRADED', 'OFFLINE', 'UNKNOWN'].includes(status)))
-    return locale === 'fr' ? 'À vérifier' : 'Needs checking';
-  return locale === 'fr' ? 'En ligne' : 'Online';
+    return t('mobileHomePlanPanel.needsChecking');
+  return t('mobileHomePlanPanel.online');
 }
 
-function deviceReading(device: SensorDevice, category: RoomSensorCategory, locale: Locale) {
+function deviceReading(device: SensorDevice, category: RoomSensorCategory) {
   const matchesCategory = (capability: string) =>
     category === 'presence'
       ? ['person_presence', 'occupancy'].includes(capability)
@@ -359,10 +361,10 @@ function deviceReading(device: SensorDevice, category: RoomSensorCategory, local
   const capability = device.capabilities.find(
     (item) => matchesCategory(item.capability) && item.value !== null,
   );
-  if (!capability?.value) return deviceStatus(device, locale);
+  if (!capability?.value) return deviceStatus(device);
   const value = capability.value;
   if (typeof value.value === 'number') {
-    const number = new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en', {
+    const number = new Intl.NumberFormat(dateLocale(), {
       maximumFractionDigits: 1,
     }).format(value.value);
     return `${number}${capability.unit ? ` ${capability.unit}` : ''}`;
@@ -377,15 +379,15 @@ function deviceReading(device: SensorDevice, category: RoomSensorCategory, local
           : undefined;
   if (active !== undefined) {
     if (category === 'contact')
-      return locale === 'fr' ? (active ? 'Ouvert' : 'Fermé') : active ? 'Open' : 'Closed';
+      return active ? t('mobileHomePlanPanel.open') : t('mobileHomePlanPanel.closed');
     if (category === 'bed' && capability.capability === 'occupancy')
-      return locale === 'fr' ? (active ? 'Occupé' : 'Libre') : active ? 'Occupied' : 'Unoccupied';
-    return active ? (locale === 'fr' ? 'Détecté' : 'Detected') : '—';
+      return active ? t('mobileHomePlanPanel.occupied') : t('mobileHomePlanPanel.unoccupied');
+    return active ? t('mobileHomePlanPanel.detected') : '—';
   }
-  return deviceStatus(device, locale);
+  return deviceStatus(device);
 }
 
-function deviceLastSeen(device: SensorDevice, locale: Locale) {
+function deviceLastSeen(device: SensorDevice) {
   const lastSeenAt =
     device.capabilities.find(({ value }) => value !== null)?.lastSeenAt ??
     device.capabilities.find(({ lastSeenAt: seenAt }) => seenAt)?.lastSeenAt ??
@@ -393,7 +395,7 @@ function deviceLastSeen(device: SensorDevice, locale: Locale) {
   if (!lastSeenAt) return null;
   const date = new Date(lastSeenAt);
   if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+  return date.toLocaleString(dateLocale(), {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
@@ -422,7 +424,6 @@ export function MobileHomePlanPanel({
   onRefresh: () => void;
   onRoomDetailChange: (isOpen: boolean) => void;
 }) {
-  const fr = locale === 'fr';
   const devices = sensorDevices ?? [];
   const sortedLevels = useMemo(
     () => [...(plan?.levels ?? [])].sort((a, b) => a.order - b.order),
@@ -461,7 +462,7 @@ export function MobileHomePlanPanel({
     return (
       <View style={styles.loading}>
         <ActivityIndicator color="#15536a" />
-        <Text style={styles.emptyText}>{fr ? 'Chargement des niveaux…' : 'Loading floors…'}</Text>
+        <Text style={styles.emptyText}>{t('mobileHomePlanPanel.loadingFloors')}</Text>
       </View>
     );
   }
@@ -469,12 +470,10 @@ export function MobileHomePlanPanel({
     return (
       <View style={styles.emptyCard}>
         <Text style={styles.emptyText}>
-          {fr
-            ? 'Les informations du logement sont indisponibles.'
-            : 'Home information is unavailable.'}
+          {t('mobileHomePlanPanel.homeInformationIsUnavailable')}
         </Text>
         <Pressable onPress={onRefresh} style={styles.retryButton}>
-          <Text style={styles.retryText}>{fr ? 'Réessayer' : 'Try again'}</Text>
+          <Text style={styles.retryText}>{t('mobileHomePlanPanel.tryAgain')}</Text>
         </Pressable>
       </View>
     );
@@ -482,11 +481,7 @@ export function MobileHomePlanPanel({
   if (!plan || !sortedLevels.length) {
     return (
       <View style={styles.emptyCard}>
-        <Text style={styles.emptyText}>
-          {fr
-            ? 'Aucun niveau n’est renseigné pour ce logement.'
-            : 'No floors have been added to this home.'}
-        </Text>
+        <Text style={styles.emptyText}>{t('mobileHomePlanPanel.noFloorsHaveBeenAdded')}</Text>
       </View>
     );
   }
@@ -526,9 +521,7 @@ export function MobileHomePlanPanel({
         <View style={styles.detailPage}>
           <Pressable onPress={() => setCategory(null)} style={styles.backButton}>
             <ArrowLeft size={17} color="#15536a" strokeWidth={2} />
-            <Text style={styles.backText}>
-              {fr ? 'Retour aux capteurs de la pièce' : 'Back to room sensors'}
-            </Text>
+            <Text style={styles.backText}>{t('mobileHomePlanPanel.backToRoomSensors')}</Text>
           </Pressable>
           <View style={styles.categoryDetailHeading}>
             <View
@@ -541,9 +534,11 @@ export function MobileHomePlanPanel({
             </View>
             <View style={styles.flex}>
               <Text style={styles.eyebrow}>{selectedRoom.name}</Text>
-              <Text style={styles.roomTitle}>{selectedDefinition[fr ? 'label' : 'labelEn']}</Text>
+              <Text style={styles.roomTitle}>
+                {t(`sensorCategories.${selectedDefinition.id}.label`)}
+              </Text>
               <Text style={styles.categoryDescription}>
-                {selectedDefinition[fr ? 'description' : 'descriptionEn']}
+                {t(`sensorCategories.${selectedDefinition.id}.description`)}
               </Text>
             </View>
           </View>
@@ -558,27 +553,23 @@ export function MobileHomePlanPanel({
                   <Text style={styles.deviceMeta}>
                     {camera.provider} ·{' '}
                     {camera.status === 'ONLINE'
-                      ? fr
-                        ? 'En ligne'
-                        : 'Online'
-                      : fr
-                        ? 'À vérifier'
-                        : 'Needs checking'}
+                      ? t('mobileHomePlanPanel.online')
+                      : t('mobileHomePlanPanel.needsChecking')}
                   </Text>
                 </View>
               </View>
             ))
           ) : categoryDevices.length ? (
             categoryDevices.map((device) => {
-              const status = deviceStatus(device, locale);
-              const online = status === (fr ? 'En ligne' : 'Online');
-              const needsChecking = status === (fr ? 'À vérifier' : 'Needs checking');
+              const status = deviceStatus(device);
+              const online = status === t('mobileHomePlanPanel.online');
+              const needsChecking = status === t('mobileHomePlanPanel.needsChecking');
               const statusStyle = online
                 ? styles.deviceStatusOnline
                 : needsChecking
                   ? styles.deviceStatusAttention
                   : styles.deviceStatusOffline;
-              const lastSeen = deviceLastSeen(device, locale);
+              const lastSeen = deviceLastSeen(device);
               return (
                 <View key={device.id} style={styles.deviceCard}>
                   <View style={styles.deviceHero}>
@@ -587,7 +578,7 @@ export function MobileHomePlanPanel({
                       <Text style={styles.deviceName}>{device.name}</Text>
                       <Text style={styles.deviceModel}>
                         {[device.manufacturer, device.model].filter(Boolean).join(' · ') ||
-                          (fr ? 'Modèle non indiqué' : 'Model not reported')}
+                          t('mobileHomePlanPanel.modelNotReported')}
                       </Text>
                       <View style={[styles.deviceStatusBadge, statusStyle]}>
                         <Text style={styles.deviceStatusText}>{status}</Text>
@@ -596,31 +587,31 @@ export function MobileHomePlanPanel({
                   </View>
                   <View style={styles.deviceReadingCard}>
                     <Text style={styles.deviceReadingLabel}>
-                      {selectedDefinition[fr ? 'label' : 'labelEn']}
+                      {t(`sensorCategories.${selectedDefinition.id}.label`)}
                     </Text>
-                    <Text style={styles.deviceReadingValue}>
-                      {deviceReading(device, category, locale)}
-                    </Text>
+                    <Text style={styles.deviceReadingValue}>{deviceReading(device, category)}</Text>
                   </View>
                   <View style={styles.deviceInfoList}>
                     {device.placementNote ? (
                       <View style={styles.deviceInfoRow}>
                         <Text style={styles.deviceInfoLabel}>
-                          {fr ? 'Emplacement' : 'Placement'}
+                          {t('mobileHomePlanPanel.placement')}
                         </Text>
                         <Text style={styles.deviceInfoValue}>{device.placementNote}</Text>
                       </View>
                     ) : null}
                     {device.batteryPercent !== null ? (
                       <View style={styles.deviceInfoRow}>
-                        <Text style={styles.deviceInfoLabel}>{fr ? 'Batterie' : 'Battery'}</Text>
+                        <Text style={styles.deviceInfoLabel}>
+                          {t('mobileHomePlanPanel.battery')}
+                        </Text>
                         <Text style={styles.deviceInfoValue}>{device.batteryPercent} %</Text>
                       </View>
                     ) : null}
                     {lastSeen ? (
                       <View style={styles.deviceInfoRow}>
                         <Text style={styles.deviceInfoLabel}>
-                          {fr ? 'Dernier signal' : 'Last signal'}
+                          {t('mobileHomePlanPanel.lastSignal')}
                         </Text>
                         <Text style={styles.deviceInfoValue}>{lastSeen}</Text>
                       </View>
@@ -633,12 +624,8 @@ export function MobileHomePlanPanel({
             <View style={styles.emptyCard}>
               <Text style={styles.emptyText}>
                 {sensorDevices
-                  ? fr
-                    ? 'Aucun capteur associé à cette catégorie.'
-                    : 'No sensor is assigned to this category.'
-                  : fr
-                    ? 'Les capteurs sont en cours de chargement.'
-                    : 'Sensors are loading.'}
+                  ? t('mobileHomePlanPanel.noSensorIsAssignedTo')
+                  : t('mobileHomePlanPanel.sensorsAreLoading')}
               </Text>
             </View>
           )}
@@ -650,35 +637,31 @@ export function MobileHomePlanPanel({
       <View style={styles.detailPage}>
         <Pressable onPress={closeRoom} style={styles.backButton}>
           <ArrowLeft size={17} color="#15536a" strokeWidth={2} />
-          <Text style={styles.backText}>{fr ? 'Retour au logement' : 'Back to home'}</Text>
+          <Text style={styles.backText}>{t('mobileHomePlanPanel.backToHome')}</Text>
         </Pressable>
         <View style={styles.roomHeading}>
           <Text style={styles.eyebrow}>
-            {roomKindLabel(selectedRoom.kind, locale)} · {roomFloor.name}
+            {roomKindLabel(selectedRoom.kind)} · {roomFloor.name}
           </Text>
           <Text style={styles.roomTitle}>{selectedRoom.name}</Text>
           <View style={styles.roomMetaRow}>
             {selectedRoom.areaM2 != null && (
               <Text style={styles.roomMeta}>
-                {selectedRoom.areaM2.toLocaleString(fr ? 'fr-FR' : 'en')} m²
+                {selectedRoom.areaM2.toLocaleString(dateLocale())} m²
               </Text>
             )}
             <Text style={styles.roomMeta}>
               {totalSensorCount === null
                 ? '—'
-                : fr
-                  ? `${totalSensorCount} capteur${totalSensorCount !== 1 ? 's' : ''} associé${totalSensorCount !== 1 ? 's' : ''}`
-                  : `${totalSensorCount} sensor${totalSensorCount !== 1 ? 's' : ''} assigned`}
+                : t('mobileHomePlanPanel.sensorsAssigned', { count: totalSensorCount })}
             </Text>
           </View>
         </View>
         <View style={styles.sectionHeading}>
           <View style={styles.flex}>
-            <Text style={styles.subheading}>
-              {fr ? 'Les capteurs de la pièce' : 'Room sensors'}
-            </Text>
+            <Text style={styles.subheading}>{t('mobileHomePlanPanel.roomSensors')}</Text>
             <Text style={styles.sectionDescription}>
-              {fr ? 'Choisissez ce que vous souhaitez suivre.' : 'Choose what you want to monitor.'}
+              {t('mobileHomePlanPanel.chooseWhatYouWantTo')}
             </Text>
           </View>
           <Text style={styles.sectionCount}>
@@ -688,8 +671,8 @@ export function MobileHomePlanPanel({
         <View style={styles.categoryList}>
           {entranceDevices.length > 0 && (
             <SensorCategoryCard
-              label={fr ? 'Ouverture principale' : 'Main entrance'}
-              description={fr ? 'La porte de sortie du logement' : 'The door leading outside'}
+              label={t('mobileHomePlanPanel.mainEntrance')}
+              description={t('mobileHomePlanPanel.theDoorLeadingOutside')}
               count={entranceDevices.length}
               icon={DoorOpen}
               tone={sensorTone}
@@ -705,15 +688,15 @@ export function MobileHomePlanPanel({
             return (
               <SensorCategoryCard
                 key={id}
-                label={definition[fr ? 'label' : 'labelEn']}
+                label={t(`sensorCategories.${definition.id}.label`)}
                 description={
                   id === 'camera'
                     ? cameraCount === 1
                       ? cameras.find(({ room }) => room?.id === selectedRoom.id)?.name
-                      : definition[fr ? 'description' : 'descriptionEn']
+                      : t(`sensorCategories.${definition.id}.description`)
                     : items.length === 1
                       ? items[0].name
-                      : definition[fr ? 'description' : 'descriptionEn']
+                      : t(`sensorCategories.${definition.id}.description`)
                 }
                 count={id === 'camera' ? cameraCount : sensorDevices ? items.length : null}
                 icon={categoryIcons[id]}
@@ -728,12 +711,8 @@ export function MobileHomePlanPanel({
               {sensorDevices ? null : <ActivityIndicator color="#15536a" />}
               <Text style={styles.emptyText}>
                 {sensorDevices
-                  ? fr
-                    ? 'Aucun capteur n’est configuré pour cette pièce.'
-                    : 'No sensors are configured for this room.'
-                  : fr
-                    ? 'Chargement des capteurs…'
-                    : 'Loading sensors…'}
+                  ? t('mobileHomePlanPanel.noSensorsAreConfiguredFor')
+                  : t('mobileHomePlanPanel.loadingSensors')}
               </Text>
             </View>
           )}
@@ -754,7 +733,7 @@ export function MobileHomePlanPanel({
   return (
     <View style={styles.container}>
       <View style={styles.levelTabsHeading}>
-        <Text style={styles.eyebrow}>{fr ? 'NIVEAUX DU LOGEMENT' : 'HOME LEVELS'}</Text>
+        <Text style={styles.eyebrow}>{t('mobileHomePlanPanel.homeLevels')}</Text>
       </View>
       <ScrollView
         horizontal
@@ -797,7 +776,7 @@ export function MobileHomePlanPanel({
             strokeWidth={1.9}
           />
           <Text style={[styles.levelBadgeText, showStairs && styles.levelBadgeTextActive]}>
-            {fr ? 'Escaliers' : 'Stairs'}
+            {t('mobileHomePlanPanel.stairs')}
           </Text>
         </Pressable>
       </ScrollView>
@@ -806,27 +785,19 @@ export function MobileHomePlanPanel({
         <View style={styles.flex}>
           <Text style={styles.eyebrow}>
             {showStairs
-              ? fr
-                ? 'PASSAGE ENTRE LES NIVEAUX'
-                : 'BETWEEN LEVELS'
-              : fr
-                ? 'PIÈCE PAR PIÈCE'
-                : 'ROOM BY ROOM'}
+              ? t('mobileHomePlanPanel.betweenLevels')
+              : t('mobileHomePlanPanel.roomByRoom')}
           </Text>
           <Text style={styles.subheading}>
             {showStairs
-              ? fr
-                ? 'Les escaliers du logement'
-                : 'Stairs in this home'
-              : fr
-                ? 'Le détail de ce niveau'
-                : 'Details for this level'}
+              ? t('mobileHomePlanPanel.stairsInThisHome')
+              : t('mobileHomePlanPanel.detailsForThisLevel')}
           </Text>
         </View>
         <Text style={styles.sectionCount}>
           {showStairs
-            ? `${activeStairs.length} ${fr ? `escalier${activeStairs.length > 1 ? 's' : ''}` : `stair${activeStairs.length === 1 ? '' : 's'}`}`
-            : `${visibleRooms.length} ${fr ? 'pièces' : 'rooms'}`}
+            ? t('mobileHomePlanPanel.stairCount', { count: activeStairs.length })
+            : t('mobileHomePlanPanel.roomCount', { count: visibleRooms.length })}
         </Text>
       </View>
 
@@ -846,14 +817,14 @@ export function MobileHomePlanPanel({
                   </View>
                   <View style={styles.roomCopy}>
                     <Text style={styles.roomName} numberOfLines={2}>
-                      {fr ? 'Escalier' : 'Stairs'} · {fromRoom?.name ?? '—'} ↔ {toRoom?.name ?? '—'}
+                      {t('mobileHomePlanPanel.stairs2')} · {fromRoom?.name ?? '—'} ↔{' '}
+                      {toRoom?.name ?? '—'}
                     </Text>
                     <Text style={styles.roomSubline} numberOfLines={1}>
                       {fromLevel?.name ?? '—'} → {toLevel?.name ?? '—'}
                     </Text>
                     <Text style={styles.roomSensorCount}>
-                      {count ?? '—'}{' '}
-                      {fr ? 'capteurs · Mouvement et présence' : 'sensors · Motion and presence'}
+                      {count ?? '—'} {t('mobileHomePlanPanel.sensorsMotionAndPresence')}
                     </Text>
                   </View>
                 </View>
@@ -863,11 +834,7 @@ export function MobileHomePlanPanel({
         ) : (
           <View style={styles.emptyCard}>
             <ChartNoAxesCombined size={25} color="#2c7185" strokeWidth={1.8} />
-            <Text style={styles.emptyText}>
-              {fr
-                ? 'Aucun escalier n’est encore défini dans le logement.'
-                : 'No stairs have been added to this home yet.'}
-            </Text>
+            <Text style={styles.emptyText}>{t('mobileHomePlanPanel.noStairsHaveBeenAdded')}</Text>
           </View>
         )
       ) : visibleRooms.length ? (
@@ -890,14 +857,13 @@ export function MobileHomePlanPanel({
                     {room.name}
                   </Text>
                   <Text style={styles.roomSubline} numberOfLines={1}>
-                    {roomKindLabel(room.kind, locale)}
-                    {room.areaM2 != null
-                      ? ` · ${room.areaM2.toLocaleString(fr ? 'fr-FR' : 'en')} m²`
-                      : ''}
+                    {roomKindLabel(room.kind)}
+                    {room.areaM2 != null ? ` · ${room.areaM2.toLocaleString(dateLocale())} m²` : ''}
                   </Text>
                   <Text style={styles.roomSensorCount}>
-                    {count ?? '—'}{' '}
-                    {fr ? `capteur${count === 1 ? '' : 's'}` : `sensor${count === 1 ? '' : 's'}`}
+                    {count == null
+                      ? `— ${t('mobileHomePlanPanel.sensors')}`
+                      : t('mobileHomePlanPanel.sensorCount', { count })}
                   </Text>
                 </View>
                 <ChevronRight size={18} color="#54677B" />
@@ -907,11 +873,7 @@ export function MobileHomePlanPanel({
         </View>
       ) : (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>
-            {fr
-              ? 'Aucune pièce n’est renseignée à ce niveau.'
-              : 'No rooms are listed on this level.'}
-          </Text>
+          <Text style={styles.emptyText}>{t('mobileHomePlanPanel.noRoomsAreListedOn')}</Text>
         </View>
       )}
     </View>
@@ -958,7 +920,6 @@ function SensorCategoryCard({
   count,
   icon: Icon,
   tone,
-  locale,
   onPress,
 }: {
   label: string;
@@ -970,7 +931,6 @@ function SensorCategoryCard({
   onPress: () => void;
 }) {
   const configured = (count ?? 0) > 0;
-  const fr = locale === 'fr';
   return (
     <Pressable
       accessibilityRole="button"
@@ -993,14 +953,10 @@ function SensorCategoryCard({
         </Text>
         <Text style={[styles.categoryStatus, configured && styles.categoryStatusConfigured]}>
           {count === null
-            ? fr
-              ? 'Chargement…'
-              : 'Loading…'
+            ? t('mobileHomePlanPanel.loading')
             : configured
-              ? `${count} ${fr ? `capteur${count > 1 ? 's' : ''} · Configuré${count > 1 ? 's' : ''}` : `sensor${count === 1 ? '' : 's'} · Configured`}`
-              : fr
-                ? 'Non configuré'
-                : 'Not configured'}
+              ? t('mobileHomePlanPanel.sensorsConfigured', { count })
+              : t('mobileHomePlanPanel.notConfigured')}
         </Text>
       </View>
       {configured ? (

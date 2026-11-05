@@ -33,7 +33,8 @@ import { mobileApi, type ScreenRadioStation } from '../api';
 import type { SavedServer } from '../discovery/types';
 import { MobileDateTimePicker } from '../MobileDateTimePicker';
 import { activeServerUrl } from '../discovery/helpers';
-import { dateLocale, tr } from '../locale';
+import { dateLocale } from '../locale';
+import { t } from '../i18n';
 
 const c = {
   navy: '#0B2948',
@@ -55,56 +56,46 @@ const messageEmojis = ['❤️', '😊', '🥰', '😘', '🌸', '☀️', '🎂
 const favoriteMessages = () => [
   {
     emoji: '☀️',
-    label: tr('Bonne journée', 'Good day'),
-    message: tr('Bonne journée ! On pense fort à toi ❤️', 'Have a lovely day! Thinking of you ❤️'),
+    label: t('mobileScreenTabs.goodDay'),
+    message: t('mobileScreenTabs.haveALovelyDayThinking'),
   },
   {
     emoji: '📅',
-    label: tr('Rendez-vous', 'Appointment'),
-    message: tr(
-      'N’oublie pas ton rendez-vous. Tout est bien prévu 😊',
-      'Don’t forget your appointment. Everything is arranged 😊',
-    ),
+    label: t('mobileScreenTabs.appointment'),
+    message: t('mobileScreenTabs.donTForgetYourAppointment'),
   },
   {
     emoji: '🏡',
-    label: tr('On arrive', 'On our way'),
-    message: tr(
-      'On arrive bientôt ! À tout de suite 👋',
-      'We’ll be there soon! See you in a bit 👋',
-    ),
+    label: t('mobileScreenTabs.onOurWay'),
+    message: t('mobileScreenTabs.weLlBeThereSoon'),
   },
 ];
 const liveChannels = [
   {
     title: 'ARTE en direct',
     url: ARTE_LIVE_URL,
-    note: 'Culture, documentaires et cinéma.',
-    noteEn: 'Culture, documentaries and cinema.',
+    note: () => t('mobileScreenTabs.channelNote.arte'),
     brand: 'arte',
     brandLabel: 'arte',
   },
   {
     title: 'RMC Life',
     url: RMC_LIFE_LIVE_URL,
-    note: 'Divertissement et programmes du quotidien.',
-    noteEn: 'Entertainment and everyday programmes.',
+    note: () => t('mobileScreenTabs.channelNote.rmcLife'),
     brand: 'rmc-life',
     brandLabel: 'RMC',
   },
   {
     title: 'RMC Story',
     url: RMC_STORY_LIVE_URL,
-    note: 'Documentaires et magazines.',
-    noteEn: 'Documentaries and magazines.',
+    note: () => t('mobileScreenTabs.channelNote.rmcStory'),
     brand: 'rmc-story',
     brandLabel: 'RMC',
   },
   {
     title: 'RMC Découverte',
     url: RMC_DECOUVERTE_LIVE_URL,
-    note: 'Découverte, sciences et aventures.',
-    noteEn: 'Discovery, science and adventure.',
+    note: () => t('mobileScreenTabs.channelNote.rmcDecouverte'),
     brand: 'rmc-decouverte',
     brandLabel: 'RMC',
   },
@@ -162,7 +153,7 @@ export function MobileScreenTabs({
   const tabs = [
     {
       id: 'album' as const,
-      title: tr('Album photo', 'Photo album'),
+      title: t('mobileScreenTabs.photoAlbum'),
       icon: 'images-outline' as const,
       allowed: canControl,
     },
@@ -174,7 +165,7 @@ export function MobileScreenTabs({
     },
     {
       id: 'medias' as const,
-      title: tr('Médias', 'Media'),
+      title: t('mobileScreenTabs.media'),
       icon: 'play-circle-outline' as const,
       allowed: canControl,
     },
@@ -185,8 +176,7 @@ export function MobileScreenTabs({
   const screenState = snapshot?.state;
   const base = activeServerUrl(server).replace(/\/$/, '');
   const residentName =
-    snapshot?.resident.trim().split(/\s+/)[0] ||
-    tr('la personne accompagnée', 'the person you support');
+    snapshot?.resident.trim().split(/\s+/)[0] || t('mobileScreenTabs.thePersonYouSupport');
   const scheduledValue = (target: ScheduleTarget) =>
     target === 'photo' ? photoScheduleAt : messageScheduleAt;
   const setScheduledValue = (target: ScheduleTarget, value: Date | null) => {
@@ -250,11 +240,7 @@ export function MobileScreenTabs({
       await action();
       if (refresh) onChanged();
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : tr('Impossible de terminer cette action.', 'This action could not be completed.'),
-      );
+      setError(cause instanceof Error ? cause.message : t('mobileScreenTabs.thisActionCouldNotBe'));
     } finally {
       setBusy(false);
     }
@@ -276,20 +262,10 @@ export function MobileScreenTabs({
         messageInterval < 5 ||
         messageInterval > 600
       ) {
-        throw new Error(
-          tr(
-            'Chaque message doit contenir du texte. La durée doit être entre 5 et 600 secondes.',
-            'Each message must contain text. The duration must be between 5 and 600 seconds.',
-          ),
-        );
+        throw new Error(t('mobileScreenTabs.eachMessageMustContainText'));
       }
       if (messageScheduleAt && messageScheduleAt.getTime() <= Date.now())
-        throw new Error(
-          tr(
-            'Choisissez une heure future pour programmer le message.',
-            'Choose a future time to schedule the message.',
-          ),
-        );
+        throw new Error(t('mobileScreenTabs.chooseAFutureTimeTo'));
       if (messageScheduleAt) {
         const scheduled: ScreenScheduledContentInput = {
           kind: 'message',
@@ -330,9 +306,7 @@ export function MobileScreenTabs({
       if (!result.canceled) setPhoto(result.assets[0]);
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : tr('Impossible d’ouvrir la photothèque.', 'Cannot open the photo library.'),
+        cause instanceof Error ? cause.message : t('mobileScreenTabs.cannotOpenThePhotoLibrary'),
       );
     }
   };
@@ -341,21 +315,14 @@ export function MobileScreenTabs({
     run(async () => {
       if (!photo) return;
       if (photoScheduleAt && photoScheduleAt.getTime() <= Date.now())
-        throw new Error(
-          tr(
-            'Choisissez une heure future pour programmer la photo.',
-            'Choose a future time to schedule the photo.',
-          ),
-        );
+        throw new Error(t('mobileScreenTabs.chooseAFutureTimeTo2'));
       const acceptedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
       let fileName = photo.fileName || `elise-photo-${Date.now()}.jpg`;
       const form = new FormData();
       let uploaded: ScreenSnapshot;
       if (Platform.OS === 'web' && photo.file && acceptedTypes.has(photo.mimeType ?? '')) {
         if (photo.file.size > 100 * 1024 * 1024)
-          throw new Error(
-            tr('La photo doit faire moins de 100 Mo.', 'The photo must be under 100 MB.'),
-          );
+          throw new Error(t('mobileScreenTabs.thePhotoMustBeUnder'));
         form.append('file', photo.file, fileName);
         uploaded = await mobileApi.uploadScreenPhoto(server, token, form);
       } else {
@@ -381,9 +348,7 @@ export function MobileScreenTabs({
       }
       const media = uploaded.state.media[uploaded.state.media.length - 1];
       if (!media || media.kind !== 'photo')
-        throw new Error(
-          tr('Photo introuvable après l’envoi.', 'Photo not found after the upload.'),
-        );
+        throw new Error(t('mobileScreenTabs.photoNotFoundAfterThe'));
       await mobileApi.createScreenMedia(server, token, {
         ...media,
         title: photoCaption.trim().slice(0, 120),
@@ -457,12 +422,7 @@ export function MobileScreenTabs({
   const playLiveChannel = (channel: (typeof liveChannels)[number]) =>
     run(async () => {
       if (!snapshot?.online || screenState?.call)
-        throw new Error(
-          tr(
-            'La TV doit être connectée pour lancer une chaîne.',
-            'The TV must be connected to start a channel.',
-          ),
-        );
+        throw new Error(t('mobileScreenTabs.theTvMustBeConnected'));
       const id = mediaIdForUrl('tv', channel.url);
       await mobileApi.createScreenMedia(server, token, {
         id,
@@ -476,12 +436,7 @@ export function MobileScreenTabs({
   const playRadio = (station: ScreenRadioStation) =>
     run(async () => {
       if (!snapshot?.online || screenState?.call)
-        throw new Error(
-          tr(
-            'La TV doit être connectée pour lancer une radio.',
-            'The TV must be connected to start a radio.',
-          ),
-        );
+        throw new Error(t('mobileScreenTabs.theTvMustBeConnected2'));
       const existing = screenState?.media.find(
         (item) => item.kind === 'stream' && item.url === station.url,
       );
@@ -502,7 +457,7 @@ export function MobileScreenTabs({
     const url = youtubeUrl.trim();
     const videoId = youtubeVideoId(url);
     if (!videoId) {
-      setError(tr('Saisissez un lien vidéo YouTube valide.', 'Enter a valid YouTube video link.'));
+      setError(t('mobileScreenTabs.enterAValidYoutubeVideo'));
       return;
     }
     void run(async () => {
@@ -519,12 +474,7 @@ export function MobileScreenTabs({
   const playMedia = (media: ScreenMedia) =>
     run(async () => {
       if (!snapshot?.online || screenState?.call)
-        throw new Error(
-          tr(
-            'La TV doit être connectée pour lancer un média.',
-            'The TV must be connected to start media.',
-          ),
-        );
+        throw new Error(t('mobileScreenTabs.theTvMustBeConnected3'));
       await mobileApi.screenCommand(server, token, { action: 'play', mediaId: media.id });
     }, true);
 
@@ -582,25 +532,17 @@ export function MobileScreenTabs({
               <Ionicons name="images-outline" size={19} color={c.blue} />
             </View>
             <View style={s.flex}>
-              <Text style={s.title}>{tr('Album photo', 'Photo album')}</Text>
-              <Text style={s.detail}>
-                {tr(
-                  'Chaque photo défile avec son commentaire.',
-                  'Each photo is shown in turn with its caption.',
-                )}
-              </Text>
+              <Text style={s.title}>{t('mobileScreenTabs.photoAlbum')}</Text>
+              <Text style={s.detail}>{t('mobileScreenTabs.eachPhotoIsShownIn')}</Text>
             </View>
           </View>
           <Pressable disabled={busy} style={s.pickButton} onPress={() => void pickPhoto()}>
             <Ionicons name="image-outline" size={19} color={c.blue} />
             <View style={s.flex}>
               <Text style={s.pickTitle}>
-                {photo?.fileName ??
-                  tr('Choisir dans la photothèque', 'Choose from the photo library')}
+                {photo?.fileName ?? t('mobileScreenTabs.chooseFromThePhotoLibrary')}
               </Text>
-              <Text style={s.pickDetail}>
-                {tr('JPG, PNG ou WebP · 100 Mo maximum', 'JPG, PNG or WebP · 100 MB maximum')}
-              </Text>
+              <Text style={s.pickDetail}>{t('mobileScreenTabs.jpgPngOrWebp100')}</Text>
             </View>
             <Ionicons name="add-circle-outline" size={21} color={c.accent} />
           </Pressable>
@@ -613,20 +555,14 @@ export function MobileScreenTabs({
                     value={photoCaption}
                     maxLength={120}
                     onChangeText={setPhotoCaption}
-                    placeholder={tr(
-                      'Commentaire sous la photo (facultatif)',
-                      'Caption under the photo (optional)',
-                    )}
+                    placeholder={t('mobileScreenTabs.captionUnderThePhotoOptional')}
                     placeholderTextColor={c.muted}
                     style={s.input}
                   />
                   <Text style={s.counter}>{photoCaption.length}/120</Text>
                 </View>
                 <Pressable
-                  accessibilityLabel={tr(
-                    'Retirer la photo sélectionnée',
-                    'Remove the selected photo',
-                  )}
+                  accessibilityLabel={t('mobileScreenTabs.removeTheSelectedPhoto')}
                   onPress={() => setPhoto(undefined)}
                 >
                   <Ionicons name="close-circle" size={22} color={c.muted} />
@@ -640,10 +576,7 @@ export function MobileScreenTabs({
                 {messageEmojis.map((emoji) => (
                   <Pressable
                     key={emoji}
-                    accessibilityLabel={tr(
-                      `Ajouter ${emoji} au commentaire`,
-                      `Add ${emoji} to the caption`,
-                    )}
+                    accessibilityLabel={t('mobileScreenTabs.addToTheCaption', { emoji })}
                     style={s.emojiButton}
                     onPress={() =>
                       setPhotoCaption(
@@ -673,25 +606,23 @@ export function MobileScreenTabs({
             <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
             <Text style={s.primaryButtonText}>
               {busy
-                ? tr('Ajout en cours…', 'Adding…')
+                ? t('mobileScreenTabs.adding')
                 : photoScheduleAt
-                  ? tr('Programmer la photo', 'Schedule the photo')
-                  : tr('Ajouter à l’album', 'Add to the album')}
+                  ? t('mobileScreenTabs.scheduleThePhoto')
+                  : t('mobileScreenTabs.addToTheAlbum')}
             </Text>
           </Pressable>
 
           <View style={s.subheadingRow}>
             <View style={s.flex}>
-              <Text style={s.subheading}>
-                {tr(`Album de ${residentName}`, `${residentName}’s album`)}
-              </Text>
+              <Text style={s.subheading}>{t('mobileScreenTabs.sAlbum', { residentName })}</Text>
               <Text style={s.detail}>
                 {photos.length} photo{photos.length === 1 ? '' : 's'}
               </Text>
             </View>
             <View style={s.speedControl}>
               <Pressable
-                accessibilityLabel={tr('Réduire le temps par photo', 'Shorten the time per photo')}
+                accessibilityLabel={t('mobileScreenTabs.shortenTheTimePerPhoto')}
                 disabled={busy}
                 style={s.roundButton}
                 onPress={() => {
@@ -705,10 +636,7 @@ export function MobileScreenTabs({
                 {currentSpeed >= 60 ? `${currentSpeed / 60} min` : `${currentSpeed} s`}
               </Text>
               <Pressable
-                accessibilityLabel={tr(
-                  'Augmenter le temps par photo',
-                  'Lengthen the time per photo',
-                )}
+                accessibilityLabel={t('mobileScreenTabs.lengthenTheTimePerPhoto')}
                 disabled={busy}
                 style={s.roundButton}
                 onPress={() => {
@@ -729,7 +657,7 @@ export function MobileScreenTabs({
               onPress={() => void saveSlideshowSpeed()}
             >
               <Text style={s.secondaryButtonText}>
-                {tr('Enregistrer le rythme du diaporama', 'Save the slideshow pace')}
+                {t('mobileScreenTabs.saveTheSlideshowPace')}
               </Text>
             </Pressable>
           ) : null}
@@ -745,14 +673,15 @@ export function MobileScreenTabs({
                     resizeMode="cover"
                   />
                   <Text numberOfLines={2} style={s.photoTitle}>
-                    {media.title || tr('Photo de l’album', 'Album photo')}
+                    {media.title || t('mobileScreenTabs.albumPhoto')}
                   </Text>
                   <View style={s.photoActions}>
                     <Pressable
-                      accessibilityLabel={tr(
-                        `Retirer ${media.title || 'cette photo'} de l’album`,
-                        `Remove ${media.title || 'this photo'} from the album`,
-                      )}
+                      accessibilityLabel={
+                        media.title
+                          ? t('mobileScreenTabs.removePhotoFromAlbum', { title: media.title })
+                          : t('mobileScreenTabs.removePhotoFromAlbumUntitled')
+                      }
                       disabled={busy}
                       style={s.iconAction}
                       onPress={() => void removeMedia(media)}
@@ -764,9 +693,7 @@ export function MobileScreenTabs({
               ))}
             </View>
           ) : (
-            <Text style={s.emptyText}>
-              {tr('Aucune photo ajoutée pour le moment.', 'No photos added yet.')}
-            </Text>
+            <Text style={s.emptyText}>{t('mobileScreenTabs.noPhotosAddedYet')}</Text>
           )}
         </View>
       ) : null}
@@ -778,16 +705,11 @@ export function MobileScreenTabs({
               <Ionicons name="chatbubble-ellipses-outline" size={19} color={c.green} />
             </View>
             <View style={s.flex}>
-              <Text style={s.title}>{tr('Message sur la TV', 'Message on the TV')}</Text>
-              <Text style={s.detail}>
-                {tr(
-                  'Les messages restent visibles et se succèdent à l’écran.',
-                  'Messages stay visible and take turns on screen.',
-                )}
-              </Text>
+              <Text style={s.title}>{t('mobileScreenTabs.messageOnTheTv')}</Text>
+              <Text style={s.detail}>{t('mobileScreenTabs.messagesStayVisibleAndTake')}</Text>
             </View>
           </View>
-          <Text style={s.fieldLabel}>{tr('Messages favoris', 'Favourite messages')}</Text>
+          <Text style={s.fieldLabel}>{t('mobileScreenTabs.favouriteMessages')}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -842,14 +764,14 @@ export function MobileScreenTabs({
               }}
             >
               <Ionicons name="add" size={16} color={c.blue} />
-              <Text style={s.messageChipText}>{tr('Ajouter', 'Add')}</Text>
+              <Text style={s.messageChipText}>{t('mobileScreenTabs.add')}</Text>
             </Pressable>
           </ScrollView>
           <View style={s.emojiRow}>
             {messageEmojis.map((emoji) => (
               <Pressable
                 key={emoji}
-                accessibilityLabel={tr(`Ajouter ${emoji}`, `Add ${emoji}`)}
+                accessibilityLabel={t('mobileScreenTabs.add2', { emoji })}
                 style={s.emojiButton}
                 onPress={() => {
                   const next = `${currentMessage}${currentMessage && !currentMessage.endsWith(' ') ? ' ' : ''}${emoji}`;
@@ -865,10 +787,7 @@ export function MobileScreenTabs({
             maxLength={1000}
             value={currentMessage}
             onChangeText={addTextToMessage}
-            placeholder={tr(
-              `Bonne journée ${residentName} ! On pense fort à toi ❤️`,
-              `Have a lovely day ${residentName}! Thinking of you ❤️`,
-            )}
+            placeholder={t('mobileScreenTabs.haveALovelyDayThinking2', { residentName })}
             placeholderTextColor={c.muted}
             style={[s.input, s.messageInput]}
             textAlignVertical="top"
@@ -878,15 +797,11 @@ export function MobileScreenTabs({
           </Text>
           <View style={s.messageTiming}>
             <View style={s.flex}>
-              <Text style={s.fieldLabel}>
-                {tr('Durée de chaque message', 'Duration of each message')}
-              </Text>
-              <Text style={s.detail}>
-                {tr('Les messages tournent dans cet ordre.', 'Messages rotate in this order.')}
-              </Text>
+              <Text style={s.fieldLabel}>{t('mobileScreenTabs.durationOfEachMessage')}</Text>
+              <Text style={s.detail}>{t('mobileScreenTabs.messagesRotateInThisOrder')}</Text>
             </View>
             <TextInput
-              accessibilityLabel={tr('Durée en secondes', 'Duration in seconds')}
+              accessibilityLabel={t('mobileScreenTabs.durationInSeconds')}
               keyboardType="number-pad"
               value={String(messageInterval)}
               onChangeText={(value) => {
@@ -916,7 +831,7 @@ export function MobileScreenTabs({
                 }}
               >
                 <Ionicons name="remove-circle-outline" size={16} color={c.muted} />
-                <Text style={s.secondaryButtonText}>{tr('Retirer', 'Remove')}</Text>
+                <Text style={s.secondaryButtonText}>{t('mobileScreenTabs.remove')}</Text>
               </Pressable>
             ) : null}
             <Pressable
@@ -925,7 +840,7 @@ export function MobileScreenTabs({
               onPress={() => void clearMessages()}
             >
               <Ionicons name="trash-outline" size={16} color={c.muted} />
-              <Text style={s.secondaryButtonText}>{tr('Effacer', 'Clear')}</Text>
+              <Text style={s.secondaryButtonText}>{t('mobileScreenTabs.clear')}</Text>
             </Pressable>
             <Pressable
               disabled={busy || (!messageDirty && !messageScheduleAt)}
@@ -944,8 +859,8 @@ export function MobileScreenTabs({
                 {busy
                   ? 'Enregistrement…'
                   : messageScheduleAt
-                    ? tr('Programmer le message', 'Schedule the message')
-                    : tr('Afficher sur la TV', 'Show on the TV')}
+                    ? t('mobileScreenTabs.scheduleTheMessage')
+                    : t('mobileScreenTabs.showOnTheTv')}
               </Text>
             </Pressable>
           </View>
@@ -959,12 +874,9 @@ export function MobileScreenTabs({
               <Ionicons name="play-circle-outline" size={20} color={c.amber} />
             </View>
             <View style={s.flex}>
-              <Text style={s.title}>{tr('Médias', 'Media')}</Text>
+              <Text style={s.title}>{t('mobileScreenTabs.media')}</Text>
               <Text style={s.detail}>
-                {tr(
-                  `Choisissez ce que ${residentName} regarde ou écoute.`,
-                  `Choose what ${residentName} watches or listens to.`,
-                )}
+                {t('mobileScreenTabs.chooseWhatWatchesOrListens', { residentName })}
               </Text>
             </View>
           </View>
@@ -976,7 +888,7 @@ export function MobileScreenTabs({
             {(
               [
                 ['youtube', 'YouTube', 'logo-youtube'],
-                ['tv', tr('TV en direct', 'Live TV'), 'tv-outline'],
+                ['tv', t('mobileScreenTabs.liveTv'), 'tv-outline'],
                 ['radio', 'Radio', 'radio-outline'],
                 ['podcasts', 'Podcasts', 'headset-outline'],
               ] as const
@@ -1017,7 +929,7 @@ export function MobileScreenTabs({
                   </View>
                   <View style={s.flex}>
                     <Text style={s.mediaTitle}>{channel.title}</Text>
-                    <Text style={s.mediaSubtitle}>{tr(channel.note, channel.noteEn)}</Text>
+                    <Text style={s.mediaSubtitle}>{channel.note()}</Text>
                   </View>
                   <Pressable
                     disabled={busy || !snapshot?.online}
@@ -1042,17 +954,16 @@ export function MobileScreenTabs({
                     </View>
                     <View style={s.flex}>
                       <Text numberOfLines={1} style={s.mediaTitle}>
-                        {media.title || tr('Chaîne TV', 'TV channel')}
+                        {media.title || t('mobileScreenTabs.tvChannel')}
                       </Text>
-                      <Text style={s.mediaSubtitle}>
-                        {tr('Chaîne enregistrée', 'Saved channel')}
-                      </Text>
+                      <Text style={s.mediaSubtitle}>{t('mobileScreenTabs.savedChannel')}</Text>
                     </View>
                     <Pressable
-                      accessibilityLabel={tr(
-                        `Lire ${media.title || 'cette chaîne'}`,
-                        `Play ${media.title || 'this channel'}`,
-                      )}
+                      accessibilityLabel={
+                        media.title
+                          ? t('mobileScreenTabs.playChannel', { title: media.title })
+                          : t('mobileScreenTabs.playChannelUntitled')
+                      }
                       disabled={busy || !snapshot?.online}
                       style={s.iconAction}
                       onPress={() => void playMedia(media)}
@@ -1060,10 +971,11 @@ export function MobileScreenTabs({
                       <Ionicons name="play" size={17} color={c.blue} />
                     </Pressable>
                     <Pressable
-                      accessibilityLabel={tr(
-                        `Retirer ${media.title || 'cette chaîne'}`,
-                        `Remove ${media.title || 'this channel'}`,
-                      )}
+                      accessibilityLabel={
+                        media.title
+                          ? t('mobileScreenTabs.removeChannel', { title: media.title })
+                          : t('mobileScreenTabs.removeChannelUntitled')
+                      }
                       disabled={busy}
                       style={s.iconAction}
                       onPress={() => void removeMedia(media)}
@@ -1072,23 +984,13 @@ export function MobileScreenTabs({
                     </Pressable>
                   </View>
                 ))}
-              <Text style={s.footnote}>
-                {tr(
-                  'Le direct peut être limité selon le pays et les droits du programme.',
-                  'Live viewing may be limited depending on the country and programme rights.',
-                )}
-              </Text>
+              <Text style={s.footnote}>{t('mobileScreenTabs.liveViewingMayBeLimited')}</Text>
             </View>
           ) : null}
 
           {mediaSource === 'radio' ? (
             <View style={s.mediaList}>
-              <Text style={s.detail}>
-                {tr(
-                  'Recherchez une station, puis lancez-la sur la TV.',
-                  'Search for a station, then play it on the TV.',
-                )}
-              </Text>
+              <Text style={s.detail}>{t('mobileScreenTabs.searchForAStationThen')}</Text>
               <View style={s.searchRow}>
                 <TextInput
                   value={radioQuery}
@@ -1110,7 +1012,7 @@ export function MobileScreenTabs({
               </View>
               {savedRadio.length ? (
                 <>
-                  <Text style={s.fieldLabel}>{tr('Stations enregistrées', 'Saved stations')}</Text>
+                  <Text style={s.fieldLabel}>{t('mobileScreenTabs.savedStations')}</Text>
                   {savedRadio.map((media) => (
                     <View key={media.id} style={s.mediaRow}>
                       {media.artworkUrl ? (
@@ -1135,7 +1037,7 @@ export function MobileScreenTabs({
                         <Ionicons name="play" size={17} color={c.blue} />
                       </Pressable>
                       <Pressable
-                        accessibilityLabel={tr(`Retirer ${media.title}`, `Remove ${media.title}`)}
+                        accessibilityLabel={t('mobileScreenTabs.remove2', { title: media.title })}
                         disabled={busy}
                         style={s.iconAction}
                         onPress={() => void removeMedia(media)}
@@ -1175,31 +1077,21 @@ export function MobileScreenTabs({
                   </View>
                 ))
               ) : !savedRadio.length ? (
-                <Text style={s.emptyText}>
-                  {tr(
-                    'Recherchez une station pour commencer.',
-                    'Search for a station to get started.',
-                  )}
-                </Text>
+                <Text style={s.emptyText}>{t('mobileScreenTabs.searchForAStationTo')}</Text>
               ) : null}
             </View>
           ) : null}
 
           {mediaSource === 'podcasts' ? (
             <View style={s.mediaList}>
-              <Text style={s.detail}>
-                {tr(
-                  'Recherchez une émission et choisissez un épisode à écouter.',
-                  'Search for a show and choose an episode to listen to.',
-                )}
-              </Text>
+              <Text style={s.detail}>{t('mobileScreenTabs.searchForAShowAnd')}</Text>
               <View style={s.searchRow}>
                 <TextInput
                   value={podcastQuery}
                   onChangeText={setPodcastQuery}
                   onSubmitEditing={searchPodcasts}
                   returnKeyType="search"
-                  placeholder={tr('Nom d’une émission ou d’un sujet', 'Name of a show or a topic')}
+                  placeholder={t('mobileScreenTabs.nameOfAShowOr')}
                   placeholderTextColor={c.muted}
                   style={[s.input, s.flex]}
                 />
@@ -1212,7 +1104,7 @@ export function MobileScreenTabs({
                 </Pressable>
               </View>
               {(screenState?.podcasts ?? []).length ? (
-                <Text style={s.fieldLabel}>{tr('Émissions suivies', 'Followed shows')}</Text>
+                <Text style={s.fieldLabel}>{t('mobileScreenTabs.followedShows')}</Text>
               ) : null}
               {(screenState?.podcasts ?? []).map((podcast) => (
                 <View key={podcast.id} style={s.mediaRow}>
@@ -1228,15 +1120,16 @@ export function MobileScreenTabs({
                       {podcast.title}
                     </Text>
                     <Text style={s.mediaSubtitle}>
-                      {podcast.author || tr('Podcast suivi', 'Followed podcast')}
+                      {podcast.author || t('mobileScreenTabs.followedPodcast')}
                     </Text>
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={tr(
-                      `${selectedPodcast?.id === podcast.id ? 'Masquer' : 'Afficher'} les épisodes de ${podcast.title}`,
-                      `${selectedPodcast?.id === podcast.id ? 'Hide' : 'Show'} the episodes of ${podcast.title}`,
-                    )}
+                    accessibilityLabel={
+                      selectedPodcast?.id === podcast.id
+                        ? t('mobileScreenTabs.hidePodcastEpisodes', { title: podcast.title })
+                        : t('mobileScreenTabs.showPodcastEpisodes', { title: podcast.title })
+                    }
                     accessibilityState={{ expanded: selectedPodcast?.id === podcast.id }}
                     style={s.iconAction}
                     onPress={() => togglePodcast(podcast)}
@@ -1264,15 +1157,16 @@ export function MobileScreenTabs({
                     </Text>
                     <Text style={s.mediaSubtitle}>
                       {podcast.author || 'Podcast'} · {podcast.episodeCount}{' '}
-                      {tr('épisodes', 'episodes')}
+                      {t('mobileScreenTabs.episodes')}
                     </Text>
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={tr(
-                      `${selectedPodcast?.id === podcast.id ? 'Masquer' : 'Afficher'} les épisodes de ${podcast.title}`,
-                      `${selectedPodcast?.id === podcast.id ? 'Hide' : 'Show'} the episodes of ${podcast.title}`,
-                    )}
+                    accessibilityLabel={
+                      selectedPodcast?.id === podcast.id
+                        ? t('mobileScreenTabs.hidePodcastEpisodes', { title: podcast.title })
+                        : t('mobileScreenTabs.showPodcastEpisodes', { title: podcast.title })
+                    }
                     accessibilityState={{ expanded: selectedPodcast?.id === podcast.id }}
                     style={s.iconAction}
                     onPress={() => togglePodcast(podcast)}
@@ -1314,7 +1208,7 @@ export function MobileScreenTabs({
               {selectedPodcast ? (
                 <View style={s.episodeCard}>
                   <Text style={s.subheading}>
-                    {tr('Épisodes', 'Episodes')} · {selectedPodcast.title}
+                    {t('mobileScreenTabs.episodes2')} · {selectedPodcast.title}
                   </Text>
                   {podcastEpisodes.length ? (
                     podcastEpisodes.map((episode) => (
@@ -1326,7 +1220,7 @@ export function MobileScreenTabs({
                           <Text style={s.mediaSubtitle}>
                             {episode.publishedAt
                               ? new Date(episode.publishedAt).toLocaleDateString(dateLocale())
-                              : tr('Épisode récent', 'Recent episode')}
+                              : t('mobileScreenTabs.recentEpisode')}
                             {episode.durationSeconds
                               ? ` · ${formatDuration(episode.durationSeconds)}`
                               : ''}
@@ -1342,9 +1236,7 @@ export function MobileScreenTabs({
                       </View>
                     ))
                   ) : (
-                    <Text style={s.emptyText}>
-                      {tr('Aucun épisode disponible pour le moment.', 'No episodes available yet.')}
-                    </Text>
+                    <Text style={s.emptyText}>{t('mobileScreenTabs.noEpisodesAvailableYet')}</Text>
                   )}
                 </View>
               ) : null}
@@ -1353,12 +1245,7 @@ export function MobileScreenTabs({
 
           {mediaSource === 'youtube' ? (
             <View style={s.mediaList}>
-              <Text style={s.detail}>
-                {tr(
-                  'Ajoutez un lien vidéo YouTube pour le retrouver dans vos médias.',
-                  'Add a YouTube video link to find it in your media.',
-                )}
-              </Text>
+              <Text style={s.detail}>{t('mobileScreenTabs.addAYoutubeVideoLink')}</Text>
               <TextInput
                 value={youtubeTitle}
                 onChangeText={setYoutubeTitle}
@@ -1384,13 +1271,13 @@ export function MobileScreenTabs({
                 <Ionicons name="logo-youtube" size={18} color="#fff" />
                 <Text style={s.primaryButtonText}>
                   {snapshot?.online
-                    ? tr('Ajouter et lancer', 'Add and play')
-                    : tr('Ajouter à mes médias', 'Add to my media')}
+                    ? t('mobileScreenTabs.addAndPlay')
+                    : t('mobileScreenTabs.addToMyMedia')}
                 </Text>
               </Pressable>
               {savedYoutube.length ? (
                 <>
-                  <Text style={s.fieldLabel}>{tr('Vidéos enregistrées', 'Saved videos')}</Text>
+                  <Text style={s.fieldLabel}>{t('mobileScreenTabs.savedVideos')}</Text>
                   {savedYoutube.map((media) => (
                     <View key={media.id} style={s.mediaRow}>
                       <View style={s.mediaPlaceholder}>
@@ -1411,7 +1298,7 @@ export function MobileScreenTabs({
                         <Ionicons name="play" size={17} color={c.blue} />
                       </Pressable>
                       <Pressable
-                        accessibilityLabel={tr(`Retirer ${media.title}`, `Remove ${media.title}`)}
+                        accessibilityLabel={t('mobileScreenTabs.remove2', { title: media.title })}
                         disabled={busy}
                         style={s.iconAction}
                         onPress={() => void removeMedia(media)}
@@ -1449,10 +1336,9 @@ export function MobileScreenTabs({
                 </Text>
               </View>
               <Pressable
-                accessibilityLabel={tr(
-                  `Annuler la programmation de ${item.title}`,
-                  `Cancel the schedule for ${item.title}`,
-                )}
+                accessibilityLabel={t('mobileScreenTabs.cancelTheScheduleFor', {
+                  title: item.title,
+                })}
                 disabled={busy}
                 style={s.iconAction}
                 onPress={() =>
@@ -1481,22 +1367,22 @@ export function MobileScreenTabs({
         <View style={s.pickerOverlay}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={tr('Fermer le sélecteur de date', 'Close the date picker')}
+            accessibilityLabel={t('mobileScreenTabs.closeTheDatePicker')}
             style={s.pickerBackdrop}
             onPress={() => setActivePicker(null)}
           />
           <View style={s.pickerSheet}>
             <View style={s.pickerHeader}>
               <Pressable onPress={() => setActivePicker(null)} style={s.pickerHeaderButton}>
-                <Text style={s.pickerCancel}>{tr('Annuler', 'Cancel')}</Text>
+                <Text style={s.pickerCancel}>{t('mobileScreenTabs.cancel')}</Text>
               </Pressable>
               <Text style={s.pickerTitle}>
                 {activePicker?.mode === 'date'
-                  ? tr('Choisir la date', 'Choose the date')
-                  : tr('Choisir l’heure', 'Choose the time')}
+                  ? t('mobileScreenTabs.chooseTheDate')
+                  : t('mobileScreenTabs.chooseTheTime')}
               </Text>
               <Pressable onPress={confirmPicker} style={s.pickerHeaderButton}>
-                <Text style={s.pickerConfirm}>{tr('Valider', 'Confirm')}</Text>
+                <Text style={s.pickerConfirm}>{t('mobileScreenTabs.confirm')}</Text>
               </Pressable>
             </View>
             {activePicker ? (
@@ -1504,7 +1390,7 @@ export function MobileScreenTabs({
                 value={pickerDraft}
                 mode={activePicker.mode}
                 is24Hour
-                locale="fr-FR"
+                locale={dateLocale()}
                 themeVariant="light"
                 minuteInterval={5}
                 onChange={(_event, selected) => {
@@ -1567,12 +1453,7 @@ function ScreenMediaImage({
     })
       .then((response) => {
         if (!response.ok)
-          throw new Error(
-            tr(
-              `Photo indisponible (${response.status}).`,
-              `Photo unavailable (${response.status}).`,
-            ),
-          );
+          throw new Error(t('mobileScreenTabs.photoUnavailable', { status: response.status }));
         return response.blob();
       })
       .then((blob) => {
@@ -1626,16 +1507,16 @@ function ScheduleControls({
         hour: '2-digit',
         minute: '2-digit',
       })
-    : tr('Choisir une date et une heure', 'Choose a date and time');
+    : t('mobileScreenTabs.chooseADateAndTime');
   return (
     <View style={s.schedulePanel}>
       <View style={s.flex}>
-        <Text style={s.fieldLabel}>{tr('Diffusion programmée', 'Scheduled broadcast')}</Text>
+        <Text style={s.fieldLabel}>{t('mobileScreenTabs.scheduledBroadcast')}</Text>
         <Text style={s.detail}>{scheduleLabel}</Text>
       </View>
       <View style={s.scheduleActions}>
         <Pressable
-          accessibilityLabel={tr('Choisir la date', 'Choose the date')}
+          accessibilityLabel={t('mobileScreenTabs.chooseTheDate')}
           disabled={disabled}
           style={s.scheduleAction}
           onPress={onDate}
@@ -1644,7 +1525,7 @@ function ScheduleControls({
           <Text style={s.scheduleActionText}>Date</Text>
         </Pressable>
         <Pressable
-          accessibilityLabel={tr('Choisir l’heure', 'Choose the time')}
+          accessibilityLabel={t('mobileScreenTabs.chooseTheTime')}
           disabled={disabled}
           style={s.scheduleAction}
           onPress={onTime}
@@ -1654,7 +1535,7 @@ function ScheduleControls({
         </Pressable>
         {value ? (
           <Pressable
-            accessibilityLabel={tr('Retirer la programmation', 'Remove the schedule')}
+            accessibilityLabel={t('mobileScreenTabs.removeTheSchedule')}
             disabled={disabled}
             style={s.clearScheduleAction}
             onPress={onClear}

@@ -39,9 +39,11 @@ import {
 import { registerPushNotifications } from '../src/notifications';
 import { MobilePreparation } from '../src/setup/MobilePreparation';
 import { MobileSetup, type Locale } from '../src/setup/MobileSetup';
-import { setAppLocale, tr } from '../src/locale';
+import { setAppLocale } from '../src/locale';
 import { WelcomeExperience } from '../src/welcome/WelcomeExperience';
 import { colors } from '../src/theme';
+import { isLanguage, t } from '../src/i18n';
+import { deviceLanguage } from '../src/i18n/device';
 
 type Stage =
   | 'boot'
@@ -75,11 +77,11 @@ const setupPreviewServer: DiscoveredServer = {
 };
 
 const relativeTime = (value?: string) => {
-  if (!value) return tr('Aucune activité', 'No activity');
+  if (!value) return t('app.noActivity');
   const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000));
-  if (minutes < 60) return tr(`Il y a ${minutes} min`, `${minutes} min ago`);
+  if (minutes < 60) return t('app.minAgo', { minutes });
   const hours = Math.round(minutes / 60);
-  return tr(`Il y a ${hours} h`, `${hours} hr ago`);
+  return t('app.hrAgo', { hours });
 };
 
 const asDiscovered = (server: SavedServer): DiscoveredServer => {
@@ -96,7 +98,8 @@ export default function HomeScreen() {
   const queryClient = useQueryClient();
   const incomingUrl = Linking.useURL();
   const [stage, setStage] = useState<Stage>('boot');
-  const [locale, setLocale] = useState<Locale>('fr');
+  // The phone's language until the user picks one on the welcome screen or in the settings.
+  const [locale, setLocale] = useState<Locale>(deviceLanguage);
   // Helpers outside React read the language from here; set it before children render.
   setAppLocale(locale);
   const [servers, setServers] = useState<DiscoveredServer[]>([]);
@@ -136,7 +139,7 @@ export default function HomeScreen() {
         AsyncStorage.getItem(LOCALE_KEY),
       ]);
       if (!mounted) return;
-      if (savedLocale === 'fr' || savedLocale === 'en') setLocale(savedLocale);
+      if (isLanguage(savedLocale)) setLocale(savedLocale);
       if (!last) {
         setStage('welcome');
         return;
@@ -333,11 +336,7 @@ export default function HomeScreen() {
       setLoginOptions(options);
       setStage('login');
     } catch {
-      setError(
-        locale === 'fr'
-          ? 'Élise ne répond plus à cette adresse. Relancez la recherche.'
-          : 'Élise is no longer responding at this address. Scan again.',
-      );
+      setError(t('app.eliseIsNoLongerResponding'));
     } finally {
       setBusy(false);
     }
@@ -360,11 +359,7 @@ export default function HomeScreen() {
     try {
       await chooseServer(await discoveryService.manual(manualUrl));
     } catch {
-      setError(
-        locale === 'fr'
-          ? 'Adresse introuvable. Vérifiez le réseau local ou que Tailscale est actif.'
-          : 'Address not found. Check the local network or make sure Tailscale is active.',
-      );
+      setError(t('app.addressNotFoundCheckThe'));
     } finally {
       setBusy(false);
     }
@@ -380,13 +375,7 @@ export default function HomeScreen() {
     void discoveryService
       .manual(value)
       .then(chooseServer)
-      .catch(() =>
-        setError(
-          locale === 'fr'
-            ? 'Le lien Élise est valide, mais Tailscale ne répond pas encore.'
-            : 'The Élise link is valid, but Tailscale is not responding yet.',
-        ),
-      );
+      .catch(() => setError(t('app.theEliseLinkIsValid')));
   }, [incomingUrl]);
 
   const login = async () => {
@@ -403,11 +392,7 @@ export default function HomeScreen() {
       await prefetchHomeData(queryClient, server, result.accessToken);
       setStage('dashboard');
     } catch {
-      setError(
-        locale === 'fr'
-          ? 'Identifiants incorrects ou Élise indisponible.'
-          : 'Incorrect credentials or Élise is unavailable.',
-      );
+      setError(t('app.incorrectCredentialsOrEliseIs'));
     } finally {
       setBusy(false);
     }
@@ -499,25 +484,15 @@ export default function HomeScreen() {
           </View>
           <View style={styles.bootCopy}>
             <Text style={styles.bootEyebrow}>ÉLISE OS</Text>
-            <Text style={styles.bootTitle}>
-              {locale === 'fr' ? 'Votre espace se prépare' : 'Preparing your space'}
-            </Text>
-            <Text style={styles.bootMessage}>
-              {locale === 'fr'
-                ? 'Élise retrouve vos repères.'
-                : 'Élise is bringing your home back into view.'}
-            </Text>
+            <Text style={styles.bootTitle}>{t('app.preparingYourSpace')}</Text>
+            <Text style={styles.bootMessage}>{t('app.eliseIsBringingYourHome')}</Text>
           </View>
           <View style={styles.bootLoading}>
             <ActivityIndicator color={colors.accent} size="small" />
-            <Text style={styles.bootLoadingText}>
-              {locale === 'fr' ? 'Un instant…' : 'Just a moment…'}
-            </Text>
+            <Text style={styles.bootLoadingText}>{t('app.justAMoment')}</Text>
           </View>
         </View>
-        <Text style={styles.bootFooter}>
-          {locale === 'fr' ? 'MAISON · LIEN · SÉRÉNITÉ' : 'HOME · CONNECTION · PEACE OF MIND'}
-        </Text>
+        <Text style={styles.bootFooter}>{t('app.homeConnectionPeaceOfMind')}</Text>
       </SafeAreaView>
     );
   }
@@ -561,35 +536,23 @@ export default function HomeScreen() {
           <Text style={styles.serverName}>{candidate.instanceName}</Text>
           <Text style={styles.serverUrl} numberOfLines={1}>
             {candidate.instanceId === SETUP_PREVIEW_ID
-              ? locale === 'fr'
-                ? 'Aperçu local · aucune donnée envoyée'
-                : 'Local preview · no data is sent'
+              ? t('app.localPreviewNoDataIs')
               : candidate.url}
           </Text>
           <View style={styles.serverStatus}>
             <View style={[styles.dot, candidate.setupRequired && styles.dotAmber]} />
             <Text style={styles.serverStatusText}>
               {candidate.preparing
-                ? locale === 'fr'
-                  ? `PRÉPARATION EN COURS · ${Math.round(candidate.preparation?.percent ?? 0)} %`
-                  : `GETTING READY · ${Math.round(candidate.preparation?.percent ?? 0)} %`
+                ? t('app.gettingReady', { round: Math.round(candidate.preparation?.percent ?? 0) })
                 : candidate.setupRequired
                   ? candidate.instanceId === SETUP_PREVIEW_ID
-                    ? locale === 'fr'
-                      ? 'DÉMO · ÉLISE OS À CONFIGURER'
-                      : 'DEMO · ÉLISE OS NEEDS SETUP'
-                    : locale === 'fr'
-                      ? 'ÉLISE OS À CONFIGURER'
-                      : 'ÉLISE OS NEEDS SETUP'
+                    ? t('app.demoEliseOsNeedsSetup')
+                    : t('app.eliseOsNeedsSetup')
                   : remembered
-                    ? locale === 'fr'
-                      ? 'CONNEXION RÉCENTE'
-                      : 'RECENT CONNECTION'
+                    ? t('app.recentConnection')
                     : candidate.source === 'tailscale'
                       ? 'VIA TAILSCALE'
-                      : locale === 'fr'
-                        ? 'PRÊT À SE CONNECTER'
-                        : 'READY TO CONNECT'}
+                      : t('app.readyToConnect')}
             </Text>
           </View>
         </View>
@@ -617,9 +580,7 @@ export default function HomeScreen() {
                 <Image source={eliseLogo} style={styles.discoveryBrandLogo} resizeMode="cover" />
                 <View>
                   <Text style={styles.discoveryBrandName}>Élise</Text>
-                  <Text style={styles.discoveryBrandCaption}>
-                    {locale === 'fr' ? 'ESPACE FAMILLE' : 'FAMILY SPACE'}
-                  </Text>
+                  <Text style={styles.discoveryBrandCaption}>{t('app.familySpace')}</Text>
                 </View>
               </View>
               <Pressable
@@ -636,23 +597,13 @@ export default function HomeScreen() {
               <View style={styles.discoveryEyebrowRow}>
                 <View style={styles.discoveryEyebrowDot} />
                 <Text style={[styles.pageEyebrow, styles.discoveryPageEyebrow]}>
-                  {locale === 'fr' ? 'CONNEXION AU DOMICILE' : 'HOME CONNECTION'}
+                  {t('app.homeConnection')}
                 </Text>
               </View>
               <Text style={styles.pageTitle}>
-                {servers.length
-                  ? locale === 'fr'
-                    ? 'Élise a été repérée.'
-                    : 'Élise has been found.'
-                  : locale === 'fr'
-                    ? 'Relions Élise à votre maison.'
-                    : 'Connect Élise to your home.'}
+                {servers.length ? t('app.eliseHasBeenFound') : t('app.connectEliseToYourHome')}
               </Text>
-              <Text style={styles.pageText}>
-                {locale === 'fr'
-                  ? 'Votre téléphone cherche Élise sur le Wi-Fi du domicile ou via une adresse Tailscale enregistrée.'
-                  : 'Your phone looks for Élise on home Wi-Fi or through a saved Tailscale address.'}
-              </Text>
+              <Text style={styles.pageText}>{t('app.yourPhoneLooksForElise')}</Text>
             </View>
             {!servers.length && (
               <View style={styles.radarCard}>
@@ -678,36 +629,24 @@ export default function HomeScreen() {
                   </View>
                 </View>
                 <View style={styles.radarCopy}>
-                  <Text style={styles.radarTitle}>
-                    {locale === 'fr' ? 'Recherche en cours' : 'Searching now'}
-                  </Text>
-                  <Text style={styles.radarText}>
-                    {locale === 'fr'
-                      ? 'Cela peut prendre quelques secondes.'
-                      : 'This may take a few seconds.'}
-                  </Text>
+                  <Text style={styles.radarTitle}>{t('app.searchingNow')}</Text>
+                  <Text style={styles.radarText}>{t('app.thisMayTakeAFew')}</Text>
                   <View style={styles.scanStatus}>
                     <View style={styles.scanStatusDot} />
-                    <Text style={styles.scanStatusText}>
-                      {locale === 'fr' ? 'Détection automatique' : 'Automatic discovery'}
-                    </Text>
+                    <Text style={styles.scanStatusText}>{t('app.automaticDiscovery')}</Text>
                   </View>
                 </View>
               </View>
             )}
             {visibleServers.live.length > 0 && (
               <View style={styles.list}>
-                <Text style={styles.sectionLabel}>
-                  {locale === 'fr' ? 'DÉTECTÉ MAINTENANT' : 'FOUND NOW'}
-                </Text>
+                <Text style={styles.sectionLabel}>{t('app.foundNow')}</Text>
                 {visibleServers.live.map((item) => renderServer(item))}
               </View>
             )}
             {visibleServers.remembered.length > 0 && (
               <View style={styles.list}>
-                <Text style={styles.sectionLabel}>
-                  {locale === 'fr' ? 'CONNEXIONS RÉCENTES' : 'RECENT CONNECTIONS'}
-                </Text>
+                <Text style={styles.sectionLabel}>{t('app.recentConnections')}</Text>
                 {visibleServers.remembered.map((item) => renderServer(asDiscovered(item), true))}
               </View>
             )}
@@ -717,14 +656,8 @@ export default function HomeScreen() {
                   <Ionicons name="link-outline" size={18} color={colors.accent} />
                 </View>
                 <View style={styles.manualCopy}>
-                  <Text style={styles.manualTitle}>
-                    {locale === 'fr' ? 'Entrer une adresse' : 'Enter an address'}
-                  </Text>
-                  <Text style={styles.manualText}>
-                    {locale === 'fr'
-                      ? 'Utilisez l’adresse locale ou Tailscale de votre serveur.'
-                      : 'Use your server’s local or Tailscale address.'}
-                  </Text>
+                  <Text style={styles.manualTitle}>{t('app.enterAnAddress')}</Text>
+                  <Text style={styles.manualText}>{t('app.useYourServerSLocal')}</Text>
                 </View>
               </View>
               <View style={styles.manualRow}>
@@ -740,14 +673,14 @@ export default function HomeScreen() {
                   placeholder="http://192.168.1.55:8090"
                   placeholderTextColor="#98A1A9"
                   selectionColor={colors.accent}
-                  accessibilityLabel={locale === 'fr' ? 'Adresse du serveur' : 'Server address'}
+                  accessibilityLabel={t('app.serverAddress')}
                 />
                 <Pressable
                   style={styles.manualButton}
                   disabled={busy}
                   onPress={() => void connectManual()}
                   accessibilityRole="button"
-                  accessibilityLabel={locale === 'fr' ? 'Se connecter' : 'Connect'}
+                  accessibilityLabel={t('app.connect')}
                 >
                   {busy ? (
                     <ActivityIndicator color="#fff" />
@@ -785,15 +718,11 @@ export default function HomeScreen() {
           </View>
           <View style={styles.loginBody}>
             <Image source={eliseLogo} style={styles.loginServerLogo} resizeMode="cover" />
-            <Text style={styles.pageEyebrow}>
-              {locale === 'fr' ? 'SERVEUR SÉLECTIONNÉ' : 'SELECTED SERVER'}
-            </Text>
+            <Text style={styles.pageEyebrow}>{t('app.selectedServer')}</Text>
             <Text style={styles.loginTitle}>{server.instanceName}</Text>
             <Text style={styles.loginUrl}>{server.url}</Text>
             <View style={styles.form}>
-              <Text style={styles.label}>
-                {locale === 'fr' ? 'Qui êtes-vous ?' : 'Who are you?'}
-              </Text>
+              <Text style={styles.label}>{t('app.whoAreYou')}</Text>
               {loginOptions.length ? (
                 <View style={styles.userList}>
                   {loginOptions.map((option) => {
@@ -838,12 +767,12 @@ export default function HomeScreen() {
                   value={email}
                   onChangeText={setEmail}
                   autoCapitalize="none"
-                  placeholder={locale === 'fr' ? 'Identifiant' : 'Username'}
+                  placeholder={t('app.username')}
                 />
               )}
               {email ? (
                 <>
-                  <Text style={styles.label}>{locale === 'fr' ? 'Mot de passe' : 'Password'}</Text>
+                  <Text style={styles.label}>{t('app.password')}</Text>
                   <TextInput
                     style={styles.input}
                     value={password}
@@ -864,9 +793,7 @@ export default function HomeScreen() {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <>
-                    <Text style={styles.primaryText}>
-                      {locale === 'fr' ? 'Se connecter' : 'Sign in'}
-                    </Text>
+                    <Text style={styles.primaryText}>{t('app.signIn')}</Text>
                     <Ionicons name="arrow-forward" size={19} color="#fff" />
                   </>
                 )}
@@ -876,12 +803,8 @@ export default function HomeScreen() {
               <Ionicons name="shield-checkmark-outline" size={18} color={colors.green} />
               <Text style={styles.localNoticeText}>
                 {isTailscaleUrl(server.url)
-                  ? locale === 'fr'
-                    ? 'Connexion privée sécurisée via Tailscale'
-                    : 'Secure private connection through Tailscale'
-                  : locale === 'fr'
-                    ? 'Connexion directe à votre serveur local'
-                    : 'Direct connection to your local server'}
+                  ? t('app.securePrivateConnectionThroughTailscale')
+                  : t('app.directConnectionToYourLocal')}
               </Text>
             </View>
           </View>
@@ -925,72 +848,44 @@ export default function HomeScreen() {
         <ScrollView contentContainerStyle={styles.dashboardContent}>
           <View style={styles.dashboardHeader}>
             <View>
-              <Text style={styles.dashboardHello}>
-                {locale === 'fr' ? 'Bonjour Camille,' : 'Hello Camille,'}
-              </Text>
-              <Text style={styles.dashboardHome}>
-                {locale === 'fr' ? 'Logement de Jeanne' : 'Jeanne’s home'}
-              </Text>
+              <Text style={styles.dashboardHello}>{t('app.helloCamille')}</Text>
+              <Text style={styles.dashboardHome}>{t('app.jeanneSHome')}</Text>
             </View>
             <Image source={eliseLogo} style={styles.previewDashboardLogo} resizeMode="contain" />
           </View>
           <View style={styles.previewBanner}>
             <Ionicons name="eye-outline" size={17} color={colors.blue} />
-            <Text style={styles.previewBannerText}>
-              {locale === 'fr' ? 'DASHBOARD DE DÉMONSTRATION' : 'DEMO DASHBOARD'}
-            </Text>
+            <Text style={styles.previewBannerText}>{t('app.demoDashboard')}</Text>
           </View>
           <View style={[styles.statusCard, { borderColor: `${colors.green}55` }]}>
             <View style={[styles.statusIcon, { backgroundColor: colors.green }]}>
               <Ionicons name="checkmark-circle-outline" size={27} color="#fff" />
             </View>
-            <Text style={styles.statusLabel}>
-              {locale === 'fr' ? 'SITUATION ACTUELLE' : 'CURRENT SITUATION'}
-            </Text>
-            <Text style={styles.statusTitle}>
-              {locale === 'fr'
-                ? tr('Tout semble normal', 'Everything looks normal')
-                : 'Everything looks normal'}
-            </Text>
-            <Text style={styles.statusDetail}>
-              {locale === 'fr'
-                ? 'Élise commence à apprendre les habitudes de Jeanne.'
-                : 'Élise is starting to learn Jeanne’s routines.'}
-            </Text>
+            <Text style={styles.statusLabel}>{t('app.currentSituation')}</Text>
+            <Text style={styles.statusTitle}>{t('app.everythingLooksNormal')}</Text>
+            <Text style={styles.statusDetail}>{t('app.eliseIsStartingToLearn')}</Text>
           </View>
           <View style={styles.metricRow}>
             <View style={styles.metricCard}>
               <View style={styles.metricIcon}>
                 <Ionicons name="sparkles-outline" size={20} color={colors.blue} />
               </View>
-              <Text style={styles.metricLabel}>
-                {locale === 'fr' ? 'APPRENTISSAGE' : 'LEARNING'}
-              </Text>
-              <Text style={styles.metricValue}>{locale === 'fr' ? 'Jour 1' : 'Day 1'}</Text>
-              <Text style={styles.metricDetail}>
-                {locale === 'fr' ? 'sur 14 jours' : 'of 14 days'}
-              </Text>
+              <Text style={styles.metricLabel}>{t('app.learning')}</Text>
+              <Text style={styles.metricValue}>{t('app.day1')}</Text>
+              <Text style={styles.metricDetail}>{t('app.of14Days')}</Text>
             </View>
             <View style={styles.metricCard}>
               <View style={styles.metricIcon}>
                 <Ionicons name="home-outline" size={20} color={colors.blue} />
               </View>
-              <Text style={styles.metricLabel}>{locale === 'fr' ? 'PRÉSENCE' : 'PRESENCE'}</Text>
-              <Text style={styles.metricValue}>
-                {locale === 'fr' ? tr('À domicile', 'At home') : 'At home'}
-              </Text>
-              <Text style={styles.metricDetail}>
-                {locale === 'fr' ? 'Configuration terminée' : 'Setup complete'}
-              </Text>
+              <Text style={styles.metricLabel}>{t('app.presence')}</Text>
+              <Text style={styles.metricValue}>{t('app.atHome')}</Text>
+              <Text style={styles.metricDetail}>{t('app.setupComplete')}</Text>
             </View>
           </View>
           <View style={styles.emptyAlerts}>
             <Ionicons name="checkmark-circle-outline" size={24} color={colors.green} />
-            <Text style={styles.emptyAlertsText}>
-              {locale === 'fr'
-                ? 'Aucune situation ne demande votre attention.'
-                : 'Nothing needs your attention.'}
-            </Text>
+            <Text style={styles.emptyAlertsText}>{t('app.nothingNeedsYourAttention')}</Text>
           </View>
           <Pressable
             style={styles.primary}
@@ -1000,9 +895,7 @@ export default function HomeScreen() {
               setStage('discovery');
             }}
           >
-            <Text style={styles.primaryText}>
-              {locale === 'fr' ? 'Quitter la démonstration' : 'Exit demo'}
-            </Text>
+            <Text style={styles.primaryText}>{t('app.exitDemo')}</Text>
             <Ionicons name="close-outline" size={20} color="#fff" />
           </Pressable>
         </ScrollView>
@@ -1025,60 +918,42 @@ export default function HomeScreen() {
 
   const status = offline
     ? {
-        title: tr('Élise est inaccessible', 'Élise is unreachable'),
-        detail: tr(
-          'Vérifiez le Raspberry Pi et votre connexion Wi-Fi.',
-          'Check the Raspberry Pi and your Wi-Fi connection.',
-        ),
+        title: t('app.eliseIsUnreachable'),
+        detail: t('app.checkTheRaspberryPiAnd'),
         tone: colors.red,
         icon: 'cloud-offline-outline' as const,
       }
     : overview?.onboardingRequired
       ? {
-          title: tr('Foyer à finaliser', 'Household to finish'),
-          detail: tr(
-            'Terminez la configuration du foyer depuis le dashboard web.',
-            'Finish setting up the household from the web dashboard.',
-          ),
+          title: t('app.householdToFinish'),
+          detail: t('app.finishSettingUpTheHousehold'),
           tone: colors.amber,
           icon: 'construct-outline' as const,
         }
       : overview?.reassurance === 'ATTENTION'
         ? {
-            title: tr('Une situation demande votre attention', 'A situation needs your attention'),
-            detail: tr(
-              'Consultez les alertes ouvertes ci-dessous.',
-              'Review the open alerts below.',
-            ),
+            title: t('app.aSituationNeedsYourAttention'),
+            detail: t('app.reviewTheOpenAlertsBelow'),
             tone: colors.amber,
             icon: 'alert-circle-outline' as const,
           }
         : overview?.reassurance === 'INSUFFICIENT_DATA'
           ? {
-              title: tr('Données insuffisantes', 'Not enough data'),
-              detail: tr(
-                'Certains capteurs ne répondent pas correctement.',
-                'Some sensors are not responding correctly.',
-              ),
+              title: t('app.notEnoughData'),
+              detail: t('app.someSensorsAreNotResponding'),
               tone: colors.amber,
               icon: 'help-circle-outline' as const,
             }
           : overview?.reassurance === 'LEARNING'
             ? {
-                title: tr('Élise apprend les habitudes', 'Élise is learning the routine'),
-                detail: tr(
-                  `Jour ${overview.learningDays ?? 0} sur 14 d’apprentissage.`,
-                  `Learning day ${overview.learningDays ?? 0} of 14.`,
-                ),
+                title: t('app.eliseIsLearningTheRoutine'),
+                detail: t('app.learningDayOf14', { value: overview.learningDays ?? 0 }),
                 tone: colors.accent,
                 icon: 'sparkles-outline' as const,
               }
             : {
-                title: tr('Tout semble normal', 'Everything looks normal'),
-                detail: tr(
-                  'Aucune situation inhabituelle détectée aujourd’hui.',
-                  'No unusual situation detected today.',
-                ),
+                title: t('app.everythingLooksNormal'),
+                detail: t('app.noUnusualSituationDetectedToday'),
                 tone: colors.green,
                 icon: 'checkmark-circle-outline' as const,
               };
@@ -1098,7 +973,7 @@ export default function HomeScreen() {
         <View style={styles.dashboardHeader}>
           <View>
             <Text style={styles.dashboardHello}>
-              {tr('Bonjour', 'Hello')} {userName.split(' ')[0] || userName},
+              {t('app.hello')} {userName.split(' ')[0] || userName},
             </Text>
             <Text style={styles.dashboardHome}>
               {overview?.home?.name ?? server?.instanceName ?? 'Élise'}
@@ -1118,16 +993,14 @@ export default function HomeScreen() {
         {offline && (
           <View style={styles.offlineBanner}>
             <Ionicons name="cloud-offline-outline" size={17} color="#fff" />
-            <Text style={styles.offlineBannerText}>
-              {tr('Connexion locale interrompue', 'Local connection lost')}
-            </Text>
+            <Text style={styles.offlineBannerText}>{t('app.localConnectionLost')}</Text>
           </View>
         )}
         <View style={[styles.statusCard, { borderColor: `${status.tone}55` }]}>
           <View style={[styles.statusIcon, { backgroundColor: status.tone }]}>
             <Ionicons name={status.icon} size={27} color="#fff" />
           </View>
-          <Text style={styles.statusLabel}>{tr('SITUATION ACTUELLE', 'CURRENT SITUATION')}</Text>
+          <Text style={styles.statusLabel}>{t('app.currentSituation')}</Text>
           <Text style={styles.statusTitle}>{status.title}</Text>
           <Text style={styles.statusDetail}>{status.detail}</Text>
         </View>
@@ -1136,13 +1009,13 @@ export default function HomeScreen() {
             <View style={styles.metricIcon}>
               <Ionicons name="pulse-outline" size={20} color={colors.blue} />
             </View>
-            <Text style={styles.metricLabel}>{tr('DERNIÈRE ACTIVITÉ', 'LAST ACTIVITY')}</Text>
+            <Text style={styles.metricLabel}>{t('app.lastActivity')}</Text>
             <Text style={styles.metricValue}>
-              {offline ? tr('Indisponible', 'Unavailable') : (overview?.lastActivity?.room ?? '—')}
+              {offline ? t('app.unavailable') : (overview?.lastActivity?.room ?? '—')}
             </Text>
             <Text style={styles.metricDetail}>
               {offline
-                ? tr('État non actualisé', 'Status not refreshed')
+                ? t('app.statusNotRefreshed')
                 : relativeTime(overview?.lastActivity?.occurredAt)}
             </Text>
           </View>
@@ -1150,25 +1023,21 @@ export default function HomeScreen() {
             <View style={styles.metricIcon}>
               <Ionicons name="home-outline" size={20} color={colors.blue} />
             </View>
-            <Text style={styles.metricLabel}>{tr('PRÉSENCE ESTIMÉE', 'ESTIMATED PRESENCE')}</Text>
+            <Text style={styles.metricLabel}>{t('app.estimatedPresence')}</Text>
             <Text style={styles.metricValue}>
-              {offline || !overview?.home ? '—' : tr('À domicile', 'At home')}
+              {offline || !overview?.home ? '—' : t('app.atHome')}
             </Text>
             <Text style={styles.metricDetail}>
-              {offline
-                ? tr('État non actualisé', 'Status not refreshed')
-                : tr('Selon l’activité locale', 'Based on local activity')}
+              {offline ? t('app.statusNotRefreshed') : t('app.basedOnLocalActivity')}
             </Text>
           </View>
         </View>
         <View style={styles.alertSection}>
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.sectionLabel}>{tr('ALERTES', 'ALERTS')}</Text>
+              <Text style={styles.sectionLabel}>{t('app.alerts')}</Text>
               <Text style={styles.sectionTitle}>
-                {alerts.length
-                  ? tr(`${alerts.length} en cours`, `${alerts.length} ongoing`)
-                  : tr('Aucune alerte', 'No alerts')}
+                {alerts.length ? t('app.ongoing', { length: alerts.length }) : t('app.noAlerts')}
               </Text>
             </View>
             <View style={[styles.alertCount, alerts.length > 0 && styles.alertCountActive]}>
@@ -1176,9 +1045,7 @@ export default function HomeScreen() {
             </View>
           </View>
           {offline ? (
-            <Text style={styles.emptyText}>
-              {tr('Les alertes ne peuvent pas être actualisées.', 'Alerts cannot be refreshed.')}
-            </Text>
+            <Text style={styles.emptyText}>{t('app.alertsCannotBeRefreshed')}</Text>
           ) : alerts.length ? (
             alerts.slice(0, 2).map((alert) => (
               <View style={styles.alertRow} key={alert.id}>
@@ -1200,19 +1067,14 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.emptyAlerts}>
               <Ionicons name="checkmark-circle-outline" size={24} color={colors.green} />
-              <Text style={styles.emptyAlertsText}>
-                {tr(
-                  'Aucune situation ne demande votre attention.',
-                  'No situation needs your attention.',
-                )}
-              </Text>
+              <Text style={styles.emptyAlertsText}>{t('app.noSituationNeedsYourAttention')}</Text>
             </View>
           )}
         </View>
         <View style={styles.dashboardFooter}>
           <Ionicons name="shield-checkmark-outline" size={16} color={colors.blue} />
           <Text style={styles.dashboardFooterText}>
-            {tr('Connecté localement à', 'Connected locally to')} {server?.instanceName}
+            {t('app.connectedLocallyTo')} {server?.instanceName}
           </Text>
         </View>
       </ScrollView>

@@ -27,9 +27,11 @@ import { isDemoServer } from '../demo/mock-api';
 import { activeServerUrl } from '../discovery/helpers';
 import { MobilePartnerRibbon } from './MobilePartnerRibbon';
 import { MobileWeatherCard } from './MobileWeatherCard';
+import { dateLocale, type Language, t } from '../i18n';
+import { LanguageList } from '../i18n/LanguagePicker';
 
 type SettingsSection = 'general' | 'rules' | 'notifications' | 'about' | 'legal';
-type Locale = 'fr' | 'en';
+type Locale = Language;
 
 const c = {
   navy: '#0B2948',
@@ -91,12 +93,9 @@ export function MobileSettingsPanel({
   ) => void;
   onLogout: () => void;
 }) {
-  const fr = locale === 'fr';
   const demoMode = isDemoServer(server);
   const appVersion = Constants.expoConfig?.version ?? '—';
-  const privacyPolicyUrl = fr
-    ? 'https://eliseos.paulbreton.dev/politique/'
-    : 'https://eliseos.paulbreton.dev/en/privacy/';
+  const privacyPolicyUrl = t('mobileSettingsPanel.privacyPolicyUrl');
   const canManage = role === 'OWNER' || role === 'ADMINISTRATOR';
   const activeUrl = activeServerUrl(server);
   const localGateway = (() => {
@@ -133,32 +132,18 @@ export function MobileSettingsPanel({
     section === 'notifications'
       ? 'Notifications'
       : section === 'about'
-        ? fr
-          ? 'À propos'
-          : 'About'
+        ? t('mobileSettingsPanel.about')
         : section === 'legal'
-          ? fr
-            ? 'Mentions légales'
-            : 'Legal information'
-          : fr
-            ? 'Réglages'
-            : 'Settings';
+          ? t('mobileSettingsPanel.legalInformation')
+          : t('mobileSettingsPanel.settings');
   const sectionSubtitle =
     section === 'notifications'
-      ? fr
-        ? 'Choisissez les notifications push que vous souhaitez recevoir.'
-        : 'Choose which push notifications you want to receive.'
+      ? t('mobileSettingsPanel.chooseWhichPushNotificationsYou')
       : section === 'about'
-        ? fr
-          ? 'En savoir plus sur Élise et cette application.'
-          : 'Learn more about Élise and this app.'
+        ? t('mobileSettingsPanel.learnMoreAboutEliseAnd')
         : section === 'legal'
-          ? fr
-            ? 'Éditeur du projet, licence et conditions de l’application.'
-            : 'Project publisher, software licence, and app terms.'
-          : fr
-            ? 'Adaptez Élise à votre quotidien et choisissez les situations qui méritent votre attention.'
-            : 'Adapt Élise to your daily life and choose which situations deserve your attention.';
+          ? t('mobileSettingsPanel.projectPublisherSoftwareLicenceAnd')
+          : t('mobileSettingsPanel.adaptEliseToYourDaily');
 
   useEffect(() => setSection(initialSection), [initialSection]);
 
@@ -200,9 +185,7 @@ export function MobileSettingsPanel({
     try {
       setRemoteStatus(await mobileApi.remoteAccessStatus(server, token));
     } catch {
-      setRemoteNotice(
-        fr ? 'Le service d’accès privé est indisponible.' : 'Private access is unavailable.',
-      );
+      setRemoteNotice(t('mobileSettingsPanel.privateAccessIsUnavailable'));
     }
   };
   const runRemoteAction = async (action: 'connect' | 'enable' | 'disable') => {
@@ -212,7 +195,7 @@ export function MobileSettingsPanel({
       setRemoteStatus(await mobileApi.remoteAccessAction(server, token, action));
     } catch (error) {
       setRemoteNotice(
-        error instanceof Error ? error.message : fr ? 'Action impossible.' : 'Action failed.',
+        error instanceof Error ? error.message : t('mobileSettingsPanel.actionFailed'),
       );
     } finally {
       setRemoteBusy(false);
@@ -223,11 +206,7 @@ export function MobileSettingsPanel({
     if (!remoteUrl || pingBusy) return;
 
     if (demoMode) {
-      setRemoteNotice(
-        fr
-          ? 'Connexion simulée : Élise répond dans la démonstration.'
-          : 'Simulated connection: Élise is responding in the demo.',
-      );
+      setRemoteNotice(t('mobileSettingsPanel.simulatedConnectionEliseIsResponding'));
       return;
     }
 
@@ -241,15 +220,9 @@ export function MobileSettingsPanel({
       if (!response.ok) throw new Error('health-check-failed');
       const health = (await response.json()) as { status?: string };
       if (health.status !== 'ok') throw new Error('health-check-failed');
-      setRemoteNotice(
-        fr ? 'Connexion testée : Élise répond.' : 'Connection tested: Élise is responding.',
-      );
+      setRemoteNotice(t('mobileSettingsPanel.connectionTestedEliseIsResponding'));
     } catch {
-      setRemoteNotice(
-        fr
-          ? 'Aucune réponse. Vérifiez Tailscale et réessayez.'
-          : 'No response. Check Tailscale and try again.',
-      );
+      setRemoteNotice(t('mobileSettingsPanel.noResponseCheckTailscaleAnd'));
     } finally {
       clearTimeout(timeout);
       setPingBusy(false);
@@ -267,13 +240,9 @@ export function MobileSettingsPanel({
     setRulesNotice('');
     try {
       setRules(await mobileApi.saveAlertRules(server, token, rules));
-      setRulesNotice(
-        fr ? 'Les repères ont été enregistrés localement.' : 'The alert rules were saved locally.',
-      );
+      setRulesNotice(t('mobileSettingsPanel.theAlertRulesWereSaved'));
     } catch {
-      setRulesNotice(
-        fr ? 'Les repères n’ont pas pu être enregistrés.' : 'The alert rules could not be saved.',
-      );
+      setRulesNotice(t('mobileSettingsPanel.theAlertRulesCouldNot'));
     } finally {
       setRulesBusy(false);
     }
@@ -290,12 +259,10 @@ export function MobileSettingsPanel({
     setNotificationNotice('');
     try {
       setNotificationPreferences(await mobileApi.saveNotificationPreferences(server, token, next));
-      setNotificationNotice(fr ? 'Préférence enregistrée.' : 'Preference saved.');
+      setNotificationNotice(t('mobileSettingsPanel.preferenceSaved'));
     } catch {
       setNotificationPreferences(previous);
-      setNotificationNotice(
-        fr ? 'La préférence n’a pas pu être enregistrée.' : 'The preference could not be saved.',
-      );
+      setNotificationNotice(t('mobileSettingsPanel.thePreferenceCouldNotBe'));
     } finally {
       setNotificationBusy(false);
     }
@@ -308,36 +275,16 @@ export function MobileSettingsPanel({
       const status = await registerPushNotifications(server, token);
       setPushStatus(status);
       if (status === 'registered') {
-        setPushNotice(
-          fr
-            ? 'Cet appareil est prêt à recevoir les notifications autorisées ci-dessous.'
-            : 'This device can receive the notifications enabled below.',
-        );
+        setPushNotice(t('mobileSettingsPanel.thisDeviceCanReceiveThe'));
       } else if (status === 'permission-denied') {
-        setPushNotice(
-          fr
-            ? 'Autorisez les notifications Élise dans les réglages de votre téléphone.'
-            : 'Allow Élise notifications in your phone settings.',
-        );
+        setPushNotice(t('mobileSettingsPanel.allowEliseNotificationsInYour'));
       } else if (status === 'project-id-missing') {
-        setPushNotice(
-          fr
-            ? 'Les notifications push ne sont pas disponibles dans cette version de l’application.'
-            : 'Push notifications are not available in this app version.',
-        );
+        setPushNotice(t('mobileSettingsPanel.pushNotificationsAreNotAvailable'));
       } else {
-        setPushNotice(
-          fr
-            ? 'Les notifications push nécessitent un téléphone ou une tablette.'
-            : 'Push notifications require a phone or tablet.',
-        );
+        setPushNotice(t('mobileSettingsPanel.pushNotificationsRequireAPhone'));
       }
     } catch {
-      setPushNotice(
-        fr
-          ? 'Cet appareil n’a pas pu être inscrit aux notifications. Réessayez.'
-          : 'This device could not be registered for notifications. Try again.',
-      );
+      setPushNotice(t('mobileSettingsPanel.thisDeviceCouldNotBe'));
     } finally {
       setPushBusy(false);
     }
@@ -350,19 +297,11 @@ export function MobileSettingsPanel({
       const result = await mobileApi.runSimulation(server, token, scenario.id, runId);
       setSimulationNotice(
         result.accepted > 0
-          ? fr
-            ? `${result.accepted} événement(s) ajouté(s) au journal d’activité.`
-            : `${result.accepted} event(s) added to the activity log.`
-          : fr
-            ? 'Ce scénario avait déjà été appliqué.'
-            : 'This scenario had already been applied.',
+          ? t('mobileSettingsPanel.eventSAddedToThe', { accepted: result.accepted })
+          : t('mobileSettingsPanel.thisScenarioHadAlreadyBeen'),
       );
     } catch {
-      setSimulationNotice(
-        fr
-          ? 'La situation n’a pas pu être simulée. Réessayez dans un instant.'
-          : 'The situation could not be simulated. Try again in a moment.',
-      );
+      setSimulationNotice(t('mobileSettingsPanel.theSituationCouldNotBe'));
     } finally {
       setRunningScenario(null);
     }
@@ -397,10 +336,8 @@ export function MobileSettingsPanel({
                   <Ionicons name="settings-outline" size={19} color={c.blue} />
                 </View>
                 <View style={s.flex}>
-                  <Text style={s.eyebrow}>
-                    {fr ? 'PRÉFÉRENCES DE L’APPLICATION' : 'APPLICATION PREFERENCES'}
-                  </Text>
-                  <Text style={s.cardTitle}>{fr ? 'Général' : 'General'}</Text>
+                  <Text style={s.eyebrow}>{t('mobileSettingsPanel.applicationPreferences')}</Text>
+                  <Text style={s.cardTitle}>{t('mobileSettingsPanel.general')}</Text>
                 </View>
                 <Ionicons
                   name={generalExpanded ? 'chevron-down' : 'chevron-forward'}
@@ -411,26 +348,15 @@ export function MobileSettingsPanel({
               {generalExpanded ? (
                 <View style={s.settingsDisclosureBody}>
                   <View style={s.languageSetting}>
-                    <Text style={s.cardTitle}>
-                      {fr ? 'Langue de l’interface' : 'Interface language'}
-                    </Text>
+                    <Text style={s.cardTitle}>{t('mobileSettingsPanel.interfaceLanguage')}</Text>
                     <Text style={s.body}>
-                      {fr
-                        ? 'Choisissez la langue utilisée par Élise sur cet appareil.'
-                        : 'Choose the language Élise uses on this device.'}
+                      {t('mobileSettingsPanel.chooseTheLanguageEliseUses')}
                     </Text>
-                    <View style={s.languageRow}>
-                      <Choice
-                        label="Français"
-                        active={locale === 'fr'}
-                        onPress={() => onLocaleChange('fr')}
-                      />
-                      <Choice
-                        label="English"
-                        active={locale === 'en'}
-                        onPress={() => onLocaleChange('en')}
-                      />
-                    </View>
+                    <LanguageList
+                      value={locale}
+                      onChange={onLocaleChange}
+                      label={t('mobileSettingsPanel.interfaceLanguage')}
+                    />
                   </View>
                   <MobileWeatherCard
                     server={server}
@@ -451,12 +377,8 @@ export function MobileSettingsPanel({
                 <Ionicons name="people-outline" size={19} color={c.accent} />
               </View>
               <View style={s.flex}>
-                <Text style={s.cardTitle}>{fr ? 'Proches' : 'People'}</Text>
-                <Text style={s.body}>
-                  {fr
-                    ? 'Gérez les personnes enregistrées et leurs accès.'
-                    : 'Manage trusted people and their access.'}
-                </Text>
+                <Text style={s.cardTitle}>{t('mobileSettingsPanel.people')}</Text>
+                <Text style={s.body}>{t('mobileSettingsPanel.manageTrustedPeopleAndTheir')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={19} color={c.muted} />
             </Pressable>
@@ -469,10 +391,8 @@ export function MobileSettingsPanel({
                 <Ionicons name="notifications-outline" size={19} color={c.accent} />
               </View>
               <View style={s.flex}>
-                <Text style={s.eyebrow}>{fr ? 'REPÈRES DU DOMICILE' : 'HOME LANDMARKS'}</Text>
-                <Text style={s.cardTitle}>
-                  {fr ? 'Situations à signaler' : 'Situations to flag'}
-                </Text>
+                <Text style={s.eyebrow}>{t('mobileSettingsPanel.homeLandmarks')}</Text>
+                <Text style={s.cardTitle}>{t('mobileSettingsPanel.situationsToFlag')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={19} color={c.muted} />
             </Pressable>
@@ -485,21 +405,15 @@ export function MobileSettingsPanel({
                 <Ionicons name="phone-portrait-outline" size={19} color={c.accent} />
               </View>
               <View style={s.flex}>
-                <Text style={s.eyebrow}>
-                  {fr ? 'NOTIFICATIONS DU COMPTE' : 'ACCOUNT NOTIFICATIONS'}
-                </Text>
-                <Text style={s.cardTitle}>{fr ? 'Notifications push' : 'Push notifications'}</Text>
-                <Text style={s.body}>
-                  {fr
-                    ? 'Chutes, fumée, fuite d’eau et carnet de liaison.'
-                    : 'Falls, smoke, water leaks, and the liaison journal.'}
-                </Text>
+                <Text style={s.eyebrow}>{t('mobileSettingsPanel.accountNotifications')}</Text>
+                <Text style={s.cardTitle}>{t('mobileSettingsPanel.pushNotifications')}</Text>
+                <Text style={s.body}>{t('mobileSettingsPanel.fallsSmokeWaterLeaksAnd')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={19} color={c.muted} />
             </Pressable>
             {canManage ? (
               <Card
-                title={fr ? 'Accès à distance' : 'Remote access'}
+                title={t('mobileSettingsPanel.remoteAccess')}
                 icon="shield-checkmark-outline"
                 collapsible
                 expanded={remoteExpanded}
@@ -507,72 +421,44 @@ export function MobileSettingsPanel({
                 badge={
                   remoteStatus
                     ? remoteStatus.state === 'READY'
-                      ? fr
-                        ? 'Actif et privé'
-                        : 'Active and private'
+                      ? t('mobileSettingsPanel.activeAndPrivate')
                       : remoteStatus.state === 'SIGNED_OUT'
-                        ? fr
-                          ? 'À activer'
-                          : 'Not connected'
+                        ? t('mobileSettingsPanel.notConnected')
                         : remoteStatus.state === 'UNAVAILABLE'
-                          ? fr
-                            ? 'Indisponible'
-                            : 'Unavailable'
-                          : fr
-                            ? 'À vérifier'
-                            : 'Needs attention'
-                    : fr
-                      ? 'Vérification…'
-                      : 'Checking…'
+                          ? t('mobileSettingsPanel.unavailable')
+                          : t('mobileSettingsPanel.needsAttention')
+                    : t('mobileSettingsPanel.checking')
                 }
               >
-                <Text style={s.body}>
-                  {fr
-                    ? 'Consultez Élise depuis l’extérieur avec Tailscale. Seules les personnes invitées peuvent entrer.'
-                    : 'Use Élise away from home with Tailscale. Only invited people can connect.'}
-                </Text>
+                <Text style={s.body}>{t('mobileSettingsPanel.useEliseAwayFromHome')}</Text>
                 {remoteStatus?.state === 'UNAVAILABLE' ? (
                   <Text style={s.notice}>
-                    {fr
-                      ? 'Le service d’accès privé n’est pas disponible sur cet appareil.'
-                      : 'Private access is not available on this device.'}
+                    {t('mobileSettingsPanel.privateAccessIsNotAvailable')}
                   </Text>
                 ) : null}
                 {remoteStatus?.state === 'SIGNED_OUT' ? (
-                  <Text style={s.body}>
-                    {fr
-                      ? 'Reliez Élise à votre famille. La clé Tailscale reste hors de l’image Élise.'
-                      : 'Link Élise to your family. The Tailscale key stays out of the Élise image.'}
-                  </Text>
+                  <Text style={s.body}>{t('mobileSettingsPanel.linkEliseToYourFamily')}</Text>
                 ) : null}
                 {remoteStatus?.state === 'AUTHORIZING' ? (
                   <Text style={s.body}>
-                    {fr
-                      ? 'Validez la connexion Tailscale. La validation sera détectée automatiquement.'
-                      : 'Approve the Tailscale connection. Approval will be detected automatically.'}
+                    {t('mobileSettingsPanel.approveTheTailscaleConnectionApproval')}
                   </Text>
                 ) : null}
                 {remoteStatus?.state === 'CONFIGURING' ? (
-                  <Text style={s.body}>
-                    {fr
-                      ? 'Ouvrez le lien privé pour terminer l’activation.'
-                      : 'Open the private link to finish setup.'}
-                  </Text>
+                  <Text style={s.body}>{t('mobileSettingsPanel.openThePrivateLinkTo')}</Text>
                 ) : null}
                 {remoteStatus?.remoteUrl ? (
                   <>
                     <View style={s.linkBox}>
-                      <Text style={s.caption}>{fr ? 'Adresse privée' : 'Private address'}</Text>
+                      <Text style={s.caption}>{t('mobileSettingsPanel.privateAddress')}</Text>
                       <Text selectable style={s.linkText}>
                         {remoteStatus.remoteUrl}
                       </Text>
                     </View>
                     {remoteStatus.keyExpiresAt ? (
                       <Text style={s.caption}>
-                        {fr ? 'Clé valide jusqu’au' : 'Key valid until'}{' '}
-                        {new Date(remoteStatus.keyExpiresAt).toLocaleDateString(
-                          locale === 'fr' ? 'fr-FR' : 'en-GB',
-                        )}
+                        {t('mobileSettingsPanel.keyValidUntil')}{' '}
+                        {new Date(remoteStatus.keyExpiresAt).toLocaleDateString(dateLocale())}
                       </Text>
                     ) : null}
                     <Pressable
@@ -582,78 +468,62 @@ export function MobileSettingsPanel({
                     >
                       <Text style={s.smallButtonText}>
                         {pingBusy
-                          ? fr
-                            ? 'Test en cours…'
-                            : 'Testing…'
-                          : fr
-                            ? 'Tester la connexion'
-                            : 'Test connection'}
+                          ? t('mobileSettingsPanel.testing')
+                          : t('mobileSettingsPanel.testConnection')}
                       </Text>
                     </Pressable>
                   </>
                 ) : null}
                 {localGateway && remoteStatus?.state === 'SIGNED_OUT' ? (
                   <ActionButton
-                    label={fr ? 'Activer l’accès privé' : 'Enable private access'}
+                    label={t('mobileSettingsPanel.enablePrivateAccess')}
                     disabled={remoteBusy}
                     onPress={() => void runRemoteAction('connect')}
                   />
                 ) : null}
                 {localGateway && remoteStatus?.state === 'CONFIGURING' ? (
                   <ActionButton
-                    label={fr ? 'Terminer l’activation' : 'Finish setup'}
+                    label={t('mobileSettingsPanel.finishSetup')}
                     disabled={remoteBusy}
                     onPress={() => void runRemoteAction('enable')}
                   />
                 ) : null}
                 {localGateway && remoteStatus?.remoteUrl ? (
                   <ActionButton
-                    label={fr ? 'Désactiver l’accès Élise' : 'Disable Élise access'}
+                    label={t('mobileSettingsPanel.disableEliseAccess')}
                     outline
                     disabled={remoteBusy}
                     onPress={() =>
-                      Alert.alert(
-                        fr ? 'Désactiver l’accès à distance ?' : 'Disable remote access?',
-                        undefined,
-                        [
-                          { text: fr ? 'Annuler' : 'Cancel', style: 'cancel' },
-                          {
-                            text: fr ? 'Désactiver' : 'Disable',
-                            style: 'destructive',
-                            onPress: () => void runRemoteAction('disable'),
-                          },
-                        ],
-                      )
+                      Alert.alert(t('mobileSettingsPanel.disableRemoteAccess'), undefined, [
+                        { text: t('mobileSettingsPanel.cancel'), style: 'cancel' },
+                        {
+                          text: t('mobileSettingsPanel.disable'),
+                          style: 'destructive',
+                          onPress: () => void runRemoteAction('disable'),
+                        },
+                      ])
                     }
                   />
                 ) : null}
                 {remoteStatus?.authUrl ? (
                   <ActionButton
-                    label={fr ? 'Ouvrir Tailscale' : 'Open Tailscale'}
+                    label={t('mobileSettingsPanel.openTailscale')}
                     outline
                     onPress={() => void Linking.openURL(remoteStatus.authUrl!)}
                   />
                 ) : null}
                 {remoteNotice ? <Text style={s.notice}>{remoteNotice}</Text> : null}
-                <Text style={s.caption}>
-                  {fr
-                    ? 'Pour inviter un proche : créez son compte et son rôle, partagez uniquement la machine Élise dans Tailscale, puis envoyez-lui le lien.'
-                    : 'To invite someone: create their account and role, share only the Élise machine in Tailscale, then send the link.'}
-                </Text>
+                <Text style={s.caption}>{t('mobileSettingsPanel.toInviteSomeoneCreateTheir')}</Text>
               </Card>
             ) : null}
 
             {scenarios.length ? (
               <Card
-                eyebrow={fr ? 'MODE DÉMONSTRATION' : 'DEMO MODE'}
-                title={fr ? 'Tester une situation' : 'Test a situation'}
+                eyebrow={t('mobileSettingsPanel.demoMode')}
+                title={t('mobileSettingsPanel.testASituation')}
                 icon="pulse-outline"
               >
-                <Text style={s.body}>
-                  {fr
-                    ? 'Ces scénarios utilisent le même parcours que les capteurs du domicile. Ils restent réservés à cette installation de test.'
-                    : 'These scenarios follow the same path as the home’s sensors. They are reserved for this test installation.'}
-                </Text>
+                <Text style={s.body}>{t('mobileSettingsPanel.theseScenariosFollowTheSame')}</Text>
                 {scenarios.map((scenario) => (
                   <Pressable
                     key={scenario.id}
@@ -667,12 +537,8 @@ export function MobileSettingsPanel({
                     </View>
                     <Text style={s.smallButtonText}>
                       {runningScenario === scenario.id
-                        ? fr
-                          ? 'Simulation…'
-                          : 'Simulating…'
-                        : fr
-                          ? 'Lancer'
-                          : 'Run'}
+                        ? t('mobileSettingsPanel.simulating')
+                        : t('mobileSettingsPanel.run')}
                     </Text>
                   </Pressable>
                 ))}
@@ -688,12 +554,8 @@ export function MobileSettingsPanel({
                 <Ionicons name="information-circle-outline" size={19} color={c.accent} />
               </View>
               <View style={s.flex}>
-                <Text style={s.cardTitle}>{fr ? 'À propos' : 'About'}</Text>
-                <Text style={s.body}>
-                  {fr
-                    ? 'Découvrir Élise OS et sa version.'
-                    : 'Learn about Élise OS and its version.'}
-                </Text>
+                <Text style={s.cardTitle}>{t('mobileSettingsPanel.about')}</Text>
+                <Text style={s.body}>{t('mobileSettingsPanel.learnAboutEliseOsAnd')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={19} color={c.muted} />
             </Pressable>
@@ -708,67 +570,51 @@ export function MobileSettingsPanel({
               onPress={() => setSection('general')}
             >
               <Ionicons name="chevron-back" size={18} color={c.blue} />
-              <Text style={s.settingsBackLabel}>
-                {fr ? 'Retour aux réglages' : 'Back to settings'}
-              </Text>
+              <Text style={s.settingsBackLabel}>{t('mobileSettingsPanel.backToSettings')}</Text>
             </Pressable>
             {!canManage ? (
               <Card
-                eyebrow={fr ? 'REPÈRES DU DOMICILE' : 'HOME LANDMARKS'}
-                title={fr ? 'Situations à signaler' : 'Situations to flag'}
+                eyebrow={t('mobileSettingsPanel.homeLandmarks')}
+                title={t('mobileSettingsPanel.situationsToFlag')}
                 icon="notifications-outline"
               >
                 <Text style={s.notice}>
-                  {fr
-                    ? 'Seul un administrateur peut modifier les règles des alertes.'
-                    : 'Only an administrator can change alert rules.'}
+                  {t('mobileSettingsPanel.onlyAnAdministratorCanChange')}
                 </Text>
               </Card>
             ) : !rules ? (
               <Card
-                eyebrow={fr ? 'REPÈRES DU DOMICILE' : 'HOME LANDMARKS'}
-                title={fr ? 'Situations à signaler' : 'Situations to flag'}
+                eyebrow={t('mobileSettingsPanel.homeLandmarks')}
+                title={t('mobileSettingsPanel.situationsToFlag')}
                 icon="notifications-outline"
               >
-                <Text style={s.body}>
-                  {fr ? 'Chargement des repères…' : 'Loading alert rules…'}
-                </Text>
+                <Text style={s.body}>{t('mobileSettingsPanel.loadingAlertRules')}</Text>
               </Card>
             ) : (
               <Card
-                eyebrow={fr ? 'REPÈRES DU DOMICILE' : 'HOME LANDMARKS'}
-                title={fr ? 'Situations à signaler' : 'Situations to flag'}
+                eyebrow={t('mobileSettingsPanel.homeLandmarks')}
+                title={t('mobileSettingsPanel.situationsToFlag')}
                 icon="notifications-outline"
               >
                 <Text style={s.body}>
-                  {fr
-                    ? 'Choisissez des seuils simples. Élise explique toujours ce qu’elle observe avant de proposer une vérification.'
-                    : 'Choose simple thresholds. Élise explains what it observes before suggesting a check.'}
+                  {t('mobileSettingsPanel.chooseSimpleThresholdsEliseExplains')}
                 </Text>
                 <RuleToggle
-                  title={fr ? 'Écarts aux habitudes apprises' : 'Changes from learned routines'}
-                  detail={
-                    fr
-                      ? 'Disponible après 14 jours fiables et deux contrôles espacés.'
-                      : 'Available after 14 reliable days and two spaced checks.'
-                  }
+                  title={t('mobileSettingsPanel.changesFromLearnedRoutines')}
+                  detail={t('mobileSettingsPanel.availableAfter14ReliableDays')}
                   value={rules.behavioral.enabled}
                   onChange={(value) => setRules({ ...rules, behavioral: { enabled: value } })}
                 />
                 <RuleToggle
-                  title={fr ? 'Absence de mouvement' : 'No movement'}
-                  detail={
-                    fr
-                      ? 'Seulement lorsque les capteurs répondent correctement.'
-                      : 'Only when sensors are responding correctly.'
-                  }
+                  title={t('mobileSettingsPanel.noMovement')}
+                  detail={t('mobileSettingsPanel.onlyWhenSensorsAreResponding')}
                   value={rules.inactivity.enabled}
                   onChange={(value) =>
                     setRules({ ...rules, inactivity: { ...rules.inactivity, enabled: value } })
                   }
                 />
                 <NumberField
-                  label={fr ? 'Délai sans mouvement (minutes)' : 'No movement delay (minutes)'}
+                  label={t('mobileSettingsPanel.noMovementDelayMinutes')}
                   value={rules.inactivity.minutes}
                   min={15}
                   max={1440}
@@ -777,19 +623,15 @@ export function MobileSettingsPanel({
                   }
                 />
                 <RuleToggle
-                  title={fr ? 'Porte laissée ouverte' : 'Door left open'}
-                  detail={
-                    fr
-                      ? 'Une ouverture brève reste un événement normal.'
-                      : 'A brief opening remains a normal event.'
-                  }
+                  title={t('mobileSettingsPanel.doorLeftOpen')}
+                  detail={t('mobileSettingsPanel.aBriefOpeningRemainsA')}
                   value={rules.doorOpen.enabled}
                   onChange={(value) =>
                     setRules({ ...rules, doorOpen: { ...rules.doorOpen, enabled: value } })
                   }
                 />
                 <NumberField
-                  label={fr ? 'Durée porte ouverte (minutes)' : 'Door open duration (minutes)'}
+                  label={t('mobileSettingsPanel.doorOpenDurationMinutes')}
                   value={rules.doorOpen.minutes}
                   min={1}
                   max={120}
@@ -798,12 +640,8 @@ export function MobileSettingsPanel({
                   }
                 />
                 <RuleToggle
-                  title={fr ? 'Température inhabituelle' : 'Unusual temperature'}
-                  detail={
-                    fr
-                      ? 'Le seuil doit persister avant qu’Élise le signale.'
-                      : 'The threshold must persist before Élise flags it.'
-                  }
+                  title={t('mobileSettingsPanel.unusualTemperature')}
+                  detail={t('mobileSettingsPanel.theThresholdMustPersistBefore')}
                   value={rules.lowTemperature.enabled || rules.highTemperature.enabled}
                   onChange={(value) =>
                     setRules({
@@ -814,7 +652,7 @@ export function MobileSettingsPanel({
                   }
                 />
                 <NumberField
-                  label={fr ? 'Température minimale (°C)' : 'Minimum temperature (°C)'}
+                  label={t('mobileSettingsPanel.minimumTemperatureC')}
                   value={rules.lowTemperature.celsius}
                   min={5}
                   max={25}
@@ -826,7 +664,7 @@ export function MobileSettingsPanel({
                   }
                 />
                 <NumberField
-                  label={fr ? 'Température maximale (°C)' : 'Maximum temperature (°C)'}
+                  label={t('mobileSettingsPanel.maximumTemperatureC')}
                   value={rules.highTemperature.celsius}
                   min={20}
                   max={45}
@@ -838,9 +676,7 @@ export function MobileSettingsPanel({
                   }
                 />
                 <NumberField
-                  label={
-                    fr ? 'Persistance température (minutes)' : 'Temperature duration (minutes)'
-                  }
+                  label={t('mobileSettingsPanel.temperatureDurationMinutes')}
                   value={rules.lowTemperature.minutes}
                   min={1}
                   max={240}
@@ -853,12 +689,8 @@ export function MobileSettingsPanel({
                   }
                 />
                 <RuleToggle
-                  title={fr ? 'Activité nocturne répétée' : 'Repeated night activity'}
-                  detail={
-                    fr
-                      ? 'Plusieurs mouvements, jamais un passage isolé.'
-                      : 'Several movements, never a single pass.'
-                  }
+                  title={t('mobileSettingsPanel.repeatedNightActivity')}
+                  detail={t('mobileSettingsPanel.severalMovementsNeverASingle')}
                   value={rules.nightActivity.enabled}
                   onChange={(value) =>
                     setRules({
@@ -869,7 +701,7 @@ export function MobileSettingsPanel({
                 />
                 <View style={s.timeRow}>
                   <Field
-                    label={fr ? 'Début de la nuit' : 'Night begins'}
+                    label={t('mobileSettingsPanel.nightBegins')}
                     value={timeText(rules.nightActivity.startMinute)}
                     onChange={(value) =>
                       setRules({
@@ -879,7 +711,7 @@ export function MobileSettingsPanel({
                     }
                   />
                   <Field
-                    label={fr ? 'Fin de la nuit' : 'Night ends'}
+                    label={t('mobileSettingsPanel.nightEnds')}
                     value={timeText(rules.nightActivity.endMinute)}
                     onChange={(value) =>
                       setRules({
@@ -890,7 +722,7 @@ export function MobileSettingsPanel({
                   />
                 </View>
                 <NumberField
-                  label={fr ? 'Mouvements minimum' : 'Minimum movements'}
+                  label={t('mobileSettingsPanel.minimumMovements')}
                   value={rules.nightActivity.minimumEvents}
                   min={2}
                   max={20}
@@ -902,12 +734,8 @@ export function MobileSettingsPanel({
                   }
                 />
                 <RuleToggle
-                  title={fr ? 'Capteur silencieux' : 'Silent sensor'}
-                  detail={
-                    fr
-                      ? 'Évite de confondre une panne avec une absence d’activité.'
-                      : 'Avoids confusing a fault with no activity.'
-                  }
+                  title={t('mobileSettingsPanel.silentSensor')}
+                  detail={t('mobileSettingsPanel.avoidsConfusingAFaultWith')}
                   value={rules.sensorOffline.enabled}
                   onChange={(value) =>
                     setRules({
@@ -917,9 +745,7 @@ export function MobileSettingsPanel({
                   }
                 />
                 <NumberField
-                  label={
-                    fr ? 'Délai capteur silencieux (minutes)' : 'Silent sensor delay (minutes)'
-                  }
+                  label={t('mobileSettingsPanel.silentSensorDelayMinutes')}
                   value={rules.sensorOffline.minutes}
                   min={15}
                   max={10080}
@@ -931,19 +757,15 @@ export function MobileSettingsPanel({
                   }
                 />
                 <RuleToggle
-                  title={fr ? 'Batterie faible' : 'Low battery'}
-                  detail={
-                    fr
-                      ? 'Une information calme pour anticiper le remplacement.'
-                      : 'A calm reminder to plan a battery replacement.'
-                  }
+                  title={t('mobileSettingsPanel.lowBattery')}
+                  detail={t('mobileSettingsPanel.aCalmReminderToPlan')}
                   value={rules.lowBattery.enabled}
                   onChange={(value) =>
                     setRules({ ...rules, lowBattery: { ...rules.lowBattery, enabled: value } })
                   }
                 />
                 <NumberField
-                  label={fr ? 'Seuil de batterie (%)' : 'Battery threshold (%)'}
+                  label={t('mobileSettingsPanel.batteryThreshold')}
                   value={rules.lowBattery.percent}
                   min={1}
                   max={50}
@@ -955,12 +777,8 @@ export function MobileSettingsPanel({
                 <ActionButton
                   label={
                     rulesBusy
-                      ? fr
-                        ? 'Enregistrement…'
-                        : 'Saving…'
-                      : fr
-                        ? 'Enregistrer les repères'
-                        : 'Save alert rules'
+                      ? t('mobileSettingsPanel.saving')
+                      : t('mobileSettingsPanel.saveAlertRules')
                   }
                   disabled={rulesBusy}
                   onPress={() => void saveRules()}
@@ -978,44 +796,30 @@ export function MobileSettingsPanel({
               onPress={() => setSection('general')}
             >
               <Ionicons name="chevron-back" size={18} color={c.blue} />
-              <Text style={s.settingsBackLabel}>
-                {fr ? 'Retour aux réglages' : 'Back to settings'}
-              </Text>
+              <Text style={s.settingsBackLabel}>{t('mobileSettingsPanel.backToSettings')}</Text>
             </Pressable>
             <Card
-              eyebrow={fr ? 'AUTORISATION DE L’APPAREIL' : 'DEVICE PERMISSION'}
-              title={fr ? 'Recevoir les notifications push' : 'Receive push notifications'}
+              eyebrow={t('mobileSettingsPanel.devicePermission')}
+              title={t('mobileSettingsPanel.receivePushNotifications')}
               icon="phone-portrait-outline"
             >
-              <Text style={s.body}>
-                {fr
-                  ? 'Les alertes et les nouveaux éléments du carnet sont envoyés à l’application. Les notifications doivent aussi être autorisées dans les réglages du téléphone.'
-                  : 'Alerts and new journal entries are sent to the app. Notifications must also be allowed in your phone settings.'}
-              </Text>
+              <Text style={s.body}>{t('mobileSettingsPanel.alertsAndNewJournalEntries')}</Text>
               {demoMode ? (
-                <Text style={s.notice}>
-                  {fr
-                    ? 'La démonstration ne peut pas envoyer de véritables notifications push.'
-                    : 'The demo cannot send real push notifications.'}
-                </Text>
+                <Text style={s.notice}>{t('mobileSettingsPanel.theDemoCannotSendReal')}</Text>
               ) : (
                 <>
                   <ActionButton
                     label={
                       pushBusy
-                        ? fr
-                          ? 'Vérification…'
-                          : 'Checking…'
-                        : fr
-                          ? 'Activer sur cet appareil'
-                          : 'Enable on this device'
+                        ? t('mobileSettingsPanel.checking')
+                        : t('mobileSettingsPanel.enableOnThisDevice')
                     }
                     disabled={pushBusy}
                     onPress={() => void enablePushOnDevice()}
                   />
                   {pushStatus === 'permission-denied' ? (
                     <ActionButton
-                      label={fr ? 'Ouvrir les réglages du téléphone' : 'Open phone settings'}
+                      label={t('mobileSettingsPanel.openPhoneSettings')}
                       outline
                       onPress={() => void NativeLinking.openSettings()}
                     />
@@ -1027,83 +831,63 @@ export function MobileSettingsPanel({
             </Card>
             {notificationPreferencesLoading ? (
               <Card
-                title={fr ? 'Préférences de notification' : 'Notification preferences'}
+                title={t('mobileSettingsPanel.notificationPreferences')}
                 icon="notifications-outline"
               >
-                <Text style={s.body}>{fr ? 'Chargement…' : 'Loading…'}</Text>
+                <Text style={s.body}>{t('mobileSettingsPanel.loading')}</Text>
               </Card>
             ) : notificationPreferencesError || !notificationPreferences ? (
               <Card
-                title={fr ? 'Préférences de notification' : 'Notification preferences'}
+                title={t('mobileSettingsPanel.notificationPreferences')}
                 icon="notifications-outline"
               >
                 <Text style={s.notice}>
-                  {fr
-                    ? 'Les préférences n’ont pas pu être chargées.'
-                    : 'Notification preferences could not be loaded.'}
+                  {t('mobileSettingsPanel.notificationPreferencesCouldNotBe')}
                 </Text>
                 <ActionButton
-                  label={fr ? 'Réessayer' : 'Try again'}
+                  label={t('mobileSettingsPanel.tryAgain')}
                   onPress={() => void loadNotificationPreferences()}
                 />
               </Card>
             ) : (
               <>
                 <Card
-                  eyebrow={fr ? 'ALERTES DU LOGEMENT' : 'HOME ALERTS'}
-                  title={fr ? 'Sécurité' : 'Safety'}
+                  eyebrow={t('mobileSettingsPanel.homeAlerts')}
+                  title={t('mobileSettingsPanel.safety')}
                   icon="shield-checkmark-outline"
                 >
-                  <Text style={s.body}>
-                    {fr
-                      ? 'Choisissez les alertes de sécurité à envoyer en notification push. Ces préférences s’appliquent aux appareils associés à ce compte.'
-                      : 'Choose which safety alerts to send as push notifications. These preferences apply to devices linked to this account.'}
-                  </Text>
+                  <Text style={s.body}>{t('mobileSettingsPanel.chooseWhichSafetyAlertsTo')}</Text>
                   <RuleToggle
-                    title={fr ? 'Détection de chute' : 'Fall detection'}
-                    detail={fr ? 'Lorsqu’une chute est détectée.' : 'When a fall is detected.'}
+                    title={t('mobileSettingsPanel.fallDetection')}
+                    detail={t('mobileSettingsPanel.whenAFallIsDetected')}
                     value={notificationPreferences.fallDetection}
                     disabled={notificationBusy}
                     onChange={(value) => void updateNotificationPreference('fallDetection', value)}
                   />
                   <RuleToggle
-                    title={fr ? 'Détection de fumée' : 'Smoke detection'}
-                    detail={
-                      fr
-                        ? 'Lorsqu’un détecteur signale de la fumée.'
-                        : 'When a sensor detects smoke.'
-                    }
+                    title={t('mobileSettingsPanel.smokeDetection')}
+                    detail={t('mobileSettingsPanel.whenASensorDetectsSmoke')}
                     value={notificationPreferences.smoke}
                     disabled={notificationBusy}
                     onChange={(value) => void updateNotificationPreference('smoke', value)}
                   />
                   <RuleToggle
-                    title={fr ? 'Fuite d’eau' : 'Water leak'}
-                    detail={
-                      fr ? 'Lorsqu’une fuite d’eau est détectée.' : 'When a water leak is detected.'
-                    }
+                    title={t('mobileSettingsPanel.waterLeak')}
+                    detail={t('mobileSettingsPanel.whenAWaterLeakIs')}
                     value={notificationPreferences.waterLeak}
                     disabled={notificationBusy}
                     onChange={(value) => void updateNotificationPreference('waterLeak', value)}
                   />
                 </Card>
                 <Card
-                  eyebrow={fr ? 'CARNET DE LIAISON' : 'LIAISON JOURNAL'}
-                  title={fr ? 'Nouveaux éléments' : 'New entries'}
+                  eyebrow={t('mobileSettingsPanel.liaisonJournal')}
+                  title={t('mobileSettingsPanel.newEntries')}
                   icon="book-outline"
                 >
-                  <Text style={s.body}>
-                    {fr
-                      ? 'Une notification est envoyée à chaque nouvelle entrée créée par un autre membre du domicile.'
-                      : 'A notification is sent for each new entry created by another household member.'}
-                  </Text>
+                  <Text style={s.body}>{t('mobileSettingsPanel.aNotificationIsSentFor')}</Text>
                   <RuleToggle
-                    title={fr ? 'Nouveau message' : 'New message'}
-                    detail={
-                      fr
-                        ? 'Messages ajoutés au carnet de liaison.'
-                        : 'Messages added to the liaison journal.'
-                    }
+                    title={t('mobileSettingsPanel.newMessage')}
+                    detail={t('mobileSettingsPanel.messagesAddedToTheLiaison')}
                     value={notificationPreferences.liaisonMessages}
                     disabled={notificationBusy}
                     onChange={(value) =>
@@ -1111,12 +895,8 @@ export function MobileSettingsPanel({
                     }
                   />
                   <RuleToggle
-                    title={fr ? 'Nouvelle humeur' : 'New mood'}
-                    detail={
-                      fr
-                        ? 'Humeurs ajoutées au carnet de liaison.'
-                        : 'Moods added to the liaison journal.'
-                    }
+                    title={t('mobileSettingsPanel.newMood')}
+                    detail={t('mobileSettingsPanel.moodsAddedToTheLiaison')}
                     value={notificationPreferences.liaisonMoods}
                     disabled={notificationBusy}
                     onChange={(value) => void updateNotificationPreference('liaisonMoods', value)}
@@ -1135,9 +915,7 @@ export function MobileSettingsPanel({
               onPress={() => setSection('general')}
             >
               <Ionicons name="chevron-back" size={18} color={c.blue} />
-              <Text style={s.settingsBackLabel}>
-                {fr ? 'Retour aux réglages' : 'Back to settings'}
-              </Text>
+              <Text style={s.settingsBackLabel}>{t('mobileSettingsPanel.backToSettings')}</Text>
             </Pressable>
             <View style={s.aboutActions}>
               <Pressable
@@ -1149,14 +927,8 @@ export function MobileSettingsPanel({
                   <Ionicons name="shield-checkmark-outline" size={19} color={c.accent} />
                 </View>
                 <View style={s.flex}>
-                  <Text style={s.cardTitle}>
-                    {fr ? 'Politique de confidentialité' : 'Privacy policy'}
-                  </Text>
-                  <Text style={s.body}>
-                    {fr
-                      ? 'Traitement et conservation des données.'
-                      : 'Data processing and retention.'}
-                  </Text>
+                  <Text style={s.cardTitle}>{t('mobileSettingsPanel.privacyPolicy')}</Text>
+                  <Text style={s.body}>{t('mobileSettingsPanel.dataProcessingAndRetention')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={19} color={c.muted} />
               </Pressable>
@@ -1169,47 +941,35 @@ export function MobileSettingsPanel({
                   <Ionicons name="document-text-outline" size={19} color={c.accent} />
                 </View>
                 <View style={s.flex}>
-                  <Text style={s.cardTitle}>{fr ? 'Mentions légales' : 'Legal information'}</Text>
+                  <Text style={s.cardTitle}>{t('mobileSettingsPanel.legalInformation')}</Text>
                   <Text style={s.body}>
-                    {fr ? 'Éditeur, licence et EULA Apple.' : 'Publisher, licence, and Apple EULA.'}
+                    {t('mobileSettingsPanel.publisherLicenceAndAppleEula')}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={19} color={c.muted} />
               </Pressable>
             </View>
             <Card
-              eyebrow={fr ? 'APPLICATION · VERSION' : 'APP · VERSION'}
+              eyebrow={t('mobileSettingsPanel.appVersion')}
               title="Élise OS"
               icon="heart-outline"
               badge={`v${appVersion}`}
             >
-              <Text style={s.body}>
-                {fr
-                  ? 'Élise relie les repères du logement, l’application des proches et l’écran du résident pour soutenir le lien au quotidien.'
-                  : 'Élise brings together cues from the home, the family app, and the resident’s screen to support everyday connection.'}
-              </Text>
+              <Text style={s.body}>{t('mobileSettingsPanel.eliseBringsTogetherCuesFrom')}</Text>
             </Card>
             <Card
-              eyebrow={fr ? 'VIE PRIVÉE' : 'PRIVACY'}
-              title={fr ? 'Traitement local' : 'Local processing'}
+              eyebrow={t('mobileSettingsPanel.privacy')}
+              title={t('mobileSettingsPanel.localProcessing')}
               icon="home-outline"
             >
-              <Text style={s.body}>
-                {fr
-                  ? 'Les événements du logement sont traités sur l’installation locale et les proches autorisés y accèdent par réseau privé. Les notifications passent par Expo et le service Apple ou Google ; les appels vidéo utilisent le serveur Jitsi configuré. Aucune caméra n’est nécessaire pour les repères du logement.'
-                  : 'Household events are processed on the local installation and authorized family members access it over a private network. Notifications use Expo and the Apple or Google service; video calls use the configured Jitsi server. No camera is needed for home cues.'}
-              </Text>
+              <Text style={s.body}>{t('mobileSettingsPanel.householdEventsAreProcessedOn')}</Text>
             </Card>
             <Card
-              eyebrow={fr ? 'À SAVOIR' : 'PLEASE NOTE'}
-              title={fr ? 'Un prototype en cours d’intégration' : 'A prototype in progress'}
+              eyebrow={t('mobileSettingsPanel.pleaseNote')}
+              title={t('mobileSettingsPanel.aPrototypeInProgress')}
               icon="information-circle-outline"
             >
-              <Text style={s.notice}>
-                {fr
-                  ? 'Élise n’est ni un dispositif médical ni un service d’urgence.'
-                  : 'Élise is neither a medical device nor an emergency service.'}
-              </Text>
+              <Text style={s.notice}>{t('mobileSettingsPanel.eliseIsNeitherAMedical')}</Text>
             </Card>
             <MobilePartnerRibbon locale={locale} />
           </>
@@ -1223,50 +983,36 @@ export function MobileSettingsPanel({
               onPress={() => setSection('about')}
             >
               <Ionicons name="chevron-back" size={18} color={c.blue} />
-              <Text style={s.settingsBackLabel}>
-                {fr ? 'Retour à la page À propos' : 'Back to About'}
-              </Text>
+              <Text style={s.settingsBackLabel}>{t('mobileSettingsPanel.backToAbout')}</Text>
             </Pressable>
             <Card
-              eyebrow={fr ? 'ÉDITEUR DU PROJET' : 'PROJECT PUBLISHER'}
+              eyebrow={t('mobileSettingsPanel.projectPublisher')}
               title="Élise OS"
               icon="person-circle-outline"
             >
-              <Text style={s.body}>
-                {fr
-                  ? 'Élise OS est un projet porté individuellement en France.'
-                  : 'Élise OS is an independently led project in France.'}
-              </Text>
+              <Text style={s.body}>{t('mobileSettingsPanel.eliseOsIsAnIndependently')}</Text>
               <Text style={s.body}>contact@paulbreton.dev</Text>
               <ActionButton
-                label={fr ? 'Contacter le porteur du projet' : 'Contact the project lead'}
+                label={t('mobileSettingsPanel.contactTheProjectLead')}
                 outline
                 onPress={() => void Linking.openURL('mailto:contact@paulbreton.dev')}
               />
             </Card>
             <Card
-              eyebrow={fr ? 'LICENCE DU LOGICIEL' : 'SOFTWARE LICENCE'}
+              eyebrow={t('mobileSettingsPanel.softwareLicence')}
               title="AGPL-3.0-only"
               icon="code-slash-outline"
             >
-              <Text style={s.body}>
-                {fr
-                  ? 'Élise OS est un logiciel open source distribué sous licence AGPL-3.0-only.'
-                  : 'Élise OS is open-source software distributed under the AGPL-3.0-only licence.'}
-              </Text>
+              <Text style={s.body}>{t('mobileSettingsPanel.eliseOsIsOpenSource')}</Text>
             </Card>
             <Card
-              eyebrow={fr ? 'CONDITIONS DE L’APP STORE' : 'APP STORE TERMS'}
-              title={fr ? 'EULA standard d’Apple' : 'Apple Standard EULA'}
+              eyebrow={t('mobileSettingsPanel.appStoreTerms')}
+              title={t('mobileSettingsPanel.appleStandardEula')}
               icon="document-text-outline"
             >
-              <Text style={s.body}>
-                {fr
-                  ? 'Pour les apps distribuées sur l’App Store, la licence standard d’Apple s’applique sauf si une licence personnalisée est fournie.'
-                  : 'For apps distributed through the App Store, Apple’s standard licence applies unless a custom licence is provided.'}
-              </Text>
+              <Text style={s.body}>{t('mobileSettingsPanel.forAppsDistributedThroughThe')}</Text>
               <ActionButton
-                label={fr ? 'Lire l’EULA standard d’Apple' : 'Read Apple’s Standard EULA'}
+                label={t('mobileSettingsPanel.readAppleSStandardEula')}
                 outline
                 onPress={() =>
                   void Linking.openURL(
@@ -1282,13 +1028,7 @@ export function MobileSettingsPanel({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
-            demoMode
-              ? fr
-                ? 'Quitter la démonstration'
-                : 'Exit demo'
-              : fr
-                ? 'Se déconnecter'
-                : 'Sign out'
+            demoMode ? t('mobileSettingsPanel.exitDemo') : t('mobileSettingsPanel.signOut')
           }
           style={[s.settingsNavRow, s.logoutSettingsRow]}
           onPress={onLogout}
@@ -1298,17 +1038,9 @@ export function MobileSettingsPanel({
           </View>
           <View style={s.flex}>
             <Text style={[s.cardTitle, s.logoutSettingsTitle]}>
-              {demoMode
-                ? fr
-                  ? 'Quitter la démonstration'
-                  : 'Exit demo'
-                : fr
-                  ? 'Se déconnecter'
-                  : 'Sign out'}
+              {demoMode ? t('mobileSettingsPanel.exitDemo') : t('mobileSettingsPanel.signOut')}
             </Text>
-            <Text style={s.body}>
-              {fr ? 'Fermer cette session sur cet appareil.' : 'Sign out on this device.'}
-            </Text>
+            <Text style={s.body}>{t('mobileSettingsPanel.signOutOnThisDevice')}</Text>
           </View>
         </Pressable>
       </ScrollView>
@@ -1368,26 +1100,6 @@ function Card({
       )}
       {!collapsible || expanded ? <View style={s.cardBody}>{children}</View> : null}
     </View>
-  );
-}
-function Choice({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ selected: active }}
-      style={[s.choice, active && s.choiceActive]}
-      onPress={onPress}
-    >
-      <Text style={[s.choiceText, active && s.choiceTextActive]}>{label}</Text>
-    </Pressable>
   );
 }
 function ActionButton({
@@ -1620,20 +1332,6 @@ const s = StyleSheet.create({
     fontSize: 12,
     lineHeight: 19,
   },
-  languageRow: { flexDirection: 'row', gap: 8 },
-  choice: {
-    minHeight: 41,
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: c.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: c.paper,
-  },
-  choiceActive: { borderColor: c.blue, backgroundColor: '#E8F0F3' },
-  choiceText: { color: c.muted, fontSize: 13, fontWeight: '800' },
-  choiceTextActive: { color: c.blue },
   smallButton: {
     minHeight: 35,
     paddingHorizontal: 10,

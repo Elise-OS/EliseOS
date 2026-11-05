@@ -6,6 +6,7 @@ import { MobileDateTimePicker } from '../MobileDateTimePicker';
 import { clockToDate, dateToClock, shiftClock } from './clock';
 import type { Locale } from './MobileSetup';
 import { colors } from '../theme';
+import { dateLocale, t } from '../i18n';
 
 const STEP_MINUTES = 15;
 
@@ -17,7 +18,6 @@ export function RoutineTimeField({
   label,
   value,
   disabled,
-  locale,
   onChange,
 }: {
   label: string;
@@ -27,7 +27,6 @@ export function RoutineTimeField({
   onChange: (value: string) => void;
 }) {
   const [draft, setDraft] = useState<Date | null>(null);
-  const tr = (fr: string, en: string) => (locale === 'fr' ? fr : en);
 
   const open = () => {
     if (disabled) return;
@@ -55,7 +54,7 @@ export function RoutineTimeField({
           disabled={disabled}
           onPress={() => onChange(shiftClock(value, -STEP_MINUTES))}
           accessibilityRole="button"
-          accessibilityLabel={tr(`${label} : 15 minutes plus tôt`, `${label}: 15 minutes earlier`)}
+          accessibilityLabel={t('routineTimeField.n15MinutesEarlier', { label })}
           hitSlop={6}
         >
           <Ionicons name="remove" size={18} color={colors.navy} />
@@ -65,7 +64,7 @@ export function RoutineTimeField({
           disabled={disabled}
           onPress={open}
           accessibilityRole="button"
-          accessibilityLabel={tr(`${label} : ${value}, modifier`, `${label}: ${value}, change`)}
+          accessibilityLabel={t('routineTimeField.change', { label, value })}
         >
           <Ionicons name="time-outline" size={16} color={colors.green} />
           <Text style={styles.timeText}>{value}</Text>
@@ -75,7 +74,7 @@ export function RoutineTimeField({
           disabled={disabled}
           onPress={() => onChange(shiftClock(value, STEP_MINUTES))}
           accessibilityRole="button"
-          accessibilityLabel={tr(`${label} : 15 minutes plus tard`, `${label}: 15 minutes later`)}
+          accessibilityLabel={t('routineTimeField.n15MinutesLater', { label })}
           hitSlop={6}
         >
           <Ionicons name="add" size={18} color={colors.navy} />
@@ -92,7 +91,7 @@ export function RoutineTimeField({
           <View style={styles.sheet}>
             <View style={styles.sheetHeader}>
               <Pressable onPress={() => setDraft(null)} hitSlop={8}>
-                <Text style={styles.sheetCancel}>{tr('Annuler', 'Cancel')}</Text>
+                <Text style={styles.sheetCancel}>{t('routineTimeField.cancel')}</Text>
               </Pressable>
               <Text style={styles.sheetTitle}>{label}</Text>
               <Pressable
@@ -102,7 +101,7 @@ export function RoutineTimeField({
                 }}
                 hitSlop={8}
               >
-                <Text style={styles.sheetConfirm}>{tr('Valider', 'Done')}</Text>
+                <Text style={styles.sheetConfirm}>{t('routineTimeField.done')}</Text>
               </Pressable>
             </View>
             {draft && (
@@ -110,7 +109,7 @@ export function RoutineTimeField({
                 value={draft}
                 mode="time"
                 is24Hour
-                locale={locale === 'fr' ? 'fr-FR' : 'en-GB'}
+                locale={dateLocale()}
                 themeVariant="light"
                 minuteInterval={5}
                 onChange={(_event, selected) => {

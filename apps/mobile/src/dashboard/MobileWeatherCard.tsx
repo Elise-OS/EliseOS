@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { mobileApi, type WeatherCity } from '../api';
 import type { SavedServer } from '../discovery/types';
+import { type Language, t } from '../i18n';
 
 const c = {
   navy: '#0B2948',
@@ -19,7 +20,7 @@ const c = {
   red: '#B74747',
 };
 
-type Locale = 'fr' | 'en';
+type Locale = Language;
 
 export function MobileWeatherCard({
   server,
@@ -34,7 +35,6 @@ export function MobileWeatherCard({
   snapshot?: ScreenSnapshot;
   onChanged: () => void;
 }) {
-  const fr = locale === 'fr';
   const [weatherOpen, setWeatherOpen] = useState(false);
   const [weatherQuery, setWeatherQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
@@ -66,12 +66,7 @@ export function MobileWeatherCard({
           if (active) setWeatherSearch(cities);
         })
         .catch(() => {
-          if (active)
-            setNotice(
-              fr
-                ? 'La recherche de villes est momentanément indisponible.'
-                : 'City search is temporarily unavailable.',
-            );
+          if (active) setNotice(t('mobileWeatherCard.citySearchIsTemporarilyUnavailable'));
         })
         .finally(() => {
           if (active) setWeatherBusy(false);
@@ -81,7 +76,7 @@ export function MobileWeatherCard({
       active = false;
       clearTimeout(timer);
     };
-  }, [canManage, fr, selectedCity, server.id, token, weatherOpen, weatherQuery]);
+  }, [canManage, locale, selectedCity, server.id, token, weatherOpen, weatherQuery]);
 
   const openWeather = () => {
     setNotice('');
@@ -102,29 +97,19 @@ export function MobileWeatherCard({
       setWeatherOpen(false);
       onChanged();
     } catch {
-      setNotice(
-        fr ? 'La météo n’a pas pu être enregistrée.' : 'The weather settings could not be saved.',
-      );
+      setNotice(t('mobileWeatherCard.theWeatherSettingsCouldNot'));
     } finally {
       setSaving(false);
     }
   };
 
   const badge = !snapshot
-    ? fr
-      ? 'Chargement…'
-      : 'Loading…'
+    ? t('mobileWeatherCard.loading')
     : weather
-      ? fr
-        ? 'Disponible'
-        : 'Available'
+      ? t('mobileWeatherCard.available')
       : weatherCity
-        ? fr
-          ? 'Indisponible'
-          : 'Unavailable'
-        : fr
-          ? 'À configurer'
-          : 'Set up';
+        ? t('mobileWeatherCard.unavailable')
+        : t('mobileWeatherCard.setUp');
 
   return (
     <>
@@ -134,8 +119,8 @@ export function MobileWeatherCard({
             <Ionicons name="partly-sunny-outline" size={19} color={c.blue} />
           </View>
           <View style={s.flex}>
-            <Text style={s.eyebrow}>{fr ? 'MÉTÉO DU LOGEMENT' : 'HOME WEATHER'}</Text>
-            <Text style={s.title}>{fr ? 'Météo' : 'Weather'}</Text>
+            <Text style={s.eyebrow}>{t('mobileWeatherCard.homeWeather')}</Text>
+            <Text style={s.title}>{t('mobileWeatherCard.weather')}</Text>
           </View>
           <Text style={[s.badge, !weather && s.badgeMuted]}>{badge}</Text>
         </View>
@@ -152,52 +137,34 @@ export function MobileWeatherCard({
               <Text style={s.city}>{weatherCity}</Text>
               <Text style={s.body}>
                 {weather
-                  ? weatherText(weather.weatherCode, fr)
-                  : fr
-                    ? 'Prévisions indisponibles pour le moment.'
-                    : 'Forecast is unavailable right now.'}
+                  ? weatherText(weather.weatherCode)
+                  : t('mobileWeatherCard.forecastIsUnavailableRightNow')}
               </Text>
               {weather?.minimum != null && weather.maximum != null ? (
                 <Text style={s.caption}>
-                  {fr ? 'Mini' : 'Low'} {Math.round(weather.minimum)}° · {fr ? 'Maxi' : 'High'}{' '}
-                  {Math.round(weather.maximum)}°
+                  {t('mobileWeatherCard.low')} {Math.round(weather.minimum)}° ·{' '}
+                  {t('mobileWeatherCard.high')} {Math.round(weather.maximum)}°
                 </Text>
               ) : null}
             </View>
           </View>
         ) : (
-          <Text style={s.body}>
-            {fr
-              ? 'Choisissez une ville pour afficher les prévisions météo ici.'
-              : 'Choose a city to show the weather forecast here.'}
-          </Text>
+          <Text style={s.body}>{t('mobileWeatherCard.chooseACityToShow')}</Text>
         )}
 
-        <Text style={s.caption}>
-          {fr
-            ? 'La ville choisie sert aussi à la météo affichée sur la télévision.'
-            : 'The selected city is also used for the weather shown on the TV.'}
-        </Text>
+        <Text style={s.caption}>{t('mobileWeatherCard.theSelectedCityIsAlso')}</Text>
 
         {canManage ? (
           <Pressable style={s.configureButton} onPress={openWeather}>
             <Ionicons name="pencil-outline" size={16} color={c.blue} />
             <Text style={s.configureLabel}>
               {weatherCity
-                ? fr
-                  ? 'Changer de ville'
-                  : 'Change city'
-                : fr
-                  ? 'Configurer la météo'
-                  : 'Set up weather'}
+                ? t('mobileWeatherCard.changeCity')
+                : t('mobileWeatherCard.setUpWeather')}
             </Text>
           </Pressable>
         ) : (
-          <Text style={s.caption}>
-            {fr
-              ? 'La configuration de la ville est réservée à un administrateur.'
-              : 'Only an administrator can change the weather location.'}
-          </Text>
+          <Text style={s.caption}>{t('mobileWeatherCard.onlyAnAdministratorCanChange')}</Text>
         )}
       </View>
 
@@ -210,21 +177,15 @@ export function MobileWeatherCard({
         <View style={s.modalShell}>
           <View style={s.modalHeader}>
             <View>
-              <Text style={s.eyebrow}>
-                {fr ? 'MÉTÉO DU LOGEMENT ET DE LA TV' : 'HOME AND TV WEATHER'}
-              </Text>
-              <Text style={s.modalTitle}>{fr ? 'Choisir une ville' : 'Choose a city'}</Text>
+              <Text style={s.eyebrow}>{t('mobileWeatherCard.homeAndTvWeather')}</Text>
+              <Text style={s.modalTitle}>{t('mobileWeatherCard.chooseACity')}</Text>
             </View>
             <Pressable style={s.close} onPress={() => setWeatherOpen(false)}>
               <Ionicons name="close" size={22} color={c.navy} />
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={s.modalContent} keyboardShouldPersistTaps="handled">
-            <Text style={s.body}>
-              {fr
-                ? 'La ville choisie met également à jour la météo affichée sur la télévision.'
-                : 'The selected city also updates the weather shown on the TV.'}
-            </Text>
+            <Text style={s.body}>{t('mobileWeatherCard.theSelectedCityAlsoUpdates')}</Text>
             <TextInput
               style={s.input}
               autoFocus
@@ -234,10 +195,10 @@ export function MobileWeatherCard({
                 setSelectedCity('');
                 setNotice('');
               }}
-              placeholder={fr ? 'Ex. Orléans, Tours…' : 'E.g. Orléans, Tours…'}
+              placeholder={t('mobileWeatherCard.eGOrleansTours')}
               placeholderTextColor="#8b9299"
             />
-            {weatherBusy ? <Text style={s.body}>{fr ? 'Recherche…' : 'Searching…'}</Text> : null}
+            {weatherBusy ? <Text style={s.body}>{t('mobileWeatherCard.searching')}</Text> : null}
             {weatherSearch.map((city) => (
               <Pressable
                 key={`${city.name}-${city.latitude}`}
@@ -264,16 +225,10 @@ export function MobileWeatherCard({
             >
               <Text style={s.saveLabel}>
                 {saving
-                  ? fr
-                    ? 'Enregistrement…'
-                    : 'Saving…'
+                  ? t('mobileWeatherCard.saving')
                   : weatherCity
-                    ? fr
-                      ? 'Mettre à jour'
-                      : 'Update'
-                    : fr
-                      ? 'Configurer'
-                      : 'Set up'}
+                    ? t('mobileWeatherCard.update')
+                    : t('mobileWeatherCard.setUp2')}
               </Text>
             </Pressable>
           </ScrollView>
@@ -292,14 +247,14 @@ function weatherIcon(code: number): React.ComponentProps<typeof Ionicons>['name'
   return 'rainy-outline';
 }
 
-function weatherText(code: number, fr: boolean) {
-  if (code === 0) return fr ? 'Ciel dégagé' : 'Clear sky';
-  if (code <= 2) return fr ? 'Éclaircies' : 'Partly cloudy';
-  if (code === 3) return fr ? 'Nuageux' : 'Cloudy';
-  if ([45, 48].includes(code)) return fr ? 'Brouillard' : 'Fog';
-  if ([71, 73, 75, 77, 85, 86].includes(code)) return fr ? 'Neige' : 'Snow';
-  if (code >= 95) return fr ? 'Orage' : 'Thunderstorm';
-  return fr ? 'Pluie' : 'Rain';
+function weatherText(code: number) {
+  if (code === 0) return t('mobileWeatherCard.clearSky');
+  if (code <= 2) return t('mobileWeatherCard.partlyCloudy');
+  if (code === 3) return t('mobileWeatherCard.cloudy');
+  if ([45, 48].includes(code)) return t('mobileWeatherCard.fog');
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return t('mobileWeatherCard.snow');
+  if (code >= 95) return t('mobileWeatherCard.thunderstorm');
+  return t('mobileWeatherCard.rain');
 }
 
 const s = StyleSheet.create({

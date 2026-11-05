@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import type { Locale } from './MobileSetup';
 import { colors } from '../theme';
+import { t as i18nT } from '../i18n';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -20,65 +21,9 @@ const TAILSCALE_APP =
     ? 'https://apps.apple.com/app/tailscale/id1470499037'
     : 'https://play.google.com/store/apps/details?id=com.tailscale.ipn';
 
-const copy = {
-  fr: {
-    benefits: [
-      ['lock-closed-outline', 'Tunnel privé et chiffré'],
-      ['globe-outline', 'Rien n’est ouvert sur Internet'],
-      ['people-outline', 'Gratuit pour la famille'],
-    ] as [IconName, string][],
-    steps: [
-      ['Relier Élise à Tailscale', 'Élise prépare une demande de connexion.'],
-      ['Valider dans Tailscale', 'Connectez-vous ou créez un compte gratuit, puis revenez ici.'],
-      ['Activer l’adresse privée', 'Élise obtient son adresse sécurisée.'],
-    ],
-    connect: 'Relier Élise',
-    approve: 'Ouvrir Tailscale',
-    enable: 'Activer',
-    waiting: 'En attente de votre validation…',
-    configuring: 'Préparation de l’adresse…',
-    checking: 'Vérification de l’accès à distance…',
-    ready: 'Accès à distance activé',
-    readyHint:
-      'Installez Tailscale sur ce téléphone avec le même compte pour joindre Élise hors de la maison.',
-    installApp: 'Installer Tailscale sur ce téléphone',
-    unavailable:
-      'L’accès à distance n’est pas disponible sur ce boîtier pour le moment. Vous pourrez l’activer plus tard dans les réglages.',
-    degraded:
-      'L’accès à distance demande une vérification. Vous pourrez reprendre dans les réglages.',
-    preview: 'Aperçu : la connexion à Tailscale se fait sur un vrai boîtier Élise.',
-    later: 'Vous pouvez aussi passer cette étape et l’activer plus tard dans les réglages.',
-    address: 'Adresse privée',
-  },
-  en: {
-    benefits: [
-      ['lock-closed-outline', 'Private, encrypted tunnel'],
-      ['globe-outline', 'Nothing is exposed to the Internet'],
-      ['people-outline', 'Free for families'],
-    ] as [IconName, string][],
-    steps: [
-      ['Link Élise to Tailscale', 'Élise prepares a connection request.'],
-      ['Approve in Tailscale', 'Sign in or create a free account, then come back here.'],
-      ['Turn on the private address', 'Élise gets its secure address.'],
-    ],
-    connect: 'Link Élise',
-    approve: 'Open Tailscale',
-    enable: 'Turn on',
-    waiting: 'Waiting for your approval…',
-    configuring: 'Preparing the address…',
-    checking: 'Checking remote access…',
-    ready: 'Remote access is on',
-    readyHint:
-      'Install Tailscale on this phone with the same account to reach Élise away from home.',
-    installApp: 'Install Tailscale on this phone',
-    unavailable:
-      'Remote access is not available on this box right now. You can turn it on later in settings.',
-    degraded: 'Remote access needs attention. You can continue from settings later.',
-    preview: 'Preview: linking to Tailscale happens on a real Élise box.',
-    later: 'You can also skip this step and turn it on later in settings.',
-    address: 'Private address',
-  },
-};
+// Texts of this screen, kept as one block in the catalogs (remoteAccessStep.copy).
+const copyText = () => i18nT('remoteAccessStep.copy', { returnObjects: true });
+const BENEFIT_ICONS: IconName[] = ['lock-closed-outline', 'globe-outline', 'people-outline'];
 
 /** Which of the three visual steps is current: 0 link, 1 approve, 2 enable, 3 done. */
 const progressOf = (status: RemoteAccessStatus | null) => {
@@ -95,7 +40,6 @@ const progressOf = (status: RemoteAccessStatus | null) => {
 };
 
 export function RemoteAccessStep({
-  locale,
   status,
   checked,
   busy,
@@ -115,7 +59,7 @@ export function RemoteAccessStep({
   onEnable: () => void;
   onError: () => void;
 }) {
-  const t = copy[locale];
+  const t = copyText();
   const progress = progressOf(status);
   const unavailable =
     !previewMode &&
@@ -189,9 +133,9 @@ export function RemoteAccessStep({
   return (
     <View style={styles.wrap}>
       <View style={styles.benefits}>
-        {t.benefits.map(([icon, label]) => (
+        {t.benefits.map((label, index) => (
           <View key={label} style={styles.benefit}>
-            <Ionicons name={icon} size={17} color={colors.green} />
+            <Ionicons name={BENEFIT_ICONS[index]} size={17} color={colors.green} />
             <Text style={styles.benefitText}>{label}</Text>
           </View>
         ))}

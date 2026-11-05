@@ -23,8 +23,10 @@ import { RemoteAccessStep } from './RemoteAccessStep';
 import { RoutineTimeField } from './RoutineTimeField';
 import { SetupSummary } from './SetupSummary';
 import { colors } from '../theme';
+import { currentLanguage, type Language, t as i18nT } from '../i18n';
+import { habitLabel, RELATIONS, relationLabel } from './labels';
 
-export type Locale = 'fr' | 'en';
+export type Locale = Language;
 
 type Draft = {
   firstName: string;
@@ -94,164 +96,8 @@ function generateUsername(firstName: string, lastName: string): string {
   return first && last ? `${first}.${last}` : '';
 }
 
-const copy = {
-  fr: {
-    steps: ['Bienvenue', 'Vous', 'Résident', 'Apprentissage', 'Accès à distance', 'Récapitulatif'],
-    eyebrows: [
-      '',
-      'VOTRE RÔLE',
-      'PROFIL D’ACCOMPAGNEMENT',
-      'PREMIERS REPÈRES',
-      'ACCÈS À DISTANCE · RECOMMANDÉ',
-      'RÉCAPITULATIF',
-    ],
-    titles: [
-      'Préparons Élise pour une personne qui compte.',
-      'Créons votre accès',
-      'Qui Élise va-t-elle accompagner ?',
-      'À quoi ressemble une journée habituelle ?',
-      'Gardez un œil sur Élise, même en déplacement',
-      'Tout est prêt',
-    ],
-    intros: [
-      'La création de votre environnement se fait ici, directement sur votre téléphone.',
-      'Vous serez le gestionnaire principal de cette installation.',
-      'Ces quelques repères permettent à Élise de s’adresser naturellement au résident.',
-      'Des plages approximatives suffisent. Élise les affinera progressivement.',
-      'Tailscale relie votre téléphone à Élise par un tunnel privé et chiffré, sans rien ouvrir sur Internet.',
-      'Vérifiez ces informations : Élise crée ensuite votre environnement.',
-    ],
-    start: 'Commencer l’installation',
-    next: 'Continuer',
-    finish: 'Créer mon environnement',
-    remoteContinue: 'Continuer',
-    back: 'Retour',
-    firstName: 'Prénom',
-    lastName: 'Nom',
-    username: 'Identifiant · ex. paul.breton',
-    relation: 'Lien avec le résident',
-    password: 'Mot de passe · 12 caractères minimum',
-    confirm: 'Confirmer le mot de passe',
-    dailyName: 'Prénom utilisé au quotidien',
-    unknown: 'Je ne sais pas encore',
-    profileKicker: 'UNE PERSONNE, AVANT TOUT',
-    profileDefault: 'Votre proche',
-    profileNameEmpty: 'Son nom apparaîtra ici',
-    profileHint: 'Élise utilisera ce prénom pour s’adresser à la personne.',
-    profileDetails: 'Ses repères',
-    profileDetailsHint: 'Ces informations pourront évoluer.',
-    routineCount: '4 moments de la journée',
-    routineHint: 'Des repères souples, à votre rythme',
-    routineFrom: 'À partir de',
-    routineUntil: 'Jusqu’à',
-    routineLearn: 'Élise l’apprendra progressivement',
-    routineNote: 'Ces horaires sont des repères de départ, jamais des règles rigides.',
-    localBadge: 'Entièrement local',
-    privacyBadge: 'Respecte votre intimité',
-    caregiverBadge: 'Pensé pour les proches aidants',
-    secure: 'Vos données restent stockées localement sur cette installation Élise OS.',
-    required: 'Complétez les champs obligatoires avant de continuer.',
-    mismatch: 'Les mots de passe ne correspondent pas.',
-    failed: 'Élise n’a pas pu créer l’environnement. Vérifiez la connexion puis réessayez.',
-    preview: 'MODE DÉMO · aucune donnée ne sera envoyée',
-    previewFinish: 'Terminer l’aperçu',
-    creatingTitle: 'Création de votre environnement',
-    creatingIntro: 'Élise prépare votre espace personnel et sécurisé.',
-    creatingSteps: [
-      'Création du foyer',
-      'Préparation du profil résident',
-      'Configuration des habitudes',
-      'Finalisation de l’environnement',
-    ],
-    readyTitle: 'Votre environnement est prêt',
-    readyText: 'Tout est en place. Découvrons Élise ensemble.',
-    remoteActionFailed:
-      'Cette action est indisponible pour le moment. Vous pourrez réessayer dans les réglages.',
-  },
-  en: {
-    steps: ['Welcome', 'You', 'Resident', 'Learning', 'Remote access', 'Summary'],
-    eyebrows: [
-      '',
-      'YOUR ROLE',
-      'SUPPORT PROFILE',
-      'FIRST ROUTINES',
-      'REMOTE ACCESS · RECOMMENDED',
-      'SUMMARY',
-    ],
-    titles: [
-      'Set up Élise for someone who matters.',
-      'Create your access',
-      'Who will Élise support?',
-      'What does a typical day look like?',
-      'Keep an eye on Élise while away',
-      'Everything is ready',
-    ],
-    intros: [
-      'Create your environment here, directly on your phone.',
-      'You will be the primary manager for this installation.',
-      'These details help Élise address the resident naturally.',
-      'Approximate time ranges are enough. Élise will refine them over time.',
-      'Tailscale links your phone to Élise through a private, encrypted tunnel, without opening anything to the Internet.',
-      'Check these details: Élise then creates your environment.',
-    ],
-    start: 'Start setup',
-    next: 'Continue',
-    finish: 'Create my environment',
-    remoteContinue: 'Continue',
-    back: 'Back',
-    firstName: 'First name',
-    lastName: 'Last name',
-    username: 'Username · e.g. paul.breton',
-    relation: 'Relationship to resident',
-    password: 'Password · 12 characters minimum',
-    confirm: 'Confirm password',
-    dailyName: 'Name used every day',
-    profileKicker: 'A PERSON, FIRST AND FOREMOST',
-    profileDefault: 'Your loved one',
-    profileNameEmpty: 'Their full name will appear here',
-    profileHint: 'Élise will use this name when speaking to them.',
-    profileDetails: 'A few details',
-    profileDetailsHint: 'You can update these details later.',
-    routineCount: '4 moments in the day',
-    routineHint: 'Flexible starting points, at your pace',
-    routineFrom: 'From',
-    routineUntil: 'Until',
-    routineLearn: 'Élise can learn this over time',
-    routineNote: 'These times are starting points, never rigid rules.',
-    unknown: 'I don’t know',
-    localBadge: 'Entirely local',
-    privacyBadge: 'Privacy comes first',
-    caregiverBadge: 'Designed for caregivers',
-    secure: 'Your data stays locally on this Élise OS installation.',
-    required: 'Complete the required fields before continuing.',
-    mismatch: 'The passwords do not match.',
-    failed: 'Élise could not create the environment. Check the connection and try again.',
-    preview: 'DEMO MODE · no data will be sent',
-    previewFinish: 'Finish preview',
-    creatingTitle: 'Creating your environment',
-    creatingIntro: 'Élise is preparing your private and secure space.',
-    creatingSteps: [
-      'Creating the home',
-      'Preparing the resident profile',
-      'Setting up routines',
-      'Finalizing the environment',
-    ],
-    readyTitle: 'Your environment is ready',
-    readyText: 'Everything is in place. Let’s discover Élise together.',
-    remoteActionFailed: 'This action is unavailable right now. You can retry in settings later.',
-  },
-} as const;
-
-const options = {
-  relation: [
-    ['Enfant', 'Child'],
-    ['Petit-enfant', 'Grandchild'],
-    ['Conjoint', 'Partner'],
-    ['Ami(e)', 'Friend'],
-    ['Professionnel', 'Professional'],
-    ['Autre', 'Other'],
-  ],
-} as const;
+// Texts of this screen, kept as one block in the catalogs (mobileSetup.copy).
+const copyText = () => i18nT('mobileSetup.copy', { returnObjects: true });
 
 function Choice({
   active,
@@ -285,7 +131,7 @@ export function MobileSetup({
   onCompleted: (token: string, displayName: string) => Promise<void>;
   onPreviewCompleted?: () => void;
 }) {
-  const t = copy[locale];
+  const t = copyText();
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Draft>(() => (previewMode ? previewDraft : initialDraft));
   const [error, setError] = useState('');
@@ -462,7 +308,8 @@ export function MobileSetup({
         lastName: draft.residentLastName.trim(),
         dailyName: draft.dailyName.trim(),
         birthDate: '',
-        language: locale === 'fr' ? 'Français' : 'English',
+        // The server stores the resident's language as one of these two values.
+        language: currentLanguage() === 'fr' ? 'Français' : 'English',
         addressAs: 'daily',
         customAddress: '',
       },
@@ -675,12 +522,12 @@ export function MobileSetup({
               />
               <Text style={styles.label}>{t.relation}</Text>
               <View style={styles.choiceGrid}>
-                {options.relation.map(([fr, en]) => (
+                {RELATIONS.map(({ value }) => (
                   <Choice
-                    key={fr}
-                    active={draft.relation === fr}
-                    label={locale === 'fr' ? fr : en}
-                    onPress={() => patch({ relation: fr })}
+                    key={value}
+                    active={draft.relation === value}
+                    label={relationLabel(value)}
+                    onPress={() => patch({ relation: value })}
                   />
                 ))}
               </View>
@@ -736,7 +583,7 @@ export function MobileSetup({
                 <Text style={styles.fieldLabel}>{t.firstName}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder={locale === 'fr' ? 'Ex. Élise' : 'e.g. Élise'}
+                  placeholder={i18nT('mobileSetup.eGElise')}
                   value={draft.residentFirstName}
                   onChangeText={(residentFirstName) =>
                     setDraft((current) => ({
@@ -752,14 +599,14 @@ export function MobileSetup({
                 <Text style={styles.fieldLabel}>{t.lastName}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder={locale === 'fr' ? 'Ex. Martin' : 'e.g. Martin'}
+                  placeholder={i18nT('mobileSetup.eGMartin')}
                   value={draft.residentLastName}
                   onChangeText={(residentLastName) => patch({ residentLastName })}
                 />
                 <Text style={styles.fieldLabel}>{t.dailyName}</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder={locale === 'fr' ? 'Ex. Lili' : 'e.g. Lily'}
+                  placeholder={i18nT('mobileSetup.eGLily')}
                   value={draft.dailyName}
                   onChangeText={(dailyName) => patch({ dailyName, dailyNameEdited: true })}
                 />
@@ -780,15 +627,7 @@ export function MobileSetup({
               </View>
               <View style={styles.fields}>
                 {Object.entries(draft.habits).map(([name, habit]) => {
-                  const displayName =
-                    locale === 'fr'
-                      ? name
-                      : ({
-                          Lever: 'Wake up',
-                          Coucher: 'Bedtime',
-                          Déjeuner: 'Lunch',
-                          Dîner: 'Dinner',
-                        }[name] ?? name);
+                  const displayName = habitLabel(name);
                   const iconName =
                     name === 'Lever'
                       ? 'sunny-outline'
@@ -849,9 +688,7 @@ export function MobileSetup({
               <View style={styles.routineNote}>
                 <Ionicons name="sparkles-outline" size={18} color={colors.green} />
                 <Text style={styles.routineNoteText}>
-                  <Text style={styles.routineNoteTitle}>
-                    {locale === 'fr' ? 'Rien n’est figé. ' : 'Nothing is fixed. '}
-                  </Text>
+                  <Text style={styles.routineNoteTitle}>{i18nT('mobileSetup.nothingIsFixed')}</Text>
                   {t.routineNote}
                 </Text>
               </View>

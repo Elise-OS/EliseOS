@@ -13,26 +13,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import eliseLogo from '../../assets/logo.png';
 import { fetchPreparation } from '../discovery/preparation';
-import type { DiscoveryInfo, PreparationStatus, PreparationStep } from '../discovery/types';
+import type { DiscoveryInfo, PreparationStatus } from '../discovery/types';
 import type { Locale } from './MobileSetup';
 import { colors } from '../theme';
+import { t } from '../i18n';
 
 const POLL_MS = 3000;
-
-const englishLabels: Record<PreparationStep['id'], string> = {
-  settings: 'Raspberry Pi settings',
-  network: 'Internet connection',
-  clock: 'Setting the clock',
-  verify: 'Checking the release',
-  download: 'Downloading components',
-  start: 'Starting Élise',
-};
 
 export function MobilePreparation({
   url,
   instanceName,
   initial,
-  locale,
   onBack,
   onReady,
 }: {
@@ -47,7 +38,6 @@ export function MobilePreparation({
   const [switching, setSwitching] = useState(false);
   const progress = useRef(new Animated.Value(initial?.percent ?? 0)).current;
   const spin = useRef(new Animated.Value(0)).current;
-  const tr = (fr: string, en: string) => (locale === 'fr' ? fr : en);
 
   useEffect(() => {
     let active = true;
@@ -97,10 +87,10 @@ export function MobilePreparation({
   const percent = Math.max(2, Math.min(100, Math.round(status?.percent ?? 0)));
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const message = switching
-    ? tr('Élise démarre, encore quelques secondes…', 'Élise is starting, a few more seconds…')
+    ? t('mobilePreparation.eliseIsStartingAFew')
     : status?.error
       ? status.message
-      : (status?.message ?? tr('Connexion à Élise…', 'Connecting to Élise…'));
+      : (status?.message ?? t('mobilePreparation.connectingToElise'));
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -115,14 +105,9 @@ export function MobilePreparation({
 
         <View style={styles.hero}>
           <Image source={eliseLogo} style={styles.logo} resizeMode="cover" />
-          <Text style={styles.eyebrow}>{tr('PREMIER DÉMARRAGE', 'FIRST START')}</Text>
-          <Text style={styles.title}>{tr('Élise se prépare', 'Élise is getting ready')}</Text>
-          <Text style={styles.text}>
-            {tr(
-              'Le boîtier installe ses composants. Gardez cet écran ouvert : la création du compte s’affichera toute seule.',
-              'The box is installing its components. Keep this screen open: account creation will appear on its own.',
-            )}
-          </Text>
+          <Text style={styles.eyebrow}>{t('mobilePreparation.firstStart')}</Text>
+          <Text style={styles.title}>{t('mobilePreparation.eliseIsGettingReady')}</Text>
+          <Text style={styles.text}>{t('mobilePreparation.theBoxIsInstallingIts')}</Text>
         </View>
 
         <View style={styles.card}>
@@ -180,7 +165,7 @@ export function MobilePreparation({
                     step.state === 'failed' && styles.stepLabelFailed,
                   ]}
                 >
-                  {locale === 'fr' ? step.label : englishLabels[step.id]}
+                  {t(`mobilePreparation.step.${step.id}`)}
                 </Text>
                 {step.detail ? <Text style={styles.stepDetail}>{step.detail}</Text> : null}
               </View>
@@ -191,10 +176,9 @@ export function MobilePreparation({
             <View style={styles.notice}>
               <Ionicons name="key-outline" size={18} color={colors.navy} />
               <Text style={styles.noticeText}>
-                {tr(
-                  `Le dépôt Élise est privé : renseignez le compte bot sur ${status.address ?? 'elise.local'} depuis un ordinateur.`,
-                  `The Élise repository is private: enter the bot account at ${status.address ?? 'elise.local'} from a computer.`,
-                )}
+                {t('mobilePreparation.theEliseRepositoryIsPrivate', {
+                  value: status.address ?? 'elise.local',
+                })}
               </Text>
             </View>
           )}

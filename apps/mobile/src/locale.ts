@@ -1,12 +1,7 @@
-export type AppLocale = 'fr' | 'en';
+import { currentLanguage, dateLocale, setLanguage, type Language } from './i18n';
 
-let current: AppLocale = 'fr';
-
-/** Kept in step with the language chosen on the welcome screen or in the settings. */
-export function setAppLocale(locale: AppLocale) {
-  current = locale;
-}
-
-export const appLocale = () => current;
-export const dateLocale = () => (current === 'fr' ? 'fr-FR' : 'en-GB');
-export const tr = (fr: string, en: string) => (current === 'fr' ? fr : en);
+// Former entry point of the app language, kept so existing imports keep working.
+export type AppLocale = Language;
+export const setAppLocale = setLanguage;
+export const appLocale = currentLanguage;
+export { dateLocale };

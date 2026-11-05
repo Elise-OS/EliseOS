@@ -56,7 +56,8 @@ import { subscribeNotificationNavigation } from '../notifications';
 import { relativeTime } from './formatters';
 import { isDemoServer } from '../demo/mock-api';
 import { colors } from '../theme';
-import { dateLocale, tr } from '../locale';
+import { dateLocale } from '../locale';
+import { currentLanguage, t, type Language } from '../i18n';
 
 type Tab = 'home' | 'activity' | 'alerts' | 'house' | 'journal' | 'screen' | 'people' | 'settings';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -64,34 +65,37 @@ type SafetyCategory = Extract<RoomSensorCategory, 'fall_detection' | 'smoke' | '
 type SafetyCoverage = { devices: SensorDevice[]; attentionCount: number };
 
 const tabs = (): Array<{ id: Tab; label: string; icon: IconName; active: IconName }> => [
-  { id: 'home', label: tr('Accueil', 'Home'), icon: 'home-outline', active: 'home' },
-  { id: 'house', label: tr('Logement', 'My home'), icon: 'home-outline', active: 'home' },
-  { id: 'journal', label: tr('Liaison', 'Notebook'), icon: 'book-outline', active: 'book' },
-  { id: 'screen', label: tr('Affichage TV', 'TV display'), icon: 'tv-outline', active: 'tv' },
+  { id: 'home', label: t('dashboardApp.home'), icon: 'home-outline', active: 'home' },
+  { id: 'house', label: t('dashboardApp.myHome'), icon: 'home-outline', active: 'home' },
+  { id: 'journal', label: t('dashboardApp.notebook'), icon: 'book-outline', active: 'book' },
+  { id: 'screen', label: t('dashboardApp.tvDisplay'), icon: 'tv-outline', active: 'tv' },
   {
     id: 'settings',
-    label: tr('Réglages', 'Settings'),
+    label: t('dashboardApp.settings'),
     icon: 'settings-outline',
     active: 'settings',
   },
 ];
 
-const capabilityMeta: Record<string, { label: [string, string]; icon: IconName }> = {
-  motion: { label: ['Mouvement', 'Motion'], icon: 'walk-outline' },
-  occupancy: { label: ['Présence', 'Presence'], icon: 'person-outline' },
-  person_presence: { label: ['Personne détectée', 'Person detected'], icon: 'eye-outline' },
-  contact: { label: ['Ouverture', 'Opening'], icon: 'enter-outline' },
-  button: { label: ['Bouton', 'Button'], icon: 'radio-button-on-outline' },
-  temperature: { label: ['Température', 'Temperature'], icon: 'thermometer-outline' },
-  humidity: { label: ['Humidité', 'Humidity'], icon: 'water-outline' },
-  power: { label: ['Puissance', 'Power'], icon: 'flash-outline' },
-  energy: { label: ['Énergie', 'Energy'], icon: 'battery-charging-outline' },
-  battery: { label: ['Batterie', 'Battery'], icon: 'battery-half-outline' },
+const capabilityMeta: Record<string, { label: () => string; icon: IconName }> = {
+  motion: { label: () => t('dashboardApp.capability.motion'), icon: 'walk-outline' },
+  occupancy: { label: () => t('dashboardApp.capability.occupancy'), icon: 'person-outline' },
+  person_presence: {
+    label: () => t('dashboardApp.capability.personPresence'),
+    icon: 'eye-outline',
+  },
+  contact: { label: () => t('dashboardApp.capability.contact'), icon: 'enter-outline' },
+  button: { label: () => t('dashboardApp.capability.button'), icon: 'radio-button-on-outline' },
+  temperature: {
+    label: () => t('dashboardApp.capability.temperature'),
+    icon: 'thermometer-outline',
+  },
+  humidity: { label: () => t('dashboardApp.capability.humidity'), icon: 'water-outline' },
+  power: { label: () => t('dashboardApp.capability.power'), icon: 'flash-outline' },
+  energy: { label: () => t('dashboardApp.capability.energy'), icon: 'battery-charging-outline' },
+  battery: { label: () => t('dashboardApp.capability.battery'), icon: 'battery-half-outline' },
 };
-const capabilityLabel = (capability: string) => {
-  const label = capabilityMeta[capability]?.label;
-  return label ? tr(...label) : capability;
-};
+const capabilityLabel = (capability: string) => capabilityMeta[capability]?.label() ?? capability;
 
 const fullDate = (value: string, timeZone = 'Europe/Paris') =>
   new Intl.DateTimeFormat(dateLocale(), {
@@ -122,28 +126,15 @@ const safetyCoverage = (
   };
 };
 
-const safetyCoverageCopy = (
-  coverage: SafetyCoverage | null,
-  locale: 'fr' | 'en',
-  loading: boolean,
-) => {
-  const fr = locale === 'fr';
-  if (loading) return fr ? 'Chargement des capteurs…' : 'Loading sensors…';
-  if (!coverage) return fr ? 'Données du logement indisponibles' : 'Home data unavailable';
+const safetyCoverageCopy = (coverage: SafetyCoverage | null, loading: boolean) => {
+  if (loading) return t('dashboardApp.loadingSensors');
+  if (!coverage) return t('dashboardApp.homeDataUnavailable');
   const { devices, attentionCount } = coverage;
-  if (!devices.length) return fr ? 'Aucun détecteur configuré' : 'No detector configured';
+  if (!devices.length) return t('dashboardApp.noDetectorConfigured');
   const onlineCount = devices.length - attentionCount;
-  if (!attentionCount)
-    return fr
-      ? `${devices.length} capteur${devices.length > 1 ? 's' : ''} · En ligne`
-      : `${devices.length} sensor${devices.length > 1 ? 's' : ''} · Online`;
-  if (!onlineCount)
-    return fr
-      ? `${devices.length} capteur${devices.length > 1 ? 's' : ''} · À vérifier`
-      : `${devices.length} sensor${devices.length > 1 ? 's' : ''} · Needs checking`;
-  return fr
-    ? `${onlineCount} en ligne · ${attentionCount} à vérifier`
-    : `${onlineCount} online · ${attentionCount} to check`;
+  if (!attentionCount) return t('dashboardApp.sensorsOnline', { count: devices.length });
+  if (!onlineCount) return t('dashboardApp.sensorsToCheck', { count: devices.length });
+  return t('dashboardApp.onlineToCheck', { onlineCount, attentionCount });
 };
 
 const safetyCoverageTone = (coverage: SafetyCoverage | null, loading: boolean) =>
@@ -157,85 +148,57 @@ const safetyCoverageTone = (coverage: SafetyCoverage | null, loading: boolean) =
           ? 'attention'
           : 'online';
 
-const alertTitleText = (item: AlertItem, fr: boolean) => {
-  const titles: Record<string, [string, string]> = {
-    WATER_LEAK: ['Fuite d’eau détectée', 'Water leak detected'],
-    SMOKE: ['Fumée détectée', 'Smoke detected'],
-    CARBON_MONOXIDE: ['Monoxyde de carbone détecté', 'Carbon monoxide detected'],
-    FALL_DETECTION: ['Alerte de chute', 'Possible fall detected'],
-    SOS: ['Bouton d’assistance activé', 'Assistance button pressed'],
+const alertTitleText = (item: AlertItem) => {
+  const titles: Record<string, () => string> = {
+    WATER_LEAK: () => t('dashboardApp.alertTitle.waterLeakDetected'),
+    SMOKE: () => t('dashboardApp.alertTitle.smokeDetected'),
+    CARBON_MONOXIDE: () => t('dashboardApp.alertTitle.carbonMonoxideDetected'),
+    FALL_DETECTION: () => t('dashboardApp.alertTitle.possibleFallDetected'),
+    SOS: () => t('dashboardApp.alertTitle.assistanceButtonPressed'),
   };
-  if (titles[item.type]) return titles[item.type][fr ? 0 : 1];
+  const title = titles[item.type];
+  if (title) return title();
   if (item.type === 'SENSOR_OFFLINE') {
     const sensorName = item.title.replace(/ ne répond plus$/i, '');
-    return fr ? item.title : `${sensorName} is offline`;
+    // The server writes this title in French; other languages rebuild it from the sensor name.
+    return currentLanguage() === 'fr'
+      ? item.title
+      : t('dashboardApp.sensorIsOffline', { sensorName });
   }
   return item.title;
 };
 
-const alertExplanationText = (item: AlertItem, fr: boolean) => {
-  const explanations: Record<string, [string, string]> = {
-    WATER_LEAK: [
-      'Le capteur a signalé la présence d’eau. Vérifiez la zone concernée et coupez l’eau si nécessaire.',
-      'The sensor reported water. Check the affected area and turn off the water if needed.',
-    ],
-    SMOKE: [
-      'Le détecteur de fumée s’est déclenché. Vérifiez rapidement la situation sans vous exposer au danger.',
-      'The smoke detector was triggered. Check promptly without putting yourself in danger.',
-    ],
-    CARBON_MONOXIDE: [
-      'Le détecteur a signalé du monoxyde de carbone. Vérifiez immédiatement la situation et suivez les consignes d’urgence.',
-      'The detector reported carbon monoxide. Check immediately and follow emergency guidance.',
-    ],
-    FALL_DETECTION: [
-      'Le détecteur signale une chute possible. Vérifiez rapidement que la personne va bien.',
-      'The detector reported a possible fall. Check promptly that the resident is all right.',
-    ],
-    SOS: [
-      'Le bouton d’assistance du domicile a été activé. Contactez rapidement la personne.',
-      'The home assistance button was pressed. Contact the resident promptly.',
-    ],
-    SENSOR_OFFLINE: [
-      'Élise ne reçoit plus de données de ce capteur. Vérifiez son alimentation et sa connexion ; les conclusions qui en dépendent sont suspendues.',
-      'Élise is no longer receiving data from this sensor. Check its power and connection; conclusions that depend on it are suspended.',
-    ],
+const alertExplanationText = (item: AlertItem) => {
+  const explanations: Record<string, () => string> = {
+    WATER_LEAK: () => t('dashboardApp.alertExplanation.waterLeak'),
+    SMOKE: () => t('dashboardApp.alertExplanation.smoke'),
+    CARBON_MONOXIDE: () => t('dashboardApp.alertExplanation.carbonMonoxide'),
+    FALL_DETECTION: () => t('dashboardApp.alertExplanation.possibleFall'),
+    SOS: () => t('dashboardApp.alertExplanation.assistanceButton'),
+    SENSOR_OFFLINE: () => t('dashboardApp.alertExplanation.sensorOffline'),
   };
-  return explanations[item.type]?.[fr ? 0 : 1] ?? item.explanation;
+  return explanations[item.type]?.() ?? item.explanation;
 };
 
-const sensorEventText = (payload: unknown, fr: boolean) => {
-  if (!payload || typeof payload !== 'object') return fr ? 'Événement du capteur' : 'Sensor event';
+const sensorEventText = (payload: unknown) => {
+  if (!payload || typeof payload !== 'object') return t('dashboardApp.sensorEvent');
   const value = payload as Record<string, unknown>;
-  if (value.fallStatus === 'fall_alarm') return fr ? 'Chute signalée' : 'Fall reported';
-  if (value.fallStatus === 'fall_warning')
-    return fr ? 'Chute possible signalée' : 'Possible fall reported';
-  if (value.fallStatus === 'normal')
-    return fr ? 'Détecteur revenu à l’état normal' : 'Detector returned to normal';
+  if (value.fallStatus === 'fall_alarm') return t('dashboardApp.fallReported');
+  if (value.fallStatus === 'fall_warning') return t('dashboardApp.possibleFallReported');
+  if (value.fallStatus === 'normal') return t('dashboardApp.detectorReturnedToNormal');
   if (typeof value.active === 'boolean')
-    return value.active
-      ? fr
-        ? 'Détection active'
-        : 'Detection active'
-      : fr
-        ? 'Retour à la normale'
-        : 'Returned to normal';
+    return value.active ? t('dashboardApp.detectionActive') : t('dashboardApp.returnedToNormal');
   if (typeof value.open === 'boolean')
-    return value.open
-      ? fr
-        ? tr('Ouverture détectée', 'Opening detected')
-        : 'Opening detected'
-      : fr
-        ? tr('Fermeture détectée', 'Closing detected')
-        : 'Closed';
-  return fr ? 'Événement du capteur' : 'Sensor event';
+    return value.open ? t('dashboardApp.openingDetected') : t('dashboardApp.closed');
+  return t('dashboardApp.sensorEvent');
 };
 
 interface DashboardAppProps {
   server: SavedServer;
   token: string;
   userName: string;
-  locale: 'fr' | 'en';
-  onLocaleChange: (locale: 'fr' | 'en') => void;
+  locale: Language;
+  onLocaleChange: (locale: Language) => void;
   onLogout: () => Promise<void>;
 }
 
@@ -344,10 +307,7 @@ export function DashboardApp({
 
   const startMobileCall = async () => {
     if (demoMode) {
-      Alert.alert(
-        tr('Appel simulé', 'Simulated call'),
-        tr('La démonstration ne lance aucun appel réel.', 'The demo does not start any real call.'),
-      );
+      Alert.alert(t('dashboardApp.simulatedCall'), t('dashboardApp.theDemoDoesNotStart'));
       return;
     }
     if (mobileCallStarting.current || mobileCallId) return;
@@ -355,8 +315,7 @@ export function DashboardApp({
     try {
       const snapshot = await mobileApi.screenCall(server, token);
       const call = snapshot.state.call;
-      if (!call)
-        throw new Error(tr('L’appel n’a pas pu être lancé.', 'The call could not be started.'));
+      if (!call) throw new Error(t('dashboardApp.theCallCouldNotBe'));
       mobileCallJoinRequested.current = null;
       setMobileCallJoin(null);
       setMobileCallJoinError('');
@@ -394,9 +353,7 @@ export function DashboardApp({
       .catch((cause) => {
         if (!disposed)
           setMobileCallJoinError(
-            cause instanceof Error
-              ? cause.message
-              : tr('Impossible de rejoindre la visioconférence.', 'Could not join the video call.'),
+            cause instanceof Error ? cause.message : t('dashboardApp.couldNotJoinTheVideo'),
           );
       });
     return () => {
@@ -422,12 +379,7 @@ export function DashboardApp({
     try {
       await mobileApi.screenEndCall(server, token, callId);
     } catch {
-      Alert.alert(
-        locale === 'fr' ? 'Appel terminé' : 'Call ended',
-        locale === 'fr'
-          ? 'La fermeture de l’appel sur l’écran du logement n’a pas pu être confirmée.'
-          : 'The home screen could not be notified that the call ended.',
-      );
+      Alert.alert(t('dashboardApp.callEnded'), t('dashboardApp.theHomeScreenCouldNot'));
     } finally {
       void queryClient.invalidateQueries({ queryKey: [...rootKey, 'screen'] });
     }
@@ -626,11 +578,8 @@ export function DashboardApp({
       return;
     }
 
-    const title = locale === 'fr' ? 'Se déconnecter ?' : 'Sign out?';
-    const message =
-      locale === 'fr'
-        ? 'Les données conservées hors ligne seront supprimées.'
-        : 'Offline data stored on this device will be deleted.';
+    const title = t('dashboardApp.signOut');
+    const message = t('dashboardApp.offlineDataStoredOnThis');
 
     if (Platform.OS === 'web') {
       if (typeof window !== 'undefined' && window.confirm(`${title}\n\n${message}`)) {
@@ -640,9 +589,9 @@ export function DashboardApp({
     }
 
     Alert.alert(title, message, [
-      { text: locale === 'fr' ? tr('Annuler', 'Cancel') : 'Cancel', style: 'cancel' },
+      { text: t('dashboardApp.cancel'), style: 'cancel' },
       {
-        text: locale === 'fr' ? 'Se déconnecter' : 'Sign out',
+        text: t('dashboardApp.signOut2'),
         style: 'destructive',
         onPress: confirmLogout,
       },
@@ -655,17 +604,15 @@ export function DashboardApp({
         <View style={styles.demoBanner}>
           <View style={styles.demoBannerLabel}>
             <Ionicons name="sparkles-outline" size={15} color={colors.blue} />
-            <Text style={styles.demoBannerText}>
-              {locale === 'fr' ? 'MODE DÉMO · DONNÉES FICTIVES' : 'DEMO MODE · SAMPLE DATA'}
-            </Text>
+            <Text style={styles.demoBannerText}>{t('dashboardApp.demoModeSampleData')}</Text>
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={locale === 'fr' ? 'Quitter la démonstration' : 'Exit demo'}
+            accessibilityLabel={t('dashboardApp.exitDemo')}
             onPress={logout}
             style={styles.demoExitButton}
           >
-            <Text style={styles.demoExitText}>{locale === 'fr' ? 'Quitter' : 'Exit'}</Text>
+            <Text style={styles.demoExitText}>{t('dashboardApp.exit')}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -673,7 +620,7 @@ export function DashboardApp({
         <View style={styles.appHeader}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={tr('Ouvrir les autres pages', 'Open the other pages')}
+            accessibilityLabel={t('dashboardApp.openTheOtherPages')}
             style={styles.headerMenuButton}
             onPress={() => setPagesOpen(true)}
           >
@@ -889,8 +836,8 @@ export function DashboardApp({
           <View style={styles.pagesSheet}>
             <View style={styles.pagesHeader}>
               <View>
-                <Text style={styles.eyebrow}>{tr('VOTRE FOYER', 'YOUR HOUSEHOLD')}</Text>
-                <Text style={styles.pagesTitle}>{tr('Toutes les pages', 'All pages')}</Text>
+                <Text style={styles.eyebrow}>{t('dashboardApp.yourHousehold')}</Text>
+                <Text style={styles.pagesTitle}>{t('dashboardApp.allPages')}</Text>
               </View>
               <Pressable style={styles.close} onPress={() => setPagesOpen(false)}>
                 <Ionicons name="close" size={22} color={colors.navy} />
@@ -898,9 +845,9 @@ export function DashboardApp({
             </View>
             {(
               [
-                ['activity', tr('Activité', 'Activity'), 'pulse-outline'],
-                ['alerts', tr('Alertes', 'Alerts'), 'notifications-outline'],
-                ['people', tr('Proches', 'People'), 'people-outline'],
+                ['activity', t('dashboardApp.activity'), 'pulse-outline'],
+                ['alerts', t('dashboardApp.alerts'), 'notifications-outline'],
+                ['people', t('dashboardApp.people'), 'people-outline'],
               ] as Array<[Tab, string, IconName]>
             ).map(([id, label, icon]) => (
               <Pressable
@@ -931,13 +878,7 @@ export function DashboardApp({
                 <Ionicons name="log-out-outline" size={20} color={colors.red} />
               </View>
               <Text style={[styles.pageMenuLabel, styles.pageMenuLabelDanger]}>
-                {demoMode
-                  ? locale === 'fr'
-                    ? 'Quitter la démonstration'
-                    : 'Exit demo'
-                  : locale === 'fr'
-                    ? 'Se déconnecter'
-                    : 'Sign out'}
+                {demoMode ? t('dashboardApp.exitDemo') : t('dashboardApp.signOut2')}
               </Text>
               <Ionicons name="chevron-forward" size={18} color={colors.muted} />
             </Pressable>
@@ -1058,7 +999,7 @@ function ActivityTab({
   const lastReliable = summary?.lastReliableActivity;
   const selectedDateLabel =
     selectedDate === todayKey
-      ? `${tr('Aujourd’hui', 'Today')} · ${dashboardDateLabel(selectedDate, timeZone)}`
+      ? `${t('dashboardApp.today')} · ${dashboardDateLabel(selectedDate, timeZone)}`
       : dashboardDateLabel(selectedDate, timeZone);
 
   useEffect(() => {
@@ -1068,31 +1009,23 @@ function ActivityTab({
 
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
-      <SectionTitle eyebrow={tr('ANALYSE', 'ANALYSIS')} title={tr('Activité', 'Activity')} />
+      <SectionTitle eyebrow={t('dashboardApp.analysis')} title={t('dashboardApp.activity')} />
       <View style={styles.activityReliableBanner}>
         <Ionicons name="checkmark-circle-outline" size={18} color={colors.green} />
         <Text style={styles.activityReliableText}>
           {lastReliable
-            ? tr(
-                `La dernière activité fiable a été observée dans ${lastReliable.roomName} à ${dashboardClock(lastReliable.occurredAt, timeZone)}.`,
-                `The latest reliable activity was observed in ${lastReliable.roomName} at ${dashboardClock(lastReliable.occurredAt, timeZone)}.`,
-              )
-            : tr(
-                'Aucune activité fiable ne permet encore de résumer cette période.',
-                'No reliable activity can summarise this period yet.',
-              )}
+            ? t('dashboardApp.theLatestReliableActivityWas', {
+                roomName: lastReliable.roomName,
+                dashboardClock: dashboardClock(lastReliable.occurredAt, timeZone),
+              })
+            : t('dashboardApp.noReliableActivityCanSummarise')}
         </Text>
       </View>
       <View style={styles.card}>
         <View style={styles.totalRow}>
           <View style={styles.rowCopy}>
-            <Text style={styles.metricLabel}>{tr('MOMENTS DU QUOTIDIEN', 'DAILY MOMENTS')}</Text>
-            <Text style={styles.trendText}>
-              {tr(
-                'Une vue d’ensemble des activités et déplacements de la journée.',
-                'An overview of the day’s activity and movement.',
-              )}
-            </Text>
+            <Text style={styles.metricLabel}>{t('dashboardApp.dailyMoments')}</Text>
+            <Text style={styles.trendText}>{t('dashboardApp.anOverviewOfTheDay')}</Text>
           </View>
           <Pressable
             style={styles.datePickerButton}
@@ -1117,7 +1050,7 @@ function ActivityTab({
               key={date}
               active={selectedDate === date}
               label={
-                date === todayKey ? tr('Aujourd’hui', 'Today') : dashboardShortDate(date, timeZone)
+                date === todayKey ? t('dashboardApp.today') : dashboardShortDate(date, timeZone)
               }
               onPress={() => {
                 setSelectedDate(date);
@@ -1136,16 +1069,14 @@ function ActivityTab({
           accessibilityState={{ checked: compare }}
         >
           <Ionicons name="git-compare-outline" size={16} color={colors.blue} />
-          <Text style={styles.link}>
-            {tr('Comparer avec une autre journée', 'Compare with another day')}
-          </Text>
+          <Text style={styles.link}>{t('dashboardApp.compareWithAnotherDay')}</Text>
           <View style={[styles.toggleTrack, compare && styles.toggleTrackActive]}>
             <View style={[styles.toggleKnob, compare && styles.toggleKnobActive]} />
           </View>
         </Pressable>
         {compare ? (
           <View style={styles.comparePanel}>
-            <Text style={styles.metricLabel}>{tr('COMPARER AVEC', 'COMPARE WITH')}</Text>
+            <Text style={styles.metricLabel}>{t('dashboardApp.compareWith')}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -1164,7 +1095,7 @@ function ActivityTab({
             </ScrollView>
             {compare && comparisonDate ? (
               compareSummary.isPending ? (
-                <Text style={styles.rowDetail}>{tr('Comparaison…', 'Comparing…')}</Text>
+                <Text style={styles.rowDetail}>{t('dashboardApp.comparing')}</Text>
               ) : comparison ? (
                 <View style={styles.comparisonStats}>
                   <ComparisonStat
@@ -1172,26 +1103,23 @@ function ActivityTab({
                       sequences.length - comparison.sequences.length,
                       'moments',
                     )}
-                    label={tr('moments détectés', 'moments detected')}
+                    label={t('dashboardApp.momentsDetected')}
                   />
                   <ComparisonStat
                     value={dashboardDelta(
                       durationMinutes - Math.round(comparison.observedSeconds / 60),
                       'min',
                     )}
-                    label={tr('d’activité', 'of activity')}
+                    label={t('dashboardApp.ofActivity')}
                   />
                   <ComparisonStat
-                    value={dashboardDelta(usedRooms - comparisonRooms, tr('pièces', 'rooms'))}
-                    label={tr('pièces utilisées', 'rooms used')}
+                    value={dashboardDelta(usedRooms - comparisonRooms, t('dashboardApp.rooms'))}
+                    label={t('dashboardApp.roomsUsed')}
                   />
                 </View>
               ) : (
                 <Text style={styles.rowDetail}>
-                  {tr(
-                    'Comparaison indisponible pour cette journée.',
-                    'Comparison unavailable for this day.',
-                  )}
+                  {t('dashboardApp.comparisonUnavailableForThisDay')}
                 </Text>
               )
             ) : null}
@@ -1201,48 +1129,46 @@ function ActivityTab({
           <MomentStat
             icon="footsteps-outline"
             value={String(sequences.length)}
-            label={tr('moments détectés', 'moments detected')}
+            label={t('dashboardApp.momentsDetected')}
             tone="blue"
           />
           <MomentStat
             icon="time-outline"
             value={dashboardDuration(summary?.observedSeconds ?? 0)}
-            label={tr('d’activité', 'of activity')}
+            label={t('dashboardApp.ofActivity')}
             tone="green"
           />
           <MomentStat
             icon="home-outline"
             value={String(usedRooms)}
-            label={tr('pièces utilisées', 'rooms used')}
+            label={t('dashboardApp.roomsUsed')}
             tone="amber"
           />
         </View>
       </View>
       <View style={styles.card}>
         <SectionTitle
-          eyebrow={tr('CHRONOLOGIE', 'TIMELINE')}
-          title={tr('Moments observés', 'Observed moments')}
+          eyebrow={t('dashboardApp.timeline')}
+          title={t('dashboardApp.observedMoments')}
         />
         {selectedDate === todayKey && homeSummary && liveAt ? (
           <View style={styles.liveMomentRow}>
             <View style={styles.liveTime}>
               <Text style={styles.liveTimeText}>{dashboardClock(liveAt, timeZone)}</Text>
-              <Text style={styles.rowDetail}>{tr('En ce moment', 'Right now')}</Text>
+              <Text style={styles.rowDetail}>{t('dashboardApp.rightNow')}</Text>
             </View>
             <View style={styles.timelineDotLive} />
             <View style={styles.liveCard}>
               <Ionicons name="footsteps-outline" size={18} color={colors.green} />
               <View style={styles.rowCopy}>
                 <Text style={styles.rowTitle}>{mobileActivityPresence(homeSummary)}</Text>
-                <Text style={styles.rowDetail}>
-                  {tr('Situation actuelle', 'Current situation')}
-                </Text>
+                <Text style={styles.rowDetail}>{t('dashboardApp.currentSituation')}</Text>
               </View>
             </View>
           </View>
         ) : null}
         {daySummary.isPending ? (
-          <Text style={styles.rowDetail}>{tr('Chargement des moments…', 'Loading moments…')}</Text>
+          <Text style={styles.rowDetail}>{t('dashboardApp.loadingMoments')}</Text>
         ) : null}
         {sequences.slice(0, visibleSequences).map((sequence) => (
           <View key={sequence.id} style={styles.sequenceBlock}>
@@ -1266,12 +1192,11 @@ function ActivityTab({
                 <View style={styles.rowCopy}>
                   <Text style={styles.rowTitle}>{dashboardSequenceSentence(sequence)}</Text>
                   <Text style={styles.rowDetail}>
-                    {sequence.totalEventCount} {tr('événements', 'events')} ·{' '}
+                    {sequence.totalEventCount} {t('dashboardApp.events')} ·{' '}
                     {sequence.durationSeconds
-                      ? tr(
-                          `activité pendant ${dashboardDuration(sequence.durationSeconds)}`,
-                          `activity for ${dashboardDuration(sequence.durationSeconds)}`,
-                        )
+                      ? t('dashboardApp.activityFor', {
+                          dashboardDuration: dashboardDuration(sequence.durationSeconds),
+                        })
                       : dashboardRelative(sequence.startedAt)}
                   </Text>
                 </View>
@@ -1286,10 +1211,9 @@ function ActivityTab({
               <View style={styles.sequenceEvents}>
                 {sequence.hiddenEventCount > 0 ? (
                   <Text style={styles.rowDetail}>
-                    {tr(
-                      `${sequence.hiddenEventCount} événements répétitifs ont été regroupés.`,
-                      `${sequence.hiddenEventCount} repeated events were grouped.`,
-                    )}
+                    {t('dashboardApp.repeatedEventsWereGrouped', {
+                      hiddenEventCount: sequence.hiddenEventCount,
+                    })}
                   </Text>
                 ) : null}
                 {sequence.events.map((event) => (
@@ -1311,8 +1235,7 @@ function ActivityTab({
                     <View style={styles.rowCopy}>
                       <Text style={styles.rowTitle}>{mobileEventDescription(event)}</Text>
                       <Text style={styles.rowDetail}>
-                        {event.roomName} ·{' '}
-                        {event.sensorName ?? tr('Capteur du logement', 'Home sensor')}
+                        {event.roomName} · {event.sensorName ?? t('dashboardApp.homeSensor')}
                       </Text>
                     </View>
                     <Text
@@ -1322,8 +1245,8 @@ function ActivityTab({
                       ]}
                     >
                       {event.quality === 'good'
-                        ? tr('Fiable', 'Reliable')
-                        : tr('À confirmer', 'To confirm')}
+                        ? t('dashboardApp.reliable')
+                        : t('dashboardApp.toConfirm')}
                     </Text>
                   </Pressable>
                 ))}
@@ -1332,34 +1255,21 @@ function ActivityTab({
           </View>
         ))}
         {!daySummary.isPending && !sequences.length && !(selectedDate === todayKey && liveAt) ? (
-          <Empty
-            icon="pulse-outline"
-            text={tr(
-              'Aucun moment fiable ne correspond à cette journée.',
-              'No reliable moment matches this day.',
-            )}
-          />
+          <Empty icon="pulse-outline" text={t('dashboardApp.noReliableMomentMatchesThis')} />
         ) : null}
         {visibleSequences < sequences.length ? (
           <Pressable
             style={styles.loadMore}
             onPress={() => setVisibleSequences((value) => value + 8)}
           >
-            <Text style={styles.link}>
-              {tr('Afficher les moments précédents', 'Show earlier moments')}
-            </Text>
+            <Text style={styles.link}>{t('dashboardApp.showEarlierMoments')}</Text>
           </Pressable>
         ) : null}
         {summary?.hasMoreSequences && visibleSequences >= sequences.length ? (
           <View style={styles.olderNote}>
-            <Text style={styles.rowDetail}>
-              {tr(
-                'Les événements plus anciens restent disponibles dans le journal local.',
-                'Older events remain available in the local log.',
-              )}
-            </Text>
+            <Text style={styles.rowDetail}>{t('dashboardApp.olderEventsRemainAvailableIn')}</Text>
             <Pressable onPress={onOpenJournal}>
-              <Text style={styles.link}>{tr('Ouvrir le journal', 'Open the log')}</Text>
+              <Text style={styles.link}>{t('dashboardApp.openTheLog')}</Text>
             </Pressable>
           </View>
         ) : null}
@@ -1413,34 +1323,32 @@ function dashboardDuration(seconds: number) {
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
-  return tr(
-    `${hours} h${remainder ? ` ${remainder} min` : ''}`,
-    `${hours} hr${remainder ? ` ${remainder} min` : ''}`,
-  );
+  return remainder
+    ? t('common.durationHoursMinutes', { hours, minutes: remainder })
+    : t('common.durationHours', { hours });
 }
 function dashboardDelta(value: number, unit: string) {
   return value === 0
-    ? tr('Identique', 'Same')
+    ? t('dashboardApp.same')
     : `${value > 0 ? '+' : '−'}${Math.abs(value)} ${unit}`;
 }
 function dashboardSequenceSentence(sequence: ActivitySequence) {
   const passage = sequence.passages[0];
   if (passage)
-    return tr(
-      `Passage entre ${passage.fromLevelName} et ${passage.toLevelName}.`,
-      `Movement between ${passage.fromLevelName} and ${passage.toLevelName}.`,
-    );
+    return t('dashboardApp.movementBetweenAnd', {
+      fromLevelName: passage.fromLevelName,
+      toLevelName: passage.toLevelName,
+    });
   if (sequence.roomNames.length > 1) {
-    const first = sequence.roomNames[0] ?? tr('le logement', 'the home');
+    const first = sequence.roomNames[0] ?? t('dashboardApp.theHome');
     const last = sequence.roomNames.at(-1) ?? first;
     return first === last
-      ? tr(`Déplacement avec retour dans « ${first} ».`, `Round trip back to “${first}”.`)
-      : tr(`Passage de ${first} à ${last}.`, `Movement from ${first} to ${last}.`);
+      ? t('dashboardApp.roundTripBackTo', { first })
+      : t('dashboardApp.movementFromTo', { first, last });
   }
-  return tr(
-    `Activité observée dans ${sequence.roomNames[0] ?? tr('le logement', 'the home')}.`,
-    `Activity observed in ${sequence.roomNames[0] ?? 'the home'}.`,
-  );
+  return t('dashboardApp.activityObservedIn', {
+    room: sequence.roomNames[0] ?? t('dashboardApp.theHome'),
+  });
 }
 function dashboardPayload(event: ActivityEvent) {
   return event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload)
@@ -1463,20 +1371,20 @@ function mobileEventDescription(event: ActivityEvent) {
       raw === true || raw === 'open' || raw === 'contact_open' || raw === 'on' || raw === 1;
     if (context.role === 'BED')
       return open === (context.bedOccupiedWhen === 'OPEN' || event.capability === 'occupancy')
-        ? tr('Lit occupé', 'Bed occupied')
-        : tr('Lit libre', 'Bed empty');
+        ? t('dashboardApp.bedOccupied')
+        : t('dashboardApp.bedEmpty');
     return open
       ? event.capability === 'dry_contact'
-        ? tr('Contact ouvert', 'Contact open')
-        : tr('Ouverture détectée', 'Opening detected')
+        ? t('dashboardApp.contactOpen')
+        : t('dashboardApp.openingDetected')
       : event.capability === 'dry_contact'
-        ? tr('Contact fermé', 'Contact closed')
-        : tr('Fermeture détectée', 'Closing detected');
+        ? t('dashboardApp.contactClosed')
+        : t('dashboardApp.closingDetected');
   }
-  if (event.capability === 'motion') return tr('Mouvement détecté', 'Movement detected');
+  if (event.capability === 'motion') return t('dashboardApp.movementDetected');
   if (event.capability === 'occupancy' || event.capability === 'person_presence')
-    return tr('Présence détectée', 'Presence detected');
-  if (event.capability === 'button') return tr('Bouton d’appel activé', 'Call button pressed');
+    return t('dashboardApp.presenceDetected');
+  if (event.capability === 'button') return t('dashboardApp.callButtonPressed');
   const value =
     typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean'
       ? String(raw)
@@ -1490,7 +1398,7 @@ function mobileActivityPresence(data: HomeSummary) {
     data.latestPresence?.roomId ?? data.presence.confirmedRoomId ?? data.presence.roomId;
   const room = data.rooms.find(({ id }) => id === roomId);
   return room
-    ? tr(`Présence observée dans ${room.name}.`, `Presence observed in ${room.name}.`)
+    ? t('dashboardApp.presenceObservedIn', { name: room.name })
     : caregiverPresenceCopy(data.presence).detail;
 }
 function ComparisonStat({ value, label }: { value: string; label: string }) {
@@ -1543,7 +1451,6 @@ function SafetySensorCard({
   eyebrow,
   title,
   coverage,
-  locale,
   loading,
 }: {
   icon: IconName;
@@ -1552,7 +1459,7 @@ function SafetySensorCard({
   eyebrow: string;
   title: string;
   coverage: SafetyCoverage | null;
-  locale: 'fr' | 'en';
+  locale: Language;
   loading: boolean;
 }) {
   const tone = safetyCoverageTone(coverage, loading);
@@ -1575,7 +1482,7 @@ function SafetySensorCard({
                   : null,
             ]}
           >
-            {safetyCoverageCopy(coverage, locale, loading)}
+            {safetyCoverageCopy(coverage, loading)}
           </Text>
         </View>
       </View>
@@ -1604,7 +1511,7 @@ function AlertsTab({
 }: {
   server: SavedServer;
   token: string;
-  locale: 'fr' | 'en';
+  locale: Language;
   items: AlertItem[];
   refreshing: boolean;
   onRefresh: () => void;
@@ -1620,7 +1527,6 @@ function AlertsTab({
   onCall: () => Promise<void>;
   onSettings: () => void;
 }) {
-  const fr = locale === 'fr';
   const client = useQueryClient();
   const [filter, setFilter] = useState<'ALL' | 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED'>('ALL');
   const [showHistory, setShowHistory] = useState(false);
@@ -1699,20 +1605,14 @@ function AlertsTab({
     if (!selected) return;
     if (!canManage) return;
     Alert.alert(
-      tr('Confirmer cette action ?', 'Confirm this action?'),
+      t('dashboardApp.confirmThisAction'),
       status === 'ACKNOWLEDGED'
-        ? tr(
-            'L’alerte restera visible comme prise en charge.',
-            'The alert will stay visible as acknowledged.',
-          )
-        : tr(
-            'L’alerte quittera la liste des alertes ouvertes.',
-            'The alert will leave the list of open alerts.',
-          ),
+        ? t('dashboardApp.theAlertWillStayVisible')
+        : t('dashboardApp.theAlertWillLeaveThe'),
       [
-        { text: tr('Annuler', 'Cancel'), style: 'cancel' },
+        { text: t('dashboardApp.cancel'), style: 'cancel' },
         {
-          text: tr('Confirmer', 'Confirm'),
+          text: t('dashboardApp.confirm'),
           onPress: () => mutation.mutate({ id: selected.id, status, note }),
         },
       ],
@@ -1745,7 +1645,7 @@ function AlertsTab({
         {
           id: 'opened',
           at: selected.openedAt,
-          label: tr('Situation détectée', 'Situation detected'),
+          label: t('dashboardApp.situationDetected'),
         },
         ...(actualDetail?.transitions ?? []).map((entry) => ({
           id: entry.id,
@@ -1759,8 +1659,8 @@ function AlertsTab({
             at: entry.occurredAt,
             label:
               measured !== null
-                ? `${tr('Mesure :', 'Reading:')} ${measured} ${actualDetail?.sensor?.unit ?? ''}`
-                : sensorEventText(entry.payload, fr),
+                ? `${t('dashboardApp.reading')} ${measured} ${actualDetail?.sensor?.unit ?? ''}`
+                : sensorEventText(entry.payload),
           };
         }),
       ].sort((left, right) => Date.parse(left.at) - Date.parse(right.at))
@@ -1768,24 +1668,24 @@ function AlertsTab({
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
       <SectionTitle
-        eyebrow={tr('ALERTES DU DOMICILE', 'HOME ALERTS')}
-        title={tr('Alertes', 'Alerts')}
+        eyebrow={t('dashboardApp.homeAlerts')}
+        title={t('dashboardApp.alerts')}
         action={
           <Pressable onPress={onSettings}>
-            <Text style={styles.link}>{tr('Règles des alertes', 'Alert rules')}</Text>
+            <Text style={styles.link}>{t('dashboardApp.alertRules')}</Text>
           </Pressable>
         }
       />
       <View
         style={styles.alertSafetyCards}
-        accessibilityLabel={fr ? 'Capteurs de sécurité du logement' : 'Home safety sensors'}
+        accessibilityLabel={t('dashboardApp.homeSafetySensors')}
       >
         <SafetySensorCard
           icon="shield-outline"
           iconColor="#7252AC"
           iconBackground="#F2EDFB"
-          eyebrow={fr ? 'Protection de la personne' : 'Personal safety'}
-          title={fr ? 'Détection des chutes' : 'Fall detection'}
+          eyebrow={t('dashboardApp.personalSafety')}
+          title={t('dashboardApp.fallDetection')}
           coverage={fallCoverage}
           locale={locale}
           loading={safetyLoading}
@@ -1794,8 +1694,8 @@ function AlertsTab({
           icon="flame-outline"
           iconColor="#B45B54"
           iconBackground="#FCF0ED"
-          eyebrow={fr ? 'Sécurité du logement' : 'Home safety'}
-          title={fr ? 'Détection de la fumée' : 'Smoke detection'}
+          eyebrow={t('dashboardApp.homeSafety')}
+          title={t('dashboardApp.smokeDetection')}
           coverage={smokeCoverage}
           locale={locale}
           loading={safetyLoading}
@@ -1804,8 +1704,8 @@ function AlertsTab({
           icon="water-outline"
           iconColor="#307BA7"
           iconBackground="#E9F5FC"
-          eyebrow={fr ? 'Sécurité du logement' : 'Home safety'}
-          title={fr ? 'Détection des fuites d’eau' : 'Water leak detection'}
+          eyebrow={t('dashboardApp.homeSafety')}
+          title={t('dashboardApp.waterLeakDetection')}
           coverage={waterCoverage}
           locale={locale}
           loading={safetyLoading}
@@ -1825,33 +1725,24 @@ function AlertsTab({
         <View style={styles.rowCopy}>
           <Text style={styles.rowTitle}>
             {urgentCount.isError
-              ? tr('État des urgences indisponible', 'Urgent status unavailable')
+              ? t('dashboardApp.urgentStatusUnavailable')
               : urgentCount.data?.urgentCount
-                ? tr(
-                    `${urgentCount.data.urgentCount} alerte${urgentCount.data.urgentCount === 1 ? '' : 's'} urgente${urgentCount.data.urgentCount === 1 ? '' : 's'} en cours`,
-                    `${urgentCount.data.urgentCount} urgent alert${urgentCount.data.urgentCount === 1 ? '' : 's'} ongoing`,
-                  )
-                : tr('Aucune alerte urgente en cours', 'No urgent alerts right now')}
+                ? t('dashboardApp.urgentAlertsOngoing', { count: urgentCount.data.urgentCount })
+                : t('dashboardApp.noUrgentAlertsRightNow')}
           </Text>
           <Text style={styles.rowDetail}>
             {showHistory
-              ? tr(
-                  `${visible.length} situation${visible.length > 1 ? 's' : ''} affichée${visible.length > 1 ? 's' : ''} dans l’historique.`,
-                  `${visible.length} situation${visible.length > 1 ? 's' : ''} shown in the history.`,
-                )
-              : tr(
-                  `${visible.length} situation${visible.length > 1 ? 's' : ''} récente${visible.length > 1 ? 's' : ''} ou en cours affichée${visible.length > 1 ? 's' : ''}. Les situations terminées plus anciennes restent dans l’historique.`,
-                  `${visible.length} recent or ongoing situation${visible.length > 1 ? 's' : ''} shown. Older finished situations stay in the history.`,
-                )}
+              ? t('dashboardApp.situationsInHistory', { count: visible.length })
+              : t('dashboardApp.recentSituationsShown', { count: visible.length })}
           </Text>
         </View>
       </View>
       <Segment
         options={[
-          ['ALL', showHistory ? (fr ? 'Toutes' : 'All') : fr ? 'Actuelles' : 'Current'],
-          ['OPEN', fr ? 'Ouvertes' : 'Open'],
-          ['ACKNOWLEDGED', fr ? 'Prises en charge' : 'Acknowledged'],
-          ['RESOLVED', fr ? 'Résolues' : 'Resolved'],
+          ['ALL', showHistory ? t('dashboardApp.all') : t('dashboardApp.current')],
+          ['OPEN', t('dashboardApp.open')],
+          ['ACKNOWLEDGED', t('dashboardApp.acknowledged')],
+          ['RESOLVED', t('dashboardApp.resolved')],
         ]}
         value={filter}
         onChange={(value) => setFilter(value as typeof filter)}
@@ -1864,13 +1755,7 @@ function AlertsTab({
       >
         <Ionicons name="filter-outline" size={17} color={colors.blue} />
         <Text style={styles.filterToggleText}>
-          {filtersOpen
-            ? fr
-              ? 'Masquer les filtres'
-              : 'Hide filters'
-            : fr
-              ? 'Filtrer les alertes'
-              : 'Filter alerts'}
+          {filtersOpen ? t('dashboardApp.hideFilters') : t('dashboardApp.filterAlerts')}
         </Text>
         {extraFilterCount > 0 ? (
           <View style={styles.filterCountBadge}>
@@ -1887,11 +1772,9 @@ function AlertsTab({
         <View style={styles.alertFilterPanel}>
           <View style={styles.alertFilterPanelHeading}>
             <View>
-              <Text style={styles.alertFilterPanelTitle}>
-                {fr ? 'Affiner les alertes' : 'Refine alerts'}
-              </Text>
+              <Text style={styles.alertFilterPanelTitle}>{t('dashboardApp.refineAlerts')}</Text>
               <Text style={styles.alertFilterPanelDetail}>
-                {filtered.length} {fr ? 'résultat' : 'result'}
+                {filtered.length} {t('dashboardApp.result')}
                 {filtered.length > 1 ? 's' : ''}
               </Text>
             </View>
@@ -1904,16 +1787,16 @@ function AlertsTab({
                 }}
                 style={styles.alertFilterReset}
               >
-                <Text style={styles.alertFilterResetText}>{fr ? 'Réinitialiser' : 'Reset'}</Text>
+                <Text style={styles.alertFilterResetText}>{t('dashboardApp.reset')}</Text>
               </Pressable>
             ) : null}
           </View>
           <View
             accessibilityRole="radiogroup"
-            accessibilityLabel={fr ? 'Priorité' : 'Priority'}
+            accessibilityLabel={t('dashboardApp.priority')}
             style={styles.alertFilterGroup}
           >
-            <Text style={styles.alertFilterLabel}>{fr ? 'PRIORITÉ' : 'PRIORITY'}</Text>
+            <Text style={styles.alertFilterLabel}>{t('dashboardApp.priority2')}</Text>
             <View style={styles.alertFilterOptions}>
               {(['ALL', 'INFO', 'ATTENTION', 'URGENT'] as const).map((value) => (
                 <Pressable
@@ -1933,18 +1816,12 @@ function AlertsTab({
                     ]}
                   >
                     {value === 'ALL'
-                      ? fr
-                        ? 'Toutes'
-                        : 'All'
+                      ? t('dashboardApp.all')
                       : value === 'INFO'
                         ? 'Information'
                         : value === 'ATTENTION'
-                          ? fr
-                            ? 'À vérifier'
-                            : 'Needs attention'
-                          : fr
-                            ? 'Urgence'
-                            : 'Urgent'}
+                          ? t('dashboardApp.needsAttention')
+                          : t('dashboardApp.urgent')}
                   </Text>
                 </Pressable>
               ))}
@@ -1952,10 +1829,10 @@ function AlertsTab({
           </View>
           <View
             accessibilityRole="radiogroup"
-            accessibilityLabel={fr ? 'Pièce' : 'Room'}
+            accessibilityLabel={t('dashboardApp.room')}
             style={styles.alertFilterGroup}
           >
-            <Text style={styles.alertFilterLabel}>{fr ? 'PIÈCE' : 'ROOM'}</Text>
+            <Text style={styles.alertFilterLabel}>{t('dashboardApp.room2')}</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -1973,7 +1850,7 @@ function AlertsTab({
                     room === 'ALL' && styles.alertFilterPillTextActive,
                   ]}
                 >
-                  {fr ? 'Toutes les pièces' : 'All rooms'}
+                  {t('dashboardApp.allRooms')}
                 </Text>
               </Pressable>
               {rooms.map((value) => (
@@ -2028,18 +1905,18 @@ function AlertsTab({
               <View style={styles.alertMeta}>
                 <Text style={styles.statusText}>
                   {item.status === 'ACKNOWLEDGED'
-                    ? tr('PRISE EN CHARGE', 'ACKNOWLEDGED')
+                    ? t('dashboardApp.acknowledged2')
                     : item.status === 'OPEN'
-                      ? tr('OUVERTE', 'OPEN')
+                      ? t('dashboardApp.open2')
                       : item.status === 'RESOLVED'
-                        ? tr('RÉSOLUE', 'RESOLVED')
-                        : tr('IGNORÉE', 'DISMISSED')}
+                        ? t('dashboardApp.resolved2')
+                        : t('dashboardApp.dismissed')}
                 </Text>
                 <Text style={styles.rowTime}>{relativeTime(item.openedAt)}</Text>
               </View>
-              <Text style={styles.alertTitle}>{alertTitleText(item, fr)}</Text>
+              <Text style={styles.alertTitle}>{alertTitleText(item)}</Text>
               <Text numberOfLines={2} style={styles.alertExplanation}>
-                {alertExplanationText(item, fr)}
+                {alertExplanationText(item)}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.muted} />
@@ -2050,24 +1927,14 @@ function AlertsTab({
             icon="checkmark-circle-outline"
             text={
               loadingMore && !visible.length
-                ? fr
-                  ? showHistory
-                    ? 'Chargement des situations plus anciennes…'
-                    : 'Chargement des situations…'
-                  : showHistory
-                    ? 'Loading older situations…'
-                    : 'Loading situations…'
+                ? showHistory
+                  ? t('dashboardApp.loadingOlderSituations')
+                  : t('dashboardApp.loadingSituations')
                 : olderCount > 0 && !showHistory
-                  ? fr
-                    ? 'Aucune alerte récente ou en cours. Des situations terminées plus anciennes sont dans l’historique.'
-                    : 'No recent or ongoing alerts. Older completed situations are in the history.'
+                  ? t('dashboardApp.noRecentOrOngoingAlerts')
                   : filter !== 'RESOLVED'
-                    ? fr
-                      ? 'Aucune alerte ne demande votre attention.'
-                      : 'No alerts need your attention.'
-                    : fr
-                      ? 'Aucune alerte dans l’historique.'
-                      : 'No alerts in the history.'
+                    ? t('dashboardApp.noAlertsNeedYourAttention')
+                    : t('dashboardApp.noAlertsInTheHistory')
             }
           />
         ) : null}
@@ -2077,9 +1944,7 @@ function AlertsTab({
             onPress={() => setDisplayedCount((count) => count + 8)}
             style={styles.alertPaginationButton}
           >
-            <Text style={styles.alertPaginationText}>
-              {fr ? 'Afficher 8 situations de plus' : 'Show 8 more situations'}
-            </Text>
+            <Text style={styles.alertPaginationText}>{t('dashboardApp.show8MoreSituations')}</Text>
             <Ionicons name="chevron-down" size={16} color={colors.blue} />
           </Pressable>
         ) : null}
@@ -2094,13 +1959,7 @@ function AlertsTab({
             style={styles.alertPaginationButton}
           >
             <Text style={styles.alertPaginationText}>
-              {loadingMore
-                ? fr
-                  ? 'Chargement…'
-                  : 'Loading…'
-                : fr
-                  ? 'Charger d’autres situations'
-                  : 'Load more situations'}
+              {loadingMore ? t('dashboardApp.loading') : t('dashboardApp.loadMoreSituations')}
             </Text>
             <Ionicons name="chevron-down" size={16} color={colors.blue} />
           </Pressable>
@@ -2111,9 +1970,7 @@ function AlertsTab({
             onPress={() => setShowHistory(true)}
             style={[styles.alertPaginationButton, styles.alertHistoryButton]}
           >
-            <Text style={styles.alertPaginationText}>
-              {fr ? 'Voir les situations plus anciennes' : 'View older situations'}
-            </Text>
+            <Text style={styles.alertPaginationText}>{t('dashboardApp.viewOlderSituations')}</Text>
             {olderCount > 0 ? (
               <View style={styles.filterCountBadge}>
                 <Text style={styles.filterCountText}>{olderCount}</Text>
@@ -2133,13 +1990,7 @@ function AlertsTab({
             style={styles.alertPaginationButton}
           >
             <Text style={styles.alertPaginationText}>
-              {loadingMore
-                ? fr
-                  ? 'Chargement…'
-                  : 'Loading…'
-                : fr
-                  ? 'Charger d’autres situations'
-                  : 'Load more situations'}
+              {loadingMore ? t('dashboardApp.loading') : t('dashboardApp.loadMoreSituations')}
             </Text>
             <Ionicons name="chevron-down" size={16} color={colors.blue} />
           </Pressable>
@@ -2150,9 +2001,7 @@ function AlertsTab({
             onPress={() => setShowHistory(false)}
             style={styles.alertHistoryButton}
           >
-            <Text style={styles.alertHistoryText}>
-              {fr ? 'Revenir aux situations actuelles' : 'Back to current situations'}
-            </Text>
+            <Text style={styles.alertHistoryText}>{t('dashboardApp.backToCurrentSituations')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -2167,7 +2016,7 @@ function AlertsTab({
             <Pressable style={styles.close} onPress={closeDetail}>
               <Ionicons name="close" size={22} color={colors.navy} />
             </Pressable>
-            <Text style={styles.modalLabel}>{tr('DÉTAIL DE L’ALERTE', 'ALERT DETAILS')}</Text>
+            <Text style={styles.modalLabel}>{t('dashboardApp.alertDetails')}</Text>
             <View style={styles.close} />
           </View>
           {selected ? (
@@ -2180,36 +2029,32 @@ function AlertsTab({
               >
                 <Ionicons name="notifications" color="#fff" size={30} />
               </View>
-              <Text style={styles.modalTitle}>{alertTitleText(selected, fr)}</Text>
+              <Text style={styles.modalTitle}>{alertTitleText(selected)}</Text>
               <Text style={styles.modalDate}>{fullDate(selected.openedAt, timezone)}</Text>
               <View style={styles.explanationCard}>
-                <Text style={styles.explanationTitle}>
-                  {tr('Ce qui a été observé', 'What was observed')}
-                </Text>
-                <Text style={styles.explanationText}>{alertExplanationText(selected, fr)}</Text>
+                <Text style={styles.explanationTitle}>{t('dashboardApp.whatWasObserved')}</Text>
+                <Text style={styles.explanationText}>{alertExplanationText(selected)}</Text>
                 {selected.room?.name ? (
                   <Text style={styles.rowDetail}>
-                    {tr('Pièce :', 'Room:')} {selected.room.name}
+                    {t('dashboardApp.room3')} {selected.room.name}
                   </Text>
                 ) : null}
                 {selected.type === 'INACTIVITY' && selected.lastMovement ? (
                   <Text style={styles.rowDetail}>
-                    {tr('Dernier mouvement fiable :', 'Last reliable movement:')}{' '}
+                    {t('dashboardApp.lastReliableMovement')}{' '}
                     {fullDate(selected.lastMovement.occurredAt, timezone)}
                     {selected.lastMovement.roomName ? ` · ${selected.lastMovement.roomName}` : ''}
                   </Text>
                 ) : null}
               </View>
               {detail.isPending ? (
-                <Text style={styles.rowDetail}>
-                  {tr('Chargement des observations…', 'Loading observations…')}
-                </Text>
+                <Text style={styles.rowDetail}>{t('dashboardApp.loadingObservations')}</Text>
               ) : null}
               {actualDetail?.sensor ? (
                 <View style={styles.alertMeasure}>
                   <Ionicons name="thermometer-outline" size={18} color={colors.blue} />
                   <Text style={styles.rowDetail}>
-                    {tr('Capteur :', 'Sensor:')}{' '}
+                    {t('dashboardApp.sensor')}{' '}
                     {actualDetail.sensor.sourceName ?? actualDetail.sensor.capability}
                     {numberValue !== null
                       ? ` · ${numberValue}${actualDetail.sensor.unit ? ` ${actualDetail.sensor.unit}` : ''}`
@@ -2230,10 +2075,7 @@ function AlertsTab({
                         }}
                       />
                       <Text style={styles.mobileAlertSnapshotNote}>
-                        {tr(
-                          'Image locale · suppression automatique après 24 h',
-                          'Local image · deleted automatically after 24 hours',
-                        )}
+                        {t('dashboardApp.localImageDeletedAutomaticallyAfter')}
                       </Text>
                     </>
                   ) : (
@@ -2243,7 +2085,7 @@ function AlertsTab({
                     >
                       <Ionicons name="image-outline" size={18} color={colors.green} />
                       <Text style={styles.mobileSnapshotButtonText}>
-                        {tr('Afficher la capture de la pièce', 'Show the room snapshot')}
+                        {t('dashboardApp.showTheRoomSnapshot')}
                       </Text>
                     </Pressable>
                   )}
@@ -2251,7 +2093,7 @@ function AlertsTab({
               ) : null}
               {actualDetail?.transitions?.length || observations.length ? (
                 <View style={styles.timeline}>
-                  <Text style={styles.eyebrow}>{tr('CHRONOLOGIE', 'TIMELINE')}</Text>
+                  <Text style={styles.eyebrow}>{t('dashboardApp.timeline')}</Text>
                   {timelineEntries.map((entry) => (
                     <View key={entry.id} style={styles.timelineRow}>
                       <View style={styles.timelineDot} />
@@ -2266,28 +2108,24 @@ function AlertsTab({
                 <View style={styles.alertActions}>
                   {canManage && selected.status === 'OPEN' ? (
                     <Pressable style={styles.primaryButton} onPress={() => act('ACKNOWLEDGED')}>
-                      <Text style={styles.primaryButtonText}>
-                        {tr('Prendre en charge', 'Acknowledge')}
-                      </Text>
+                      <Text style={styles.primaryButtonText}>{t('dashboardApp.acknowledge')}</Text>
                     </Pressable>
                   ) : null}
                   <Pressable style={styles.secondaryButton} onPress={() => setCallOpen(true)}>
                     <Text style={styles.secondaryButtonText}>
-                      {tr(`Appeler ${residentName}`, `Call ${residentName}`)}
+                      {t('dashboardApp.call', { residentName })}
                     </Text>
                   </Pressable>
                   {canManage ? (
                     <Pressable style={styles.secondaryButton} onPress={() => act('RESOLVED')}>
                       <Text style={styles.secondaryButtonText}>
-                        {tr('Marquer comme résolue', 'Mark as resolved')}
+                        {t('dashboardApp.markAsResolved')}
                       </Text>
                     </Pressable>
                   ) : null}
                   {canManage ? (
                     <Pressable onPress={() => setDismissOpen(true)}>
-                      <Text style={styles.dismissText}>
-                        {tr('Signaler une fausse alerte', 'Report a false alarm')}
-                      </Text>
+                      <Text style={styles.dismissText}>{t('dashboardApp.reportAFalseAlarm')}</Text>
                     </Pressable>
                   ) : null}
                 </View>
@@ -2295,19 +2133,19 @@ function AlertsTab({
               {dismissOpen ? (
                 <View style={styles.dismissPanel}>
                   <Text style={styles.explanationTitle}>
-                    {tr('Pourquoi cette alerte est-elle fausse ?', 'Why is this alert false?')}
+                    {t('dashboardApp.whyIsThisAlertFalse')}
                   </Text>
                   <TextInput
                     value={dismissReason}
                     onChangeText={setDismissReason}
                     multiline
                     maxLength={1000}
-                    placeholder={tr('Décrivez ce qui s’est passé…', 'Describe what happened…')}
+                    placeholder={t('dashboardApp.describeWhatHappened')}
                     style={styles.dismissInput}
                   />
                   <View style={styles.dismissButtons}>
                     <Pressable style={styles.secondaryButton} onPress={() => setDismissOpen(false)}>
-                      <Text style={styles.secondaryButtonText}>{tr('Annuler', 'Cancel')}</Text>
+                      <Text style={styles.secondaryButtonText}>{t('dashboardApp.cancel')}</Text>
                     </Pressable>
                     <Pressable
                       disabled={!dismissReason.trim() || mutation.isPending}
@@ -2317,7 +2155,7 @@ function AlertsTab({
                       ]}
                       onPress={() => act('DISMISSED', dismissReason.trim())}
                     >
-                      <Text style={styles.primaryButtonText}>{tr('Confirmer', 'Confirm')}</Text>
+                      <Text style={styles.primaryButtonText}>{t('dashboardApp.confirm')}</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -2334,18 +2172,11 @@ function AlertsTab({
       >
         <View style={styles.confirmBackdrop}>
           <View style={styles.confirmCard}>
-            <Text style={styles.modalTitle}>
-              {tr(`Appeler ${residentName} ?`, `Call ${residentName}?`)}
-            </Text>
-            <Text style={styles.rowDetail}>
-              {tr(
-                'L’écran du logement répondra automatiquement et la vidéo s’ouvrira sur ce téléphone.',
-                'The home screen will answer automatically and the video will open on this phone.',
-              )}
-            </Text>
+            <Text style={styles.modalTitle}>{t('dashboardApp.call2', { residentName })}</Text>
+            <Text style={styles.rowDetail}>{t('dashboardApp.theHomeScreenWillAnswer')}</Text>
             <View style={styles.dismissButtons}>
               <Pressable style={styles.secondaryButton} onPress={() => setCallOpen(false)}>
-                <Text style={styles.secondaryButtonText}>{tr('Annuler', 'Cancel')}</Text>
+                <Text style={styles.secondaryButtonText}>{t('dashboardApp.cancel')}</Text>
               </Pressable>
               <Pressable
                 style={styles.primaryButton}
@@ -2353,17 +2184,13 @@ function AlertsTab({
                   setCallOpen(false);
                   void onCall().catch(() =>
                     Alert.alert(
-                      fr ? 'Appel indisponible' : 'Call unavailable',
-                      fr
-                        ? 'L’appel ne peut pas être lancé pour le moment.'
-                        : 'The call cannot be started right now.',
+                      t('dashboardApp.callUnavailable'),
+                      t('dashboardApp.theCallCannotBeStarted'),
                     ),
                   );
                 }}
               >
-                <Text style={styles.primaryButtonText}>
-                  {tr('Lancer l’appel', 'Start the call')}
-                </Text>
+                <Text style={styles.primaryButtonText}>{t('dashboardApp.startTheCall')}</Text>
               </Pressable>
             </View>
           </View>
@@ -2383,12 +2210,12 @@ function numberFromPayload(payload: unknown): number | null {
 }
 function alertStatusLabel(status: AlertItem['status']) {
   return status === 'ACKNOWLEDGED'
-    ? tr('Prise en charge', 'Acknowledged')
+    ? t('dashboardApp.acknowledged3')
     : status === 'RESOLVED'
-      ? tr('Résolue', 'Resolved')
+      ? t('dashboardApp.resolved3')
       : status === 'DISMISSED'
-        ? tr('Écartée', 'Dismissed')
-        : tr('Ouverte', 'Open');
+        ? t('dashboardApp.dismissed2')
+        : t('dashboardApp.open3');
 }
 
 function mobileSensorDeviceHealth(device: SensorDevice): 'ONLINE' | 'DEGRADED' | 'OFFLINE' {
@@ -2421,7 +2248,7 @@ function HouseTab({
   homePlanLoading: boolean;
   homePlanError: boolean;
   protocols: Array<{ id: string; available: boolean; native: boolean }>;
-  locale: 'fr' | 'en';
+  locale: Language;
   refreshing: boolean;
   onRefresh: () => void;
 }) {
@@ -2437,10 +2264,7 @@ function HouseTab({
   return (
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
       {!roomDetailOpen && (
-        <SectionTitle
-          eyebrow={tr('FOYER', 'HOUSEHOLD')}
-          title={locale === 'fr' ? 'Le logement' : 'The home'}
-        />
+        <SectionTitle eyebrow={t('dashboardApp.household')} title={t('dashboardApp.theHome2')} />
       )}
       <MobileHomePlanPanel
         plan={homePlan}
@@ -2456,36 +2280,36 @@ function HouseTab({
       {!roomDetailOpen && (
         <View style={styles.card}>
           <SectionTitle
-            eyebrow={tr('ÉTAT DU DOMICILE', 'HOME STATUS')}
-            title={tr('Équipement du logement', 'Home equipment')}
+            eyebrow={t('dashboardApp.homeStatus')}
+            title={t('dashboardApp.homeEquipment')}
           />
           <EquipmentStateRow
-            label={tr('En ligne', 'Online')}
+            label={t('dashboardApp.online')}
             value={sensorCounts?.ONLINE ?? '—'}
             color={colors.green}
           />
           <EquipmentStateRow
-            label={tr('Dégradés', 'Degraded')}
+            label={t('dashboardApp.degraded')}
             value={sensorCounts?.DEGRADED ?? '—'}
             color={colors.amber}
           />
           <EquipmentStateRow
-            label={tr('Hors ligne', 'Offline')}
+            label={t('dashboardApp.offline')}
             value={sensorCounts?.OFFLINE ?? '—'}
             color={colors.red}
           />
           <EquipmentStateRow
-            label={tr('Caméras disponibles', 'Cameras available')}
+            label={t('dashboardApp.camerasAvailable')}
             value={onlineCameras}
             color={colors.blue}
           />
           <View style={styles.protocolRow}>
             <Ionicons name="radio-outline" size={18} color={colors.accent} />
-            <Text style={styles.rowTitle}>{tr('Réseau Zigbee', 'Zigbee network')}</Text>
+            <Text style={styles.rowTitle}>{t('dashboardApp.zigbeeNetwork')}</Text>
             <Text style={styles.protocolState}>
               {protocols.find(({ id }) => id === 'zigbee')?.available
-                ? tr('Disponible', 'Available')
-                : tr('À configurer', 'To set up')}
+                ? t('dashboardApp.available')
+                : t('dashboardApp.toSetUp')}
             </Text>
           </View>
         </View>
@@ -2535,12 +2359,12 @@ function journalKindMeta(kind: string): {
   tone: 'blue' | 'green' | 'amber';
 } {
   if (kind === 'DAILY_SUMMARY') {
-    return { label: tr('Bilan du jour', 'Daily summary'), icon: 'sparkles-outline', tone: 'blue' };
+    return { label: t('dashboardApp.dailySummary'), icon: 'sparkles-outline', tone: 'blue' };
   }
   if (kind === 'NOTE') {
-    return { label: tr('Note familiale', 'Family note'), icon: 'create-outline', tone: 'green' };
+    return { label: t('dashboardApp.familyNote'), icon: 'create-outline', tone: 'green' };
   }
-  return { label: tr('Événement', 'Event'), icon: 'time-outline', tone: 'amber' };
+  return { label: t('dashboardApp.event'), icon: 'time-outline', tone: 'amber' };
 }
 
 function JournalTab({
@@ -2597,8 +2421,8 @@ function JournalTab({
   const today = journalDayKey(now, timezone);
   const dateHeading = (date: Date) => {
     const key = journalDayKey(date, timezone);
-    if (key === today) return tr('Aujourd’hui', 'Today');
-    if (key === shiftJournalDayKey(today, -1)) return tr('Hier', 'Yesterday');
+    if (key === today) return t('dashboardApp.today');
+    if (key === shiftJournalDayKey(today, -1)) return t('dashboardApp.yesterday');
     return new Intl.DateTimeFormat(dateLocale(), {
       weekday: 'long',
       day: 'numeric',
@@ -2617,18 +2441,16 @@ function JournalTab({
     <Screen refreshing={refreshing} onRefresh={onRefresh}>
       <View style={styles.journalHero}>
         <View style={styles.journalHeroCopy}>
-          <Text style={styles.journalHeroTitle}>{tr('Journal du foyer', 'Household log')}</Text>
+          <Text style={styles.journalHeroTitle}>{t('dashboardApp.householdLog')}</Text>
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={tr('Retour au carnet de liaison', 'Back to the notebook')}
+          accessibilityLabel={t('dashboardApp.backToTheNotebook')}
           style={styles.journalBack}
           onPress={onBack}
         >
           <Ionicons name="chevron-back" size={16} color={colors.blue} />
-          <Text style={styles.journalBackText}>
-            {tr('Retour au carnet', 'Back to the notebook')}
-          </Text>
+          <Text style={styles.journalBackText}>{t('dashboardApp.backToTheNotebook2')}</Text>
         </Pressable>
       </View>
 
@@ -2637,20 +2459,15 @@ function JournalTab({
           <View style={styles.journalFeedCopy}>
             <View style={styles.journalSectionTitleRow}>
               <View style={styles.journalDot} />
-              <Text style={styles.journalSectionTitle}>
-                {tr('Mémoire du foyer', 'Household memory')}
-              </Text>
+              <Text style={styles.journalSectionTitle}>{t('dashboardApp.householdMemory')}</Text>
             </View>
             <Text style={styles.journalSectionDescription}>
-              {tr(
-                'Les événements et notes qui méritent d’être retrouvés.',
-                'Events and notes worth finding again.',
-              )}
+              {t('dashboardApp.eventsAndNotesWorthFinding')}
             </Text>
           </View>
           <Text style={styles.journalCount}>
             {recentItems.length}{' '}
-            {recentItems.length === 1 ? tr('événement', 'event') : tr('événements', 'events')}
+            {recentItems.length === 1 ? t('dashboardApp.event2') : t('dashboardApp.events')}
           </Text>
         </View>
 
@@ -2662,16 +2479,14 @@ function JournalTab({
                   <Text style={styles.journalDayTitle}>{dateHeading(group.date)}</Text>
                   <Text style={styles.journalDayCount}>
                     {group.items.length}{' '}
-                    {group.items.length === 1
-                      ? tr('événement', 'event')
-                      : tr('événements', 'events')}
+                    {group.items.length === 1 ? t('dashboardApp.event2') : t('dashboardApp.events')}
                   </Text>
                 </View>
                 <View style={styles.journalDayItems}>
                   {group.items.map((item) => {
                     const meta = journalKindMeta(item.kind);
                     const title = item.id.startsWith('liaison-summary:')
-                      ? tr('Résumé du carnet de liaison', 'Notebook summary')
+                      ? t('dashboardApp.notebookSummary')
                       : item.title;
                     return (
                       <View key={item.id} style={styles.journalEntry}>
@@ -2727,20 +2542,13 @@ function JournalTab({
             <View style={styles.journalEmptyIcon}>
               <Ionicons name="book-outline" size={27} color={colors.blue} />
             </View>
-            <Text style={styles.journalEmptyTitle}>
-              {tr('Le journal commence ici', 'The log starts here')}
-            </Text>
+            <Text style={styles.journalEmptyTitle}>{t('dashboardApp.theLogStartsHere')}</Text>
             <Text style={styles.journalEmptyText}>
-              {tr(
-                'Les bilans du quotidien et les notes partagées par les aidants apparaîtront ici.',
-                'Daily summaries and notes shared by caregivers will appear here.',
-              )}
+              {t('dashboardApp.dailySummariesAndNotesShared')}
             </Text>
             <Pressable style={styles.journalEmptyAction} onPress={onBack}>
               <Ionicons name="create-outline" size={17} color={colors.blue} />
-              <Text style={styles.journalEmptyActionText}>
-                {tr('Écrire une première note', 'Write a first note')}
-              </Text>
+              <Text style={styles.journalEmptyActionText}>{t('dashboardApp.writeAFirstNote')}</Text>
             </Pressable>
           </View>
         )}
@@ -2793,7 +2601,7 @@ function Empty({ icon, text }: { icon: IconName; text: string }) {
 function LoadMore({ onPress }: { onPress: () => void }) {
   return (
     <Pressable style={styles.loadMore} onPress={onPress}>
-      <Text style={styles.link}>{tr('Afficher plus', 'Show more')}</Text>
+      <Text style={styles.link}>{t('dashboardApp.showMore')}</Text>
       <Ionicons name="chevron-down" size={16} color={colors.blue} />
     </Pressable>
   );

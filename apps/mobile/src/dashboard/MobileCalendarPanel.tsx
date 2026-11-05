@@ -16,8 +16,9 @@ import {
 import { calendarCreateSchema, type CalendarRecurrence } from '@elise/contracts';
 import { mobileApi } from '../api';
 import type { SavedServer } from '../discovery/types';
-import { dateLocale, tr } from '../locale';
+import { dateLocale } from '../locale';
 import { MobileDateTimePicker } from '../MobileDateTimePicker';
+import { t } from '../i18n';
 
 type PickerTarget = 'start' | 'end';
 type PickerMode = 'date' | 'time';
@@ -89,11 +90,7 @@ export function MobileCalendarPanel({
       setError('');
     } else {
       setEndsAt(next);
-      setError(
-        next <= startsAt
-          ? tr('La fin doit être après le début.', 'The end must be after the start.')
-          : '',
-      );
+      setError(next <= startsAt ? t('mobileCalendarPanel.theEndMustBeAfter') : '');
     }
   };
   const openPicker = (target: PickerTarget, mode: PickerMode) => {
@@ -162,10 +159,7 @@ export function MobileCalendarPanel({
       await client.invalidateQueries({ queryKey });
       await client.invalidateQueries({ queryKey: ['elise', server.id, 'schedule'] });
     },
-    onError: () =>
-      setError(
-        tr('Vérifiez le rendez-vous et ses horaires.', 'Check the appointment and its times.'),
-      ),
+    onError: () => setError(t('mobileCalendarPanel.checkTheAppointmentAndIts')),
   });
   const remove = useMutation({
     mutationFn: (id: string) => mobileApi.deleteCalendar(server, token, id),
@@ -204,23 +198,27 @@ export function MobileCalendarPanel({
           <Ionicons name="arrow-back" size={24} color="#12385F" />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={s.eyebrow}>{tr('CARNET DE LIAISON', 'NOTEBOOK')}</Text>
+          <Text style={s.eyebrow}>{t('mobileCalendarPanel.notebook')}</Text>
           <Text accessibilityRole="header" style={s.title}>
-            {tr('Calendrier partagé', 'Shared calendar')}
+            {t('mobileCalendarPanel.sharedCalendar')}
           </Text>
         </View>
         {calendar.data?.canWrite && (
           <Pressable style={s.add} onPress={toggleForm}>
             <Ionicons name="add" size={20} color="#fff" />
-            <Text style={s.addText}>{tr('Ajouter', 'Add')}</Text>
+            <Text style={s.addText}>{t('mobileCalendarPanel.add')}</Text>
           </Pressable>
         )}
       </View>
       {formOpen && calendar.data?.canWrite && (
         <View style={s.form}>
-          <Field label={tr('Rendez-vous', 'Appointment')} value={title} onChangeText={setTitle} />
+          <Field
+            label={t('mobileCalendarPanel.appointment')}
+            value={title}
+            onChangeText={setTitle}
+          />
           <View style={s.dateTimeGroup}>
-            <Text style={s.label}>{tr('Début', 'Start')}</Text>
+            <Text style={s.label}>{t('mobileCalendarPanel.start')}</Text>
             <View style={s.dateTimeRow}>
               <PickerButton
                 label="Date"
@@ -229,7 +227,7 @@ export function MobileCalendarPanel({
                 onPress={() => openPicker('start', 'date')}
               />
               <PickerButton
-                label={tr('Heure', 'Time')}
+                label={t('mobileCalendarPanel.time')}
                 value={formatPickerTime(startsAt)}
                 icon="time-outline"
                 onPress={() => openPicker('start', 'time')}
@@ -238,16 +236,16 @@ export function MobileCalendarPanel({
           </View>
           <View style={s.dateTimeGroup}>
             <View style={s.endHeading}>
-              <Text style={s.label}>{tr('Fin (facultatif)', 'End (optional)')}</Text>
+              <Text style={s.label}>{t('mobileCalendarPanel.endOptional')}</Text>
               {endsAt && (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={tr('Supprimer l’heure de fin', 'Remove the end time')}
+                  accessibilityLabel={t('mobileCalendarPanel.removeTheEndTime')}
                   onPress={() => setEndsAt(null)}
                   style={s.clearEnd}
                 >
                   <Ionicons name="close-circle-outline" size={18} color="#516981" />
-                  <Text style={s.clearEndText}>{tr('Retirer', 'Remove')}</Text>
+                  <Text style={s.clearEndText}>{t('mobileCalendarPanel.remove')}</Text>
                 </Pressable>
               )}
             </View>
@@ -260,7 +258,7 @@ export function MobileCalendarPanel({
                   onPress={() => openPicker('end', 'date')}
                 />
                 <PickerButton
-                  label={tr('Heure', 'Time')}
+                  label={t('mobileCalendarPanel.time')}
                   value={formatPickerTime(endsAt)}
                   icon="time-outline"
                   onPress={() => openPicker('end', 'time')}
@@ -273,30 +271,28 @@ export function MobileCalendarPanel({
                 style={s.addEnd}
               >
                 <Ionicons name="add-circle-outline" size={19} color="#315A82" />
-                <Text style={s.addEndText}>
-                  {tr('Ajouter une heure de fin', 'Add an end time')}
-                </Text>
+                <Text style={s.addEndText}>{t('mobileCalendarPanel.addAnEndTime')}</Text>
               </Pressable>
             )}
           </View>
           <View style={s.choices}>
             <Choice
-              label={tr('Aucune répétition', 'No repeat')}
+              label={t('mobileCalendarPanel.noRepeat')}
               active={recurrence === 'NONE'}
               onPress={() => setRecurrence('NONE')}
             />
             <Choice
-              label={tr('Chaque jour', 'Every day')}
+              label={t('mobileCalendarPanel.everyDay')}
               active={recurrence === 'DAILY'}
               onPress={() => setRecurrence('DAILY')}
             />
             <Choice
-              label={tr('Chaque semaine', 'Every week')}
+              label={t('mobileCalendarPanel.everyWeek')}
               active={recurrence === 'WEEKLY'}
               onPress={() => setRecurrence('WEEKLY')}
             />
             <Choice
-              label={tr('Chaque mois', 'Every month')}
+              label={t('mobileCalendarPanel.everyMonth')}
               active={recurrence === 'MONTHLY'}
               onPress={() => setRecurrence('MONTHLY')}
             />
@@ -305,8 +301,8 @@ export function MobileCalendarPanel({
             <Field
               label={
                 recurrence === 'DAILY'
-                  ? tr('Pendant (jours)', 'For (days)')
-                  : tr('Nombre de répétitions', 'Number of repeats')
+                  ? t('mobileCalendarPanel.forDays')
+                  : t('mobileCalendarPanel.numberOfRepeats')
               }
               value={recurrenceCount}
               onChangeText={setRecurrenceCount}
@@ -319,7 +315,7 @@ export function MobileCalendarPanel({
             onPress={() => create.mutate()}
             disabled={create.isPending}
           >
-            <Text style={s.saveText}>{create.isPending ? '…' : tr('Enregistrer', 'Save')}</Text>
+            <Text style={s.saveText}>{create.isPending ? '…' : t('mobileCalendarPanel.save')}</Text>
           </Pressable>
         </View>
       )}
@@ -332,22 +328,22 @@ export function MobileCalendarPanel({
         <View style={s.pickerOverlay}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={tr('Fermer le sélecteur', 'Close the picker')}
+            accessibilityLabel={t('mobileCalendarPanel.closeThePicker')}
             onPress={() => setActivePicker(null)}
             style={StyleSheet.absoluteFill}
           />
           <View style={s.pickerSheet}>
             <View style={s.pickerHeader}>
               <Pressable onPress={() => setActivePicker(null)} style={s.pickerHeaderButton}>
-                <Text style={s.pickerCancel}>{tr('Annuler', 'Cancel')}</Text>
+                <Text style={s.pickerCancel}>{t('mobileCalendarPanel.cancel')}</Text>
               </Pressable>
               <Text style={s.pickerTitle}>
                 {activePicker?.mode === 'date'
-                  ? tr('Choisir la date', 'Choose the date')
-                  : tr('Choisir l’heure', 'Choose the time')}
+                  ? t('mobileCalendarPanel.chooseTheDate')
+                  : t('mobileCalendarPanel.chooseTheTime')}
               </Text>
               <Pressable onPress={confirmPicker} style={s.pickerHeaderButton}>
-                <Text style={s.pickerConfirm}>{tr('Valider', 'Confirm')}</Text>
+                <Text style={s.pickerConfirm}>{t('mobileCalendarPanel.confirm')}</Text>
               </Pressable>
             </View>
             {activePicker && (
@@ -355,7 +351,7 @@ export function MobileCalendarPanel({
                 value={pickerDraft}
                 mode={activePicker.mode}
                 is24Hour
-                locale="fr-FR"
+                locale={dateLocale()}
                 themeVariant="light"
                 minuteInterval={5}
                 minimumDate={
@@ -372,16 +368,12 @@ export function MobileCalendarPanel({
           </View>
         </View>
       </Modal>
-      {calendar.isPending && <Text style={s.muted}>{tr('Chargement…', 'Loading…')}</Text>}
+      {calendar.isPending && <Text style={s.muted}>{t('mobileCalendarPanel.loading')}</Text>}
       {!events.length && !calendar.isPending && (
         <View style={s.empty}>
           <Ionicons name="calendar-outline" size={42} color="#8ab1c8" />
-          <Text style={s.emptyTitle}>
-            {tr('Aucun rendez-vous prévu', 'No appointments planned')}
-          </Text>
-          <Text style={s.muted}>
-            {tr('Ajoutez un rendez-vous pour la maison.', 'Add an appointment for the home.')}
-          </Text>
+          <Text style={s.emptyTitle}>{t('mobileCalendarPanel.noAppointmentsPlanned')}</Text>
+          <Text style={s.muted}>{t('mobileCalendarPanel.addAnAppointmentForThe')}</Text>
         </View>
       )}
       {events.map((event) => (

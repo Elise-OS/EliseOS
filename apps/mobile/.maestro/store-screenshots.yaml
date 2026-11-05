@@ -13,8 +13,10 @@ appId: org.michel.mobile
     when:
       true: ${STORE_LANG == 'en'}
     commands:
+      # The app opens in the phone's language; switch only if it did not.
       - extendedWaitUntil:
-          visible: 'English'
+          visible:
+            id: 'language-menu'
           timeout: 30000
       # Retried because a tap while the app is still starting can be lost.
       - repeat:
@@ -22,6 +24,8 @@ appId: org.michel.mobile
             notVisible: 'Explore the demo'
           times: 4
           commands:
+            - tapOn:
+                id: 'language-menu'
             - tapOn: 'English'
             - waitForAnimationToEnd
 - runScript:
@@ -36,6 +40,7 @@ appId: org.michel.mobile
     commands:
       - takeScreenshot: ${OUT}/01-${output.labels.welcomeFile}
 # A tap during the welcome animation can be lost (seen on iPad): retry while the button stays.
+# Each page change below is retried the same way until a text of the target page shows.
 - repeat:
     while:
       visible: ${output.labels.demo}
@@ -49,9 +54,39 @@ appId: org.michel.mobile
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/${output.labels.n.dashboard}-${output.labels.dashboardFile}
 - tapOn: ${output.labels.alerts}
+- extendedWaitUntil:
+    visible: ${output.labels.alertsPage}
+    timeout: 5000
+    optional: true
+- repeat:
+    while:
+      notVisible: ${output.labels.alertsPage}
+    times: 3
+    commands:
+      - tapOn: ${output.labels.alerts}
+      - extendedWaitUntil:
+          visible: ${output.labels.alertsPage}
+          timeout: 5000
+          optional: true
+- assertVisible: ${output.labels.alertsPage}
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/${output.labels.n.alerts}-${output.labels.alertsFile}
 - tapOn: ${output.labels.house}
+- extendedWaitUntil:
+    visible: ${output.labels.housePage}
+    timeout: 5000
+    optional: true
+- repeat:
+    while:
+      notVisible: ${output.labels.housePage}
+    times: 3
+    commands:
+      - tapOn: ${output.labels.house}
+      - extendedWaitUntil:
+          visible: ${output.labels.housePage}
+          timeout: 5000
+          optional: true
+- assertVisible: ${output.labels.housePage}
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/${output.labels.n.house}-${output.labels.houseFile}
 - runFlow:
@@ -59,11 +94,56 @@ appId: org.michel.mobile
       true: ${DEVICE == 'iphone'}
     commands:
       - tapOn: ${output.labels.room}
+      - extendedWaitUntil:
+          visible: ${output.labels.roomPage}
+          timeout: 5000
+          optional: true
+      - repeat:
+          while:
+            notVisible: ${output.labels.roomPage}
+          times: 3
+          commands:
+            - tapOn: ${output.labels.room}
+            - extendedWaitUntil:
+                visible: ${output.labels.roomPage}
+                timeout: 5000
+                optional: true
+      - assertVisible: ${output.labels.roomPage}
       - waitForAnimationToEnd
       - takeScreenshot: ${OUT}/05-${output.labels.roomFile}
 - tapOn: ${output.labels.journal}
+- extendedWaitUntil:
+    visible: ${output.labels.journalPage}
+    timeout: 5000
+    optional: true
+- repeat:
+    while:
+      notVisible: ${output.labels.journalPage}
+    times: 3
+    commands:
+      - tapOn: ${output.labels.journal}
+      - extendedWaitUntil:
+          visible: ${output.labels.journalPage}
+          timeout: 5000
+          optional: true
+- assertVisible: ${output.labels.journalPage}
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/${output.labels.n.journal}-${output.labels.journalFile}
 - tapOn: ${output.labels.screen}
+- extendedWaitUntil:
+    visible: ${output.labels.screenPage}
+    timeout: 5000
+    optional: true
+- repeat:
+    while:
+      notVisible: ${output.labels.screenPage}
+    times: 3
+    commands:
+      - tapOn: ${output.labels.screen}
+      - extendedWaitUntil:
+          visible: ${output.labels.screenPage}
+          timeout: 5000
+          optional: true
+- assertVisible: ${output.labels.screenPage}
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/${output.labels.n.screen}-${output.labels.screenFile}

@@ -13,10 +13,10 @@ import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } 
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { mobileApi, type ActivityItem, type Overview } from '../api';
 import type { SavedServer } from '../discovery/types';
-import { tr } from '../locale';
 import { caregiverPresenceCopy } from './presence-copy';
 import { friendlyValue, relativeTime, roomOf } from './formatters';
 import { dateKeyInZone, shiftDate } from './homeDates';
+import { dateLocale, type Language, t } from '../i18n';
 
 const c = {
   navy: '#0B2948',
@@ -54,94 +54,72 @@ const sensorToneColors: Record<SensorTone, string> = {
   wakeup: '#D88A45',
 };
 
-function roomLabel(room: Pick<HomeSummary['rooms'][number], 'kind' | 'name'>, locale: 'fr' | 'en') {
-  if (locale !== 'fr') {
-    const english: Record<string, string> = {
-      LIVING_ROOM: 'the living room',
-      KITCHEN: 'the kitchen',
-      BEDROOM: 'the bedroom',
-      BATHROOM: 'the bathroom',
-      TOILET: 'the toilet',
-      ENTRANCE: 'the entrance',
-      HALLWAY: 'the hallway',
-      DINING_ROOM: 'the dining room',
-      GARAGE: 'the garage',
-      GARDEN: 'the garden',
-      TERRACE: 'the terrace',
-    };
-    return english[room.kind] ?? room.name;
-  }
-  const labels: Record<string, string> = {
-    LIVING_ROOM: 'le salon',
-    KITCHEN: 'la cuisine',
-    BEDROOM: 'la chambre',
-    BATHROOM: 'la salle de bain',
-    TOILET: 'les toilettes',
-    ENTRANCE: 'l’entrée',
-    HALLWAY: 'le couloir',
-    DINING_ROOM: 'la salle à manger',
-    GARAGE: 'le garage',
-    GARDEN: 'le jardin',
-    TERRACE: 'la terrasse',
-  };
-  return labels[room.kind] ?? `la pièce « ${room.name} »`;
+// Room names with their article, as they read inside a sentence ("is in the kitchen").
+const ROOM_KINDS_WITH_ARTICLE = [
+  'LIVING_ROOM',
+  'KITCHEN',
+  'BEDROOM',
+  'BATHROOM',
+  'TOILET',
+  'ENTRANCE',
+  'HALLWAY',
+  'DINING_ROOM',
+  'GARAGE',
+  'GARDEN',
+  'TERRACE',
+] as const;
+
+function roomLabel(room: Pick<HomeSummary['rooms'][number], 'kind' | 'name'>) {
+  const kind = ROOM_KINDS_WITH_ARTICLE.find((candidate) => candidate === room.kind);
+  return kind
+    ? t(`mobileWelcomePanel.roomWithArticle.${kind}`)
+    : t('mobileWelcomePanel.roomWithArticle.named', { name: room.name });
 }
 
-function mobilePresenceText(data: HomeSummary, locale: 'fr' | 'en') {
-  const fr = locale === 'fr';
-  const resident = data.residentName || (fr ? 'Le résident' : 'The resident');
+function mobilePresenceText(data: HomeSummary) {
+  const resident = data.residentName || t('mobileWelcomePanel.theResident');
   if (
     data.entrance?.state === 'EXIT_LIKELY' &&
     data.presence.trackingState !== 'AMBIGUOUS' &&
     !data.presence.trackingDegraded
   )
-    return fr
-      ? 'Une sortie du logement semble avoir été repérée à la porte d’entrée.'
-      : 'A departure from the home seems to have been noticed at the front door.';
+    return t('mobileWelcomePanel.aDepartureFromTheHome');
   const latest = data.latestPresence
     ? data.rooms.find(({ id }) => id === data.latestPresence?.roomId)
     : null;
-  if (latest)
-    return fr
-      ? `${resident} est dans ${roomLabel(latest, locale)}.`
-      : `${resident} is in ${roomLabel(latest, locale)}.`;
+  if (latest) return t('mobileWelcomePanel.isIn', { resident, roomLabel: roomLabel(latest) });
   const currentRoom = data.rooms.find(
     ({ id }) => id === (data.presence.confirmedRoomId ?? data.presence.roomId),
   );
   if (data.presence.trackingState === 'CONFIRMED' && !data.presence.trackingDegraded && currentRoom)
-    return fr
-      ? `${resident} est dans ${roomLabel(currentRoom, locale)}.`
-      : `${resident} is in ${roomLabel(currentRoom, locale)}.`;
+    return t('mobileWelcomePanel.isIn', { resident, roomLabel: roomLabel(currentRoom) });
   if (data.presence.trackingState === 'IN_TRANSIT')
-    return fr
-      ? `${resident} semble se déplacer dans le logement.`
-      : `${resident} appears to be moving through the home.`;
+    return t('mobileWelcomePanel.appearsToBeMovingThrough', { resident });
   if (data.presence.trackingState === 'AMBIGUOUS' || data.presence.trackingDegraded)
-    return fr
-      ? 'Les dernières observations ne permettent pas encore de situer le résident précisément.'
-      : 'The latest observations do not yet locate the resident precisely.';
+    return t('mobileWelcomePanel.theLatestObservationsDoNot');
   if (currentRoom && data.presence.lastConfirmedAt) {
-    const at = new Date(data.presence.lastConfirmedAt).toLocaleTimeString(
-      locale === 'fr' ? 'fr-FR' : 'en-GB',
-      { timeZone: data.timezone, hour: '2-digit', minute: '2-digit' },
-    );
-    return fr
-      ? `${resident} se trouve probablement dans ${roomLabel(currentRoom, locale)}. Dernière détection à ${at}.`
-      : `${resident} is probably in ${currentRoom.name}. Last detected at ${at}.`;
+    const at = new Date(data.presence.lastConfirmedAt).toLocaleTimeString(dateLocale(), {
+      timeZone: data.timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    return t('mobileWelcomePanel.probablyInLastDetectedAt', {
+      resident,
+      room: roomLabel(currentRoom),
+      at,
+    });
   }
-  return fr
-    ? `Il n’y a pas encore assez d’informations pour situer ${resident}.`
-    : `There is not enough information to locate ${resident} yet.`;
+  return t('mobileWelcomePanel.thereIsNotEnoughInformation', { resident });
 }
 
-function duration(seconds: number, locale: 'fr' | 'en') {
+function duration(seconds: number) {
   const minutes = Math.max(1, Math.round(seconds / 60));
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
-  return locale === 'fr'
-    ? `${hours} h${rest ? ` ${rest} min` : ''}`
-    : `${hours} hr${rest ? ` ${rest} min` : ''}`;
+  return rest
+    ? t('common.durationHoursMinutes', { hours, minutes: rest })
+    : t('common.durationHours', { hours });
 }
 function roomIn(sequence: ActivitySequence, room: HomeSummary['rooms'][number]) {
   return sequence.roomIds.includes(room.id) || sequence.roomNames.includes(room.name);
@@ -150,10 +128,8 @@ function dayNarrative(
   data: HomeSummary,
   current: ActivitySummary | undefined,
   previous: ActivitySummary | undefined,
-  locale: 'fr' | 'en',
 ) {
-  const fr = locale === 'fr';
-  const resident = data.residentName || (fr ? 'Le résident' : 'The resident');
+  const resident = data.residentName || t('mobileWelcomePanel.theResident');
   const sequences = [...(current?.sequences ?? [])].sort(
     (left, right) => Date.parse(left.startedAt) - Date.parse(right.startedAt),
   );
@@ -164,7 +140,8 @@ function dayNarrative(
   const living = data.rooms.find(({ kind }) => kind === 'LIVING_ROOM');
   const kitchen = data.rooms.find(
     ({ kind, name }) =>
-      kind === 'KITCHEN' || name.toLocaleLowerCase(locale).includes(fr ? 'cuisine' : 'kitchen'),
+      kind === 'KITCHEN' ||
+      name.toLocaleLowerCase(dateLocale()).includes(t('mobileWelcomePanel.kitchen')),
   );
   const hour = (value: string) =>
     Number(
@@ -175,7 +152,7 @@ function dayNarrative(
       }).format(new Date(value)),
     );
   const natural = (value: string) =>
-    new Date(value).toLocaleTimeString(fr ? 'fr-FR' : 'en-GB', {
+    new Date(value).toLocaleTimeString(dateLocale(), {
       timeZone: data.timezone,
       hour: '2-digit',
       minute: '2-digit',
@@ -194,16 +171,14 @@ function dayNarrative(
   )?.startedAt;
   if (bedtime && hour(bedtime) >= 18 && wakeUp)
     sentences.push(
-      fr
-        ? `Coucher hier vers ${natural(bedtime)}, réveil ce matin vers ${natural(wakeUp)}.`
-        : `${resident} went to bed around ${natural(bedtime)} last night and woke up around ${natural(wakeUp)} this morning.`,
+      t('mobileWelcomePanel.bedtimeAndWakeUp', {
+        resident,
+        bedtime: natural(bedtime),
+        wakeUp: natural(wakeUp),
+      }),
     );
   else if (wakeUp)
-    sentences.push(
-      fr
-        ? `Réveil ce matin vers ${natural(wakeUp)}.`
-        : `${resident} woke up around ${natural(wakeUp)} this morning.`,
-    );
+    sentences.push(t('mobileWelcomePanel.wakeUp', { resident, wakeUp: natural(wakeUp) }));
   const livingSeconds = living
     ? (current?.dwellByRoom.find((item) => item.id === living.id || item.name === living.name)
         ?.totalSeconds ??
@@ -213,9 +188,7 @@ function dayNarrative(
     : 0;
   if (livingSeconds >= 120)
     sentences.push(
-      fr
-        ? `Environ ${duration(livingSeconds, locale)} passées dans le salon.`
-        : `They spent about ${duration(livingSeconds, locale)} in the living room.`,
+      t('mobileWelcomePanel.theySpentAboutInThe', { duration: duration(livingSeconds) }),
     );
   const lunch = kitchen
     ? sequences.find(
@@ -243,23 +216,16 @@ function dayNarrative(
   const lunchAt = lunch?.endedAt ?? fridge?.lastObservedAt;
   if (lunchAt)
     sentences.push(
-      fr
-        ? `Vers ${natural(lunchAt)}, déjeuner dans la cuisine${afternoon ? ', puis retour au salon pour l’après-midi' : ''}.`
-        : `Around ${natural(lunchAt)}, they went to the kitchen for lunch${afternoon ? ', then returned to the living room for the afternoon' : ''}.`,
+      afternoon
+        ? t('mobileWelcomePanel.lunchThenAfternoon', { at: natural(lunchAt) })
+        : t('mobileWelcomePanel.lunch', { at: natural(lunchAt) }),
     );
-  else if (afternoon)
-    sentences.push(
-      fr ? 'Après-midi passé dans le salon.' : 'They then spent the afternoon in the living room.',
-    );
-  if (!sentences.length)
-    return fr
-      ? `La journée de ${resident} commence doucement. Le résumé s’enrichira avec les prochaines observations fiables.`
-      : `${resident}’s day is starting quietly. This summary will grow as reliable observations arrive.`;
+  else if (afternoon) sentences.push(t('mobileWelcomePanel.theyThenSpentTheAfternoon'));
+  if (!sentences.length) return t('mobileWelcomePanel.sDayIsStartingQuietly', { resident });
   return sentences.slice(0, 3).join(' ');
 }
 
-function essentialCards(data: HomeSummary, locale: 'fr' | 'en', now: Date): SensorCard[] {
-  const fr = locale === 'fr';
+function essentialCards(data: HomeSummary, now: Date): SensorCard[] {
   const cards: SensorCard[] = [];
   const entranceRoom = data.roomSummaries.find(
     (candidate) => candidate.name === data.entrance?.roomName || candidate.kind === 'ENTRANCE',
@@ -268,23 +234,15 @@ function essentialCards(data: HomeSummary, locale: 'fr' | 'en', now: Date): Sens
   if (data.entrance)
     cards.push({
       id: 'main-entry',
-      title: fr ? 'Porte d’entrée' : 'Front door',
+      title: t('mobileWelcomePanel.frontDoor'),
       value: !entry?.available
-        ? fr
-          ? 'Indisponible'
-          : 'Unavailable'
+        ? t('mobileWelcomePanel.unavailable')
         : entry.state === 'ACTIVE'
-          ? fr
-            ? 'Ouverte'
-            : 'Open'
+          ? t('mobileWelcomePanel.open')
           : entry.state === 'INACTIVE'
-            ? fr
-              ? 'Fermée'
-              : 'Closed'
-            : fr
-              ? 'État inconnu'
-              : 'Unknown state',
-      detail: fr ? 'État actuel' : 'Current state',
+            ? t('mobileWelcomePanel.closed')
+            : t('mobileWelcomePanel.unknownState'),
+      detail: t('mobileWelcomePanel.currentState'),
       icon: DoorOpen,
       tone: 'entrance',
       available: Boolean(entry?.available),
@@ -295,25 +253,15 @@ function essentialCards(data: HomeSummary, locale: 'fr' | 'en', now: Date): Sens
     const room = data.roomSummaries.find(({ name }) => name === fridge.label);
     cards.push({
       id: fridge.id,
-      title: fr ? 'Réfrigérateur' : 'Refrigerator',
+      title: t('mobileWelcomePanel.refrigerator'),
       value: !fridge.available
-        ? fr
-          ? 'Indisponible'
-          : 'Unavailable'
+        ? t('mobileWelcomePanel.unavailable')
         : fridge.state === 'ACTIVE'
-          ? fr
-            ? 'Ouvert'
-            : 'Open'
+          ? t('mobileWelcomePanel.open2')
           : fridge.state === 'INACTIVE'
-            ? fr
-              ? 'Fermé'
-              : 'Closed'
-            : fr
-              ? 'État inconnu'
-              : 'Unknown state',
-      detail: fr
-        ? `${fridge.countToday} ouverture${fridge.countToday === 1 ? '' : 's'} aujourd’hui`
-        : `${fridge.countToday} opening${fridge.countToday === 1 ? '' : 's'} today`,
+            ? t('mobileWelcomePanel.closed2')
+            : t('mobileWelcomePanel.unknownState'),
+      detail: t('mobileWelcomePanel.openingsToday', { count: fridge.countToday }),
       icon: Refrigerator,
       tone: 'fridge',
       available: fridge.available,
@@ -325,21 +273,13 @@ function essentialCards(data: HomeSummary, locale: 'fr' | 'en', now: Date): Sens
     const room = data.roomSummaries.find(({ name }) => name === toilet.label);
     cards.push({
       id: toilet.id,
-      title: fr ? 'Toilettes' : 'Toilet',
+      title: t('mobileWelcomePanel.toilet'),
       value: !toilet.available
-        ? fr
-          ? 'Indisponible'
-          : 'Unavailable'
+        ? t('mobileWelcomePanel.unavailable')
         : toilet.countToday
-          ? fr
-            ? 'Passage repéré'
-            : 'Visit detected'
-          : fr
-            ? 'Aucun passage'
-            : 'No visit',
-      detail: fr
-        ? `${toilet.countToday} passage${toilet.countToday === 1 ? '' : 's'} aujourd’hui`
-        : `${toilet.countToday} visit${toilet.countToday === 1 ? '' : 's'} today`,
+          ? t('mobileWelcomePanel.visitDetected')
+          : t('mobileWelcomePanel.noVisit'),
+      detail: t('mobileWelcomePanel.visitsToday', { count: toilet.countToday }),
       icon: Toilet,
       tone: 'toilet',
       available: toilet.available,
@@ -354,49 +294,31 @@ function essentialCards(data: HomeSummary, locale: 'fr' | 'en', now: Date): Sens
     const unavailable = !humidity?.available || shower?.state === 'UNAVAILABLE';
     const status =
       shower?.state === 'IN_PROGRESS'
-        ? fr
-          ? 'Douche en cours'
-          : 'Shower in progress'
+        ? t('mobileWelcomePanel.showerInProgress')
         : shower?.state === 'RISING'
-          ? fr
-            ? 'Humidité en hausse'
-            : 'Humidity rising'
+          ? t('mobileWelcomePanel.humidityRising')
           : shower?.state === 'COMPLETED'
-            ? fr
-              ? 'Douche terminée'
-              : 'Shower completed'
+            ? t('mobileWelcomePanel.showerCompleted')
             : shower?.state === 'IDLE'
-              ? fr
-                ? 'Aucune douche repérée'
-                : 'No shower detected'
-              : fr
-                ? 'Indisponible'
-                : 'Unavailable';
+              ? t('mobileWelcomePanel.noShowerDetected')
+              : t('mobileWelcomePanel.unavailable');
     const extra =
       shower?.durationMinutes != null
         ? `${shower.durationMinutes} min`
         : shower?.currentHumidity != null
           ? `${Math.round(shower.currentHumidity)} %`
-          : fr
-            ? 'Aucune observation récente'
-            : 'No recent observation';
+          : t('mobileWelcomePanel.noRecentObservation');
     cards.push({
       id: `shower:${bathroom.roomId}`,
-      title: fr ? 'Douche' : 'Shower',
+      title: t('mobileWelcomePanel.shower'),
       value: !configured
-        ? fr
-          ? 'À configurer'
-          : 'Setup required'
+        ? t('mobileWelcomePanel.setupRequired')
         : unavailable
-          ? fr
-            ? 'Indisponible'
-            : 'Unavailable'
+          ? t('mobileWelcomePanel.unavailable')
           : status,
       detail: !configured
-        ? fr
-          ? 'Associer un capteur d’humidité'
-          : 'Assign a humidity sensor'
-        : `${extra}${shower?.updatedAt ? ` · ${new Date(shower.updatedAt).toLocaleTimeString(fr ? 'fr-FR' : 'en-GB', { timeZone: data.timezone, hour: '2-digit', minute: '2-digit' })}` : ''}`,
+        ? t('mobileWelcomePanel.assignAHumiditySensor')
+        : `${extra}${shower?.updatedAt ? ` · ${new Date(shower.updatedAt).toLocaleTimeString(dateLocale(), { timeZone: data.timezone, hour: '2-digit', minute: '2-digit' })}` : ''}`,
       icon: ShowerHead,
       tone: 'shower',
       available: configured ? !unavailable : null,
@@ -413,48 +335,28 @@ function essentialCards(data: HomeSummary, locale: 'fr' | 'en', now: Date): Sens
       id: kind,
       title:
         kind === 'bedtime'
-          ? fr
-            ? 'Coucher de la veille'
-            : 'Yesterday’s bedtime'
-          : fr
-            ? 'Réveil du jour'
-            : 'Today’s wake-up',
+          ? t('mobileWelcomePanel.yesterdaySBedtime')
+          : t('mobileWelcomePanel.todaySWakeUp'),
       value: !configured
-        ? fr
-          ? 'À configurer'
-          : 'Setup required'
+        ? t('mobileWelcomePanel.setupRequired')
         : value
-          ? new Date(value).toLocaleTimeString(fr ? 'fr-FR' : 'en-GB', {
+          ? new Date(value).toLocaleTimeString(dateLocale(), {
               timeZone: data.timezone,
               hour: '2-digit',
               minute: '2-digit',
             })
-          : fr
-            ? 'En attente'
-            : 'Awaiting observation',
+          : t('mobileWelcomePanel.awaitingObservation'),
       detail: !configured
-        ? fr
-          ? 'Associer le contact du lit'
-          : 'Assign the bed contact'
+        ? t('mobileWelcomePanel.assignTheBedContact')
         : !sleep?.available
-          ? fr
-            ? 'Capteur indisponible'
-            : 'Sensor unavailable'
+          ? t('mobileWelcomePanel.sensorUnavailable')
           : value
             ? kind === 'bedtime'
-              ? fr
-                ? 'Coucher repéré la nuit précédente'
-                : 'Bedtime observed last night'
-              : fr
-                ? 'Réveil repéré aujourd’hui'
-                : 'Wake-up observed today'
+              ? t('mobileWelcomePanel.bedtimeObservedLastNight')
+              : t('mobileWelcomePanel.wakeUpObservedToday')
             : kind === 'bedtime'
-              ? fr
-                ? 'Aucun coucher repéré la nuit précédente'
-                : 'No bedtime noticed last night'
-              : fr
-                ? 'Aucun réveil repéré aujourd’hui'
-                : 'No wake-up noticed today',
+              ? t('mobileWelcomePanel.noBedtimeNoticedLastNight')
+              : t('mobileWelcomePanel.noWakeUpNoticedToday'),
       icon: kind === 'bedtime' ? MoonStar : Sunrise,
       tone: kind === 'bedtime' ? 'bedtime' : 'wakeup',
       available: configured ? Boolean(sleep?.available) : null,
@@ -484,7 +386,7 @@ export function MobileWelcomePanel({
   server: SavedServer;
   token: string;
   userName: string;
-  locale: 'fr' | 'en';
+  locale: Language;
   overview?: Overview;
   homeSummary?: HomeSummary;
   screen?: ScreenSnapshot;
@@ -514,7 +416,7 @@ export function MobileWelcomePanel({
     enabled: Boolean(homeSummary),
   });
   const time = (value: string | Date | number) =>
-    new Date(value).toLocaleTimeString(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+    new Date(value).toLocaleTimeString(dateLocale(), {
       timeZone: timezone,
       hour: '2-digit',
       minute: '2-digit',
@@ -522,7 +424,6 @@ export function MobileWelcomePanel({
   const resident =
     homeSummary?.residentName || overview?.home?.resident || screen?.resident || 'Élise';
   const firstName = userName.trim().split(/\s+/)[0] || userName;
-  const fr = locale === 'fr';
   const playback = screen?.state.playback;
   const playingMedia =
     screen?.online &&
@@ -546,23 +447,16 @@ export function MobileWelcomePanel({
   const playingTitle =
     playingMedia?.title.trim() ||
     (playingMedia?.kind === 'photo'
-      ? fr
-        ? 'Diaporama photo'
-        : 'Photo slideshow'
-      : fr
-        ? 'Contenu en cours'
-        : 'Now playing');
+      ? t('mobileWelcomePanel.photoSlideshow')
+      : t('mobileWelcomePanel.nowPlaying'));
   const appointmentDay = nextAppointment
     ? dateKeyInZone(new Date(nextAppointment.startsAt), timezone) === today
-      ? fr
-        ? 'Aujourd’hui'
-        : 'Today'
-      : fr
-        ? 'Demain'
-        : 'Tomorrow'
+      ? t('mobileWelcomePanel.today')
+      : t('mobileWelcomePanel.tomorrow')
     : '';
   const essentials = useMemo(
-    () => (homeSummary ? essentialCards(homeSummary, locale, now) : []),
+    () => (homeSummary ? essentialCards(homeSummary, now) : []),
+    // locale: the cards are texts in the chosen language.
     [homeSummary, locale, now],
   );
   const recentEvents = [...activity]
@@ -573,7 +467,7 @@ export function MobileWelcomePanel({
     const timer = setInterval(() => setNow(new Date()), 15_000);
     return () => clearInterval(timer);
   }, []);
-  const greetingDate = new Intl.DateTimeFormat(fr ? 'fr-FR' : 'en-GB', {
+  const greetingDate = new Intl.DateTimeFormat(dateLocale(), {
     timeZone: timezone,
     weekday: 'long',
     day: 'numeric',
@@ -581,12 +475,8 @@ export function MobileWelcomePanel({
     year: 'numeric',
   }).format(now);
   const connectionLabel = connectionAvailable
-    ? fr
-      ? 'En ligne'
-      : 'Online'
-    : fr
-      ? 'Hors ligne'
-      : 'Offline';
+    ? t('mobileWelcomePanel.online')
+    : t('mobileWelcomePanel.offline');
   const canStartCall = Boolean(
     connectionAvailable &&
     screen?.grant.call &&
@@ -595,22 +485,22 @@ export function MobileWelcomePanel({
     screen.state.settings.consent,
   );
   const presence = homeSummary
-    ? mobilePresenceText(homeSummary, locale)
+    ? mobilePresenceText(homeSummary)
     : caregiverPresenceCopy(null).detail;
   const lastPresence = homeSummary?.latestPresence
     ? (() => {
         const room = homeSummary.rooms.find(({ id }) => id === homeSummary.latestPresence?.roomId);
         return room
-          ? tr(
-              `Dernière détection dans ${roomLabel(room, locale)} à ${time(homeSummary.latestPresence.occurredAt)}.`,
-              `Last detected in ${roomLabel(room, locale)} at ${time(homeSummary.latestPresence.occurredAt)}.`,
-            )
+          ? t('mobileWelcomePanel.lastDetectedInAt', {
+              roomLabel: roomLabel(room),
+              time: time(homeSummary.latestPresence.occurredAt),
+            })
           : '';
       })()
     : '';
   const narrative = homeSummary
-    ? dayNarrative(homeSummary, todaySummary.data, previousSummary.data, locale)
-    : tr('Le résumé de la journée se prépare.', 'The day’s summary is being prepared.');
+    ? dayNarrative(homeSummary, todaySummary.data, previousSummary.data)
+    : t('mobileWelcomePanel.theDaySSummaryIs');
   const appointmentTime = nextAppointment ? time(nextAppointment.startsAt) : '';
   const launchCall = async () => {
     if (!canStartCall || callPending) return;
@@ -621,11 +511,7 @@ export function MobileWelcomePanel({
       setCallConfirmOpen(false);
     } catch (cause) {
       setCallError(
-        cause instanceof Error
-          ? cause.message
-          : fr
-            ? 'Impossible de lancer l’appel pour le moment.'
-            : 'The call could not be started right now.',
+        cause instanceof Error ? cause.message : t('mobileWelcomePanel.theCallCouldNotBe'),
       );
     } finally {
       setCallPending(false);
@@ -646,21 +532,17 @@ export function MobileWelcomePanel({
             <Text style={s.eyebrow}>{greetingDate}</Text>
             <View style={s.greetingRow}>
               <Text style={s.greeting}>
-                {tr('Bonjour', 'Hello')} {firstName},
+                {t('mobileWelcomePanel.hello')} {firstName},
               </Text>
               <View style={s.headerActions}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={
                     homeSummary?.alert
-                      ? fr
-                        ? 'Alertes, une situation à consulter'
-                        : 'Alerts, an item needs attention'
-                      : fr
-                        ? 'Alertes'
-                        : 'Alerts'
+                      ? t('mobileWelcomePanel.alertsAnItemNeedsAttention')
+                      : t('mobileWelcomePanel.alerts')
                   }
-                  accessibilityHint={fr ? 'Ouvre la page Alertes.' : 'Opens the Alerts page.'}
+                  accessibilityHint={t('mobileWelcomePanel.opensTheAlertsPage')}
                   style={s.headerIconButton}
                   onPress={() => onNavigate('alerts')}
                 >
@@ -674,12 +556,8 @@ export function MobileWelcomePanel({
                 {screen?.grant.call ? (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={fr ? `Appeler ${resident}` : `Call ${resident}`}
-                    accessibilityHint={
-                      fr
-                        ? 'Ouvre une confirmation avant l’appel vidéo depuis ce téléphone.'
-                        : 'Opens a confirmation before starting a video call from this phone.'
-                    }
+                    accessibilityLabel={t('mobileWelcomePanel.call', { resident })}
+                    accessibilityHint={t('mobileWelcomePanel.opensAConfirmationBeforeStarting')}
                     disabled={!canStartCall || callPending}
                     style={[
                       s.headerIconButton,
@@ -724,7 +602,7 @@ export function MobileWelcomePanel({
               </View>
             </View>
             <Text style={s.subtitle}>
-              {tr(`Élise veille sur ${resident}.`, `Élise is watching over ${resident}.`)}
+              {t('mobileWelcomePanel.eliseIsWatchingOver', { resident })}
             </Text>
           </View>
         </View>
@@ -735,9 +613,7 @@ export function MobileWelcomePanel({
               <Ionicons name="tv-outline" size={18} color={c.blue} />
             </View>
             <View style={s.infoCopy}>
-              <Text style={s.infoHeading}>
-                {fr ? 'LECTURE EN COURS SUR LA TV' : 'NOW PLAYING ON TV'}
-              </Text>
+              <Text style={s.infoHeading}>{t('mobileWelcomePanel.nowPlayingOnTv')}</Text>
               <Text style={s.infoTitle} numberOfLines={1}>
                 {playingTitle}
               </Text>
@@ -752,9 +628,9 @@ export function MobileWelcomePanel({
             </View>
             <View style={s.infoCopy}>
               <Text style={s.infoHeading}>
-                {fr
-                  ? `RENDEZ-VOUS ${appointmentDay.toUpperCase()}`
-                  : `APPOINTMENT · ${appointmentDay.toUpperCase()}`}
+                {t('mobileWelcomePanel.appointment', {
+                  appointmentDay: appointmentDay.toUpperCase(),
+                })}
               </Text>
               <Text style={s.infoTitle} numberOfLines={1}>
                 {nextAppointment.title}
@@ -768,7 +644,7 @@ export function MobileWelcomePanel({
           <View style={s.card}>
             <View style={s.cardHeader}>
               <View style={[s.statusDot, homeSummary.alert && s.statusDotWarning]} />
-              <Text style={s.cardTitle}>{tr('En ce moment', 'Right now')}</Text>
+              <Text style={s.cardTitle}>{t('mobileWelcomePanel.rightNow')}</Text>
               <Text style={s.timePill}>{time(homeSummary.to)}</Text>
             </View>
             <Text style={s.presenceText}>{presence}</Text>
@@ -786,13 +662,8 @@ export function MobileWelcomePanel({
           </View>
         ) : (
           <View style={s.card}>
-            <Text style={s.cardTitle}>{tr('En ce moment', 'Right now')}</Text>
-            <Text style={s.body}>
-              {tr(
-                'Les informations du logement sont indisponibles.',
-                'Home information is unavailable.',
-              )}
-            </Text>
+            <Text style={s.cardTitle}>{t('mobileWelcomePanel.rightNow')}</Text>
+            <Text style={s.body}>{t('mobileWelcomePanel.homeInformationIsUnavailable')}</Text>
           </View>
         )}
 
@@ -800,12 +671,12 @@ export function MobileWelcomePanel({
           <View style={s.cardHeader}>
             <View style={s.statusDot} />
             <Text style={s.cardTitle}>
-              {tr(`La journée de ${resident.split(/\s+/)[0]}`, `${resident.split(/\s+/)[0]}’s day`)}
+              {t('mobileWelcomePanel.sDay', { split: resident.split(/\s+/)[0] })}
             </Text>
           </View>
           <Text style={s.bodyLarge}>{narrative}</Text>
           <Pressable style={s.linkRow} onPress={() => onNavigate('activity')}>
-            <Text style={s.link}>{tr('Voir toute l’activité', 'View all activity')}</Text>
+            <Text style={s.link}>{t('mobileWelcomePanel.viewAllActivity')}</Text>
             <Ionicons name="chevron-forward" size={17} color={c.blue} />
           </Pressable>
         </View>
@@ -829,7 +700,7 @@ export function MobileWelcomePanel({
           <View style={s.cardHeader}>
             <View style={[s.statusDot, s.essentialsDot]} />
             <Text style={[s.cardTitle, s.essentialsTitle]}>
-              {tr('Repères du quotidien', 'Daily essentials')}
+              {t('mobileWelcomePanel.dailyEssentials')}
             </Text>
           </View>
           {essentials.length ? (
@@ -862,28 +733,23 @@ export function MobileWelcomePanel({
               })}
             </View>
           ) : (
-            <Text style={s.body}>
-              {tr(
-                'Les repères apparaîtront ici lorsque les données du logement seront disponibles.',
-                'Daily essentials will appear here once home data is available.',
-              )}
-            </Text>
+            <Text style={s.body}>{t('mobileWelcomePanel.dailyEssentialsWillAppearHere')}</Text>
           )}
         </View>
 
         <View style={s.card}>
           <View style={s.cardHeader}>
             <Ionicons name="time-outline" size={18} color={c.accent} />
-            <Text style={s.cardTitle}>{tr('Derniers événements', 'Latest events')}</Text>
+            <Text style={s.cardTitle}>{t('mobileWelcomePanel.latestEvents')}</Text>
             <Pressable onPress={() => onNavigate('activity')}>
-              <Text style={s.link}>{tr('Tout voir', 'View all')}</Text>
+              <Text style={s.link}>{t('mobileWelcomePanel.viewAll')}</Text>
             </Pressable>
           </View>
           {recentEvents.map((item) => (
             <EventRow key={item.id} item={item} timezone={timezone} />
           ))}
           {!recentEvents.length ? (
-            <Text style={s.body}>{tr('Aucun événement récent.', 'No recent events.')}</Text>
+            <Text style={s.body}>{t('mobileWelcomePanel.noRecentEvents')}</Text>
           ) : null}
         </View>
       </ScrollView>
@@ -896,7 +762,7 @@ export function MobileWelcomePanel({
         <View style={s.callModalRoot}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={fr ? 'Fermer la confirmation d’appel' : 'Close call confirmation'}
+            accessibilityLabel={t('mobileWelcomePanel.closeCallConfirmation')}
             style={s.callModalScrim}
             onPress={() => setCallConfirmOpen(false)}
           />
@@ -904,11 +770,9 @@ export function MobileWelcomePanel({
             <View style={s.callModalIcon}>
               <Ionicons name="videocam-outline" size={22} color={c.blue} />
             </View>
-            <Text style={s.callModalTitle}>{`${fr ? 'Appeler' : 'Call'} ${resident} ?`}</Text>
+            <Text style={s.callModalTitle}>{`${t('mobileWelcomePanel.call2')} ${resident} ?`}</Text>
             <Text style={s.callModalBody}>
-              {fr
-                ? `L’appel partira de ce téléphone. L’écran du logement fera sonner ${resident}, puis répondra automatiquement. La vidéo s’ouvrira ici.`
-                : `The call will start from this phone. The home screen will ring ${resident} and answer automatically. Video will open here.`}
+              {t('mobileWelcomePanel.theCallWillStartFrom', { resident })}
             </Text>
             {callError ? (
               <Text accessibilityRole="alert" style={s.callModalError}>
@@ -925,7 +789,7 @@ export function MobileWelcomePanel({
                 ]}
                 onPress={() => setCallConfirmOpen(false)}
               >
-                <Text style={s.callModalCancelText}>{fr ? 'Annuler' : 'Cancel'}</Text>
+                <Text style={s.callModalCancelText}>{t('mobileWelcomePanel.cancel')}</Text>
               </Pressable>
               <Pressable
                 disabled={!canStartCall || callPending}
@@ -937,7 +801,7 @@ export function MobileWelcomePanel({
                 onPress={() => void launchCall()}
               >
                 <Text style={s.callModalConfirmText}>
-                  {callPending ? (fr ? 'Lancement…' : 'Starting…') : fr ? 'Confirmer' : 'Confirm'}
+                  {callPending ? t('mobileWelcomePanel.starting') : t('mobileWelcomePanel.confirm')}
                 </Text>
               </Pressable>
             </View>
@@ -975,7 +839,7 @@ function EventRow({ item, timezone }: { item: ActivityItem; timezone: string }) 
         </Text>
       </View>
       <Text style={s.caption}>
-        {new Date(item.occurredAt).toLocaleTimeString('fr-FR', {
+        {new Date(item.occurredAt).toLocaleTimeString(dateLocale(), {
           timeZone: timezone,
           hour: '2-digit',
           minute: '2-digit',
@@ -988,15 +852,15 @@ function capabilityLabel(capability: string) {
   return (
     (
       {
-        motion: tr('Mouvement', 'Motion'),
-        occupancy: tr('Présence', 'Presence'),
-        person_presence: tr('Présence', 'Presence'),
-        contact: tr('Ouverture', 'Opening'),
-        temperature: tr('Température', 'Temperature'),
-        humidity: tr('Humidité', 'Humidity'),
-        power: tr('Puissance', 'Power'),
-        energy: tr('Énergie', 'Energy'),
-        button: tr('Bouton d’appel', 'Call button'),
+        motion: t('mobileWelcomePanel.motion'),
+        occupancy: t('mobileWelcomePanel.presence'),
+        person_presence: t('mobileWelcomePanel.presence'),
+        contact: t('mobileWelcomePanel.opening'),
+        temperature: t('mobileWelcomePanel.temperature'),
+        humidity: t('mobileWelcomePanel.humidity'),
+        power: t('mobileWelcomePanel.power'),
+        energy: t('mobileWelcomePanel.energy'),
+        button: t('mobileWelcomePanel.callButton'),
       } as Record<string, string>
     )[capability] ?? capability
   );

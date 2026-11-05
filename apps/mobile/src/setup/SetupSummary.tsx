@@ -3,17 +3,12 @@ import type { ComponentProps, ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { Locale } from './MobileSetup';
 import { colors as themeColors } from '../theme';
+import { t } from '../i18n';
+import { habitLabel, relationLabel } from './labels';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 const colors = { ...themeColors, amber: '#B7742F' };
-
-const habitNames: Record<string, string> = {
-  Lever: 'Wake up',
-  Coucher: 'Bedtime',
-  Déjeuner: 'Lunch',
-  Dîner: 'Dinner',
-};
 
 function Section({
   icon,
@@ -38,7 +33,6 @@ function Section({
 }
 
 export function SetupSummary({
-  locale,
   caregiver,
   resident,
   habits,
@@ -50,48 +44,38 @@ export function SetupSummary({
   habits: Record<string, { from: string; to: string; unknown: boolean }>;
   remoteReady: boolean;
 }) {
-  const tr = (fr: string, en: string) => (locale === 'fr' ? fr : en);
   return (
     <View style={styles.wrap}>
-      <Section icon="person-outline" title={tr('Vous', 'You')}>
+      <Section icon="person-outline" title={t('setupSummary.you')}>
         <Text style={styles.primary}>{caregiver.name}</Text>
         <Text style={styles.secondary}>
-          {caregiver.relation} · {caregiver.username}
+          {relationLabel(caregiver.relation)} · {caregiver.username}
         </Text>
       </Section>
-      <Section icon="heart-outline" title={tr('La personne accompagnée', 'The person supported')}>
+      <Section icon="heart-outline" title={t('setupSummary.thePersonSupported')}>
         <Text style={styles.primary}>{resident.dailyName}</Text>
         <Text style={styles.secondary}>{resident.fullName}</Text>
       </Section>
-      <Section icon="sunny-outline" title={tr('Premiers repères', 'First routines')}>
+      <Section icon="sunny-outline" title={t('setupSummary.firstRoutines')}>
         {Object.entries(habits).map(([name, habit]) => (
           <View key={name} style={styles.habit}>
-            <Text style={styles.habitName}>
-              {locale === 'fr' ? name : (habitNames[name] ?? name)}
-            </Text>
+            <Text style={styles.habitName}>{habitLabel(name)}</Text>
             <Text style={[styles.habitValue, habit.unknown && styles.habitLearn]}>
-              {habit.unknown
-                ? tr('Élise apprendra', 'Élise will learn')
-                : `${habit.from} – ${habit.to}`}
+              {habit.unknown ? t('setupSummary.eliseWillLearn') : `${habit.from} – ${habit.to}`}
             </Text>
           </View>
         ))}
       </Section>
-      <Section icon="shield-checkmark-outline" title={tr('Accès à distance', 'Remote access')}>
+      <Section icon="shield-checkmark-outline" title={t('setupSummary.remoteAccess')}>
         <View style={styles.badgeRow}>
           <View style={[styles.badge, !remoteReady && styles.badgeLater]}>
             <Text style={[styles.badgeText, !remoteReady && styles.badgeTextLater]}>
-              {remoteReady ? tr('Activé', 'On') : tr('À activer plus tard', 'To turn on later')}
+              {remoteReady ? t('setupSummary.on') : t('setupSummary.toTurnOnLater')}
             </Text>
           </View>
         </View>
       </Section>
-      <Text style={styles.note}>
-        {tr(
-          'Tout reste modifiable ensuite dans les réglages d’Élise.',
-          'Everything can be changed later in Élise settings.',
-        )}
-      </Text>
+      <Text style={styles.note}>{t('setupSummary.everythingCanBeChangedLater')}</Text>
     </View>
   );
 }

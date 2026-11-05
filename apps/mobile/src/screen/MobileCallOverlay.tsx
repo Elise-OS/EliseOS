@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { type WebViewMessageEvent } from 'react-native-webview';
+import { type Language, t } from '../i18n';
 
 const inlineJson = (value: string) => JSON.stringify(value).replace(/</g, '\\u003c');
 
@@ -89,7 +90,7 @@ const callPage = (join: ScreenJoin) => {
 interface MobileCallOverlayProps {
   visible: boolean;
   residentName: string;
-  locale: 'fr' | 'en';
+  locale: Language;
   accepted: boolean;
   join: ScreenJoin | null;
   error: string;
@@ -99,13 +100,11 @@ interface MobileCallOverlayProps {
 export function MobileCallOverlay({
   visible,
   residentName,
-  locale,
   accepted,
   join,
   error,
   onEnd,
 }: MobileCallOverlayProps) {
-  const fr = locale === 'fr';
   const [webError, setWebError] = useState(false);
   const [cameraSwitchAvailable, setCameraSwitchAvailable] = useState(false);
   const ended = useRef(false);
@@ -131,23 +130,15 @@ export function MobileCallOverlay({
     if (nativeEvent.data === 'camera-switch-unavailable') setCameraSwitchAvailable(false);
     if (nativeEvent.data === 'camera-switch-error') {
       Alert.alert(
-        fr ? 'Changement impossible' : 'Unable to switch camera',
-        fr
-          ? 'La caméra ne peut pas être changée pendant cet appel.'
-          : 'The camera could not be changed during this call.',
+        t('mobileCallOverlay.unableToSwitchCamera'),
+        t('mobileCallOverlay.theCameraCouldNotBe'),
       );
     }
   };
 
   const onWebError = () => setWebError(true);
 
-  const callError =
-    error ||
-    (webError
-      ? fr
-        ? 'La visioconférence est momentanément inaccessible.'
-        : 'The video call is temporarily unavailable.'
-      : '');
+  const callError = error || (webError ? t('mobileCallOverlay.theVideoCallIsTemporarily') : '');
 
   return (
     <Modal
@@ -161,7 +152,7 @@ export function MobileCallOverlay({
           <>
             <View style={styles.header}>
               <View style={styles.headerCopy}>
-                <Text style={styles.eyebrow}>{fr ? 'APPEL VIDÉO' : 'VIDEO CALL'}</Text>
+                <Text style={styles.eyebrow}>{t('mobileCallOverlay.videoCall')}</Text>
                 <Text style={styles.headerTitle} numberOfLines={1}>
                   {residentName}
                 </Text>
@@ -184,12 +175,8 @@ export function MobileCallOverlay({
             <View style={styles.cameraControls}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={fr ? 'Changer de caméra' : 'Switch camera'}
-                accessibilityHint={
-                  fr
-                    ? 'Passe de la caméra avant à la caméra arrière.'
-                    : 'Switches between the front and rear cameras.'
-                }
+                accessibilityLabel={t('mobileCallOverlay.switchCamera')}
+                accessibilityHint={t('mobileCallOverlay.switchesBetweenTheFrontAnd')}
                 disabled={!cameraSwitchAvailable}
                 onPress={() =>
                   webViewRef.current?.injectJavaScript(
@@ -222,35 +209,21 @@ export function MobileCallOverlay({
             </View>
             <Text style={styles.waitingTitle}>
               {callError
-                ? fr
-                  ? 'Impossible de rejoindre l’appel'
-                  : 'Unable to join the call'
-                : fr
-                  ? `Appel avec ${residentName}`
-                  : `Call with ${residentName}`}
+                ? t('mobileCallOverlay.unableToJoinTheCall')
+                : t('mobileCallOverlay.callWith', { residentName })}
             </Text>
             <Text style={styles.waitingDetail}>
               {callError
                 ? callError
                 : accepted
-                  ? fr
-                    ? 'Connexion à la visioconférence…'
-                    : 'Connecting to the video call…'
-                  : fr
-                    ? 'L’écran va répondre automatiquement. La vidéo s’ouvrira ici dans un instant.'
-                    : 'The home screen will answer automatically. Video will open here in a moment.'}
+                  ? t('mobileCallOverlay.connectingToTheVideoCall')
+                  : t('mobileCallOverlay.theHomeScreenWillAnswer')}
             </Text>
             {!callError ? <ActivityIndicator color="#d7e8e8" size="large" /> : null}
             <Pressable accessibilityRole="button" onPress={finish} style={styles.hangupButton}>
               <Ionicons name="call" size={19} color="#fff" />
               <Text style={styles.hangupText}>
-                {accepted
-                  ? fr
-                    ? 'Raccrocher'
-                    : 'Hang up'
-                  : fr
-                    ? 'Annuler l’appel'
-                    : 'Cancel call'}
+                {accepted ? t('mobileCallOverlay.hangUp') : t('mobileCallOverlay.cancelCall')}
               </Text>
             </Pressable>
           </View>

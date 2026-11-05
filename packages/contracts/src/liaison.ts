@@ -37,7 +37,8 @@ const liaisonMoodAliases: Record<string, LiaisonMoodId> = {
   triste: 'SAD',
 };
 
-export function liaisonMoodLabel(body: string, locale: 'fr' | 'en' = 'fr'): string | null {
+/** Mood recorded in a liaison entry ("mood:GOOD", "Humeur : bien"…), or null. */
+export function liaisonMoodId(body: string): LiaisonMoodId | null {
   const value = body
     .trim()
     .replace(/^(?:humeur|mood)\s*:\s*/i, '')
@@ -48,7 +49,11 @@ export function liaisonMoodLabel(body: string, locale: 'fr' | 'en' = 'fr'): stri
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
-  const moodId = liaisonMoodAliases[value];
+  return liaisonMoodAliases[value] ?? null;
+}
+
+export function liaisonMoodLabel(body: string, locale: 'fr' | 'en' = 'fr'): string | null {
+  const moodId = liaisonMoodId(body);
   return moodId ? liaisonMoodLabels[moodId][locale] : null;
 }
 
