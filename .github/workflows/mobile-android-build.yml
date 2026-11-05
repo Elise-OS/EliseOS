@@ -39,8 +39,8 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build shared contracts package
-        run: pnpm --filter @elise/contracts build
+      - name: Build shared contracts and i18n packages
+        run: pnpm --filter @elise/contracts --filter @elise/i18n build
 
       - id: android-version
         name: Set Android build version

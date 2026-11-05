@@ -43,7 +43,7 @@ if [[ "$pnpm_version" != "11.10.0" ]]; then
 fi
 
 pnpm_exec install --frozen-lockfile
-pnpm_exec --filter @elise/contracts build
+pnpm_exec --filter @elise/contracts --filter @elise/i18n build
 
 # React Native's Xcode phase needs the same Node installation used above.
 printf 'export NODE_BINARY="%s/node"\n' "$node_bin" > apps/mobile/ios/.xcode.env.local

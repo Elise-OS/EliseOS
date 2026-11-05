@@ -31,6 +31,19 @@
         "--strictPort"
       ],
       "port": 5180
+    },
+    {
+      "name": "landing",
+      "runtimeExecutable": "/opt/homebrew/opt/node@24/bin/node",
+      "runtimeArgs": [
+        "eliselanding/node_modules/astro/bin/astro.mjs",
+        "dev",
+        "--root",
+        "eliselanding",
+        "--port",
+        "4321"
+      ],
+      "port": 4321
     }
   ]
 }
