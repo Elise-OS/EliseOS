@@ -165,11 +165,11 @@ describe('room equipment cards', () => {
   });
 
   it('describes illuminance and keeps the exact lux value as secondary text', () => {
-    expect(illuminanceLevel(20, true)).toBe('Très faible');
-    expect(illuminanceLevel(100, true)).toBe('Faible');
-    expect(illuminanceLevel(220, true)).toBe('Confortable');
-    expect(illuminanceLevel(420, true)).toBe('Lumineux');
-    expect(illuminanceLevel(1_200, true)).toBe('Très lumineux');
+    expect(illuminanceLevel(20)).toBe('Très faible');
+    expect(illuminanceLevel(100)).toBe('Faible');
+    expect(illuminanceLevel(220)).toBe('Confortable');
+    expect(illuminanceLevel(420)).toBe('Lumineux');
+    expect(illuminanceLevel(1_200)).toBe('Très lumineux');
     expect(
       roomSensorReading(device([capability('illuminance', { value: 420 })]), 'illuminance', true),
     ).toMatchObject({ reading: 'Lumineux', detail: '420 lx' });

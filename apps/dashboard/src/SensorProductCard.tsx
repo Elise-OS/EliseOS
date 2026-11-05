@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { ChevronRight, Radio } from 'lucide-react';
-import { ROOM_SENSOR_CATEGORIES, type SensorProduct } from '@elise/contracts';
+import { type SensorProduct } from '@elise/contracts';
+import { t } from './i18n';
+import { productTexts, sensorCategoryLabel } from './i18n/data';
 
 export function ProductPhoto({ product }: { product: SensorProduct }) {
   const [failed, setFailed] = useState(false);
@@ -24,31 +26,23 @@ export function ProductPhoto({ product }: { product: SensorProduct }) {
 
 export function SensorProductCard({
   product,
-  fr,
   onSelect,
 }: {
   product: SensorProduct;
-  fr: boolean;
   onSelect: () => void;
 }) {
   return (
     <button className="equipment-product-card" onClick={onSelect}>
       <ProductPhoto product={product} />
       <span className="equipment-kicker">{product.brand}</span>
-      <strong>{fr ? product.name : product.nameEn}</strong>
+      <strong>{productTexts(product).name}</strong>
       <small>
         {product.categories.length
-          ? product.categories
-              .map(
-                (id) => ROOM_SENSOR_CATEGORIES.find((c) => c.id === id)?.[fr ? 'label' : 'labelEn'],
-              )
-              .join(' · ')
-          : fr
-            ? 'Puissance · Énergie'
-            : 'Power · Energy'}
+          ? product.categories.map((id) => sensorCategoryLabel(id)).join(' · ')
+          : t('sensorProductCard.powerEnergy')}
       </small>
       <span>
-        {fr ? 'Voir le produit' : 'View product'}
+        {t('sensorProductCard.viewProduct')}
         <ChevronRight />
       </span>
     </button>

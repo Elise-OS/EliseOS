@@ -53,7 +53,7 @@ import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import { connectionBoundary, connectionCurve } from './plan-connections';
 import './plan-connections.css';
-import { tr } from './screen-locale';
+import { t } from './i18n';
 
 type Sensor = {
   id: string;
@@ -118,19 +118,19 @@ export function sensorDevicePresentation(device: SensorDevice) {
     : '';
   const kind =
     capabilities.has('temperature') && capabilities.has('humidity')
-      ? tr('Capteur de température et d’humidité', 'Temperature and humidity sensor')
+      ? t('homePlanEditor.temperatureAndHumiditySensor')
       : capabilities.has('temperature')
-        ? tr('Capteur de température', 'Temperature sensor')
+        ? t('homePlanEditor.temperatureSensor')
         : capabilities.has('humidity')
-          ? tr('Capteur d’humidité', 'Humidity sensor')
+          ? t('homePlanEditor.humiditySensor')
           : capabilities.has('person_presence') || capabilities.has('occupancy')
-            ? tr('Capteur de présence', 'Presence sensor')
+            ? t('homePlanEditor.presenceSensor')
             : capabilities.has('motion')
-              ? tr('Détecteur de mouvement', 'Motion detector')
+              ? t('homePlanEditor.motionDetector')
               : capabilities.has('contact')
-                ? tr('Capteur d’ouverture', 'Contact sensor')
+                ? t('homePlanEditor.contactSensor')
                 : capabilities.has('water_leak')
-                  ? tr('Détecteur de fuite', 'Leak detector')
+                  ? t('homePlanEditor.leakDetector')
                   : device.name;
   return {
     name:
@@ -226,7 +226,7 @@ const normalizePlan = (source: HomePlan): HomePlan => {
   };
 };
 
-const previewSetupPlan = (locale: 'fr' | 'en'): HomePlan => ({
+const previewSetupPlan = (): HomePlan => ({
   schemaVersion: 4,
   revision: 0,
   configured: false,
@@ -238,7 +238,7 @@ const previewSetupPlan = (locale: 'fr' | 'en'): HomePlan => ({
   levels: [
     {
       id: 'floor-0',
-      name: locale === 'fr' ? 'Rez-de-chaussée' : 'Ground floor',
+      name: t('homePlanEditor.groundFloor'),
       floor: 0,
       order: 0,
       width: 1_200,
@@ -290,22 +290,23 @@ const migratePlanDevices = (plan: HomePlan, devices: SensorDevice[]) => {
 
 const roomKinds = () =>
   [
-    ['LIVING_ROOM', tr('Salon', 'Living room')],
-    ['KITCHEN', tr('Cuisine', 'Kitchen')],
-    ['BEDROOM', tr('Chambre', 'Bedroom')],
-    ['BATHROOM', tr('Salle de bain', 'Bathroom')],
-    ['TOILET', tr('Toilettes', 'Toilet')],
-    ['ENTRANCE', tr('Entrée', 'Entrance')],
-    ['HALLWAY', tr('Couloir', 'Hallway')],
-    ['DINING_ROOM', tr('Salle à manger', 'Dining room')],
-    ['OTHER', tr('Autre', 'Other')],
+    ['LIVING_ROOM', t('homePlanEditor.livingRoom')],
+    ['KITCHEN', t('homePlanEditor.kitchen')],
+    ['BEDROOM', t('homePlanEditor.bedroom')],
+    ['BATHROOM', t('homePlanEditor.bathroom')],
+    ['TOILET', t('homePlanEditor.toilet')],
+    ['ENTRANCE', t('homePlanEditor.entrance')],
+    ['HALLWAY', t('homePlanEditor.hallway')],
+    ['DINING_ROOM', t('homePlanEditor.diningRoom')],
+    ['OTHER', t('homePlanEditor.other')],
   ] as const;
 
 const levelName = (floor: number) =>
-  tr(
-    floor === 0 ? 'Rez-de-chaussée' : floor === 1 ? '1er étage' : `${floor}e étage`,
-    floor === 0 ? 'Ground floor' : `Floor ${floor}`,
-  );
+  floor === 0
+    ? t('common.levelName.ground')
+    : floor === 1
+      ? t('common.levelName.first')
+      : t('common.levelName.numbered', { floor });
 
 const colors = ['#E8F0F3', '#F5EAD8', '#E6EFE7', '#EEE8F3', '#F3E5E5', '#E8EAF2'];
 
@@ -602,8 +603,8 @@ export function HomePlanEditor({
     blocked: boolean;
   } | null>(null);
   const [previewHome, setPreviewHome] = useState({
-    name: locale === 'fr' ? 'Maison de Jeanne' : 'Jeanne’s home',
-    type: locale === 'fr' ? 'Maison' : 'House',
+    name: t('homePlanEditor.jeanneSHome'),
+    type: t('homePlanEditor.house'),
     address: '',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris',
   });
@@ -665,11 +666,7 @@ export function HomePlanEditor({
       if (!coverageResponse.ok) throw new Error();
       setCoverage((await coverageResponse.json()) as EquipmentCoverage);
     } catch {
-      setCoverageError(
-        locale === 'fr'
-          ? 'L’analyse des capteurs n’a pas pu être chargée.'
-          : 'The sensor analysis could not be loaded.',
-      );
+      setCoverageError(t('homePlanEditor.theSensorAnalysisCouldNot'));
     } finally {
       setCoverageLoading(false);
     }
@@ -678,7 +675,7 @@ export function HomePlanEditor({
   const load = useCallback(async () => {
     setSaveState('LOADING');
     if (setupPreview) {
-      const loaded = previewSetupPlan(locale);
+      const loaded = previewSetupPlan();
       setPlan(loaded);
       setFloorId(loaded.levels[0]!.id);
       setSelectedRoomId(null);
@@ -708,11 +705,7 @@ export function HomePlanEditor({
         setCoverage((await coverageResponse.json()) as EquipmentCoverage);
         setCoverageError('');
       } else {
-        setCoverageError(
-          locale === 'fr'
-            ? 'L’analyse des capteurs n’a pas pu être chargée.'
-            : 'The sensor analysis could not be loaded.',
-        );
+        setCoverageError(t('homePlanEditor.theSensorAnalysisCouldNot'));
       }
       setCoverageLoading(false);
       setPlan(loaded);
@@ -731,9 +724,7 @@ export function HomePlanEditor({
     } catch {
       setSaveState('ERROR');
       setCoverageLoading(false);
-      setMessage(
-        locale === 'fr' ? 'Le plan ne peut pas être chargé.' : 'The plan cannot be loaded.',
-      );
+      setMessage(t('homePlanEditor.thePlanCannotBeLoaded'));
     }
   }, [initialRoomId, initialStairId, locale, setupPreview]);
 
@@ -783,11 +774,7 @@ export function HomePlanEditor({
       });
       if (response.status === 409) {
         setSaveState('CONFLICT');
-        setMessage(
-          locale === 'fr'
-            ? 'Une version plus récente existe. Rechargez le plan.'
-            : 'A newer version exists. Reload the plan.',
-        );
+        setMessage(t('homePlanEditor.aNewerVersionExistsReload'));
         return;
       }
       const result = (await response.json().catch(() => null)) as
@@ -795,9 +782,7 @@ export function HomePlanEditor({
       if (!response.ok || !result || !('levels' in result)) {
         setMessage(
           (result && 'message' in result && result.message) ||
-            (locale === 'fr'
-              ? 'Le plan contient un élément invalide.'
-              : 'The plan contains an invalid item.'),
+            t('homePlanEditor.thePlanContainsAnInvalid'),
         );
         setSaveState('ERROR');
         return;
@@ -821,11 +806,7 @@ export function HomePlanEditor({
       void refreshDeviceData();
     } catch {
       setSaveState('ERROR');
-      setMessage(
-        locale === 'fr'
-          ? 'Hors ligne : les changements restent sur cet écran.'
-          : 'Offline: changes remain on this screen.',
-      );
+      setMessage(t('homePlanEditor.offlineChangesRemainOnThis'));
     } finally {
       saving.current = false;
     }
@@ -887,8 +868,8 @@ export function HomePlanEditor({
         name:
           requestedRoom?.name ??
           (corridor
-            ? `${tr('Couloir', 'Hallway')} ${draft.levels.flatMap((item) => item.rooms).filter(({ kind }) => kind === 'HALLWAY').length + 1}`
-            : `${tr('Pièce', 'Room')} ${draft.levels.flatMap((item) => item.rooms).length + 1}`),
+            ? `${t('homePlanEditor.hallway')} ${draft.levels.flatMap((item) => item.rooms).filter(({ kind }) => kind === 'HALLWAY').length + 1}`
+            : `${t('homePlanEditor.room')} ${draft.levels.flatMap((item) => item.rooms).length + 1}`),
         kind: requestedRoom?.kind ?? (corridor ? 'HALLWAY' : 'OTHER'),
         areaM2: geometryAreaM2(points),
         geometry: { points, color: colors[floor.rooms.length % colors.length]! },
@@ -903,11 +884,7 @@ export function HomePlanEditor({
     if (!currentFloor) return;
     const wall = closestWall(at, currentFloor.rooms);
     if (!wall || wall.distance > 70) {
-      setMessage(
-        locale === 'fr'
-          ? 'Touchez un mur pour ajouter cette ouverture.'
-          : 'Tap a wall to add this opening.',
-      );
+      setMessage(t('homePlanEditor.tapAWallToAdd'));
       return;
     }
     const touching = currentFloor.rooms.filter((room) => {
@@ -948,12 +925,7 @@ export function HomePlanEditor({
           : relatedRooms;
       const wall = closestWall(at, movableRooms);
       if (!opening || !wall || wall.distance > 100) {
-        setMessage(
-          tr(
-            'Touchez le mur de l’une des pièces reliées pour déplacer cette ouverture.',
-            'Tap the wall of one of the connected rooms to move this opening.',
-          ),
-        );
+        setMessage(t('homePlanEditor.tapTheWallOfOne'));
         return;
       }
       commit((draft) => {
@@ -982,10 +954,11 @@ export function HomePlanEditor({
       });
       setMovingOpeningId(null);
       setMessage(
-        tr(
-          `${opening.kind === 'WINDOW' ? 'Fenêtre' : opening.kind === 'PASSAGE' ? 'Passage' : 'Porte'} déplacé${opening.kind === 'WINDOW' ? 'e' : ''} sur le mur de ${wall.room.name}.`,
-          `${opening.kind === 'WINDOW' ? 'Window' : opening.kind === 'PASSAGE' ? 'Passage' : 'Door'} moved to the wall of ${wall.room.name}.`,
-        ),
+        opening.kind === 'WINDOW'
+          ? t('homePlanEditor.openingMoved.WINDOW', { room: wall.room.name })
+          : opening.kind === 'PASSAGE'
+            ? t('homePlanEditor.openingMoved.PASSAGE', { room: wall.room.name })
+            : t('homePlanEditor.openingMoved.DOOR', { room: wall.room.name }),
       );
       return;
     }
@@ -1021,12 +994,7 @@ export function HomePlanEditor({
       ? currentFloor.rooms.find(({ id }) => id === targetRoomId)
       : connectionTargetAt(sourceRoomId, at);
     if (!source || !target) {
-      setMessage(
-        tr(
-          'Déposez le lien dans une autre pièce du même niveau.',
-          'Drop the link in another room on the same level.',
-        ),
-      );
+      setMessage(t('homePlanEditor.dropTheLinkInAnother'));
       return;
     }
     const exists = currentFloor.openings.some(
@@ -1037,10 +1005,7 @@ export function HomePlanEditor({
     );
     if (exists) {
       setMessage(
-        tr(
-          `${source.name} et ${target.name} sont déjà reliés.`,
-          `${source.name} and ${target.name} are already connected.`,
-        ),
+        t('homePlanEditor.andAreAlreadyConnected', { name: source.name, name2: target.name }),
       );
       return;
     }
@@ -1072,12 +1037,7 @@ export function HomePlanEditor({
     setSelectedPlacementId(null);
     setSelectedOpeningId(openingId);
     setMovingOpeningId(null);
-    setMessage(
-      tr(
-        `${source.name} est maintenant relié à ${target.name}.`,
-        `${source.name} is now connected to ${target.name}.`,
-      ),
-    );
+    setMessage(t('homePlanEditor.isNowConnectedTo', { name: source.name, name2: target.name }));
   };
   const moveStairAnchor = (at: Point) => {
     const drag = stairDrag.current;
@@ -1312,14 +1272,7 @@ export function HomePlanEditor({
   const deleteCurrentFloor = () => {
     if (!plan || !currentFloor || plan.levels.length <= 1) return;
     const deletingFloor = currentFloor;
-    if (
-      !window.confirm(
-        tr(
-          `Supprimer le niveau « ${deletingFloor.name} » et toutes ses pièces ?`,
-          `Delete the level “${deletingFloor.name}” and all its rooms?`,
-        ),
-      )
-    )
+    if (!window.confirm(t('homePlanEditor.deleteTheLevelAndAll', { name: deletingFloor.name })))
       return;
     const sorted = [...plan.levels].sort((a, b) => a.order - b.order);
     const fallback = sorted.find(({ id }) => id !== deletingFloor.id)!;
@@ -1369,12 +1322,7 @@ export function HomePlanEditor({
           (stair.fromRoomId === toRoomId && stair.toRoomId === fromRoomId),
       );
     if (alreadyExists) {
-      setMessage(
-        tr(
-          'Ces deux espaces sont déjà reliés par un escalier.',
-          'These two spaces are already connected by a staircase.',
-        ),
-      );
+      setMessage(t('homePlanEditor.theseTwoSpacesAreAlready'));
       return false;
     }
     const at = stairDockPoint(departureRoom, departureFloor);
@@ -1405,12 +1353,7 @@ export function HomePlanEditor({
     setFloorId(departureFloor.id);
     setSelectedRoomId(departureRoom.id);
     setTool('SELECT');
-    setMessage(
-      tr(
-        'Escalier ajouté. Déplacez ensuite chaque flèche autour de sa pièce.',
-        'Staircase added. Then move each arrow around its room.',
-      ),
-    );
+    setMessage(t('homePlanEditor.staircaseAddedThenMoveEach'));
     return true;
   };
 
@@ -1507,10 +1450,7 @@ export function HomePlanEditor({
     if (!response.ok || !result || !('levels' in result)) {
       setSaveState('ERROR');
       throw new Error(
-        (result && 'message' in result && result.message) ||
-          (locale === 'fr'
-            ? 'Le brouillon n’a pas pu être enregistré.'
-            : 'The draft could not be saved.'),
+        (result && 'message' in result && result.message) || t('homePlanEditor.theDraftCouldNotBe'),
       );
     }
     const saved = normalizePlan(result);
@@ -1564,16 +1504,7 @@ export function HomePlanEditor({
           next.levels.find((level) => level.floor === floor) ??
           ({
             id: `floor-${floor}`,
-            name:
-              locale === 'fr'
-                ? floor === 0
-                  ? 'Rez-de-chaussée'
-                  : floor === 1
-                    ? '1er étage'
-                    : `${floor}e étage`
-                : floor === 0
-                  ? 'Ground floor'
-                  : `Floor ${floor}`,
+            name: levelName(floor),
             floor,
             order: floor,
             width: 1_200,
@@ -1725,10 +1656,7 @@ export function HomePlanEditor({
     return saveState === 'ERROR' ? (
       <div className="home-plan-loading">{message}</div>
     ) : (
-      <DataLoadingScreen
-        locale={locale}
-        message={locale === 'fr' ? 'Chargement de votre logement…' : 'Loading your home…'}
-      />
+      <DataLoadingScreen locale={locale} message={t('homePlanEditor.loadingYourHome')} />
     );
 
   const setupDraft = shouldRunHomeSetup({
@@ -1746,7 +1674,7 @@ export function HomePlanEditor({
     ? previewHome
     : {
         name: home?.name ?? '',
-        type: home?.type ?? (locale === 'fr' ? 'Maison' : 'House'),
+        type: home?.type ?? t('homePlanEditor.house'),
         address: home?.address ?? '',
         timezone:
           home?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'Europe/Paris',
@@ -1826,12 +1754,7 @@ export function HomePlanEditor({
         }}
         onCameraAdded={onSaved}
         onRefresh={async () => {
-          if (saving.current || dirty)
-            throw new Error(
-              locale === 'fr'
-                ? 'Le plan est en cours d’enregistrement.'
-                : 'The plan is being saved.',
-            );
+          if (saving.current || dirty) throw new Error(t('homePlanEditor.thePlanIsBeingSaved'));
           const [fresh, freshDevices] = await Promise.all([
             sensorRequest<HomePlan>('/api/v1/household/plan'),
             sensorRequest<SensorDevice[]>('/api/v1/sensor-devices'),
@@ -1859,20 +1782,14 @@ export function HomePlanEditor({
     <section className="home-plan-page">
       {onBack && !setupDraft && (
         <button className="home-plan-back" onClick={onBack}>
-          <ArrowLeft /> {locale === 'fr' ? 'Retour à Mon logement' : 'Back to My home'}
+          <ArrowLeft /> {t('homePlanEditor.backToMyHome')}
         </button>
       )}
       <header className="home-plan-header">
         <div>
-          <span className="eyebrow">
-            {locale === 'fr' ? 'Jumeau numérique du domicile' : 'Digital home twin'}
-          </span>
-          <h2>{locale === 'fr' ? 'Gérer mon logement' : 'Manage my home'}</h2>
-          <p>
-            {locale === 'fr'
-              ? 'Dessinez le lieu de vie et placez les équipements.'
-              : 'Draw the home and place equipment.'}
-          </p>
+          <span className="eyebrow">{t('homePlanEditor.digitalHomeTwin')}</span>
+          <h2>{t('homePlanEditor.manageMyHome')}</h2>
+          <p>{t('homePlanEditor.drawTheHomeAndPlace')}</p>
         </div>
       </header>
 
@@ -1892,11 +1809,7 @@ export function HomePlanEditor({
               plan.levels.find(({ floor }) => floor === room.floor)?.id ?? currentFloor.id,
             );
             setTool('ROOM');
-            setMessage(
-              locale === 'fr'
-                ? `Tracez maintenant la forme de « ${room.name} ».`
-                : `Now draw the shape of “${room.name}”.`,
-            );
+            setMessage(t('homePlanEditor.nowDrawTheShapeOf', { name: room.name }));
           }}
           onShowExample={() => setShowSetupExample(true)}
           onConfirm={() => {
@@ -1925,59 +1838,54 @@ export function HomePlanEditor({
             </button>
           ))}
         <button className="add-floor" onClick={addFloor}>
-          <Plus /> {tr('Niveau', 'Level')}
+          <Plus /> {t('homePlanEditor.level')}
         </button>
         {plan.levels.length > 1 && (
           <button className="remove-floor" onClick={deleteCurrentFloor}>
-            <Trash2 /> {tr('Supprimer ce niveau', 'Delete this level')}
+            <Trash2 /> {t('homePlanEditor.deleteThisLevel')}
           </button>
         )}
         <span className="construction-mode-label">
-          {tr('Construction libre · pièces espacées', 'Free building · spaced rooms')}
+          {t('homePlanEditor.freeBuildingSpacedRooms')}
         </span>
         <span className={`save-indicator ${saveState.toLowerCase()}`}>
           {saveState === 'SAVING' ? (
             <>
-              <RotateCcw className="spin" /> {tr('Sauvegarde…', 'Saving…')}
+              <RotateCcw className="spin" /> {t('homePlanEditor.saving')}
             </>
           ) : saveState === 'SAVED' ? (
             <>
-              <Save /> {tr('Enregistré', 'Saved')}
+              <Save /> {t('homePlanEditor.saved')}
             </>
           ) : (
             <button onClick={() => void (saveState === 'CONFLICT' ? load() : save())}>
-              {message || tr('Réessayer', 'Try again')}
+              {message || t('homePlanEditor.tryAgain')}
             </button>
           )}
         </span>
       </div>
 
-      <div className="home-plan-toolbar" aria-label={tr('Outils du plan', 'Plan tools')}>
+      <div className="home-plan-toolbar" aria-label={t('homePlanEditor.planTools')}>
         <button className={tool === 'SELECT' ? 'active' : ''} onClick={() => setTool('SELECT')}>
-          <MousePointer2 /> {tr('Sélectionner', 'Select')}
+          <MousePointer2 /> {t('homePlanEditor.select')}
         </button>
         <button className={tool === 'ROOM' ? 'active' : ''} onClick={() => setTool('ROOM')}>
-          <Square /> {tr('Pièce', 'Room')}
+          <Square /> {t('homePlanEditor.room')}
         </button>
         <button className={tool === 'ROOM_L' ? 'active' : ''} onClick={() => setTool('ROOM_L')}>
-          <Grid2X2 /> {tr('Pièce en L', 'L-shaped room')}
+          <Grid2X2 /> {t('homePlanEditor.lShapedRoom')}
         </button>
         <button className={tool === 'CORRIDOR' ? 'active' : ''} onClick={() => setTool('CORRIDOR')}>
-          <MoveHorizontal /> {tr('Couloir', 'Hallway')}
+          <MoveHorizontal /> {t('homePlanEditor.hallway')}
         </button>
         <button
           className={tool === 'CONNECT' ? 'active' : ''}
           onClick={() => {
             setTool('CONNECT');
-            setMessage(
-              tr(
-                'Glissez d’une pièce vers une autre. Relâchez quand la pièce cible devient verte.',
-                'Drag from one room to another. Release when the target room turns green.',
-              ),
-            );
+            setMessage(t('homePlanEditor.dragFromOneRoomTo'));
           }}
         >
-          <Link2 /> {tr('Relier les pièces', 'Connect rooms')}
+          <Link2 /> {t('homePlanEditor.connectRooms')}
         </button>
         <button
           disabled={plan.levels.length < 2}
@@ -1987,13 +1895,13 @@ export function HomePlanEditor({
             setStairModalOpen(true);
           }}
         >
-          <MoveUpRight /> {tr('Escalier', 'Staircase')}
+          <MoveUpRight /> {t('homePlanEditor.staircase')}
         </button>
         <i />
-        <button disabled={!history.length} onClick={undo} title={tr('Annuler', 'Undo')}>
+        <button disabled={!history.length} onClick={undo} title={t('homePlanEditor.undo')}>
           <Undo2 />
         </button>
-        <button disabled={!future.length} onClick={redo} title={tr('Rétablir', 'Redo')}>
+        <button disabled={!future.length} onClick={redo} title={t('homePlanEditor.redo')}>
           <Redo2 />
         </button>
       </div>
@@ -2006,7 +1914,7 @@ export function HomePlanEditor({
             viewBox={`0 0 ${currentFloor.width} ${currentFloor.height}`}
             style={{ aspectRatio: `${currentFloor.width} / ${currentFloor.height}` }}
             role="application"
-            aria-label={tr(`Plan du niveau ${currentFloor.name}`, `${currentFloor.name} plan`)}
+            aria-label={t('homePlanEditor.plan', { name: currentFloor.name })}
             onPointerDownCapture={(event) => {
               if (!movingOpeningId) return;
               onCanvasDown(event);
@@ -2307,7 +2215,7 @@ export function HomePlanEditor({
               className="plan-canvas-resize"
               transform={`translate(${currentFloor.width - 27} ${currentFloor.height - 27})`}
               role="button"
-              aria-label={tr('Agrandir la zone du plan', 'Enlarge the plan area')}
+              aria-label={t('homePlanEditor.enlargeThePlanArea')}
               onPointerDown={(event) => {
                 event.stopPropagation();
                 event.currentTarget.setPointerCapture(event.pointerId);
@@ -2330,20 +2238,10 @@ export function HomePlanEditor({
           </svg>
           <PlanLegend plan={plan} floor={currentFloor} showSensors={false} />
           {(tool === 'ROOM' || tool === 'ROOM_L' || tool === 'CORRIDOR') && (
-            <div className="canvas-hint">
-              {tr(
-                'Touchez et faites glisser pour dessiner la pièce.',
-                'Tap and drag to draw the room.',
-              )}
-            </div>
+            <div className="canvas-hint">{t('homePlanEditor.tapAndDragToDraw')}</div>
           )}
           {tool === 'CONNECT' && (
-            <div className="canvas-hint">
-              {tr(
-                'Glissez d’une pièce vers une autre, puis relâchez sur la pièce en vert.',
-                'Drag from one room to another, then release on the green room.',
-              )}
-            </div>
+            <div className="canvas-hint">{t('homePlanEditor.dragFromOneRoomTo2')}</div>
           )}
         </div>
 
@@ -2352,15 +2250,15 @@ export function HomePlanEditor({
             <div className="plan-room-summary">
               <div className="inspector-heading">
                 <div>
-                  <span className="eyebrow">{tr('Pièce aménagée', 'Furnished room')}</span>
+                  <span className="eyebrow">{t('homePlanEditor.furnishedRoom')}</span>
                   <h3>{selectedRoom.name}</h3>
                 </div>
-                <button onClick={requestDeleteRoom} aria-label={tr('Supprimer', 'Delete')}>
+                <button onClick={requestDeleteRoom} aria-label={t('homePlanEditor.delete')}>
                   <Trash2 />
                 </button>
               </div>
               <label className="room-field">
-                <span>{tr('Nom de la pièce', 'Room name')}</span>
+                <span>{t('homePlanEditor.roomName')}</span>
                 <input
                   value={selectedRoom.name}
                   onChange={(event) => {
@@ -2374,7 +2272,7 @@ export function HomePlanEditor({
                 />
               </label>
               <label className="room-field">
-                <span>{tr('Type prédéfini', 'Preset type')}</span>
+                <span>{t('homePlanEditor.presetType')}</span>
                 <select
                   value={selectedRoom.kind}
                   onChange={(event) => {
@@ -2398,7 +2296,7 @@ export function HomePlanEditor({
                 </select>
               </label>
               <label className="room-area-editor">
-                <span>{tr('Surface de la pièce', 'Room area')}</span>
+                <span>{t('homePlanEditor.roomArea')}</span>
                 <div>
                   <input
                     key={`${selectedRoom.id}-${roomAreaM2(selectedRoom).toFixed(1)}`}
@@ -2410,22 +2308,17 @@ export function HomePlanEditor({
                   />
                   <strong>m²</strong>
                 </div>
-                <small>
-                  {tr(
-                    'Surface réelle, indépendante de la taille visuelle utilisée sur le plan.',
-                    'Actual area, independent of the visual size used on the plan.',
-                  )}
-                </small>
+                <small>{t('homePlanEditor.actualAreaIndependentOfThe')}</small>
               </label>
               <button className="rotate-room" onClick={rotateSelectedRoom}>
-                <RotateCcw /> {tr('Pivoter la pièce de 90°', 'Rotate the room 90°')}
+                <RotateCcw /> {t('homePlanEditor.rotateTheRoom90')}
               </button>
               <button
                 className="open-room-studio"
                 disabled={dirty || saveState !== 'SAVED'}
                 onClick={() => setEditingRoomId(selectedRoom.id)}
               >
-                {tr('Aménager cette pièce →', 'Furnish this room →')}
+                {t('homePlanEditor.furnishThisRoom')}
               </button>
             </div>
           ) : selectedOpening ? (
@@ -2435,12 +2328,7 @@ export function HomePlanEditor({
               moving={movingOpeningId === selectedOpening.id}
               onMove={() => {
                 setMovingOpeningId(selectedOpening.id);
-                setMessage(
-                  tr(
-                    'Touchez le mur où vous souhaitez placer cette ouverture.',
-                    'Tap the wall where you want to place this opening.',
-                  ),
-                );
+                setMessage(t('homePlanEditor.tapTheWallWhereYou'));
               }}
               onRemove={() => {
                 commit((draft) => {
@@ -2457,12 +2345,7 @@ export function HomePlanEditor({
                 });
                 setSelectedOpeningId(null);
                 setMovingOpeningId(null);
-                setMessage(
-                  tr(
-                    'Ouverture supprimée. Vous pouvez l’annuler avec Cmd + Z.',
-                    'Opening removed. You can undo it with Cmd + Z.',
-                  ),
-                );
+                setMessage(t('homePlanEditor.openingRemovedYouCanUndo'));
               }}
             />
           ) : selectedPlacementId ? (
@@ -2481,13 +2364,8 @@ export function HomePlanEditor({
           ) : (
             <div className="inspector-empty">
               <MousePointer2 />
-              <h3>{tr('Sélectionnez une pièce', 'Select a room')}</h3>
-              <p>
-                {tr(
-                  'Modifiez son nom, ses dimensions et son aménagement.',
-                  'Edit its name, size and layout.',
-                )}
-              </p>
+              <h3>{t('homePlanEditor.selectARoom')}</h3>
+              <p>{t('homePlanEditor.editItsNameSizeAnd')}</p>
             </div>
           )}
         </aside>
@@ -2540,15 +2418,11 @@ export function HomePlanEditor({
             <span>
               <AlertTriangle />
             </span>
-            <h2>{locale === 'fr' ? 'Confirmer ce premier plan ?' : 'Confirm this first plan?'}</h2>
-            <p>
-              {locale === 'fr'
-                ? `${requestedRemaining} pièce(s) de votre liste ne sont pas encore dessinées. Vous pourrez les ajouter ensuite depuis Mon logement.`
-                : `${requestedRemaining} room(s) from your list have not been drawn yet. You can add them later from My home.`}
-            </p>
+            <h2>{t('homePlanEditor.confirmThisFirstPlan')}</h2>
+            <p>{t('homePlanEditor.roomSFromYourList', { requestedRemaining })}</p>
             <div>
               <button type="button" onClick={() => setSetupConfirmOpen(false)}>
-                {locale === 'fr' ? 'Continuer à dessiner' : 'Keep drawing'}
+                {t('homePlanEditor.keepDrawing')}
               </button>
               <button
                 type="button"
@@ -2556,7 +2430,7 @@ export function HomePlanEditor({
                 disabled={setupBusy}
                 onClick={() => void showSetupRecommendations()}
               >
-                {locale === 'fr' ? 'Confirmer mon plan' : 'Confirm my plan'} <ArrowRight />
+                {t('homePlanEditor.confirmMyPlan')} <ArrowRight />
               </button>
             </div>
           </div>
@@ -2569,7 +2443,6 @@ export function HomePlanEditor({
 function RoomDeleteDialog({
   roomName,
   blocked,
-  locale,
   onCancel,
   onConfirm,
 }: {
@@ -2580,19 +2453,11 @@ function RoomDeleteDialog({
   onConfirm: () => void;
 }) {
   const title = blocked
-    ? locale === 'fr'
-      ? 'Impossible de supprimer cette pièce'
-      : 'This room cannot be deleted'
-    : locale === 'fr'
-      ? 'Supprimer cette pièce ?'
-      : 'Delete this room?';
+    ? t('homePlanEditor.thisRoomCannotBeDeleted')
+    : t('homePlanEditor.deleteThisRoom');
   const description = blocked
-    ? locale === 'fr'
-      ? 'Déplacez ou retirez les capteurs de cette pièce avant de la supprimer.'
-      : 'Move or remove the sensors in this room before deleting it.'
-    : locale === 'fr'
-      ? `La pièce « ${roomName} », ses ouvertures et ses liaisons seront supprimées du plan.`
-      : `“${roomName}”, its openings and connections will be removed from the plan.`;
+    ? t('homePlanEditor.moveOrRemoveTheSensors')
+    : t('homePlanEditor.itsOpeningsAndConnectionsWill', { roomName });
 
   return (
     <div
@@ -2614,25 +2479,17 @@ function RoomDeleteDialog({
           {blocked ? <AlertTriangle /> : <Trash2 />}
         </span>
         <div>
-          <span className="eyebrow">
-            {locale === 'fr' ? 'Gestion des pièces' : 'Room management'}
-          </span>
+          <span className="eyebrow">{t('homePlanEditor.roomManagement')}</span>
           <h3 id="room-delete-title">{title}</h3>
           <p id="room-delete-description">{description}</p>
         </div>
         <footer>
           <button type="button" className="secondary" onClick={onCancel} autoFocus>
-            {blocked
-              ? locale === 'fr'
-                ? 'Fermer'
-                : 'Close'
-              : locale === 'fr'
-                ? 'Annuler'
-                : 'Cancel'}
+            {blocked ? t('homePlanEditor.close') : t('homePlanEditor.cancel')}
           </button>
           {!blocked && (
             <button type="button" className="delete-room" onClick={onConfirm}>
-              <Trash2 /> {locale === 'fr' ? 'Supprimer la pièce' : 'Delete room'}
+              <Trash2 /> {t('homePlanEditor.deleteRoom')}
             </button>
           )}
         </footer>
@@ -2658,22 +2515,22 @@ export function PlanLegend({
   const hasCamera = floorPlacements.some(({ kind }) => kind === 'CAMERA');
   if (!hasStair && !hasSensor && !hasCamera) return null;
   return (
-    <aside className="plan-legend" aria-label={tr('Légende du plan', 'Plan legend')}>
-      <strong>{tr('Légende', 'Legend')}</strong>
+    <aside className="plan-legend" aria-label={t('homePlanEditor.planLegend')}>
+      <strong>{t('homePlanEditor.legend')}</strong>
       <div>
         {hasStair && (
           <span>
-            <i className="legend-stair">⌃</i> {tr('Escalier', 'Staircase')}
+            <i className="legend-stair">⌃</i> {t('homePlanEditor.staircase')}
           </span>
         )}
         {hasSensor && (
           <span>
-            <i className="legend-device sensor">●</i> {tr('Capteur', 'Sensor')}
+            <i className="legend-device sensor">●</i> {t('homePlanEditor.sensor')}
           </span>
         )}
         {hasCamera && (
           <span>
-            <i className="legend-device camera">◉</i> {tr('Caméra', 'Camera')}
+            <i className="legend-device camera">◉</i> {t('homePlanEditor.camera')}
           </span>
         )}
       </div>
@@ -2702,8 +2559,7 @@ export function PlanUnderstandingPanel({
   const levels = new Map(plan.levels.map((level) => [level.id, level]));
   const list = (names: string[]) =>
     new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format(names);
-  const roomName = (id: string) =>
-    rooms.get(id)?.name ?? (locale === 'fr' ? 'pièce inconnue' : 'unknown room');
+  const roomName = (id: string) => rooms.get(id)?.name ?? t('homePlanEditor.unknownRoom');
   const adjacencyGroups = new Map<string, Set<string>>();
   for (const adjacency of plan.adjacencies) {
     const [firstId, secondId] = adjacency.roomIds;
@@ -2727,24 +2583,19 @@ export function PlanUnderstandingPanel({
 
   return (
     <div className="home-plan-understanding">
-      <section
-        className="floor-routes"
-        aria-label={locale === 'fr' ? 'Parcours entre les niveaux' : 'Routes between floors'}
-      >
+      <section className="floor-routes" aria-label={t('homePlanEditor.routesBetweenFloors')}>
         <header>
           <div>
             <span className="understanding-icon route">
               <Route />
             </span>
             <div>
-              <span className="eyebrow">
-                {locale === 'fr' ? 'Circulation verticale' : 'Vertical circulation'}
-              </span>
-              <h3>{locale === 'fr' ? 'Parcours entre les niveaux' : 'Routes between floors'}</h3>
+              <span className="eyebrow">{t('homePlanEditor.verticalCirculation')}</span>
+              <h3>{t('homePlanEditor.routesBetweenFloors')}</h3>
             </div>
           </div>
           <small>
-            {stairs.length} {locale === 'fr' ? 'liaison(s)' : 'route(s)'}
+            {stairs.length} {t('homePlanEditor.routeS')}
           </small>
         </header>
         {stairs.length ? (
@@ -2756,18 +2607,16 @@ export function PlanUnderstandingPanel({
               return (
                 <article className="floor-route-card" key={stair.id}>
                   <button onClick={() => onFocusRoom(stair.fromRoomId)}>
-                    <small>{locale === 'fr' ? 'Départ' : 'Start'}</small>
+                    <small>{t('homePlanEditor.start')}</small>
                     <strong>{fromFloor?.name}</strong>
                     <span>{roomName(stair.fromRoomId)}</span>
                   </button>
                   <div className="route-direction">
                     {goingUp ? <ArrowUp /> : <ArrowDown />}
-                    <span>
-                      {locale === 'fr' ? (goingUp ? 'monte' : 'descend') : goingUp ? 'up' : 'down'}
-                    </span>
+                    <span>{goingUp ? t('homePlanEditor.up') : t('homePlanEditor.down')}</span>
                   </div>
                   <button onClick={() => onFocusRoom(stair.toRoomId)}>
-                    <small>{locale === 'fr' ? 'Arrivée' : 'Arrival'}</small>
+                    <small>{t('homePlanEditor.arrival')}</small>
                     <strong>{toFloor?.name}</strong>
                     <span>{roomName(stair.toRoomId)}</span>
                   </button>
@@ -2777,13 +2626,9 @@ export function PlanUnderstandingPanel({
           </div>
         ) : (
           <p className="understanding-empty">
-            {locale === 'fr'
-              ? plan.levels.length > 1
-                ? 'Aucun escalier ne relie encore les niveaux.'
-                : 'Ajoutez un niveau pour construire un parcours vertical.'
-              : plan.levels.length > 1
-                ? 'No stairs connect the floors yet.'
-                : 'Add a floor to create a vertical route.'}
+            {plan.levels.length > 1
+              ? t('homePlanEditor.noStairsConnectTheFloors')
+              : t('homePlanEditor.addAFloorToCreate')}
           </p>
         )}
       </section>
@@ -2795,24 +2640,16 @@ export function PlanUnderstandingPanel({
               {issueCount ? <AlertTriangle /> : <CircleCheck />}
             </span>
             <div>
-              <span className="eyebrow">
-                {locale === 'fr' ? 'Lecture structurelle' : 'Structural reading'}
-              </span>
-              <h3>{locale === 'fr' ? 'Ce qu’Élise comprend' : 'What Élise understands'}</h3>
+              <span className="eyebrow">{t('homePlanEditor.structuralReading')}</span>
+              <h3>{t('homePlanEditor.whatEliseUnderstands')}</h3>
             </div>
           </div>
           <small className={updating ? 'is-updating' : ''}>
             {updating
-              ? locale === 'fr'
-                ? 'Mise à jour…'
-                : 'Updating…'
+              ? t('homePlanEditor.updating')
               : issueCount
-                ? locale === 'fr'
-                  ? `${issueCount} point(s) à vérifier`
-                  : `${issueCount} item(s) to check`
-                : locale === 'fr'
-                  ? 'Plan cohérent'
-                  : 'Plan consistent'}
+                ? t('homePlanEditor.itemSToCheck', { issueCount })
+                : t('homePlanEditor.planConsistent')}
           </small>
         </header>
 
@@ -2825,9 +2662,12 @@ export function PlanUnderstandingPanel({
                 <button key={metric.floorId} onClick={() => onFocusFloor(metric.floorId)}>
                   <CircleCheck />
                   <span>
-                    {locale === 'fr'
-                      ? `${level?.name} contient ${metric.roomCount} pièce(s), pour ${metric.approximate ? 'environ ' : ''}${area} m² dessinés.`
-                      : `${level?.name} contains ${metric.roomCount} room(s), covering ${metric.approximate ? 'about ' : ''}${area} m².`}
+                    {t(
+                      metric.approximate
+                        ? 'homePlanEditor.floorSummaryApprox'
+                        : 'homePlanEditor.floorSummary',
+                      { level: level?.name, count: metric.roomCount, area },
+                    )}
                   </span>
                 </button>
               );
@@ -2836,9 +2676,10 @@ export function PlanUnderstandingPanel({
               <button key={`adjacency-${ownerId}`} onClick={() => onFocusRoom(ownerId)}>
                 <Link2 />
                 <span>
-                  {locale === 'fr'
-                    ? `${roomName(ownerId)} partage un mur avec ${list([...neighbourIds].map(roomName))}.`
-                    : `${roomName(ownerId)} shares a wall with ${list([...neighbourIds].map(roomName))}.`}
+                  {t('homePlanEditor.sharesAWallWith', {
+                    roomName: roomName(ownerId),
+                    list: list([...neighbourIds].map(roomName)),
+                  })}
                 </span>
               </button>
             ))}
@@ -2846,9 +2687,10 @@ export function PlanUnderstandingPanel({
               <button key={connection.id} onClick={() => onFocusRoom(connection.fromRoomId)}>
                 <MoveHorizontal />
                 <span>
-                  {locale === 'fr'
-                    ? `${roomName(connection.fromRoomId)} est relié à ${roomName(connection.toRoomId)}.`
-                    : `${roomName(connection.fromRoomId)} is linked to ${roomName(connection.toRoomId)}.`}
+                  {t('homePlanEditor.isLinkedTo', {
+                    roomName: roomName(connection.fromRoomId),
+                    roomName2: roomName(connection.toRoomId),
+                  })}
                 </span>
               </button>
             ))}
@@ -2860,9 +2702,11 @@ export function PlanUnderstandingPanel({
                 <button key={`statement-${stair.id}`} onClick={() => onFocusRoom(stair.fromRoomId)}>
                   {goingUp ? <ArrowUp /> : <ArrowDown />}
                   <span>
-                    {locale === 'fr'
-                      ? `Un escalier ${goingUp ? 'monte' : 'descend'} de ${roomName(stair.fromRoomId)} vers ${roomName(stair.toRoomId)} (${toFloor?.name}).`
-                      : `Stairs go ${goingUp ? 'up' : 'down'} from ${roomName(stair.fromRoomId)} to ${roomName(stair.toRoomId)} (${toFloor?.name}).`}
+                    {t(goingUp ? 'homePlanEditor.stairsGoUp' : 'homePlanEditor.stairsGoDown', {
+                      from: roomName(stair.fromRoomId),
+                      to: roomName(stair.toRoomId),
+                      floor: toFloor?.name,
+                    })}
                   </span>
                 </button>
               );
@@ -2870,29 +2714,25 @@ export function PlanUnderstandingPanel({
           </div>
 
           <aside className={`understanding-issues ${issueCount ? '' : 'is-clear'}`}>
-            <h4>{locale === 'fr' ? 'À vérifier' : 'Check'}</h4>
+            <h4>{t('homePlanEditor.check')}</h4>
             {!issueCount && (
               <p>
-                <CircleCheck />{' '}
-                {locale === 'fr'
-                  ? 'Toutes les pièces sont correctement reliées.'
-                  : 'All rooms are properly connected.'}
+                <CircleCheck /> {t('homePlanEditor.allRoomsAreProperlyConnected')}
               </p>
             )}
             {plan.understanding.isolatedRoomIds.map((roomId) => (
               <button key={`isolated-${roomId}`} onClick={() => onFocusRoom(roomId)}>
                 <AlertTriangle />{' '}
-                {locale === 'fr'
-                  ? `${roomName(roomId)} n’est reliée à aucune autre pièce.`
-                  : `${roomName(roomId)} is not connected to another room.`}
+                {t('homePlanEditor.isNotConnectedToAnother', { roomName: roomName(roomId) })}
               </button>
             ))}
             {plan.understanding.adjacentWithoutPassage.map(([first, second]) => (
               <button key={`missing-${first}-${second}`} onClick={() => onFocusRoom(first)}>
                 <AlertTriangle />{' '}
-                {locale === 'fr'
-                  ? `${roomName(first)} et ${roomName(second)} sont accolées, mais aucune liaison n’est indiquée.`
-                  : `${roomName(first)} and ${roomName(second)} touch, but no link is defined.`}
+                {t('homePlanEditor.andTouchButNoLink', {
+                  roomName: roomName(first),
+                  roomName2: roomName(second),
+                })}
               </button>
             ))}
             {plan.understanding.nearAdjacencyIds.map((adjacencyId) => {
@@ -2904,18 +2744,17 @@ export function PlanUnderstandingPanel({
                   onClick={() => onFocusRoom(adjacency.roomIds[0])}
                 >
                   <AlertTriangle />{' '}
-                  {locale === 'fr'
-                    ? `Les murs de ${roomName(adjacency.roomIds[0])} et ${roomName(adjacency.roomIds[1])} semblent accolés : alignement à confirmer.`
-                    : `The walls of ${roomName(adjacency.roomIds[0])} and ${roomName(adjacency.roomIds[1])} nearly touch; confirm their alignment.`}
+                  {t('homePlanEditor.theWallsOfAndNearly', {
+                    roomName: roomName(adjacency.roomIds[0]),
+                    roomName2: roomName(adjacency.roomIds[1]),
+                  })}
                 </button>
               );
             })}
             {plan.understanding.floorsWithoutStairs.map((floorId) => (
               <button key={`floor-${floorId}`} onClick={() => onFocusFloor(floorId)}>
                 <AlertTriangle />{' '}
-                {locale === 'fr'
-                  ? `${levels.get(floorId)?.name} n’est relié à aucun autre niveau.`
-                  : `${levels.get(floorId)?.name} is not connected to another floor.`}
+                {t('homePlanEditor.isNotConnectedToAnother2', { name: levels.get(floorId)?.name })}
               </button>
             ))}
             {plan.understanding.incompleteStairIds.map((stairId) => (
@@ -2923,10 +2762,7 @@ export function PlanUnderstandingPanel({
                 key={`incomplete-stair-${stairId}`}
                 onClick={() => onFocusFloor(plan.levels[0]?.id ?? '')}
               >
-                <AlertTriangle />{' '}
-                {locale === 'fr'
-                  ? 'Un escalier est incomplet : choisissez ses niveaux et ses pièces d’arrivée.'
-                  : 'A staircase is incomplete: choose its floors and arrival rooms.'}
+                <AlertTriangle /> {t('homePlanEditor.aStaircaseIsIncompleteChoose')}
               </button>
             ))}
           </aside>
@@ -2990,21 +2826,16 @@ export function StairModal({
           <MoveUpRight />
         </span>
         <div>
-          <span className="eyebrow">{tr('Nouvel escalier', 'New staircase')}</span>
-          <h3 id="stair-modal-title">{tr('Relier deux niveaux', 'Connect two levels')}</h3>
-          <p>
-            {tr(
-              'Choisissez précisément son départ et son arrivée.',
-              'Choose exactly where it starts and ends.',
-            )}
-          </p>
+          <span className="eyebrow">{t('homePlanEditor.newStaircase')}</span>
+          <h3 id="stair-modal-title">{t('homePlanEditor.connectTwoLevels')}</h3>
+          <p>{t('homePlanEditor.chooseExactlyWhereItStarts')}</p>
         </div>
 
         <div className="stair-modal-fields">
           <fieldset>
-            <legend>{tr('Départ', 'Start')}</legend>
+            <legend>{t('homePlanEditor.start')}</legend>
             <label>
-              <span>{tr('Niveau', 'Level')}</span>
+              <span>{t('homePlanEditor.level')}</span>
               <select
                 value={departureFloorId}
                 onChange={(event) => setDepartureFloorId(event.target.value)}
@@ -3017,13 +2848,13 @@ export function StairModal({
               </select>
             </label>
             <label>
-              <span>{tr('Pièce de départ', 'Starting room')}</span>
+              <span>{t('homePlanEditor.startingRoom')}</span>
               <select
                 value={departureRoomId}
                 onChange={(event) => setDepartureRoomId(event.target.value)}
               >
                 {!departureFloor?.rooms.length && (
-                  <option value="">{tr('Aucune pièce disponible', 'No room available')}</option>
+                  <option value="">{t('homePlanEditor.noRoomAvailable')}</option>
                 )}
                 {departureFloor?.rooms.map((room) => (
                   <option value={room.id} key={room.id}>
@@ -3037,9 +2868,9 @@ export function StairModal({
           <span className="stair-modal-arrow">→</span>
 
           <fieldset>
-            <legend>{tr('Arrivée', 'End')}</legend>
+            <legend>{t('homePlanEditor.end')}</legend>
             <label>
-              <span>{tr('Niveau', 'Level')}</span>
+              <span>{t('homePlanEditor.level')}</span>
               <select
                 value={targetFloorId}
                 onChange={(event) => setTargetFloorId(event.target.value)}
@@ -3052,13 +2883,13 @@ export function StairModal({
               </select>
             </label>
             <label>
-              <span>{tr('Pièce d’arrivée', 'Destination room')}</span>
+              <span>{t('homePlanEditor.destinationRoom')}</span>
               <select
                 value={targetRoomId}
                 onChange={(event) => setTargetRoomId(event.target.value)}
               >
                 {!targetFloor?.rooms.length && (
-                  <option value="">{tr('Aucune pièce disponible', 'No room available')}</option>
+                  <option value="">{t('homePlanEditor.noRoomAvailable')}</option>
                 )}
                 {targetFloor?.rooms.map((room) => (
                   <option value={room.id} key={room.id}>
@@ -3072,29 +2903,24 @@ export function StairModal({
 
         <div className="stair-route stair-modal-route">
           <strong>{departureFloor?.name}</strong> ·{' '}
-          {departureRoom?.name || tr('Pièce à choisir', 'Room to choose')}
+          {departureRoom?.name || t('homePlanEditor.roomToChoose')}
           <span>→</span>
           <strong>{targetFloor?.name}</strong> ·{' '}
-          {targetRoom?.name || tr('Pièce à choisir', 'Room to choose')}
+          {targetRoom?.name || t('homePlanEditor.roomToChoose')}
         </div>
 
-        <small className="stair-modal-help">
-          {tr(
-            'Après validation, les deux flèches pourront être déplacées librement autour des pièces.',
-            'Once confirmed, both arrows can be moved freely around the rooms.',
-          )}
-        </small>
+        <small className="stair-modal-help">{t('homePlanEditor.onceConfirmedBothArrowsCan')}</small>
 
         <footer>
           <button className="secondary" onClick={onClose}>
-            {tr('Annuler', 'Cancel')}
+            {t('homePlanEditor.cancel')}
           </button>
           <button
             className="primary"
             disabled={!departureRoomId || !targetFloorId || !targetRoomId}
             onClick={() => onAdd(departureFloorId, departureRoomId, targetFloorId, targetRoomId)}
           >
-            <MoveUpRight /> {tr('Ajouter l’escalier', 'Add the staircase')}
+            <MoveUpRight /> {t('homePlanEditor.addTheStaircase')}
           </button>
         </footer>
       </div>
@@ -3120,53 +2946,47 @@ function OpeningInspector({
     ({ id }) => id === (opening.hostRoomId ?? opening.roomIds[opening.roomIds.length - 1]),
   );
   const label = opening.isMainEntrance
-    ? tr('Entrée principale', 'Main entrance')
+    ? t('homePlanEditor.mainEntrance')
     : opening.kind === 'WINDOW'
-      ? tr('Fenêtre', 'Window')
+      ? t('homePlanEditor.window')
       : opening.kind === 'PASSAGE'
-        ? tr('Passage ouvert', 'Open passage')
-        : tr('Porte intérieure', 'Interior door');
+        ? t('homePlanEditor.openPassage')
+        : t('homePlanEditor.interiorDoor');
   const noun =
     opening.kind === 'WINDOW'
-      ? tr('la fenêtre', 'the window')
+      ? t('homePlanEditor.theWindow')
       : opening.kind === 'PASSAGE'
-        ? tr('le passage', 'the passage')
-        : tr('la porte', 'the door');
+        ? t('homePlanEditor.thePassage')
+        : t('homePlanEditor.theDoor');
   return (
     <div className="opening-inspector">
       <span className={`opening-inspector-icon ${opening.kind.toLowerCase()}`}>
         {opening.kind === 'WINDOW' ? <Waves /> : <DoorOpen />}
       </span>
-      <span className="eyebrow">{tr('Ouverture sélectionnée', 'Selected opening')}</span>
+      <span className="eyebrow">{t('homePlanEditor.selectedOpening')}</span>
       <h3>{label}</h3>
       <p>
         {rooms.length === 2
           ? `${rooms[0]!.name} ↔ ${rooms[1]!.name}`
-          : tr(
-              `Accès à ${rooms[0]?.name ?? 'la pièce'}`,
-              `Access to ${rooms[0]?.name ?? 'the room'}`,
-            )}
+          : rooms[0]?.name
+            ? t('homePlanEditor.accessTo', { room: rooms[0].name })
+            : t('homePlanEditor.accessToTheRoom')}
       </p>
       {hostRoom && (
         <div className="opening-host-room">
-          <small>{tr('Placée sur le mur de', 'Placed on the wall of')}</small>
+          <small>{t('homePlanEditor.placedOnTheWallOf')}</small>
           <strong>{hostRoom.name}</strong>
         </div>
       )}
       <button className={`move-opening ${moving ? 'active' : ''}`} onClick={onMove}>
         <MoveHorizontal />{' '}
-        {moving
-          ? tr('Choisissez maintenant un mur…', 'Now choose a wall…')
-          : tr(`Déplacer ${noun}`, `Move ${noun}`)}
+        {moving ? t('homePlanEditor.nowChooseAWall') : t('homePlanEditor.move', { noun })}
       </button>
       <button className="delete-opening" onClick={onRemove}>
-        <Trash2 /> {tr(`Supprimer ${noun}`, `Delete ${noun}`)}
+        <Trash2 /> {t('homePlanEditor.delete2', { noun })}
       </button>
       <small className="opening-inspector-help">
-        {tr(
-          'Les connexions et capteurs associés resteront synchronisés pendant le déplacement.',
-          'Linked connections and sensors stay in sync while moving.',
-        )}
+        {t('homePlanEditor.linkedConnectionsAndSensorsStay')}
       </small>
     </div>
   );
@@ -3187,11 +3007,13 @@ function PlacementInspector({
   return (
     <div className="placement-inspector">
       <Radio />
-      <span className="eyebrow">{tr('Équipement positionné', 'Placed equipment')}</span>
-      <h3>{placement.kind === 'CAMERA' ? tr('Caméra', 'Camera') : tr('Capteur', 'Sensor')}</h3>
+      <span className="eyebrow">{t('homePlanEditor.placedEquipment')}</span>
+      <h3>
+        {placement.kind === 'CAMERA' ? t('homePlanEditor.camera') : t('homePlanEditor.sensor')}
+      </h3>
       <p>{room?.name}</p>
       <button onClick={onRemove}>
-        <Trash2 /> {tr('Retirer du plan', 'Remove from the plan')}
+        <Trash2 /> {t('homePlanEditor.removeFromThePlan')}
       </button>
     </div>
   );

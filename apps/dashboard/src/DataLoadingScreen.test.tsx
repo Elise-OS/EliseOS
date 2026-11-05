@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { DataLoadingScreen } from './DataLoadingScreen';
+import { inLanguage } from './i18n/test-language';
 
 describe('DataLoadingScreen', () => {
   it('shows the shared branded loading experience in French', () => {
@@ -18,7 +19,7 @@ describe('DataLoadingScreen', () => {
   });
 
   it('is fully translated in English', () => {
-    const html = renderToStaticMarkup(<DataLoadingScreen locale="en" />);
+    const html = inLanguage('en', () => renderToStaticMarkup(<DataLoadingScreen locale="en" />));
 
     expect(html).toContain('Your space is coming to life');
     expect(html).toContain('Loading your data…');

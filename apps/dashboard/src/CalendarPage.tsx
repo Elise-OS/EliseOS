@@ -15,7 +15,7 @@ import {
   type CalendarEvent,
   type CalendarPage as CalendarData,
 } from '@elise/contracts';
-import type { Locale } from './i18n';
+import { dateLocale, type Locale, t } from './i18n';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import './calendar-page.css';
 
@@ -28,6 +28,16 @@ const formDate = (value: string) => {
   return Number.isNaN(date.getTime()) ? '' : isoLocal(date);
 };
 const dayKey = (value: Date) => `${value.getFullYear()}-${value.getMonth()}-${value.getDate()}`;
+
+// Monday first, three letters: « Lun », « Mon »… in the current language.
+function weekdayShortNames() {
+  return Array.from({ length: 7 }, (_, day) => {
+    const name = new Intl.DateTimeFormat(dateLocale(), { weekday: 'short', timeZone: 'UTC' })
+      .format(new Date(Date.UTC(2023, 0, 2 + day)))
+      .replace(/\.$/, '');
+    return name.charAt(0).toLocaleUpperCase(dateLocale()) + name.slice(1);
+  });
+}
 
 export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBack: () => void }) {
   const fr = locale === 'fr';
@@ -62,7 +72,7 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
       setData((await response.json()) as CalendarData);
       setError('');
     } catch {
-      setError(fr ? 'Le calendrier est inaccessible.' : 'The calendar is unavailable.');
+      setError(t('calendarPage.theCalendarIsUnavailable'));
     } finally {
       setLoading(false);
     }
@@ -118,7 +128,7 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
     setError('');
     const startsAt = new Date(form.startsAt);
     if (Number.isNaN(startsAt.getTime())) {
-      setError(fr ? 'Renseignez un rendez-vous et des dates valides.' : 'Enter valid event dates.');
+      setError(t('calendarPage.enterValidEventDates'));
       setBusy(false);
       return;
     }
@@ -134,7 +144,7 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
     };
     const parsed = calendarCreateSchema.safeParse(input);
     if (!parsed.success) {
-      setError(fr ? 'Renseignez le titre et une date valide.' : 'Enter a title and valid date.');
+      setError(t('calendarPage.enterATitleAndValid'));
       setBusy(false);
       return;
     }
@@ -149,36 +159,18 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
       );
       if (!response.ok) throw new Error();
       setOpen(false);
-      setNotice(
-        fr
-          ? editing
-            ? 'Rendez-vous modifié.'
-            : 'Rendez-vous ajouté.'
-          : editing
-            ? 'Event updated.'
-            : 'Event added.',
-      );
+      setNotice(editing ? t('calendarPage.eventUpdated') : t('calendarPage.eventAdded'));
       await load();
     } catch {
-      setError(fr ? 'Enregistrement impossible.' : 'Could not save the event.');
+      setError(t('calendarPage.couldNotSaveTheEvent'));
     } finally {
       setBusy(false);
     }
   };
   const remove = async (event: CalendarEvent) => {
-    if (
-      busy ||
-      !data?.canWrite ||
-      !window.confirm(fr ? 'Supprimer ce rendez-vous ?' : 'Delete this appointment?')
-    )
-      return;
+    if (busy || !data?.canWrite || !window.confirm(t('calendarPage.deleteThisAppointment'))) return;
     const selectedScope =
-      event.seriesId &&
-      window.confirm(
-        fr
-          ? 'Supprimer toute la série ? (Annuler pour cet élément seulement)'
-          : 'Delete the whole series? (Cancel for this event only)',
-      )
+      event.seriesId && window.confirm(t('calendarPage.deleteTheWholeSeriesCancel'))
         ? 'SERIES'
         : 'ONE';
     setBusy(true);
@@ -190,10 +182,10 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
       if (!response.ok) throw new Error();
       setOpen(false);
       setEditing(null);
-      setNotice(fr ? 'Rendez-vous supprimé.' : 'Appointment deleted.');
+      setNotice(t('calendarPage.appointmentDeleted'));
       await load();
     } catch {
-      setError(fr ? 'Suppression impossible.' : 'Could not delete the appointment.');
+      setError(t('calendarPage.couldNotDeleteTheAppointment'));
     } finally {
       setBusy(false);
     }
@@ -207,10 +199,7 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
 
   if (loading && !data)
     return (
-      <DataLoadingScreen
-        locale={locale}
-        message={fr ? 'Préparation du calendrier partagé…' : 'Preparing the shared calendar…'}
-      />
+      <DataLoadingScreen locale={locale} message={t('calendarPage.preparingTheSharedCalendar')} />
     );
 
   return (
@@ -218,24 +207,20 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
       <header className="page-hero calendar-hero">
         <div className="page-hero__copy">
           <span className="page-hero__eyebrow calendar-eyebrow">
-            {fr ? 'Carnet de liaison' : 'Family notebook'}
+            {t('calendarPage.familyNotebook')}
           </span>
           <h1 className="page-hero__title">
-            <CalendarDays /> {fr ? 'Calendrier partagé' : 'Shared calendar'}
+            <CalendarDays /> {t('calendarPage.sharedCalendar')}
           </h1>
-          <p className="page-hero__text">
-            {fr
-              ? 'Les rendez-vous de la maison, au même endroit. Ceux du jour s’affichent aussi sur la TV.'
-              : 'Appointments for the home, all in one place. Today’s appointments also appear on the TV.'}
-          </p>
+          <p className="page-hero__text">{t('calendarPage.appointmentsForTheHomeAll')}</p>
         </div>
         <div className="page-hero__actions calendar-hero-actions">
           <button className="calendar-back" onClick={onBack}>
-            <ChevronLeft /> {fr ? 'Retour au carnet' : 'Back to notebook'}
+            <ChevronLeft /> {t('calendarPage.backToNotebook')}
           </button>
           {data?.canWrite && (
             <button className="calendar-primary" onClick={() => reset()}>
-              <Plus /> {fr ? 'Ajouter' : 'Add event'}
+              <Plus /> {t('calendarPage.addEvent')}
             </button>
           )}
         </div>
@@ -260,20 +245,17 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
         </button>
         <div className="calendar-view-switch">
           <button className={view === 'month' ? 'active' : ''} onClick={() => setView('month')}>
-            {fr ? 'Mois' : 'Month'}
+            {t('calendarPage.month')}
           </button>
           <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>
-            {fr ? 'Liste' : 'List'}
+            {t('calendarPage.list')}
           </button>
         </div>
       </section>
       {view === 'month' ? (
         <section className="calendar-month">
           <div className="calendar-weekdays">
-            {(fr
-              ? ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
-              : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-            ).map((day) => (
+            {weekdayShortNames().map((day) => (
               <span key={day}>{day}</span>
             ))}
           </div>
@@ -291,9 +273,9 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
                 }
                 aria-label={
                   day && data?.canWrite
-                    ? fr
-                      ? `Ajouter un rendez-vous le ${day.toLocaleDateString(locale)}`
-                      : `Add an appointment on ${day.toLocaleDateString(locale)}`
+                    ? t('calendarPage.addAnAppointmentOn', {
+                        toLocaleDateString: day.toLocaleDateString(locale),
+                      })
                     : undefined
                 }
                 onClick={day && data?.canWrite ? () => reset(day) : undefined}
@@ -359,12 +341,12 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
                 </div>
                 {data?.canWrite && (
                   <div className="calendar-list-actions">
-                    <button onClick={() => edit(event)} aria-label={fr ? 'Modifier' : 'Edit'}>
+                    <button onClick={() => edit(event)} aria-label={t('calendarPage.edit')}>
                       <Pencil />
                     </button>
                     <button
                       onClick={() => void remove(event)}
-                      aria-label={fr ? 'Supprimer' : 'Delete'}
+                      aria-label={t('calendarPage.delete')}
                     >
                       <Trash2 />
                     </button>
@@ -375,10 +357,8 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
           ) : (
             <div className="calendar-empty">
               <CalendarDays />
-              <h3>{fr ? 'Aucun rendez-vous prévu' : 'No upcoming event'}</h3>
-              <p>
-                {fr ? 'Ajoutez un rendez-vous pour le foyer.' : 'Add an appointment for the home.'}
-              </p>
+              <h3>{t('calendarPage.noUpcomingEvent')}</h3>
+              <p>{t('calendarPage.addAnAppointmentForThe')}</p>
             </div>
           )}
         </section>
@@ -388,20 +368,14 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
           <form className="calendar-modal" onSubmit={(event) => void submit(event)}>
             <header>
               <h2>
-                {editing
-                  ? fr
-                    ? 'Modifier le rendez-vous'
-                    : 'Edit appointment'
-                  : fr
-                    ? 'Ajouter un rendez-vous'
-                    : 'Add an appointment'}
+                {editing ? t('calendarPage.editAppointment') : t('calendarPage.addAnAppointment')}
               </h2>
               <button type="button" onClick={() => setOpen(false)}>
                 <X />
               </button>
             </header>
             <label>
-              {fr ? 'Rendez-vous' : 'Appointment'}
+              {t('calendarPage.appointment')}
               <input
                 required
                 value={form.title}
@@ -409,7 +383,7 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
               />
             </label>
             <label>
-              {fr ? 'Date et heure' : 'Date and time'}
+              {t('calendarPage.dateAndTime')}
               <input
                 required
                 type="datetime-local"
@@ -425,14 +399,14 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
                   disabled={busy}
                   onClick={() => void remove(editing)}
                 >
-                  <Trash2 /> {fr ? 'Supprimer' : 'Delete'}
+                  <Trash2 /> {t('calendarPage.delete')}
                 </button>
               )}
               <button type="button" className="calendar-cancel" onClick={() => setOpen(false)}>
-                {fr ? 'Annuler' : 'Cancel'}
+                {t('calendarPage.cancel')}
               </button>
               <button className="calendar-primary" disabled={busy} type="submit">
-                {busy ? '…' : fr ? 'Enregistrer' : 'Save'}
+                {busy ? '…' : t('calendarPage.save')}
               </button>
             </footer>
           </form>

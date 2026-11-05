@@ -1,7 +1,11 @@
 import { AlertRulesPanel } from './AlertRulesPanel';
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { copy } from './i18n';
+import en from './i18n/locales/en.json';
+import fr from './i18n/locales/fr.json';
+
+// The screen texts of the app, as the catalogs hold them.
+const copy = { fr: fr.app.copy, en: en.app.copy };
 import {
   activityDescription,
   Login,
@@ -11,6 +15,7 @@ import {
   SimulationPanel,
 } from './App';
 import { createBootstrapPayload, Setup } from './Setup';
+import { inLanguage } from './i18n/test-language';
 
 describe('Élise copy', () => {
   it('ships complete reassurance copy in both languages', () => {
@@ -33,7 +38,7 @@ describe('Élise copy', () => {
       expect(html).not.toContain(labels[9]);
       expect(html).toContain(labels[10]);
       expect(html).toContain(labels[11]);
-      expect(html.indexOf(labels[10])).toBeLessThan(html.indexOf(labels[3]));
+      expect(html.indexOf(labels[10]!)).toBeLessThan(html.indexOf(labels[3]!));
     }
   });
 
@@ -41,8 +46,10 @@ describe('Élise copy', () => {
     const available = renderToStaticMarkup(
       <SidebarBehaviorSetting locale="fr" enabled disabled={false} onChange={() => undefined} />,
     );
-    const duringSetup = renderToStaticMarkup(
-      <SidebarBehaviorSetting locale="en" enabled disabled onChange={() => undefined} />,
+    const duringSetup = inLanguage('en', () =>
+      renderToStaticMarkup(
+        <SidebarBehaviorSetting locale="en" enabled disabled onChange={() => undefined} />,
+      ),
     );
 
     expect(available).toContain('Masquer automatiquement la barre latérale');
@@ -54,124 +61,94 @@ describe('Élise copy', () => {
 
   it('translates sensor events with useful values instead of a generic message', () => {
     expect(
-      activityDescription(
-        {
-          id: 'temperature-1',
-          occurredAt: '2026-08-09T08:00:00.000Z',
-          capability: 'temperature',
-          room: 'Salon',
-          payload: { value: 18.5, unit: '°C' },
-        },
-        'fr',
-      ),
+      activityDescription({
+        id: 'temperature-1',
+        occurredAt: '2026-08-09T08:00:00.000Z',
+        capability: 'temperature',
+        room: 'Salon',
+        payload: { value: 18.5, unit: '°C' },
+      }),
     ).toBe('Température · 18.5 °C');
     expect(
-      activityDescription(
-        {
-          id: 'door-1',
-          occurredAt: '2026-08-09T08:00:00.000Z',
-          capability: 'contact',
-          room: 'Entrée',
-          payload: { value: false },
-        },
-        'fr',
-      ),
+      activityDescription({
+        id: 'door-1',
+        occurredAt: '2026-08-09T08:00:00.000Z',
+        capability: 'contact',
+        room: 'Entrée',
+        payload: { value: false },
+      }),
     ).toBe('Fermeture détectée');
     expect(
-      activityDescription(
-        {
-          id: 'door-2',
-          occurredAt: '2026-08-09T08:05:00.000Z',
-          capability: 'contact',
-          room: 'Entrée',
-          payload: { open: true },
-        },
-        'fr',
-      ),
+      activityDescription({
+        id: 'door-2',
+        occurredAt: '2026-08-09T08:05:00.000Z',
+        capability: 'contact',
+        room: 'Entrée',
+        payload: { open: true },
+      }),
     ).toBe('Ouverture détectée');
     expect(
-      activityDescription(
-        {
-          id: 'fridge-1',
-          occurredAt: '2026-08-09T08:10:00.000Z',
-          capability: 'contact',
-          room: 'Cuisine',
-          payload: { open: true, context: { role: 'FRIDGE' } },
-        },
-        'fr',
-      ),
+      activityDescription({
+        id: 'fridge-1',
+        occurredAt: '2026-08-09T08:10:00.000Z',
+        capability: 'contact',
+        room: 'Cuisine',
+        payload: { open: true, context: { role: 'FRIDGE' } },
+      }),
     ).toBe('Frigo ouvert');
     expect(
-      activityDescription(
-        {
-          id: 'fridge-2',
-          occurredAt: '2026-08-09T08:11:00.000Z',
-          capability: 'contact',
-          room: 'Cuisine',
-          payload: { open: false, context: { role: 'FRIDGE' } },
-        },
-        'fr',
-      ),
+      activityDescription({
+        id: 'fridge-2',
+        occurredAt: '2026-08-09T08:11:00.000Z',
+        capability: 'contact',
+        room: 'Cuisine',
+        payload: { open: false, context: { role: 'FRIDGE' } },
+      }),
     ).toBe('Frigo fermé');
     expect(
-      activityDescription(
-        {
-          id: 'bed-1',
-          occurredAt: '2026-08-09T20:00:00.000Z',
-          capability: 'dry_contact',
-          room: 'Chambre',
-          payload: { active: true, context: { role: 'BED', bedOccupiedWhen: 'OPEN' } },
-        },
-        'fr',
-      ),
+      activityDescription({
+        id: 'bed-1',
+        occurredAt: '2026-08-09T20:00:00.000Z',
+        capability: 'dry_contact',
+        room: 'Chambre',
+        payload: { active: true, context: { role: 'BED', bedOccupiedWhen: 'OPEN' } },
+      }),
     ).toBe('Lit occupé');
     expect(
-      activityDescription(
-        {
-          id: 'bed-2',
-          occurredAt: '2026-08-10T06:00:00.000Z',
-          capability: 'contact',
-          room: 'Chambre',
-          payload: { open: true, context: { role: 'BED', bedOccupiedWhen: 'CLOSED' } },
-        },
-        'fr',
-      ),
+      activityDescription({
+        id: 'bed-2',
+        occurredAt: '2026-08-10T06:00:00.000Z',
+        capability: 'contact',
+        room: 'Chambre',
+        payload: { open: true, context: { role: 'BED', bedOccupiedWhen: 'CLOSED' } },
+      }),
     ).toBe('Lit libre');
     expect(
-      activityDescription(
-        {
-          id: 'bed-pressure-1',
-          occurredAt: '2026-08-10T06:05:00.000Z',
-          capability: 'occupancy',
-          room: 'Chambre',
-          payload: { active: true, context: { role: 'BED', bedOccupiedWhen: 'OPEN' } },
-        },
-        'fr',
-      ),
+      activityDescription({
+        id: 'bed-pressure-1',
+        occurredAt: '2026-08-10T06:05:00.000Z',
+        capability: 'occupancy',
+        room: 'Chambre',
+        payload: { active: true, context: { role: 'BED', bedOccupiedWhen: 'OPEN' } },
+      }),
     ).toBe('Lit occupé');
     expect(
-      activityDescription(
-        {
-          id: 'bed-pressure-2',
-          occurredAt: '2026-08-10T06:30:00.000Z',
-          capability: 'occupancy',
-          room: 'Chambre',
-          payload: { active: false, context: { role: 'BED', bedOccupiedWhen: 'OPEN' } },
-        },
-        'fr',
-      ),
+      activityDescription({
+        id: 'bed-pressure-2',
+        occurredAt: '2026-08-10T06:30:00.000Z',
+        capability: 'occupancy',
+        room: 'Chambre',
+        payload: { active: false, context: { role: 'BED', bedOccupiedWhen: 'OPEN' } },
+      }),
     ).toBe('Lit libre');
     expect(
-      activityDescription(
-        {
-          id: 'light-1',
-          occurredAt: '2026-08-09T08:00:00.000Z',
-          capability: 'illuminance',
-          room: 'Cuisine',
-          payload: {},
-        },
-        'fr',
-      ),
+      activityDescription({
+        id: 'light-1',
+        occurredAt: '2026-08-09T08:00:00.000Z',
+        capability: 'illuminance',
+        room: 'Cuisine',
+        payload: {},
+      }),
     ).toBe('Luminosité mesurée');
   });
 });
@@ -189,8 +166,10 @@ describe('Élise first startup', () => {
   });
 
   it('renders the onboarding in English when English is selected', () => {
-    const html = renderToStaticMarkup(
-      <Setup locale="en" onLocaleChange={() => undefined} onCompleted={() => undefined} />,
+    const html = inLanguage('en', () =>
+      renderToStaticMarkup(
+        <Setup locale="en" onLocaleChange={() => undefined} onCompleted={() => undefined} />,
+      ),
     );
     expect(html).toContain('Set up Élise for someone who matters');
     expect(html).toContain('Start setup');

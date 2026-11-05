@@ -16,9 +16,10 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import type { Locale } from './i18n';
+import { type Locale, t as i18nT } from './i18n';
 
-type Text = [fr: string, en: string];
+// A text of this panel, read in the current language when shown.
+type Text = () => string;
 
 interface NumberField {
   value: number;
@@ -42,29 +43,19 @@ const timeMinute = (value: string) => {
 };
 
 /** Says a duration the way a caregiver would: « 3 h », « 1 h 30 », « 2 jours ». */
-export function durationText(minutes: number, locale: Locale) {
+export function durationText(minutes: number) {
   if (minutes < 60) return `${minutes} min`;
   if (minutes >= 1440 && minutes % 1440 === 0) {
     const days = minutes / 1440;
-    return locale === 'fr'
-      ? `${days} jour${days > 1 ? 's' : ''}`
-      : `${days} day${days > 1 ? 's' : ''}`;
+    return i18nT('alertRulesPanel.dayCount', { count: days });
   }
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return rest ? `${hours} h ${String(rest).padStart(2, '0')}` : `${hours} h`;
 }
 
-function Stepper({
-  field,
-  disabled,
-  locale,
-}: {
-  field: NumberField;
-  disabled: boolean;
-  locale: Locale;
-}) {
-  const t = (text: Text) => text[locale === 'fr' ? 0 : 1];
+function Stepper({ field, disabled }: { field: NumberField; disabled: boolean; locale: Locale }) {
+  const t = (text: Text) => text();
   const set = (value: number) => field.onChange(clamp(value, field.min, field.max));
   return (
     <span className="rule-stepper">
@@ -164,8 +155,7 @@ export function AlertRulesPanel({
   onChange: (rules: AlertRuleSettings) => void;
   onSave: () => void | Promise<boolean>;
 }) {
-  const fr = locale === 'fr';
-  const t = (text: Text) => text[fr ? 0 : 1];
+  const t = (text: Text) => text();
   const [saved, setSaved] = useState(() => JSON.stringify(rules));
   const dirty = JSON.stringify(rules) !== saved;
   const update = <K extends keyof AlertRuleSettings>(
@@ -187,7 +177,7 @@ export function AlertRulesPanel({
     min,
     max,
     step,
-    unit: ['min', 'min'],
+    unit: () => i18nT('alertRulesPanel.min'),
     label,
     onChange: (value) => update(key, { minutes: value }),
   });
@@ -199,51 +189,44 @@ export function AlertRulesPanel({
 
   const groups: Array<{ title: Text; text: Text; cards: ReactNode }> = [
     {
-      title: ['Sécurité au quotidien', 'Everyday safety'],
-      text: [
-        'Les situations qui demandent de prendre des nouvelles rapidement.',
-        'Situations worth checking in on quickly.',
-      ],
+      title: () => i18nT('alertRulesPanel.everydaySafety'),
+      text: () => i18nT('alertRulesPanel.situationsWorthCheckingInOn'),
       cards: (
         <>
           <RuleCard
             icon={DoorOpen}
             tone="amber"
-            title={t(['Porte laissée ouverte', 'Door left open'])}
-            summary={
-              fr
-                ? `Prévenir si la porte d’entrée reste ouverte plus de ${durationText(rules.doorOpen.minutes, locale)}.`
-                : `Tell me when the front door stays open longer than ${durationText(rules.doorOpen.minutes, locale)}.`
-            }
-            hint={t([
-              'Une ouverture brève reste un événement normal.',
-              'A short opening stays a normal event.',
-            ])}
+            title={t(() => i18nT('alertRulesPanel.doorLeftOpen'))}
+            summary={i18nT('alertRulesPanel.tellMeWhenTheFront', {
+              durationText: durationText(rules.doorOpen.minutes),
+            })}
+            hint={t(() => i18nT('alertRulesPanel.aShortOpeningStaysA'))}
             enabled={rules.doorOpen.enabled}
-            toggleLabel={t(['Activer la porte ouverte', 'Enable door left open'])}
+            toggleLabel={t(() => i18nT('alertRulesPanel.enableDoorLeftOpen'))}
             onToggle={(enabled) => update('doorOpen', { enabled })}
           >
             <Stepper
               locale={locale}
               disabled={!rules.doorOpen.enabled}
-              field={minutes('doorOpen', ['Durée porte ouverte', 'Door open duration'], 1, 120, 1)}
+              field={minutes(
+                'doorOpen',
+                () => i18nT('alertRulesPanel.doorOpenDuration'),
+                1,
+                120,
+                1,
+              )}
             />
           </RuleCard>
           <RuleCard
             icon={Footprints}
             tone="blue"
-            title={t(['Absence de mouvement', 'No movement'])}
-            summary={
-              fr
-                ? `Prévenir si aucun mouvement n’est vu pendant ${durationText(rules.inactivity.minutes, locale)} en journée.`
-                : `Tell me when no movement is seen for ${durationText(rules.inactivity.minutes, locale)} during the day.`
-            }
-            hint={t([
-              'Seulement lorsque les capteurs répondent correctement.',
-              'Only while the sensors answer correctly.',
-            ])}
+            title={t(() => i18nT('alertRulesPanel.noMovement'))}
+            summary={i18nT('alertRulesPanel.tellMeWhenNoMovement', {
+              durationText: durationText(rules.inactivity.minutes),
+            })}
+            hint={t(() => i18nT('alertRulesPanel.onlyWhileTheSensorsAnswer'))}
             enabled={rules.inactivity.enabled}
-            toggleLabel={t(['Activer l’absence de mouvement', 'Enable no movement'])}
+            toggleLabel={t(() => i18nT('alertRulesPanel.enableNoMovement'))}
             onToggle={(enabled) => update('inactivity', { enabled })}
           >
             <Stepper
@@ -251,7 +234,7 @@ export function AlertRulesPanel({
               disabled={!rules.inactivity.enabled}
               field={minutes(
                 'inactivity',
-                ['Durée sans mouvement', 'Time without movement'],
+                () => i18nT('alertRulesPanel.timeWithoutMovement'),
                 15,
                 1440,
                 15,
@@ -262,28 +245,21 @@ export function AlertRulesPanel({
       ),
     },
     {
-      title: ['Confort du logement', 'Home comfort'],
-      text: [
-        'Le seuil doit durer un moment avant qu’Élise le signale.',
-        'A threshold must last a while before Élise reports it.',
-      ],
+      title: () => i18nT('alertRulesPanel.homeComfort'),
+      text: () => i18nT('alertRulesPanel.aThresholdMustLastA'),
       cards: (
         <>
           <RuleCard
             icon={Snowflake}
             tone="blue"
-            title={t(['Pièce trop froide', 'Room too cold'])}
-            summary={
-              fr
-                ? `Prévenir sous ${rules.lowTemperature.celsius} °C pendant ${durationText(rules.lowTemperature.minutes, locale)}.`
-                : `Tell me below ${rules.lowTemperature.celsius} °C for ${durationText(rules.lowTemperature.minutes, locale)}.`
-            }
-            hint={t([
-              'Utile en hiver : chauffage éteint, fenêtre restée ouverte.',
-              'Useful in winter: heating off, window left open.',
-            ])}
+            title={t(() => i18nT('alertRulesPanel.roomTooCold'))}
+            summary={i18nT('alertRulesPanel.tellMeBelowCFor', {
+              celsius: rules.lowTemperature.celsius,
+              durationText: durationText(rules.lowTemperature.minutes),
+            })}
+            hint={t(() => i18nT('alertRulesPanel.usefulInWinterHeatingOff'))}
             enabled={rules.lowTemperature.enabled}
-            toggleLabel={t(['Activer la température basse', 'Enable low temperature'])}
+            toggleLabel={t(() => i18nT('alertRulesPanel.enableLowTemperature'))}
             onToggle={(enabled) => update('lowTemperature', { enabled })}
           >
             <Stepper
@@ -294,8 +270,8 @@ export function AlertRulesPanel({
                 min: 5,
                 max: 25,
                 step: 0.5,
-                unit: ['°C', '°C'],
-                label: ['Température minimale', 'Minimum temperature'],
+                unit: () => i18nT('alertRulesPanel.c'),
+                label: () => i18nT('alertRulesPanel.minimumTemperature'),
                 onChange: (celsius) => update('lowTemperature', { celsius }),
               }}
             />
@@ -307,8 +283,8 @@ export function AlertRulesPanel({
                 min: 1,
                 max: 240,
                 step: 5,
-                unit: ['min', 'min'],
-                label: ['Durée sous le seuil', 'Time below threshold'],
+                unit: () => i18nT('alertRulesPanel.min'),
+                label: () => i18nT('alertRulesPanel.timeBelowThreshold'),
                 onChange: (value) => update('lowTemperature', { minutes: value }),
               }}
             />
@@ -316,18 +292,14 @@ export function AlertRulesPanel({
           <RuleCard
             icon={Sun}
             tone="red"
-            title={t(['Pièce trop chaude', 'Room too hot'])}
-            summary={
-              fr
-                ? `Prévenir au-dessus de ${rules.highTemperature.celsius} °C pendant ${durationText(rules.highTemperature.minutes, locale)}.`
-                : `Tell me above ${rules.highTemperature.celsius} °C for ${durationText(rules.highTemperature.minutes, locale)}.`
-            }
-            hint={t([
-              'Pour penser à faire boire et à fermer les volets en été.',
-              'A reminder to drink and close the shutters in summer.',
-            ])}
+            title={t(() => i18nT('alertRulesPanel.roomTooHot'))}
+            summary={i18nT('alertRulesPanel.tellMeAboveCFor', {
+              celsius: rules.highTemperature.celsius,
+              durationText: durationText(rules.highTemperature.minutes),
+            })}
+            hint={t(() => i18nT('alertRulesPanel.aReminderToDrinkAnd'))}
             enabled={rules.highTemperature.enabled}
-            toggleLabel={t(['Activer la température haute', 'Enable high temperature'])}
+            toggleLabel={t(() => i18nT('alertRulesPanel.enableHighTemperature'))}
             onToggle={(enabled) => update('highTemperature', { enabled })}
           >
             <Stepper
@@ -338,8 +310,8 @@ export function AlertRulesPanel({
                 min: 20,
                 max: 45,
                 step: 0.5,
-                unit: ['°C', '°C'],
-                label: ['Température maximale', 'Maximum temperature'],
+                unit: () => i18nT('alertRulesPanel.c'),
+                label: () => i18nT('alertRulesPanel.maximumTemperature'),
                 onChange: (celsius) => update('highTemperature', { celsius }),
               }}
             />
@@ -351,8 +323,8 @@ export function AlertRulesPanel({
                 min: 1,
                 max: 240,
                 step: 5,
-                unit: ['min', 'min'],
-                label: ['Durée au-dessus du seuil', 'Time above threshold'],
+                unit: () => i18nT('alertRulesPanel.min'),
+                label: () => i18nT('alertRulesPanel.timeAboveThreshold'),
                 onChange: (value) => update('highTemperature', { minutes: value }),
               }}
             />
@@ -361,34 +333,28 @@ export function AlertRulesPanel({
       ),
     },
     {
-      title: ['La nuit', 'At night'],
-      text: [
-        'Plusieurs passages rapprochés, jamais un lever isolé.',
-        'Several close movements, never a single trip.',
-      ],
+      title: () => i18nT('alertRulesPanel.atNight'),
+      text: () => i18nT('alertRulesPanel.severalCloseMovementsNeverA'),
       cards: (
         <RuleCard
           icon={MoonStar}
           tone="violet"
-          title={t(['Activité nocturne répétée', 'Repeated night activity'])}
-          summary={
-            fr
-              ? `Prévenir à partir de ${night.minimumEvents} mouvements entre ${timeText(night.startMinute)} et ${timeText(night.endMinute)}.`
-              : `Tell me after ${night.minimumEvents} movements between ${timeText(night.startMinute)} and ${timeText(night.endMinute)}.`
-          }
-          hint={t([
-            'Un lever pour aller aux toilettes n’est jamais signalé seul.',
-            'A single trip to the bathroom is never reported on its own.',
-          ])}
+          title={t(() => i18nT('alertRulesPanel.repeatedNightActivity'))}
+          summary={i18nT('alertRulesPanel.tellMeAfterMovementsBetween', {
+            minimumEvents: night.minimumEvents,
+            timeText: timeText(night.startMinute),
+            timeText2: timeText(night.endMinute),
+          })}
+          hint={t(() => i18nT('alertRulesPanel.aSingleTripToThe'))}
           enabled={night.enabled}
-          toggleLabel={t(['Activer l’activité nocturne', 'Enable night activity'])}
+          toggleLabel={t(() => i18nT('alertRulesPanel.enableNightActivity'))}
           onToggle={(enabled) => update('nightActivity', { enabled })}
         >
           <span className="rule-time-range">
             <label>
-              <span>{t(['De', 'From'])}</span>
+              <span>{t(() => i18nT('alertRulesPanel.from'))}</span>
               <input
-                aria-label={t(['Début de la nuit', 'Night starts'])}
+                aria-label={t(() => i18nT('alertRulesPanel.nightStarts'))}
                 type="time"
                 disabled={!night.enabled}
                 value={timeText(night.startMinute)}
@@ -398,9 +364,9 @@ export function AlertRulesPanel({
               />
             </label>
             <label>
-              <span>{t(['à', 'to'])}</span>
+              <span>{t(() => i18nT('alertRulesPanel.to'))}</span>
               <input
-                aria-label={t(['Fin de la nuit', 'Night ends'])}
+                aria-label={t(() => i18nT('alertRulesPanel.nightEnds'))}
                 type="time"
                 disabled={!night.enabled}
                 value={timeText(night.endMinute)}
@@ -418,8 +384,8 @@ export function AlertRulesPanel({
               min: 2,
               max: 20,
               step: 1,
-              unit: ['passages', 'moves'],
-              label: ['Nombre de mouvements', 'Number of movements'],
+              unit: () => i18nT('alertRulesPanel.moves'),
+              label: () => i18nT('alertRulesPanel.numberOfMovements'),
               onChange: (minimumEvents) => update('nightActivity', { minimumEvents }),
             }}
           />
@@ -427,28 +393,20 @@ export function AlertRulesPanel({
       ),
     },
     {
-      title: ['Matériel', 'Equipment'],
-      text: [
-        'Pour qu’une panne ne soit jamais confondue avec une absence d’activité.',
-        'So a fault is never mistaken for a lack of activity.',
-      ],
+      title: () => i18nT('alertRulesPanel.equipment'),
+      text: () => i18nT('alertRulesPanel.soAFaultIsNever'),
       cards: (
         <>
           <RuleCard
             icon={WifiOff}
             tone="sage"
-            title={t(['Capteur silencieux', 'Silent sensor'])}
-            summary={
-              fr
-                ? `Prévenir si un capteur n’envoie rien pendant ${durationText(rules.sensorOffline.minutes, locale)}.`
-                : `Tell me when a sensor sends nothing for ${durationText(rules.sensorOffline.minutes, locale)}.`
-            }
-            hint={t([
-              'Évite de confondre une panne avec une absence d’activité.',
-              'Avoids mistaking a fault for a lack of activity.',
-            ])}
+            title={t(() => i18nT('alertRulesPanel.silentSensor'))}
+            summary={i18nT('alertRulesPanel.tellMeWhenASensor', {
+              durationText: durationText(rules.sensorOffline.minutes),
+            })}
+            hint={t(() => i18nT('alertRulesPanel.avoidsMistakingAFaultFor'))}
             enabled={rules.sensorOffline.enabled}
-            toggleLabel={t(['Activer le capteur silencieux', 'Enable silent sensor'])}
+            toggleLabel={t(() => i18nT('alertRulesPanel.enableSilentSensor'))}
             onToggle={(enabled) => update('sensorOffline', { enabled })}
           >
             <Stepper
@@ -456,7 +414,7 @@ export function AlertRulesPanel({
               disabled={!rules.sensorOffline.enabled}
               field={minutes(
                 'sensorOffline',
-                ['Délai capteur silencieux', 'Silent sensor delay'],
+                () => i18nT('alertRulesPanel.silentSensorDelay'),
                 15,
                 10_080,
                 15,
@@ -466,18 +424,13 @@ export function AlertRulesPanel({
           <RuleCard
             icon={BatteryLow}
             tone="sage"
-            title={t(['Pile faible', 'Low battery'])}
-            summary={
-              fr
-                ? `Prévenir quand une pile passe sous ${rules.lowBattery.percent} %.`
-                : `Tell me when a battery drops below ${rules.lowBattery.percent} %.`
-            }
-            hint={t([
-              'Une information calme pour anticiper le remplacement.',
-              'A calm heads-up to plan the replacement.',
-            ])}
+            title={t(() => i18nT('alertRulesPanel.lowBattery'))}
+            summary={i18nT('alertRulesPanel.tellMeWhenABattery', {
+              percent: rules.lowBattery.percent,
+            })}
+            hint={t(() => i18nT('alertRulesPanel.aCalmHeadsUpTo'))}
             enabled={rules.lowBattery.enabled}
-            toggleLabel={t(['Activer la batterie faible', 'Enable low battery'])}
+            toggleLabel={t(() => i18nT('alertRulesPanel.enableLowBattery'))}
             onToggle={(enabled) => update('lowBattery', { enabled })}
           >
             <Stepper
@@ -488,8 +441,8 @@ export function AlertRulesPanel({
                 min: 1,
                 max: 50,
                 step: 5,
-                unit: ['%', '%'],
-                label: ['Seuil de batterie', 'Battery threshold'],
+                unit: () => i18nT('alertRulesPanel.text'),
+                label: () => i18nT('alertRulesPanel.batteryThreshold'),
                 onChange: (percent) => update('lowBattery', { percent }),
               }}
             />
@@ -498,26 +451,17 @@ export function AlertRulesPanel({
       ),
     },
     {
-      title: ['Habitudes', 'Habits'],
-      text: [
-        'Élise compare chaque journée à ce qu’elle a appris du logement.',
-        'Élise compares each day with what it has learnt about the home.',
-      ],
+      title: () => i18nT('alertRulesPanel.habits'),
+      text: () => i18nT('alertRulesPanel.eliseComparesEachDayWith'),
       cards: (
         <RuleCard
           icon={Sparkles}
           tone="violet"
-          title={t(['Écarts aux habitudes apprises', 'Changes from learnt habits'])}
-          summary={t([
-            'Signaler une journée qui ne ressemble pas aux autres : lever tardif, cuisine peu utilisée…',
-            'Report a day unlike the others: late wake-up, kitchen barely used…',
-          ])}
-          hint={t([
-            'Disponible après 14 jours fiables et deux contrôles espacés. Chaque signal se valide à la main.',
-            'Available after 14 reliable days and two spaced checks. Every signal is confirmed by hand.',
-          ])}
+          title={t(() => i18nT('alertRulesPanel.changesFromLearntHabits'))}
+          summary={t(() => i18nT('alertRulesPanel.reportADayUnlikeThe'))}
+          hint={t(() => i18nT('alertRulesPanel.availableAfter14ReliableDays'))}
           enabled={rules.behavioral.enabled}
-          toggleLabel={t(['Activer les alertes comportementales', 'Enable behavioural alerts'])}
+          toggleLabel={t(() => i18nT('alertRulesPanel.enableBehaviouralAlerts'))}
           onToggle={(enabled) => update('behavioral', { enabled })}
         />
       ),
@@ -534,25 +478,20 @@ export function AlertRulesPanel({
           <Bell aria-hidden="true" />
         </span>
         <div>
-          <span className="eyebrow">{t(['Repères du domicile', 'Home landmarks'])}</span>
-          <h2 id="alert-rules-title">{t(['Situations à signaler', 'Situations to report'])}</h2>
-          <p>
-            {t([
-              'Choisissez ce qui mérite votre attention. Élise explique toujours ce qu’elle observe avant de proposer une vérification.',
-              'Choose what deserves your attention. Élise always explains what it observes before suggesting a check.',
-            ])}
-          </p>
+          <span className="eyebrow">{t(() => i18nT('alertRulesPanel.homeLandmarks'))}</span>
+          <h2 id="alert-rules-title">{t(() => i18nT('alertRulesPanel.situationsToReport'))}</h2>
+          <p>{t(() => i18nT('alertRulesPanel.chooseWhatDeservesYourAttention'))}</p>
         </div>
         <span className="alert-rules-count">
           <strong>
             {enabledCount}/{total}
           </strong>
-          {t(['situations suivies', 'situations followed'])}
+          {t(() => i18nT('alertRulesPanel.situationsFollowed'))}
         </span>
       </header>
 
       {groups.map((group) => (
-        <section className="rule-group" key={group.title[0]}>
+        <section className="rule-group" key={group.title()}>
           <header>
             <h3>{t(group.title)}</h3>
             <p>{t(group.text)}</p>
@@ -564,13 +503,13 @@ export function AlertRulesPanel({
       <div className={`rule-save-bar ${dirty ? 'is-dirty' : ''}`}>
         <p role="status">
           {dirty ? (
-            t(['Modifications non enregistrées', 'Unsaved changes'])
+            t(() => i18nT('alertRulesPanel.unsavedChanges'))
           ) : notice ? (
             <>
               <CircleCheck aria-hidden="true" /> {notice}
             </>
           ) : (
-            t(['Tous les repères sont à jour.', 'Every landmark is up to date.'])
+            t(() => i18nT('alertRulesPanel.everyLandmarkIsUpTo'))
           )}
         </p>
         {dirty && (
@@ -579,13 +518,13 @@ export function AlertRulesPanel({
             className="rule-reset"
             onClick={() => onChange(JSON.parse(saved) as AlertRuleSettings)}
           >
-            {t(['Annuler', 'Undo'])}
+            {t(() => i18nT('alertRulesPanel.undo'))}
           </button>
         )}
         <Button type="button" disabled={saving || !dirty} onClick={() => void save()}>
           {saving
-            ? t(['Enregistrement…', 'Saving…'])
-            : t(['Enregistrer les repères', 'Save landmarks'])}
+            ? t(() => i18nT('alertRulesPanel.saving'))
+            : t(() => i18nT('alertRulesPanel.saveLandmarks'))}
         </Button>
       </div>
     </section>

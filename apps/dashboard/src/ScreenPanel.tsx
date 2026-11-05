@@ -9,8 +9,8 @@ import { subscribeScreenEvents } from './screen-events';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DataLoadingScreen } from './DataLoadingScreen';
-import type { Locale } from './i18n';
-import { dateLocale, tr } from './screen-locale';
+import { type Locale, t } from './i18n';
+import { dateLocale } from './screen-locale';
 import type {
   ScreenPodcastEpisode,
   ScreenPodcastSearchResult,
@@ -61,27 +61,18 @@ const favoriteMessages = () =>
   [
     {
       emoji: '☀️',
-      label: tr('Bonne journée', 'Have a good day'),
-      message: tr(
-        'Bonne journée ! On pense fort à toi ❤️',
-        'Have a lovely day! Thinking of you ❤️',
-      ),
+      label: t('screenPanel.haveAGoodDay'),
+      message: t('screenPanel.haveALovelyDayThinking'),
     },
     {
       emoji: '📅',
-      label: tr('Rendez-vous', 'Appointment'),
-      message: tr(
-        'N’oublie pas ton rendez-vous. Tout est bien prévu 😊',
-        'Don’t forget your appointment. Everything is arranged 😊',
-      ),
+      label: t('screenPanel.appointment'),
+      message: t('screenPanel.donTForgetYourAppointment'),
     },
     {
       emoji: '🏡',
-      label: tr('On arrive bientôt', 'We’re on our way'),
-      message: tr(
-        'On arrive bientôt ! À tout de suite 👋',
-        'We’ll be there soon! See you in a bit 👋',
-      ),
+      label: t('screenPanel.weReOnOurWay'),
+      message: t('screenPanel.weLlBeThereSoon'),
     },
   ] as const;
 type RadioStation = {
@@ -108,10 +99,10 @@ function MediaPlaybackButton({
   state,
   disabled,
   onClick,
-  idleLabel = tr('Écouter', 'Listen'),
-  playingLabel = tr('En écoute', 'Playing'),
-  pendingLabel = tr('Lancement…', 'Starting…'),
-  pausedLabel = tr('Reprendre', 'Resume'),
+  idleLabel = t('screenPanel.listen'),
+  playingLabel = t('screenPanel.playing'),
+  pendingLabel = t('screenPanel.starting'),
+  pausedLabel = t('screenPanel.resume'),
 }: {
   state: MediaPlaybackButtonState;
   disabled?: boolean;
@@ -225,16 +216,14 @@ const LIVE_TV_CHANNELS = [
     url: ARTE_LIVE_URL,
     mediaTitle: 'ARTE en direct',
     name: 'ARTE',
-    description: 'Culture, documentaires et cinéma.',
-    descriptionEn: 'Culture, documentaries and cinema.',
+    description: () => t('screenPanel.channelDescription.arte'),
     brand: 'arte',
   },
   {
     url: RMC_LIFE_LIVE_URL,
     mediaTitle: 'RMC Life en direct',
     name: 'RMC Life',
-    description: 'Séries, films et divertissement.',
-    descriptionEn: 'Series, films and entertainment.',
+    description: () => t('screenPanel.channelDescription.rmcLife'),
     brand: 'rmc-life',
     brandLabel: 'RMC',
   },
@@ -242,8 +231,7 @@ const LIVE_TV_CHANNELS = [
     url: RMC_STORY_LIVE_URL,
     mediaTitle: 'RMC Story en direct',
     name: 'RMC Story',
-    description: 'Séries, fiction et divertissement.',
-    descriptionEn: 'Series, fiction and entertainment.',
+    description: () => t('screenPanel.channelDescription.rmcStory'),
     brand: 'rmc-story',
     brandLabel: 'RMC',
   },
@@ -251,8 +239,7 @@ const LIVE_TV_CHANNELS = [
     url: RMC_DECOUVERTE_LIVE_URL,
     mediaTitle: 'RMC Découverte en direct',
     name: 'RMC Découverte',
-    description: 'Documentaires et découverte.',
-    descriptionEn: 'Documentaries and discovery.',
+    description: () => t('screenPanel.channelDescription.rmcDecouverte'),
     brand: 'rmc-decouverte',
     brandLabel: 'RMC',
   },
@@ -316,24 +303,17 @@ export async function screenRequest<T>(
   });
   if (!response.ok) {
     const b = (await response.json().catch(() => ({}))) as { message?: string };
-    throw new Error(b.message ?? `${tr('Erreur', 'Error')} ${response.status}`);
+    throw new Error(b.message ?? `${t('screenPanel.error')} ${response.status}`);
   }
   return response.json() as Promise<T>;
 }
 
 export async function startResidentScreenCall(): Promise<void> {
   const snapshot = await screenRequest<ScreenSnapshot>('screen', undefined, 'GET');
-  if (!snapshot.grant.call)
-    throw new Error(
-      tr('Vous ne pouvez pas appeler cet écran.', 'You are not allowed to call this screen.'),
-    );
-  if (!snapshot.online) throw new Error(tr('L’écran est hors ligne.', 'The screen is offline.'));
-  if (!snapshot.state.settings.consent)
-    throw new Error(
-      tr('Le consentement aux appels est désactivé.', 'Consent to calls is turned off.'),
-    );
-  if (snapshot.state.call)
-    throw new Error(tr('Un appel est déjà en cours.', 'A call is already in progress.'));
+  if (!snapshot.grant.call) throw new Error(t('screenPanel.youAreNotAllowedTo'));
+  if (!snapshot.online) throw new Error(t('screenPanel.theScreenIsOffline'));
+  if (!snapshot.state.settings.consent) throw new Error(t('screenPanel.consentToCallsIsTurned'));
+  if (snapshot.state.call) throw new Error(t('screenPanel.aCallIsAlreadyIn'));
   await screenRequest('screen/calls');
 }
 type JitsiInstance = {
@@ -371,7 +351,7 @@ export function JitsiFrame({
       script.onload = () => resolve();
       script.onerror = () => {
         jitsiScript = undefined;
-        reject(new Error(tr('Jitsi est inaccessible.', 'Jitsi is unreachable.')));
+        reject(new Error(t('screenPanel.jitsiIsUnreachable')));
       };
       document.head.append(script);
     });
@@ -411,7 +391,7 @@ export function JitsiFrame({
     <div className={`elise-call${dashboard ? ' elise-call--dashboard' : ''}`}>
       <div ref={host} />
       {error && <p role="alert">{error}</p>}
-      <button onClick={onEnd}>{tr('Raccrocher', 'Hang up')}</button>
+      <button onClick={onEnd}>{t('screenPanel.hangUp')}</button>
     </div>
   );
 }
@@ -431,7 +411,7 @@ function DashboardCallWindow({
         className="screen-call-window__panel"
         role="dialog"
         aria-modal="true"
-        aria-label={tr(`Visioconférence avec ${resident}`, `Video call with ${resident}`)}
+        aria-label={t('screenPanel.videoCallWith', { resident })}
       >
         <header className="screen-call-window__header">
           <div className="screen-call-window__identity">
@@ -439,27 +419,22 @@ function DashboardCallWindow({
               <Video />
             </span>
             <div>
-              <p>{tr('VISIO EN DIRECT', 'LIVE VIDEO CALL')}</p>
-              <h2>{tr(`Appel avec ${resident}`, `Call with ${resident}`)}</h2>
-              <span>
-                {tr(`Vous participez en tant que ${join.name}`, `You are joining as ${join.name}`)}
-              </span>
+              <p>{t('screenPanel.liveVideoCall')}</p>
+              <h2>{t('screenPanel.callWith', { resident })}</h2>
+              <span>{t('screenPanel.youAreJoiningAs', { name: join.name })}</span>
             </div>
           </div>
           <span className="screen-call-window__status">
-            <i aria-hidden="true" /> {tr('Appel en cours', 'Call in progress')}
+            <i aria-hidden="true" /> {t('screenPanel.callInProgress')}
           </span>
           <button
             type="button"
             className="screen-call-window__hangup"
             onClick={onEnd}
-            aria-label={tr(
-              `Raccrocher l’appel avec ${resident}`,
-              `Hang up the call with ${resident}`,
-            )}
+            aria-label={t('screenPanel.hangUpTheCallWith', { resident })}
           >
             <Phone aria-hidden="true" />
-            {tr('Raccrocher', 'Hang up')}
+            {t('screenPanel.hangUp')}
           </button>
         </header>
         <JitsiFrame join={join} onEnd={onEnd} dashboard />
@@ -476,7 +451,6 @@ export function ScreenPanel({
   initialSection?: 'call' | 'messages' | 'display' | 'photos' | 'planning';
   locale?: Locale;
 } = {}) {
-  const tr = (fr: string, en: string) => (locale === 'fr' ? fr : en);
   const [snapshot, setSnapshot] = useState<ScreenSnapshot>();
   const initialSectionOpened = useRef(false);
   useEffect(() => {
@@ -526,7 +500,7 @@ export function ScreenPanel({
   );
   const [volumeDraft, setVolumeDraft] = useState<number | null>(null);
   const volumeTimer = useRef<number | undefined>(undefined);
-  const [playlistTitle, setPlaylistTitle] = useState(() => tr('Mes vidéos', 'My videos'));
+  const [playlistTitle, setPlaylistTitle] = useState(() => t('screenPanel.myVideos'));
   const [playlistLinks, setPlaylistLinks] = useState('');
   const [radioQuery, setRadioQuery] = useState('');
   const [radioResults, setRadioResults] = useState<RadioStation[]>([]);
@@ -776,13 +750,7 @@ export function ScreenPanel({
       'elise-youtube-connect',
       'popup,width=520,height=720,resizable=yes,scrollbars=yes',
     );
-    if (!popup)
-      setError(
-        tr(
-          'La fenêtre Google a été bloquée. Autorisez les fenêtres popup puis réessayez.',
-          'The Google window was blocked. Allow pop-up windows, then try again.',
-        ),
-      );
+    if (!popup) setError(t('screenPanel.theGoogleWindowWasBlocked'));
   };
   const importYouTubePlaylist = (playlistId: string) =>
     void (async () => {
@@ -810,12 +778,7 @@ export function ScreenPanel({
     return (
       <DataLoadingScreen
         locale={locale}
-        message={
-          error ||
-          (locale === 'fr'
-            ? 'Préparation de votre écran et de vos appels…'
-            : 'Preparing your screen and calls…')
-        }
+        message={error || t('screenPanel.preparingYourScreenAndCalls')}
       />
     );
   const { state, grant } = snapshot;
@@ -877,12 +840,12 @@ export function ScreenPanel({
       ? tvHost.cec.asleepRequested === true
       : tvHost.cec.activeSourceSent === true);
   const cecLabel = cecReady
-    ? tr('CEC opérationnel', 'CEC working')
+    ? t('screenPanel.cecWorking')
     : tvHost?.cec?.detected
-      ? tr('CEC à vérifier', 'CEC to check')
+      ? t('screenPanel.cecToCheck')
       : tvHost?.installed
-        ? tr('CEC non détecté', 'CEC not detected')
-        : tr('Agent TV absent', 'TV agent missing');
+        ? t('screenPanel.cecNotDetected')
+        : t('screenPanel.tvAgentMissing');
   const display = tvHost?.display;
   const displayUpdatedAt = display?.updatedAt;
   const displayStatusFresh =
@@ -890,20 +853,16 @@ export function ScreenPanel({
   const videoOutputReady = displayStatusFresh && Boolean(display?.selected && display?.mode);
   const connectedOutputs = display?.connected ?? [];
   const videoOutputLabel = !tvHost?.installed
-    ? tr('Agent vidéo absent', 'Video agent missing')
+    ? t('screenPanel.videoAgentMissing')
     : !displayStatusFresh
-      ? tr('État HDMI indisponible', 'HDMI status unavailable')
+      ? t('screenPanel.hdmiStatusUnavailable')
       : videoOutputReady
-        ? tr(
-            `Sortie ${display?.selected} · ${display?.mode}`,
-            `Output ${display?.selected} · ${display?.mode}`,
-          )
+        ? t('screenPanel.output', { selected: display?.selected, mode: display?.mode })
         : connectedOutputs.length > 0
-          ? tr(
-              `${connectedOutputs.join(', ')} détectée sans mode actif`,
-              `${connectedOutputs.join(', ')} detected with no active mode`,
-            )
-          : tr('Aucune sortie vidéo détectée', 'No video output detected');
+          ? t('screenPanel.detectedWithNoActiveMode', {
+              connectedOutputs: connectedOutputs.join(', '),
+            })
+          : t('screenPanel.noVideoOutputDetected');
   const selectedNetworkTv = tvHost?.networkTv?.id ? tvHost.networkTv : undefined;
   const networkStatusFresh =
     typeof tvHost?.networkTvStatus?.updatedAt === 'number' &&
@@ -912,58 +871,49 @@ export function ScreenPanel({
   const networkControlReady =
     selectedNetworkTv && (networkReachable || tvHost?.homeAssistantTv?.available === true);
   const networkControlLabel = !selectedNetworkTv
-    ? tr('TV réseau non associée', 'Network TV not paired')
+    ? t('screenPanel.networkTvNotPaired')
     : networkReachable
-      ? tr(
-          `Réseau : ${selectedNetworkTv.name} joignable`,
-          `Network: ${selectedNetworkTv.name} reachable`,
-        )
+      ? t('screenPanel.networkReachable', { name: selectedNetworkTv.name })
       : tvHost?.homeAssistantTv?.available
-        ? tr(
-            `Secours Home Assistant : ${selectedNetworkTv.name}`,
-            `Home Assistant fallback: ${selectedNetworkTv.name}`,
-          )
-        : tr(
-            `Réseau : ${selectedNetworkTv.name} en veille`,
-            `Network: ${selectedNetworkTv.name} on standby`,
-          );
+        ? t('screenPanel.homeAssistantFallback', { name: selectedNetworkTv.name })
+        : t('screenPanel.networkOnStandby', { name: selectedNetworkTv.name });
   const networkTvOnline = networkReachable || tvHost?.homeAssistantTv?.available === true;
   const networkTvStatusLabel = !selectedNetworkTv
-    ? tr('TV non associée', 'TV not paired')
+    ? t('screenPanel.tvNotPaired')
     : networkTvOnline
-      ? tr('En ligne', 'Online')
+      ? t('screenPanel.online')
       : networkStatusFresh
-        ? tr('Hors ligne', 'Offline')
-        : tr('État indisponible', 'Status unavailable');
+        ? t('screenPanel.offline')
+        : t('screenPanel.statusUnavailable');
   const screenOutputConnected = snapshot.online && videoOutputReady;
   const status = !snapshot.online
     ? snapshot.paired
-      ? tr('Écran hors ligne', 'Screen offline')
-      : tr('Écran en préparation', 'Screen being prepared')
+      ? t('screenPanel.screenOffline')
+      : t('screenPanel.screenBeingPrepared')
     : !displayStatusFresh
-      ? tr('État vidéo indisponible', 'Video status unavailable')
+      ? t('screenPanel.videoStatusUnavailable')
       : !videoOutputReady
-        ? tr('TV non détectée', 'TV not detected')
+        ? t('screenPanel.tvNotDetected')
         : state.call
-          ? tr('En communication', 'On a call')
+          ? t('screenPanel.onACall')
           : state.playback.asleep
-            ? tr('Au repos', 'Resting')
-            : tr('Écran connecté', 'Screen connected');
+            ? t('screenPanel.resting')
+            : t('screenPanel.screenConnected');
   const mediaStatus = !snapshot.online
-    ? tr('TV hors ligne', 'TV offline')
+    ? t('screenPanel.tvOffline')
     : !displayStatusFresh
-      ? tr('État vidéo indisponible', 'Video status unavailable')
+      ? t('screenPanel.videoStatusUnavailable')
       : !videoOutputReady
-        ? tr('TV non détectée', 'TV not detected')
+        ? t('screenPanel.tvNotDetected')
         : state.call
-          ? tr('Interrompu pendant l’appel', 'Paused during the call')
+          ? t('screenPanel.pausedDuringTheCall')
           : state.playback.asleep
-            ? tr('TV au repos', 'TV resting')
+            ? t('screenPanel.tvResting')
             : state.playback.paused
-              ? tr('En pause', 'Paused')
+              ? t('screenPanel.paused')
               : mediaPending
-                ? tr('Lancement sur la TV…', 'Starting on the TV…')
-                : tr('En cours de lecture', 'Now playing');
+                ? t('screenPanel.startingOnTheTv')
+                : t('screenPanel.nowPlaying');
   const mediaRunning =
     screenOutputConnected &&
     !state.call &&
@@ -984,17 +934,17 @@ export function ScreenPanel({
   const residentFirstName = snapshot.resident.trim().split(/\s+/)[0] || snapshot.resident;
   const mainTabs = (
     [
-      { id: 'album', label: tr('Album photo', 'Photo album'), icon: Image, allowed: grant.control },
+      { id: 'album', label: t('screenPanel.photoAlbum'), icon: Image, allowed: grant.control },
       {
         id: 'messages',
-        label: tr('Messages', 'Messages'),
+        label: t('screenPanel.messages'),
         icon: MessageSquareText,
         allowed: grant.message,
       },
-      { id: 'medias', label: tr('Médias', 'Media'), icon: Tv, allowed: grant.control },
+      { id: 'medias', label: t('screenPanel.media'), icon: Tv, allowed: grant.control },
       {
         id: 'activity',
-        label: tr('Suivi de l’activité', 'Activity tracking'),
+        label: t('screenPanel.activityTracking'),
         icon: Activity,
         allowed: true,
       },
@@ -1004,9 +954,9 @@ export function ScreenPanel({
     ? selectedMainTab
     : mainTabs[0]?.id;
   const currentContentLabel = state.call
-    ? tr('Appel en cours', 'Call in progress')
+    ? t('screenPanel.callInProgress')
     : state.playback.asleep
-      ? tr('TV au repos', 'TV resting')
+      ? t('screenPanel.tvResting')
       : undefined;
   return (
     <section className="screen-panel">
@@ -1014,9 +964,9 @@ export function ScreenPanel({
         <div className="page-hero__copy screen-panel__identity">
           <div>
             <p className="page-hero__eyebrow screen-panel__eyebrow">
-              {tr('AFFICHAGE RÉSIDENT', 'RESIDENT DISPLAY')}
+              {t('screenPanel.residentDisplay')}
             </p>
-            <h2 className="page-hero__title">{tr('Écran et appels', 'Screen and calls')}</h2>
+            <h2 className="page-hero__title">{t('screenPanel.screenAndCalls')}</h2>
             <span className={`screen-status ${screenOutputConnected ? 'is-online' : 'is-offline'}`}>
               {screenOutputConnected ? <Wifi aria-hidden="true" /> : <WifiOff aria-hidden="true" />}
               {status}
@@ -1031,7 +981,7 @@ export function ScreenPanel({
               target="_blank"
               rel="noreferrer"
             >
-              {tr('Voir l’écran', 'View the screen')} <ExternalLink aria-hidden="true" />
+              {t('screenPanel.viewTheScreen')} <ExternalLink aria-hidden="true" />
             </a>
             {grant.control && (
               <button
@@ -1044,7 +994,7 @@ export function ScreenPanel({
                   })
                 }
               >
-                <Power aria-hidden="true" /> {tr('Reprendre la TV', 'Take over the TV')}
+                <Power aria-hidden="true" /> {t('screenPanel.takeOverTheTv')}
               </button>
             )}
             {grant.call && (
@@ -1053,30 +1003,31 @@ export function ScreenPanel({
                 disabled={busy || !snapshot.online || !!call || !state.settings.consent}
                 onClick={() => void run(() => screenRequest('screen/calls'))}
               >
-                <Phone aria-hidden="true" />{' '}
-                {tr(`Appeler ${residentFirstName}`, `Call ${residentFirstName}`)}
+                <Phone aria-hidden="true" /> {t('screenPanel.call', { residentFirstName })}
               </button>
             )}
           </div>
           {(grant.administer || grant.control) && (
             <div
               className="screen-capabilities"
-              aria-label={tr('État des équipements de l’écran', 'Screen equipment status')}
+              aria-label={t('screenPanel.screenEquipmentStatus')}
             >
               <span className={snapshot.capabilities.camera ? 'is-ready' : ''}>
                 <Camera aria-hidden="true" />
-                {tr('Caméra', 'Camera')}{' '}
-                {snapshot.capabilities.camera ? tr('prête', 'ready') : tr('à tester', 'to test')}
+                {t('screenPanel.camera')}{' '}
+                {snapshot.capabilities.camera ? t('screenPanel.ready') : t('screenPanel.toTest')}
               </span>
               <span className={snapshot.capabilities.microphone ? 'is-ready' : ''}>
                 <Mic aria-hidden="true" />
-                {tr('Micro', 'Microphone')}{' '}
-                {snapshot.capabilities.microphone ? tr('prêt', 'ready') : tr('à tester', 'to test')}
+                {t('screenPanel.microphone')}{' '}
+                {snapshot.capabilities.microphone
+                  ? t('screenPanel.ready2')
+                  : t('screenPanel.toTest')}
               </span>
               <span className={snapshot.online ? 'is-ready' : ''}>
                 <Tv aria-hidden="true" />
-                {tr('Navigateur kiosque', 'Kiosk browser')}{' '}
-                {snapshot.online ? tr('connecté', 'connected') : tr('à vérifier', 'to check')}
+                {t('screenPanel.kioskBrowser')}{' '}
+                {snapshot.online ? t('screenPanel.connected') : t('screenPanel.toCheck')}
               </span>
               <span className={videoOutputReady ? 'is-ready' : ''}>
                 <Tv aria-hidden="true" /> {videoOutputLabel}
@@ -1088,8 +1039,8 @@ export function ScreenPanel({
                   <CircleX aria-hidden="true" />
                 )}
                 {redundantTvControl
-                  ? tr('Voies de reprise configurées', 'Takeover paths configured')
-                  : tr('Reprise TV à vérifier', 'TV takeover to check')}
+                  ? t('screenPanel.takeoverPathsConfigured')
+                  : t('screenPanel.tvTakeoverToCheck')}
               </span>
               <span className={cecReady ? 'is-ready' : ''}>
                 <Power aria-hidden="true" /> {cecLabel}
@@ -1107,18 +1058,15 @@ export function ScreenPanel({
           {error}
         </p>
       )}
-      <div
-        className="screen-live-status"
-        aria-label={tr('État de la TV et de la lecture', 'TV and playback status')}
-      >
-        <section className="screen-tv-now" aria-label={tr('Sur la TV maintenant', 'On the TV now')}>
+      <div className="screen-live-status" aria-label={t('screenPanel.tvAndPlaybackStatus')}>
+        <section className="screen-tv-now" aria-label={t('screenPanel.onTheTvNow')}>
           <span className="screen-tv-now__title">
             <Tv aria-hidden="true" />
-            <strong>{tr('Sur la TV maintenant', 'On the TV now')}</strong>
+            <strong>{t('screenPanel.onTheTvNow')}</strong>
           </span>
           <span className="screen-tv-now__device">
-            {selectedNetworkTv?.name ?? tr('TV non associée', 'TV not paired')}
-            {selectedNetworkTv && <small>{tr('Associée', 'Paired')}</small>}
+            {selectedNetworkTv?.name ?? t('screenPanel.tvNotPaired')}
+            {selectedNetworkTv && <small>{t('screenPanel.paired')}</small>}
           </span>
           <span
             className={`screen-tv-now__online ${
@@ -1142,13 +1090,13 @@ export function ScreenPanel({
                 })
               }
             >
-              {tr('Oublier cette TV', 'Forget this TV')}
+              {t('screenPanel.forgetThisTv')}
             </button>
           )}
         </section>
         <section
           className="screen-playback-now"
-          aria-label={tr('Lecture et son sur la TV', 'Playback and sound on the TV')}
+          aria-label={t('screenPanel.playbackAndSoundOnThe')}
           aria-live="polite"
         >
           <span
@@ -1158,8 +1106,8 @@ export function ScreenPanel({
             {activeMedia ? <MediaIcon aria-hidden="true" /> : <Volume2 aria-hidden="true" />}
           </span>
           <span className="screen-playback-now__copy">
-            <small>{activeMedia ? mediaStatus : tr('Son de la TV', 'TV sound')}</small>
-            <strong>{activeMedia?.title ?? tr('Aucun média en cours', 'No media playing')}</strong>
+            <small>{activeMedia ? mediaStatus : t('screenPanel.tvSound')}</small>
+            <strong>{activeMedia?.title ?? t('screenPanel.noMediaPlaying')}</strong>
           </span>
           {activeMedia && (
             <div className="screen-playback-now__controls">
@@ -1168,13 +1116,13 @@ export function ScreenPanel({
                 type="button"
                 aria-label={
                   state.playback.paused || state.playback.asleep
-                    ? tr('Reprendre', 'Resume')
-                    : tr('Mettre en pause', 'Pause')
+                    ? t('screenPanel.resume')
+                    : t('screenPanel.pause')
                 }
                 title={
                   state.playback.paused || state.playback.asleep
-                    ? tr('Reprendre', 'Resume')
-                    : tr('Mettre en pause', 'Pause')
+                    ? t('screenPanel.resume')
+                    : t('screenPanel.pause')
                 }
                 disabled={busy || !snapshot.online || !!state.call}
                 onClick={() =>
@@ -1192,13 +1140,13 @@ export function ScreenPanel({
                   type="button"
                   aria-label={
                     activeMedia.kind === 'podcast'
-                      ? tr('Épisode suivant', 'Next episode')
-                      : tr('Suivant', 'Next')
+                      ? t('screenPanel.nextEpisode')
+                      : t('screenPanel.next')
                   }
                   title={
                     activeMedia.kind === 'podcast'
-                      ? tr('Épisode suivant', 'Next episode')
-                      : tr('Suivant', 'Next')
+                      ? t('screenPanel.nextEpisode')
+                      : t('screenPanel.next')
                   }
                   disabled={
                     busy ||
@@ -1213,8 +1161,8 @@ export function ScreenPanel({
               )}
               <button
                 type="button"
-                aria-label={tr('Arrêter la lecture', 'Stop playback')}
-                title={tr('Arrêter la lecture', 'Stop playback')}
+                aria-label={t('screenPanel.stopPlayback')}
+                title={t('screenPanel.stopPlayback')}
                 disabled={busy || !snapshot.online}
                 onClick={() => void command('stop')}
               >
@@ -1225,12 +1173,12 @@ export function ScreenPanel({
           {grant.control && (
             <label className="screen-playback-now__volume">
               <Volume2 aria-hidden="true" />
-              <span className="screen-visually-hidden">{tr('Volume de la TV', 'TV volume')}</span>
+              <span className="screen-visually-hidden">{t('screenPanel.tvVolume')}</span>
               <input
                 type="range"
                 min="0"
                 max="100"
-                aria-label={tr('Volume de la TV', 'TV volume')}
+                aria-label={t('screenPanel.tvVolume')}
                 value={volumeDraft ?? state.playback.volume}
                 onChange={(event) => changeVolume(Number(event.target.value))}
               />
@@ -1246,13 +1194,8 @@ export function ScreenPanel({
               <Wifi aria-hidden="true" />
             </span>
             <div>
-              <h3>{tr('TV sur le réseau local', 'TV on the local network')}</h3>
-              <p>
-                {tr(
-                  'Le Raspberry Pi peut être en Ethernet et la TV en Wi-Fi : ils doivent simplement partager le même réseau local.',
-                  'The Raspberry Pi can use Ethernet and the TV Wi-Fi: they just need to share the same local network.',
-                )}
-              </p>
+              <h3>{t('screenPanel.tvOnTheLocalNetwork')}</h3>
+              <p>{t('screenPanel.theRaspberryPiCanUse')}</p>
             </div>
           </div>
           <div className="screen-network-tv-current">
@@ -1267,23 +1210,15 @@ export function ScreenPanel({
                 </span>
                 <small>
                   {networkReachable
-                    ? tr('TV joignable sur le réseau local.', 'TV reachable on the local network.')
-                    : tr(
-                        'TV en veille ou non joignable : le réveil réseau reste surveillé.',
-                        'TV on standby or unreachable: network wake-up is still monitored.',
-                      )}
+                    ? t('screenPanel.tvReachableOnTheLocal')
+                    : t('screenPanel.tvOnStandbyOrUnreachable')}
                   {selectedNetworkTv.homeAssistantEntityId
-                    ? tr(' Secours Home Assistant associé.', ' Home Assistant fallback paired.')
+                    ? t('screenPanel.homeAssistantFallbackPaired')
                     : ''}
                 </small>
               </div>
             ) : (
-              <p>
-                {tr(
-                  'Aucune TV du réseau local n’est encore associée.',
-                  'No TV on the local network is paired yet.',
-                )}
-              </p>
+              <p>{t('screenPanel.noTvOnTheLocal')}</p>
             )}
             <div className="screen-network-tv-actions">
               <button
@@ -1291,7 +1226,7 @@ export function ScreenPanel({
                 disabled={busy}
                 onClick={() => void scanLocalTvs()}
               >
-                <Search aria-hidden="true" /> {tr('Rechercher les TV', 'Search for TVs')}
+                <Search aria-hidden="true" /> {t('screenPanel.searchForTvs')}
               </button>
             </div>
           </div>
@@ -1339,19 +1274,10 @@ export function ScreenPanel({
                       </span>
                       <small>
                         {device.homeAssistantEntityId
-                          ? tr(
-                              'Commande Home Assistant disponible en secours.',
-                              'Home Assistant control available as a fallback.',
-                            )
+                          ? t('screenPanel.homeAssistantControlAvailableAs')
                           : device.mac
-                            ? tr(
-                                'Réveil réseau disponible si la TV l’autorise.',
-                                'Network wake-up available if the TV allows it.',
-                              )
-                            : tr(
-                                'Adresse MAC non annoncée : le CEC assurera le réveil.',
-                                'MAC address not announced: CEC will handle wake-up.',
-                              )}
+                            ? t('screenPanel.networkWakeUpAvailableIf')
+                            : t('screenPanel.macAddressNotAnnouncedCec')}
                       </small>
                     </div>
                     <button
@@ -1368,12 +1294,12 @@ export function ScreenPanel({
                       }
                     >
                       {associated
-                        ? tr('Associée', 'Paired')
+                        ? t('screenPanel.paired')
                         : addsHomeAssistant || addsMergedHomeAssistant
-                          ? tr('Ajouter en secours', 'Add as fallback')
+                          ? t('screenPanel.addAsFallback')
                           : addsNetwork || addsMergedNetwork
-                            ? tr('Ajouter le réseau', 'Add the network')
-                            : tr('Associer', 'Pair')}
+                            ? t('screenPanel.addTheNetwork')
+                            : t('screenPanel.pair')}
                     </button>
                   </li>
                 );
@@ -1381,12 +1307,7 @@ export function ScreenPanel({
             </ul>
           )}
           {tvScanDone && discoveredTvs.length === 0 && (
-            <p className="screen-empty-library">
-              {tr(
-                'Aucune TV n’a répondu. Vérifiez qu’elle est allumée et que le routeur n’isole pas les appareils du réseau local, puis relancez la recherche.',
-                'No TV answered. Check that it is switched on and that the router does not isolate devices on the local network, then search again.',
-              )}
-            </p>
+            <p className="screen-empty-library">{t('screenPanel.noTvAnsweredCheckThat')}</p>
           )}
         </section>
       )}
@@ -1405,8 +1326,8 @@ export function ScreenPanel({
             <Phone aria-hidden="true" />
             <strong>
               {call.acceptedAt
-                ? tr('Appel en cours', 'Call in progress')
-                : tr(`Appel de ${call.name}…`, `Calling ${call.name}…`)}
+                ? t('screenPanel.callInProgress')
+                : t('screenPanel.calling', { name: call.name })}
             </strong>
             {call.userId === snapshot.userId && (
               <button
@@ -1414,7 +1335,7 @@ export function ScreenPanel({
                   void run(() => screenRequest(`screen/calls/${call.id}`, undefined, 'DELETE'))
                 }
               >
-                {tr('Annuler l’appel', 'Cancel the call')}
+                {t('screenPanel.cancelTheCall')}
               </button>
             )}
           </div>
@@ -1424,7 +1345,7 @@ export function ScreenPanel({
         <div
           className="screen-main-tabs"
           role="tablist"
-          aria-label={tr('Sections de l’écran', 'Screen sections')}
+          aria-label={t('screenPanel.screenSections')}
         >
           {mainTabs.map((tab, index) => {
             const Icon = tab.icon;
@@ -1477,17 +1398,12 @@ export function ScreenPanel({
               <MessageCircleHeart aria-hidden="true" />
             </span>
             <div>
-              <h3>{tr('Message sur la TV', 'Message on the TV')}</h3>
-              <p>
-                {tr(
-                  'Vos messages restent au premier plan et se succèdent dans le grand bandeau supérieur.',
-                  'Your messages stay in front and take turns in the large banner at the top.',
-                )}
-              </p>
+              <h3>{t('screenPanel.messageOnTheTv')}</h3>
+              <p>{t('screenPanel.yourMessagesStayInFront')}</p>
             </div>
           </div>
           <div className="screen-message-favorites">
-            <span>{tr('Messages favoris', 'Favourite messages')}</span>
+            <span>{t('screenPanel.favouriteMessages')}</span>
             <div>
               {favoriteMessages().map((favorite) => (
                 <button
@@ -1501,10 +1417,7 @@ export function ScreenPanel({
               ))}
             </div>
           </div>
-          <div
-            className="screen-message-tabs"
-            aria-label={tr('Messages à afficher', 'Messages to display')}
-          >
+          <div className="screen-message-tabs" aria-label={t('screenPanel.messagesToDisplay')}>
             {messages.map((text, index) => (
               <button
                 key={index}
@@ -1514,7 +1427,7 @@ export function ScreenPanel({
                 onClick={() => setMessageIndex(index)}
               >
                 Message {index + 1}
-                {text.trim() ? '' : tr(' · vide', ' · empty')}
+                {text.trim() ? '' : t('screenPanel.empty')}
               </button>
             ))}
             <button
@@ -1526,15 +1439,15 @@ export function ScreenPanel({
                 setMessageIndex(messages.length);
               }}
             >
-              {tr('+ Ajouter un message', '+ Add a message')}
+              {t('screenPanel.addAMessage')}
             </button>
           </div>
-          <div className="screen-emoji-picker" aria-label={tr('Ajouter un émoji', 'Add an emoji')}>
+          <div className="screen-emoji-picker" aria-label={t('screenPanel.addAnEmoji')}>
             {messageEmojis.map((emoji) => (
               <button
                 key={emoji}
                 type="button"
-                aria-label={tr(`Ajouter ${emoji}`, `Add ${emoji}`)}
+                aria-label={t('screenPanel.add', { emoji })}
                 onClick={() =>
                   setMessage(
                     (current) =>
@@ -1552,17 +1465,14 @@ export function ScreenPanel({
               maxLength={1000}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder={tr(
-                `Bonne journée ${snapshot.resident} ! On pense fort à toi ❤️`,
-                `Have a lovely day ${snapshot.resident}! Thinking of you ❤️`,
-              )}
+              placeholder={t('screenPanel.haveALovelyDayThinking2', {
+                resident: snapshot.resident,
+              })}
             />
           </label>
           <div className="screen-message-timing">
             <label>
-              <span>
-                {tr('Durée de chaque message (secondes)', 'Duration of each message (seconds)')}
-              </span>
+              <span>{t('screenPanel.durationOfEachMessageSeconds')}</span>
               <input
                 type="number"
                 min={5}
@@ -1574,14 +1484,8 @@ export function ScreenPanel({
             </label>
             <small>
               {messages.length > 1
-                ? tr(
-                    'Les messages tournent en boucle, dans cet ordre.',
-                    'Messages loop in this order.',
-                  )
-                : tr(
-                    'Ajoutez plusieurs messages pour activer la rotation.',
-                    'Add several messages to turn on rotation.',
-                  )}
+                ? t('screenPanel.messagesLoopInThisOrder')
+                : t('screenPanel.addSeveralMessagesToTurn')}
             </small>
           </div>
           <div className={`screen-schedule-control${messageScheduleAt ? ' is-active' : ''}`}>
@@ -1589,7 +1493,7 @@ export function ScreenPanel({
               <CalendarClock aria-hidden="true" />
             </span>
             <label>
-              <span>{tr('Programmer pour plus tard', 'Schedule for later')}</span>
+              <span>{t('screenPanel.scheduleForLater')}</span>
               <input
                 type="datetime-local"
                 value={messageScheduleAt}
@@ -1598,19 +1502,17 @@ export function ScreenPanel({
             </label>
             <p>
               {messageScheduleAt
-                ? `${tr('Affichage prévu', 'Scheduled for')} ${new Date(
-                    messageScheduleAt,
-                  ).toLocaleString(dateLocale(), {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}`
-                : tr(
-                    'Laissez vide pour afficher le message maintenant.',
-                    'Leave empty to show the message now.',
-                  )}
+                ? `${t('screenPanel.scheduledFor')} ${new Date(messageScheduleAt).toLocaleString(
+                    dateLocale(),
+                    {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    },
+                  )}`
+                : t('screenPanel.leaveEmptyToShowThe')}
             </p>
             {messageScheduleAt && (
               <button
@@ -1618,7 +1520,7 @@ export function ScreenPanel({
                 className="screen-schedule-clear"
                 onClick={() => setMessageScheduleAt('')}
               >
-                {tr('Maintenant', 'Now')}
+                {t('screenPanel.now')}
               </button>
             )}
           </div>
@@ -1636,7 +1538,7 @@ export function ScreenPanel({
                   setMessageIndex(Math.max(0, messageIndex - 1));
                 }}
               >
-                <Trash2 /> {tr('Retirer ce message', 'Remove this message')}
+                <Trash2 /> {t('screenPanel.removeThisMessage')}
               </button>
             )}
             {state.message && (
@@ -1650,7 +1552,7 @@ export function ScreenPanel({
                   })
                 }
               >
-                <Trash2 /> {tr('Effacer', 'Clear')}
+                <Trash2 /> {t('screenPanel.clear')}
               </button>
             )}
             <button
@@ -1685,8 +1587,8 @@ export function ScreenPanel({
             >
               {messageScheduleAt ? <CalendarClock /> : <Heart />}
               {messageScheduleAt
-                ? tr('Programmer le message', 'Schedule the message')
-                : tr('Afficher sur la TV', 'Show on the TV')}
+                ? t('screenPanel.scheduleTheMessage')
+                : t('screenPanel.showOnTheTv')}
             </button>
           </div>
         </section>
@@ -1698,17 +1600,11 @@ export function ScreenPanel({
               <CalendarClock aria-hidden="true" />
             </span>
             <div>
-              <h3>{tr('Prochaines diffusions', 'Upcoming broadcasts')}</h3>
-              <p>
-                {tr(
-                  'Messages et photos seront affichés automatiquement à l’heure prévue.',
-                  'Messages and photos will be shown automatically at the scheduled time.',
-                )}
-              </p>
+              <h3>{t('screenPanel.upcomingBroadcasts')}</h3>
+              <p>{t('screenPanel.messagesAndPhotosWillBe')}</p>
             </div>
             <strong className="screen-scheduled-count">
-              {state.scheduledContent?.length} {tr('programmé', 'scheduled')}
-              {(state.scheduledContent?.length ?? 0) > 1 && locale === 'fr' ? 's' : ''}
+              {t('screenPanel.scheduledCount', { count: state.scheduledContent?.length ?? 0 })}
             </strong>
           </div>
           <ul className="screen-scheduled-list">
@@ -1738,10 +1634,7 @@ export function ScreenPanel({
                   </span>
                   <button
                     className="screen-icon-button"
-                    aria-label={tr(
-                      `Annuler la programmation de ${item.title}`,
-                      `Cancel the schedule for ${item.title}`,
-                    )}
+                    aria-label={t('screenPanel.cancelTheScheduleFor', { title: item.title })}
                     disabled={busy}
                     onClick={() =>
                       void run(() =>
@@ -1770,17 +1663,13 @@ export function ScreenPanel({
                 <Tv aria-hidden="true" />
               </span>
               <div>
-                <h3>{tr('Médias', 'Media')}</h3>
+                <h3>{t('screenPanel.media')}</h3>
                 <p>
-                  {tr(
-                    `Choisissez ce que ${snapshot.resident} regarde ou écoute sur sa TV.`,
-                    `Choose what ${snapshot.resident} watches or listens to on their TV.`,
-                  )}
+                  {t('screenPanel.chooseWhatWatchesOrListens', { resident: snapshot.resident })}
                 </p>
               </div>
               <span className="screen-medias-device">
-                <Tv aria-hidden="true" />{' '}
-                {tr(`TV de ${snapshot.resident}`, `${snapshot.resident}’s TV`)}
+                <Tv aria-hidden="true" /> {t('screenPanel.sTv', { resident: snapshot.resident })}
               </span>
             </div>
             <div className="screen-medias-layout">
@@ -1788,12 +1677,12 @@ export function ScreenPanel({
                 <div
                   className="screen-medias-tabs"
                   role="tablist"
-                  aria-label={tr('Sources médias', 'Media sources')}
+                  aria-label={t('screenPanel.mediaSources')}
                 >
                   {(
                     [
                       ['youtube', 'YouTube', Youtube],
-                      ['tv', tr('TV en direct', 'Live TV'), Tv],
+                      ['tv', t('screenPanel.liveTv'), Tv],
                       ['stream', 'Radio', Radio],
                       ['podcast', 'Podcasts', Headphones],
                     ] as const
@@ -1843,7 +1732,7 @@ export function ScreenPanel({
                 >
                   <section
                     className="screen-tv-channels"
-                    aria-label={tr('Chaînes TV en direct', 'Live TV channels')}
+                    aria-label={t('screenPanel.liveTvChannels')}
                   >
                     {LIVE_TV_CHANNELS.map((channel) => {
                       const channelMedia = state.media.find(
@@ -1864,14 +1753,14 @@ export function ScreenPanel({
                             </span>
                             <div>
                               <h4>{channel.mediaTitle}</h4>
-                              <p>{tr(channel.description, channel.descriptionEn)}</p>
+                              <p>{channel.description()}</p>
                             </div>
                           </div>
                           <MediaPlaybackButton
                             state={playbackState}
-                            idleLabel={tr(`Regarder ${channel.name}`, `Watch ${channel.name}`)}
-                            playingLabel={tr('À l’écran', 'On screen')}
-                            pendingLabel={tr('Changement…', 'Switching…')}
+                            idleLabel={t('screenPanel.watch', { name: channel.name })}
+                            playingLabel={t('screenPanel.onScreen')}
+                            pendingLabel={t('screenPanel.switching')}
                             disabled={busy || !grant.control || !snapshot.online || !!state.call}
                             onClick={() =>
                               void run(async () => {
@@ -1894,12 +1783,7 @@ export function ScreenPanel({
                       );
                     })}
                   </section>
-                  <p className="screen-tv-note">
-                    {tr(
-                      'Le direct peut être limité selon le pays et les droits du programme.',
-                      'Live viewing may be limited depending on the country and programme rights.',
-                    )}
-                  </p>
+                  <p className="screen-tv-note">{t('screenPanel.liveViewingMayBeLimited')}</p>
                 </div>
                 <div
                   id="media-panel-youtube"
@@ -1908,13 +1792,8 @@ export function ScreenPanel({
                   hidden={mediaTab !== 'youtube'}
                   className="screen-medias-source screen-playlist-card"
                 >
-                  <h4>{tr('Vos playlists YouTube', 'Your YouTube playlists')}</h4>
-                  <p>
-                    {tr(
-                      'Connectez votre compte Google pour retrouver vos playlists automatiquement.',
-                      'Connect your Google account to find your playlists automatically.',
-                    )}
-                  </p>
+                  <h4>{t('screenPanel.yourYoutubePlaylists')}</h4>
+                  <p>{t('screenPanel.connectYourGoogleAccountTo')}</p>
                   <div className="screen-youtube-account">
                     <span className="screen-youtube-account__logo">
                       <Youtube aria-hidden="true" />
@@ -1924,22 +1803,15 @@ export function ScreenPanel({
                         {youtubeAccount?.connected
                           ? youtubeAccount.channelTitle ||
                             youtubeAccount.email ||
-                            tr('Compte connecté', 'Connected account')
-                          : tr('Compte YouTube', 'YouTube account')}
+                            t('screenPanel.connectedAccount')
+                          : t('screenPanel.youtubeAccount')}
                       </strong>
                       <small>
                         {youtubeAccount?.connected
-                          ? youtubeAccount.email ||
-                            tr('Playlists personnelles disponibles', 'Personal playlists available')
+                          ? youtubeAccount.email || t('screenPanel.personalPlaylistsAvailable')
                           : youtubeAccount?.configured
-                            ? tr(
-                                'Vos playlists personnelles, en toute sécurité',
-                                'Your personal playlists, securely',
-                              )
-                            : tr(
-                                'Connexion à configurer par l’administrateur',
-                                'Connection to be set up by the administrator',
-                              )}
+                            ? t('screenPanel.yourPersonalPlaylistsSecurely')
+                            : t('screenPanel.connectionToBeSetUp')}
                       </small>
                     </div>
                     {youtubeAccount?.connected ? (
@@ -1954,7 +1826,7 @@ export function ScreenPanel({
                             )
                           }
                         >
-                          {tr('Actualiser', 'Refresh')}
+                          {t('screenPanel.refresh')}
                         </button>
                         <button
                           type="button"
@@ -1973,7 +1845,7 @@ export function ScreenPanel({
                             })
                           }
                         >
-                          {tr('Déconnecter', 'Disconnect')}
+                          {t('screenPanel.disconnect')}
                         </button>
                       </div>
                     ) : (
@@ -1983,26 +1855,21 @@ export function ScreenPanel({
                         disabled={busy || youtubeAccount?.configured === false}
                         onClick={connectYouTube}
                       >
-                        {tr('Connecter Google', 'Connect Google')}
+                        {t('screenPanel.connectGoogle')}
                       </button>
                     )}
                   </div>
                   {youtubeAccount?.configured === false && (
                     <p className="screen-youtube-hint">
-                      {tr(
-                        'L’administrateur doit renseigner les identifiants OAuth YouTube du NAS une seule fois.',
-                        'The administrator only needs to enter the NAS’s YouTube OAuth credentials once.',
-                      )}
+                      {t('screenPanel.theAdministratorOnlyNeedsTo')}
                     </p>
                   )}
                   {youtubeAccount?.connected && (
                     <div className="screen-youtube-cloud-playlists">
                       <div className="screen-youtube-cloud-heading">
-                        <strong>
-                          {tr('Playlists de votre compte', 'Playlists on your account')}
-                        </strong>
+                        <strong>{t('screenPanel.playlistsOnYourAccount')}</strong>
                         <span>
-                          {youtubePlaylists.length} {tr('disponibles', 'available')}
+                          {youtubePlaylists.length} {t('screenPanel.available')}
                         </span>
                       </div>
                       {youtubePlaylists.length ? (
@@ -2023,7 +1890,7 @@ export function ScreenPanel({
                                 <div>
                                   <strong>{playlist.title}</strong>
                                   <small>
-                                    {playlist.itemCount} {tr('vidéo(s)', 'video(s)')}
+                                    {playlist.itemCount} {t('screenPanel.videoS')}
                                   </small>
                                 </div>
                                 <button
@@ -2035,10 +1902,10 @@ export function ScreenPanel({
                                   onClick={() => importYouTubePlaylist(playlist.id)}
                                 >
                                   {youtubePlaylistBusy === playlist.id
-                                    ? tr('Chargement…', 'Loading…')
+                                    ? t('screenPanel.loading')
                                     : imported
-                                      ? tr('Relancer', 'Play again')
-                                      : tr('Ajouter et lancer', 'Add and play')}
+                                      ? t('screenPanel.playAgain')
+                                      : t('screenPanel.addAndPlay')}
                                 </button>
                               </article>
                             );
@@ -2046,22 +1913,14 @@ export function ScreenPanel({
                         </div>
                       ) : (
                         <p className="screen-empty-library">
-                          {tr(
-                            'Aucune playlist disponible sur ce compte.',
-                            'No playlists available on this account.',
-                          )}
+                          {t('screenPanel.noPlaylistsAvailableOnThis')}
                         </p>
                       )}
                     </div>
                   )}
                   <div className="screen-youtube-manual">
-                    <strong>{tr('Ajouter des vidéos par lien', 'Add videos by link')}</strong>
-                    <p>
-                      {tr(
-                        'Un lien par ligne, jusqu’à 50 vidéos.',
-                        'One link per line, up to 50 videos.',
-                      )}
-                    </p>
+                    <strong>{t('screenPanel.addVideosByLink')}</strong>
+                    <p>{t('screenPanel.oneLinkPerLineUp')}</p>
                     <form
                       onSubmit={(event) => {
                         event.preventDefault();
@@ -2074,12 +1933,7 @@ export function ScreenPanel({
                           links.length > 50 ||
                           links.some((link) => !youtubeVideoId(link))
                         ) {
-                          setError(
-                            tr(
-                              'Ajoutez entre 1 et 50 liens vidéo YouTube valides, un par ligne.',
-                              'Add between 1 and 50 valid YouTube video links, one per line.',
-                            ),
-                          );
+                          setError(t('screenPanel.addBetween1And50'));
                           return;
                         }
                         void run(async () => {
@@ -2095,7 +1949,7 @@ export function ScreenPanel({
                       }}
                     >
                       <label>
-                        {tr('Nom de la playlist', 'Playlist name')}
+                        {t('screenPanel.playlistName')}
                         <input
                           value={playlistTitle}
                           maxLength={120}
@@ -2104,7 +1958,7 @@ export function ScreenPanel({
                         />
                       </label>
                       <label>
-                        {tr('Liens YouTube', 'YouTube links')}
+                        {t('screenPanel.youtubeLinks')}
                         <textarea
                           value={playlistLinks}
                           rows={5}
@@ -2119,7 +1973,7 @@ export function ScreenPanel({
                           busy || !grant.control || !playlistTitle.trim() || !playlistLinks.trim()
                         }
                       >
-                        {tr('Enregistrer la playlist', 'Save the playlist')}
+                        {t('screenPanel.saveThePlaylist')}
                       </button>
                     </form>
                   </div>
@@ -2131,10 +1985,8 @@ export function ScreenPanel({
                           <div>
                             <strong>{media.title}</strong>
                             <small>
-                              {media.playlistUrls?.length ?? 1} {tr('vidéo(s)', 'video(s)')}
-                              {state.playback.mediaId === media.id
-                                ? tr(' · Sélectionnée', ' · Selected')
-                                : ''}
+                              {media.playlistUrls?.length ?? 1} {t('screenPanel.videoS')}
+                              {state.playback.mediaId === media.id ? t('screenPanel.selected') : ''}
                             </small>
                           </div>
                           <button
@@ -2142,12 +1994,12 @@ export function ScreenPanel({
                             disabled={busy || !grant.control || !snapshot.online}
                             onClick={() => void command('play', { mediaId: media.id })}
                           >
-                            <Play aria-hidden="true" /> {tr('Lancer', 'Play')}
+                            <Play aria-hidden="true" /> {t('screenPanel.play')}
                           </button>
                           <button
                             className="screen-button screen-button--secondary"
                             disabled={busy || !grant.control}
-                            aria-label={tr(`Supprimer ${media.title}`, `Delete ${media.title}`)}
+                            aria-label={t('screenPanel.delete', { title: media.title })}
                             onClick={() =>
                               void run(() =>
                                 screenRequest(`screen/media/${media.id}`, undefined, 'DELETE'),
@@ -2159,12 +2011,7 @@ export function ScreenPanel({
                         </article>
                       ))}
                   </div>
-                  <p>
-                    {tr(
-                      'Les vidéos s’enchaînent automatiquement. Utilisez les commandes du lecteur pour mettre en pause, reprendre ou passer à la suivante. Certaines vidéos peuvent refuser la lecture intégrée.',
-                      'Videos play one after another. Use the player controls to pause, resume or skip to the next one. Some videos may refuse embedded playback.',
-                    )}
-                  </p>
+                  <p>{t('screenPanel.videosPlayOneAfterAnother')}</p>
                 </div>
                 <div
                   id="media-panel-stream"
@@ -2173,13 +2020,8 @@ export function ScreenPanel({
                   hidden={mediaTab !== 'stream'}
                   className="screen-medias-source"
                 >
-                  <h4>{tr('Vos radios', 'Your radios')}</h4>
-                  <p>
-                    {tr(
-                      'Retrouvez vos favoris ou recherchez une station.',
-                      'Find your favourites or search for a station.',
-                    )}
-                  </p>
+                  <h4>{t('screenPanel.yourRadios')}</h4>
+                  <p>{t('screenPanel.findYourFavouritesOrSearch')}</p>
                   <form
                     className="screen-radio-search screen-media-search-panel"
                     onSubmit={(event) => {
@@ -2197,7 +2039,7 @@ export function ScreenPanel({
                     }}
                   >
                     <label>
-                      <span>{tr('Nom de la radio', 'Radio name')}</span>
+                      <span>{t('screenPanel.radioName')}</span>
                       <div>
                         <Search aria-hidden="true" />
                         <input
@@ -2212,13 +2054,13 @@ export function ScreenPanel({
                       className="screen-button screen-button--primary"
                       disabled={busy || radioQuery.trim().length < 2}
                     >
-                      {tr('Rechercher', 'Search')}
+                      {t('screenPanel.search')}
                     </button>
                   </form>
                   {radioResults.length > 0 && (
                     <div
                       className="screen-radio-results"
-                      aria-label={tr('Résultats de recherche', 'Search results')}
+                      aria-label={t('screenPanel.searchResults')}
                     >
                       {radioResults.map((station) => {
                         const stationMedia = state.media.find(
@@ -2261,7 +2103,7 @@ export function ScreenPanel({
                   )}
                   {state.media.some((media) => media.kind === 'stream') ? (
                     <div className="screen-radio-favorites screen-media-library-panel">
-                      <h4>{tr('Mes radios', 'My radios')}</h4>
+                      <h4>{t('screenPanel.myRadios')}</h4>
                       <ul className="screen-library">
                         {state.media
                           .filter((media) => media.kind === 'stream')
@@ -2288,15 +2130,12 @@ export function ScreenPanel({
                                   <strong>{media.title}</strong>
                                   <small>
                                     {listenState === 'playing'
-                                      ? tr(
-                                          `Diffusée chez ${snapshot.resident}`,
-                                          `Playing at ${snapshot.resident}’s`,
-                                        )
+                                      ? t('screenPanel.playingAtS', { resident: snapshot.resident })
                                       : listenState === 'pending'
-                                        ? tr('Lancement sur la TV…', 'Starting on the TV…')
+                                        ? t('screenPanel.startingOnTheTv')
                                         : listenState === 'paused'
-                                          ? tr('En pause', 'Paused')
-                                          : tr('Radio enregistrée', 'Saved radio')}
+                                          ? t('screenPanel.paused')
+                                          : t('screenPanel.savedRadio')}
                                   </small>
                                 </span>
                                 <MediaPlaybackButton
@@ -2306,7 +2145,7 @@ export function ScreenPanel({
                                 />
                                 <button
                                   className="screen-icon-button"
-                                  aria-label={tr(`Retirer ${media.title}`, `Remove ${media.title}`)}
+                                  aria-label={t('screenPanel.remove', { title: media.title })}
                                   onClick={() =>
                                     void run(() =>
                                       screenRequest(
@@ -2325,12 +2164,7 @@ export function ScreenPanel({
                       </ul>
                     </div>
                   ) : radioResults.length === 0 ? (
-                    <p className="screen-empty-library">
-                      {tr(
-                        'Recherchez une radio pour commencer.',
-                        'Search for a radio to get started.',
-                      )}
-                    </p>
+                    <p className="screen-empty-library">{t('screenPanel.searchForARadioTo')}</p>
                   ) : null}
                 </div>
                 <div
@@ -2341,12 +2175,7 @@ export function ScreenPanel({
                   className="screen-medias-source screen-podcast-panel"
                 >
                   <h4>Podcasts</h4>
-                  <p>
-                    {tr(
-                      'Recherchez une émission, parcourez ses épisodes et lancez la lecture sur la TV.',
-                      'Search for a show, browse its episodes and start playback on the TV.',
-                    )}
-                  </p>
+                  <p>{t('screenPanel.searchForAShowBrowse')}</p>
                   <form
                     className="screen-radio-search screen-podcast-search screen-media-search-panel"
                     onSubmit={(event) => {
@@ -2355,18 +2184,13 @@ export function ScreenPanel({
                     }}
                   >
                     <label>
-                      <span>
-                        {tr('Nom d’une émission ou d’un sujet', 'Name of a show or a topic')}
-                      </span>
+                      <span>{t('screenPanel.nameOfAShowOr')}</span>
                       <div>
                         <Search aria-hidden="true" />
                         <input
                           value={podcastQuery}
                           maxLength={80}
-                          placeholder={tr(
-                            'France Inter, histoire, musique…',
-                            'BBC, history, music…',
-                          )}
+                          placeholder={t('screenPanel.bbcHistoryMusic')}
                           onChange={(event) => setPodcastQuery(event.target.value)}
                         />
                       </div>
@@ -2376,13 +2200,13 @@ export function ScreenPanel({
                       className="screen-button screen-button--primary"
                       disabled={busy || podcastQuery.trim().length < 2}
                     >
-                      {tr('Rechercher', 'Search')}
+                      {t('screenPanel.search')}
                     </button>
                   </form>
                   {podcastResults.length > 0 && (
                     <div
                       className="screen-radio-results screen-podcast-results"
-                      aria-label={tr('Résultats de podcasts', 'Podcast results')}
+                      aria-label={t('screenPanel.podcastResults')}
                     >
                       {podcastResults.map((podcast) => {
                         const followed = podcastSubscriptions.some(
@@ -2406,9 +2230,9 @@ export function ScreenPanel({
                             <span>
                               <strong>{podcast.title}</strong>
                               <small>
-                                {podcast.author || tr('Auteur inconnu', 'Unknown author')}
+                                {podcast.author || t('screenPanel.unknownAuthor')}
                                 {podcast.episodeCount
-                                  ? ` · ${podcast.episodeCount} ${tr('épisodes', 'episodes')}`
+                                  ? ` · ${podcast.episodeCount} ${t('screenPanel.episodes')}`
                                   : ''}
                                 {podcast.genre ? ` · ${podcast.genre}` : ''}
                               </small>
@@ -2420,7 +2244,7 @@ export function ScreenPanel({
                                 disabled={busy}
                                 onClick={() => openPodcastEpisodes(podcast)}
                               >
-                                {tr('Épisodes', 'Episodes')}
+                                {t('screenPanel.episodes2')}
                               </button>
                               <button
                                 type="button"
@@ -2428,7 +2252,7 @@ export function ScreenPanel({
                                 disabled={busy || followed}
                                 onClick={() => void followPodcast(podcast)}
                               >
-                                {followed ? tr('Suivi', 'Following') : tr('Suivre', 'Follow')}
+                                {followed ? t('screenPanel.following') : t('screenPanel.follow')}
                               </button>
                             </div>
                           </article>
@@ -2438,20 +2262,15 @@ export function ScreenPanel({
                   )}
                   {podcastSearchDone && podcastResults.length === 0 && (
                     <p className="screen-empty-library">
-                      {tr(
-                        'Aucun podcast trouvé pour cette recherche.',
-                        'No podcasts found for this search.',
-                      )}
+                      {t('screenPanel.noPodcastsFoundForThis')}
                     </p>
                   )}
                   {podcastSearchLoading && (
-                    <p className="screen-empty-library">
-                      {tr('Recherche des podcasts…', 'Searching podcasts…')}
-                    </p>
+                    <p className="screen-empty-library">{t('screenPanel.searchingPodcasts')}</p>
                   )}
                   {podcastSubscriptions.length > 0 && (
                     <div className="screen-radio-favorites screen-podcast-library screen-media-library-panel">
-                      <h4>{tr('Mes podcasts', 'My podcasts')}</h4>
+                      <h4>{t('screenPanel.myPodcasts')}</h4>
                       <ul className="screen-library">
                         {podcastSubscriptions.map((podcast) => (
                           <li key={podcast.id}>
@@ -2474,9 +2293,9 @@ export function ScreenPanel({
                                 {activeMedia?.kind === 'podcast' &&
                                 activeMedia.podcastFeedId === podcast.id
                                   ? state.playback.paused
-                                    ? tr('Épisode en pause', 'Episode paused')
-                                    : tr('En cours de lecture', 'Now playing')
-                                  : podcast.author || tr('Podcast suivi', 'Followed podcast')}
+                                    ? t('screenPanel.episodePaused')
+                                    : t('screenPanel.nowPlaying')
+                                  : podcast.author || t('screenPanel.followedPodcast')}
                               </small>
                             </span>
                             <button
@@ -2485,15 +2304,14 @@ export function ScreenPanel({
                               disabled={busy}
                               onClick={() => openPodcastEpisodes(podcast)}
                             >
-                              {tr('Épisodes', 'Episodes')}
+                              {t('screenPanel.episodes2')}
                             </button>
                             <button
                               type="button"
                               className="screen-icon-button"
-                              aria-label={tr(
-                                `Retirer ${podcast.title} de mes podcasts`,
-                                `Remove ${podcast.title} from my podcasts`,
-                              )}
+                              aria-label={t('screenPanel.removeFromMyPodcasts', {
+                                title: podcast.title,
+                              })}
                               disabled={busy}
                               onClick={() =>
                                 void run(() =>
@@ -2515,7 +2333,7 @@ export function ScreenPanel({
                   {selectedPodcast && (
                     <section
                       className="screen-podcast-episodes"
-                      aria-label={tr('Épisodes du podcast', 'Podcast episodes')}
+                      aria-label={t('screenPanel.podcastEpisodes')}
                     >
                       <div className="screen-podcast-show">
                         <span className="screen-radio-logo">
@@ -2536,9 +2354,7 @@ export function ScreenPanel({
                         </div>
                       </div>
                       {!podcastEpisodesLoaded ? (
-                        <p className="screen-empty-library">
-                          {tr('Chargement des épisodes…', 'Loading episodes…')}
-                        </p>
+                        <p className="screen-empty-library">{t('screenPanel.loadingEpisodes')}</p>
                       ) : podcastEpisodes.length ? (
                         <div className="screen-podcast-episode-list">
                           {podcastEpisodes.map((episode) => {
@@ -2562,9 +2378,9 @@ export function ScreenPanel({
                                       podcastDurationLabel(episode.durationSeconds),
                                     ]
                                       .filter(Boolean)
-                                      .join(' · ') || tr('Épisode', 'Episode')}
+                                      .join(' · ') || t('screenPanel.episode')}
                                     {listenState !== 'idle' &&
-                                      ` · ${listenState === 'playing' ? tr('En écoute', 'Playing') : listenState === 'pending' ? tr('Lancement', 'Starting') : tr('En pause', 'Paused')}`}
+                                      ` · ${listenState === 'playing' ? t('screenPanel.playing') : listenState === 'pending' ? t('screenPanel.starting2') : t('screenPanel.paused')}`}
                                   </small>
                                   {episode.description && <p>{episode.description}</p>}
                                 </div>
@@ -2579,10 +2395,7 @@ export function ScreenPanel({
                         </div>
                       ) : (
                         <p className="screen-empty-library">
-                          {tr(
-                            'Aucun épisode audio disponible pour cette émission.',
-                            'No audio episodes available for this show.',
-                          )}
+                          {t('screenPanel.noAudioEpisodesAvailableFor')}
                         </p>
                       )}
                     </section>
@@ -2592,12 +2405,7 @@ export function ScreenPanel({
                     !podcastSearchDone &&
                     !podcastSearchLoading &&
                     !podcastQuery.trim() && (
-                      <p className="screen-empty-library">
-                        {tr(
-                          'Recherchez une émission ou un sujet pour commencer.',
-                          'Search for a show or a topic to get started.',
-                        )}
-                      </p>
+                      <p className="screen-empty-library">{t('screenPanel.searchForAShowOr')}</p>
                     )}
                 </div>
               </div>
@@ -2606,9 +2414,9 @@ export function ScreenPanel({
               <section className="screen-tv-guide" aria-labelledby="screen-tv-guide-title">
                 <div className="screen-tv-guide__heading">
                   <h4 id="screen-tv-guide-title">
-                    <CalendarClock aria-hidden="true" /> {tr('Programme TV', 'TV guide')}
+                    <CalendarClock aria-hidden="true" /> {t('screenPanel.tvGuide')}
                   </h4>
-                  <span>{tr('En ce moment et à suivre', 'On now and next')}</span>
+                  <span>{t('screenPanel.onNowAndNext')}</span>
                 </div>
                 {tvGuide ? (
                   <div className="screen-tv-guide__list">
@@ -2641,16 +2449,16 @@ export function ScreenPanel({
                             <div className="screen-tv-guide__program">
                               <span className="screen-tv-guide__label">
                                 {current
-                                  ? tr('En cours', 'On now')
+                                  ? t('screenPanel.onNow')
                                   : next
-                                    ? tr('À venir', 'Coming up')
-                                    : tr('Programme', 'Programme')}
+                                    ? t('screenPanel.comingUp')
+                                    : t('screenPanel.programme')}
                                 {current && <time>{tvGuideRange(current)}</time>}
                               </span>
                               <strong>
                                 {current?.title ??
                                   next?.title ??
-                                  tr('Programme indisponible', 'Programme unavailable')}
+                                  t('screenPanel.programmeUnavailable')}
                               </strong>
                               {current?.description && <p>{current.description}</p>}
                               {current && (
@@ -2662,7 +2470,7 @@ export function ScreenPanel({
                             {current && next && (
                               <div className="screen-tv-guide__program screen-tv-guide__program--next">
                                 <span className="screen-tv-guide__label">
-                                  {tr('À suivre', 'Next')} <time>{tvGuideRange(next)}</time>
+                                  {t('screenPanel.next2')} <time>{tvGuideRange(next)}</time>
                                 </span>
                                 <strong>{next.title}</strong>
                               </div>
@@ -2675,26 +2483,16 @@ export function ScreenPanel({
                 ) : (
                   <p className="screen-tv-guide__empty">
                     {tvGuideUnavailable
-                      ? tr(
-                          'Programme TV temporairement indisponible. La récupération reprend automatiquement.',
-                          'TV guide temporarily unavailable. Retrieval will resume automatically.',
-                        )
-                      : tr(
-                          'Récupération automatique du programme TV…',
-                          'Fetching the TV guide automatically…',
-                        )}
+                      ? t('screenPanel.tvGuideTemporarilyUnavailableRetrieval')
+                      : t('screenPanel.fetchingTheTvGuideAutomatically')}
                   </p>
                 )}
                 <p className="screen-tv-guide__source">
                   {tvGuide?.stale
-                    ? `${tr('Dernière grille reçue à', 'Last guide received at')} ${tvGuideTime.format(new Date(tvGuide.retrievedAt))} · `
-                    : tr(
-                        'Grille actualisée automatiquement · ',
-                        'Guide refreshed automatically · ',
-                      )}
+                    ? `${t('screenPanel.lastGuideReceivedAt')} ${tvGuideTime.format(new Date(tvGuide.retrievedAt))} · `
+                    : t('screenPanel.guideRefreshedAutomatically')}
                   <a href="https://www.xmltvfr.fr/xmltv.php" target="_blank" rel="noreferrer">
-                    {tr('Source XMLTV France', 'Source: XMLTV France')}{' '}
-                    <ExternalLink aria-hidden="true" />
+                    {t('screenPanel.sourceXmltvFrance')} <ExternalLink aria-hidden="true" />
                   </a>
                 </p>
               </section>
@@ -2713,57 +2511,37 @@ export function ScreenPanel({
                 <ImagePlus aria-hidden="true" />
               </span>
               <div>
-                <h3>{tr('Album photo', 'Photo album')}</h3>
-                <p>
-                  {tr(
-                    'Chaque photo défile avec son commentaire affiché en dessous.',
-                    'Each photo is shown in turn with its caption underneath.',
-                  )}
-                </p>
+                <h3>{t('screenPanel.photoAlbum')}</h3>
+                <p>{t('screenPanel.eachPhotoIsShownIn')}</p>
               </div>
             </div>
             <div className="screen-album-editor">
-              <h4>{tr('Ajouter une photo', 'Add a photo')}</h4>
+              <h4>{t('screenPanel.addAPhoto')}</h4>
               <div className="screen-photo-form">
                 <label className="screen-upload">
                   <Upload aria-hidden="true" />
                   <span>
-                    <strong>
-                      {photo ? photo.name : tr('Choisir une photo', 'Choose a photo')}
-                    </strong>
-                    <small>
-                      {tr('JPG, PNG ou WebP · 100 Mo maximum', 'JPG, PNG or WebP · 100 MB maximum')}
-                    </small>
+                    <strong>{photo ? photo.name : t('screenPanel.chooseAPhoto')}</strong>
+                    <small>{t('screenPanel.jpgPngOrWebp100')}</small>
                   </span>
                   <input
-                    aria-label={tr('Choisir une photo', 'Choose a photo')}
+                    aria-label={t('screenPanel.chooseAPhoto')}
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     onChange={(event) => setPhoto(event.target.files?.[0])}
                   />
                 </label>
                 <label className="screen-photo-caption">
-                  <span>
-                    {tr(
-                      'Commentaire sous la photo (facultatif)',
-                      'Caption under the photo (optional)',
-                    )}
-                  </span>
+                  <span>{t('screenPanel.captionUnderThePhotoOptional')}</span>
                   <div
                     className="screen-emoji-picker screen-photo-emojis"
-                    aria-label={tr(
-                      'Ajouter un émoji au commentaire',
-                      'Add an emoji to the caption',
-                    )}
+                    aria-label={t('screenPanel.addAnEmojiToThe')}
                   >
                     {messageEmojis.map((emoji) => (
                       <button
                         key={emoji}
                         type="button"
-                        aria-label={tr(
-                          `Ajouter ${emoji} au commentaire`,
-                          `Add ${emoji} to the caption`,
-                        )}
+                        aria-label={t('screenPanel.addToTheCaption', { emoji })}
                         onClick={() =>
                           setPhotoCaption(
                             (current) =>
@@ -2779,7 +2557,7 @@ export function ScreenPanel({
                     maxLength={120}
                     value={photoCaption}
                     onChange={(event) => setPhotoCaption(event.target.value)}
-                    placeholder={tr('Ajouter un commentaire…', 'Add a caption…')}
+                    placeholder={t('screenPanel.addACaption')}
                   />
                   <small>{photoCaption.length}/120</small>
                 </label>
@@ -2789,7 +2567,7 @@ export function ScreenPanel({
                   <CalendarClock aria-hidden="true" />
                 </span>
                 <label>
-                  <span>{tr('Afficher cette photo plus tard', 'Show this photo later')}</span>
+                  <span>{t('screenPanel.showThisPhotoLater')}</span>
                   <input
                     type="datetime-local"
                     value={photoScheduleAt}
@@ -2798,14 +2576,8 @@ export function ScreenPanel({
                 </label>
                 <p>
                   {photoScheduleAt
-                    ? tr(
-                        'La photo sera ajoutée à l’album et affichée automatiquement.',
-                        'The photo will be added to the album and shown automatically.',
-                      )
-                    : tr(
-                        'Laissez vide pour simplement ajouter la photo à l’album.',
-                        'Leave empty to simply add the photo to the album.',
-                      )}
+                    ? t('screenPanel.thePhotoWillBeAdded')
+                    : t('screenPanel.leaveEmptyToSimplyAdd')}
                 </p>
                 <button
                   className="screen-button screen-button--primary"
@@ -2824,22 +2596,11 @@ export function ScreenPanel({
                         method: 'POST',
                         body,
                       });
-                      if (!response.ok)
-                        throw new Error(
-                          tr(
-                            'Envoi impossible (100 Mo maximum).',
-                            'Upload failed (100 MB maximum).',
-                          ),
-                        );
+                      if (!response.ok) throw new Error(t('screenPanel.uploadFailed100MbMaximum'));
                       const uploaded = (await response.json()) as ScreenSnapshot;
                       const media = uploaded.state.media.at(-1);
                       if (!media || media.kind !== 'photo')
-                        throw new Error(
-                          tr(
-                            'Photo introuvable après l’envoi.',
-                            'Photo not found after the upload.',
-                          ),
-                        );
+                        throw new Error(t('screenPanel.photoNotFoundAfterThe'));
                       await screenRequest('screen/media', { ...media, title: caption });
                       if (photoScheduleAt)
                         await screenRequest('screen/scheduled-content', {
@@ -2859,27 +2620,27 @@ export function ScreenPanel({
                     <ImagePlus aria-hidden="true" />
                   )}
                   {photoScheduleAt
-                    ? tr('Programmer la photo', 'Schedule the photo')
-                    : tr('Ajouter à l’album', 'Add to the album')}
+                    ? t('screenPanel.scheduleThePhoto')
+                    : t('screenPanel.addToTheAlbum')}
                 </button>
               </div>
             </div>
             <div className="screen-album-library">
-              <h4>{tr(`Album de ${residentFirstName}`, `${residentFirstName}’s album`)}</h4>
+              <h4>{t('screenPanel.sAlbum', { residentFirstName })}</h4>
               <div className="screen-slideshow-setting">
                 <Timer aria-hidden="true" />
                 <label>
-                  <span>{tr('Temps par photo', 'Time per photo')}</span>
+                  <span>{t('screenPanel.timePerPhoto')}</span>
                   <select
                     value={settings.slideshowSeconds ?? 15}
                     onChange={(event) =>
                       setSettings({ ...settings, slideshowSeconds: Number(event.target.value) })
                     }
                   >
-                    <option value={5}>{tr('5 secondes', '5 seconds')}</option>
-                    <option value={10}>{tr('10 secondes', '10 seconds')}</option>
-                    <option value={15}>{tr('15 secondes', '15 seconds')}</option>
-                    <option value={30}>{tr('30 secondes', '30 seconds')}</option>
+                    <option value={5}>{t('screenPanel.n5Seconds')}</option>
+                    <option value={10}>{t('screenPanel.n10Seconds')}</option>
+                    <option value={15}>{t('screenPanel.n15Seconds')}</option>
+                    <option value={30}>{t('screenPanel.n30Seconds')}</option>
                     <option value={60}>1 minute</option>
                     <option value={120}>2 minutes</option>
                   </select>
@@ -2894,7 +2655,7 @@ export function ScreenPanel({
                     void run(() => screenRequest('screen/settings', settings, 'PATCH'))
                   }
                 >
-                  {tr('Enregistrer', 'Save')}
+                  {t('screenPanel.save')}
                 </button>
               </div>
               {state.media.some((media) => media.kind === 'photo') ? (
@@ -2909,18 +2670,18 @@ export function ScreenPanel({
                         <img className="screen-library__thumbnail" src={media.url} alt="" />
                         <span className="screen-library__name">
                           <strong>{media.title}</strong>
-                          <small>{tr('Photo de l’album', 'Album photo')}</small>
+                          <small>{t('screenPanel.albumPhoto')}</small>
                         </span>
                         <button
                           className="screen-button screen-button--secondary"
                           disabled={!snapshot.online}
                           onClick={() => void command('play', { mediaId: media.id })}
                         >
-                          <Play /> {tr('Afficher', 'Show')}
+                          <Play /> {t('screenPanel.show')}
                         </button>
                         <button
                           className="screen-icon-button"
-                          aria-label={tr(`Retirer ${media.title}`, `Remove ${media.title}`)}
+                          aria-label={t('screenPanel.remove', { title: media.title })}
                           onClick={() =>
                             void run(() =>
                               screenRequest(`screen/media/${media.id}`, undefined, 'DELETE'),
@@ -2933,9 +2694,7 @@ export function ScreenPanel({
                     ))}
                 </ul>
               ) : (
-                <p className="screen-empty-library">
-                  {tr('Aucune photo ajoutée pour le moment.', 'No photos added yet.')}
-                </p>
+                <p className="screen-empty-library">{t('screenPanel.noPhotosAddedYet')}</p>
               )}
             </div>
           </section>
@@ -2955,12 +2714,9 @@ export function ScreenPanel({
               <Activity aria-hidden="true" />
             </span>
             <span className="screen-activity-details__copy">
-              <strong>{tr('Suivi de l’activité', 'Activity tracking')}</strong>
+              <strong>{t('screenPanel.activityTracking')}</strong>
               <small>
-                {tr(
-                  `Historique des actions envoyées chez ${snapshot.resident}.`,
-                  `History of actions sent to ${snapshot.resident}’s screen.`,
-                )}
+                {t('screenPanel.historyOfActionsSentTo', { resident: snapshot.resident })}
               </small>
             </span>
             <ChevronRight className="screen-activity-details__chevron" aria-hidden="true" />
@@ -2975,12 +2731,12 @@ export function ScreenPanel({
                     ).length
                   }
                 </strong>{' '}
-                {tr('actions aujourd’hui', 'actions today')}
+                {t('screenPanel.actionsToday')}
               </span>
               <span className="is-success">
                 <CircleCheck aria-hidden="true" />{' '}
                 {(state.activity ?? []).filter((item) => item.status === 'applied').length}{' '}
-                {tr('confirmées', 'confirmed')}
+                {t('screenPanel.confirmed')}
               </span>
               {(state.activity ?? []).some(
                 (item) => item.status === 'failed' || item.status === 'expired',
@@ -2992,7 +2748,7 @@ export function ScreenPanel({
                       (item) => item.status === 'failed' || item.status === 'expired',
                     ).length
                   }{' '}
-                  {tr('non abouties', 'unsuccessful')}
+                  {t('screenPanel.unsuccessful')}
                 </span>
               )}
             </div>
@@ -3004,12 +2760,12 @@ export function ScreenPanel({
                   .map((item) => {
                     const statusLabel =
                       item.status === 'applied'
-                        ? tr('Confirmée', 'Confirmed')
+                        ? t('screenPanel.confirmed2')
                         : item.status === 'pending'
-                          ? tr('En cours', 'In progress')
+                          ? t('screenPanel.inProgress')
                           : item.status === 'expired'
-                            ? tr('Expirée', 'Expired')
-                            : tr('Échec', 'Failed');
+                            ? t('screenPanel.expired')
+                            : t('screenPanel.failed');
                     const StatusIcon =
                       item.status === 'applied'
                         ? CircleCheck
@@ -3053,12 +2809,7 @@ export function ScreenPanel({
                   })}
               </ol>
             ) : (
-              <p className="screen-empty-library">
-                {tr(
-                  'Les prochaines actions envoyées à l’écran apparaîtront ici.',
-                  'The next actions sent to the screen will appear here.',
-                )}
-              </p>
+              <p className="screen-empty-library">{t('screenPanel.theNextActionsSentTo')}</p>
             )}
           </div>
         </details>

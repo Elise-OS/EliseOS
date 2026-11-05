@@ -29,7 +29,7 @@ import {
   type SensorDevice,
 } from '@elise/contracts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Locale } from './i18n';
+import { currentLanguage, dateLocale, type Locale, t } from './i18n';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import './alerts-page.css';
 
@@ -63,18 +63,17 @@ type FilterStatus = 'ALL' | 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
 export type SafetyCategory = Extract<RoomSensorCategory, 'fall_detection' | 'smoke' | 'water_leak'>;
 type SafetyCoverage = { devices: SensorDevice[]; attentionCount: number };
 
-const statusLabels: Record<AlertStatus, [string, string]> = {
-  OPEN: ['Ouverte', 'Open'],
-  ACKNOWLEDGED: ['Prise en charge', 'Acknowledged'],
-  RESOLVED: ['Résolue', 'Resolved'],
-  DISMISSED: ['Écartée', 'Dismissed'],
+const statusLabels: Record<AlertStatus, () => string> = {
+  OPEN: () => t('alertsPage.statusLabels.OPEN'),
+  ACKNOWLEDGED: () => t('alertsPage.statusLabels.ACKNOWLEDGED'),
+  RESOLVED: () => t('alertsPage.statusLabels.RESOLVED'),
+  DISMISSED: () => t('alertsPage.statusLabels.DISMISSED'),
 };
-const severityLabels: Record<AlertSeverity, [string, string]> = {
-  INFO: ['Information', 'Information'],
-  ATTENTION: ['À vérifier', 'Needs attention'],
-  URGENT: ['Urgence', 'Urgent'],
+const severityLabels: Record<AlertSeverity, () => string> = {
+  INFO: () => t('alertsPage.severityLabels.INFO'),
+  ATTENTION: () => t('alertsPage.severityLabels.ATTENTION'),
+  URGENT: () => t('alertsPage.severityLabels.URGENT'),
 };
-const label = (pair: readonly [string, string], locale: Locale) => pair[locale === 'fr' ? 0 : 1];
 const localDay = (value: string | Date, timezone: string) => {
   const parts = new Intl.DateTimeFormat('en', {
     timeZone: timezone,
@@ -86,86 +85,57 @@ const localDay = (value: string | Date, timezone: string) => {
     parts.find((item) => item.type === type)?.value ?? '';
   return `${part('year')}-${part('month')}-${part('day')}`;
 };
-const time = (value: string, locale: Locale) =>
-  new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+const time = (value: string) =>
+  new Intl.DateTimeFormat(dateLocale(), {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
-const relative = (value: string, locale: Locale) => {
+const relative = (value: string) => {
   const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
-  const rtf = new Intl.RelativeTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', { numeric: 'auto' });
-  if (minutes < 1) return label(['À l’instant', 'Just now'], locale);
+  const rtf = new Intl.RelativeTimeFormat(dateLocale(), { numeric: 'auto' });
+  if (minutes < 1) return t('alertsPage.justNow');
   if (minutes < 60) return rtf.format(-minutes, 'minute');
   if (minutes < 1_440) return rtf.format(-Math.floor(minutes / 60), 'hour');
   return rtf.format(-Math.floor(minutes / 1_440), 'day');
 };
-const durationBetween = (start: string, end: string, locale: Locale) => {
+const durationBetween = (start: string, end: string) => {
   const minutes = Math.max(
     0,
     Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 60_000),
   );
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
-  if (locale === 'fr')
-    return hours
-      ? `${hours} h${remainingMinutes ? ` ${remainingMinutes} min` : ''}`
-      : `${minutes} min`;
-  return hours ? `${hours}h${remainingMinutes ? ` ${remainingMinutes}m` : ''}` : `${minutes}m`;
+  if (!hours) return t('alertsPage.duration.minutes', { minutes });
+  return remainingMinutes
+    ? t('alertsPage.duration.hoursMinutes', { hours, minutes: remainingMinutes })
+    : t('alertsPage.duration.hours', { hours });
 };
 const explanationFor = (item: Situation, locale: Locale, timezone: string) => {
-  const safetyExplanations: Record<string, [string, string]> = {
-    WATER_LEAK: [
-      'Le capteur a signalé la présence d’eau. Vérifiez la zone concernée et coupez l’eau si nécessaire.',
-      'The sensor reported water. Check the affected area and turn off the water if needed.',
-    ],
-    SMOKE: [
-      'Le détecteur de fumée s’est déclenché. Vérifiez rapidement la situation sans vous exposer au danger.',
-      'The smoke detector was triggered. Check promptly without putting yourself in danger.',
-    ],
-    CARBON_MONOXIDE: [
-      'Le détecteur a signalé du monoxyde de carbone. Vérifiez immédiatement la situation et suivez les consignes d’urgence.',
-      'The detector reported carbon monoxide. Check immediately and follow emergency guidance.',
-    ],
-    FALL_DETECTION: [
-      'Le détecteur signale une chute possible. Vérifiez rapidement que la personne va bien.',
-      'The detector reported a possible fall. Check promptly that the resident is all right.',
-    ],
-    SOS: [
-      'Le bouton d’assistance du domicile a été activé. Contactez rapidement la personne.',
-      'The home assistance button was pressed. Contact the resident promptly.',
-    ],
-    SENSOR_OFFLINE: [
-      'Élise ne reçoit plus de données de ce capteur. Vérifiez son alimentation et sa connexion ; les conclusions qui en dépendent sont suspendues.',
-      'Élise is no longer receiving data from this sensor. Check its power and connection; conclusions that depend on it are suspended.',
-    ],
+  const safetyExplanations: Record<string, () => string> = {
+    WATER_LEAK: () => t('alertsPage.explanationFor.safetyExplanations.WATER_LEAK'),
+    SMOKE: () => t('alertsPage.explanationFor.safetyExplanations.SMOKE'),
+    CARBON_MONOXIDE: () => t('alertsPage.explanationFor.safetyExplanations.CARBON_MONOXIDE'),
+    FALL_DETECTION: () => t('alertsPage.explanationFor.safetyExplanations.FALL_DETECTION'),
+    SOS: () => t('alertsPage.explanationFor.safetyExplanations.SOS'),
+    SENSOR_OFFLINE: () => t('alertsPage.explanationFor.safetyExplanations.SENSOR_OFFLINE'),
   };
-  if (safetyExplanations[item.type]) return label(safetyExplanations[item.type]!, locale);
+  if (safetyExplanations[item.type]) return safetyExplanations[item.type]!();
   if (item.type !== 'INACTIVITY') return item.explanation;
   if (!item.lastMovement) {
     return item.explanation.startsWith('Dernier mouvement fiable')
       ? item.explanation
-      : label(
-          [
-            'Aucun horaire de mouvement fiable n’est disponible avant le déclenchement. Vérifiez les capteurs : une absence de données ne confirme pas une absence de mouvement.',
-            'No reliable movement time is available before this alert. Check the sensors: missing data does not confirm that no movement occurred.',
-          ],
-          locale,
-        );
+      : t('alertsPage.noReliableMovementTimeIs');
   }
   const movement = item.lastMovement;
-  const recordedAt = new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+  const recordedAt = new Intl.DateTimeFormat(dateLocale(), {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: timezone,
   }).format(new Date(movement.occurredAt));
-  const gap = durationBetween(movement.occurredAt, item.openedAt, locale);
-  return label(
-    [
-      `Dernier mouvement fiable enregistré le ${recordedAt}${movement.roomName ? `, dans ${movement.roomName}` : ''}. L’alerte a été déclenchée ${gap} après.`,
-      `Last reliable movement recorded ${recordedAt}${movement.roomName ? `, in ${movement.roomName}` : ''}. The alert triggered ${gap} later.`,
-    ],
-    locale,
-  );
+  const gap = durationBetween(movement.occurredAt, item.openedAt);
+  return movement.roomName
+    ? t('alertsPage.lastReliableMovementIn', { recordedAt, room: movement.roomName, gap })
+    : t('alertsPage.lastReliableMovement', { recordedAt, gap });
 };
 const iconFor = (type: string) => {
   if (type === 'TEMPERATURE') return Thermometer;
@@ -178,25 +148,28 @@ const iconFor = (type: string) => {
   if (type === 'SYSTEM') return Info;
   return Bell;
 };
-const displayTitle = (item: Situation, locale: Locale) => {
-  const safetyTitles: Record<string, [string, string]> = {
-    WATER_LEAK: ['Fuite d’eau détectée', 'Water leak detected'],
-    SMOKE: ['Fumée détectée', 'Smoke detected'],
-    CARBON_MONOXIDE: ['Monoxyde de carbone détecté', 'Carbon monoxide detected'],
-    FALL_DETECTION: ['Alerte de chute', 'Possible fall detected'],
-    SOS: ['Bouton d’assistance activé', 'Assistance button pressed'],
+const displayTitle = (item: Situation) => {
+  const safetyTitles: Record<string, () => string> = {
+    WATER_LEAK: () => t('alertsPage.displayTitle.safetyTitles.WATER_LEAK'),
+    SMOKE: () => t('alertsPage.displayTitle.safetyTitles.SMOKE'),
+    CARBON_MONOXIDE: () => t('alertsPage.displayTitle.safetyTitles.CARBON_MONOXIDE'),
+    FALL_DETECTION: () => t('alertsPage.displayTitle.safetyTitles.FALL_DETECTION'),
+    SOS: () => t('alertsPage.displayTitle.safetyTitles.SOS'),
   };
-  if (safetyTitles[item.type]) return label(safetyTitles[item.type]!, locale);
+  if (safetyTitles[item.type]) return safetyTitles[item.type]!();
   if (item.type === 'SENSOR_OFFLINE') {
     const sensorName = item.title.replace(/ ne répond plus$/i, '');
-    return locale === 'fr' ? item.title : `${sensorName} is offline`;
+    // The server writes this title in French; other languages rebuild it from the sensor name.
+    return currentLanguage() === 'fr'
+      ? item.title
+      : t('alertsPage.sensorIsOffline', { sensorName });
   }
   return item.title;
 };
-const priorityLabel = (item: Situation, locale: Locale) =>
+const priorityLabel = (item: Situation) =>
   ['RESOLVED', 'DISMISSED'].includes(item.status)
-    ? label(['Terminée', 'Closed'], locale)
-    : label(severityLabels[item.severity], locale);
+    ? t('alertsPage.closed')
+    : severityLabels[item.severity]();
 const observedNumber = (payload: unknown): number | null => {
   if (!payload || typeof payload !== 'object' || !('value' in payload)) return null;
   const value = payload.value;
@@ -205,24 +178,17 @@ const observedNumber = (payload: unknown): number | null => {
     return Number(value);
   return null;
 };
-const sensorEventText = (payload: unknown, locale: Locale) => {
-  if (!payload || typeof payload !== 'object')
-    return label(['Événement du capteur', 'Sensor event'], locale);
+const sensorEventText = (payload: unknown) => {
+  if (!payload || typeof payload !== 'object') return t('alertsPage.sensorEvent');
   const value = payload as Record<string, unknown>;
-  if (value.fallStatus === 'fall_alarm') return label(['Chute signalée', 'Fall reported'], locale);
-  if (value.fallStatus === 'fall_warning')
-    return label(['Chute possible signalée', 'Possible fall reported'], locale);
-  if (value.fallStatus === 'normal')
-    return label(['Détecteur revenu à l’état normal', 'Detector returned to normal'], locale);
+  if (value.fallStatus === 'fall_alarm') return t('alertsPage.fallReported');
+  if (value.fallStatus === 'fall_warning') return t('alertsPage.possibleFallReported');
+  if (value.fallStatus === 'normal') return t('alertsPage.detectorReturnedToNormal');
   if (typeof value.active === 'boolean')
-    return value.active
-      ? label(['Détection active', 'Detection active'], locale)
-      : label(['Retour à la normale', 'Returned to normal'], locale);
+    return value.active ? t('alertsPage.detectionActive') : t('alertsPage.returnedToNormal');
   if (typeof value.open === 'boolean')
-    return value.open
-      ? label(['Ouverture détectée', 'Opening detected'], locale)
-      : label(['Fermeture détectée', 'Closed'], locale);
-  return label(['Événement du capteur', 'Sensor event'], locale);
+    return value.open ? t('alertsPage.openingDetected') : t('alertsPage.closed2');
+  return t('alertsPage.sensorEvent');
 };
 const safetyCoverage = (
   plan: HomePlan,
@@ -248,36 +214,14 @@ const safetyCoverageText = (
   loading: boolean,
   unavailable: boolean,
 ) => {
-  if (loading) return label(['Chargement des capteurs…', 'Loading sensors…'], locale);
-  if (unavailable || !coverage)
-    return label(['Données du logement indisponibles', 'Home data unavailable'], locale);
+  if (loading) return t('alertsPage.loadingSensors');
+  if (unavailable || !coverage) return t('alertsPage.homeDataUnavailable');
   const { devices, attentionCount } = coverage;
-  if (!devices.length)
-    return label(['Aucun détecteur configuré', 'No detector configured'], locale);
+  if (!devices.length) return t('alertsPage.noDetectorConfigured');
   const onlineCount = devices.length - attentionCount;
-  if (attentionCount === 0)
-    return label(
-      [
-        `${devices.length} capteur${devices.length > 1 ? 's' : ''} · En ligne`,
-        `${devices.length} sensor${devices.length > 1 ? 's' : ''} · Online`,
-      ],
-      locale,
-    );
-  if (onlineCount === 0)
-    return label(
-      [
-        `${devices.length} capteur${devices.length > 1 ? 's' : ''} · À vérifier`,
-        `${devices.length} sensor${devices.length > 1 ? 's' : ''} · Needs checking`,
-      ],
-      locale,
-    );
-  return label(
-    [
-      `${onlineCount} en ligne · ${attentionCount} à vérifier`,
-      `${onlineCount} online · ${attentionCount} to check`,
-    ],
-    locale,
-  );
+  if (attentionCount === 0) return t('alertsPage.sensorsOnline', { count: devices.length });
+  if (onlineCount === 0) return t('alertsPage.sensorsToCheck', { count: devices.length });
+  return t('alertsPage.onlineToCheck', { onlineCount, attentionCount });
 };
 const safetyTone = (coverage: SafetyCoverage | null, loading: boolean, unavailable: boolean) =>
   loading
@@ -289,68 +233,23 @@ const safetyTone = (coverage: SafetyCoverage | null, loading: boolean, unavailab
         : coverage.attentionCount
           ? 'attention'
           : 'online';
-const advice = (type: string, locale: Locale, residentName: string) => {
-  const texts: Record<string, [string, string]> = {
-    INACTIVITY: [
-      `L’absence de détection ne confirme pas à elle seule un problème. Envoyez une demande d’appel à ${residentName} sur son écran pour vérifier qu’il va bien. Sans réponse et si vous restez inquiet, demandez une vérification sur place.`,
-      `No detected movement does not by itself confirm a problem. Send ${residentName} a call request on their screen to check that they are all right. If there is no answer and you remain concerned, ask someone to check in person.`,
-    ],
-    TEMPERATURE: [
-      'Vérifiez le confort de la personne et le fonctionnement du chauffage ou de la ventilation.',
-      'Check the resident’s comfort and the heating or ventilation.',
-    ],
-    SENSOR_OFFLINE: [
-      'Élise ne reçoit plus de données de ce capteur. Vérifiez son alimentation et sa connexion ; certaines conclusions restent suspendues.',
-      'Élise is no longer receiving data from this sensor. Check its power and connection; some conclusions remain suspended.',
-    ],
-    DOOR_OPEN: [
-      'Vérifiez si la porte est toujours ouverte et refermez-la si nécessaire.',
-      'Check whether the door is still open and close it if needed.',
-    ],
-    LOW_BATTERY: [
-      'Prévoyez de remplacer la pile du capteur.',
-      'Plan to replace the sensor battery.',
-    ],
-    SMOKE: [
-      'Si de la fumée est présente, mettez-vous en sécurité et appelez les secours.',
-      'If smoke is present, get to safety and call emergency services.',
-    ],
-    CARBON_MONOXIDE: [
-      'Évacuez le logement et appelez les secours si la détection est confirmée.',
-      'Leave the home and call emergency services if the detection is confirmed.',
-    ],
-    WATER_LEAK: [
-      'Vérifiez la zone concernée et coupez l’eau si nécessaire.',
-      'Check the affected area and turn off the water if needed.',
-    ],
-    FALL_DETECTION: [
-      'Vérifiez rapidement que la personne va bien. Le signal peut être une chute possible : confirmez la situation sur place ou par appel.',
-      'Check promptly that the resident is all right. The signal may indicate a possible fall; confirm the situation in person or by calling.',
-    ],
-    MEDICATION_MISSED: [
-      'Vérifiez auprès de la personne si la dose a été prise avant toute nouvelle prise. En cas de doute, suivez les consignes du professionnel de santé.',
-      'Check whether the dose was taken before giving another. If uncertain, follow the healthcare professional’s instructions.',
-    ],
-    UNUSUAL_ACTIVITY: [
-      'Consultez les heures de détection dans la chronologie et vérifiez si ces mouvements correspondent aux habitudes de la nuit.',
-      'Check the detection times in the timeline and whether this activity matches the usual nighttime pattern.',
-    ],
-    SYSTEM: [
-      'Vérifiez les capteurs et leur connexion. Tant que les données sont insuffisantes, Élise ne peut pas évaluer correctement les situations qui en dépendent.',
-      'Check the sensors and their connection. While data is insufficient, Élise cannot reliably assess situations that depend on them.',
-    ],
-    SOS: [
-      'Contactez la personne ou les secours selon la situation.',
-      'Contact the resident or emergency services as appropriate.',
-    ],
+const advice = (type: string, residentName: string) => {
+  const texts: Record<string, () => string> = {
+    INACTIVITY: () => t('alertsPage.advice.INACTIVITY', { residentName }),
+    TEMPERATURE: () => t('alertsPage.advice.TEMPERATURE', { residentName }),
+    SENSOR_OFFLINE: () => t('alertsPage.advice.SENSOR_OFFLINE', { residentName }),
+    DOOR_OPEN: () => t('alertsPage.advice.DOOR_OPEN', { residentName }),
+    LOW_BATTERY: () => t('alertsPage.advice.LOW_BATTERY', { residentName }),
+    SMOKE: () => t('alertsPage.advice.SMOKE', { residentName }),
+    CARBON_MONOXIDE: () => t('alertsPage.advice.CARBON_MONOXIDE', { residentName }),
+    WATER_LEAK: () => t('alertsPage.advice.WATER_LEAK', { residentName }),
+    FALL_DETECTION: () => t('alertsPage.advice.FALL_DETECTION', { residentName }),
+    MEDICATION_MISSED: () => t('alertsPage.advice.MEDICATION_MISSED', { residentName }),
+    UNUSUAL_ACTIVITY: () => t('alertsPage.advice.UNUSUAL_ACTIVITY', { residentName }),
+    SYSTEM: () => t('alertsPage.advice.SYSTEM', { residentName }),
+    SOS: () => t('alertsPage.advice.SOS', { residentName }),
   };
-  return label(
-    texts[type] ?? [
-      'Consultez les faits et les heures indiqués, puis confirmez la situation avant de la clôturer.',
-      'Review the recorded facts and times, then confirm the situation before closing it.',
-    ],
-    locale,
-  );
+  return texts[type]?.() ?? t('alertsPage.advice.default');
 };
 
 export function AlertsPage({
@@ -448,9 +347,7 @@ export function AlertsPage({
       setNotice('');
     } catch {
       setUrgentCount(null);
-      setNotice(
-        label(['Impossible de charger les situations.', 'Could not load situations.'], locale),
-      );
+      setNotice(t('alertsPage.couldNotLoadSituations'));
     } finally {
       setLoading(false);
     }
@@ -502,15 +399,7 @@ export function AlertsPage({
       ]);
       setNextCursor(page.nextCursor);
     } catch {
-      setNotice(
-        label(
-          [
-            'Les anciennes situations ne sont pas accessibles.',
-            'Older situations are unavailable.',
-          ],
-          locale,
-        ),
-      );
+      setNotice(t('alertsPage.olderSituationsAreUnavailable'));
     } finally {
       setLoadingMore(false);
     }
@@ -562,8 +451,7 @@ export function AlertsPage({
         if (live) setDetail(result);
       })
       .catch(() => {
-        if (live)
-          setNotice(label(['Le détail est indisponible.', 'Details are unavailable.'], locale));
+        if (live) setNotice(t('alertsPage.detailsAreUnavailable'));
       });
     return () => {
       live = false;
@@ -591,20 +479,20 @@ export function AlertsPage({
         {
           id: 'opened',
           at: selected.openedAt,
-          description: label(['Situation détectée', 'Situation detected'], locale),
+          description: t('alertsPage.situationDetected'),
         },
         ...(actualDetail?.transitions ?? []).map((transition) => ({
           id: transition.id,
           at: transition.createdAt,
-          description: `${label(statusLabels[transition.to], locale)}${transition.note ? ` · ${transition.note}` : ''}`,
+          description: `${statusLabels[transition.to]()}${transition.note ? ` · ${transition.note}` : ''}`,
         })),
         ...observationsForTimeline.map((observation) => ({
           id: observation.id,
           at: observation.occurredAt,
           description:
             observedNumber(observation.payload) !== null
-              ? `${label(['Mesure', 'Reading'], locale)} : ${new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', { maximumFractionDigits: 1 }).format(observedNumber(observation.payload)!)} ${actualDetail?.sensor?.unit ?? ''}`
-              : sensorEventText(observation.payload, locale),
+              ? `${t('alertsPage.reading')} : ${new Intl.NumberFormat(dateLocale(), { maximumFractionDigits: 1 }).format(observedNumber(observation.payload)!)} ${actualDetail?.sensor?.unit ?? ''}`
+              : sensorEventText(observation.payload),
         })),
       ].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
     : [];
@@ -620,7 +508,7 @@ export function AlertsPage({
       });
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { message?: string } | null;
-        throw new Error(body?.message ?? label(['Action impossible.', 'Action failed.'], locale));
+        throw new Error(body?.message ?? t('alertsPage.actionFailed'));
       }
       setDismissOpen(false);
       setMenuOpen(false);
@@ -631,11 +519,7 @@ export function AlertsPage({
       );
       if (detailResponse.ok) setDetail((await detailResponse.json()) as SituationDetail);
     } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : label(['Action impossible.', 'Action failed.'], locale),
-      );
+      setNotice(error instanceof Error ? error.message : t('alertsPage.actionFailed'));
     } finally {
       setBusy(false);
     }
@@ -647,63 +531,35 @@ export function AlertsPage({
     try {
       await onCall();
     } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : label(['Appel impossible.', 'Call failed.'], locale),
-      );
+      setNotice(error instanceof Error ? error.message : t('alertsPage.callFailed'));
     } finally {
       setBusy(false);
     }
   };
-  const reassuranceCopy: [string, string] =
+  const reassuranceCopy =
     items.length === 0
-      ? ['Aucune situation dans le flux récent.', 'No situations in the recent feed.']
+      ? t('alertsPage.reassurance.empty')
       : showHistory
-        ? [
-            `${visible.length} situation${visible.length > 1 ? 's' : ''} affichée${visible.length > 1 ? 's' : ''} dans l’historique.`,
-            `${visible.length} situation${visible.length === 1 ? '' : 's'} shown in history.`,
-          ]
-        : [
-            `${visible.length} situation${visible.length > 1 ? 's' : ''} récente${visible.length > 1 ? 's' : ''} ou en cours affichée${visible.length > 1 ? 's' : ''}. Les situations terminées plus anciennes restent dans l’historique.`,
-            `${visible.length} recent or ongoing situation${visible.length === 1 ? '' : 's'} shown. Older completed situations remain in history.`,
-          ];
+        ? t('alertsPage.reassurance.history', { count: visible.length })
+        : t('alertsPage.reassurance.recent', { count: visible.length });
   if (loading)
-    return (
-      <DataLoadingScreen
-        locale={locale}
-        message={label(['Chargement des situations…', 'Loading situations…'], locale)}
-      />
-    );
+    return <DataLoadingScreen locale={locale} message={t('alertsPage.loadingSituations')} />;
 
   return (
     <section className="alerts-page">
       <header className="page-hero alerts-hero">
         <div className="page-hero__copy alerts-hero-copy">
-          <span className="page-hero__eyebrow">
-            {label(['ALERTES DU DOMICILE', 'HOME ALERTS'], locale)}
-          </span>
-          <h1 className="page-hero__title">{label(['Alertes', 'Alerts'], locale)}</h1>
-          <p className="page-hero__text">
-            {label(
-              [
-                'Pour chaque situation : le fait détecté, l’heure de déclenchement et ce qui peut être vérifié.',
-                'For each situation: what was detected, when it triggered, and what you can check.',
-              ],
-              locale,
-            )}
-          </p>
+          <span className="page-hero__eyebrow">{t('alertsPage.homeAlerts')}</span>
+          <h1 className="page-hero__title">{t('alertsPage.alerts')}</h1>
+          <p className="page-hero__text">{t('alertsPage.forEachSituationWhatWas')}</p>
         </div>
         <div className="page-hero__actions">
           <button className="alerts-outline alerts-settings" type="button" onClick={onSettings}>
-            <Settings /> {label(['Règles des alertes', 'Alert rules'], locale)}
+            <Settings /> {t('alertsPage.alertRules')}
           </button>
         </div>
       </header>
-      <section
-        className="alerts-safety-grid"
-        aria-label={label(['Capteurs de sécurité du logement', 'Home safety sensors'], locale)}
-      >
+      <section className="alerts-safety-grid" aria-label={t('alertsPage.homeSafetySensors')}>
         {(
           [
             {
@@ -711,24 +567,24 @@ export function AlertsPage({
               coverage: safetyCoverages?.fall ?? null,
               icon: ShieldAlert,
               iconClass: 'fall',
-              eyebrow: ['Protection de la personne', 'Personal safety'],
-              title: ['Détection des chutes', 'Fall detection'],
+              eyebrow: () => t('alertsPage.safetyCard.personalSafety'),
+              title: () => t('alertsPage.safetyCard.fall'),
             },
             {
               category: 'smoke',
               coverage: safetyCoverages?.smoke ?? null,
               icon: Flame,
               iconClass: 'smoke',
-              eyebrow: ['Sécurité du logement', 'Home safety'],
-              title: ['Détection de la fumée', 'Smoke detection'],
+              eyebrow: () => t('alertsPage.safetyCard.homeSafety'),
+              title: () => t('alertsPage.safetyCard.smoke'),
             },
             {
               category: 'water_leak',
               coverage: safetyCoverages?.water ?? null,
               icon: Droplets,
               iconClass: 'water',
-              eyebrow: ['Sécurité du logement', 'Home safety'],
-              title: ['Détection des fuites d’eau', 'Water leak detection'],
+              eyebrow: () => t('alertsPage.safetyCard.homeSafety'),
+              title: () => t('alertsPage.safetyCard.water'),
             },
           ] as const
         ).map(({ category, coverage, icon: Icon, iconClass, eyebrow, title }) => {
@@ -739,8 +595,8 @@ export function AlertsPage({
                 <Icon aria-hidden="true" />
               </span>
               <div className="alerts-safety-copy">
-                <span className="alerts-safety-eyebrow">{label(eyebrow, locale)}</span>
-                <h2>{label(title, locale)}</h2>
+                <span className="alerts-safety-eyebrow">{eyebrow()}</span>
+                <h2>{title()}</h2>
                 <p>{safetyCoverageText(coverage, locale, safetyLoading, safetyUnavailable)}</p>
               </div>
             </>
@@ -755,13 +611,7 @@ export function AlertsPage({
                 <button
                   type="button"
                   className="alerts-safety-card-trigger"
-                  aria-label={label(
-                    [
-                      `Configurer ${label(title, 'fr')} dans Mon logement`,
-                      `Configure ${label(title, 'en')} in My home`,
-                    ],
-                    locale,
-                  )}
+                  aria-label={t('alertsPage.configureInMyHome', { name: title() })}
                   onClick={() => onOpenHomeCategory(category)}
                 >
                   {cardContent}
@@ -784,28 +634,18 @@ export function AlertsPage({
         <div>
           <h2>
             {urgentCount === null
-              ? label(['État des urgences indisponible', 'Urgency status unavailable'], locale)
+              ? t('alertsPage.urgencyStatusUnavailable')
               : urgentCount > 0
-                ? label(
-                    [
-                      `${urgentCount} alerte${urgentCount > 1 ? 's' : ''} urgente${urgentCount > 1 ? 's' : ''} en cours`,
-                      `${urgentCount} active urgent alert${urgentCount > 1 ? 's' : ''}`,
-                    ],
-                    locale,
-                  )
-                : label(['Aucune alerte urgente en cours', 'No urgent alert in progress'], locale)}
+                ? t('alertsPage.urgentAlertsActive', { count: urgentCount })
+                : t('alertsPage.noUrgentAlertInProgress')}
           </h2>
-          <p>{label(reassuranceCopy, locale)}</p>
+          <p>{reassuranceCopy}</p>
         </div>
       </div>
       {notice && (
         <div className="alerts-notice" role="alert">
           {notice}
-          <button
-            type="button"
-            onClick={() => setNotice('')}
-            aria-label={label(['Fermer', 'Close'], locale)}
-          >
+          <button type="button" onClick={() => setNotice('')} aria-label={t('alertsPage.close')}>
             <X />
           </button>
         </div>
@@ -819,18 +659,15 @@ export function AlertsPage({
               </span>
               <h2>
                 {showHistory
-                  ? label(['Historique des situations', 'Situation history'], locale)
-                  : label(
-                      ['Situations récentes et en cours', 'Recent and ongoing situations'],
-                      locale,
-                    )}
+                  ? t('alertsPage.situationHistory')
+                  : t('alertsPage.recentAndOngoingSituations')}
               </h2>
             </div>
             <div className="alerts-list-controls">
               <div
                 className="alerts-tabs"
                 role="group"
-                aria-label={label(['Filtrer les situations', 'Filter situations'], locale)}
+                aria-label={t('alertsPage.filterSituations')}
               >
                 {(['ALL', 'OPEN', 'ACKNOWLEDGED', 'RESOLVED'] as const).map((status) => (
                   <button
@@ -839,17 +676,15 @@ export function AlertsPage({
                     aria-pressed={filter === status}
                     onClick={() => setFilter(status)}
                   >
-                    {label(
-                      (
-                        {
-                          ALL: showHistory ? ['Toutes', 'All'] : ['Actuelles', 'Current'],
-                          OPEN: ['Ouvertes', 'Open'],
-                          ACKNOWLEDGED: ['Prises en charge', 'Acknowledged'],
-                          RESOLVED: ['Résolues', 'Resolved'],
-                        } as const
-                      )[status] as [string, string],
-                      locale,
-                    )}
+                    {status === 'ALL'
+                      ? showHistory
+                        ? t('alertsPage.statusFilter.all')
+                        : t('alertsPage.statusFilter.current')
+                      : status === 'OPEN'
+                        ? t('alertsPage.statusFilter.open')
+                        : status === 'ACKNOWLEDGED'
+                          ? t('alertsPage.statusFilter.acknowledged')
+                          : t('alertsPage.statusFilter.resolved')}
                   </button>
                 ))}
               </div>
@@ -860,7 +695,7 @@ export function AlertsPage({
                 onClick={() => setFiltersOpen(!filtersOpen)}
               >
                 <Filter />
-                {label(['Filtres', 'Filters'], locale)}
+                {t('alertsPage.filters')}
                 {extraFilterCount > 0 && (
                   <span className="alerts-filter-count">{extraFilterCount}</span>
                 )}
@@ -872,16 +707,8 @@ export function AlertsPage({
             <div className="alerts-extra-filters">
               <div className="alerts-filter-panel-heading">
                 <div>
-                  <strong>{label(['Affiner les situations', 'Refine situations'], locale)}</strong>
-                  <span>
-                    {label(
-                      [
-                        `${filtered.length} résultat${filtered.length > 1 ? 's' : ''}`,
-                        `${filtered.length} result${filtered.length === 1 ? '' : 's'}`,
-                      ],
-                      locale,
-                    )}
-                  </span>
+                  <strong>{t('alertsPage.refineSituations')}</strong>
+                  <span>{t('alertsPage.resultCount', { count: filtered.length })}</span>
                 </div>
                 {extraFilterCount > 0 && (
                   <button
@@ -892,18 +719,16 @@ export function AlertsPage({
                       setRoom('ALL');
                     }}
                   >
-                    {label(['Réinitialiser', 'Reset'], locale)}
+                    {t('alertsPage.reset')}
                   </button>
                 )}
               </div>
               <div
                 className="alerts-filter-group"
                 role="group"
-                aria-label={label(['Priorité', 'Priority'], locale)}
+                aria-label={t('alertsPage.priority')}
               >
-                <span className="alerts-filter-label">
-                  {label(['Priorité', 'Priority'], locale)}
-                </span>
+                <span className="alerts-filter-label">{t('alertsPage.priority')}</span>
                 <div className="alerts-filter-options">
                   {(['ALL', 'INFO', 'ATTENTION', 'URGENT'] as const).map((value) => (
                     <button
@@ -913,19 +738,13 @@ export function AlertsPage({
                       aria-pressed={severity === value}
                       onClick={() => setSeverity(value)}
                     >
-                      {value === 'ALL'
-                        ? label(['Toutes', 'All'], locale)
-                        : label(severityLabels[value], locale)}
+                      {value === 'ALL' ? t('alertsPage.all') : severityLabels[value]()}
                     </button>
                   ))}
                 </div>
               </div>
-              <div
-                className="alerts-filter-group"
-                role="group"
-                aria-label={label(['Pièce', 'Room'], locale)}
-              >
-                <span className="alerts-filter-label">{label(['Pièce', 'Room'], locale)}</span>
+              <div className="alerts-filter-group" role="group" aria-label={t('alertsPage.room')}>
+                <span className="alerts-filter-label">{t('alertsPage.room')}</span>
                 <div className="alerts-filter-options alerts-filter-options--rooms">
                   <button
                     className={`alerts-filter-option${room === 'ALL' ? ' is-active' : ''}`}
@@ -933,7 +752,7 @@ export function AlertsPage({
                     aria-pressed={room === 'ALL'}
                     onClick={() => setRoom('ALL')}
                   >
-                    {label(['Toutes les pièces', 'All rooms'], locale)}
+                    {t('alertsPage.allRooms')}
                   </button>
                   {rooms.map((value) => (
                     <button
@@ -957,22 +776,14 @@ export function AlertsPage({
                 <h3>
                   {loadingMore
                     ? showHistory
-                      ? label(['Chargement de l’historique…', 'Loading history…'], locale)
-                      : label(['Chargement des situations…', 'Loading situations…'], locale)
-                    : label(['Aucune situation à afficher', 'No situations to show'], locale)}
+                      ? t('alertsPage.loadingHistory')
+                      : t('alertsPage.loadingSituations')
+                    : t('alertsPage.noSituationsToShow')}
                 </h3>
                 <p>
-                  {label(
-                    [
-                      olderCount > 0 && !showHistory
-                        ? 'Aucune situation récente ou en cours. Les situations terminées plus anciennes sont dans l’historique.'
-                        : 'Essayez un autre filtre ou revenez plus tard.',
-                      olderCount > 0 && !showHistory
-                        ? 'No recent or ongoing situations. Older completed situations are in the history.'
-                        : 'Try another filter or check back later.',
-                    ],
-                    locale,
-                  )}
+                  {olderCount > 0 && !showHistory
+                    ? t('alertsPage.emptyWithHistory')
+                    : t('alertsPage.emptyTryAnotherFilter')}
                 </p>
               </div>
             )}
@@ -1003,26 +814,26 @@ export function AlertsPage({
                         ) : (
                           <Bell />
                         )}
-                        {priorityLabel(item, locale)}
+                        {priorityLabel(item)}
                       </span>
                       <span
                         className={`alerts-chip alerts-chip--status alerts-chip--${item.status.toLowerCase()}`}
                       >
                         <i />
-                        {label(statusLabels[item.status], locale)}
+                        {statusLabels[item.status]()}
                       </span>
                     </span>
-                    <strong>{displayTitle(item, locale)}</strong>
+                    <strong>{displayTitle(item)}</strong>
                     <span className="alerts-situation-desc">
                       {explanationFor(item, locale, timezone)}
                     </span>
                     <span className="alerts-situation-meta">
                       <MapPin />
-                      {item.room?.name ?? label(['Domicile', 'Home'], locale)}
+                      {item.room?.name ?? t('alertsPage.home')}
                       <b>·</b>
                       {item.type === 'INACTIVITY'
-                        ? `${label(['Signalée', 'Triggered'], locale)} ${relative(item.openedAt, locale)}`
-                        : relative(item.openedAt, locale)}
+                        ? `${t('alertsPage.triggered')} ${relative(item.openedAt)}`
+                        : relative(item.openedAt)}
                     </span>
                   </span>
                   <ChevronRight className="alerts-situation-arrow" />
@@ -1037,7 +848,7 @@ export function AlertsPage({
                 type="button"
                 onClick={() => setDisplayedCount((count) => count + 8)}
               >
-                {label(['Afficher 8 situations de plus', 'Show 8 more situations'], locale)}
+                {t('alertsPage.show8MoreSituations')}
                 <ChevronDown />
               </button>
             )}
@@ -1051,9 +862,7 @@ export function AlertsPage({
                   void loadMore();
                 }}
               >
-                {loadingMore
-                  ? label(['Chargement…', 'Loading…'], locale)
-                  : label(['Charger d’autres situations', 'Load more situations'], locale)}
+                {loadingMore ? t('alertsPage.loading') : t('alertsPage.loadMoreSituations')}
                 <ChevronDown />
               </button>
             )}
@@ -1063,7 +872,7 @@ export function AlertsPage({
                 type="button"
                 onClick={() => setShowHistory(true)}
               >
-                {label(['Voir les situations plus anciennes', 'View older situations'], locale)}
+                {t('alertsPage.viewOlderSituations')}
                 {olderCount > 0 && <span>{olderCount}</span>}
                 <ChevronDown />
               </button>
@@ -1078,9 +887,7 @@ export function AlertsPage({
                   void loadMore();
                 }}
               >
-                {loadingMore
-                  ? label(['Chargement…', 'Loading…'], locale)
-                  : label(['Charger d’autres situations', 'Load more situations'], locale)}
+                {loadingMore ? t('alertsPage.loading') : t('alertsPage.loadMoreSituations')}
                 <ChevronDown />
               </button>
             )}
@@ -1090,28 +897,17 @@ export function AlertsPage({
                 type="button"
                 onClick={() => setShowHistory(false)}
               >
-                {label(['Revenir aux situations actuelles', 'Back to current situations'], locale)}
+                {t('alertsPage.backToCurrentSituations')}
               </button>
             )}
           </div>
         </div>
-        <aside
-          className="alerts-detail-panel"
-          aria-label={label(['Détail de la situation', 'Situation details'], locale)}
-        >
+        <aside className="alerts-detail-panel" aria-label={t('alertsPage.situationDetails')}>
           {!selected ? (
             <div className="alerts-empty">
               <Bell />
-              <h3>{label(['Sélectionnez une situation', 'Select a situation'], locale)}</h3>
-              <p>
-                {label(
-                  [
-                    'Son détail et les actions possibles apparaîtront ici.',
-                    'Its details and available actions will appear here.',
-                  ],
-                  locale,
-                )}
-              </p>
+              <h3>{t('alertsPage.selectASituation')}</h3>
+              <p>{t('alertsPage.itsDetailsAndAvailableActions')}</p>
             </div>
           ) : (
             <>
@@ -1125,25 +921,25 @@ export function AlertsPage({
                   })()}
                 </span>
                 <div>
-                  <h2>{displayTitle(selected, locale)}</h2>
+                  <h2>{displayTitle(selected)}</h2>
                   <div className="alerts-detail-badges">
                     <span className="alerts-chip alerts-chip--severity">
                       <Bell />
-                      {priorityLabel(selected, locale)}
+                      {priorityLabel(selected)}
                     </span>
                     <span
                       className={`alerts-chip alerts-chip--status alerts-chip--${selected.status.toLowerCase()}`}
                     >
                       <i />
-                      {label(statusLabels[selected.status], locale)}
+                      {statusLabels[selected.status]()}
                     </span>
                   </div>
                 </div>
                 <span className="alerts-detail-meta">
-                  {selected.room?.name ?? label(['Domicile', 'Home'], locale)} ·{' '}
+                  {selected.room?.name ?? t('alertsPage.home')} ·{' '}
                   {selected.type === 'INACTIVITY'
-                    ? `${label(['Signalée', 'Triggered'], locale)} ${relative(selected.openedAt, locale)}`
-                    : relative(selected.openedAt, locale)}
+                    ? `${t('alertsPage.triggered')} ${relative(selected.openedAt)}`
+                    : relative(selected.openedAt)}
                 </span>
               </div>
               <p className="alerts-detail-explanation">
@@ -1156,17 +952,14 @@ export function AlertsPage({
                   </span>
                   <div>
                     <strong>
-                      {new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+                      {new Intl.NumberFormat(dateLocale(), {
                         maximumFractionDigits: 1,
                       }).format(latestValue)}{' '}
                       {actualDetail?.sensor?.unit ?? ''}{' '}
-                      {selected.room
-                        ? `${label(['dans', 'in'], locale)} ${selected.room.name}`
-                        : ''}
+                      {selected.room ? `${t('alertsPage.in')} ${selected.room.name}` : ''}
                     </strong>
                     <p>
-                      {label(['Dernière mesure reçue', 'Latest received reading'], locale)} ·{' '}
-                      {relative(latest!.occurredAt, locale)}
+                      {t('alertsPage.latestReceivedReading')} · {relative(latest!.occurredAt)}
                     </p>
                   </div>
                 </div>
@@ -1177,8 +970,8 @@ export function AlertsPage({
                     <Info />
                   </span>
                   <div>
-                    <h3>{label(['Ce que vous pouvez faire', 'What you can do'], locale)}</h3>
-                    <p>{advice(selected.type, locale, residentName)}</p>
+                    <h3>{t('alertsPage.whatYouCanDo')}</h3>
+                    <p>{advice(selected.type, residentName)}</p>
                   </div>
                 </div>
                 <div className="alerts-guidance-actions">
@@ -1190,7 +983,7 @@ export function AlertsPage({
                       onClick={() => void transition('ACKNOWLEDGED')}
                     >
                       <Hand />
-                      {label(['Prendre en charge', 'Acknowledge'], locale)}
+                      {t('alertsPage.acknowledge')}
                     </button>
                   )}
                   <button
@@ -1200,7 +993,7 @@ export function AlertsPage({
                     onClick={() => callConfirmationRef.current?.showModal()}
                   >
                     <Phone />
-                    {label([`Appeler ${residentName}`, `Call ${residentName}`], locale)}
+                    {t('alertsPage.call', { residentName })}
                   </button>
                 </div>
               </div>
@@ -1209,17 +1002,11 @@ export function AlertsPage({
                   {revealedSnapshot === selected.id ? (
                     <img
                       src={`/api/v1/alerts/${selected.id}/snapshot`}
-                      alt={label(
-                        [
-                          'Capture associée à la situation',
-                          'Snapshot associated with the situation',
-                        ],
-                        locale,
-                      )}
+                      alt={t('alertsPage.snapshotAssociatedWithTheSituation')}
                     />
                   ) : (
                     <button type="button" onClick={() => setRevealedSnapshot(selected.id)}>
-                      {label(['Afficher la capture de la pièce', 'Show room snapshot'], locale)}
+                      {t('alertsPage.showRoomSnapshot')}
                     </button>
                   )}
                 </div>
@@ -1227,19 +1014,17 @@ export function AlertsPage({
               <div className="alerts-timeline">
                 <h3>
                   <Clock3 />
-                  {label(['Chronologie', 'Timeline'], locale)}
+                  {t('alertsPage.timeline')}
                 </h3>
                 <ol>
                   {timeline.map((entry) => (
                     <li key={entry.id}>
-                      <time dateTime={entry.at}>{time(entry.at, locale)}</time>
+                      <time dateTime={entry.at}>{time(entry.at)}</time>
                       <span>{entry.description}</span>
                     </li>
                   ))}
                 </ol>
-                {!actualDetail && (
-                  <p>{label(['Chargement des événements…', 'Loading events…'], locale)}</p>
-                )}
+                {!actualDetail && <p>{t('alertsPage.loadingEvents')}</p>}
               </div>
               {canManage && ['OPEN', 'ACKNOWLEDGED'].includes(selected.status) && (
                 <div className="alerts-detail-footer">
@@ -1250,13 +1035,13 @@ export function AlertsPage({
                     onClick={() => void transition('RESOLVED')}
                   >
                     <CheckCircle2 />
-                    {label(['Marquer comme résolue', 'Mark as resolved'], locale)}
+                    {t('alertsPage.markAsResolved')}
                   </button>
                   <div className="alerts-menu-wrap">
                     <button
                       className="alerts-outline alerts-menu-trigger"
                       type="button"
-                      aria-label={label(['Autres actions', 'More actions'], locale)}
+                      aria-label={t('alertsPage.moreActions')}
                       aria-expanded={menuOpen}
                       onClick={() => setMenuOpen(!menuOpen)}
                     >
@@ -1271,7 +1056,7 @@ export function AlertsPage({
                             setMenuOpen(false);
                           }}
                         >
-                          {label(['Signaler une fausse alerte', 'Report a false alert'], locale)}
+                          {t('alertsPage.reportAFalseAlert')}
                         </button>
                       </div>
                     )}
@@ -1287,10 +1072,7 @@ export function AlertsPage({
                   }}
                 >
                   <label>
-                    {label(
-                      ['Pourquoi cette alerte est-elle fausse ?', 'Why is this alert false?'],
-                      locale,
-                    )}
+                    {t('alertsPage.whyIsThisAlertFalse')}
                     <textarea
                       maxLength={1000}
                       required
@@ -1304,7 +1086,7 @@ export function AlertsPage({
                       className="alerts-outline"
                       onClick={() => setDismissOpen(false)}
                     >
-                      {label(['Annuler', 'Cancel'], locale)}
+                      {t('alertsPage.cancel')}
                     </button>
                     <button
                       type="submit"
@@ -1312,7 +1094,7 @@ export function AlertsPage({
                       disabled={busy || !dismissReason.trim()}
                     >
                       <Check />
-                      {label(['Confirmer', 'Confirm'], locale)}
+                      {t('alertsPage.confirm')}
                     </button>
                   </div>
                 </form>
@@ -1328,28 +1110,15 @@ export function AlertsPage({
         aria-describedby="alerts-call-dialog-description"
       >
         <div className="alerts-call-dialog-content">
-          <h2 id="alerts-call-dialog-title">
-            {label(
-              [`Confirmer l’appel à ${residentName} ?`, `Confirm call to ${residentName}?`],
-              locale,
-            )}
-          </h2>
-          <p id="alerts-call-dialog-description">
-            {label(
-              [
-                'Une demande d’appel sera envoyée à son écran.',
-                'A call request will be sent to their screen.',
-              ],
-              locale,
-            )}
-          </p>
+          <h2 id="alerts-call-dialog-title">{t('alertsPage.confirmCallTo', { residentName })}</h2>
+          <p id="alerts-call-dialog-description">{t('alertsPage.aCallRequestWillBe')}</p>
           <div className="alerts-call-dialog-actions">
             <button
               className="alerts-outline"
               type="button"
               onClick={() => callConfirmationRef.current?.close()}
             >
-              {label(['Annuler', 'Cancel'], locale)}
+              {t('alertsPage.cancel')}
             </button>
             <button
               className="alerts-primary"
@@ -1361,7 +1130,7 @@ export function AlertsPage({
               }}
             >
               <Phone />
-              {label([`Appeler ${residentName}`, `Call ${residentName}`], locale)}
+              {t('alertsPage.call', { residentName })}
             </button>
           </div>
         </div>

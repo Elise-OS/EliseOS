@@ -9,6 +9,8 @@ import { SENSOR_PRODUCTS } from './sensor-products';
 import { sensorCapabilitiesForHealth, type SensorUiDevice } from './sensor-ui';
 
 export type CoverageType = RoomSensorCategory | 'energy';
+export type CoverageFamily =
+  'presence' | 'comfort' | 'openings' | 'cameras' | 'safety' | 'assistance' | 'energy';
 export const COVERAGE_TYPES = [
   ...ROOM_SENSOR_CATEGORIES,
   {
@@ -19,26 +21,24 @@ export const COVERAGE_TYPES = [
     descriptionEn: 'Appliance and home energy use',
   },
 ];
-export const COVERAGE_FAMILIES: { label: string; labelEn: string; types: CoverageType[] }[] = [
+// Family names are in the catalogs (coverageFamilies.<id>).
+export const COVERAGE_FAMILIES: { id: CoverageFamily; types: CoverageType[] }[] = [
   {
-    label: 'Présence et déplacements',
-    labelEn: 'Presence and movement',
+    id: 'presence',
     types: ['presence', 'motion', 'bed'],
   },
   {
-    label: 'Confort et qualité de l’air',
-    labelEn: 'Comfort and air quality',
+    id: 'comfort',
     types: ['temperature', 'humidity', 'shower', 'air_quality', 'illuminance'],
   },
-  { label: 'Ouvertures', labelEn: 'Openings', types: ['contact'] },
-  { label: 'Caméras', labelEn: 'Cameras', types: ['camera'] },
+  { id: 'openings', types: ['contact'] },
+  { id: 'cameras', types: ['camera'] },
   {
-    label: 'Eau et sécurité',
-    labelEn: 'Water and safety',
+    id: 'safety',
     types: ['water_leak', 'smoke', 'carbon_monoxide', 'fall_detection'],
   },
-  { label: 'Assistance', labelEn: 'Assistance', types: ['button'] },
-  { label: 'Énergie', labelEn: 'Energy', types: ['energy'] },
+  { id: 'assistance', types: ['button'] },
+  { id: 'energy', types: ['energy'] },
 ];
 export const coverageProducts = (type: CoverageType, outdoor = false) =>
   SENSOR_PRODUCTS.filter(

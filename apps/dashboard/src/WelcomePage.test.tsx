@@ -12,6 +12,7 @@ import {
   showerDetailText,
   showerStatusText,
 } from './WelcomePage';
+import { inLanguage } from './i18n/test-language';
 const data: HomeSummary = {
   from: '2026-09-14T22:00:00.000Z',
   to: '2026-09-15T12:00:00.000Z',
@@ -56,7 +57,7 @@ describe('Accueil wording', () => {
       available: true,
       updatedAt: shower.updatedAt,
     };
-    expect(showerStatusText(shower, 'fr')).toBe('Douche en cours');
+    expect(showerStatusText(shower)).toBe('Douche en cours');
     expect(
       showerDetailText(shower, humidity, 'fr', 'Europe/Paris', new Date('2026-09-15T10:12:00Z')),
     ).toContain('12 min');
@@ -102,7 +103,12 @@ describe('Accueil wording', () => {
       presenceText({ ...data, presence: { ...data.presence, trackingState: 'AMBIGUOUS' } }, 'fr'),
     ).toContain('situer Michel précisément');
     expect(
-      presenceText({ ...data, presence: { ...data.presence, trackingState: 'IN_TRANSIT' } }, 'en'),
+      inLanguage('en', () =>
+        presenceText(
+          { ...data, presence: { ...data.presence, trackingState: 'IN_TRANSIT' } },
+          'en',
+        ),
+      ),
     ).toContain('Michel appears to be moving');
   });
   it('uses the timestamp from the room named in a stale message', () => {
@@ -169,7 +175,9 @@ describe('Accueil wording', () => {
     };
     expect(homeCardText(card, 'fr', data.timezone)).toContain('Un passage');
     expect(homeCardText(card, 'fr', data.timezone)).toContain('indisponibles');
-    expect(homeCardText(card, 'en', data.timezone)).toContain('unavailable');
+    expect(inLanguage('en', () => homeCardText(card, 'en', data.timezone))).toContain(
+      'unavailable',
+    );
     expect(dayText({ ...data, cards: [card] }, 'fr')).toContain('Un passage');
   });
   it('tells the day naturally and leaves toilet activity out of the story', () => {
@@ -335,7 +343,9 @@ describe('entrance wording', () => {
   };
   it('shows a probable departure instead of an old indoor location', () => {
     expect(presenceText({ ...data, entrance }, 'fr')).toContain('Sortie probable');
-    expect(entranceText(entrance, 'en', data.timezone)).toContain('Likely exit');
+    expect(inLanguage('en', () => entranceText(entrance, 'en', data.timezone))).toContain(
+      'Likely exit',
+    );
   });
   it('explains missing evidence without asserting an absence', () => {
     expect(entranceText({ ...entrance, state: 'UNAVAILABLE' }, 'fr', data.timezone)).toContain(

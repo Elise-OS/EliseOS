@@ -1,9 +1,10 @@
 import { ArrowLeft, ChevronRight, Radio } from 'lucide-react';
 import { useState } from 'react';
-import { ROOM_SENSOR_CATEGORIES, type SensorProduct } from '@elise/contracts';
+import { type SensorProduct } from '@elise/contracts';
 import { EquipmentDialog } from './EquipmentDialog';
 import { SENSOR_PRODUCTS } from './sensor-products';
-import type { Locale } from './i18n';
+import { type Locale, t } from './i18n';
+import { productTexts, sensorCategoryLabel } from './i18n/data';
 
 function ProductPhoto({ product }: { product: SensorProduct }) {
   const [failed, setFailed] = useState(false);
@@ -23,22 +24,15 @@ function ProductPhoto({ product }: { product: SensorProduct }) {
   );
 }
 
-const familyLabel = (product: SensorProduct, fr: boolean) =>
+const familyLabel = (product: SensorProduct) =>
   product.kind === 'SMART_PLUG'
-    ? fr
-      ? 'Prise connectée'
-      : 'Smart plug'
+    ? t('hardwareCatalogDialog.smartPlug')
     : product.kind === 'ENERGY_MONITOR'
-      ? fr
-        ? 'Mesure d’énergie'
-        : 'Energy monitoring'
-      : fr
-        ? 'Capteur de pièce'
-        : 'Room sensor';
+      ? t('hardwareCatalogDialog.energyMonitoring')
+      : t('hardwareCatalogDialog.roomSensor');
 
 export function HardwareCatalogDialog({
   open,
-  locale,
   onClose,
 }: {
   open: boolean;
@@ -46,106 +40,88 @@ export function HardwareCatalogDialog({
   onClose: () => void;
 }) {
   const [selected, setSelected] = useState<SensorProduct | null>(null);
-  const fr = locale === 'fr';
   if (!open) return null;
   const close = () => {
     setSelected(null);
     onClose();
   };
   return (
-    <EquipmentDialog wide title={fr ? 'Matériel de test' : 'Test hardware'} onClose={close}>
+    <EquipmentDialog wide title={t('hardwareCatalogDialog.testHardware')} onClose={close}>
       <div className="equipment-category-content">
         {selected ? (
           <>
             <button className="equipment-text-button" onClick={() => setSelected(null)}>
               <ArrowLeft />
-              {fr ? 'Tout le matériel' : 'All hardware'}
+              {t('hardwareCatalogDialog.allHardware')}
             </button>
             <div className="equipment-product-detail">
               <ProductPhoto product={selected} />
               <div>
                 <span className="equipment-kicker">
-                  {selected.brand} · {familyLabel(selected, fr)}
+                  {selected.brand} · {familyLabel(selected)}
                 </span>
-                <h3>{fr ? selected.name : selected.nameEn}</h3>
+                <h3>{productTexts(selected).name}</h3>
                 <p>{selected.model}</p>
                 <span className="equipment-product-badge">
                   {selected.eliseValidated
-                    ? fr
-                      ? 'Validé avec Élise'
-                      : 'Validated with Élise'
-                    : fr
-                      ? 'Documenté · test Élise à faire'
-                      : 'Documented · Élise test pending'}
+                    ? t('hardwareCatalogDialog.validatedWithElise')
+                    : t('hardwareCatalogDialog.documentedEliseTestPending')}
                 </span>
               </div>
             </div>
             {!!selected.categories.length && (
               <div className="equipment-capability-tags">
                 {selected.categories.map((id) => (
-                  <span key={id}>
-                    {
-                      ROOM_SENSOR_CATEGORIES.find((category) => category.id === id)?.[
-                        fr ? 'label' : 'labelEn'
-                      ]
-                    }
-                  </span>
+                  <span key={id}>{sensorCategoryLabel(id)}</span>
                 ))}
               </div>
             )}
-            <h4>{fr ? 'Fonctions documentées' : 'Documented features'}</h4>
+            <h4>{t('hardwareCatalogDialog.documentedFeatures')}</h4>
             <ul>
-              {(fr ? selected.features : selected.featuresEn).map((feature) => (
+              {productTexts(selected).features.map((feature) => (
                 <li key={feature}>{feature}</li>
               ))}
             </ul>
             <dl className="equipment-product-specs">
               <div>
-                <dt>{fr ? 'Alimentation' : 'Power'}</dt>
-                <dd>{fr ? selected.power : selected.powerEn}</dd>
+                <dt>{t('hardwareCatalogDialog.power')}</dt>
+                <dd>{productTexts(selected).power}</dd>
               </div>
               <div>
-                <dt>{fr ? 'Connexion' : 'Connection'}</dt>
+                <dt>{t('hardwareCatalogDialog.connection')}</dt>
                 <dd>Zigbee 3.0</dd>
               </div>
             </dl>
-            <h4>{fr ? 'Préparer la connexion' : 'Prepare connection'}</h4>
+            <h4>{t('hardwareCatalogDialog.prepareConnection')}</h4>
             <ol className="equipment-guide-steps">
-              {(fr ? selected.preparation : selected.preparationEn).map((step) => (
+              {productTexts(selected).preparation.map((step) => (
                 <li key={step}>{step}</li>
               ))}
             </ol>
-            <h4>{fr ? 'Conseils de placement' : 'Placement tips'}</h4>
+            <h4>{t('hardwareCatalogDialog.placementTips')}</h4>
             <ul>
-              {(fr ? selected.placement : selected.placementEn).map((step) => (
+              {productTexts(selected).placement.map((step) => (
                 <li key={step}>{step}</li>
               ))}
             </ul>
             <div className="equipment-product-links">
               <a href={selected.sourceUrl} target="_blank" rel="noreferrer">
-                {fr ? 'Page officielle du produit' : 'Official product page'} ↗
+                {t('hardwareCatalogDialog.officialProductPage')} ↗
               </a>
               <a href={selected.manualUrl} target="_blank" rel="noreferrer">
-                {fr ? 'Notice fabricant' : 'Manufacturer manual'} ↗
+                {t('hardwareCatalogDialog.manufacturerManual')} ↗
               </a>
               <a href={selected.integrationUrl} target="_blank" rel="noreferrer">
-                {fr
-                  ? 'Fonctions reconnues par l’intégration'
-                  : 'Functions recognized by integration'}{' '}
-                ↗
+                {t('hardwareCatalogDialog.functionsRecognizedByIntegration')} ↗
               </a>
             </div>
             <small className="equipment-muted">
-              {fr ? 'Documentation vérifiée le' : 'Documentation checked on'} {selected.verifiedAt}
+              {t('hardwareCatalogDialog.documentationCheckedOn')} {selected.verifiedAt}
             </small>
           </>
         ) : (
           <>
-            <p className="equipment-note">
-              {fr
-                ? 'Cette liste correspond exactement aux références disponibles pour les essais. Une compatibilité documentée ne sera marquée « validée avec Élise » qu’après un test physique complet.'
-                : 'This list exactly matches the hardware available for testing. Documented compatibility is only marked as validated with Élise after a full physical test.'}
-            </p>
+            <p className="equipment-note">{t('hardwareCatalogDialog.thisListExactlyMatchesThe')}</p>
             <div className="equipment-product-grid equipment-hardware-grid">
               {SENSOR_PRODUCTS.map((product) => (
                 <button
@@ -155,12 +131,12 @@ export function HardwareCatalogDialog({
                 >
                   <ProductPhoto product={product} />
                   <span className="equipment-kicker">
-                    {product.brand} · {familyLabel(product, fr)}
+                    {product.brand} · {familyLabel(product)}
                   </span>
-                  <strong>{fr ? product.name : product.nameEn}</strong>
+                  <strong>{productTexts(product).name}</strong>
                   <small>{product.model}</small>
                   <span>
-                    {fr ? 'Voir la fiche' : 'View details'}
+                    {t('hardwareCatalogDialog.viewDetails')}
                     <ChevronRight />
                   </span>
                 </button>

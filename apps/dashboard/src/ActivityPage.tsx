@@ -36,6 +36,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import { presenceText } from './WelcomePage';
 import './activity-page.css';
+import { dateLocale, t } from './i18n';
 
 type ActivityPageProps = {
   locale: 'fr' | 'en';
@@ -78,66 +79,66 @@ const capabilityIcons: Record<string, typeof Activity> = {
   signal_strength: Radio,
 };
 
-const capabilityLabels: Record<string, [string, string]> = {
-  motion: ['Mouvement', 'Motion'],
-  occupancy: ['Présence', 'Occupancy'],
-  person_presence: ['Présence', 'Presence'],
-  contact: ['Ouverture', 'Opening'],
-  dry_contact: ['Contact sec', 'Dry contact'],
-  button: ['Bouton d’appel', 'Call button'],
-  temperature: ['Température', 'Temperature'],
-  humidity: ['Humidité', 'Humidity'],
-  power: ['Puissance', 'Power'],
-  energy: ['Énergie', 'Energy'],
-  switch: ['Appareil', 'Device'],
-  current: ['Courant', 'Current'],
-  voltage: ['Tension', 'Voltage'],
-  battery: ['Batterie', 'Battery'],
-  water_leak: ['Détection d’eau', 'Water detection'],
-  smoke: ['Fumée', 'Smoke'],
-  carbon_monoxide: ['Monoxyde de carbone', 'Carbon monoxide'],
-  co2: ['CO₂', 'CO₂'],
-  voc: ['Composés volatils', 'Volatile compounds'],
-  pm25: ['Particules fines', 'Fine particles'],
-  air_quality: ['Qualité de l’air', 'Air quality'],
-  illuminance: ['Luminosité', 'Illuminance'],
-  vibration: ['Vibration', 'Vibration'],
-  fall_detection: ['Chute détectée', 'Fall detection'],
-  signal_strength: ['Signal', 'Signal'],
+const capabilityLabels: Record<string, () => string> = {
+  motion: () => t('activityPage.capabilityLabels.motion'),
+  occupancy: () => t('activityPage.capabilityLabels.occupancy'),
+  person_presence: () => t('activityPage.capabilityLabels.person_presence'),
+  contact: () => t('activityPage.capabilityLabels.contact'),
+  dry_contact: () => t('activityPage.capabilityLabels.dry_contact'),
+  button: () => t('activityPage.capabilityLabels.button'),
+  temperature: () => t('activityPage.capabilityLabels.temperature'),
+  humidity: () => t('activityPage.capabilityLabels.humidity'),
+  power: () => t('activityPage.capabilityLabels.power'),
+  energy: () => t('activityPage.capabilityLabels.energy'),
+  switch: () => t('activityPage.capabilityLabels.switch'),
+  current: () => t('activityPage.capabilityLabels.current'),
+  voltage: () => t('activityPage.capabilityLabels.voltage'),
+  battery: () => t('activityPage.capabilityLabels.battery'),
+  water_leak: () => t('activityPage.capabilityLabels.water_leak'),
+  smoke: () => t('activityPage.capabilityLabels.smoke'),
+  carbon_monoxide: () => t('activityPage.capabilityLabels.carbon_monoxide'),
+  co2: () => t('activityPage.capabilityLabels.co2'),
+  voc: () => t('activityPage.capabilityLabels.voc'),
+  pm25: () => t('activityPage.capabilityLabels.pm25'),
+  air_quality: () => t('activityPage.capabilityLabels.air_quality'),
+  illuminance: () => t('activityPage.capabilityLabels.illuminance'),
+  vibration: () => t('activityPage.capabilityLabels.vibration'),
+  fall_detection: () => t('activityPage.capabilityLabels.fall_detection'),
+  signal_strength: () => t('activityPage.capabilityLabels.signal_strength'),
 };
 
-function capabilityLabel(capability: string, locale: 'fr' | 'en') {
-  return capabilityLabels[capability]?.[locale === 'fr' ? 0 : 1] ?? capability;
+function capabilityLabel(capability: string) {
+  return capabilityLabels[capability]?.() ?? capability;
 }
 
 function clock(value: string, locale: 'fr' | 'en', timeZone: string) {
-  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+  return new Intl.DateTimeFormat(dateLocale(), {
     hour: '2-digit',
     minute: '2-digit',
     timeZone,
   }).format(new Date(value));
 }
 
-function relativeTime(value: string, locale: 'fr' | 'en') {
+function relativeTime(value: string) {
   const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60_000));
-  if (minutes < 1) return locale === 'fr' ? 'à l’instant' : 'just now';
-  if (minutes < 60) return locale === 'fr' ? `il y a ${minutes} min` : `${minutes} min ago`;
+  if (minutes < 1) return t('activityPage.justNow');
+  if (minutes < 60) return t('activityPage.minAgo', { minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return locale === 'fr' ? `il y a ${hours} h` : `${hours}h ago`;
+  if (hours < 24) return t('activityPage.hAgo', { hours });
   const days = Math.round(hours / 24);
-  return locale === 'fr' ? `il y a ${days} j` : `${days}d ago`;
+  return t('activityPage.dAgo', { days });
 }
 
-function readableDuration(seconds: number, locale: 'fr' | 'en') {
+function readableDuration(seconds: number) {
   const minutes = Math.max(0, Math.round(seconds / 60));
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
-  return `${hours} ${locale === 'fr' ? 'h' : 'hr'}${rest ? ` ${rest} min` : ''}`;
+  return `${hours} ${t('activityPage.hr')}${rest ? ` ${rest} min` : ''}`;
 }
 
 function dayLabel(value: string, locale: 'fr' | 'en', timeZone: string) {
-  const formatted = new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+  const formatted = new Intl.DateTimeFormat(dateLocale(), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -167,13 +168,13 @@ function dateKeyLabel(value: string, locale: 'fr' | 'en', timeZone: string) {
   return dayLabel(`${value}T12:00:00.000Z`, locale, timeZone);
 }
 
-function comparisonDelta(value: number, unit: string, locale: 'fr' | 'en') {
-  if (value === 0) return locale === 'fr' ? 'Identique' : 'Same';
+function comparisonDelta(value: number, unit: string) {
+  if (value === 0) return t('activityPage.same');
   const sign = value > 0 ? '+' : '−';
   return `${sign}${Math.abs(value)} ${unit}`;
 }
 
-function eventDescription(event: ActivityEvent, locale: 'fr' | 'en') {
+function eventDescription(event: ActivityEvent) {
   const payload =
     event.payload && typeof event.payload === 'object' && !Array.isArray(event.payload)
       ? (event.payload as Record<string, unknown>)
@@ -198,64 +199,39 @@ function eventDescription(event: ActivityEvent, locale: 'fr' | 'en') {
     if (context.role === 'BED') {
       const occupied =
         open === (context.bedOccupiedWhen === 'OPEN' || event.capability === 'occupancy');
-      return locale === 'fr'
-        ? occupied
-          ? 'Lit occupé'
-          : 'Lit libre'
-        : occupied
-          ? 'Bed occupied'
-          : 'Bed unoccupied';
+      return occupied ? t('activityPage.bedOccupied') : t('activityPage.bedUnoccupied');
     }
     if (event.capability === 'dry_contact')
-      return locale === 'fr'
-        ? open
-          ? 'Contact ouvert'
-          : 'Contact fermé'
-        : open
-          ? 'Contact open'
-          : 'Contact closed';
-    return locale === 'fr'
-      ? open
-        ? 'Ouverture détectée'
-        : 'Fermeture détectée'
-      : open
-        ? 'Opening detected'
-        : 'Closing detected';
+      return open ? t('activityPage.contactOpen') : t('activityPage.contactClosed');
+    return open ? t('activityPage.openingDetected') : t('activityPage.closingDetected');
   }
-  if (event.capability === 'motion')
-    return locale === 'fr' ? 'Mouvement détecté' : 'Movement detected';
+  if (event.capability === 'motion') return t('activityPage.movementDetected');
   if (['occupancy', 'person_presence'].includes(event.capability))
-    return locale === 'fr' ? 'Présence détectée' : 'Presence detected';
-  if (event.capability === 'button')
-    return locale === 'fr' ? 'Bouton d’appel activé' : 'Call button activated';
+    return t('activityPage.presenceDetected');
+  if (event.capability === 'button') return t('activityPage.callButtonActivated');
   return value
-    ? `${capabilityLabel(event.capability, locale)} · ${value}${unit}`
-    : capabilityLabel(event.capability, locale);
+    ? `${capabilityLabel(event.capability)} · ${value}${unit}`
+    : capabilityLabel(event.capability);
 }
 
-function sequenceSentence(sequence: ActivitySequence, locale: 'fr' | 'en') {
+function sequenceSentence(sequence: ActivitySequence) {
   const passage = sequence.passages[0];
   if (passage)
-    return locale === 'fr'
-      ? `Passage entre ${passage.fromLevelName} et ${passage.toLevelName}.`
-      : `Movement between ${passage.fromLevelName} and ${passage.toLevelName}.`;
+    return t('activityPage.movementBetweenAnd', {
+      fromLevelName: passage.fromLevelName,
+      toLevelName: passage.toLevelName,
+    });
   if (sequence.roomNames.length > 1) {
     const firstRoom = sequence.roomNames[0]!;
     const lastRoom = sequence.roomNames.at(-1)!;
-    if (firstRoom === lastRoom)
-      return locale === 'fr'
-        ? `Déplacement avec retour dans « ${firstRoom} ».`
-        : `Movement with a return to “${firstRoom}”.`;
-    return locale === 'fr'
-      ? `Passage de ${firstRoom} à ${lastRoom}.`
-      : `Movement from ${firstRoom} to ${lastRoom}.`;
+    if (firstRoom === lastRoom) return t('activityPage.movementWithAReturnTo', { firstRoom });
+    return t('activityPage.movementFromTo', { firstRoom, lastRoom });
   }
-  const room = sequence.roomNames[0] ?? (locale === 'fr' ? 'le logement' : 'the home');
-  return locale === 'fr' ? `Activité observée dans ${room}.` : `Activity observed in ${room}.`;
+  const room = sequence.roomNames[0] ?? t('activityPage.theHome');
+  return t('activityPage.activityObservedIn', { room });
 }
 
 export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
-  const fr = locale === 'fr';
   const todayKey = currentDateKey(timeZone);
   const [summary, setSummary] = useState<ActivitySummary | null>(null);
   const [homeSummary, setHomeSummary] = useState<HomeSummary | null>(null);
@@ -354,12 +330,12 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
   const filteredSequences = allSequences;
   const momentsCount = filteredSequences.length;
   const usedRoomsCount = new Set(filteredSequences.flatMap((sequence) => sequence.roomNames)).size;
-  const activityDuration = readableDuration(summary?.observedSeconds ?? 0, locale);
+  const activityDuration = readableDuration(summary?.observedSeconds ?? 0);
   const availableDates = Array.from({ length: 7 }, (_, index) => shiftDateKey(todayKey, -index));
   const selectedDateLabel = dateKeyLabel(selectedDate, locale, timeZone);
   const selectedDateTitle =
     selectedDate === todayKey
-      ? `${fr ? 'Aujourd’hui' : 'Today'} · ${selectedDateLabel}`
+      ? `${t('activityPage.today')} · ${selectedDateLabel}`
       : selectedDateLabel;
   const comparisonSequences = comparisonSummary?.sequences ?? [];
   const comparisonMomentsCount = comparisonSequences.length;
@@ -379,26 +355,20 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
         null)
       : null;
   const lastReliableActivity = summary?.lastReliableActivity
-    ? fr
-      ? `La dernière activité fiable a été observée dans ${summary.lastReliableActivity.roomName} à ${clock(summary.lastReliableActivity.occurredAt, locale, timeZone)}.`
-      : `The latest reliable activity was observed in ${summary.lastReliableActivity.roomName} at ${clock(summary.lastReliableActivity.occurredAt, locale, timeZone)}.`
-    : fr
-      ? 'Aucune activité fiable ne permet encore de résumer cette période.'
-      : 'No reliable activity is available to summarize this period yet.';
+    ? t('activityPage.theLatestReliableActivityWas', {
+        roomName: summary.lastReliableActivity.roomName,
+        clock: clock(summary.lastReliableActivity.occurredAt, locale, timeZone),
+      })
+    : t('activityPage.noReliableActivityIsAvailable');
 
   if (loading && !summary)
-    return (
-      <DataLoadingScreen
-        locale={locale}
-        message={fr ? 'Préparation de l’activité du logement…' : 'Preparing home activity…'}
-      />
-    );
+    return <DataLoadingScreen locale={locale} message={t('activityPage.preparingHomeActivity')} />;
 
   return (
     <section className="activity-overview-page">
       <header className="page-hero activity-overview-hero">
         <div className="page-hero__copy activity-overview-hero-content">
-          <h2 className="page-hero__title">{fr ? 'Activité' : 'Activity'}</h2>
+          <h2 className="page-hero__title">{t('activityPage.activity')}</h2>
           <div className="activity-hero-last-activity" role="status">
             <CircleCheck aria-hidden="true" />
             <span>{lastReliableActivity}</span>
@@ -409,13 +379,9 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
       {error && (
         <div className="activity-refresh-banner" role="status">
           <AlertTriangle />
-          <span>
-            {fr
-              ? 'Les dernières informations restent affichées. La mise à jour a échoué.'
-              : 'The latest information remains visible. The update failed.'}
-          </span>
+          <span>{t('activityPage.theLatestInformationRemainsVisible')}</span>
           <button onClick={() => void refresh(true)}>
-            <RefreshCw /> {fr ? 'Réessayer' : 'Retry'}
+            <RefreshCw /> {t('activityPage.retry')}
           </button>
         </div>
       )}
@@ -423,12 +389,8 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
       <article className="activity-surface-card activity-sequences-card">
         <header className="activity-moments-header">
           <div>
-            <h2>{fr ? 'Moments du quotidien' : 'Daily moments'}</h2>
-            <p>
-              {fr
-                ? 'Une vue d’ensemble des activités et déplacements au fil de la journée.'
-                : 'An overview of activity and movement throughout the day.'}
-            </p>
+            <h2>{t('activityPage.dailyMoments')}</h2>
+            <p>{t('activityPage.anOverviewOfActivityAnd')}</p>
           </div>
           <div className="activity-moments-actions">
             <div className="activity-date-picker">
@@ -447,7 +409,7 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
                 <div
                   className="activity-date-menu"
                   role="listbox"
-                  aria-label={fr ? 'Choisir une journée' : 'Choose a day'}
+                  aria-label={t('activityPage.chooseADay')}
                 >
                   {availableDates.map((date) => (
                     <button
@@ -465,9 +427,7 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
                       <span>
                         <strong>
                           {date === todayKey
-                            ? fr
-                              ? 'Aujourd’hui'
-                              : 'Today'
+                            ? t('activityPage.today')
                             : dateKeyLabel(date, locale, timeZone)}
                         </strong>
                         <small>{date}</small>
@@ -485,7 +445,7 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
               onClick={() => setIsComparing((value) => !value)}
             >
               <ArrowLeftRight />
-              <span>{fr ? 'Comparer' : 'Compare'}</span>
+              <span>{t('activityPage.compare')}</span>
             </button>
           </div>
         </header>
@@ -494,15 +454,13 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
           <div className="activity-comparison-panel">
             <div className="activity-comparison-picker">
               <ArrowLeftRight aria-hidden="true" />
-              <label htmlFor="activity-comparison-date">
-                {fr ? 'Comparer avec' : 'Compare with'}
-              </label>
+              <label htmlFor="activity-comparison-date">{t('activityPage.compareWith')}</label>
               <select
                 id="activity-comparison-date"
                 value={comparisonDate}
                 onChange={(event) => setComparisonDate(event.target.value)}
               >
-                <option value="">{fr ? 'Choisir une journée' : 'Choose a day'}</option>
+                <option value="">{t('activityPage.chooseADay')}</option>
                 {availableDates
                   .filter((date) => date !== selectedDate)
                   .map((date) => (
@@ -516,51 +474,44 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
             {comparisonDate && (
               <div className="activity-comparison-result" aria-live="polite">
                 {comparisonLoading ? (
-                  <span className="activity-comparison-loading">
-                    {fr ? 'Comparaison…' : 'Comparing…'}
-                  </span>
+                  <span className="activity-comparison-loading">{t('activityPage.comparing')}</span>
                 ) : comparisonSummary ? (
                   <>
                     <span className="activity-comparison-caption">
-                      {fr ? 'Écart avec' : 'Difference from'}{' '}
+                      {t('activityPage.differenceFrom')}{' '}
                       {dateKeyLabel(comparisonDate, locale, timeZone)}
                     </span>
                     <div className="activity-comparison-stat">
                       <strong>
                         {comparisonDelta(
                           momentsCount - comparisonMomentsCount,
-                          fr ? 'moments' : 'moments',
-                          locale,
+                          t('activityPage.moments'),
                         )}
                       </strong>
-                      <small>{fr ? 'moments détectés' : 'detected moments'}</small>
+                      <small>{t('activityPage.detectedMoments')}</small>
                     </div>
                     <div className="activity-comparison-stat">
                       <strong>
                         {comparisonDelta(
                           currentDurationMinutes - comparisonDurationMinutes,
-                          fr ? 'min' : 'min',
-                          locale,
+                          t('activityPage.min'),
                         )}
                       </strong>
-                      <small>{fr ? 'd’activité' : 'of activity'}</small>
+                      <small>{t('activityPage.ofActivity')}</small>
                     </div>
                     <div className="activity-comparison-stat">
                       <strong>
                         {comparisonDelta(
                           usedRoomsCount - comparisonRoomsCount,
-                          fr ? 'pièce(s)' : 'room(s)',
-                          locale,
+                          t('activityPage.roomS'),
                         )}
                       </strong>
-                      <small>{fr ? 'pièces utilisées' : 'rooms used'}</small>
+                      <small>{t('activityPage.roomsUsed')}</small>
                     </div>
                   </>
                 ) : (
                   <span className="activity-comparison-loading">
-                    {fr
-                      ? 'Comparaison indisponible pour cette journée.'
-                      : 'Comparison unavailable for this day.'}
+                    {t('activityPage.comparisonUnavailableForThisDay')}
                   </span>
                 )}
               </div>
@@ -575,7 +526,7 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
             </span>
             <div>
               <strong>{momentsCount}</strong>
-              <small>{fr ? 'moments détectés' : 'moments detected'}</small>
+              <small>{t('activityPage.momentsDetected')}</small>
             </div>
           </div>
           <div className="activity-moment-stat activity-moment-stat--green">
@@ -584,7 +535,7 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
             </span>
             <div>
               <strong>{activityDuration}</strong>
-              <small>{fr ? 'd’activité' : 'of activity'}</small>
+              <small>{t('activityPage.ofActivity')}</small>
             </div>
           </div>
           <div className="activity-moment-stat activity-moment-stat--orange">
@@ -593,7 +544,7 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
             </span>
             <div>
               <strong>{usedRoomsCount}</strong>
-              <small>{fr ? 'pièces utilisées' : 'rooms used'}</small>
+              <small>{t('activityPage.roomsUsed')}</small>
             </div>
           </div>
         </div>
@@ -604,7 +555,7 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
               <div className="activity-current-sequence-summary">
                 <time className="activity-sequence-time">
                   <strong>{clock(liveMomentAt, locale, timeZone)}</strong>
-                  <small>{fr ? 'En ce moment' : 'Right now'}</small>
+                  <small>{t('activityPage.rightNow')}</small>
                 </time>
                 <span className="activity-timeline-dot" aria-hidden="true" />
                 <span className="activity-sequence-summary-card activity-current-sequence-card">
@@ -613,7 +564,7 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
                   </span>
                   <span className="activity-sequence-copy">
                     <strong>{liveMoment}</strong>
-                    <small>{fr ? 'Situation actuelle' : 'Current situation'}</small>
+                    <small>{t('activityPage.currentSituation')}</small>
                   </span>
                   <span aria-hidden="true" />
                 </span>
@@ -625,7 +576,7 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
               <summary>
                 <time className="activity-sequence-time">
                   <strong>{clock(sequence.startedAt, locale, timeZone)}</strong>
-                  <small>{relativeTime(sequence.startedAt, locale)}</small>
+                  <small>{relativeTime(sequence.startedAt)}</small>
                 </time>
                 <span className="activity-timeline-dot" aria-hidden="true" />
                 <span className="activity-sequence-summary-card">
@@ -633,12 +584,12 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
                     <Footprints />
                   </span>
                   <span className="activity-sequence-copy">
-                    <strong>{sequenceSentence(sequence, locale)}</strong>
+                    <strong>{sequenceSentence(sequence)}</strong>
                     <small>
-                      {sequence.totalEventCount} {fr ? 'événements' : 'events'} ·{' '}
+                      {sequence.totalEventCount} {t('activityPage.events')} ·{' '}
                       {sequence.durationSeconds
-                        ? `${fr ? 'activité pendant' : 'activity for'} ${readableDuration(sequence.durationSeconds, locale)}`
-                        : relativeTime(sequence.startedAt, locale)}
+                        ? `${t('activityPage.activityFor')} ${readableDuration(sequence.durationSeconds)}`
+                        : relativeTime(sequence.startedAt)}
                     </small>
                   </span>
                   <ChevronDown />
@@ -647,9 +598,9 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
               <div className="activity-sequence-events">
                 {sequence.hiddenEventCount > 0 && (
                   <p>
-                    {fr
-                      ? `${sequence.hiddenEventCount} événements répétitifs ont été regroupés.`
-                      : `${sequence.hiddenEventCount} repetitive events were grouped.`}
+                    {t('activityPage.repetitiveEventsWereGrouped', {
+                      hiddenEventCount: sequence.hiddenEventCount,
+                    })}
                   </p>
                 )}
                 {sequence.events.map((event) => {
@@ -676,10 +627,9 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
                         <Icon />
                       </span>
                       <div className="activity-event-copy">
-                        <strong>{eventDescription(event, locale)}</strong>
+                        <strong>{eventDescription(event)}</strong>
                         <small>
-                          {event.roomName} ·{' '}
-                          {event.sensorName ?? (fr ? 'Capteur du logement' : 'Home sensor')}
+                          {event.roomName} · {event.sensorName ?? t('activityPage.homeSensor')}
                         </small>
                       </div>
                       <span
@@ -687,12 +637,8 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
                       >
                         {event.quality === 'good' ? <CircleCheck /> : <CircleDashed />}
                         {event.quality === 'good'
-                          ? fr
-                            ? 'Fiable'
-                            : 'Reliable'
-                          : fr
-                            ? 'À confirmer'
-                            : 'To confirm'}
+                          ? t('activityPage.reliable')
+                          : t('activityPage.toConfirm')}
                       </span>
                     </div>
                   );
@@ -703,11 +649,7 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
           {!filteredSequences.length && !liveMoment && (
             <div className="activity-sequences-empty">
               <CircleDashed />
-              <p>
-                {fr
-                  ? 'Aucun moment fiable ne correspond à cette sélection.'
-                  : 'No reliable moment matches this selection.'}
-              </p>
+              <p>{t('activityPage.noReliableMomentMatchesThis')}</p>
             </div>
           )}
         </div>
@@ -716,14 +658,12 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
             className="activity-show-more"
             onClick={() => setVisibleSequences((value) => value + 8)}
           >
-            {fr ? 'Afficher les moments précédents' : 'Show earlier moments'}
+            {t('activityPage.showEarlierMoments')}
           </button>
         )}
         {summary?.hasMoreSequences && visibleSequences >= filteredSequences.length && (
           <small className="activity-history-limit">
-            {fr
-              ? 'Les événements les plus anciens restent disponibles dans le journal local.'
-              : 'Older events remain available in the local journal.'}
+            {t('activityPage.olderEventsRemainAvailableIn')}
           </small>
         )}
       </article>

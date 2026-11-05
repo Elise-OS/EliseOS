@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, CheckCircle2, LoaderCircle, Radio, RefreshCw, Wifi, WifiOff } from 'lucide-react';
-import type { Locale } from './i18n';
+import { type Locale, t } from './i18n';
 import { sensorRequest, type SensorUiDevice } from './sensor-ui';
 
 type Guide = {
@@ -39,7 +39,6 @@ export function verificationTargetId(device: SensorUiDevice) {
 
 export function SensorInstallationGuide({
   device,
-  locale,
   onDone,
   onChanged,
   testOnly = false,
@@ -50,7 +49,6 @@ export function SensorInstallationGuide({
   onChanged: () => Promise<void>;
   testOnly?: boolean;
 }) {
-  const fr = locale === 'fr';
   const [guide, setGuide] = useState<Guide | null>(null);
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -149,11 +147,7 @@ export function SensorInstallationGuide({
       if (alive.current) {
         const timedOut = (err as Error).name === 'TimeoutError';
         setError(
-          timedOut
-            ? fr
-              ? 'La box ne répond pas. Vérifiez sa connexion, puis réessayez.'
-              : 'The hub did not respond. Check its connection and try again.'
-            : (err as Error).message,
+          timedOut ? t('sensorInstallationGuide.theHubDidNotRespond') : (err as Error).message,
         );
       }
     } finally {
@@ -165,13 +159,13 @@ export function SensorInstallationGuide({
     <div className="equipment-guide">
       {!guide && !error && (
         <p role="status">
-          <LoaderCircle className="is-spinning" /> {fr ? 'Chargement du guide…' : 'Loading guide…'}
+          <LoaderCircle className="is-spinning" /> {t('sensorInstallationGuide.loadingGuide')}
         </p>
       )}
       {guide && !testOnly && (
         <>
           <div className="equipment-guide-intro">
-            <span className="equipment-kicker">{fr ? 'Installation' : 'Installation'}</span>
+            <span className="equipment-kicker">{t('sensorInstallationGuide.installation')}</span>
             <h3>{guide.title}</h3>
             <p>{guide.summary}</p>
           </div>
@@ -182,7 +176,7 @@ export function SensorInstallationGuide({
           </ol>
           {!!guide.avoid.length && (
             <div className="equipment-note">
-              <strong>{fr ? 'À éviter' : 'Avoid'}</strong>
+              <strong>{t('sensorInstallationGuide.avoid')}</strong>
               <ul>
                 {guide.avoid.map((item) => (
                   <li key={item}>{item}</li>
@@ -206,14 +200,10 @@ export function SensorInstallationGuide({
           </span>
           <div>
             <span className="equipment-kicker">
-              {fr ? 'Connexion du capteur' : 'Sensor connection'}
+              {t('sensorInstallationGuide.sensorConnection')}
             </span>
-            <h3>{fr ? 'Installer et vérifier' : 'Install and check'}</h3>
-            <p>
-              {fr
-                ? 'Élise demande un état récent à la box et vérifie la liaison du capteur.'
-                : 'Élise requests a fresh status from the hub and checks the sensor link.'}
-            </p>
+            <h3>{t('sensorInstallationGuide.installAndCheck')}</h3>
+            <p>{t('sensorInstallationGuide.eliseRequestsAFreshStatus')}</p>
           </div>
         </div>
         <div className="equipment-test-body">
@@ -222,7 +212,7 @@ export function SensorInstallationGuide({
           )}
           {!device.room && (
             <p className="equipment-test-warning">
-              {fr ? 'Associez une pièce avant de lancer le test.' : 'Assign a room before testing.'}
+              {t('sensorInstallationGuide.assignARoomBeforeTesting')}
             </p>
           )}
           <div
@@ -241,37 +231,21 @@ export function SensorInstallationGuide({
             <span>
               <strong>
                 {testing
-                  ? fr
-                    ? 'Vérification en cours'
-                    : 'Checking connection'
+                  ? t('sensorInstallationGuide.checkingConnection')
                   : test?.status === 'COMPLETED'
-                    ? fr
-                      ? 'Capteur en ligne'
-                      : 'Sensor online'
+                    ? t('sensorInstallationGuide.sensorOnline')
                     : test && ['FAILED', 'EXPIRED', 'CANCELLED'].includes(test.status)
-                      ? fr
-                        ? 'Capteur non confirmé'
-                        : 'Sensor not confirmed'
-                      : fr
-                        ? 'Prêt pour la vérification'
-                        : 'Ready to check'}
+                      ? t('sensorInstallationGuide.sensorNotConfirmed')
+                      : t('sensorInstallationGuide.readyToCheck')}
               </strong>
               <small>
                 {testing
-                  ? fr
-                    ? 'Cela prend généralement quelques secondes.'
-                    : 'This usually takes a few seconds.'
+                  ? t('sensorInstallationGuide.thisUsuallyTakesAFew')
                   : test?.status === 'COMPLETED'
-                    ? fr
-                      ? 'Le capteur est présent et disponible dans le dernier état de la box.'
-                      : 'The sensor is present and available in the latest hub status.'
+                    ? t('sensorInstallationGuide.theSensorIsPresentAnd')
                     : test && ['FAILED', 'EXPIRED', 'CANCELLED'].includes(test.status)
-                      ? fr
-                        ? 'Aucune réponse reçue. Réveillez le capteur puis réessayez.'
-                        : 'No response received. Wake the sensor and try again.'
-                      : fr
-                        ? 'Le test s’arrête automatiquement après 20 secondes.'
-                        : 'The check stops automatically after 20 seconds.'}
+                      ? t('sensorInstallationGuide.noResponseReceivedWakeThe')
+                      : t('sensorInstallationGuide.theCheckStopsAutomaticallyAfter')}
               </small>
             </span>
           </div>
@@ -282,16 +256,10 @@ export function SensorInstallationGuide({
           >
             <RefreshCw className={testing ? 'is-spinning' : ''} />{' '}
             {testing
-              ? fr
-                ? 'Test en cours…'
-                : 'Testing…'
-              : fr
-                ? test && ['FAILED', 'EXPIRED', 'CANCELLED'].includes(test.status)
-                  ? 'Réessayer'
-                  : 'Vérifier maintenant'
-                : test && ['FAILED', 'EXPIRED', 'CANCELLED'].includes(test.status)
-                  ? 'Try again'
-                  : 'Check now'}
+              ? t('sensorInstallationGuide.testing')
+              : test && ['FAILED', 'EXPIRED', 'CANCELLED'].includes(test.status)
+                ? t('sensorInstallationGuide.tryAgain')
+                : t('sensorInstallationGuide.checkNow')}
           </button>
         </div>
       </section>
@@ -299,14 +267,16 @@ export function SensorInstallationGuide({
         <div className="equipment-error" role="alert">
           {error}{' '}
           {!guide && (
-            <button onClick={() => setRetry((v) => v + 1)}>{fr ? 'Réessayer' : 'Retry'}</button>
+            <button onClick={() => setRetry((v) => v + 1)}>
+              {t('sensorInstallationGuide.retry')}
+            </button>
           )}
         </div>
       )}
       {onDone && (
         <footer className="equipment-dialog-footer">
           <button className="equipment-primary" disabled={busy} onClick={onDone}>
-            {fr ? 'Terminer' : 'Done'}
+            {t('sensorInstallationGuide.done')}
             <Check />
           </button>
         </footer>

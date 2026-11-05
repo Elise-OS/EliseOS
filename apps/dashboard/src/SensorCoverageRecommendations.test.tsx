@@ -13,6 +13,7 @@ import {
   coverageState,
 } from './coverage-model';
 import type { SensorUiDevice } from './sensor-ui';
+import { inLanguage } from './i18n/test-language';
 
 const plan = {
   levels: [
@@ -187,14 +188,16 @@ describe('documented sensor coverage', () => {
   });
   it('retains loading, error and English states', () => {
     const render = (loading: boolean, error: string) =>
-      renderToStaticMarkup(
-        <SensorCoverageRecommendations
-          locale="en"
-          coverage={coverage}
-          loading={loading}
-          error={error}
-          onRetry={() => undefined}
-        />,
+      inLanguage('en', () =>
+        renderToStaticMarkup(
+          <SensorCoverageRecommendations
+            locale="en"
+            coverage={coverage}
+            loading={loading}
+            error={error}
+            onRetry={() => undefined}
+          />,
+        ),
       );
     expect(render(false, '')).toContain('Documented models');
     expect(render(true, '')).toContain('role="status"');

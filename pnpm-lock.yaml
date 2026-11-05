@@ -162,6 +162,9 @@ importers:
       hls.js:
         specifier: ^1.7.3
         version: 1.7.3
+      i18next:
+        specifier: ^25.10.10
+        version: 25.10.10(typescript@5.9.3)
       lucide-react:
         specifier: ^0.536.0
         version: 0.536.0(react@19.1.0)

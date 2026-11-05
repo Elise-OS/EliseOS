@@ -5,15 +5,15 @@ import {
   type ContactRole,
   deviceSupportsCategory,
   isBedOccupancySensorModel,
-  ROOM_SENSOR_CATEGORIES,
   type RoomSensorCategory,
   type SensorProduct,
 } from '@elise/contracts';
-import type { Locale } from './i18n';
+import { type Locale, t, textBlock } from './i18n';
 import { EquipmentDialog } from './EquipmentDialog';
 import { ProductPhoto } from './SensorProductCard';
 import { sensorJson, sensorRequest, type SensorRoom, type SensorUiDevice } from './sensor-ui';
 import { productMatchesDetectedModel } from './sensor-products';
+import { contactTypeLabel, productTexts, sensorCategoryLabel } from './i18n/data';
 
 type Session = {
   id: string;
@@ -53,7 +53,6 @@ export function SensorOnboardingDialog({
   onInstalled: () => Promise<void>;
   onResume?: () => void;
 }) {
-  const fr = locale === 'fr';
   const [session, setSession] = useState<Session | null>(null);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [roomId, setRoomId] = useState(initialRoomId ?? '');
@@ -74,7 +73,7 @@ export function SensorOnboardingDialog({
     setSession(next);
     if (next.status === 'DEVICE_FOUND' && next.detectedDevice) {
       setStep(3);
-      setName(product ? (fr ? product.name : product.nameEn) : next.detectedDevice.name);
+      setName(product ? productTexts(product).name : next.detectedDevice.name);
       if (category === 'bed' && isBedOccupancySensorModel(next.detectedDevice.model))
         setOccupiedWhen('OPEN');
     } else setStep(2);
@@ -119,7 +118,16 @@ export function SensorOnboardingDialog({
       }
     })();
     return () => controller.abort();
-  }, [open, initialRoomId, initialTarget?.id, onResume, product, fr, contactRole, bedOccupiedWhen]);
+  }, [
+    open,
+    initialRoomId,
+    initialTarget?.id,
+    onResume,
+    product,
+    locale,
+    contactRole,
+    bedOccupiedWhen,
+  ]);
 
   useEffect(() => {
     if (!open || !session || !['PENDING', 'WAITING_FOR_DEVICE'].includes(session.status)) return;
@@ -137,12 +145,7 @@ export function SensorOnboardingDialog({
           adopt(next);
           setError('');
         } else if (['FAILED', 'EXPIRED', 'CANCELLED'].includes(next.status))
-          setError(
-            next.errorMessage ??
-              (fr
-                ? 'La recherche est terminée sans détection. Vous pouvez réessayer.'
-                : 'No device found. You can retry.'),
-          );
+          setError(next.errorMessage ?? t('sensorOnboardingDialog.noDeviceFoundYouCan'));
         else timer = window.setTimeout(() => void poll(), 1500);
       } catch (err) {
         if (!controller.signal.aborted) {
@@ -156,7 +159,7 @@ export function SensorOnboardingDialog({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [open, session?.id, session?.status, fr]);
+  }, [open, session?.id, session?.status, locale]);
   useEffect(() => {
     if (!open || !session || step !== 2) return;
     const update = () =>
@@ -260,40 +263,38 @@ export function SensorOnboardingDialog({
   const room = rooms.find(({ id }) => id === roomId);
   const mismatch = category && device && !deviceSupportsCategory(device, category);
   const modelMatch = product && device ? productMatchesDetectedModel(product, device.model) : null;
-  const categoryLabel = ROOM_SENSOR_CATEGORIES.find(({ id }) => id === category)?.[
-    fr ? 'label' : 'labelEn'
-  ];
+  const categoryLabel = category ? sensorCategoryLabel(category) : undefined;
   const deviceDetected = session?.connection?.deviceDetected === true;
   return (
     <EquipmentDialog
-      title={fr ? 'Ajouter un capteur' : 'Add a sensor'}
+      title={t('sensorOnboardingDialog.addASensor')}
       onClose={() => void close()}
       busy={busy}
-      closeLabel={fr ? 'Fermer' : 'Close'}
+      closeLabel={t('sensorOnboardingDialog.close')}
     >
       <div className="equipment-onboarding">
         <ol className="equipment-steps">
-          {(fr ? ['Préparer', 'Connecter', 'Installer'] : ['Prepare', 'Connect', 'Install']).map(
-            (label, index) => (
-              <li
-                className={
-                  step > index + 1 ? 'is-complete' : step === index + 1 ? 'is-current' : ''
-                }
-                aria-current={step === index + 1 ? 'step' : undefined}
-                key={label}
-              >
-                <span>{step > index + 1 ? <Check /> : index + 1}</span>
-                <div>
-                  <small>{fr ? `Étape ${index + 1} sur 3` : `Step ${index + 1} of 3`}</small>
-                  <strong>{label}</strong>
-                </div>
-              </li>
-            ),
-          )}
+          {[
+            t('sensorOnboardingDialog.steps.prepare'),
+            t('sensorOnboardingDialog.steps.connect'),
+            t('sensorOnboardingDialog.steps.install'),
+          ].map((label, index) => (
+            <li
+              className={step > index + 1 ? 'is-complete' : step === index + 1 ? 'is-current' : ''}
+              aria-current={step === index + 1 ? 'step' : undefined}
+              key={label}
+            >
+              <span>{step > index + 1 ? <Check /> : index + 1}</span>
+              <div>
+                <small>{t('sensorOnboardingDialog.stepOf3', { value: index + 1 })}</small>
+                <strong>{label}</strong>
+              </div>
+            </li>
+          ))}
         </ol>
         {!ready && (
           <p role="status">
-            <LoaderCircle className="is-spinning" /> {fr ? 'Préparation…' : 'Preparing…'}
+            <LoaderCircle className="is-spinning" /> {t('sensorOnboardingDialog.preparing')}
           </p>
         )}
         {ready && step === 1 && (
@@ -308,31 +309,15 @@ export function SensorOnboardingDialog({
               )}
               <h3>
                 {product
-                  ? `${product.brand} ${fr ? product.name : product.nameEn}`
-                  : fr
-                    ? 'Préparez votre capteur'
-                    : 'Prepare your sensor'}
+                  ? `${product.brand} ${productTexts(product).name}`
+                  : t('sensorOnboardingDialog.prepareYourSensor')}
               </h3>
-              <p>
-                {fr
-                  ? 'Élise recherche la connexion adaptée autour de votre box.'
-                  : 'Élise finds the right connection around your hub.'}
-              </p>
+              <p>{t('sensorOnboardingDialog.eliseFindsTheRightConnection')}</p>
             </div>
             <ol className="equipment-guide-steps">
               {(product
-                ? fr
-                  ? product.preparation
-                  : product.preparationEn
-                : fr
-                  ? [
-                      'Rapprochez le capteur de la box.',
-                      'Alimentez-le et activez son mode association selon sa notice.',
-                    ]
-                  : [
-                      'Move the sensor close to the hub.',
-                      'Power it on and enable pairing according to its manual.',
-                    ]
+                ? productTexts(product).preparation
+                : textBlock('sensorOnboardingDialog.genericPreparation')
               ).map((line) => (
                 <li key={line}>{line}</li>
               ))}
@@ -343,7 +328,7 @@ export function SensorOnboardingDialog({
               onClick={() => void start()}
             >
               <Radio />
-              {fr ? 'Rechercher mon capteur' : 'Find my sensor'}
+              {t('sensorOnboardingDialog.findMySensor')}
             </button>
           </>
         )}
@@ -352,41 +337,29 @@ export function SensorOnboardingDialog({
             <Radio className={remaining > 0 ? 'equipment-pulse' : ''} />
             <span className="equipment-kicker">
               {deviceDetected
-                ? fr
-                  ? 'Capteur détecté'
-                  : 'Sensor detected'
-                : fr
-                  ? 'Recherche autour de la box'
-                  : 'Searching around the hub'}
+                ? t('sensorOnboardingDialog.sensorDetected')
+                : t('sensorOnboardingDialog.searchingAroundTheHub')}
             </span>
             <h3>
               {deviceDetected
-                ? fr
-                  ? 'Appairage en cours'
-                  : 'Pairing in progress'
-                : fr
-                  ? 'En attente de votre capteur'
-                  : 'Waiting for your sensor'}
+                ? t('sensorOnboardingDialog.pairingInProgress')
+                : t('sensorOnboardingDialog.waitingForYourSensor')}
             </h3>
             <p>
               {deviceDetected
-                ? fr
-                  ? 'Élise a trouvé votre capteur et termine sa configuration. Gardez-le à proximité de la box.'
-                  : 'Elise found your sensor and is finishing its setup. Keep it near the hub.'
-                : fr
-                  ? 'Gardez le capteur en mode association, à proximité de la box.'
-                  : 'Keep the sensor in pairing mode near the hub.'}
+                ? t('sensorOnboardingDialog.eliseFoundYourSensorAnd')
+                : t('sensorOnboardingDialog.keepTheSensorInPairing')}
             </p>
             <strong className="equipment-countdown" role="timer">
               {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
             </strong>
             {session?.connection?.pairingOpen && !deviceDetected && (
-              <p>{fr ? 'La box est prête à détecter.' : 'The hub is ready.'}</p>
+              <p>{t('sensorOnboardingDialog.theHubIsReady')}</p>
             )}
             {(error || remaining === 0) && (
               <button className="equipment-secondary" disabled={busy} onClick={() => void start()}>
                 <RefreshCw />
-                {fr ? 'Relancer la recherche' : 'Retry search'}
+                {t('sensorOnboardingDialog.retrySearch')}
               </button>
             )}
           </div>
@@ -399,16 +372,16 @@ export function SensorOnboardingDialog({
               </span>
               <div>
                 <span className="equipment-kicker">
-                  {fr ? 'Connexion réussie' : 'Connection successful'}
+                  {t('sensorOnboardingDialog.connectionSuccessful')}
                 </span>
-                <h3>{fr ? 'Votre capteur est prêt' : 'Your sensor is ready'}</h3>
+                <h3>{t('sensorOnboardingDialog.yourSensorIsReady')}</h3>
                 <p>
                   {[device.manufacturer, device.model].filter(Boolean).join(' · ') || device.name}
                 </p>
               </div>
             </div>
             <div className="equipment-detected-functions">
-              <span>{fr ? 'Fonctions détectées' : 'Detected features'}</span>
+              <span>{t('sensorOnboardingDialog.detectedFeatures')}</span>
               <div className="equipment-capability-tags">
                 {device.capabilities
                   .filter(
@@ -424,51 +397,44 @@ export function SensorOnboardingDialog({
             </div>
             {mismatch && (
               <p className="equipment-install-warning" role="status">
-                {fr
-                  ? `Cet appareil ne fournit pas « ${categoryLabel} ». Fermez cette installation et choisissez le type correspondant aux fonctions détectées.`
-                  : `This device does not provide ${categoryLabel}. Close this installation and choose the type matching its detected functions.`}
+                {t('sensorOnboardingDialog.thisDeviceDoesNotProvide', { categoryLabel })}
               </p>
             )}
             {modelMatch === false && (
               <p className="equipment-install-warning" role="status">
-                {fr
-                  ? `Modèle différent détecté : vous aviez choisi « ${product?.model} », mais Élise reconnaît « ${device.model} ». Vous pouvez continuer si les fonctions affichées correspondent à votre besoin.`
-                  : `Different model detected: you selected ${product?.model}, but Élise recognizes ${device.model}. You can continue if the displayed functions meet your needs.`}
+                {t('sensorOnboardingDialog.differentModelDetectedYouSelected', {
+                  model: product?.model,
+                  model2: device.model,
+                })}
               </p>
             )}
             {modelMatch === null && product && (
               <p className="equipment-install-warning" role="status">
-                {fr
-                  ? `Élise n’a pas pu confirmer la référence « ${product.model} ». Vérifiez le modèle inscrit sur le capteur avant de continuer.`
-                  : `Élise could not confirm model ${product.model}. Check the model printed on the sensor before continuing.`}
+                {t('sensorOnboardingDialog.eliseCouldNotConfirmModel', { model: product.model })}
               </p>
             )}
             <section className="equipment-install-form">
               <div className="equipment-install-form-heading">
                 <Sparkles />
                 <div>
-                  <h4>{fr ? 'Finaliser l’installation' : 'Finish installation'}</h4>
-                  <p>
-                    {fr
-                      ? 'Choisissez simplement sa pièce et son nom.'
-                      : 'Simply choose its room and name.'}
-                  </p>
+                  <h4>{t('sensorOnboardingDialog.finishInstallation')}</h4>
+                  <p>{t('sensorOnboardingDialog.simplyChooseItsRoomAnd')}</p>
                 </div>
               </div>
               {initialRoomId ? (
                 <div className="equipment-room-choice is-selected">
                   <MapPin />
                   <span>
-                    <small>{fr ? 'Pièce' : 'Room'}</small>
+                    <small>{t('sensorOnboardingDialog.room')}</small>
                     <strong>{room?.name}</strong>
                   </span>
                   <Check />
                 </div>
               ) : (
                 <label className="equipment-field">
-                  {fr ? 'Dans quelle pièce ?' : 'Which room?'}
+                  {t('sensorOnboardingDialog.whichRoom')}
                   <select value={roomId} onChange={(e) => setRoomId(e.target.value)}>
-                    <option value="">{fr ? 'Choisir une pièce' : 'Choose a room'}</option>
+                    <option value="">{t('sensorOnboardingDialog.chooseARoom')}</option>
                     {[...rooms]
                       .sort((a, b) => (a.floor ?? 0) - (b.floor ?? 0))
                       .map((candidateRoom) => (
@@ -481,17 +447,15 @@ export function SensorOnboardingDialog({
               )}
               {deviceSupportsCategory(device, 'contact') && category !== 'bed' && (
                 <label className="equipment-field">
-                  {fr ? 'À quoi correspond cette ouverture ?' : 'What does this opening monitor?'}
+                  {t('sensorOnboardingDialog.whatDoesThisOpeningMonitor')}
                   <select
                     value={openingType}
                     onChange={(e) => setOpeningType(e.target.value as ContactRole)}
                   >
-                    <option value="">
-                      {fr ? 'Choisir un type d’ouverture' : 'Choose an opening type'}
-                    </option>
+                    <option value="">{t('sensorOnboardingDialog.chooseAnOpeningType')}</option>
                     {CONTACT_TYPES.map((type) => (
                       <option key={type.id} value={type.id}>
-                        {type[fr ? 'label' : 'labelEn']}
+                        {contactTypeLabel(type.id)}
                       </option>
                     ))}
                   </select>
@@ -501,16 +465,12 @@ export function SensorOnboardingDialog({
                 <>
                   <p className="equipment-note">
                     {isBedOccupancySensorModel(device.model)
-                      ? fr
-                        ? 'La bande de pression Tuya détecte directement l’occupation. Vérifiez « Occupé » en vous allongeant et « Libre » en vous levant.'
-                        : 'The Tuya pressure strip detects occupancy directly. Check for “Occupied” when lying down and “Unoccupied” when getting up.'
-                      : fr
-                        ? 'Le SDC-4-1-00 doit être raccordé à un tapis de pression à contact sec placé sous le matelas. Gardez le module NodOn exposé à la lumière ou équipez-le de sa pile de secours.'
-                        : 'Connect the SDC-4-1-00 to a dry-contact pressure mat under the mattress. Keep the NodOn module exposed to light or fit its backup battery.'}
+                      ? t('sensorOnboardingDialog.theTuyaPressureStripDetects')
+                      : t('sensorOnboardingDialog.connectTheSdc41')}
                   </p>
                   {!isBedOccupancySensorModel(device.model) && (
                     <label className="equipment-field">
-                      {fr ? 'Quand le lit est occupé' : 'When the bed is occupied'}
+                      {t('sensorOnboardingDialog.whenTheBedIsOccupied')}
                       <select
                         value={occupiedWhen}
                         onChange={(event) =>
@@ -518,18 +478,16 @@ export function SensorOnboardingDialog({
                         }
                       >
                         <option value="CLOSED">
-                          {fr ? 'Le contact est fermé' : 'The contact is closed'}
+                          {t('sensorOnboardingDialog.theContactIsClosed')}
                         </option>
-                        <option value="OPEN">
-                          {fr ? 'Le contact est ouvert' : 'The contact is open'}
-                        </option>
+                        <option value="OPEN">{t('sensorOnboardingDialog.theContactIsOpen')}</option>
                       </select>
                     </label>
                   )}
                 </>
               )}
               <label className="equipment-field">
-                {fr ? 'Nom du capteur' : 'Sensor name'}
+                {t('sensorOnboardingDialog.sensorName')}
                 <input
                   autoComplete="off"
                   maxLength={120}
@@ -552,16 +510,10 @@ export function SensorOnboardingDialog({
               >
                 <Check />
                 {busy
-                  ? fr
-                    ? 'Installation…'
-                    : 'Installing…'
+                  ? t('sensorOnboardingDialog.installing')
                   : room
-                    ? fr
-                      ? `Installer dans ${room.name}`
-                      : `Install in ${room.name}`
-                    : fr
-                      ? 'Choisir une pièce'
-                      : 'Choose a room'}
+                    ? t('sensorOnboardingDialog.installIn', { name: room.name })
+                    : t('sensorOnboardingDialog.chooseARoom')}
               </button>
             </footer>
           </div>

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Locale } from './i18n';
+import { type Locale, t } from './i18n';
 
 interface RemoteAccessCardProps {
   locale: Locale;
@@ -27,7 +27,6 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
   const [notice, setNotice] = useState('');
   const [qrCode, setQrCode] = useState('');
   const localGateway = typeof window !== 'undefined' && window.location.protocol === 'http:';
-  const tr = (fr: string, en: string) => (locale === 'fr' ? fr : en);
 
   const refresh = useCallback(async () => {
     try {
@@ -85,13 +84,10 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
       });
       const body = (await response.json().catch(() => null)) as
         (RemoteAccessStatus & { message?: string }) | null;
-      if (!response.ok)
-        throw new Error(body?.message || tr('Action impossible.', 'Action failed.'));
+      if (!response.ok) throw new Error(body?.message || t('remoteAccessCard.actionFailed'));
       setStatus(body);
     } catch (error) {
-      setNotice(
-        error instanceof Error ? error.message : tr('Action impossible.', 'Action failed.'),
-      );
+      setNotice(error instanceof Error ? error.message : t('remoteAccessCard.actionFailed'));
     } finally {
       setBusy(false);
     }
@@ -103,14 +99,14 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
   };
 
   const stateLabel = !status
-    ? tr('Vérification…', 'Checking…')
+    ? t('remoteAccessCard.checking')
     : {
-        UNAVAILABLE: tr('Indisponible', 'Unavailable'),
-        SIGNED_OUT: tr('À activer', 'Not connected'),
-        AUTHORIZING: tr('Connexion en cours', 'Connecting'),
-        CONFIGURING: tr('Prêt à sécuriser', 'Ready to secure'),
-        READY: tr('Actif et privé', 'Active and private'),
-        DEGRADED: tr('À vérifier', 'Needs attention'),
+        UNAVAILABLE: t('remoteAccessCard.unavailable'),
+        SIGNED_OUT: t('remoteAccessCard.notConnected'),
+        AUTHORIZING: t('remoteAccessCard.connecting'),
+        CONFIGURING: t('remoteAccessCard.readyToSecure'),
+        READY: t('remoteAccessCard.activeAndPrivate'),
+        DEGRADED: t('remoteAccessCard.needsAttention'),
       }[status.state];
 
   const Container = compact ? 'section' : 'details';
@@ -123,14 +119,9 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
           <ShieldCheck />
         </span>
         <div>
-          <span className="eyebrow">{tr('Connexion privée', 'Private connection')}</span>
-          <h2>{tr('Accès à distance', 'Remote access')}</h2>
-          <p>
-            {tr(
-              'Consultez Élise depuis l’extérieur avec Tailscale. Seules les personnes invitées peuvent entrer.',
-              'Use Élise away from home with Tailscale. Only invited people can connect.',
-            )}
-          </p>
+          <span className="eyebrow">{t('remoteAccessCard.privateConnection')}</span>
+          <h2>{t('remoteAccessCard.remoteAccess')}</h2>
+          <p>{t('remoteAccessCard.useEliseAwayFromHome')}</p>
         </div>
         <span className={`remote-access-state state-${status?.state.toLowerCase() ?? 'loading'}`}>
           {status?.state === 'READY' ? (
@@ -152,10 +143,7 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
       <div className="remote-access-body">
         {status?.state === 'UNAVAILABLE' && (
           <p className="remote-access-message warning">
-            {tr(
-              'Le service d’accès privé n’est pas encore disponible sur cet appareil.',
-              'The private access service is not available on this device yet.',
-            )}
+            {t('remoteAccessCard.thePrivateAccessServiceIs')}
           </p>
         )}
 
@@ -164,20 +152,13 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
             <div>
               <Link2 />
               <span>
-                <strong>
-                  {tr('1. Relier Élise à votre famille', '1. Link Élise to your family')}
-                </strong>
-                <small>
-                  {tr(
-                    'Votre clé Tailscale n’est jamais stockée dans l’image Élise.',
-                    'Your Tailscale key is never stored in the Élise image.',
-                  )}
-                </small>
+                <strong>{t('remoteAccessCard.n1LinkEliseToYour')}</strong>
+                <small>{t('remoteAccessCard.yourTailscaleKeyIsNever')}</small>
               </span>
             </div>
             {localGateway && (
               <Button onClick={() => void action('connect')} disabled={busy}>
-                {tr('Activer l’accès privé', 'Enable private access')}
+                {t('remoteAccessCard.enablePrivateAccess')}
               </Button>
             )}
           </div>
@@ -188,20 +169,13 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
             <div>
               <LoaderCircle className="spin" />
               <span>
-                <strong>
-                  {tr('Validez la connexion Tailscale', 'Approve the Tailscale connection')}
-                </strong>
-                <small>
-                  {tr(
-                    'La validation sera détectée automatiquement.',
-                    'Approval will be detected automatically.',
-                  )}
-                </small>
+                <strong>{t('remoteAccessCard.approveTheTailscaleConnection')}</strong>
+                <small>{t('remoteAccessCard.approvalWillBeDetectedAutomatically')}</small>
               </span>
             </div>
             {status.authUrl && (
               <Button onClick={() => window.open(status.authUrl!, '_blank', 'noopener,noreferrer')}>
-                {tr('Ouvrir Tailscale', 'Open Tailscale')} <ExternalLink />
+                {t('remoteAccessCard.openTailscale')} <ExternalLink />
               </Button>
             )}
           </div>
@@ -212,18 +186,13 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
             <div>
               <ShieldCheck />
               <span>
-                <strong>{tr('2. Ouvrir le lien privé', '2. Open the private link')}</strong>
-                <small>
-                  {tr(
-                    'Élise utilisera le port dédié 8443 sans modifier les autres services.',
-                    'Élise will use dedicated port 8443 without changing other services.',
-                  )}
-                </small>
+                <strong>{t('remoteAccessCard.n2OpenThePrivateLink')}</strong>
+                <small>{t('remoteAccessCard.eliseWillUseDedicatedPort')}</small>
               </span>
             </div>
             {localGateway && (
               <Button onClick={() => void action('enable')} disabled={busy}>
-                {tr('Terminer l’activation', 'Finish activation')}
+                {t('remoteAccessCard.finishActivation')}
               </Button>
             )}
           </div>
@@ -234,13 +203,13 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
             <div className="remote-access-link">
               <Link2 />
               <span>
-                <small>{tr('Adresse privée', 'Private address')}</small>
+                <small>{t('remoteAccessCard.privateAddress')}</small>
                 <strong>{status.remoteUrl}</strong>
               </span>
               <button
                 type="button"
-                onClick={() => void copyValue(status.remoteUrl!, tr('Lien copié.', 'Link copied.'))}
-                aria-label={tr('Copier le lien', 'Copy link')}
+                onClick={() => void copyValue(status.remoteUrl!, t('remoteAccessCard.linkCopied'))}
+                aria-label={t('remoteAccessCard.copyLink')}
               >
                 <Copy />
               </button>
@@ -250,11 +219,11 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
                 <Check /> Dashboard HTTPS · 8443
               </span>
               <span className={status.webrtcAvailable ? 'ok' : ''}>
-                <Check /> {tr('Caméra et interphone', 'Camera and intercom')} · 8555
+                <Check /> {t('remoteAccessCard.cameraAndIntercom')} · 8555
               </span>
               {status.keyExpiresAt && (
                 <span>
-                  {tr('Clé valide jusqu’au', 'Key valid until')}{' '}
+                  {t('remoteAccessCard.keyValidUntil')}{' '}
                   {new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(
                     new Date(status.keyExpiresAt),
                   )}
@@ -266,7 +235,7 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
                 className="button-secondary"
                 onClick={() => window.open(status.remoteUrl!, '_blank', 'noopener,noreferrer')}
               >
-                <ExternalLink /> {tr('Tester la connexion', 'Test connection')}
+                <ExternalLink /> {t('remoteAccessCard.testConnection')}
               </Button>
               {localGateway && (
                 <Button
@@ -274,33 +243,21 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
                   onClick={() => void action('disable')}
                   disabled={busy}
                 >
-                  {tr('Désactiver l’accès Élise', 'Disable Élise access')}
+                  {t('remoteAccessCard.disableEliseAccess')}
                 </Button>
               )}
             </div>
             <div className="remote-access-share">
-              {qrCode && (
-                <img
-                  src={qrCode}
-                  alt={tr('QR code de connexion à Élise', 'Élise connection QR code')}
-                />
-              )}
+              {qrCode && <img src={qrCode} alt={t('remoteAccessCard.eliseConnectionQrCode')} />}
               <div>
                 <QrCode />
-                <strong>{tr('Ajouter Élise dans l’app', 'Add Élise to the app')}</strong>
-                <p>
-                  {tr(
-                    'Scannez ce code depuis le téléphone de l’aidant après lui avoir installé Tailscale.',
-                    'Scan this code from the caregiver’s phone after installing Tailscale.',
-                  )}
-                </p>
+                <strong>{t('remoteAccessCard.addEliseToTheApp')}</strong>
+                <p>{t('remoteAccessCard.scanThisCodeFromThe')}</p>
                 <Button
                   className="button-secondary"
-                  onClick={() =>
-                    void copyValue(deepLink, tr('Lien pour l’app copié.', 'App link copied.'))
-                  }
+                  onClick={() => void copyValue(deepLink, t('remoteAccessCard.appLinkCopied'))}
                 >
-                  <Smartphone /> {tr('Copier le lien pour l’app', 'Copy app link')}
+                  <Smartphone /> {t('remoteAccessCard.copyAppLink')}
                 </Button>
               </div>
             </div>
@@ -308,47 +265,17 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
         )}
 
         <details className="remote-access-guide">
-          <summary>{tr('Comment inviter un proche ?', 'How do I invite someone?')}</summary>
+          <summary>{t('remoteAccessCard.howDoIInviteSomeone')}</summary>
           <ol>
-            <li>
-              {tr(
-                'Créez son compte et choisissez son rôle dans Élise.',
-                'Create their account and choose their role in Élise.',
-              )}
-            </li>
-            <li>
-              {tr(
-                'Dans Tailscale, partagez uniquement la machine Élise.',
-                'In Tailscale, share only the Élise device.',
-              )}
-            </li>
-            <li>
-              {tr(
-                'Envoyez l’invitation et faites installer Tailscale à l’aidant.',
-                'Send the invitation and have the caregiver install Tailscale.',
-              )}
-            </li>
-            <li>
-              {tr(
-                'Ouvrez Élise avec le lien web ou le QR code de l’app.',
-                'Open Élise with the web link or the app QR code.',
-              )}
-            </li>
+            <li>{t('remoteAccessCard.createTheirAccountAndChoose')}</li>
+            <li>{t('remoteAccessCard.inTailscaleShareOnlyThe')}</li>
+            <li>{t('remoteAccessCard.sendTheInvitationAndHave')}</li>
+            <li>{t('remoteAccessCard.openEliseWithTheWeb')}</li>
           </ol>
-          <p>
-            {tr(
-              'Pour un serveur permanent, désactivez l’expiration de clé uniquement pour la machine Élise.',
-              'For a permanent server, disable key expiry only for the Élise device.',
-            )}
-          </p>
+          <p>{t('remoteAccessCard.forAPermanentServerDisable')}</p>
         </details>
         {!localGateway && status?.state !== 'READY' && (
-          <p className="remote-access-message">
-            {tr(
-              'Pour modifier cet accès, ouvrez Élise depuis le réseau du domicile.',
-              'To change this access, open Élise from your home network.',
-            )}
-          </p>
+          <p className="remote-access-message">{t('remoteAccessCard.toChangeThisAccessOpen')}</p>
         )}
         {notice && <p className="remote-access-message">{notice}</p>}
       </div>

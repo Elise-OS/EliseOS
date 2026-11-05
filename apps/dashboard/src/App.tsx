@@ -51,7 +51,15 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { copy, dashboardLanguages, isLocale, type Locale } from './i18n';
+import {
+  currentLanguage,
+  dashboardLanguages,
+  dateLocale,
+  type Locale,
+  setLanguage,
+  t as i18nT,
+  textBlock,
+} from './i18n';
 import { resizeResidentPhoto, Setup } from './Setup';
 import { HomePlanEditor } from './HomePlanEditor';
 import { HomeOverview, homeRealtimeEventAction } from './HomeOverview';
@@ -372,7 +380,6 @@ export function SidebarNavigation({
 }
 
 export function SidebarBehaviorSetting({
-  locale,
   enabled,
   disabled,
   onChange,
@@ -389,15 +396,9 @@ export function SidebarBehaviorSetting({
           <PanelLeftClose />
         </span>
         <div>
-          <h2>{locale === 'fr' ? 'Barre latérale automatique' : 'Automatic sidebar'}</h2>
+          <h2>{i18nT('app.automaticSidebar')}</h2>
           <p>
-            {disabled
-              ? locale === 'fr'
-                ? 'La barre reste ouverte pendant la création de votre environnement.'
-                : 'The sidebar stays open while your environment is being created.'
-              : locale === 'fr'
-                ? 'Masquez la barre lorsque la souris la quitte. Approchez le bord gauche pour la rouvrir.'
-                : 'Hide the sidebar when the pointer leaves it. Move to the left edge to reopen it.'}
+            {disabled ? i18nT('app.theSidebarStaysOpenWhile') : i18nT('app.hideTheSidebarWhenThe')}
           </p>
         </div>
         <button
@@ -405,11 +406,7 @@ export function SidebarBehaviorSetting({
           className={`config-toggle-btn ${enabled && !disabled ? 'is-on' : ''}`}
           role="switch"
           aria-checked={enabled && !disabled}
-          aria-label={
-            locale === 'fr'
-              ? 'Masquer automatiquement la barre latérale'
-              : 'Automatically hide the sidebar'
-          }
+          aria-label={i18nT('app.automaticallyHideTheSidebar')}
           disabled={disabled}
           onClick={() => onChange(!enabled)}
         >
@@ -421,7 +418,6 @@ export function SidebarBehaviorSetting({
 }
 
 export function Login({
-  locale,
   onSuccess,
   onPasswordChangeRequired,
   onOpenSetup,
@@ -458,16 +454,12 @@ export function Login({
         <span>Élise</span>
       </div>
       <Card className="login-card">
-        <span className="eyebrow">{locale === 'fr' ? 'Accès familial' : 'Family access'}</span>
-        <h1>{locale === 'fr' ? 'Heureux de vous revoir.' : 'Welcome back.'}</h1>
-        <p>
-          {locale === 'fr'
-            ? 'Connectez-vous pour retrouver votre environnement Élise.'
-            : 'Sign in to access your Élise home.'}
-        </p>
+        <span className="eyebrow">{i18nT('app.familyAccess')}</span>
+        <h1>{i18nT('app.welcomeBack')}</h1>
+        <p>{i18nT('app.signInToAccessYour')}</p>
         <form onSubmit={(event) => void submit(event)}>
           <label>
-            {locale === 'fr' ? 'Identifiant' : 'Username'}
+            {i18nT('app.username')}
             <input
               value={identifier}
               onChange={(event) => setIdentifier(event.target.value)}
@@ -475,7 +467,7 @@ export function Login({
             />
           </label>
           <label>
-            {locale === 'fr' ? 'Mot de passe' : 'Password'}
+            {i18nT('app.password')}
             <input
               type="password"
               value={password}
@@ -483,51 +475,32 @@ export function Login({
               autoComplete="current-password"
             />
           </label>
-          {error && (
-            <p className="form-error">
-              {locale === 'fr' ? 'Identifiants incorrects.' : 'Incorrect credentials.'}
-            </p>
-          )}
-          <Button type="submit">{locale === 'fr' ? 'Se connecter' : 'Sign in'}</Button>
+          {error && <p className="form-error">{i18nT('app.incorrectCredentials')}</p>}
+          <Button type="submit">{i18nT('app.signIn')}</Button>
         </form>
         <div className="login-setup">
-          <p>
-            {locale === 'fr'
-              ? 'Vous installez Élise pour la première fois ?'
-              : 'Setting up Élise for the first time?'}
-          </p>
+          <p>{i18nT('app.settingUpEliseForThe')}</p>
           <Button type="button" className="login-setup-button" onClick={onOpenSetup}>
-            {locale === 'fr' ? 'Créer un environnement Élise' : 'Create an Élise home'}
+            {i18nT('app.createAnEliseHome')}
           </Button>
-          <small>
-            {locale === 'fr'
-              ? 'Cette étape crée le compte propriétaire protégé de la maison.'
-              : 'This step creates the home’s protected owner account.'}
-          </small>
+          <small>{i18nT('app.thisStepCreatesTheHome')}</small>
         </div>
       </Card>
       <p className="login-privacy">
-        <ShieldCheck />{' '}
-        {locale === 'fr'
-          ? 'Vos données ne quittent pas le domicile.'
-          : 'Your data never leaves the home.'}
+        <ShieldCheck /> {i18nT('app.yourDataNeverLeavesThe')}
       </p>
     </main>
   );
 }
 
-function ChangePassword({ locale, onSuccess }: { locale: Locale; onSuccess: () => void }) {
+function ChangePassword({ onSuccess }: { locale: Locale; onSuccess: () => void }) {
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [error, setError] = useState('');
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (password.length < 12 || password !== confirmation) {
-      setError(
-        locale === 'fr'
-          ? 'Utilisez au moins 12 caractères et confirmez le même mot de passe.'
-          : 'Use at least 12 characters and enter the same password twice.',
-      );
+      setError(i18nT('app.useAtLeast12Characters'));
       return;
     }
     const response = await fetch('/api/v1/auth/change-password', {
@@ -536,11 +509,7 @@ function ChangePassword({ locale, onSuccess }: { locale: Locale; onSuccess: () =
       body: JSON.stringify({ newPassword: password }),
     });
     if (!response.ok) {
-      setError(
-        locale === 'fr'
-          ? 'Le mot de passe n’a pas pu être modifié.'
-          : 'The password could not be changed.',
-      );
+      setError(i18nT('app.thePasswordCouldNotBe'));
       return;
     }
     onSuccess();
@@ -554,16 +523,12 @@ function ChangePassword({ locale, onSuccess }: { locale: Locale; onSuccess: () =
         <span>Élise</span>
       </div>
       <Card className="login-card">
-        <span className="eyebrow">{locale === 'fr' ? 'Première connexion' : 'First sign-in'}</span>
-        <h1>{locale === 'fr' ? 'Choisissez votre mot de passe.' : 'Choose your password.'}</h1>
-        <p>
-          {locale === 'fr'
-            ? 'Le mot de passe temporaire doit être remplacé avant d’accéder aux informations du résident.'
-            : 'The temporary password must be replaced before accessing resident information.'}
-        </p>
+        <span className="eyebrow">{i18nT('app.firstSignIn')}</span>
+        <h1>{i18nT('app.chooseYourPassword')}</h1>
+        <p>{i18nT('app.theTemporaryPasswordMustBe')}</p>
         <form onSubmit={(event) => void submit(event)}>
           <label>
-            {locale === 'fr' ? 'Nouveau mot de passe' : 'New password'}
+            {i18nT('app.newPassword')}
             <input
               type="password"
               minLength={12}
@@ -573,7 +538,7 @@ function ChangePassword({ locale, onSuccess }: { locale: Locale; onSuccess: () =
             />
           </label>
           <label>
-            {locale === 'fr' ? 'Confirmer' : 'Confirm'}
+            {i18nT('app.confirm')}
             <input
               type="password"
               minLength={12}
@@ -583,9 +548,7 @@ function ChangePassword({ locale, onSuccess }: { locale: Locale; onSuccess: () =
             />
           </label>
           {error && <p className="form-error">{error}</p>}
-          <Button type="submit">
-            {locale === 'fr' ? 'Enregistrer et continuer' : 'Save and continue'}
-          </Button>
+          <Button type="submit">{i18nT('app.saveAndContinue')}</Button>
         </form>
       </Card>
     </main>
@@ -603,7 +566,7 @@ function formatMinute(value: number | null): string {
   return `${String(Math.floor(value / 60)).padStart(2, '0')} h ${String(value % 60).padStart(2, '0')}`;
 }
 
-function residentAge(value: string | null, locale: Locale): string | null {
+function residentAge(value: string | null): string | null {
   if (!value) return null;
   const birthDate = new Date(value);
   if (Number.isNaN(birthDate.getTime())) return null;
@@ -615,48 +578,48 @@ function residentAge(value: string | null, locale: Locale): string | null {
   ) {
     age -= 1;
   }
-  return locale === 'fr' ? `${age} ans` : `${age} years old`;
+  return i18nT('app.yearsOld', { age });
 }
 
-function residentMobilityLabel(value: string, locale: Locale): string {
-  const labels: Record<string, [string, string]> = {
-    INDEPENDENT: ['Se déplace sans aide', 'Moves independently'],
-    CANE: ['Utilise une canne', 'Uses a cane'],
-    WALKER: ['Utilise un déambulateur', 'Uses a walker'],
-    WHEELCHAIR: ['Utilise un fauteuil roulant', 'Uses a wheelchair'],
-    UNKNOWN: ['Non renseignée', 'Not provided'],
+function residentMobilityLabel(value: string): string {
+  const labels: Record<string, () => string> = {
+    INDEPENDENT: () => i18nT('app.residentMobilityLabel.labels.INDEPENDENT'),
+    CANE: () => i18nT('app.residentMobilityLabel.labels.CANE'),
+    WALKER: () => i18nT('app.residentMobilityLabel.labels.WALKER'),
+    WHEELCHAIR: () => i18nT('app.residentMobilityLabel.labels.WHEELCHAIR'),
+    UNKNOWN: () => i18nT('app.residentMobilityLabel.labels.UNKNOWN'),
   };
-  return labels[value]?.[locale === 'fr' ? 0 : 1] ?? value;
+  return labels[value]?.() ?? value;
 }
 
-function supportNeedLabel(value: string, locale: Locale): string {
-  const labels: Record<string, [string, string]> = {
-    MEMORY: ['Mémoire et repères', 'Memory and orientation'],
-    PARKINSON: ['Parkinson et mobilité', 'Parkinson’s and mobility'],
-    FALL_RISK: ['Risque de chute', 'Fall risk'],
-    VISION: ['Déficience visuelle', 'Visual impairment'],
-    HEARING: ['Déficience auditive', 'Hearing impairment'],
-    OTHER: ['Autre information importante', 'Other important information'],
+function supportNeedLabel(value: string): string {
+  const labels: Record<string, () => string> = {
+    MEMORY: () => i18nT('app.supportNeedLabel.labels.MEMORY'),
+    PARKINSON: () => i18nT('app.supportNeedLabel.labels.PARKINSON'),
+    FALL_RISK: () => i18nT('app.supportNeedLabel.labels.FALL_RISK'),
+    VISION: () => i18nT('app.supportNeedLabel.labels.VISION'),
+    HEARING: () => i18nT('app.supportNeedLabel.labels.HEARING'),
+    OTHER: () => i18nT('app.supportNeedLabel.labels.OTHER'),
   };
-  return labels[value]?.[locale === 'fr' ? 0 : 1] ?? value;
+  return labels[value]?.() ?? value;
 }
 
-function habitLabel(value: string, locale: Locale): string {
-  const labels: Record<string, [string, string]> = {
-    WAKE_UP: ['Réveil', 'Wake-up'],
-    BREAKFAST: ['Petit-déjeuner', 'Breakfast'],
-    LUNCH: ['Déjeuner', 'Lunch'],
-    DINNER: ['Dîner', 'Dinner'],
-    BEDTIME: ['Coucher', 'Bedtime'],
-    NIGHT: ['Nuit', 'Night'],
+function habitLabel(value: string): string {
+  const labels: Record<string, () => string> = {
+    WAKE_UP: () => i18nT('app.habitLabel.labels.WAKE_UP'),
+    BREAKFAST: () => i18nT('app.habitLabel.labels.BREAKFAST'),
+    LUNCH: () => i18nT('app.habitLabel.labels.LUNCH'),
+    DINNER: () => i18nT('app.habitLabel.labels.DINNER'),
+    BEDTIME: () => i18nT('app.habitLabel.labels.BEDTIME'),
+    NIGHT: () => i18nT('app.habitLabel.labels.NIGHT'),
     // Habits named during the first setup keep their French names.
-    Lever: ['Lever', 'Waking up'],
-    Déjeuner: ['Déjeuner', 'Lunch'],
-    Dîner: ['Dîner', 'Dinner'],
-    Coucher: ['Coucher', 'Bedtime'],
+    Lever: () => i18nT('app.habitLabel.labels.Lever'),
+    Déjeuner: () => i18nT('app.habitLabel.labels.Déjeuner'),
+    Dîner: () => i18nT('app.habitLabel.labels.Dîner'),
+    Coucher: () => i18nT('app.habitLabel.labels.Coucher'),
   };
   return (
-    labels[value]?.[locale === 'fr' ? 0 : 1] ??
+    labels[value]?.() ??
     value
       .toLowerCase()
       .replaceAll('_', ' ')
@@ -664,24 +627,24 @@ function habitLabel(value: string, locale: Locale): string {
   );
 }
 
-function capabilityLabel(capability: string, locale: Locale): string {
-  const labels: Record<string, [string, string]> = {
-    motion: ['Mouvement', 'Motion'],
-    occupancy: ['Présence', 'Occupancy'],
-    person_presence: ['Personne détectée', 'Person detected'],
-    contact: ['Ouverture', 'Opening'],
-    dry_contact: ['Contact sec', 'Dry contact'],
-    button: ['Bouton d’appel', 'Call button'],
-    temperature: ['Température', 'Temperature'],
-    humidity: ['Humidité', 'Humidity'],
-    power: ['Puissance', 'Power'],
-    energy: ['Énergie', 'Energy'],
-    battery: ['Batterie', 'Battery'],
+function capabilityLabel(capability: string): string {
+  const labels: Record<string, () => string> = {
+    motion: () => i18nT('app.capabilityLabel.labels.motion'),
+    occupancy: () => i18nT('app.capabilityLabel.labels.occupancy'),
+    person_presence: () => i18nT('app.capabilityLabel.labels.person_presence'),
+    contact: () => i18nT('app.capabilityLabel.labels.contact'),
+    dry_contact: () => i18nT('app.capabilityLabel.labels.dry_contact'),
+    button: () => i18nT('app.capabilityLabel.labels.button'),
+    temperature: () => i18nT('app.capabilityLabel.labels.temperature'),
+    humidity: () => i18nT('app.capabilityLabel.labels.humidity'),
+    power: () => i18nT('app.capabilityLabel.labels.power'),
+    energy: () => i18nT('app.capabilityLabel.labels.energy'),
+    battery: () => i18nT('app.capabilityLabel.labels.battery'),
   };
-  return labels[capability]?.[locale === 'fr' ? 0 : 1] ?? capability;
+  return labels[capability]?.() ?? capability;
 }
 
-export function activityDescription(item: ActivityItem, locale: Locale): string {
+export function activityDescription(item: ActivityItem): string {
   const payload =
     item.payload && typeof item.payload === 'object'
       ? (item.payload as Record<string, unknown>)
@@ -703,64 +666,60 @@ export function activityDescription(item: ActivityItem, locale: Locale): string 
       : null;
   const contactOpen =
     rawValue === true || rawValue === 'open' || rawValue === 'on' || rawValue === 1;
-  const labels: Record<string, [string, string]> = {
-    motion: ['Mouvement détecté', 'Movement detected'],
-    occupancy:
+  const bed = () =>
+    contactOpen === (bedOccupiedWhen === 'OPEN')
+      ? i18nT('app.activityText.bedOccupied')
+      : i18nT('app.activityText.bedUnoccupied');
+  const labels: Record<string, () => string> = {
+    motion: () => i18nT('app.activityText.movementDetected'),
+    occupancy: () =>
       contactRole === 'BED'
         ? contactOpen
-          ? ['Lit occupé', 'Bed occupied']
-          : ['Lit libre', 'Bed unoccupied']
-        : ['Présence détectée', 'Presence detected'],
-    person_presence: ['Personne détectée', 'Person detected'],
-    contact:
+          ? i18nT('app.activityText.bedOccupied')
+          : i18nT('app.activityText.bedUnoccupied')
+        : i18nT('app.activityText.presenceDetected'),
+    person_presence: () => i18nT('app.activityText.personDetected'),
+    contact: () =>
       contactRole === 'BED'
-        ? contactOpen === (bedOccupiedWhen === 'OPEN')
-          ? ['Lit occupé', 'Bed occupied']
-          : ['Lit libre', 'Bed unoccupied']
+        ? bed()
         : contactRole === 'FRIDGE'
           ? contactOpen
-            ? ['Frigo ouvert', 'Fridge open']
-            : ['Frigo fermé', 'Fridge closed']
+            ? i18nT('app.activityText.fridgeOpen')
+            : i18nT('app.activityText.fridgeClosed')
           : contactOpen
-            ? ['Ouverture détectée', 'Opening detected']
-            : ['Fermeture détectée', 'Closing detected'],
-    dry_contact:
+            ? i18nT('app.activityText.openingDetected')
+            : i18nT('app.activityText.closingDetected'),
+    dry_contact: () =>
       contactRole === 'BED'
-        ? contactOpen === (bedOccupiedWhen === 'OPEN')
-          ? ['Lit occupé', 'Bed occupied']
-          : ['Lit libre', 'Bed unoccupied']
+        ? bed()
         : contactOpen
-          ? ['Contact ouvert', 'Contact open']
-          : ['Contact fermé', 'Contact closed'],
-    temperature: [
-      value ? `Température · ${value}` : 'Température relevée',
-      value ? `Temperature · ${value}` : 'Temperature reading',
-    ],
-    humidity: [
-      value ? `Humidité · ${value}` : 'Humidité relevée',
-      value ? `Humidity · ${value}` : 'Humidity reading',
-    ],
-    illuminance: [
-      value ? `Luminosité · ${value}` : 'Luminosité mesurée',
-      value ? `Light level · ${value}` : 'Light level reading',
-    ],
-    battery: [
-      value ? `Batterie · ${value}` : 'Niveau de batterie reçu',
-      value ? `Battery · ${value}` : 'Battery level received',
-    ],
-    power: [
-      value ? `Puissance · ${value}` : 'Consommation instantanée',
-      value ? `Power · ${value}` : 'Current power use',
-    ],
-    energy: [
-      value ? `Énergie · ${value}` : 'Consommation cumulée',
-      value ? `Energy · ${value}` : 'Cumulative energy use',
-    ],
-    button: ['Bouton d’appel activé', 'Call button pressed'],
+          ? i18nT('app.activityText.contactOpen')
+          : i18nT('app.activityText.contactClosed'),
+    temperature: () =>
+      value
+        ? i18nT('app.activityText.temperatureWithValue', { value })
+        : i18nT('app.activityText.temperature'),
+    humidity: () =>
+      value
+        ? i18nT('app.activityText.humidityWithValue', { value })
+        : i18nT('app.activityText.humidity'),
+    illuminance: () =>
+      value
+        ? i18nT('app.activityText.illuminanceWithValue', { value })
+        : i18nT('app.activityText.illuminance'),
+    battery: () =>
+      value
+        ? i18nT('app.activityText.batteryWithValue', { value })
+        : i18nT('app.activityText.battery'),
+    power: () =>
+      value ? i18nT('app.activityText.powerWithValue', { value }) : i18nT('app.activityText.power'),
+    energy: () =>
+      value
+        ? i18nT('app.activityText.energyWithValue', { value })
+        : i18nT('app.activityText.energy'),
+    button: () => i18nT('app.activityText.callButtonPressed'),
   };
-  return (
-    labels[item.capability]?.[locale === 'fr' ? 0 : 1] ?? capabilityLabel(item.capability, locale)
-  );
+  return labels[item.capability]?.() ?? capabilityLabel(item.capability);
 }
 
 export function SimulationPanel({
@@ -768,7 +727,6 @@ export function SimulationPanel({
   running,
   notice,
   onRun,
-  locale = 'fr',
 }: {
   scenarios: SimulationScenario[];
   running: string | null;
@@ -776,7 +734,6 @@ export function SimulationPanel({
   onRun: (scenario: string) => void;
   locale?: Locale;
 }) {
-  const fr = locale === 'fr';
   return (
     <article className="settings-option-row settings-demo-row simulation-card">
       <div className="settings-option-copy">
@@ -784,13 +741,9 @@ export function SimulationPanel({
           <Radar />
         </span>
         <div>
-          <span className="eyebrow">{fr ? 'Mode démonstration' : 'Demo mode'}</span>
-          <h2>{fr ? 'Tester une situation' : 'Test a situation'}</h2>
-          <p>
-            {fr
-              ? 'Ces scénarios utilisent le même parcours que les capteurs du domicile. Ils restent réservés à cette installation de test.'
-              : 'These scenarios follow the same path as the home’s sensors. They are reserved for this test installation.'}
-          </p>
+          <span className="eyebrow">{i18nT('app.demoMode')}</span>
+          <h2>{i18nT('app.testASituation')}</h2>
+          <p>{i18nT('app.theseScenariosFollowTheSame')}</p>
         </div>
       </div>
       <div className="simulation-grid">
@@ -805,15 +758,7 @@ export function SimulationPanel({
               <strong>{scenario.title}</strong>
               <small>{scenario.description}</small>
             </span>
-            <b>
-              {running === scenario.id
-                ? fr
-                  ? 'Simulation…'
-                  : 'Simulating…'
-                : fr
-                  ? 'Lancer'
-                  : 'Run'}
-            </b>
+            <b>{running === scenario.id ? i18nT('app.simulating') : i18nT('app.run')}</b>
           </button>
         ))}
       </div>
@@ -833,14 +778,14 @@ function dateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function medicationStatusLabel(status: MedicationDoseItem['status'], locale: Locale): string {
+function medicationStatusLabel(status: MedicationDoseItem['status']): string {
   const labels = {
-    PENDING: ['Prévue', 'Scheduled'],
-    TAKEN: ['Confirmée', 'Confirmed'],
-    MISSED: ['Non confirmée', 'Unconfirmed'],
-    SKIPPED: ['Ignorée', 'Skipped'],
+    PENDING: () => i18nT('app.medicationStatusLabel.labels.PENDING'),
+    TAKEN: () => i18nT('app.medicationStatusLabel.labels.TAKEN'),
+    MISSED: () => i18nT('app.medicationStatusLabel.labels.MISSED'),
+    SKIPPED: () => i18nT('app.medicationStatusLabel.labels.SKIPPED'),
   } as const;
-  return labels[status][locale === 'fr' ? 0 : 1];
+  return labels[status]();
 }
 
 export function MedicationPanel({
@@ -881,12 +826,17 @@ export function MedicationPanel({
       (dose) => dose.status === 'PENDING' && new Date(dose.scheduledFor).getTime() >= Date.now(),
     ) ??
     todayDoses.find((dose) => dose.status === 'PENDING');
-  const dayLabels =
-    locale === 'fr' ? ['D', 'L', 'M', 'M', 'J', 'V', 'S'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  const fullDayLabels =
-    locale === 'fr'
-      ? ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
-      : ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  // Sunday first, as daysOfWeek counts them; names come from the language itself.
+  const weekday = (style: 'narrow' | 'long') =>
+    Array.from({ length: 7 }, (_, day) => {
+      const name = new Intl.DateTimeFormat(dateLocale(), {
+        weekday: style,
+        timeZone: 'UTC',
+      }).format(new Date(Date.UTC(2023, 0, 1 + day)));
+      return name.charAt(0).toLocaleUpperCase(dateLocale()) + name.slice(1);
+    });
+  const dayLabels = weekday('narrow');
+  const fullDayLabels = weekday('long');
   const toggleDay = (day: number) => {
     const selected = draft.daysOfWeek.includes(day);
     const daysOfWeek = selected
@@ -911,15 +861,9 @@ export function MedicationPanel({
     <section className="section-view medication-page">
       <header className="page-hero medication-heading">
         <div className="page-hero__copy">
-          <span className="page-hero__eyebrow">
-            {locale === 'fr' ? 'Pilulier local' : 'Local pillbox'}
-          </span>
-          <h2 className="page-hero__title">{locale === 'fr' ? 'Médicaments' : 'Medications'}</h2>
-          <p className="page-hero__text">
-            {locale === 'fr'
-              ? 'Des repères simples pour accompagner les prises, sans remplacer un avis médical.'
-              : 'Simple reminders to support medication routines, without replacing medical advice.'}
-          </p>
+          <span className="page-hero__eyebrow">{i18nT('app.localPillbox')}</span>
+          <h2 className="page-hero__title">{i18nT('app.medications')}</h2>
+          <p className="page-hero__text">{i18nT('app.simpleRemindersToSupportMedication')}</p>
         </div>
       </header>
 
@@ -928,16 +872,12 @@ export function MedicationPanel({
           <div className="next-dose-topline">
             <span className="eyebrow">
               {focusDose?.status === 'MISSED'
-                ? locale === 'fr'
-                  ? 'À vérifier avec douceur'
-                  : 'A gentle check may help'
-                : locale === 'fr'
-                  ? 'Prochaine prise'
-                  : 'Next dose'}
+                ? i18nT('app.aGentleCheckMayHelp')
+                : i18nT('app.nextDose')}
             </span>
             {focusDose && (
               <StatusPill tone={focusDose.status === 'MISSED' ? 'attention' : 'neutral'}>
-                {medicationStatusLabel(focusDose.status, locale)}
+                {medicationStatusLabel(focusDose.status)}
               </StatusPill>
             )}
           </div>
@@ -950,40 +890,30 @@ export function MedicationPanel({
                 <p>{focusDose.schedule.medication.instructions}</p>
               )}
               {focusDose.status === 'MISSED' && (
-                <p className="dose-caution">
-                  {locale === 'fr'
-                    ? 'Cette prise n’a pas encore été confirmée. Un oubli est possible ; vérifiez simplement avant d’agir.'
-                    : 'This dose has not been confirmed yet. It may have been forgotten; please check before acting.'}
-                </p>
+                <p className="dose-caution">{i18nT('app.thisDoseHasNotBeen')}</p>
               )}
               <div className="dose-actions">
                 <Button type="button" onClick={() => onConfirm(focusDose.id)}>
                   <CircleCheck />
-                  {locale === 'fr' ? 'Confirmer la prise' : 'Confirm dose'}
+                  {i18nT('app.confirmDose')}
                 </Button>
                 <Button
                   type="button"
                   className="button-secondary"
                   onClick={() => onSkip(focusDose.id)}
                 >
-                  {locale === 'fr' ? 'Indiquer comme ignorée' : 'Mark as skipped'}
+                  {i18nT('app.markAsSkipped')}
                 </Button>
               </div>
             </>
           ) : (
             <div className="medication-empty">
               <Pill />
-              <h2>
-                {locale === 'fr' ? 'Aucune prise à venir aujourd’hui' : 'No upcoming dose today'}
-              </h2>
+              <h2>{i18nT('app.noUpcomingDoseToday')}</h2>
               <p>
                 {medications.length === 0
-                  ? locale === 'fr'
-                    ? 'Ajoutez un premier traitement pour préparer un repère quotidien.'
-                    : 'Add a first treatment to prepare a daily reminder.'
-                  : locale === 'fr'
-                    ? 'Toutes les prises prévues aujourd’hui ont été traitées.'
-                    : 'All scheduled doses for today have been handled.'}
+                  ? i18nT('app.addAFirstTreatmentTo')
+                  : i18nT('app.allScheduledDosesForToday')}
               </p>
             </div>
           )}
@@ -995,32 +925,25 @@ export function MedicationPanel({
         </Card>
 
         <Card className="medication-today-card">
-          <span className="eyebrow">{locale === 'fr' ? 'Aujourd’hui' : 'Today'}</span>
-          <h2>{locale === 'fr' ? 'Le fil des prises' : 'Dose timeline'}</h2>
-          <div
-            className="dose-summary"
-            aria-label={locale === 'fr' ? 'Résumé des prises' : 'Dose summary'}
-          >
+          <span className="eyebrow">{i18nT('app.today')}</span>
+          <h2>{i18nT('app.doseTimeline')}</h2>
+          <div className="dose-summary" aria-label={i18nT('app.doseSummary')}>
             <span>
               <strong>{todayDoses.filter((dose) => dose.status === 'TAKEN').length}</strong>
-              {locale === 'fr' ? ' confirmée(s)' : ' confirmed'}
+              {i18nT('app.confirmed')}
             </span>
             <span>
               <strong>{todayDoses.filter((dose) => dose.status === 'PENDING').length}</strong>
-              {locale === 'fr' ? ' prévue(s)' : ' scheduled'}
+              {i18nT('app.scheduled')}
             </span>
             <span>
               <strong>{todayDoses.filter((dose) => dose.status === 'MISSED').length}</strong>
-              {locale === 'fr' ? ' à vérifier' : ' to check'}
+              {i18nT('app.toCheck')}
             </span>
           </div>
           <div className="dose-list">
             {todayDoses.length === 0 ? (
-              <p className="empty-state">
-                {locale === 'fr'
-                  ? 'Aucune prise planifiée pour cette journée.'
-                  : 'No dose planned today.'}
-              </p>
+              <p className="empty-state">{i18nT('app.noDosePlannedToday')}</p>
             ) : (
               todayDoses.map((dose) => (
                 <article className={`dose-row status-${dose.status.toLowerCase()}`} key={dose.id}>
@@ -1030,7 +953,7 @@ export function MedicationPanel({
                     <small>{dose.schedule.medication.dosage}</small>
                   </span>
                   <StatusPill tone={dose.status === 'MISSED' ? 'attention' : 'neutral'}>
-                    {medicationStatusLabel(dose.status, locale)}
+                    {medicationStatusLabel(dose.status)}
                   </StatusPill>
                 </article>
               ))
@@ -1041,10 +964,8 @@ export function MedicationPanel({
 
       <div className="medication-secondary-grid">
         <Card className="medication-history-card">
-          <span className="eyebrow">
-            {locale === 'fr' ? 'Sept derniers jours' : 'Last seven days'}
-          </span>
-          <h2>{locale === 'fr' ? 'Historique' : 'History'}</h2>
+          <span className="eyebrow">{i18nT('app.lastSevenDays')}</span>
+          <h2>{i18nT('app.history')}</h2>
           <div className="dose-history">
             {[...ordered]
               .reverse()
@@ -1062,33 +983,25 @@ export function MedicationPanel({
                   <span>
                     <strong>{dose.schedule.medication.name}</strong>
                     <small>
-                      {medicationStatusLabel(dose.status, locale)}
+                      {medicationStatusLabel(dose.status)}
                       {dose.confirmedBy ? ` · ${dose.confirmedBy.displayName}` : ''}
                     </small>
                   </span>
                 </article>
               ))}
             {ordered.length === 0 && (
-              <p className="empty-state">
-                {locale === 'fr'
-                  ? 'L’historique se remplira au fil des prises.'
-                  : 'History will appear as doses are recorded.'}
-              </p>
+              <p className="empty-state">{i18nT('app.historyWillAppearAsDoses')}</p>
             )}
           </div>
         </Card>
 
         <Card className="medication-form-card">
-          <span className="eyebrow">{locale === 'fr' ? 'Nouveau repère' : 'New reminder'}</span>
-          <h2>{locale === 'fr' ? 'Ajouter un traitement' : 'Add a treatment'}</h2>
-          <p>
-            {locale === 'fr'
-              ? 'Recopiez uniquement les informations déjà données par le professionnel de santé.'
-              : 'Only copy information already provided by the healthcare professional.'}
-          </p>
+          <span className="eyebrow">{i18nT('app.newReminder')}</span>
+          <h2>{i18nT('app.addATreatment')}</h2>
+          <p>{i18nT('app.onlyCopyInformationAlreadyProvided')}</p>
           <form onSubmit={(event) => void submit(event)}>
             <label>
-              {locale === 'fr' ? 'Nom du traitement' : 'Treatment name'}
+              {i18nT('app.treatmentName')}
               <input
                 required
                 maxLength={150}
@@ -1097,17 +1010,17 @@ export function MedicationPanel({
               />
             </label>
             <label>
-              {locale === 'fr' ? 'Dosage indiqué' : 'Prescribed dosage'}
+              {i18nT('app.prescribedDosage')}
               <input
                 required
                 maxLength={150}
-                placeholder={locale === 'fr' ? 'Ex. 1 comprimé' : 'E.g. 1 tablet'}
+                placeholder={i18nT('app.eG1Tablet')}
                 value={draft.dosage}
                 onChange={(event) => setDraft({ ...draft, dosage: event.target.value })}
               />
             </label>
             <label>
-              {locale === 'fr' ? 'Consigne (facultatif)' : 'Instructions (optional)'}
+              {i18nT('app.instructionsOptional')}
               <textarea
                 maxLength={1000}
                 value={draft.instructions}
@@ -1116,7 +1029,7 @@ export function MedicationPanel({
             </label>
             <div className="medication-form-row">
               <label>
-                {locale === 'fr' ? 'Heure prévue' : 'Scheduled time'}
+                {i18nT('app.scheduledTime')}
                 <input
                   type="time"
                   required
@@ -1125,7 +1038,7 @@ export function MedicationPanel({
                 />
               </label>
               <label>
-                {locale === 'fr' ? 'Marge de confirmation' : 'Confirmation window'}
+                {i18nT('app.confirmationWindow')}
                 <select
                   value={draft.graceMinutes}
                   onChange={(event) =>
@@ -1139,7 +1052,7 @@ export function MedicationPanel({
               </label>
             </div>
             <fieldset>
-              <legend>{locale === 'fr' ? 'Jours concernés' : 'Scheduled days'}</legend>
+              <legend>{i18nT('app.scheduledDays')}</legend>
               <div className="medication-days">
                 {dayLabels.map((label, day) => (
                   <button
@@ -1155,13 +1068,7 @@ export function MedicationPanel({
               </div>
             </fieldset>
             <Button type="submit" disabled={submitting}>
-              {submitting
-                ? locale === 'fr'
-                  ? 'Ajout…'
-                  : 'Adding…'
-                : locale === 'fr'
-                  ? 'Ajouter ce traitement'
-                  : 'Add treatment'}
+              {submitting ? i18nT('app.adding') : i18nT('app.addTreatment')}
             </Button>
           </form>
         </Card>
@@ -1171,7 +1078,6 @@ export function MedicationPanel({
 }
 
 function CamerasPanel({
-  locale,
   cameras,
   recordings,
   session,
@@ -1192,7 +1098,7 @@ function CamerasPanel({
     (camera) => camera.status === 'ONLINE' && !camera.privacyMode,
   ).length;
   const formatDate = (value: string) =>
-    new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-GB', {
+    new Intl.DateTimeFormat(dateLocale(), {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(value));
@@ -1209,21 +1115,15 @@ function CamerasPanel({
             <Video aria-hidden="true" />
           </span>
           <div>
-            <span className="page-hero__eyebrow">
-              {locale === 'fr' ? 'Surveillance du domicile' : 'Home cameras'}
-            </span>
-            <h1 className="page-hero__title">{locale === 'fr' ? 'Caméras' : 'Cameras'}</h1>
-            <p className="page-hero__text">
-              {locale === 'fr'
-                ? 'Flux en direct et clips déclenchés par l’ouverture de l’entrée principale.'
-                : 'Live streams and clips triggered when the main entrance opens.'}
-            </p>
+            <span className="page-hero__eyebrow">{i18nT('app.homeCameras')}</span>
+            <h1 className="page-hero__title">{i18nT('app.cameras')}</h1>
+            <p className="page-hero__text">{i18nT('app.liveStreamsAndClipsTriggered')}</p>
           </div>
         </div>
         <div className="page-hero__actions camera-hero-actions">
           <span className="camera-online-count">
             <span className="camera-online-dot" />
-            {onlineCameras} {locale === 'fr' ? 'en ligne' : 'online'}
+            {onlineCameras} {i18nT('app.online')}
           </span>
           <button
             type="button"
@@ -1234,7 +1134,7 @@ function CamerasPanel({
             }}
           >
             <Maximize2 aria-hidden="true" />
-            {locale === 'fr' ? 'Plein écran' : 'Full screen'}
+            {i18nT('app.fullScreen')}
           </button>
         </div>
       </header>
@@ -1252,12 +1152,8 @@ function CamerasPanel({
               <Tv aria-hidden="true" />
             </span>
             <div>
-              <h2>{locale === 'fr' ? 'Flux en direct' : 'Live streams'}</h2>
-              <p>
-                {locale === 'fr'
-                  ? 'Sélectionnez une caméra pour ouvrir son flux.'
-                  : 'Select a camera to open its live stream.'}
-              </p>
+              <h2>{i18nT('app.liveStreams')}</h2>
+              <p>{i18nT('app.selectACameraToOpen')}</p>
             </div>
           </div>
         </div>
@@ -1276,20 +1172,16 @@ function CamerasPanel({
                       <span className="camera-room-icon">
                         <Video aria-hidden="true" />
                       </span>
-                      <h3>{camera.room?.name ?? (locale === 'fr' ? 'Sans pièce' : 'No room')}</h3>
+                      <h3>{camera.room?.name ?? i18nT('app.noRoom')}</h3>
                     </div>
                     <span
                       className={`camera-live-status ${camera.status === 'ONLINE' && !camera.privacyMode ? 'is-online' : ''}`}
                     >
                       <span />
                       {camera.privacyMode
-                        ? locale === 'fr'
-                          ? 'Intimité'
-                          : 'Privacy'
+                        ? i18nT('app.privacy')
                         : camera.status === 'ONLINE'
-                          ? locale === 'fr'
-                            ? 'En ligne'
-                            : 'Online'
+                          ? i18nT('app.online2')
                           : camera.status}
                     </span>
                   </div>
@@ -1299,31 +1191,24 @@ function CamerasPanel({
                       className="camera-preview-main"
                       disabled={unavailable}
                       onClick={() => onOpen(camera.id)}
-                      aria-label={`${locale === 'fr' ? 'Ouvrir le direct de' : 'Open live stream for'} ${camera.name}`}
+                      aria-label={`${i18nT('app.openLiveStreamFor')} ${camera.name}`}
                     >
                       <span className="camera-preview-scene">
                         <Video aria-hidden="true" />
                       </span>
                       <span className="camera-preview-label">
                         {camera.privacyMode
-                          ? locale === 'fr'
-                            ? 'Mode intimité activé'
-                            : 'Privacy mode enabled'
+                          ? i18nT('app.privacyModeEnabled')
                           : unavailable
-                            ? locale === 'fr'
-                              ? 'Flux indisponible'
-                              : 'Stream unavailable'
-                            : locale === 'fr'
-                              ? 'Ouvrir le flux en direct'
-                              : 'Open live stream'}
+                            ? i18nT('app.streamUnavailable')
+                            : i18nT('app.openLiveStream')}
                       </span>
                     </button>
                   </div>
                   <div className="camera-live-card-footer">
                     <strong>{camera.name}</strong>
                     <button type="button" disabled={unavailable} onClick={() => onOpen(camera.id)}>
-                      {locale === 'fr' ? 'Voir le direct' : 'Open live'}{' '}
-                      <ChevronRight aria-hidden="true" />
+                      {i18nT('app.openLive')} <ChevronRight aria-hidden="true" />
                     </button>
                   </div>
                 </article>
@@ -1334,12 +1219,8 @@ function CamerasPanel({
           <div className="camera-empty camera-empty--inline">
             <Video aria-hidden="true" />
             <div>
-              <h3>{locale === 'fr' ? 'Aucune caméra associée' : 'No cameras connected'}</h3>
-              <p>
-                {locale === 'fr'
-                  ? 'Ajoutez-la dans Mon logement → pièce → Types de capteurs → Caméra.'
-                  : 'Add it under My home → room → Sensor types → Camera.'}
-              </p>
+              <h3>{i18nT('app.noCamerasConnected')}</h3>
+              <p>{i18nT('app.addItUnderMyHome')}</p>
             </div>
           </div>
         )}
@@ -1352,12 +1233,8 @@ function CamerasPanel({
               <Play aria-hidden="true" />
             </span>
             <div>
-              <h2>{locale === 'fr' ? 'Enregistrements' : 'Recordings'}</h2>
-              <p>
-                {locale === 'fr'
-                  ? 'Clips vidéo sans son de 30 s, démarrés à l’ouverture de l’entrée principale et conservés 24 h.'
-                  : '30-second, silent video clips starting when the main entrance opens, kept for 24 hours.'}
-              </p>
+              <h2>{i18nT('app.recordings')}</h2>
+              <p>{i18nT('app.n30SecondSilentVideoClips')}</p>
             </div>
           </div>
         </div>
@@ -1369,16 +1246,15 @@ function CamerasPanel({
                 controls
                 preload="metadata"
                 src={`/api/v1/cameras/recordings/${encodeURIComponent(recording.id)}/video`}
-                aria-label={`${locale === 'fr' ? 'Enregistrement' : 'Recording'} ${recording.cameraName}`}
+                aria-label={`${i18nT('app.recording')} ${recording.cameraName}`}
               />
               <div className="camera-recording-copy">
                 <strong>
-                  {recording.cameraName} ·{' '}
-                  {recording.roomName ?? (locale === 'fr' ? 'Sans pièce' : 'No room')}
+                  {recording.cameraName} · {recording.roomName ?? i18nT('app.noRoom')}
                 </strong>
                 <span className="camera-recording-tag camera-recording-tag--attention">
                   <DoorOpen aria-hidden="true" />
-                  {locale === 'fr' ? 'Ouverture de l’entrée principale' : 'Main entrance opened'}
+                  {i18nT('app.mainEntranceOpened')}
                 </span>
                 <small>
                   {formatDate(recording.capturedAt)} · {formatDuration(recording.durationSeconds)}
@@ -1389,11 +1265,7 @@ function CamerasPanel({
           {!recordings.length && (
             <div className="camera-recordings-empty">
               <Play aria-hidden="true" />
-              <span>
-                {locale === 'fr'
-                  ? 'Les clips apparaîtront ici après une ouverture de l’entrée principale.'
-                  : 'Clips will appear here after the main entrance opens.'}
-              </span>
+              <span>{i18nT('app.clipsWillAppearHereAfter')}</span>
             </div>
           )}
         </div>
@@ -1404,7 +1276,7 @@ function CamerasPanel({
           <div className="camera-viewer-heading">
             <div>
               <span className="camera-live-dot" />
-              <span className="eyebrow">{locale === 'fr' ? 'En direct' : 'Live'}</span>
+              <span className="eyebrow">{i18nT('app.live')}</span>
               <h2>{selectedCamera.name}</h2>
               <p>{selectedCamera.room?.name}</p>
             </div>
@@ -1412,7 +1284,7 @@ function CamerasPanel({
               type="button"
               className="camera-close"
               onClick={onClose}
-              aria-label={locale === 'fr' ? 'Fermer le direct' : 'Close live stream'}
+              aria-label={i18nT('app.closeLiveStream')}
             >
               <X />
             </button>
@@ -1427,11 +1299,7 @@ function CamerasPanel({
             />
           </div>
           <div className="camera-viewer-actions">
-            <small>
-              {locale === 'fr'
-                ? 'Les enregistrements sont vidéo uniquement.'
-                : 'Recordings contain video only.'}
-            </small>
+            <small>{i18nT('app.recordingsContainVideoOnly')}</small>
           </div>
         </Card>
       )}
@@ -1452,18 +1320,14 @@ const blankPerson = {
   temporaryPassword: '',
 };
 
-const personRoleLabel = (role: Person['role'], locale: Locale) => {
+const personRoleLabel = (role: Person['role']) => {
   const labels = {
-    OWNER: ['Propriétaire', 'Owner'],
-    ADMINISTRATOR: ['Administrateur', 'Administrator'],
-    CAREGIVER: ['Aidant', 'Caregiver'],
-    VIEWER: ['Lecture seule', 'Read only'],
+    OWNER: () => i18nT('app.personRoleLabel.labels.OWNER'),
+    ADMINISTRATOR: () => i18nT('app.personRoleLabel.labels.ADMINISTRATOR'),
+    CAREGIVER: () => i18nT('app.personRoleLabel.labels.CAREGIVER'),
+    VIEWER: () => i18nT('app.personRoleLabel.labels.VIEWER'),
   } as const;
-  return role
-    ? labels[role][locale === 'fr' ? 0 : 1]
-    : locale === 'fr'
-      ? 'Sans accès'
-      : 'No access';
+  return role ? labels[role]() : i18nT('app.noAccess');
 };
 
 const personRoleIcon = (role: Person['role']) => {
@@ -1528,11 +1392,7 @@ export function PeoplePanel({
     event.preventDefault();
     const existing = editor === 'new' ? null : editor;
     if (!draft.firstName || !draft.lastName || (!draft.phone && !draft.email)) {
-      setError(
-        locale === 'fr'
-          ? 'Indiquez le nom et un moyen de contact.'
-          : 'Enter a name and contact method.',
-      );
+      setError(i18nT('app.enterANameAndContact'));
       return;
     }
     if (
@@ -1540,11 +1400,7 @@ export function PeoplePanel({
       draft.hasAccess &&
       (!draft.username || draft.temporaryPassword.length < 12)
     ) {
-      setError(
-        locale === 'fr'
-          ? 'Un identifiant et un mot de passe temporaire de 12 caractères sont requis.'
-          : 'A username and 12-character temporary password are required.',
-      );
+      setError(i18nT('app.aUsernameAnd12Character'));
       return;
     }
     setSaving(true);
@@ -1600,12 +1456,7 @@ export function PeoplePanel({
     setSaving(false);
     if (!response.ok || !roleOk) {
       const body = (await response.json().catch(() => null)) as { message?: string } | null;
-      setError(
-        body?.message ??
-          (locale === 'fr'
-            ? 'Impossible d’enregistrer cette fiche.'
-            : 'Unable to save this profile.'),
-      );
+      setError(body?.message ?? i18nT('app.unableToSaveThisProfile'));
       return;
     }
     setEditor(null);
@@ -1617,22 +1468,14 @@ export function PeoplePanel({
   ) => {
     let body: Record<string, string> = { action };
     if (action === 'reset-password') {
-      const password = window.prompt(
-        locale === 'fr'
-          ? 'Mot de passe temporaire (12 caractères minimum)'
-          : 'Temporary password (12 characters minimum)',
-      );
+      const password = window.prompt(i18nT('app.temporaryPassword12CharactersMinimum'));
       if (!password || password.length < 12) return;
       body = { action, temporaryPassword: password };
     } else if (
       !window.confirm(
         action === 'restore'
-          ? locale === 'fr'
-            ? 'Restaurer cette fiche ? L’accès restera suspendu jusqu’à sa réactivation.'
-            : 'Restore this profile? Access will remain suspended until it is enabled.'
-          : locale === 'fr'
-            ? 'Confirmer cette modification d’accès ?'
-            : 'Confirm this access change?',
+          ? i18nT('app.restoreThisProfileAccessWill')
+          : i18nT('app.confirmThisAccessChange'),
       )
     )
       return;
@@ -1644,14 +1487,7 @@ export function PeoplePanel({
     if (response.ok) await load();
   };
   const archive = async (person: Person) => {
-    if (
-      !window.confirm(
-        locale === 'fr'
-          ? 'Archiver cette fiche ? Son historique sera conservé.'
-          : 'Archive this profile? Its history will be kept.',
-      )
-    )
-      return;
+    if (!window.confirm(i18nT('app.archiveThisProfileItsHistory'))) return;
     if ((await fetch(`/api/v1/household/people/${person.id}`, { method: 'DELETE' })).ok)
       await load();
   };
@@ -1668,10 +1504,10 @@ export function PeoplePanel({
     return !person.archived;
   });
   const filters = {
-    ALL: locale === 'fr' ? 'Tous' : 'All',
-    ACCESS: locale === 'fr' ? 'Avec accès' : 'With access',
-    EMERGENCY: locale === 'fr' ? 'Urgence' : 'Emergency',
-    DISABLED: locale === 'fr' ? 'Désactivés' : 'Disabled',
+    ALL: i18nT('app.all'),
+    ACCESS: i18nT('app.withAccess'),
+    EMERGENCY: i18nT('app.emergency'),
+    DISABLED: i18nT('app.disabled'),
   };
   const activePeople = people.filter((person) => !person.archived).length;
   const activeAccess = people.filter(
@@ -1682,44 +1518,33 @@ export function PeoplePanel({
   ).length;
 
   if (loading)
-    return (
-      <DataLoadingScreen
-        locale={locale}
-        message={locale === 'fr' ? 'Préparation de vos proches…' : 'Preparing your care circle…'}
-      />
-    );
+    return <DataLoadingScreen locale={locale} message={i18nT('app.preparingYourCareCircle')} />;
 
   return (
     <section className="section-view people-page">
       <header className="page-hero people-hero">
         <div className="page-hero__copy people-title-row">
           <div>
-            <span className="page-hero__eyebrow">
-              {locale === 'fr' ? 'Cercle de confiance' : 'Care circle'}
-            </span>
-            <h2 className="page-hero__title">{locale === 'fr' ? 'Les proches' : 'People'}</h2>
-            <p className="page-hero__text">
-              {locale === 'fr'
-                ? 'Les bonnes personnes, avec le bon niveau d’accès.'
-                : 'The right people, with the right level of access.'}
-            </p>
+            <span className="page-hero__eyebrow">{i18nT('app.careCircle')}</span>
+            <h2 className="page-hero__title">{i18nT('app.people')}</h2>
+            <p className="page-hero__text">{i18nT('app.theRightPeopleWithThe')}</p>
           </div>
         </div>
         {canManage && (
           <Button className="people-add-button" onClick={() => edit()}>
             <Plus />
-            {locale === 'fr' ? 'Ajouter un proche' : 'Add person'}
+            {i18nT('app.addPerson')}
           </Button>
         )}
       </header>
-      <div className="people-overview" aria-label={locale === 'fr' ? 'Résumé' : 'Summary'}>
+      <div className="people-overview" aria-label={i18nT('app.summary')}>
         <div>
           <span className="people-overview-icon people-overview-icon--family">
             <UserRound />
           </span>
           <p>
             <strong>{activePeople}</strong>
-            <span>{locale === 'fr' ? 'proches enregistrés' : 'saved people'}</span>
+            <span>{i18nT('app.savedPeople')}</span>
           </p>
         </div>
         <i />
@@ -1729,7 +1554,7 @@ export function PeoplePanel({
           </span>
           <p>
             <strong>{activeAccess}</strong>
-            <span>{locale === 'fr' ? 'accès à Élise' : 'Élise access'}</span>
+            <span>{i18nT('app.eliseAccess')}</span>
           </p>
         </div>
         <i />
@@ -1739,7 +1564,7 @@ export function PeoplePanel({
           </span>
           <p>
             <strong>{emergencyContacts}</strong>
-            <span>{locale === 'fr' ? 'contacts prioritaires' : 'priority contacts'}</span>
+            <span>{i18nT('app.priorityContacts')}</span>
           </p>
         </div>
       </div>
@@ -1747,18 +1572,14 @@ export function PeoplePanel({
         <label className="people-search">
           <Search />
           <input
-            aria-label={locale === 'fr' ? 'Rechercher' : 'Search'}
+            aria-label={i18nT('app.search')}
             type="search"
-            placeholder={
-              locale === 'fr'
-                ? 'Rechercher par nom, lien ou email'
-                : 'Search by name, relationship or email'
-            }
+            placeholder={i18nT('app.searchByNameRelationshipOr')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
-        <div role="group" aria-label={locale === 'fr' ? 'Filtrer la liste' : 'Filter list'}>
+        <div role="group" aria-label={i18nT('app.filterList')}>
           {(Object.keys(filters) as Array<keyof typeof filters>).map((value) => (
             <button
               type="button"
@@ -1784,16 +1605,10 @@ export function PeoplePanel({
                   <h3>
                     {person.firstName} {person.lastName}
                   </h3>
-                  <p>
-                    {person.relation ||
-                      (locale === 'fr' ? 'Lien non précisé' : 'Relationship not specified')}
-                  </p>
+                  <p>{person.relation || i18nT('app.relationshipNotSpecified')}</p>
                 </div>
                 {person.isEmergency && (
-                  <span
-                    className="people-priority"
-                    title={locale === 'fr' ? 'Priorité d’appel' : 'Call priority'}
-                  >
+                  <span className="people-priority" title={i18nT('app.callPriority')}>
                     <Bell />
                     {person.priority + 1}
                   </span>
@@ -1802,18 +1617,16 @@ export function PeoplePanel({
               <div className="people-badges">
                 <span className={`people-role role-${person.role ?? 'NONE'}`}>
                   {personRoleIcon(person.role)}
-                  {personRoleLabel(person.role, locale)}
+                  {personRoleLabel(person.role)}
                 </span>
                 {person.isEmergency && (
                   <span className="people-emergency">
                     <Bell />
-                    {locale === 'fr' ? 'Contact prioritaire' : 'Priority contact'}
+                    {i18nT('app.priorityContact')}
                   </span>
                 )}
-                {person.accessDisabled && (
-                  <span>{locale === 'fr' ? 'Accès désactivé' : 'Access disabled'}</span>
-                )}
-                {person.archived && <span>{locale === 'fr' ? 'Archivé' : 'Archived'}</span>}
+                {person.accessDisabled && <span>{i18nT('app.accessDisabled')}</span>}
+                {person.archived && <span>{i18nT('app.archived')}</span>}
               </div>
               <div className="people-contact-lines">
                 {person.phone && (
@@ -1837,31 +1650,23 @@ export function PeoplePanel({
                   <i />
                   {person.hasAccount
                     ? person.accessDisabled
-                      ? locale === 'fr'
-                        ? 'Accès suspendu'
-                        : 'Access suspended'
-                      : locale === 'fr'
-                        ? 'Accès actif'
-                        : 'Active access'
-                    : locale === 'fr'
-                      ? 'Contact uniquement'
-                      : 'Contact only'}
+                      ? i18nT('app.accessSuspended')
+                      : i18nT('app.activeAccess')
+                    : i18nT('app.contactOnly')}
                 </span>
                 {canManage && !person.isCurrentUser && (
                   <div className="people-actions">
                     <button className="people-edit" onClick={() => edit(person)}>
-                      {locale === 'fr' ? 'Voir la fiche' : 'View profile'}
+                      {i18nT('app.viewProfile')}
                       <ChevronRight aria-hidden="true" />
                     </button>
                     <details className="people-action-menu">
-                      <summary aria-label={locale === 'fr' ? 'Plus d’actions' : 'More actions'}>
-                        •••
-                      </summary>
+                      <summary aria-label={i18nT('app.moreActions')}>•••</summary>
                       <div>
                         {person.archived ? (
                           <button onClick={() => void access(person, 'restore')}>
                             <Archive />
-                            {locale === 'fr' ? 'Restaurer la fiche' : 'Restore profile'}
+                            {i18nT('app.restoreProfile')}
                           </button>
                         ) : person.hasAccount ? (
                           <button
@@ -1871,33 +1676,27 @@ export function PeoplePanel({
                           >
                             <Power />
                             {person.accessDisabled
-                              ? locale === 'fr'
-                                ? 'Réactiver l’accès'
-                                : 'Enable access'
-                              : locale === 'fr'
-                                ? 'Suspendre l’accès'
-                                : 'Suspend access'}
+                              ? i18nT('app.enableAccess')
+                              : i18nT('app.suspendAccess')}
                           </button>
                         ) : null}
                         {!person.archived && person.hasAccount && !person.accessDisabled && (
                           <button onClick={() => void access(person, 'reset-password')}>
                             <KeyRound />
-                            {locale === 'fr' ? 'Réinitialiser le mot de passe' : 'Reset password'}
+                            {i18nT('app.resetPassword')}
                           </button>
                         )}
                         {!person.archived && (
                           <button className="is-danger" onClick={() => void archive(person)}>
                             <Archive />
-                            {locale === 'fr' ? 'Archiver la fiche' : 'Archive profile'}
+                            {i18nT('app.archiveProfile')}
                           </button>
                         )}
                       </div>
                     </details>
                   </div>
                 )}
-                {person.isCurrentUser && (
-                  <small>{locale === 'fr' ? 'Votre compte' : 'Your account'}</small>
-                )}
+                {person.isCurrentUser && <small>{i18nT('app.yourAccount')}</small>}
               </div>
             </Card>
           ))}
@@ -1906,14 +1705,8 @@ export function PeoplePanel({
             <span>
               <UsersRound />
             </span>
-            <h3>
-              {locale === 'fr' ? 'Personne ne correspond à cette vue' : 'No one matches this view'}
-            </h3>
-            <p>
-              {locale === 'fr'
-                ? 'Modifiez la recherche ou choisissez un autre filtre.'
-                : 'Change your search or choose another filter.'}
-            </p>
+            <h3>{i18nT('app.noOneMatchesThisView')}</h3>
+            <p>{i18nT('app.changeYourSearchOrChoose')}</p>
           </Card>
         )}
       </div>
@@ -1926,33 +1719,22 @@ export function PeoplePanel({
             <header>
               <div>
                 <span className="eyebrow">
-                  {editor === 'new'
-                    ? locale === 'fr'
-                      ? 'Nouveau proche'
-                      : 'New person'
-                    : locale === 'fr'
-                      ? 'Modifier la fiche'
-                      : 'Edit profile'}
+                  {editor === 'new' ? i18nT('app.newPerson') : i18nT('app.editProfile')}
                 </span>
                 <h2>
                   {editor === 'new'
-                    ? locale === 'fr'
-                      ? 'Ajouter au cercle'
-                      : 'Add to circle'
+                    ? i18nT('app.addToCircle')
                     : `${editor.firstName} ${editor.lastName}`}
                 </h2>
               </div>
-              <button
-                aria-label={locale === 'fr' ? 'Fermer' : 'Close'}
-                onClick={() => setEditor(null)}
-              >
+              <button aria-label={i18nT('app.close')} onClick={() => setEditor(null)}>
                 <X />
               </button>
             </header>
             <form onSubmit={(event) => void save(event)}>
               <div className="people-form-grid">
                 <label>
-                  {locale === 'fr' ? 'Prénom' : 'First name'}
+                  {i18nT('app.firstName')}
                   <input
                     autoFocus
                     value={draft.firstName}
@@ -1960,14 +1742,14 @@ export function PeoplePanel({
                   />
                 </label>
                 <label>
-                  {locale === 'fr' ? 'Nom' : 'Last name'}
+                  {i18nT('app.lastName')}
                   <input
                     value={draft.lastName}
                     onChange={(e) => setDraft({ ...draft, lastName: e.target.value })}
                   />
                 </label>
                 <label>
-                  {locale === 'fr' ? 'Téléphone' : 'Phone'}
+                  {i18nT('app.phone')}
                   <input
                     type="tel"
                     value={draft.phone}
@@ -1983,7 +1765,7 @@ export function PeoplePanel({
                   />
                 </label>
                 <label className="wide">
-                  {locale === 'fr' ? 'Lien avec le résident' : 'Relationship'}
+                  {i18nT('app.relationship')}
                   <input
                     value={draft.relation}
                     onChange={(e) => setDraft({ ...draft, relation: e.target.value })}
@@ -1997,12 +1779,8 @@ export function PeoplePanel({
                   onChange={(e) => setDraft({ ...draft, isEmergency: e.target.checked })}
                 />
                 <span>
-                  <strong>{locale === 'fr' ? 'Contact d’urgence' : 'Emergency contact'}</strong>
-                  <small>
-                    {locale === 'fr'
-                      ? 'Visible dans l’ordre d’appel prioritaire.'
-                      : 'Shown in the priority call order.'}
-                  </small>
+                  <strong>{i18nT('app.emergencyContact')}</strong>
+                  <small>{i18nT('app.shownInThePriorityCall')}</small>
                 </span>
               </label>
               {(editor === 'new' || !editor.hasAccount) && (
@@ -2013,14 +1791,8 @@ export function PeoplePanel({
                     onChange={(e) => setDraft({ ...draft, hasAccess: e.target.checked })}
                   />
                   <span>
-                    <strong>
-                      {locale === 'fr' ? 'Donner accès à Élise' : 'Grant Élise access'}
-                    </strong>
-                    <small>
-                      {locale === 'fr'
-                        ? 'Mot de passe à changer à la première connexion.'
-                        : 'Password must be changed at first sign-in.'}
-                    </small>
+                    <strong>{i18nT('app.grantEliseAccess')}</strong>
+                    <small>{i18nT('app.passwordMustBeChangedAt')}</small>
                   </span>
                 </label>
               )}
@@ -2028,35 +1800,29 @@ export function PeoplePanel({
                 (editor === 'new' || editor.role !== 'OWNER') && (
                   <div className="people-access-fields">
                     <label>
-                      {locale === 'fr' ? 'Rôle' : 'Role'}
+                      {i18nT('app.role')}
                       <select
                         value={draft.role}
                         onChange={(e) => setDraft({ ...draft, role: e.target.value as AccessRole })}
                       >
                         {currentRole === 'OWNER' && (
-                          <option value="ADMINISTRATOR">
-                            {locale === 'fr' ? 'Administrateur' : 'Administrator'}
-                          </option>
+                          <option value="ADMINISTRATOR">{i18nT('app.administrator')}</option>
                         )}
-                        <option value="CAREGIVER">
-                          {locale === 'fr' ? 'Aidant' : 'Caregiver'}
-                        </option>
-                        <option value="VIEWER">
-                          {locale === 'fr' ? 'Lecture seule' : 'Read only'}
-                        </option>
+                        <option value="CAREGIVER">{i18nT('app.caregiver')}</option>
+                        <option value="VIEWER">{i18nT('app.readOnly')}</option>
                       </select>
                     </label>
                     {(editor === 'new' || !editor.hasAccount) && (
                       <>
                         <label>
-                          {locale === 'fr' ? 'Identifiant' : 'Username'}
+                          {i18nT('app.username')}
                           <input
                             value={draft.username}
                             onChange={(e) => setDraft({ ...draft, username: e.target.value })}
                           />
                         </label>
                         <label className="wide">
-                          {locale === 'fr' ? 'Mot de passe temporaire' : 'Temporary password'}
+                          {i18nT('app.temporaryPassword')}
                           <input
                             type="password"
                             minLength={12}
@@ -2073,16 +1839,10 @@ export function PeoplePanel({
               {error && <p className="form-error">{error}</p>}
               <footer>
                 <Button type="button" className="button-secondary" onClick={() => setEditor(null)}>
-                  {locale === 'fr' ? 'Annuler' : 'Cancel'}
+                  {i18nT('app.cancel')}
                 </Button>
                 <Button disabled={saving}>
-                  {saving
-                    ? locale === 'fr'
-                      ? 'Enregistrement…'
-                      : 'Saving…'
-                    : locale === 'fr'
-                      ? 'Enregistrer'
-                      : 'Save'}
+                  {saving ? i18nT('app.saving') : i18nT('app.save')}
                 </Button>
               </footer>
             </form>
@@ -2094,11 +1854,10 @@ export function PeoplePanel({
 }
 
 export function App() {
-  const [locale, setLocale] = useState<Locale>(() => {
-    if (typeof window === 'undefined') return 'fr';
-    const saved = window.localStorage.getItem('elise_locale');
-    return isLocale(saved) ? saved : 'fr';
-  });
+  // ?lang= in the address, then the choice saved in this browser (read by ./i18n), French otherwise.
+  const [locale, setLocale] = useState<Locale>(currentLanguage);
+  // Texts outside React read the language from i18n: set it before the children render.
+  setLanguage(locale);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
   const [currentAccess, setCurrentAccess] = useState<CurrentAccess>({
@@ -2157,11 +1916,12 @@ export function App() {
   const [entryState, setEntryState] = useState<'loading' | 'setup' | 'app'>(
     previewSetup ? 'setup' : 'loading',
   );
-  const t = copy[locale];
+  const t = textBlock('app.copy');
   const sidebarAutoHideLocked =
     household?.home.installationStatus === 'DRAFT' || tourMode !== null || homeSetupPreview;
   const sidebarAutoHideActive = sidebarAutoHide && !sidebarAutoHideLocked;
   const changeLocale = (nextLocale: Locale) => {
+    setLanguage(nextLocale);
     setLocale(nextLocale);
     window.localStorage.setItem('elise_locale', nextLocale);
   };
@@ -2338,11 +2098,7 @@ export function App() {
         // The agent explains a refusal (older version, update already running…).
         const body = (await response.json().catch(() => null)) as { message?: unknown } | null;
         const error =
-          typeof body?.message === 'string'
-            ? body.message
-            : locale === 'fr'
-              ? 'La mise à jour n’a pas pu démarrer.'
-              : 'The update could not start.';
+          typeof body?.message === 'string' ? body.message : i18nT('app.theUpdateCouldNotStart');
         setUpdateStatus((current) => current && { ...current, error });
       } finally {
         setUpdateBusy(false);
@@ -2487,15 +2243,10 @@ export function App() {
         return;
       }
       const result = (await response.json().catch(() => null)) as { message?: string } | null;
-      setCameraNotice(
-        result?.message ??
-          (locale === 'fr' ? 'Le direct est indisponible.' : 'Live view is unavailable.'),
-      );
+      setCameraNotice(result?.message ?? i18nT('app.liveViewIsUnavailable'));
     } catch {
       if (requestId === cameraSessionRequest.current) {
-        setCameraNotice(
-          locale === 'fr' ? 'Le direct est indisponible.' : 'Live view is unavailable.',
-        );
+        setCameraNotice(i18nT('app.liveViewIsUnavailable'));
       }
     }
   };
@@ -2514,20 +2265,12 @@ export function App() {
       const result = (await response.json()) as { accepted: number; duplicates: number };
       setSimulationNotice(
         result.accepted > 0
-          ? locale === 'fr'
-            ? `${result.accepted} événement(s) ajouté(s) au journal d’activité.`
-            : `${result.accepted} event(s) added to the activity log.`
-          : locale === 'fr'
-            ? 'Ce scénario avait déjà été appliqué.'
-            : 'This scenario had already been applied.',
+          ? i18nT('app.eventSAddedToThe', { accepted: result.accepted })
+          : i18nT('app.thisScenarioHadAlreadyBeen'),
       );
       await refresh();
     } else {
-      setSimulationNotice(
-        locale === 'fr'
-          ? 'La situation n’a pas pu être simulée. Réessayez dans un instant.'
-          : 'The situation could not be simulated. Try again in a moment.',
-      );
+      setSimulationNotice(i18nT('app.theSituationCouldNotBe'));
     }
     setRunningSimulation(null);
   };
@@ -2542,13 +2285,7 @@ export function App() {
     });
     if (response.ok) setAlertRules((await response.json()) as AlertRuleSettings);
     setRuleNotice(
-      response.ok
-        ? locale === 'fr'
-          ? 'Les repères ont été enregistrés.'
-          : 'Your landmarks have been saved.'
-        : locale === 'fr'
-          ? 'Les repères n’ont pas pu être enregistrés. Vérifiez les valeurs et réessayez.'
-          : 'Your landmarks could not be saved. Check the values and try again.',
+      response.ok ? i18nT('app.yourLandmarksHaveBeenSaved') : i18nT('app.yourLandmarksCouldNotBe'),
     );
     setSavingRules(false);
     return response.ok;
@@ -2574,18 +2311,10 @@ export function App() {
     });
     setSavingMedication(false);
     if (!response.ok) {
-      setMedicationNotice(
-        locale === 'fr'
-          ? 'Le traitement n’a pas pu être ajouté. Vérifiez vos droits ou réessayez.'
-          : 'The treatment could not be added. Check your access or try again.',
-      );
+      setMedicationNotice(i18nT('app.theTreatmentCouldNotBe'));
       return false;
     }
-    setMedicationNotice(
-      locale === 'fr'
-        ? 'Le traitement et son horaire ont été ajoutés localement.'
-        : 'The treatment and its schedule were added locally.',
-    );
+    setMedicationNotice(i18nT('app.theTreatmentAndItsSchedule'));
     await refresh();
     return true;
   };
@@ -2602,15 +2331,9 @@ export function App() {
     setMedicationNotice(
       response.ok
         ? status === 'TAKEN'
-          ? locale === 'fr'
-            ? 'Prise confirmée. Le suivi a été mis à jour.'
-            : 'Dose confirmed. The timeline is up to date.'
-          : locale === 'fr'
-            ? 'La prise a été indiquée comme ignorée.'
-            : 'The dose was marked as skipped.'
-        : locale === 'fr'
-          ? 'La prise n’a pas pu être mise à jour.'
-          : 'The dose could not be updated.',
+          ? i18nT('app.doseConfirmedTheTimelineIs')
+          : i18nT('app.theDoseWasMarkedAs')
+        : i18nT('app.theDoseCouldNotBe'),
     );
     if (response.ok) await refresh();
   };
@@ -2638,11 +2361,7 @@ export function App() {
   if (entryState === 'loading') {
     return (
       <main className="data-loading-page">
-        <DataLoadingScreen
-          locale={locale}
-          message={locale === 'fr' ? 'Préparation de votre espace…' : 'Preparing your space…'}
-          fullPage
-        />
+        <DataLoadingScreen locale={locale} message={i18nT('app.preparingYourSpace')} fullPage />
       </main>
     );
   }
@@ -2696,19 +2415,9 @@ export function App() {
         <span className="boot-mark">
           <img src="/logo.png" alt="" />
         </span>
-        <h1>
-          {locale === 'fr'
-            ? 'Élise est momentanément inaccessible'
-            : 'Élise is temporarily unreachable'}
-        </h1>
-        <p>
-          {locale === 'fr'
-            ? 'Vérifiez que le service local est démarré, puis réessayez.'
-            : 'Check that the local service is running, then try again.'}
-        </p>
-        <Button onClick={() => void refresh()}>
-          {locale === 'fr' ? 'Réessayer' : 'Try again'}
-        </Button>
+        <h1>{i18nT('app.eliseIsTemporarilyUnreachable')}</h1>
+        <p>{i18nT('app.checkThatTheLocalService')}</p>
+        <Button onClick={() => void refresh()}>{i18nT('app.tryAgain')}</Button>
       </main>
     );
   }
@@ -2716,11 +2425,7 @@ export function App() {
   if (!overview) {
     return (
       <main className="data-loading-page">
-        <DataLoadingScreen
-          locale={locale}
-          message={locale === 'fr' ? 'Chargement de vos données…' : 'Loading your data…'}
-          fullPage
-        />
+        <DataLoadingScreen locale={locale} message={i18nT('app.loadingYourData')} fullPage />
       </main>
     );
   }
@@ -2737,7 +2442,7 @@ export function App() {
         <button
           className="mobile-close"
           onClick={() => setMenuOpen(false)}
-          aria-label={locale === 'fr' ? 'Fermer le menu' : 'Close the menu'}
+          aria-label={i18nT('app.closeTheMenu')}
         >
           <X />
         </button>
@@ -2761,37 +2466,23 @@ export function App() {
           <div className="avatar">{managerInitials || '—'}</div>
           <div className="caregiver-identity">
             <strong>{managerName}</strong>
-            <span>{locale === 'fr' ? 'Aidant principal' : 'Primary caregiver'}</span>
+            <span>{i18nT('app.primaryCaregiver')}</span>
           </div>
           <button
             type="button"
             className={`caregiver-logout${logoutFailed ? ' caregiver-logout--failed' : ''}`}
             onClick={() => void logout()}
             disabled={loggingOut}
-            aria-label={
-              logoutFailed
-                ? locale === 'fr'
-                  ? 'Réessayer la déconnexion'
-                  : 'Retry signing out'
-                : locale === 'fr'
-                  ? 'Se déconnecter'
-                  : 'Sign out'
-            }
-            title={locale === 'fr' ? 'Se déconnecter' : 'Sign out'}
+            aria-label={logoutFailed ? i18nT('app.retrySigningOut') : i18nT('app.signOut')}
+            title={i18nT('app.signOut')}
           >
             <LogOut size={16} />
             <span className="sr-only">
               {logoutFailed
-                ? locale === 'fr'
-                  ? 'Réessayer'
-                  : 'Try again'
+                ? i18nT('app.tryAgain')
                 : loggingOut
-                  ? locale === 'fr'
-                    ? 'Déconnexion…'
-                    : 'Signing out…'
-                  : locale === 'fr'
-                    ? 'Se déconnecter'
-                    : 'Sign out'}
+                  ? i18nT('app.signingOut')
+                  : i18nT('app.signOut')}
             </span>
           </button>
         </div>
@@ -2802,7 +2493,7 @@ export function App() {
           <button
             className="mobile-menu"
             onClick={() => setMenuOpen(true)}
-            aria-label={locale === 'fr' ? 'Ouvrir le menu' : 'Open the menu'}
+            aria-label={i18nT('app.openTheMenu')}
           >
             <Menu />
           </button>
@@ -2817,15 +2508,11 @@ export function App() {
           <div className="connection-banner" role="status">
             <Radar />
             <span>
-              <strong>
-                {locale === 'fr' ? 'Connexion locale interrompue' : 'Local connection interrupted'}
-              </strong>
-              {locale === 'fr'
-                ? ' Les dernières informations reçues restent affichées.'
-                : ' The latest received information remains visible.'}
+              <strong>{i18nT('app.localConnectionInterrupted')}</strong>
+              {i18nT('app.theLatestReceivedInformationRemains')}
             </span>
             <button type="button" onClick={() => void refresh()}>
-              {locale === 'fr' ? 'Réessayer' : 'Retry'}
+              {i18nT('app.retry')}
             </button>
           </div>
         )}
@@ -2983,23 +2670,19 @@ export function App() {
           <section className="section-view resident-page">
             <header className="page-hero resident-hero">
               <div className="page-hero__copy">
-                <span className="page-hero__eyebrow">
-                  {locale === 'fr' ? 'Profil d’accompagnement' : 'Support profile'}
-                </span>
+                <span className="page-hero__eyebrow">{i18nT('app.supportProfile')}</span>
                 <h2 className="page-hero__title">
-                  {locale === 'fr' ? 'La fiche de ' : ''}
-                  {resident?.preferredName ?? resident?.displayName ?? residentName}
-                  {locale === 'fr' ? '' : '’s profile'}
+                  {i18nT('app.residentProfileTitle', {
+                    name: resident?.preferredName ?? resident?.displayName ?? residentName,
+                  })}
                 </h2>
                 <p className="page-hero__text">
-                  {locale === 'fr'
-                    ? 'Les repères essentiels pour un accompagnement attentif et personnalisé.'
-                    : 'Essential context for attentive, personal support.'}
+                  {i18nT('app.essentialContextForAttentivePersonal')}
                 </p>
               </div>
               <Button className="button-secondary resident-back" onClick={() => setActive(0)}>
                 <ChevronRight aria-hidden="true" />
-                {locale === 'fr' ? 'Retour à l’accueil' : 'Back to home'}
+                {i18nT('app.backToHome')}
               </Button>
             </header>
 
@@ -3010,11 +2693,7 @@ export function App() {
                     {resident.photoUrl ? (
                       <img
                         src={resident.photoUrl}
-                        alt={
-                          locale === 'fr'
-                            ? `Portrait de ${resident.displayName}`
-                            : resident.displayName
-                        }
+                        alt={i18nT('app.residentPortrait', { name: resident.displayName })}
                       />
                     ) : (
                       <div className="resident-photo-fallback">
@@ -3022,14 +2701,9 @@ export function App() {
                       </div>
                     )}
                     {canEditResident && (
-                      <label
-                        className="resident-photo-upload"
-                        title={locale === 'fr' ? 'Changer la photo' : 'Change photo'}
-                      >
+                      <label className="resident-photo-upload" title={i18nT('app.changePhoto')}>
                         <Camera aria-hidden="true" />
-                        <span className="sr-only">
-                          {locale === 'fr' ? 'Changer la photo' : 'Change photo'}
-                        </span>
+                        <span className="sr-only">{i18nT('app.changePhoto')}</span>
                         <input
                           type="file"
                           accept="image/jpeg,image/png,image/webp"
@@ -3045,7 +2719,7 @@ export function App() {
                   <div className="resident-profile-intro">
                     <span className="resident-primary-pill">
                       <i />
-                      {locale === 'fr' ? 'Personne accompagnée' : 'Resident'}
+                      {i18nT('app.resident')}
                     </span>
                     <h3>
                       {resident.firstName} {resident.lastName}
@@ -3053,9 +2727,9 @@ export function App() {
                     <p>
                       {resident.formOfAddress
                         ? `${resident.formOfAddress} · ${resident.preferredName || resident.firstName}`
-                        : locale === 'fr'
-                          ? `Prénom utilisé : ${resident.preferredName || resident.firstName || '—'}`
-                          : `Preferred name: ${resident.preferredName || resident.firstName || '—'}`}
+                        : i18nT('app.preferredName', {
+                            value: resident.preferredName || resident.firstName || '—',
+                          })}
                     </p>
                   </div>
 
@@ -3065,7 +2739,7 @@ export function App() {
                         <CalendarDays aria-hidden="true" />
                       </span>
                       <p>
-                        <small>{locale === 'fr' ? 'Naissance' : 'Born'}</small>
+                        <small>{i18nT('app.born')}</small>
                         <strong>
                           {resident.birthDate
                             ? new Date(resident.birthDate).toLocaleDateString(locale, {
@@ -3075,8 +2749,8 @@ export function App() {
                               })
                             : '—'}
                         </strong>
-                        {residentAge(resident.birthDate, locale) && (
-                          <span>{residentAge(resident.birthDate, locale)}</span>
+                        {residentAge(resident.birthDate) && (
+                          <span>{residentAge(resident.birthDate)}</span>
                         )}
                       </p>
                     </div>
@@ -3085,7 +2759,7 @@ export function App() {
                         <BookOpen aria-hidden="true" />
                       </span>
                       <p>
-                        <small>{locale === 'fr' ? 'Langue parlée' : 'Spoken language'}</small>
+                        <small>{i18nT('app.spokenLanguage')}</small>
                         <strong>{resident.spokenLanguage || '—'}</strong>
                       </p>
                     </div>
@@ -3098,7 +2772,7 @@ export function App() {
                       onClick={() => void removeResidentPhoto()}
                     >
                       <Trash2 aria-hidden="true" />
-                      {locale === 'fr' ? 'Supprimer la photo' : 'Remove photo'}
+                      {i18nT('app.removePhoto')}
                     </button>
                   )}
                 </Card>
@@ -3110,10 +2784,8 @@ export function App() {
                         <Home aria-hidden="true" />
                       </span>
                       <div>
-                        <span className="eyebrow">
-                          {locale === 'fr' ? 'Situation de vie' : 'Living context'}
-                        </span>
-                        <h3>{locale === 'fr' ? 'Son quotidien' : 'Daily life'}</h3>
+                        <span className="eyebrow">{i18nT('app.livingContext')}</span>
+                        <h3>{i18nT('app.dailyLife')}</h3>
                       </div>
                     </header>
                     {resident.context ? (
@@ -3128,77 +2800,63 @@ export function App() {
                           )}
                           <span>
                             {resident.context.livesAlone === null
-                              ? locale === 'fr'
-                                ? 'Situation de vie non renseignée'
-                                : 'Living situation not provided'
+                              ? i18nT('app.livingSituationNotProvided')
                               : resident.context.livesAlone
-                                ? locale === 'fr'
-                                  ? 'Vit seul(e) à son domicile'
-                                  : 'Lives alone at home'
-                                : locale === 'fr'
-                                  ? 'Vit accompagné(e) à son domicile'
-                                  : 'Lives with someone at home'}
+                                ? i18nT('app.livesAloneAtHome')
+                                : i18nT('app.livesWithSomeoneAtHome')}
                           </span>
                         </div>
                         {resident.context.livesWithPartner && (
                           <div className="resident-context-item">
                             <HeartHandshake aria-hidden="true" />
-                            <span>{locale === 'fr' ? 'Avec son conjoint' : 'With a partner'}</span>
+                            <span>{i18nT('app.withAPartner')}</span>
                           </div>
                         )}
                         {resident.context.livesWithRelative && (
                           <div className="resident-context-item">
                             <UsersRound aria-hidden="true" />
-                            <span>{locale === 'fr' ? 'Avec un proche' : 'With a relative'}</span>
+                            <span>{i18nT('app.withARelative')}</span>
                           </div>
                         )}
                         {resident.context.receivesHomeHelp && (
                           <div className="resident-context-item">
                             <Accessibility aria-hidden="true" />
-                            <span>{locale === 'fr' ? 'Aide à domicile' : 'Home help'}</span>
+                            <span>{i18nT('app.homeHelp')}</span>
                           </div>
                         )}
                         {resident.context.receivesVisits && (
                           <div className="resident-context-item">
                             <CalendarDays aria-hidden="true" />
-                            <span>{locale === 'fr' ? 'Visites régulières' : 'Regular visits'}</span>
+                            <span>{i18nT('app.regularVisits')}</span>
                           </div>
                         )}
                         {resident.context.hasPet && (
                           <div className="resident-context-item">
                             <PawPrint aria-hidden="true" />
-                            <span>
-                              {locale === 'fr' ? 'Vit avec un animal' : 'Lives with a pet'}
-                            </span>
+                            <span>{i18nT('app.livesWithAPet')}</span>
                           </div>
                         )}
                         <div className="resident-context-item resident-context-item--wide">
                           <Footprints aria-hidden="true" />
-                          <span>{residentMobilityLabel(resident.context.mobility, locale)}</span>
+                          <span>{residentMobilityLabel(resident.context.mobility)}</span>
                         </div>
                         {resident.context.visualDifficulty && (
                           <div className="resident-context-item resident-context-item--attention">
                             <Eye aria-hidden="true" />
-                            <span>
-                              {locale === 'fr' ? 'Difficulté visuelle' : 'Visual difficulty'}
-                            </span>
+                            <span>{i18nT('app.visualDifficulty')}</span>
                           </div>
                         )}
                         {resident.context.hearingDifficulty && (
                           <div className="resident-context-item resident-context-item--attention">
                             <Ear aria-hidden="true" />
-                            <span>
-                              {locale === 'fr' ? 'Difficulté auditive' : 'Hearing difficulty'}
-                            </span>
+                            <span>{i18nT('app.hearingDifficulty')}</span>
                           </div>
                         )}
                       </div>
                     ) : (
                       <div className="resident-empty-state">
                         <Home aria-hidden="true" />
-                        <p>
-                          {locale === 'fr' ? 'Aucun contexte renseigné.' : 'No context recorded.'}
-                        </p>
+                        <p>{i18nT('app.noContextRecorded')}</p>
                       </div>
                     )}
                   </Card>
@@ -3209,10 +2867,8 @@ export function App() {
                         <HeartHandshake aria-hidden="true" />
                       </span>
                       <div>
-                        <span className="eyebrow">
-                          {locale === 'fr' ? 'Accompagnement' : 'Support'}
-                        </span>
-                        <h3>{locale === 'fr' ? 'Points d’attention' : 'Key considerations'}</h3>
+                        <span className="eyebrow">{i18nT('app.support')}</span>
+                        <h3>{i18nT('app.keyConsiderations')}</h3>
                       </div>
                       <span className="resident-card-count">{resident.supportNeeds.length}</span>
                     </header>
@@ -3232,7 +2888,7 @@ export function App() {
                               )}
                             </span>
                             <div>
-                              <strong>{supportNeedLabel(need.kind, locale)}</strong>
+                              <strong>{supportNeedLabel(need.kind)}</strong>
                               {need.note && <p>{need.note}</p>}
                             </div>
                           </article>
@@ -3241,11 +2897,7 @@ export function App() {
                     ) : (
                       <div className="resident-empty-state resident-empty-state--positive">
                         <CircleCheck aria-hidden="true" />
-                        <p>
-                          {locale === 'fr'
-                            ? 'Aucun besoin particulier indiqué.'
-                            : 'No particular support need recorded.'}
-                        </p>
+                        <p>{i18nT('app.noParticularSupportNeedRecorded')}</p>
                       </div>
                     )}
                   </Card>
@@ -3256,8 +2908,8 @@ export function App() {
                         <Clock3 aria-hidden="true" />
                       </span>
                       <div>
-                        <span className="eyebrow">{locale === 'fr' ? 'Habitudes' : 'Habits'}</span>
-                        <h3>{locale === 'fr' ? 'Les repères de sa journée' : 'Daily routines'}</h3>
+                        <span className="eyebrow">{i18nT('app.habits')}</span>
+                        <h3>{i18nT('app.dailyRoutines')}</h3>
                       </div>
                       <span className="resident-card-count">{resident.habits.length}</span>
                     </header>
@@ -3267,12 +2919,10 @@ export function App() {
                           <article key={habit.id}>
                             <span className="resident-routine-dot" />
                             <div>
-                              <strong>{habitLabel(habit.kind, locale)}</strong>
+                              <strong>{habitLabel(habit.kind)}</strong>
                               <small>
                                 {habit.status === 'UNKNOWN'
-                                  ? locale === 'fr'
-                                    ? 'Élise est en train d’apprendre ce repère'
-                                    : 'Élise is learning this routine'
+                                  ? i18nT('app.eliseIsLearningThisRoutine')
                                   : `${formatMinute(habit.startMinute)} – ${formatMinute(habit.endMinute)}`}
                               </small>
                             </div>
@@ -3280,12 +2930,8 @@ export function App() {
                               className={`resident-routine-status status-${habit.status.toLowerCase()}`}
                             >
                               {habit.status === 'UNKNOWN'
-                                ? locale === 'fr'
-                                  ? 'À apprendre'
-                                  : 'To learn'
-                                : locale === 'fr'
-                                  ? 'Enregistré'
-                                  : 'Recorded'}
+                                ? i18nT('app.toLearn')
+                                : i18nT('app.recorded')}
                             </span>
                           </article>
                         ))}
@@ -3293,11 +2939,7 @@ export function App() {
                     ) : (
                       <div className="resident-empty-state">
                         <Clock3 aria-hidden="true" />
-                        <p>
-                          {locale === 'fr'
-                            ? 'Élise apprendra progressivement les habitudes.'
-                            : 'Élise will learn routines progressively.'}
-                        </p>
+                        <p>{i18nT('app.eliseWillLearnRoutinesProgressively')}</p>
                       </div>
                     )}
                   </Card>
@@ -3306,12 +2948,8 @@ export function App() {
             ) : (
               <Card className="resident-empty-profile">
                 <UserRound aria-hidden="true" />
-                <h3>{locale === 'fr' ? 'Aucun résident configuré' : 'No resident configured'}</h3>
-                <p>
-                  {locale === 'fr'
-                    ? 'La fiche apparaîtra ici après la configuration initiale.'
-                    : 'The profile will appear here after initial setup.'}
-                </p>
+                <h3>{i18nT('app.noResidentConfigured')}</h3>
+                <p>{i18nT('app.theProfileWillAppearHere')}</p>
               </Card>
             )}
           </section>
@@ -3321,28 +2959,21 @@ export function App() {
               <div className="page-hero__copy settings-hero-copy">
                 <span className="page-hero__eyebrow">Élise OS</span>
                 <h2 className="page-hero__title">{t.nav[8]}</h2>
-                <p className="page-hero__text">
-                  {locale === 'fr'
-                    ? 'Adaptez Élise à votre quotidien et choisissez les situations qui méritent votre attention.'
-                    : 'Adapt Élise to your daily life and choose which situations deserve your attention.'}
-                </p>
+                <p className="page-hero__text">{i18nT('app.adaptEliseToYourDaily')}</p>
               </div>
               <span className="settings-hero-icon" aria-hidden="true">
                 <Settings />
               </span>
             </header>
 
-            <nav
-              className="settings-tabs"
-              aria-label={locale === 'fr' ? 'Rubriques des réglages' : 'Settings sections'}
-            >
+            <nav className="settings-tabs" aria-label={i18nT('app.settingsSections')}>
               <button
                 type="button"
                 className={settingsTab === 'general' ? 'is-selected' : ''}
                 aria-selected={settingsTab === 'general'}
                 onClick={() => setSettingsTab('general')}
               >
-                <Settings aria-hidden="true" /> {locale === 'fr' ? 'Général' : 'General'}
+                <Settings aria-hidden="true" /> {i18nT('app.general')}
               </button>
               <button
                 type="button"
@@ -3350,7 +2981,7 @@ export function App() {
                 aria-selected={settingsTab === 'rules'}
                 onClick={() => setSettingsTab('rules')}
               >
-                <Bell aria-hidden="true" /> {locale === 'fr' ? 'Règles' : 'Rules'}
+                <Bell aria-hidden="true" /> {i18nT('app.rules')}
               </button>
             </nav>
 
@@ -3361,15 +2992,9 @@ export function App() {
                     <Settings />
                   </span>
                   <div>
-                    <span className="eyebrow">
-                      {locale === 'fr' ? 'Préférences de l’application' : 'Application preferences'}
-                    </span>
-                    <h2>{locale === 'fr' ? 'Général' : 'General'}</h2>
-                    <p>
-                      {locale === 'fr'
-                        ? 'Les réglages essentiels de cet appareil, réunis au même endroit.'
-                        : 'Essential settings for this device, all in one place.'}
-                    </p>
+                    <span className="eyebrow">{i18nT('app.applicationPreferences')}</span>
+                    <h2>{i18nT('app.general')}</h2>
+                    <p>{i18nT('app.essentialSettingsForThisDevice')}</p>
                   </div>
                   <span className="settings-disclosure-chevron" aria-hidden="true">
                     <ChevronRight />
@@ -3383,12 +3008,8 @@ export function App() {
                         <Languages />
                       </span>
                       <div>
-                        <h3>{locale === 'fr' ? 'Langue de l’interface' : 'Interface language'}</h3>
-                        <p>
-                          {locale === 'fr'
-                            ? 'Choisissez la langue utilisée par Élise sur cet appareil.'
-                            : 'Choose the language Élise uses on this device.'}
-                        </p>
+                        <h3>{i18nT('app.interfaceLanguage')}</h3>
+                        <p>{i18nT('app.chooseTheLanguageEliseUses')}</p>
                       </div>
                     </div>
                     <div className="settings-language-options" role="group" aria-label="Language">
@@ -3420,12 +3041,8 @@ export function App() {
                         <Sparkles />
                       </span>
                       <div>
-                        <h3>{locale === 'fr' ? 'Visite guidée' : 'Guided tour'}</h3>
-                        <p>
-                          {locale === 'fr'
-                            ? 'Redécouvrez les espaces essentiels de l’application, sans modifier votre logement.'
-                            : 'Rediscover the essential areas of the application without changing your home.'}
-                        </p>
+                        <h3>{i18nT('app.guidedTour')}</h3>
+                        <p>{i18nT('app.rediscoverTheEssentialAreasOf')}</p>
                       </div>
                     </div>
                     <Button
@@ -3436,7 +3053,7 @@ export function App() {
                         setTourMode('replay');
                       }}
                     >
-                      {locale === 'fr' ? 'Revoir la visite' : 'Replay the tour'}
+                      {i18nT('app.replayTheTour')}
                     </Button>
                   </article>
 
@@ -3491,11 +3108,7 @@ export function App() {
                 })()}
               </div>
               <h2>{t.nav[active]}</h2>
-              <p>
-                {locale === 'fr'
-                  ? 'Cette section utilise déjà les fondations d’Élise et sera enrichie au prochain incrément vertical.'
-                  : 'This section already uses the Élise foundations and will be expanded in the next vertical increment.'}
-              </p>
+              <p>{i18nT('app.thisSectionAlreadyUsesThe')}</p>
               <Button onClick={() => setActive(0)}>{t.nav[0]}</Button>
             </Card>
           </section>
@@ -3510,13 +3123,13 @@ export function App() {
               id: event.id,
               occurredAt: event.occurredAt,
               capability: event.capability,
-              label: `${activityDescription(event, locale)}${event.room ? ` · ${event.room}` : ''}`,
+              label: `${activityDescription(event)}${event.room ? ` · ${event.room}` : ''}`,
             }))}
             reminders={[
               ...medicationDoses
                 .filter((dose) => dose.status === 'PENDING')
                 .map((dose) => ({
-                  title: locale === 'fr' ? 'Médicaments' : 'Medication',
+                  title: i18nT('app.medication'),
                   at: dose.scheduledFor,
                   medication: true,
                 })),

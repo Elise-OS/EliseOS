@@ -24,15 +24,16 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
   liaisonCreateSchema,
-  liaisonMoodLabel,
+  liaisonMoodId,
   liaisonUpdateSchema,
   type LiaisonEntry,
   type LiaisonFilter,
   type LiaisonPage as Page,
 } from '@elise/contracts';
-import type { Locale } from './i18n';
+import { type Locale, t } from './i18n';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import './liaison.css';
+import { moodLabel } from './i18n/data';
 
 interface PendingMedication {
   name: string;
@@ -52,23 +53,22 @@ interface TagMeta {
   tone: string;
 }
 
-function tagMeta(tag: LiaisonEntry['tags'][number], locale: Locale): TagMeta {
-  const french = locale === 'fr';
+function tagMeta(tag: LiaisonEntry['tags'][number]): TagMeta {
   const values = {
-    MEAL: { label: french ? 'Repas' : 'Meal', icon: Utensils, tone: 'meal' },
-    TREATMENT: { label: french ? 'Traitement' : 'Treatment', icon: Pill, tone: 'treatment' },
-    MOOD: { label: french ? 'Humeur' : 'Mood', icon: Smile, tone: 'mood' },
-    REST: { label: french ? 'Repos' : 'Rest', icon: BedDouble, tone: 'rest' },
+    MEAL: { label: t('liaisonPage.meal'), icon: Utensils, tone: 'meal' },
+    TREATMENT: { label: t('liaisonPage.treatment'), icon: Pill, tone: 'treatment' },
+    MOOD: { label: t('liaisonPage.mood'), icon: Smile, tone: 'mood' },
+    REST: { label: t('liaisonPage.rest'), icon: BedDouble, tone: 'rest' },
   };
   return values[tag];
 }
 
 const MOODS = [
-  { id: 'HAPPY', fr: 'Heureux', en: 'Happy', icon: Laugh },
-  { id: 'GOOD', fr: 'Bien', en: 'Good', icon: Smile },
-  { id: 'NEUTRAL', fr: 'Neutre', en: 'Neutral', icon: Meh },
-  { id: 'LOW', fr: 'Pas très bien', en: 'Not so good', icon: Annoyed },
-  { id: 'SAD', fr: 'Triste', en: 'Sad', icon: Frown },
+  { id: 'HAPPY', icon: Laugh },
+  { id: 'GOOD', icon: Smile },
+  { id: 'NEUTRAL', icon: Meh },
+  { id: 'LOW', icon: Annoyed },
+  { id: 'SAD', icon: Frown },
 ] as const;
 
 function initials(name: string): string {
@@ -120,7 +120,6 @@ export function LiaisonPage({
   onJournal?: () => void;
   onCalendar?: () => void;
 }) {
-  const tr = (fr: string, en: string) => (locale === 'fr' ? fr : en);
   const [data, setData] = useState<Page | null>(null);
   const [filter, setFilter] = useState<LiaisonFilter>('ALL');
   const [visits, setVisits] = useState(false);
@@ -160,13 +159,7 @@ export function LiaisonPage({
         }));
         setError('');
       } catch {
-        if (request === sequence.current)
-          setError(
-            tr(
-              'Le carnet est inaccessible. Vérifiez la connexion et réessayez.',
-              'The notebook is unavailable. Check your connection and retry.',
-            ),
-          );
+        if (request === sequence.current) setError(t('liaisonPage.theNotebookIsUnavailableCheck'));
       } finally {
         if (request === sequence.current) setLoading(false);
       }
@@ -213,12 +206,7 @@ export function LiaisonPage({
       await load();
       return true;
     } catch {
-      setError(
-        tr(
-          'Modification non enregistrée. Vérifiez la connexion et vos droits, puis réessayez. Votre texte est conservé.',
-          'Change not saved. Check your connection and permissions, then retry. Your text is preserved.',
-        ),
-      );
+      setError(t('liaisonPage.changeNotSavedCheckYour'));
       return false;
     } finally {
       setBusy(false);
@@ -229,17 +217,10 @@ export function LiaisonPage({
     event.preventDefault();
     const input = liaisonCreateSchema.safeParse({ kind: 'NOTE', body });
     if (!input.success) {
-      setError(tr('Ajoutez un texte.', 'Add a message.'));
+      setError(t('liaisonPage.addAMessage'));
       return;
     }
-    if (
-      await mutate(
-        '',
-        'POST',
-        input.data,
-        tr('Votre note a été partagée.', 'Your note has been shared.'),
-      )
-    ) {
+    if (await mutate('', 'POST', input.data, t('liaisonPage.yourNoteHasBeenShared'))) {
       setBody('');
       composerRef.current?.focus();
     }
@@ -254,12 +235,7 @@ export function LiaisonPage({
     if (!input.success) return;
     setVisits(false);
     setFilter('ALL');
-    const saved = await mutate(
-      '',
-      'POST',
-      input.data,
-      tr('Humeur ajoutée au carnet.', 'Mood added to the notebook.'),
-    );
+    const saved = await mutate('', 'POST', input.data, t('liaisonPage.moodAddedToTheNotebook'));
     setMoodOpen(false);
     if (saved) moodTriggerRef.current?.focus();
   }
@@ -277,7 +253,7 @@ export function LiaisonPage({
       `/${encodeURIComponent(editingEntry.id)}`,
       'PATCH',
       input.data,
-      tr('Humeur modifiée.', 'Mood updated.'),
+      t('liaisonPage.moodUpdated'),
     );
     if (saved) {
       setEditingEntry(null);
@@ -289,8 +265,7 @@ export function LiaisonPage({
     event.preventDefault();
     if (!editingEntry) return;
     const moodTags =
-      editingEntry.tags.includes('MOOD') &&
-      !liaisonMoodLabel(entryDraft, locale === 'fr' ? 'fr' : 'en')
+      editingEntry.tags.includes('MOOD') && !liaisonMoodId(entryDraft)
         ? editingEntry.tags.filter((tag) => tag !== 'MOOD')
         : undefined;
     const input = liaisonUpdateSchema.safeParse({
@@ -298,14 +273,14 @@ export function LiaisonPage({
       ...(moodTags ? { tags: moodTags } : {}),
     });
     if (!input.success) {
-      setError(tr('Le message ne peut pas être vide.', 'The message cannot be empty.'));
+      setError(t('liaisonPage.theMessageCannotBeEmpty'));
       return;
     }
     const saved = await mutate(
       `/${encodeURIComponent(editingEntry.id)}`,
       'PATCH',
       input.data,
-      tr('Message modifié.', 'Message updated.'),
+      t('liaisonPage.messageUpdated'),
     );
     if (saved) {
       setEditingEntry(null);
@@ -319,7 +294,7 @@ export function LiaisonPage({
       `/${encodeURIComponent(deletingEntry.id)}`,
       'DELETE',
       undefined,
-      tr('Message supprimé.', 'Message deleted.'),
+      t('liaisonPage.messageDeleted'),
     );
     if (deleted) setDeletingEntry(null);
   }
@@ -398,19 +373,16 @@ export function LiaisonPage({
     Number(Boolean(highlightedAttention));
   const highlightCount = Math.min(3, nonTaskHighlightCount + openTasks.length);
   const title = visits
-    ? tr('Visites', 'Visits')
+    ? t('liaisonPage.visits')
     : filter === 'OPEN'
-      ? tr('À faire', 'To do')
+      ? t('liaisonPage.toDo')
       : filter === 'DONE'
-        ? tr('Terminées', 'Completed')
-        : tr('Aujourd’hui', 'Today');
+        ? t('liaisonPage.completed')
+        : t('liaisonPage.today');
   const countLabel = visits
-    ? tr(`${data?.visits.length ?? 0} visites`, `${data?.visits.length ?? 0} visits`)
-    : tr(
-        `${visibleItems.length} ${visibleItems.length > 1 ? 'notes' : 'note'}`,
-        `${visibleItems.length} ${visibleItems.length === 1 ? 'entry' : 'entries'}`,
-      );
-  const currentInitials = initials(data?.currentUser?.displayName ?? tr('Vous', 'You'));
+    ? t('liaisonPage.visits2', { value: data?.visits.length ?? 0 })
+    : t('liaisonPage.noteCount', { count: visibleItems.length });
+  const currentInitials = initials(data?.currentUser?.displayName ?? t('liaisonPage.you'));
 
   const timeline = useMemo(
     () =>
@@ -423,18 +395,13 @@ export function LiaisonPage({
   const currentUserTone = userTone(data?.currentUser);
 
   if (loading && !data)
-    return (
-      <DataLoadingScreen
-        locale={locale}
-        message={tr('Chargement du carnet…', 'Loading the notebook…')}
-      />
-    );
+    return <DataLoadingScreen locale={locale} message={t('liaisonPage.loadingTheNotebook')} />;
 
   return (
     <section className="section-view liaison-page">
       <header className="page-hero liaison-hero">
         <div className="page-hero__copy liaison-hero-copy">
-          <h1 className="page-hero__title">{tr('Carnet de liaison', 'Family notebook')}</h1>
+          <h1 className="page-hero__title">{t('liaisonPage.familyNotebook')}</h1>
         </div>
         <time className="liaison-hero-date" dateTime={todayKey}>
           <span className="liaison-hero-date__icon" aria-hidden="true">
@@ -449,7 +416,7 @@ export function LiaisonPage({
           {onCalendar && (
             <button className="liaison-calendar-button" type="button" onClick={onCalendar}>
               <CalendarDays aria-hidden="true" />
-              {tr('Calendrier', 'Calendar')}
+              {t('liaisonPage.calendar')}
             </button>
           )}
           {data?.canWrite && (
@@ -459,7 +426,7 @@ export function LiaisonPage({
               onClick={() => composerRef.current?.focus()}
             >
               <PenLine aria-hidden="true" />
-              {tr('Ajouter une note', 'Add a note')}
+              {t('liaisonPage.addANote')}
             </button>
           )}
         </div>
@@ -469,7 +436,7 @@ export function LiaisonPage({
         <div className="liaison-error" role="alert">
           <span>{error}</span>
           <button type="button" onClick={() => void load()}>
-            {tr('Réessayer', 'Retry')}
+            {t('liaisonPage.retry')}
           </button>
         </div>
       )}
@@ -500,14 +467,14 @@ export function LiaisonPage({
                     }}
                   >
                     {
-                      [tr('Le fil', 'Updates'), tr('À faire', 'To do'), tr('Terminées', 'Done')][
+                      [t('liaisonPage.updates'), t('liaisonPage.toDo'), t('liaisonPage.done')][
                         index
                       ]
                     }
                   </button>
                 ))}
                 <button type="button" aria-pressed={visits} onClick={() => setVisits(true)}>
-                  {tr('Visites', 'Visits')}
+                  {t('liaisonPage.visits')}
                 </button>
               </div>
             </details>
@@ -533,8 +500,8 @@ export function LiaisonPage({
                       'PATCH',
                       { completed },
                       completed
-                        ? tr('Merci, la tâche est terminée.', 'Thank you, task completed.')
-                        : tr('Tâche remise à faire.', 'Task reopened.'),
+                        ? t('liaisonPage.thankYouTaskCompleted')
+                        : t('liaisonPage.taskReopened'),
                     )
                   }
                 />
@@ -542,13 +509,8 @@ export function LiaisonPage({
               {!visibleItems.length && (
                 <div className="liaison-empty">
                   <PenLine aria-hidden="true" />
-                  <h3>{tr('Aucune information dans cette vue', 'Nothing in this view yet')}</h3>
-                  <p>
-                    {tr(
-                      'Un passage, une attention ou une chose à prévoir peut être partagé ici.',
-                      'Share a visit, something noticed, or anything that needs planning.',
-                    )}
-                  </p>
+                  <h3>{t('liaisonPage.nothingInThisViewYet')}</h3>
+                  <p>{t('liaisonPage.shareAVisitSomethingNoticed')}</p>
                 </div>
               )}
               {data.nextCursor && (
@@ -557,7 +519,7 @@ export function LiaisonPage({
                   disabled={loading}
                   onClick={() => void load(data.nextCursor!)}
                 >
-                  {tr('Voir les notes précédentes', 'Load earlier entries')}
+                  {t('liaisonPage.loadEarlierEntries')}
                 </button>
               )}
             </div>
@@ -583,15 +545,14 @@ export function LiaisonPage({
                           <span className="liaison-tag liaison-tag--rest">
                             <CalendarDays aria-hidden="true" />
                             {visit.completedAt
-                              ? tr('Réalisée', 'Completed')
-                              : tr('Prévue', 'Planned')}
+                              ? t('liaisonPage.completed2')
+                              : t('liaisonPage.planned')}
                           </span>
                         </div>
                         {visit.notes && <p className="liaison-note-body">{visit.notes}</p>}
                         {visit.completedAt && (
                           <p className="liaison-note-detail">
-                            {tr('Confirmée par', 'Confirmed by')}{' '}
-                            {visit.completedBy?.displayName ?? '—'}
+                            {t('liaisonPage.confirmedBy')} {visit.completedBy?.displayName ?? '—'}
                           </p>
                         )}
                       </div>
@@ -605,13 +566,11 @@ export function LiaisonPage({
                             `/visits/${encodeURIComponent(visit.id)}/completion`,
                             'PATCH',
                             { completed: !visit.completedAt },
-                            tr('Visite mise à jour.', 'Visit updated.'),
+                            t('liaisonPage.visitUpdated'),
                           )
                         }
                       >
-                        {visit.completedAt
-                          ? tr('Annuler', 'Undo')
-                          : tr('La visite a eu lieu', 'Confirm visit')}
+                        {visit.completedAt ? t('liaisonPage.undo') : t('liaisonPage.confirmVisit')}
                       </button>
                     )}
                   </div>
@@ -620,7 +579,7 @@ export function LiaisonPage({
               {!data.visits.length && (
                 <div className="liaison-empty">
                   <CalendarDays aria-hidden="true" />
-                  <h3>{tr('Aucune visite sur cette période', 'No visits in this period')}</h3>
+                  <h3>{t('liaisonPage.noVisitsInThisPeriod')}</h3>
                 </div>
               )}
             </div>
@@ -636,7 +595,7 @@ export function LiaisonPage({
               </span>
               <div className="liaison-compose-content">
                 <label className="sr-only" htmlFor="liaison-note-body">
-                  {tr('Écrire une note', 'Write a note')}
+                  {t('liaisonPage.writeANote')}
                 </label>
                 <textarea
                   id="liaison-note-body"
@@ -647,7 +606,7 @@ export function LiaisonPage({
                   value={body}
                   disabled={busy}
                   onChange={(event) => setBody(event.target.value)}
-                  placeholder={tr('Écrire une note…', 'Write a note…')}
+                  placeholder={t('liaisonPage.writeANote2')}
                 />
                 <div className="liaison-compose-footer">
                   <button
@@ -658,12 +617,12 @@ export function LiaisonPage({
                     onClick={() => setMoodOpen(true)}
                   >
                     <Smile aria-hidden="true" />
-                    {tr('Ajouter une humeur', 'Add a mood')}
+                    {t('liaisonPage.addAMood')}
                   </button>
                   <div className="liaison-compose-actions">
                     <button className="liaison-send" type="submit" disabled={busy || !body.trim()}>
                       <Send aria-hidden="true" />
-                      {busy ? tr('Envoi…', 'Sending…') : tr('Envoyer', 'Send')}
+                      {busy ? t('liaisonPage.sending') : t('liaisonPage.send')}
                     </button>
                   </div>
                 </div>
@@ -688,13 +647,13 @@ export function LiaisonPage({
               >
                 <header>
                   <div>
-                    <span>{tr('Carnet de liaison', 'Family notebook')}</span>
-                    <h2 id="liaison-mood-title">{tr('Ajouter une humeur', 'Add a mood')}</h2>
+                    <span>{t('liaisonPage.familyNotebook')}</span>
+                    <h2 id="liaison-mood-title">{t('liaisonPage.addAMood')}</h2>
                   </div>
                   <button
                     type="button"
                     className="liaison-mood-close"
-                    aria-label={tr('Fermer', 'Close')}
+                    aria-label={t('liaisonPage.close')}
                     onClick={() => {
                       setMoodOpen(false);
                       moodTriggerRef.current?.focus();
@@ -704,10 +663,9 @@ export function LiaisonPage({
                   </button>
                 </header>
                 <p>
-                  {tr(
-                    `Comment se sent ${data?.residentName ?? 'le résident'} ?`,
-                    `How is ${data?.residentName ?? 'the resident'} feeling?`,
-                  )}
+                  {data?.residentName
+                    ? t('liaisonPage.howIsResidentFeeling', { name: data.residentName })
+                    : t('liaisonPage.howIsTheResidentFeeling')}
                 </p>
                 <div className="liaison-mood-options">
                   {MOODS.map((mood, index) => {
@@ -725,7 +683,7 @@ export function LiaisonPage({
                         >
                           <Icon aria-hidden="true" />
                         </span>
-                        {locale === 'fr' ? mood.fr : mood.en}
+                        {moodLabel(mood.id)}
                       </button>
                     );
                   })}
@@ -750,17 +708,17 @@ export function LiaisonPage({
               >
                 <header>
                   <div>
-                    <span>{tr('Carnet de liaison', 'Family notebook')}</span>
+                    <span>{t('liaisonPage.familyNotebook')}</span>
                     <h2 id="liaison-edit-title">
                       {editingEntry.tags.includes('MOOD')
-                        ? tr('Modifier l’humeur', 'Change the mood')
-                        : tr('Modifier le message', 'Edit message')}
+                        ? t('liaisonPage.changeTheMood')
+                        : t('liaisonPage.editMessage')}
                     </h2>
                   </div>
                   <button
                     type="button"
                     className="liaison-mood-close"
-                    aria-label={tr('Fermer', 'Close')}
+                    aria-label={t('liaisonPage.close')}
                     disabled={busy}
                     onClick={() => setEditingEntry(null)}
                   >
@@ -770,10 +728,9 @@ export function LiaisonPage({
                 {editingEntry.tags.includes('MOOD') ? (
                   <>
                     <p>
-                      {tr(
-                        `Choisissez une humeur pour ${data?.residentName ?? 'le résident'}.`,
-                        `Choose a mood for ${data?.residentName ?? 'the resident'}.`,
-                      )}
+                      {data?.residentName
+                        ? t('liaisonPage.chooseMoodFor', { name: data.residentName })
+                        : t('liaisonPage.chooseMoodForTheResident')}
                     </p>
                     <div className="liaison-mood-options">
                       {MOODS.map((mood, index) => {
@@ -791,7 +748,7 @@ export function LiaisonPage({
                             >
                               <Icon aria-hidden="true" />
                             </span>
-                            {locale === 'fr' ? mood.fr : mood.en}
+                            {moodLabel(mood.id)}
                           </button>
                         );
                       })}
@@ -799,7 +756,7 @@ export function LiaisonPage({
                   </>
                 ) : (
                   <form onSubmit={(event) => void saveEntry(event)}>
-                    <label htmlFor="liaison-edit-body">{tr('Message', 'Message')}</label>
+                    <label htmlFor="liaison-edit-body">{t('liaisonPage.message')}</label>
                     <textarea
                       id="liaison-edit-body"
                       autoFocus
@@ -815,7 +772,7 @@ export function LiaisonPage({
                         disabled={busy}
                         onClick={() => setEditingEntry(null)}
                       >
-                        {tr('Annuler', 'Cancel')}
+                        {t('liaisonPage.cancel')}
                       </button>
                       <button
                         className="liaison-send"
@@ -823,7 +780,7 @@ export function LiaisonPage({
                         disabled={busy || !entryDraft.trim()}
                       >
                         <Check aria-hidden="true" />
-                        {busy ? tr('Enregistrement…', 'Saving…') : tr('Enregistrer', 'Save')}
+                        {busy ? t('liaisonPage.saving') : t('liaisonPage.save')}
                       </button>
                     </div>
                   </form>
@@ -848,22 +805,20 @@ export function LiaisonPage({
               >
                 <header>
                   <div>
-                    <span>{tr('Carnet de liaison', 'Family notebook')}</span>
-                    <h2 id="liaison-delete-title">
-                      {tr('Supprimer ce message ?', 'Delete this message?')}
-                    </h2>
+                    <span>{t('liaisonPage.familyNotebook')}</span>
+                    <h2 id="liaison-delete-title">{t('liaisonPage.deleteThisMessage')}</h2>
                   </div>
                   <button
                     type="button"
                     className="liaison-mood-close"
-                    aria-label={tr('Fermer', 'Close')}
+                    aria-label={t('liaisonPage.close')}
                     disabled={busy}
                     onClick={() => setDeletingEntry(null)}
                   >
                     <X aria-hidden="true" />
                   </button>
                 </header>
-                <p>{tr('Cette action est définitive.', 'This action cannot be undone.')}</p>
+                <p>{t('liaisonPage.thisActionCannotBeUndone')}</p>
                 <div className="liaison-entry-dialog__actions">
                   <button
                     type="button"
@@ -871,7 +826,7 @@ export function LiaisonPage({
                     disabled={busy}
                     onClick={() => setDeletingEntry(null)}
                   >
-                    {tr('Annuler', 'Cancel')}
+                    {t('liaisonPage.cancel')}
                   </button>
                   <button
                     type="button"
@@ -880,19 +835,14 @@ export function LiaisonPage({
                     onClick={() => void confirmDelete()}
                   >
                     <Trash2 aria-hidden="true" />
-                    {busy ? tr('Suppression…', 'Deleting…') : tr('Supprimer', 'Delete')}
+                    {busy ? t('liaisonPage.deleting') : t('liaisonPage.delete')}
                   </button>
                 </div>
               </section>
             </div>
           )}
           {data && !data.canWrite && (
-            <p className="liaison-readonly">
-              {tr(
-                'Vous pouvez consulter ce carnet. Les aidants peuvent y ajouter des notes.',
-                'You can read this notebook. Caregivers can add notes.',
-              )}
-            </p>
+            <p className="liaison-readonly">{t('liaisonPage.youCanReadThisNotebook')}</p>
           )}
         </section>
 
@@ -900,14 +850,9 @@ export function LiaisonPage({
           <div className="liaison-panel-heading">
             <div>
               <span className="liaison-heading-dot liaison-heading-dot--amber" aria-hidden="true" />
-              <h2 id="liaison-highlights-title">{tr('À retenir', 'Keep in mind')}</h2>
+              <h2 id="liaison-highlights-title">{t('liaisonPage.keepInMind')}</h2>
             </div>
-            <span>
-              {tr(
-                `${highlightCount} éléments`,
-                `${highlightCount} ${highlightCount === 1 ? 'item' : 'items'}`,
-              )}
-            </span>
+            <span>{t('liaisonPage.itemCount', { count: highlightCount })}</span>
           </div>
           <div className="liaison-highlight-list">
             {highlightedAppointments.map((appointment) => (
@@ -915,11 +860,11 @@ export function LiaisonPage({
                 key={appointment.id}
                 tone="blue"
                 icon={CalendarDays}
-                title={tr('Rendez-vous', 'Appointment')}
+                title={t('liaisonPage.appointment')}
                 primary={`${appointment.title} · ${formatDate(appointment.startsAt)}`}
                 detail={
                   [appointment.location, appointment.notes].filter(Boolean).join(' · ') ||
-                  tr('Rendez-vous prévu au domicile', 'Appointment scheduled at home')
+                  t('liaisonPage.appointmentScheduledAtHome')
                 }
                 onClick={onCalendar}
               />
@@ -928,18 +873,16 @@ export function LiaisonPage({
               <HighlightCard
                 tone="blue"
                 icon={CalendarDays}
-                title={tr('Prochaine visite', 'Next visit')}
+                title={t('liaisonPage.nextVisit')}
                 primary={`${highlightedVisit.visitorName} · ${formatDate(highlightedVisit.startsAt)}`}
-                detail={
-                  highlightedVisit.notes ?? tr('Visite prévue au domicile', 'Scheduled home visit')
-                }
+                detail={highlightedVisit.notes ?? t('liaisonPage.scheduledHomeVisit')}
               />
             )}
             {highlightedMedication && (
               <HighlightCard
                 tone="green"
                 icon={Pill}
-                title={tr('Prochain médicament', 'Next medication')}
+                title={t('liaisonPage.nextMedication')}
                 primary={`${highlightedMedication.name} · ${formatTime(highlightedMedication.scheduledFor)}`}
                 detail={highlightedMedication.dosage}
                 onClick={onMedication}
@@ -949,7 +892,7 @@ export function LiaisonPage({
               <HighlightCard
                 tone="amber"
                 icon={TriangleAlert}
-                title={tr('Point d’attention', 'Needs attention')}
+                title={t('liaisonPage.needsAttention')}
                 primary={highlightedAttention.title}
                 detail={highlightedAttention.explanation}
                 onClick={onAttention}
@@ -960,14 +903,14 @@ export function LiaisonPage({
                 key={task.id}
                 tone={task.dueOn && task.dueOn < (data?.today ?? todayKey) ? 'amber' : 'blue'}
                 icon={ClipboardCheck}
-                title={task.assignee?.displayName ?? tr('À répartir', 'Unassigned')}
+                title={task.assignee?.displayName ?? t('liaisonPage.unassigned')}
                 primary={task.body}
                 detail={
                   task.dueOn
-                    ? `${tr('Pour le', 'Due')} ${new Date(`${task.dueOn}T12:00:00Z`).toLocaleDateString(locale, { timeZone: 'UTC', dateStyle: 'medium' })}`
-                    : tr('Sans échéance', 'No due date')
+                    ? `${t('liaisonPage.due')} ${new Date(`${task.dueOn}T12:00:00Z`).toLocaleDateString(locale, { timeZone: 'UTC', dateStyle: 'medium' })}`
+                    : t('liaisonPage.noDueDate')
                 }
-                actionLabel={data?.canWrite ? tr('C’est fait', 'Done') : undefined}
+                actionLabel={data?.canWrite ? t('liaisonPage.done2') : undefined}
                 onClick={
                   data?.canWrite
                     ? () =>
@@ -975,7 +918,7 @@ export function LiaisonPage({
                           `/${encodeURIComponent(task.id)}/completion`,
                           'PATCH',
                           { completed: true },
-                          tr('Merci, la tâche est terminée.', 'Thank you, task completed.'),
+                          t('liaisonPage.thankYouTaskCompleted'),
                         )
                     : undefined
                 }
@@ -984,28 +927,21 @@ export function LiaisonPage({
             {!highlightCount && (
               <div className="liaison-highlight-empty">
                 <Check aria-hidden="true" />
-                <strong>{tr('Rien à signaler', 'Nothing to flag')}</strong>
-                <span>
-                  {tr('Aucune tâche ou visite prochaine.', 'No upcoming tasks or visits.')}
-                </span>
+                <strong>{t('liaisonPage.nothingToFlag')}</strong>
+                <span>{t('liaisonPage.noUpcomingTasksOrVisits')}</span>
               </div>
             )}
           </div>
           <div className="liaison-help-card">
             <Lightbulb aria-hidden="true" />
             <div>
-              <strong>{tr('Un doute ?', 'Not sure?')}</strong>
-              <span>
-                {tr(
-                  'N’hésitez pas à laisser une note pour informer les autres aidants.',
-                  'Leave a note to keep the other caregivers informed.',
-                )}
-              </span>
+              <strong>{t('liaisonPage.notSure')}</strong>
+              <span>{t('liaisonPage.leaveANoteToKeep')}</span>
             </div>
           </div>
           {onJournal && (
             <button className="liaison-journal-link" type="button" onClick={onJournal}>
-              {tr('Ouvrir le journal du foyer', 'Open household journal')}
+              {t('liaisonPage.openHouseholdJournal')}
               <ChevronRight aria-hidden="true" />
             </button>
           )}
@@ -1038,10 +974,9 @@ function TimelineEntry({
   onDelete: (item: LiaisonEntry) => void;
   onComplete: (completed: boolean) => void;
 }) {
-  const author = item.author?.displayName ?? (locale === 'fr' ? 'Ancien proche' : 'Former member');
-  const mood = item.tags.includes('MOOD')
-    ? liaisonMoodLabel(item.body, locale === 'fr' ? 'fr' : 'en')
-    : null;
+  const author = item.author?.displayName ?? t('liaisonPage.formerMember');
+  const moodId = item.tags.includes('MOOD') ? liaisonMoodId(item.body) : null;
+  const mood = moodId ? moodLabel(moodId) : null;
   const createdAt = new Date(item.createdAt);
   const time = new Intl.DateTimeFormat(locale, {
     timeZone,
@@ -1060,7 +995,7 @@ function TimelineEntry({
               <span aria-hidden="true">·</span>
               <strong>{author}</strong>
               {item.tags.map((tag) => {
-                const meta = tagMeta(tag, locale);
+                const meta = tagMeta(tag);
                 const Icon = meta.icon;
                 return (
                   <span className={`liaison-tag liaison-tag--${meta.tone}`} key={tag}>
@@ -1072,27 +1007,21 @@ function TimelineEntry({
               {item.kind === 'TASK' && (
                 <span className="liaison-tag liaison-tag--task">
                   <ClipboardCheck aria-hidden="true" />
-                  {item.completedAt
-                    ? locale === 'fr'
-                      ? 'Terminée'
-                      : 'Completed'
-                    : locale === 'fr'
-                      ? 'À faire'
-                      : 'To do'}
+                  {item.completedAt ? t('liaisonPage.completed3') : t('liaisonPage.toDo')}
                 </span>
               )}
             </div>
             <p className="liaison-note-body">
               {mood
                 ? residentName
-                  ? `${locale === 'fr' ? 'Humeur de' : 'Mood of'} ${residentName} : ${mood}`
-                  : `${locale === 'fr' ? 'Humeur du résident' : 'Resident mood'} : ${mood}`
+                  ? `${t('liaisonPage.moodOf')} ${residentName} : ${mood}`
+                  : `${t('liaisonPage.residentMood')} : ${mood}`
                 : item.body}
             </p>
             {item.kind === 'TASK' && (
               <p className="liaison-note-detail">
                 <UserRound aria-hidden="true" />
-                {item.assignee?.displayName ?? (locale === 'fr' ? 'À répartir' : 'Unassigned')}
+                {item.assignee?.displayName ?? t('liaisonPage.unassigned')}
                 {item.dueOn && (
                   <>
                     <span aria-hidden="true">·</span>
@@ -1109,7 +1038,7 @@ function TimelineEntry({
         </div>
         {canWrite && (
           <details className="liaison-entry-menu">
-            <summary aria-label={locale === 'fr' ? 'Actions du message' : 'Message actions'}>
+            <summary aria-label={t('liaisonPage.messageActions')}>
               <MoreHorizontal aria-hidden="true" />
             </summary>
             <div className="liaison-entry-menu__items">
@@ -1122,7 +1051,7 @@ function TimelineEntry({
                 }}
               >
                 <PenLine aria-hidden="true" />
-                {locale === 'fr' ? 'Modifier' : 'Edit'}
+                {t('liaisonPage.edit')}
               </button>
               <button
                 type="button"
@@ -1133,7 +1062,7 @@ function TimelineEntry({
                 }}
               >
                 <Trash2 aria-hidden="true" />
-                {locale === 'fr' ? 'Supprimer' : 'Delete'}
+                {t('liaisonPage.delete')}
               </button>
               {item.kind === 'TASK' && (
                 <button
@@ -1145,13 +1074,7 @@ function TimelineEntry({
                   }}
                 >
                   <Check aria-hidden="true" />
-                  {item.completedAt
-                    ? locale === 'fr'
-                      ? 'Remettre à faire'
-                      : 'Reopen'
-                    : locale === 'fr'
-                      ? 'C’est fait'
-                      : 'Mark as done'}
+                  {item.completedAt ? t('liaisonPage.reopen') : t('liaisonPage.markAsDone')}
                 </button>
               )}
             </div>

@@ -24,11 +24,18 @@ import {
   type CoverageType,
 } from './coverage-model';
 import './coverage-explorer.css';
+import { t, type Locale } from './i18n';
+import {
+  coverageFamilyLabel,
+  coverageTypeDescription,
+  coverageTypeLabel,
+  productTexts,
+  sensorCategoryLabel,
+} from './i18n/data';
 
 const familyIcons = [Activity, Wind, DoorOpen, Camera, ShieldAlert, HeartHandshake, Zap];
 
 export function SensorCoverageRecommendations({
-  locale,
   coverage,
   loading,
   error,
@@ -37,7 +44,7 @@ export function SensorCoverageRecommendations({
   onContinue,
   onClose,
 }: {
-  locale: 'fr' | 'en';
+  locale: Locale;
   coverage: EquipmentCoverage | null;
   loading: boolean;
   error: string;
@@ -46,7 +53,6 @@ export function SensorCoverageRecommendations({
   onContinue?: () => void;
   onClose?: () => void;
 }) {
-  const fr = locale === 'fr';
   const [chosenType, setChosenType] = useState<CoverageType | null>(null);
   const [previewProduct, setPreviewProduct] = useState<SensorProduct | null>(null);
   const type = chosenType ?? 'presence';
@@ -60,7 +66,7 @@ export function SensorCoverageRecommendations({
       .filter(Boolean);
     return (
       <EquipmentDialog
-        title={previewProduct.brand + ' · ' + (fr ? previewProduct.name : previewProduct.nameEn)}
+        title={previewProduct.brand + ' · ' + productTexts(previewProduct).name}
         onClose={() => setPreviewProduct(null)}
       >
         <div className="equipment-category-content coverage-product-sheet">
@@ -68,54 +74,54 @@ export function SensorCoverageRecommendations({
             <ProductPhoto product={previewProduct} />
             <div>
               <span className="equipment-kicker">{previewProduct.brand}</span>
-              <h3>{fr ? previewProduct.name : previewProduct.nameEn}</h3>
+              <h3>{productTexts(previewProduct).name}</h3>
               <p>{previewProduct.model}</p>
               <span className="equipment-product-badge">
-                {fr ? 'Compatibilité documentée' : 'Documented compatibility'}
+                {t('sensorCoverageRecommendations.documentedCompatibility')}
               </span>
             </div>
           </div>
           {!!categoryLabels.length && (
             <div className="equipment-capability-tags">
               {categoryLabels.map((category) => (
-                <span key={category!.id}>{category![fr ? 'label' : 'labelEn']}</span>
+                <span key={category!.id}>{sensorCategoryLabel(category!.id)}</span>
               ))}
             </div>
           )}
           <div className="coverage-product-specs">
             <div>
-              <small>{fr ? 'Alimentation' : 'Power'}</small>
-              <strong>{fr ? previewProduct.power : previewProduct.powerEn}</strong>
+              <small>{t('sensorCoverageRecommendations.power')}</small>
+              <strong>{productTexts(previewProduct).power}</strong>
             </div>
             <div>
-              <small>{fr ? 'Protocole' : 'Protocol'}</small>
+              <small>{t('sensorCoverageRecommendations.protocol')}</small>
               <strong>{previewProduct.protocol.toUpperCase()}</strong>
             </div>
           </div>
-          <h4>{fr ? 'Fonctions documentées' : 'Documented features'}</h4>
+          <h4>{t('sensorCoverageRecommendations.documentedFeatures')}</h4>
           <ul>
-            {(fr ? previewProduct.features : previewProduct.featuresEn).map((feature) => (
+            {productTexts(previewProduct).features.map((feature) => (
               <li key={feature}>{feature}</li>
             ))}
           </ul>
-          <h4>{fr ? 'Conseils de placement' : 'Placement guidance'}</h4>
+          <h4>{t('sensorCoverageRecommendations.placementGuidance')}</h4>
           <ul>
-            {(fr ? previewProduct.placement : previewProduct.placementEn).map((item) => (
+            {productTexts(previewProduct).placement.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
-          <h4>{fr ? 'Préparation' : 'Preparation'}</h4>
+          <h4>{t('sensorCoverageRecommendations.preparation')}</h4>
           <ul>
-            {(fr ? previewProduct.preparation : previewProduct.preparationEn).map((item) => (
+            {productTexts(previewProduct).preparation.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
           <div className="equipment-product-links">
             <a href={previewProduct.sourceUrl} target="_blank" rel="noreferrer">
-              {fr ? 'Page officielle du produit' : 'Official product page'} ↗
+              {t('sensorCoverageRecommendations.officialProductPage')} ↗
             </a>
             <a href={previewProduct.manualUrl} target="_blank" rel="noreferrer">
-              {fr ? 'Notice fabricant' : 'Manufacturer manual'} ↗
+              {t('sensorCoverageRecommendations.manufacturerManual')} ↗
             </a>
           </div>
         </div>
@@ -128,14 +134,14 @@ export function SensorCoverageRecommendations({
       {loading ? (
         <div className="coverage-explorer-state" role="status">
           <Sparkles />
-          <p>{fr ? 'Chargement du catalogue…' : 'Loading the catalogue…'}</p>
+          <p>{t('sensorCoverageRecommendations.loadingTheCatalogue')}</p>
         </div>
       ) : error || !coverage ? (
         <div className="coverage-explorer-state" role="alert">
-          <p>{error || (fr ? 'Catalogue indisponible.' : 'Catalogue unavailable.')}</p>
+          <p>{error || t('sensorCoverageRecommendations.catalogueUnavailable')}</p>
           <button className="equipment-secondary" onClick={onRetry}>
             <RefreshCw />
-            {fr ? 'Réessayer' : 'Try again'}
+            {t('sensorCoverageRecommendations.tryAgain')}
           </button>
         </div>
       ) : (
@@ -143,18 +149,14 @@ export function SensorCoverageRecommendations({
           <header className="coverage-explorer-intro">
             <span className="coverage-explorer-eyebrow">
               <Sparkles aria-hidden="true" />
-              {fr ? 'Catalogue de compatibilité' : 'Compatibility catalogue'}
+              {t('sensorCoverageRecommendations.compatibilityCatalogue')}
             </span>
-            <h2>{fr ? 'Les capteurs documentés par Élise' : 'Sensors documented by Élise'}</h2>
-            <p>
-              {fr
-                ? 'Choisissez une famille puis un type de capteur pour consulter les modèles compatibles.'
-                : 'Choose a family and sensor type to browse compatible models.'}
-            </p>
+            <h2>{t('sensorCoverageRecommendations.sensorsDocumentedByElise')}</h2>
+            <p>{t('sensorCoverageRecommendations.chooseAFamilyAndSensor')}</p>
           </header>
           <nav
             className="coverage-family-list"
-            aria-label={fr ? 'Familles de capteurs' : 'Sensor families'}
+            aria-label={t('sensorCoverageRecommendations.sensorFamilies')}
           >
             {COVERAGE_FAMILIES.map((family, index) => {
               const Icon = familyIcons[index] ?? Activity;
@@ -162,7 +164,7 @@ export function SensorCoverageRecommendations({
               return (
                 <button
                   type="button"
-                  key={family.labelEn}
+                  key={family.id}
                   aria-pressed={active}
                   className={active ? 'is-active' : ''}
                   onClick={() => setChosenType(family.types[0]!)}
@@ -171,9 +173,9 @@ export function SensorCoverageRecommendations({
                     <Icon aria-hidden="true" />
                   </span>
                   <span className="coverage-family-copy">
-                    <strong>{fr ? family.label : family.labelEn}</strong>
+                    <strong>{coverageFamilyLabel(family.id)}</strong>
                     <small>
-                      {family.types.length} {family.types.length === 1 ? 'type' : 'types'}
+                      {t('sensorCoverageRecommendations.typeCount', { count: family.types.length })}
                     </small>
                   </span>
                 </button>
@@ -184,13 +186,13 @@ export function SensorCoverageRecommendations({
             <aside className="coverage-type-picker">
               <div className="coverage-type-picker-heading">
                 <span className="coverage-section-eyebrow">
-                  {fr ? 'Explorer par type' : 'Browse by type'}
+                  {t('sensorCoverageRecommendations.browseByType')}
                 </span>
-                <strong>{fr ? activeFamily.label : activeFamily.labelEn}</strong>
+                <strong>{coverageFamilyLabel(activeFamily.id)}</strong>
               </div>
               <nav
                 className="coverage-type-list"
-                aria-label={fr ? 'Types de capteurs' : 'Sensor types'}
+                aria-label={t('sensorCoverageRecommendations.sensorTypes')}
               >
                 {COVERAGE_TYPES.filter((item) => activeFamily.types.includes(item.id)).map(
                   (item) => (
@@ -201,7 +203,7 @@ export function SensorCoverageRecommendations({
                       className={type === item.id ? 'is-active' : ''}
                       onClick={() => setChosenType(item.id)}
                     >
-                      <span>{item[fr ? 'label' : 'labelEn']}</span>
+                      <span>{coverageTypeLabel(item.id)}</span>
                       <ArrowRight aria-hidden="true" />
                     </button>
                   ),
@@ -212,14 +214,14 @@ export function SensorCoverageRecommendations({
               <header className="coverage-detail-heading">
                 <div>
                   <span className="coverage-section-eyebrow">
-                    {fr ? 'Type de capteur' : 'Sensor type'}
+                    {t('sensorCoverageRecommendations.sensorType')}
                   </span>
-                  <h3>{definition[fr ? 'label' : 'labelEn']}</h3>
-                  <p>{definition[fr ? 'description' : 'descriptionEn']}</p>
+                  <h3>{coverageTypeLabel(definition.id)}</h3>
+                  <p>{coverageTypeDescription(definition.id)}</p>
                 </div>
               </header>
               <div className="coverage-product-heading">
-                <h4>{fr ? 'Modèles documentés' : 'Documented models'}</h4>
+                <h4>{t('sensorCoverageRecommendations.documentedModels')}</h4>
                 <span>{products.length}</span>
               </div>
               {!products.length ? (
@@ -228,15 +230,9 @@ export function SensorCoverageRecommendations({
                     <Radio aria-hidden="true" />
                   </span>
                   <strong>
-                    {fr
-                      ? 'Aucun modèle documenté actuellement'
-                      : 'No documented model currently available'}
+                    {t('sensorCoverageRecommendations.noDocumentedModelCurrentlyAvailable')}
                   </strong>
-                  <p>
-                    {fr
-                      ? 'Le type reste visible pour présenter tout ce qu’Élise peut couvrir.'
-                      : 'The type remains visible to show everything Élise can cover.'}
-                  </p>
+                  <p>{t('sensorCoverageRecommendations.theTypeRemainsVisibleTo')}</p>
                 </div>
               ) : (
                 <div className="equipment-product-grid">
@@ -244,18 +240,13 @@ export function SensorCoverageRecommendations({
                     <article className="coverage-product" key={product.id}>
                       <SensorProductCard
                         product={product}
-                        fr={fr}
                         onSelect={() => setPreviewProduct(product)}
                       />
-                      <p>
-                        {fr ? product.recommendation?.advice : product.recommendation?.adviceEn}
-                      </p>
+                      <p>{productTexts(product).advice}</p>
                       {product.recommendation?.detectionDistanceM && (
                         <small>
                           {product.recommendation.detectionDistanceM} m ·{' '}
-                          {fr
-                            ? 'distance de détection documentée'
-                            : 'documented detection distance'}
+                          {t('sensorCoverageRecommendations.documentedDetectionDistance')}
                         </small>
                       )}
                       <a
@@ -263,16 +254,14 @@ export function SensorCoverageRecommendations({
                         target="_blank"
                         rel="noreferrer"
                       >
-                        {fr ? 'Source fabricant' : 'Manufacturer source'} ↗
+                        {t('sensorCoverageRecommendations.manufacturerSource')} ↗
                       </a>
                     </article>
                   ))}
                 </div>
               )}
               <p className="coverage-explorer-note">
-                {fr
-                  ? 'Un appareil multifonction apparaît dans chaque type qu’il documente, mais il reste un seul produit.'
-                  : 'A multifunction device appears under every documented type, but remains a single product.'}
+                {t('sensorCoverageRecommendations.aMultifunctionDeviceAppearsUnder')}
               </p>
             </div>
           </div>
@@ -283,12 +272,12 @@ export function SensorCoverageRecommendations({
           {onBack && (
             <button className="equipment-secondary" onClick={onBack}>
               <ArrowLeft />
-              {fr ? 'Modifier le plan' : 'Edit the plan'}
+              {t('sensorCoverageRecommendations.editThePlan')}
             </button>
           )}
           {onContinue && (
             <button className="equipment-primary" onClick={onContinue}>
-              {fr ? 'Terminer la création' : 'Finish setup'}
+              {t('sensorCoverageRecommendations.finishSetup')}
               <ArrowRight />
             </button>
           )}
@@ -298,7 +287,11 @@ export function SensorCoverageRecommendations({
   );
 
   return onClose ? (
-    <EquipmentDialog title={fr ? 'Ce qu’Élise couvre' : 'What Élise covers'} wide onClose={onClose}>
+    <EquipmentDialog
+      title={t('sensorCoverageRecommendations.whatEliseCovers')}
+      wide
+      onClose={onClose}
+    >
       {content}
     </EquipmentDialog>
   ) : (

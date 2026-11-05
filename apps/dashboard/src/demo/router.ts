@@ -1,8 +1,6 @@
 import type { EquipmentCoverage, UpdateStatus } from '@elise/contracts';
-import { uiLocale } from '../screen-locale';
 import { DemoRouteNotFound, demoState, mockDemoRequest, resetDemoSession } from './scenario';
-
-const t = (fr: string, en: string) => (uiLocale() === 'fr' ? fr : en);
+import { t } from '../i18n';
 
 export interface DemoResponse {
   status: number;
@@ -18,10 +16,7 @@ const atClock = (day: Date, hours: number, minutes = 0) => {
   return value;
 };
 
-export const UNAVAILABLE_IN_DEMO = t(
-  'Indisponible en démonstration : rien ne quitte cette page.',
-  'Not available in the demo: nothing leaves this page.',
-);
+export const UNAVAILABLE_IN_DEMO = t('router.notAvailableInTheDemo');
 
 const unavailable = (): DemoResponse => ({ status: 403, body: { message: UNAVAILABLE_IN_DEMO } });
 
@@ -47,10 +42,7 @@ function createWebState() {
       id: 'medication-levothyrox',
       name: 'Levothyrox',
       dosage: '75 µg',
-      instructions: t(
-        'À jeun, avec un verre d’eau.',
-        'On an empty stomach, with a glass of water.',
-      ),
+      instructions: t('router.onAnEmptyStomachWith'),
       active: true,
       schedules: [
         {
@@ -66,7 +58,7 @@ function createWebState() {
       id: 'medication-doliprane',
       name: 'Doliprane',
       dosage: '500 mg',
-      instructions: t('Si douleur, pas plus de 3 par jour.', 'If in pain, no more than 3 a day.'),
+      instructions: t('router.ifInPainNoMore'),
       active: true,
       schedules: [
         {
@@ -82,9 +74,9 @@ function createWebState() {
   return {
     home: {
       id: 'home-martin',
-      name: t('Maison Martin', 'Martin home'),
+      name: t('router.martinHome'),
       timezone: 'Europe/Paris',
-      type: t('Maison', 'House'),
+      type: t('router.house'),
       address: 'Lyon',
       floorCount: 1,
       installationStatus: 'ACTIVE',
@@ -151,7 +143,7 @@ function household() {
         lastName: 'Martin',
         preferredName: 'Jeanne',
         birthDate: '1941-03-18',
-        spokenLanguage: t('Français', 'English'),
+        spokenLanguage: t('router.english'),
         formOfAddress: 'VOUS',
         photoUrl: null,
         primary: true,
@@ -170,7 +162,7 @@ function household() {
           {
             id: 'need-hearing',
             kind: 'HEARING',
-            note: t('Parler distinctement, face à elle.', 'Speak clearly, facing her.'),
+            note: t('router.speakClearlyFacingHer'),
           },
         ],
         habits: [
@@ -359,7 +351,7 @@ export function handleDemoRequest(method: string, path: string, rawBody?: string
     if (method === 'POST') {
       const created = {
         id: `medication-${Date.now()}`,
-        name: typeof body.name === 'string' ? body.name : t('Médicament', 'Medication'),
+        name: typeof body.name === 'string' ? body.name : t('router.medication'),
         dosage: typeof body.dosage === 'string' ? body.dosage : '',
         instructions: typeof body.instructions === 'string' ? body.instructions : null,
         active: true,

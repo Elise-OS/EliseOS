@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { EquipmentDialog } from './EquipmentDialog';
-import type { Locale } from './i18n';
+import { dateLocale, type Locale, t } from './i18n';
 import { SENSOR_PRODUCTS, productsForCategory } from './sensor-products';
 import { SensorOnboardingDialog } from './SensorOnboardingDialog';
 import {
@@ -45,6 +45,7 @@ import {
   sensorRequest,
   type SensorUiDevice,
 } from './sensor-ui';
+import { productTexts, sensorCategoryDescription, sensorCategoryLabel } from './i18n/data';
 
 const categoryIcons: Record<RoomSensorCategory, typeof Thermometer> = {
   temperature: Thermometer,
@@ -129,7 +130,6 @@ export function HomeSensorOnboardingDialog({
   onClose: () => void;
   onInstalled: () => Promise<void>;
 }) {
-  const fr = locale === 'fr';
   const [step, setStep] = useState<Step>('ROOM');
   const [roomId, setRoomId] = useState('');
   const [category, setCategory] = useState<RoomSensorCategory | undefined>();
@@ -236,27 +236,27 @@ export function HomeSensorOnboardingDialog({
     <EquipmentDialog
       title={
         step === 'ROOM'
-          ? fr
-            ? 'Choisir la pièce'
-            : 'Choose a room'
+          ? t('homeSensorOnboardingDialog.chooseARoom')
           : step === 'CATEGORY'
-            ? fr
-              ? `Ajouter dans ${initialTargetLabel ?? selectedRoom?.name ?? 'la pièce'}`
-              : `Add to ${initialTargetLabel ?? selectedRoom?.name ?? 'the room'}`
-            : `${selectedCategory?.[fr ? 'label' : 'labelEn'] ?? (fr ? 'Capteur' : 'Sensor')} · ${initialTargetLabel ?? selectedRoom?.name ?? ''}`
+            ? (initialTargetLabel ?? selectedRoom?.name)
+              ? t('homeSensorOnboardingDialog.addTo', {
+                  place: initialTargetLabel ?? selectedRoom?.name,
+                })
+              : t('homeSensorOnboardingDialog.addToTheRoom')
+            : `${selectedCategory ? sensorCategoryLabel(selectedCategory.id) : t('homeSensorOnboardingDialog.sensor')} · ${initialTargetLabel ?? selectedRoom?.name ?? ''}`
       }
       onClose={onClose}
       busy={busy}
     >
       <div className="home-sensor-flow">
-        <ol className="home-sensor-flow-steps" aria-label={fr ? 'Étapes' : 'Steps'}>
+        <ol className="home-sensor-flow-steps" aria-label={t('homeSensorOnboardingDialog.steps')}>
           <li className="is-active">
             <span>{step !== 'ROOM' ? <Check /> : '1'}</span>
-            {fr ? 'Pièce' : 'Room'}
+            {t('homeSensorOnboardingDialog.room')}
           </li>
           <li className={step !== 'ROOM' ? 'is-active' : ''}>
             <span>{!['ROOM', 'CATEGORY'].includes(step) ? <Check /> : '2'}</span>
-            {fr ? 'Type de capteur' : 'Sensor type'}
+            {t('homeSensorOnboardingDialog.sensorType')}
           </li>
         </ol>
 
@@ -267,15 +267,13 @@ export function HomeSensorOnboardingDialog({
                 <House />
               </span>
               <div>
-                <h3>{fr ? 'Où souhaitez-vous l’installer ?' : 'Where will you install it?'}</h3>
+                <h3>{t('homeSensorOnboardingDialog.whereWillYouInstallIt')}</h3>
                 <p>
                   {requestedCategory
-                    ? fr
-                      ? `Choisissez la pièce pour « ${requestedCategory.label} » ; Élise proposera les bons usages et le bon emplacement.`
-                      : `Choose a room for “${requestedCategory.labelEn}”; Élise will suggest the right uses and placement.`
-                    : fr
-                      ? 'Le choix de la pièce permet à Élise de proposer les bons usages et le bon emplacement.'
-                      : 'Choosing a room lets Élise suggest the right uses and placement.'}
+                    ? t('homeSensorOnboardingDialog.chooseRoomFor', {
+                        category: sensorCategoryLabel(requestedCategory.id),
+                      })
+                    : t('homeSensorOnboardingDialog.choosingARoomLetsElise')}
                 </p>
               </div>
             </div>
@@ -313,10 +311,8 @@ export function HomeSensorOnboardingDialog({
                             <strong>{room.name}</strong>
                             <small>
                               {room.areaM2 != null
-                                ? `${new Intl.NumberFormat(fr ? 'fr-FR' : 'en', { maximumFractionDigits: 1 }).format(room.areaM2)} m²`
-                                : fr
-                                  ? 'Choisir cette pièce'
-                                  : 'Choose this room'}
+                                ? `${new Intl.NumberFormat(dateLocale(), { maximumFractionDigits: 1 }).format(room.areaM2)} m²`
+                                : t('homeSensorOnboardingDialog.chooseThisRoom')}
                             </small>
                           </span>
                           <Plus />
@@ -329,9 +325,7 @@ export function HomeSensorOnboardingDialog({
             </div>
             {!rooms.length && (
               <p className="equipment-note" role="status">
-                {fr
-                  ? 'Aucune pièce n’est définie. Fermez cette fenêtre et ajoutez d’abord une pièce dans Mon logement.'
-                  : 'No rooms are defined. Close this window and add a room in My home first.'}
+                {t('homeSensorOnboardingDialog.noRoomsAreDefinedClose')}
               </p>
             )}
           </>
@@ -339,16 +333,12 @@ export function HomeSensorOnboardingDialog({
           <>
             <button className="equipment-text-button" onClick={() => setStep('ROOM')}>
               <ArrowLeft />
-              {fr ? 'Changer de pièce' : 'Change room'}
+              {t('homeSensorOnboardingDialog.changeRoom')}
             </button>
             <div className="home-sensor-flow-intro is-compact">
               <div>
-                <h3>{fr ? 'Que souhaitez-vous détecter ?' : 'What do you want to detect?'}</h3>
-                <p>
-                  {fr
-                    ? 'Tous les types pris en charge par Élise sont proposés ici.'
-                    : 'Every sensor type supported by Élise is available here.'}
-                </p>
+                <h3>{t('homeSensorOnboardingDialog.whatDoYouWantTo')}</h3>
+                <p>{t('homeSensorOnboardingDialog.everySensorTypeSupportedBy')}</p>
               </div>
             </div>
             <div className="equipment-category-picker home-sensor-category-picker">
@@ -369,8 +359,8 @@ export function HomeSensorOnboardingDialog({
                   >
                     <Icon />
                     <span>
-                      <strong>{definition[fr ? 'label' : 'labelEn']}</strong>
-                      <small>{definition[fr ? 'description' : 'descriptionEn']}</small>
+                      <strong>{sensorCategoryLabel(definition.id)}</strong>
+                      <small>{sensorCategoryDescription(definition.id)}</small>
                     </span>
                     <Plus />
                   </button>
@@ -381,18 +371,19 @@ export function HomeSensorOnboardingDialog({
         ) : step === 'ASSIGN' && assigning ? (
           <>
             <button className="equipment-text-button" onClick={() => setStep('CATALOG')}>
-              <ArrowLeft /> {fr ? 'Retour aux capteurs' : 'Back to sensors'}
+              <ArrowLeft /> {t('homeSensorOnboardingDialog.backToSensors')}
             </button>
             <h3>{assigning.name}</h3>
             {assigning.room && assigning.room.id !== roomId && (
               <p className="equipment-note">
-                {fr
-                  ? `Cet appareil sera déplacé de « ${assigning.room.name} » vers « ${selectedRoom?.name} », avec toutes ses mesures.`
-                  : `This device and all its readings will move from ${assigning.room.name} to ${selectedRoom?.name}.`}
+                {t('homeSensorOnboardingDialog.thisDeviceAndAllIts', {
+                  name: assigning.room.name,
+                  name2: selectedRoom?.name,
+                })}
               </p>
             )}
             <label className="equipment-field">
-              {fr ? 'Nom' : 'Name'}
+              {t('homeSensorOnboardingDialog.name')}
               <input
                 value={name}
                 maxLength={120}
@@ -400,42 +391,34 @@ export function HomeSensorOnboardingDialog({
               />
             </label>
             <label className="equipment-field">
-              {fr ? 'Emplacement (facultatif)' : 'Location (optional)'}
+              {t('homeSensorOnboardingDialog.locationOptional')}
               <input
                 value={note}
                 maxLength={500}
                 onChange={(event) => setNote(event.target.value)}
-                placeholder={fr ? 'Par exemple : côté lit' : 'For example: by the bed'}
+                placeholder={t('homeSensorOnboardingDialog.forExampleByTheBed')}
               />
             </label>
             {category === 'bed' && (
               <p className="equipment-note">
                 {assigning
                   ? isBedOccupancySensorModel(assigning.model)
-                    ? fr
-                      ? 'La bande Tuya se connecte directement en Zigbee. Son état actif signifie « lit occupé » ; vérifiez le retour à « libre » au lever.'
-                      : 'The Tuya strip connects directly over Zigbee. Its active state means “bed occupied”; check that it returns to “unoccupied” when the person gets up.'
-                    : fr
-                      ? 'Branchez un tapis de pression à contact sec au NodOn et placez le tapis sous le matelas. Le module NodOn doit rester exposé à la lumière ou utiliser sa pile de secours.'
-                      : 'Connect a dry-contact pressure mat to the NodOn and place the mat under the mattress. Keep the NodOn module exposed to light or use its backup battery.'
-                  : fr
-                    ? 'La bande Tuya se place sous le matelas et se connecte directement en Zigbee ; le NodOn doit être raccordé à un tapis de pression à contact sec.'
-                    : 'The Tuya strip sits under the mattress and connects directly over Zigbee; the NodOn needs a dry-contact pressure mat.'}
+                    ? t('homeSensorOnboardingDialog.theTuyaStripConnectsDirectly')
+                    : t('homeSensorOnboardingDialog.connectADryContactPressure')
+                  : t('homeSensorOnboardingDialog.theTuyaStripSitsUnder')}
               </p>
             )}
             {category === 'bed' && (!assigning || !isBedOccupancySensorModel(assigning.model)) && (
               <label className="equipment-field">
-                {fr ? 'Quand le lit est occupé' : 'When the bed is occupied'}
+                {t('homeSensorOnboardingDialog.whenTheBedIsOccupied')}
                 <select
                   value={bedOccupiedWhen}
                   onChange={(event) => setBedOccupiedWhen(event.target.value as 'CLOSED' | 'OPEN')}
                 >
                   <option value="CLOSED">
-                    {fr ? 'Le contact est fermé' : 'The contact is closed'}
+                    {t('homeSensorOnboardingDialog.theContactIsClosed')}
                   </option>
-                  <option value="OPEN">
-                    {fr ? 'Le contact est ouvert' : 'The contact is open'}
-                  </option>
+                  <option value="OPEN">{t('homeSensorOnboardingDialog.theContactIsOpen')}</option>
                 </select>
               </label>
             )}
@@ -447,74 +430,64 @@ export function HomeSensorOnboardingDialog({
               >
                 <Check />
                 {assigning.room?.id === roomId
-                  ? fr
-                    ? 'Enregistrer'
-                    : 'Save'
-                  : fr
-                    ? `Associer à ${selectedRoom?.name}`
-                    : `Assign to ${selectedRoom?.name}`}
+                  ? t('homeSensorOnboardingDialog.save')
+                  : t('homeSensorOnboardingDialog.assignTo', { name: selectedRoom?.name })}
               </button>
             </footer>
           </>
         ) : step === 'PRODUCT' && product ? (
           <>
             <button className="equipment-text-button" onClick={() => setStep('CATALOG')}>
-              <ArrowLeft /> {fr ? 'Tous les produits' : 'All products'}
+              <ArrowLeft /> {t('homeSensorOnboardingDialog.allProducts')}
             </button>
             <div className="equipment-product-detail">
               <ProductPhoto product={product} />
               <div>
                 <span className="equipment-kicker">{product.brand}</span>
-                <h3>{fr ? product.name : product.nameEn}</h3>
+                <h3>{productTexts(product).name}</h3>
                 <p>{product.model}</p>
                 <span className="equipment-product-badge">
-                  {fr ? 'Compatibilité documentée' : 'Documented compatibility'}
+                  {t('homeSensorOnboardingDialog.documentedCompatibility')}
                 </span>
               </div>
             </div>
             <div className="equipment-capability-tags">
               {product.categories.map((id) => (
-                <span key={id}>
-                  {
-                    ROOM_SENSOR_CATEGORIES.find((item) => item.id === id)?.[
-                      fr ? 'label' : 'labelEn'
-                    ]
-                  }
-                </span>
+                <span key={id}>{sensorCategoryLabel(id)}</span>
               ))}
             </div>
-            <h4>{fr ? 'Fonctions documentées' : 'Documented features'}</h4>
+            <h4>{t('homeSensorOnboardingDialog.documentedFeatures')}</h4>
             <ul>
-              {(fr ? product.features : product.featuresEn).map((feature) => (
+              {productTexts(product).features.map((feature) => (
                 <li key={feature}>{feature}</li>
               ))}
             </ul>
             <footer className="equipment-dialog-footer">
               <button className="equipment-primary" onClick={() => setStep('INSTALL')}>
-                {fr ? 'Installer ce capteur' : 'Install this sensor'} <ChevronRight />
+                {t('homeSensorOnboardingDialog.installThisSensor')} <ChevronRight />
               </button>
             </footer>
           </>
         ) : (
           <>
             <button className="equipment-text-button" onClick={() => setStep('CATEGORY')}>
-              <ArrowLeft /> {fr ? 'Changer de type' : 'Change type'}
+              <ArrowLeft /> {t('homeSensorOnboardingDialog.changeType')}
             </button>
-            <h3>{fr ? 'Ajouter un capteur' : 'Add a sensor'}</h3>
+            <h3>{t('homeSensorOnboardingDialog.addASensor')}</h3>
             <div className="equipment-catalog-tabs" role="tablist">
               <button
                 role="tab"
                 aria-selected={tab === 'PRODUCTS'}
                 onClick={() => setTab('PRODUCTS')}
               >
-                {fr ? 'Produits documentés' : 'Documented products'}
+                {t('homeSensorOnboardingDialog.documentedProducts')}
               </button>
               <button
                 role="tab"
                 aria-selected={tab === 'CONNECTED'}
                 onClick={() => setTab('CONNECTED')}
               >
-                {fr ? 'Déjà connectés' : 'Already connected'} <span>{compatible.length}</span>
+                {t('homeSensorOnboardingDialog.alreadyConnected')} <span>{compatible.length}</span>
               </button>
             </div>
             {tab === 'PRODUCTS' ? (
@@ -523,7 +496,6 @@ export function HomeSensorOnboardingDialog({
                   <SensorProductCard
                     key={item.id}
                     product={item}
-                    fr={fr}
                     onSelect={() => {
                       setProduct(item);
                       setStep('PRODUCT');
@@ -553,14 +525,12 @@ export function HomeSensorOnboardingDialog({
                       <strong>{device.name}</strong>
                       <small>
                         {device.room?.id === roomId
-                          ? fr
-                            ? 'Déjà dans cette pièce'
-                            : 'Already in this room'
-                          : (device.room?.name ?? (fr ? 'Sans pièce' : 'Unassigned'))}
+                          ? t('homeSensorOnboardingDialog.alreadyInThisRoom')
+                          : (device.room?.name ?? t('homeSensorOnboardingDialog.unassigned'))}
                       </small>
                       {device.batteryPercent !== null && (
                         <small>
-                          {fr ? 'Batterie' : 'Battery'} {device.batteryPercent} %
+                          {t('homeSensorOnboardingDialog.battery')} {device.batteryPercent} %
                         </small>
                       )}
                     </span>
@@ -569,9 +539,7 @@ export function HomeSensorOnboardingDialog({
                 ))}
                 {!compatible.length && (
                   <p className="equipment-note">
-                    {fr
-                      ? 'Aucun appareil compatible déjà connecté.'
-                      : 'No compatible device is connected yet.'}
+                    {t('homeSensorOnboardingDialog.noCompatibleDeviceIsConnected')}
                   </p>
                 )}
               </div>
@@ -585,10 +553,8 @@ export function HomeSensorOnboardingDialog({
             >
               <Radio />
               <span>
-                {fr ? 'Mon modèle n’est pas dans la liste' : 'My model is not listed'}
-                <small>
-                  {fr ? 'Lancer la détection automatique' : 'Start automatic detection'}
-                </small>
+                {t('homeSensorOnboardingDialog.myModelIsNotListed')}
+                <small>{t('homeSensorOnboardingDialog.startAutomaticDetection')}</small>
               </span>
               <ChevronRight />
             </button>

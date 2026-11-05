@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { Locale } from './i18n';
+import { dateLocale, type Locale, t } from './i18n';
 import './journal-page.css';
 
 export interface JournalPageItem {
@@ -29,19 +29,18 @@ interface JournalKindMeta {
   tone: 'blue' | 'green' | 'amber';
 }
 
-function kindMeta(kind: string, locale: Locale): JournalKindMeta {
-  const french = locale === 'fr';
+function kindMeta(kind: string): JournalKindMeta {
   if (kind === 'DAILY_SUMMARY') {
     return {
-      label: french ? 'Bilan du jour' : 'Daily summary',
+      label: t('journalPage.dailySummary'),
       icon: Sparkles,
       tone: 'blue',
     };
   }
   if (kind === 'NOTE') {
-    return { label: french ? 'Note familiale' : 'Family note', icon: PenLine, tone: 'green' };
+    return { label: t('journalPage.familyNote'), icon: PenLine, tone: 'green' };
   }
-  return { label: french ? 'Événement' : 'Event', icon: Clock3, tone: 'amber' };
+  return { label: t('journalPage.event'), icon: Clock3, tone: 'amber' };
 }
 
 function dayKey(value: Date, timezone: string): string {
@@ -64,9 +63,9 @@ function shiftDayKey(value: string, days: number): string {
 function dateHeading(value: Date, locale: Locale, now: Date, timezone: string): string {
   const key = dayKey(value, timezone);
   const today = dayKey(now, timezone);
-  if (key === today) return locale === 'fr' ? 'Aujourd’hui' : 'Today';
-  if (key === shiftDayKey(today, -1)) return locale === 'fr' ? 'Hier' : 'Yesterday';
-  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
+  if (key === today) return t('journalPage.today');
+  if (key === shiftDayKey(today, -1)) return t('journalPage.yesterday');
+  return new Intl.DateTimeFormat(dateLocale(), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -74,13 +73,12 @@ function dateHeading(value: Date, locale: Locale, now: Date, timezone: string): 
   }).format(value);
 }
 
-function eventCount(count: number, locale: Locale): string {
-  if (locale === 'fr') return `${count} ${count === 1 ? 'événement' : 'événements'}`;
-  return `${count} ${count === 1 ? 'event' : 'events'}`;
+function eventCount(count: number): string {
+  return t('journalPage.eventCount', { count });
 }
 
 function formatTime(value: string, locale: Locale, timezone: string): string {
-  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
+  return new Intl.DateTimeFormat(dateLocale(), {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: timezone,
@@ -88,7 +86,7 @@ function formatTime(value: string, locale: Locale, timezone: string): string {
 }
 
 function formatLongDate(value: Date, locale: Locale, timezone: string): string {
-  return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
+  return new Intl.DateTimeFormat(dateLocale(), {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -110,7 +108,6 @@ export function JournalPage({
   residentName?: string | null;
   onBack?: () => void;
 }) {
-  const tr = (fr: string, en: string) => (locale === 'fr' ? fr : en);
   const resident = residentName?.trim() || null;
   const [now, setNow] = useState(() => new Date());
 
@@ -162,13 +159,13 @@ export function JournalPage({
     <section className="house-journal-page">
       <header className="page-hero house-journal-hero">
         <div className="page-hero__copy house-journal-hero-copy">
-          <h1 className="page-hero__title">{tr('Journal du foyer', 'Household journal')}</h1>
+          <h1 className="page-hero__title">{t('journalPage.householdJournal')}</h1>
         </div>
         <div className="page-hero__actions house-journal-hero-actions">
           {onBack ? (
             <button className="house-journal-back" type="button" onClick={onBack}>
               <ChevronLeft size={20} aria-hidden="true" />
-              {tr('Retour au carnet', 'Back to notebook')}
+              {t('journalPage.backToNotebook')}
             </button>
           ) : null}
         </div>
@@ -180,16 +177,11 @@ export function JournalPage({
             <div>
               <span className="house-journal-dot house-journal-dot--blue" aria-hidden="true" />
               <div>
-                <h2 id="house-journal-feed-title">{tr('Mémoire du foyer', 'Household memory')}</h2>
-                <p>
-                  {tr(
-                    'Les événements et notes qui méritent d’être retrouvés.',
-                    'Events and notes worth finding again.',
-                  )}
-                </p>
+                <h2 id="house-journal-feed-title">{t('journalPage.householdMemory')}</h2>
+                <p>{t('journalPage.eventsAndNotesWorthFinding')}</p>
               </div>
             </div>
-            <span className="house-journal-count">{eventCount(sortedItems.length, locale)}</span>
+            <span className="house-journal-count">{eventCount(sortedItems.length)}</span>
           </div>
 
           {groups.length ? (
@@ -198,11 +190,11 @@ export function JournalPage({
                 <section className="house-journal-day" key={group.key}>
                   <div className="house-journal-day-heading">
                     <span>{dateHeading(group.date, locale, now, timezone)}</span>
-                    <small>{eventCount(group.items.length, locale)}</small>
+                    <small>{eventCount(group.items.length)}</small>
                   </div>
                   <div className="house-journal-day-items">
                     {group.items.map((item) => {
-                      const meta = kindMeta(item.kind, locale);
+                      const meta = kindMeta(item.kind);
                       const Icon = meta.icon;
                       return (
                         <article className="house-journal-entry" key={item.id}>
@@ -220,7 +212,7 @@ export function JournalPage({
                             </div>
                             <h3>
                               {isLiaisonSummary(item.id)
-                                ? tr('Résumé du carnet de liaison', 'Family notebook summary')
+                                ? t('journalPage.familyNotebookSummary')
                                 : item.title}
                             </h3>
                             {item.body ? (
@@ -252,53 +244,43 @@ export function JournalPage({
               <div className="house-journal-empty-icon">
                 <BookOpen size={34} aria-hidden="true" />
               </div>
-              <h3>{tr('Le journal commence ici', 'The journal starts here')}</h3>
-              <p>
-                {tr(
-                  'Les bilans du quotidien et les notes partagées par les aidants apparaîtront ici.',
-                  'Daily summaries and notes shared by caregivers will appear here.',
-                )}
-              </p>
+              <h3>{t('journalPage.theJournalStartsHere')}</h3>
+              <p>{t('journalPage.dailySummariesAndNotesShared')}</p>
               {onBack ? (
                 <button className="house-journal-empty-action" type="button" onClick={onBack}>
                   <PenLine size={18} aria-hidden="true" />
-                  {tr('Écrire une première note', 'Write the first note')}
+                  {t('journalPage.writeTheFirstNote')}
                 </button>
               ) : null}
             </div>
           )}
         </section>
 
-        <aside
-          className="house-journal-aside"
-          aria-label={tr('Résumé du journal', 'Journal summary')}
-        >
+        <aside className="house-journal-aside" aria-label={t('journalPage.journalSummary')}>
           <div className="house-journal-aside-heading">
             <span className="house-journal-dot house-journal-dot--amber" aria-hidden="true" />
-            <h2>{tr('À retenir', 'At a glance')}</h2>
+            <h2>{t('journalPage.atAGlance')}</h2>
           </div>
 
           <div className="house-journal-stat-grid">
             <div className="house-journal-stat house-journal-stat--blue">
               <BookOpen size={22} aria-hidden="true" />
               <strong>{recentItems.length}</strong>
-              <span>{tr('éléments au total', 'total entries')}</span>
+              <span>{t('journalPage.totalEntries')}</span>
             </div>
             <div className="house-journal-stat house-journal-stat--green">
               <CalendarDays size={22} aria-hidden="true" />
               <strong>{monthCount}</strong>
-              <span>{tr('ce mois-ci', 'this month')}</span>
+              <span>{t('journalPage.thisMonth')}</span>
             </div>
           </div>
 
           <div className="house-journal-info-card">
             <Clock3 size={22} aria-hidden="true" />
             <div>
-              <strong>{tr('Dernière mise à jour', 'Last update')}</strong>
+              <strong>{t('journalPage.lastUpdate')}</strong>
               <p>
-                {latest
-                  ? formatLongDate(latest, locale, timezone)
-                  : tr('Aucune entrée pour le moment', 'No entry yet')}
+                {latest ? formatLongDate(latest, locale, timezone) : t('journalPage.noEntryYet')}
               </p>
             </div>
           </div>
@@ -306,28 +288,18 @@ export function JournalPage({
           <div className="house-journal-info-card house-journal-info-card--soft">
             <UserRound size={22} aria-hidden="true" />
             <div>
-              <strong>{tr('Un espace partagé', 'A shared space')}</strong>
+              <strong>{t('journalPage.aSharedSpace')}</strong>
               <p>
-                {tr(
-                  resident
-                    ? `Les proches peuvent transmettre ici les informations utiles au quotidien de ${resident}.`
-                    : 'Les proches peuvent transmettre ici les informations utiles au quotidien du résident.',
-                  resident
-                    ? `Loved ones can share useful information about ${resident}’s daily life here.`
-                    : 'Loved ones can share useful information about the resident’s daily life here.',
-                )}
+                {resident
+                  ? t('journalPage.lovedOnesCanShareUseful', { resident })
+                  : t('journalPage.lovedOnesCanShareUseful2')}
               </p>
             </div>
           </div>
 
           <div className="house-journal-tip">
             <Sparkles size={22} aria-hidden="true" />
-            <p>
-              {tr(
-                'Le carnet de liaison sert aux notes et aux tâches à faire. Le journal garde la mémoire des événements.',
-                'The notebook is for notes and tasks. The journal keeps the memory of events.',
-              )}
-            </p>
+            <p>{t('journalPage.theNotebookIsForNotes')}</p>
           </div>
         </aside>
       </div>

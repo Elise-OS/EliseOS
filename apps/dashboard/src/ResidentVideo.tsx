@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
-import { tr } from './screen-locale';
 import { youtubeVideoId, type ScreenMedia } from '@elise/contracts';
+import { t } from './i18n';
 export type VideoStatus = 'loading' | 'ready' | 'error';
 type YoutubePlayer = {
   loadPlaylist(ids: string[]): void;
@@ -320,7 +320,7 @@ export function ResidentVideo({
               });
           }}
         >
-          {tr('Activer le son', 'Turn on sound')}
+          {t('residentVideo.turnOnSound')}
         </button>
       )}
     </section>

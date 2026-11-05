@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import './room-equipment.css';
-import { tr } from './screen-locale';
+import { t } from './i18n';
 
 export function EquipmentDialog({
   title,
@@ -11,7 +11,7 @@ export function EquipmentDialog({
   busy = false,
   wide = false,
   sidePanel = false,
-  closeLabel = tr('Fermer', 'Close'),
+  closeLabel = t('equipmentDialog.close'),
 }: {
   title: string;
   children: ReactNode;

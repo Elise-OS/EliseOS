@@ -55,12 +55,11 @@ type WeatherCity = {
   latitude: number;
   longitude: number;
 };
-import type { Locale } from './i18n';
+import { currentLanguage, dateLocale, type Locale, t } from './i18n';
 import { subscribeScreenEvents } from './screen-events';
 import './welcome-page.css';
 
 export function homeCardText(card: HomeSummary['cards'][number], locale: Locale, timezone: string) {
-  const fr = locale === 'fr';
   const at = card.lastObservedAt
     ? new Date(card.lastObservedAt).toLocaleTimeString(locale, {
         timeZone: timezone,
@@ -72,64 +71,30 @@ export function homeCardText(card: HomeSummary['cards'][number], locale: Locale,
   if (card.observedToday) {
     text =
       card.kind === 'FRIDGE' || card.kind === 'OPENING'
-        ? fr
-          ? `Ouvert aujourd’hui, la dernière fois à ${at}.`
-          : `Opening detected today at ${at}.`
-        : fr
-          ? `Activité détectée aujourd’hui à ${at}.`
-          : `Activity detected today at ${at}.`;
-    if (card.kind === 'TOILET')
-      text = fr
-        ? `Un passage a été détecté aujourd’hui à ${at}.`
-        : `A visit was detected today at ${at}.`;
+        ? t('welcomePage.openingDetectedTodayAt', { at })
+        : t('welcomePage.activityDetectedTodayAt', { at });
+    if (card.kind === 'TOILET') text = t('welcomePage.aVisitWasDetectedToday', { at });
   }
   if (!card.available)
-    return [
-      text,
-      fr ? 'Les informations actuelles sont indisponibles.' : 'Current information is unavailable.',
-    ]
-      .filter(Boolean)
-      .join(' ');
+    return [text, t('welcomePage.currentInformationIsUnavailable')].filter(Boolean).join(' ');
   if (['FRIDGE', 'OPENING'].includes(card.kind) && card.state !== 'UNKNOWN')
-    text += fr
-      ? card.state === 'ACTIVE'
-        ? ' Actuellement ouvert.'
-        : ' Actuellement fermé.'
-      : card.state === 'ACTIVE'
-        ? ' Currently open.'
-        : ' Currently closed.';
+    text +=
+      card.state === 'ACTIVE' ? t('welcomePage.currentlyOpen') : t('welcomePage.currentlyClosed');
   if (card.kind === 'APPLIANCE' && card.state !== 'UNKNOWN')
-    text += fr
-      ? card.state === 'ACTIVE'
-        ? ' Actuellement allumé.'
-        : ' Actuellement éteint.'
-      : card.state === 'ACTIVE'
-        ? ' Currently on.'
-        : ' Currently off.';
+    text += card.state === 'ACTIVE' ? t('welcomePage.currentlyOn') : t('welcomePage.currentlyOff');
   if (card.kind === 'SAFETY' && card.state === 'ACTIVE')
-    text += fr ? ' Un signal demande votre attention.' : ' A signal needs your attention.';
+    text += t('welcomePage.aSignalNeedsYourAttention');
   if (text.trim()) return text.trim();
-  if (card.kind === 'APPLIANCE')
-    return fr
-      ? 'Le fonctionnement ne peut pas être déterminé avec les informations disponibles.'
-      : 'Operation cannot be determined from the available information.';
+  if (card.kind === 'APPLIANCE') return t('welcomePage.operationCannotBeDeterminedFrom');
   if (card.kind === 'COMFORT' && card.state === 'ACTIVE')
-    return fr
-      ? 'La température dépasse un seuil configuré.'
-      : 'The temperature is outside a configured threshold.';
+    return t('welcomePage.theTemperatureIsOutsideA');
   if (card.kind === 'COMFORT' && card.state === 'INACTIVE')
-    return fr
-      ? 'La température respecte les seuils configurés.'
-      : 'The temperature is within the configured thresholds.';
-  if (card.kind === 'COMFORT')
-    return fr
-      ? 'Les informations de confort sont reçues. Aucun état de confort interprété n’est disponible.'
-      : 'Comfort information is being received. No interpreted comfort status is available.';
-  return fr ? 'Aucune activité détectée aujourd’hui.' : 'No activity detected today.';
+    return t('welcomePage.theTemperatureIsWithinThe');
+  if (card.kind === 'COMFORT') return t('welcomePage.comfortInformationIsBeingReceived');
+  return t('welcomePage.noActivityDetectedToday');
 }
 
 export function entranceText(entrance: EntranceSummary, locale: Locale, timezone: string) {
-  const fr = locale === 'fr';
   const at = entrance.openedAt
     ? new Date(entrance.openedAt).toLocaleString(locale, {
         timeZone: timezone,
@@ -141,76 +106,48 @@ export function entranceText(entrance: EntranceSummary, locale: Locale, timezone
     : '';
   switch (entrance.state) {
     case 'ENTRY_LIKELY':
-      return fr
-        ? `Entrée probable le ${at} : l’ouverture de la porte a été suivie d’un mouvement sur le trajet intérieur.`
-        : `Likely entry on ${at}: the door opening was followed by movement on the indoor path.`;
+      return t('welcomePage.likelyEntryOnTheDoor', { at });
     case 'EXIT_LIKELY':
-      return fr
-        ? `Sortie probable le ${at} : un mouvement vers l’entrée a précédé l’ouverture, puis aucune activité intérieure n’a été détectée après la fermeture.`
-        : `Likely exit on ${at}: movement towards the entrance preceded the opening, with no indoor activity detected after the door closed.`;
+      return t('welcomePage.likelyExitOnMovementTowards', { at });
     case 'PENDING':
-      return fr
-        ? 'La porte principale a été ouverte. Les prochains mouvements permettront de préciser le sens du passage.'
-        : 'The main door was opened. Subsequent movement will help determine the direction of passage.';
+      return t('welcomePage.theMainDoorWasOpened');
     case 'INSIDE_ACTIVITY':
-      return fr
-        ? 'De l’activité a été détectée à l’intérieur après l’ouverture de la porte principale. Le sens du passage reste incertain.'
-        : 'Indoor activity was detected after the main door opened. The direction of passage remains uncertain.';
+      return t('welcomePage.indoorActivityWasDetectedAfter');
     case 'UNCERTAIN':
-      return fr
-        ? 'La porte principale a été ouverte, mais les observations ne permettent pas de distinguer une entrée d’une sortie.'
-        : 'The main door was opened, but observations cannot distinguish an entry from an exit.';
+      return t('welcomePage.theMainDoorWasOpened2');
     case 'UNAVAILABLE':
-      return fr
-        ? 'Les informations de la porte principale et de son trajet intérieur sont insuffisantes pour comprendre les passages.'
-        : 'Information from the main door and indoor path is insufficient to interpret passages.';
+      return t('welcomePage.informationFromTheMainDoor');
     default:
-      return fr
-        ? 'Aucun passage détecté à la porte principale aujourd’hui.'
-        : 'No passage detected at the main door today.';
+      return t('welcomePage.noPassageDetectedAtThe');
   }
 }
 
-function roomWithArticle(
-  room: Pick<HomeSummary['rooms'][number], 'kind' | 'name'>,
-  locale: Locale,
-) {
-  if (locale !== 'fr') {
-    const english: Record<string, string> = {
-      LIVING_ROOM: 'the living room',
-      KITCHEN: 'the kitchen',
-      BEDROOM: 'the bedroom',
-      BATHROOM: 'the bathroom',
-      TOILET: 'the toilet',
-      ENTRANCE: 'the entrance',
-      HALLWAY: 'the hallway',
-      DINING_ROOM: 'the dining room',
-      GARAGE: 'the garage',
-      GARDEN: 'the garden',
-      TERRACE: 'the terrace',
-    };
-    return english[roomIconKey(room)] ?? room.name;
-  }
-  const labels: Record<string, string> = {
-    LIVING_ROOM: 'le salon',
-    KITCHEN: 'la cuisine',
-    BEDROOM: 'la chambre',
-    BATHROOM: 'la salle de bain',
-    TOILET: 'les toilettes',
-    ENTRANCE: 'l’entrée',
-    HALLWAY: 'le couloir',
-    DINING_ROOM: 'la salle à manger',
-    GARAGE: 'le garage',
-    GARDEN: 'le jardin',
-    TERRACE: 'la terrasse',
-  };
-  return labels[roomIconKey(room)] ?? `la pièce « ${room.name} »`;
+// Room names with their article, as they read inside a sentence ("is in the kitchen").
+const ROOM_KINDS_WITH_ARTICLE = [
+  'LIVING_ROOM',
+  'KITCHEN',
+  'BEDROOM',
+  'BATHROOM',
+  'TOILET',
+  'ENTRANCE',
+  'HALLWAY',
+  'DINING_ROOM',
+  'GARAGE',
+  'GARDEN',
+  'TERRACE',
+] as const;
+
+function roomWithArticle(room: Pick<HomeSummary['rooms'][number], 'kind' | 'name'>) {
+  const key = roomIconKey(room);
+  const kind = ROOM_KINDS_WITH_ARTICLE.find((candidate) => candidate === key);
+  return kind
+    ? t(`welcomePage.roomWithArticle.${kind}`)
+    : t('welcomePage.roomWithArticle.named', { name: room.name });
 }
 
 export function presenceText(data: HomeSummary, locale: Locale) {
-  const fr = locale === 'fr';
   const p = data.presence;
-  const resident = data.residentName || (fr ? 'Le résident' : 'The resident');
+  const resident = data.residentName || t('welcomePage.theResident');
   if (
     data.entrance?.state === 'EXIT_LIKELY' &&
     p.trackingState !== 'AMBIGUOUS' &&
@@ -221,34 +158,30 @@ export function presenceText(data: HomeSummary, locale: Locale) {
     ? data.rooms.find((candidate) => candidate.id === data.latestPresence?.roomId)
     : undefined;
   if (latestRoom && data.latestPresence)
-    return fr
-      ? `${resident} est dans ${roomWithArticle(latestRoom, locale)}.`
-      : `${resident} is in ${latestRoom.name}.`;
+    return t('welcomePage.isIn', { resident, room: roomWithArticle(latestRoom) });
   const room = data.rooms.find((r) => r.id === (p.confirmedRoomId ?? p.roomId));
   if (p.trackingState === 'CONFIRMED' && !p.trackingDegraded && room)
-    return fr
-      ? `${resident} est dans ${roomWithArticle(room, locale)}.`
-      : `${resident} is in ${room.name}.`;
+    return t('welcomePage.isIn', { resident, room: roomWithArticle(room) });
   if (p.trackingState === 'IN_TRANSIT')
-    return fr
-      ? `${resident} semble se déplacer dans le logement.`
-      : `${resident} appears to be moving through the home.`;
+    return t('welcomePage.appearsToBeMovingThrough', { resident });
   if (p.trackingState === 'AMBIGUOUS' || p.trackingDegraded)
-    return fr
-      ? `Les dernières observations ne permettent pas encore de situer ${resident} précisément.`
-      : `The latest observations do not yet locate ${resident} precisely.`;
+    return t('welcomePage.theLatestObservationsDoNot', { resident });
   const confirmedRoomEvidence = p.evidenceSummary
     .filter((item) => item.roomId === p.confirmedRoomId && item.observed !== false)
     .map((item) => item.occurredAt)
     .sort((first, second) => Date.parse(second) - Date.parse(first))[0];
   const timestamp = confirmedRoomEvidence ?? p.lastConfirmedAt ?? p.detectedAt;
   if (room && timestamp)
-    return fr
-      ? `${resident} se trouve probablement dans ${roomWithArticle(room, locale)}. La dernière détection date de ${new Date(timestamp).toLocaleTimeString(locale, { timeZone: data.timezone, hour: '2-digit', minute: '2-digit' })}.`
-      : `${resident} is probably in ${room.name}. The last detection was at ${new Date(timestamp).toLocaleTimeString(locale, { timeZone: data.timezone, hour: '2-digit', minute: '2-digit' })}.`;
-  return fr
-    ? `Il n’y a pas encore assez d’informations pour situer ${resident}.`
-    : `There is not enough information to locate ${resident} yet.`;
+    return t('welcomePage.probablyIn', {
+      resident,
+      room: roomWithArticle(room),
+      at: new Date(timestamp).toLocaleTimeString(locale, {
+        timeZone: data.timezone,
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    });
+  return t('welcomePage.thereIsNotEnoughInformation', { resident });
 }
 
 export function latestPresenceText(data: HomeSummary, locale: Locale) {
@@ -261,9 +194,7 @@ export function latestPresenceText(data: HomeSummary, locale: Locale) {
     hour: '2-digit',
     minute: '2-digit',
   });
-  return locale === 'fr'
-    ? `Dernière détection dans ${roomWithArticle(room, locale)} à ${at}.`
-    : `Last detection in ${room.name} at ${at}.`;
+  return t('welcomePage.lastDetectionIn', { room: roomWithArticle(room), at });
 }
 
 function naturalList(items: string[], locale: Locale) {
@@ -278,37 +209,26 @@ export function currentMomentText(data: HomeSummary, locale: Locale) {
   if (roomNames.length < 2) return location;
   const trail = roomNames.slice(-4).map((name) => {
     const room = data.rooms.find((candidate) => candidate.name === name);
-    return room ? roomWithArticle(room, locale) : name;
+    return room ? roomWithArticle(room) : name;
   });
-  const journey =
-    locale === 'fr'
-      ? `Depuis le début de la journée, son activité a été observée dans ${naturalList(trail, locale)}.`
-      : `Since the start of the day, activity has been observed in ${naturalList(trail, locale)}.`;
+  const journey = t('welcomePage.sinceTheStartOfThe', { naturalList: naturalList(trail, locale) });
   return `${location} ${journey}`;
 }
 
 export function dayText(data: HomeSummary, locale: Locale) {
-  const fr = locale === 'fr';
   const sentences: string[] = [];
   const activityRooms = [...new Set(data.activityRooms)].slice(0, 4);
   if (activityRooms.length)
     sentences.push(
-      fr
-        ? `La journée s’est déroulée entre ${naturalList(activityRooms, locale)}.`
-        : `The day has unfolded between ${naturalList(activityRooms, locale)}.`,
+      t('welcomePage.theDayHasUnfoldedBetween', {
+        naturalList: naturalList(activityRooms, locale),
+      }),
     );
   if (data.cards.some((c) => c.kind === 'FRIDGE' && c.observedToday))
-    sentences.push(fr ? 'Le réfrigérateur a été ouvert.' : 'The refrigerator was opened.');
+    sentences.push(t('welcomePage.theRefrigeratorWasOpened'));
   if (data.cards.some((c) => c.kind === 'TOILET' && c.observedToday))
-    sentences.push(
-      fr ? 'Un passage a été détecté aux toilettes.' : 'A visit to the toilet was detected.',
-    );
-  if (!sentences.length)
-    sentences.push(
-      fr
-        ? 'La journée se dessine doucement. Élise partagera les premiers repères ici.'
-        : 'The day is taking shape. Élise will share the first landmarks here.',
-    );
+    sentences.push(t('welcomePage.aVisitToTheToilet'));
+  if (!sentences.length) sentences.push(t('welcomePage.theDayIsTakingShape'));
   if (data.entrance?.openedAt) {
     const at = new Date(data.entrance.openedAt).toLocaleTimeString(locale, {
       timeZone: data.timezone,
@@ -317,29 +237,23 @@ export function dayText(data: HomeSummary, locale: Locale) {
     });
     sentences.push(
       data.entrance.state === 'ENTRY_LIKELY'
-        ? fr
-          ? `Une entrée a été repérée à ${at}.`
-          : `An arrival was noticed at ${at}.`
+        ? t('welcomePage.anArrivalWasNoticedAt', { at })
         : data.entrance.state === 'EXIT_LIKELY'
-          ? fr
-            ? `Une sortie a été repérée à ${at}.`
-            : `A departure was noticed at ${at}.`
-          : fr
-            ? `La porte d’entrée a été ouverte à ${at}.`
-            : `The front door was opened at ${at}.`,
+          ? t('welcomePage.aDepartureWasNoticedAt', { at })
+          : t('welcomePage.theFrontDoorWasOpened', { at }),
     );
   }
   return sentences.slice(0, 3).join(' ');
 }
 
-function narrativeDuration(seconds: number, locale: Locale) {
+function narrativeDuration(seconds: number) {
   const minutes = Math.max(1, Math.round(seconds / 60));
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
   const remaining = minutes % 60;
-  return locale === 'fr'
-    ? `${hours} h${remaining ? ` ${remaining} min` : ''}`
-    : `${hours} hr${remaining ? ` ${remaining} min` : ''}`;
+  return remaining
+    ? t('common.durationHoursMinutes', { hours, minutes: remaining })
+    : t('common.durationHours', { hours });
 }
 
 function hourInTimeZone(value: string, timeZone: string) {
@@ -352,9 +266,10 @@ function hourInTimeZone(value: string, timeZone: string) {
   );
 }
 
-function naturalTime(value: string, timeZone: string, locale: Locale) {
-  if (locale !== 'fr')
-    return new Date(value).toLocaleTimeString(locale, {
+// French reads times as "8 h 30"; other languages use their usual clock format.
+function naturalTime(value: string, timeZone: string) {
+  if (currentLanguage() !== 'fr')
+    return new Date(value).toLocaleTimeString(dateLocale(), {
       timeZone,
       hour: 'numeric',
       minute: '2-digit',
@@ -397,8 +312,7 @@ export function dayNarrativeText(
   locale: Locale,
   previousSummary: ActivitySummary | null = null,
 ) {
-  const fr = locale === 'fr';
-  const resident = data.residentName || (fr ? 'Le résident' : 'The resident');
+  const resident = data.residentName || t('welcomePage.theResident');
   const sequences = [...(summary?.sequences ?? [])].sort(
     (left, right) => Date.parse(left.startedAt) - Date.parse(right.startedAt),
   );
@@ -427,15 +341,15 @@ export function dayNarrativeText(
 
   if (bedtime && hourInTimeZone(bedtime, data.timezone) >= 18 && wakeUp)
     sentences.push(
-      fr
-        ? `Coucher hier vers ${naturalTime(bedtime, data.timezone, locale)}, réveil ce matin vers ${naturalTime(wakeUp, data.timezone, locale)}.`
-        : `${resident} went to bed around ${naturalTime(bedtime, data.timezone, locale)} last night and woke up around ${naturalTime(wakeUp, data.timezone, locale)} this morning.`,
+      t('welcomePage.bedtimeAndWakeUp', {
+        resident,
+        bedtime: naturalTime(bedtime, data.timezone),
+        wakeUp: naturalTime(wakeUp, data.timezone),
+      }),
     );
   else if (wakeUp)
     sentences.push(
-      fr
-        ? `Réveil ce matin vers ${naturalTime(wakeUp, data.timezone, locale)}.`
-        : `${resident} woke up around ${naturalTime(wakeUp, data.timezone, locale)} this morning.`,
+      t('welcomePage.wakeUp', { resident, wakeUp: naturalTime(wakeUp, data.timezone) }),
     );
 
   const livingRoomSeconds = livingRoom
@@ -448,9 +362,9 @@ export function dayNarrativeText(
     : 0;
   if (livingRoomSeconds >= 120)
     sentences.push(
-      fr
-        ? `Environ ${narrativeDuration(livingRoomSeconds, locale)} passées dans le salon.`
-        : `They spent about ${narrativeDuration(livingRoomSeconds, locale)} in the living room.`,
+      t('welcomePage.theySpentAboutInThe', {
+        narrativeDuration: narrativeDuration(livingRoomSeconds),
+      }),
     );
 
   const lunchSequence = kitchen
@@ -482,45 +396,39 @@ export function dayNarrativeText(
   );
   if (lunchTime)
     sentences.push(
-      fr
-        ? `Vers ${naturalTime(lunchTime, data.timezone, locale)}, déjeuner dans la cuisine${spentAfternoonInLivingRoom ? ', puis retour au salon pour l’après-midi' : ''}.`
-        : `Around ${naturalTime(lunchTime, data.timezone, locale)}, they went to the kitchen for lunch${spentAfternoonInLivingRoom ? ', then returned to the living room for the afternoon' : ''}.`,
+      spentAfternoonInLivingRoom
+        ? t('welcomePage.lunchThenAfternoon', { at: naturalTime(lunchTime, data.timezone) })
+        : t('welcomePage.lunch', { at: naturalTime(lunchTime, data.timezone) }),
     );
-  else if (spentAfternoonInLivingRoom)
-    sentences.push(
-      fr ? 'Après-midi passé dans le salon.' : 'They then spent the afternoon in the living room.',
-    );
+  else if (spentAfternoonInLivingRoom) sentences.push(t('welcomePage.theyThenSpentTheAfternoon'));
 
-  if (!sentences.length)
-    return fr
-      ? `La journée de ${resident} commence doucement. Le résumé s’enrichira avec les prochaines observations fiables.`
-      : `${resident}’s day is starting quietly. This summary will grow as reliable observations arrive.`;
+  if (!sentences.length) return t('welcomePage.sDayIsStartingQuietly', { resident });
   return sentences.join(' ');
 }
 
-const sensorLabels: Record<string, [string, string]> = {
-  motion: ['Mouvement', 'Motion'],
-  occupancy: ['Présence', 'Presence'],
-  person_presence: ['Présence', 'Presence'],
-  contact: ['Ouverture', 'Opening'],
-  temperature: ['Température', 'Temperature'],
-  humidity: ['Humidité', 'Humidity'],
-  illuminance: ['Luminosité', 'Illuminance'],
-  co2: ['CO₂', 'CO₂'],
-  voc: ['Qualité de l’air', 'Air quality'],
-  pm25: ['Particules fines', 'Fine particles'],
-  air_quality: ['Qualité de l’air', 'Air quality'],
-  power: ['Puissance', 'Power'],
-  energy: ['Énergie', 'Energy'],
-  switch: ['Appareil', 'Device'],
-  current: ['Courant', 'Current'],
-  voltage: ['Tension', 'Voltage'],
-  battery: ['Batterie', 'Battery'],
-  water_leak: ['Fuite d’eau', 'Water leak'],
-  smoke: ['Fumée', 'Smoke'],
-  carbon_monoxide: ['Monoxyde de carbone', 'Carbon monoxide'],
-  fall_detection: ['Chute', 'Fall detection'],
-  signal_strength: ['Signal', 'Signal'],
+const sensorLabels: Record<string, () => string> = {
+  motion: () => t('welcomePage.sensorLabels.motion'),
+  occupancy: () => t('welcomePage.sensorLabels.occupancy'),
+  person_presence: () => t('welcomePage.sensorLabels.person_presence'),
+  contact: () => t('welcomePage.sensorLabels.contact'),
+  temperature: () => t('welcomePage.sensorLabels.temperature'),
+  humidity: () => t('welcomePage.sensorLabels.humidity'),
+  illuminance: () => t('welcomePage.sensorLabels.illuminance'),
+  co2: () => t('welcomePage.sensorLabels.co2'),
+  voc: () => t('welcomePage.sensorLabels.voc'),
+  pm25: () => t('welcomePage.sensorLabels.pm25'),
+  air_quality: () => t('welcomePage.sensorLabels.air_quality'),
+  power: () => t('welcomePage.sensorLabels.power'),
+  energy: () => t('welcomePage.sensorLabels.energy'),
+  switch: () => t('welcomePage.sensorLabels.switch'),
+  current: () => t('welcomePage.sensorLabels.current'),
+  voltage: () => t('welcomePage.sensorLabels.voltage'),
+  battery: () => t('welcomePage.sensorLabels.battery'),
+  water_leak: () => t('welcomePage.sensorLabels.water_leak'),
+  smoke: () => t('welcomePage.sensorLabels.smoke'),
+  carbon_monoxide: () => t('welcomePage.sensorLabels.carbon_monoxide'),
+  fall_detection: () => t('welcomePage.sensorLabels.fall_detection'),
+  signal_strength: () => t('welcomePage.sensorLabels.signal_strength'),
 };
 
 const sensorIcons: Record<string, typeof Activity> = {
@@ -548,29 +456,25 @@ const sensorIcons: Record<string, typeof Activity> = {
   signal_strength: Radio,
 };
 
-export function roomSensorLabel(capability: string, locale: Locale) {
-  return sensorLabels[capability]?.[locale === 'fr' ? 0 : 1] ?? capability;
+export function roomSensorLabel(capability: string) {
+  return sensorLabels[capability]?.() ?? capability;
 }
 
-export function roomSensorValue(
-  sensor: HomeSummary['roomSummaries'][number]['sensors'][number],
-  locale: Locale,
-) {
-  const fr = locale === 'fr';
-  if (!sensor.available) return fr ? 'Indisponible' : 'Unavailable';
+export function roomSensorValue(sensor: HomeSummary['roomSummaries'][number]['sensors'][number]) {
+  if (!sensor.available) return t('welcomePage.unavailable');
   if (['occupancy', 'person_presence'].includes(sensor.capability))
-    return sensor.state === 'ACTIVE' ? (fr ? 'Détectée' : 'Detected') : fr ? 'Aucune' : 'None';
+    return sensor.state === 'ACTIVE' ? t('welcomePage.detected') : t('welcomePage.none');
   if (sensor.capability === 'motion')
-    return sensor.state === 'ACTIVE' ? (fr ? 'Détecté' : 'Detected') : fr ? 'Aucun' : 'None';
+    return sensor.state === 'ACTIVE' ? t('welcomePage.detected2') : t('welcomePage.none2');
   if (sensor.capability === 'contact')
-    return sensor.state === 'ACTIVE' ? (fr ? 'Ouvert' : 'Open') : fr ? 'Fermé' : 'Closed';
+    return sensor.state === 'ACTIVE' ? t('welcomePage.open') : t('welcomePage.closed');
   if (sensor.capability === 'switch' || sensor.capability === 'power')
-    return sensor.state === 'ACTIVE' ? (fr ? 'Allumé' : 'On') : fr ? 'Éteint' : 'Off';
-  if (sensor.value === null) return fr ? 'Aucune donnée' : 'No data';
+    return sensor.state === 'ACTIVE' ? t('welcomePage.on') : t('welcomePage.off');
+  if (sensor.value === null) return t('welcomePage.noData');
   if (typeof sensor.value === 'boolean')
-    return sensor.value ? (fr ? 'Oui' : 'Yes') : fr ? 'Non' : 'No';
+    return sensor.value ? t('welcomePage.yes') : t('welcomePage.no');
   if (typeof sensor.value === 'number') {
-    const value = new Intl.NumberFormat(fr ? 'fr-FR' : 'en-GB', {
+    const value = new Intl.NumberFormat(dateLocale(), {
       maximumFractionDigits: 1,
     }).format(sensor.value);
     return `${value}${sensor.unit ? ` ${sensor.unit}` : ''}`;
@@ -587,14 +491,12 @@ function showerTime(value: string | null, locale: Locale, timezone: string) {
   });
 }
 
-export function showerStatusText(shower: ShowerDetection | null | undefined, locale: Locale) {
-  const fr = locale === 'fr';
-  if (!shower || shower.state === 'IDLE')
-    return fr ? 'Aucune douche détectée' : 'No shower detected';
-  if (shower.state === 'RISING') return fr ? 'Hausse d’humidité détectée' : 'Humidity rising';
-  if (shower.state === 'IN_PROGRESS') return fr ? 'Douche en cours' : 'Shower in progress';
-  if (shower.state === 'COMPLETED') return fr ? 'Douche détectée' : 'Shower detected';
-  return fr ? 'Indisponible' : 'Unavailable';
+export function showerStatusText(shower: ShowerDetection | null | undefined) {
+  if (!shower || shower.state === 'IDLE') return t('welcomePage.noShowerDetected');
+  if (shower.state === 'RISING') return t('welcomePage.humidityRising');
+  if (shower.state === 'IN_PROGRESS') return t('welcomePage.showerInProgress');
+  if (shower.state === 'COMPLETED') return t('welcomePage.showerDetected');
+  return t('welcomePage.unavailable');
 }
 
 export function showerDetailText(
@@ -604,34 +506,37 @@ export function showerDetailText(
   timezone: string,
   now = new Date(),
 ) {
-  const fr = locale === 'fr';
   if (!shower || shower.state === 'UNAVAILABLE' || !humidity?.available)
-    return fr ? 'Humidité non disponible' : 'Humidity unavailable';
-  const current = roomSensorValue(humidity, locale);
+    return t('welcomePage.humidityUnavailable');
+  const current = roomSensorValue(humidity);
   if (shower.state === 'RISING')
-    return fr
-      ? `Humidité ${current} · hausse +${Math.round(shower.risePercent ?? 0)} points`
-      : `Humidity ${current} · +${Math.round(shower.risePercent ?? 0)} points`;
+    return t('welcomePage.humidityPoints', { current, round: Math.round(shower.risePercent ?? 0) });
   if (shower.state === 'IN_PROGRESS') {
     const elapsed = shower.startedAt
       ? Math.max(1, Math.round((now.getTime() - Date.parse(shower.startedAt)) / 60_000))
       : shower.durationMinutes;
-    return fr
-      ? `Depuis ${showerTime(shower.startedAt, locale, timezone)} · ${elapsed ?? 0} min · ${current}`
-      : `Since ${showerTime(shower.startedAt, locale, timezone)} · ${elapsed ?? 0} min · ${current}`;
+    return t('welcomePage.sinceMin', {
+      showerTime: showerTime(shower.startedAt, locale, timezone),
+      value: elapsed ?? 0,
+      current,
+    });
   }
   if (shower.state === 'COMPLETED')
-    return fr
-      ? `Terminée à ${showerTime(shower.endedAt, locale, timezone)} · ${shower.durationMinutes ?? 0} min`
-      : `Ended at ${showerTime(shower.endedAt, locale, timezone)} · ${shower.durationMinutes ?? 0} min`;
-  return fr ? `Humidité ${current}` : `Humidity ${current}`;
+    return t('welcomePage.endedAtMin', {
+      showerTime: showerTime(shower.endedAt, locale, timezone),
+      value: shower.durationMinutes ?? 0,
+    });
+  return t('welcomePage.humidity', { current });
 }
 
 export function welcomeAlertTitle(title: string, locale: Locale, roomName?: string | null) {
   if (/occupancy|presence/i.test(title))
-    return locale === 'fr'
-      ? `Le capteur de présence${roomName ? ` des ${roomName.toLocaleLowerCase('fr')}` : ''} est indisponible.`
-      : `The presence sensor${roomName ? ` in ${roomName}` : ''} is unavailable.`;
+    return roomName
+      ? t('welcomePage.presenceSensorUnavailableIn', {
+          // French reads "des toilettes", hence the lower case there.
+          room: currentLanguage() === 'fr' ? roomName.toLocaleLowerCase('fr') : roomName,
+        })
+      : t('welcomePage.presenceSensorUnavailable');
   return title;
 }
 
@@ -759,11 +664,7 @@ export function WelcomePage({
           if (controller.signal.aborted) return;
           setWeatherCities([]);
           setWeatherSearchBusy(false);
-          setWeatherSearchError(
-            fr
-              ? 'La recherche de villes est momentanément indisponible.'
-              : 'City search is temporarily unavailable.',
-          );
+          setWeatherSearchError(t('welcomePage.citySearchIsTemporarilyUnavailable'));
         });
     }, 250);
     return () => {
@@ -918,12 +819,8 @@ export function WelcomePage({
     .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))[0];
   const reminderDateLabel = reminder
     ? homeDateKey(reminder.at) === todayDateKey
-      ? fr
-        ? `Aujourd’hui · ${time(reminder.at)}`
-        : `Today · ${time(reminder.at)}`
-      : fr
-        ? `Demain · ${time(reminder.at)}`
-        : `Tomorrow · ${time(reminder.at)}`
+      ? t('welcomePage.today', { time: time(reminder.at) })
+      : t('welcomePage.tomorrow', { time: time(reminder.at) })
     : '';
   const weather = screen?.weather;
   const weatherCode = weather?.weatherCode ?? 0;
@@ -951,17 +848,15 @@ export function WelcomePage({
     rain: CloudRain,
   }[weatherKind];
   const weatherLabel = !weather
-    ? fr
-      ? 'Météo indisponible'
-      : 'Weather unavailable'
+    ? t('welcomePage.weatherUnavailable')
     : {
-        clear: fr ? 'Ciel dégagé' : 'Clear skies',
-        partial: fr ? 'Éclaircies' : 'Partly cloudy',
-        cloud: fr ? 'Nuageux' : 'Cloudy',
-        fog: fr ? 'Brouillard' : 'Fog',
-        snow: fr ? 'Neige' : 'Snow',
-        storm: fr ? 'Orage' : 'Storm',
-        rain: fr ? 'Pluie' : 'Rain',
+        clear: t('welcomePage.clearSkies'),
+        partial: t('welcomePage.partlyCloudy'),
+        cloud: t('welcomePage.cloudy'),
+        fog: t('welcomePage.fog'),
+        snow: t('welcomePage.snow'),
+        storm: t('welcomePage.storm'),
+        rain: t('welcomePage.rain'),
       }[weatherKind];
   const configuredWeatherCity = screen?.state.settings.weatherCity.trim() ?? '';
   const activeScreenMedia = screen?.state.media.find(
@@ -976,61 +871,35 @@ export function WelcomePage({
       ['play', 'resume', 'next'].includes(command.action),
   );
   const screenPlaybackStatus = !screen
-    ? fr
-      ? 'État de la TV indisponible'
-      : 'TV status unavailable'
+    ? t('welcomePage.tvStatusUnavailable')
     : !screen.online
-      ? fr
-        ? 'TV hors ligne'
-        : 'TV offline'
+      ? t('welcomePage.tvOffline')
       : screen.state.call
-        ? fr
-          ? 'Interrompu pendant l’appel'
-          : 'Interrupted during the call'
+        ? t('welcomePage.interruptedDuringTheCall')
         : screen.state.playback.asleep
-          ? fr
-            ? 'TV au repos'
-            : 'TV is resting'
+          ? t('welcomePage.tvIsResting')
           : activeScreenMedia && screen.state.playback.paused
-            ? fr
-              ? 'En pause'
-              : 'Paused'
+            ? t('welcomePage.paused')
             : activeScreenMedia && screenMediaPending
-              ? fr
-                ? 'Lancement sur la TV…'
-                : 'Starting on TV…'
+              ? t('welcomePage.startingOnTv')
               : activeScreenMedia
-                ? fr
-                  ? 'En cours de lecture'
-                  : 'Playing now'
-                : fr
-                  ? 'Lecture sur la TV'
-                  : 'TV playback';
+                ? t('welcomePage.playingNow')
+                : t('welcomePage.tvPlayback');
   const screenPlaybackTitle =
     activeScreenMedia?.title ??
     (!screen
-      ? fr
-        ? 'Lecture non vérifiable'
-        : 'Playback cannot be checked'
+      ? t('welcomePage.playbackCannotBeChecked')
       : !screen.online
-        ? fr
-          ? 'Connexion de la TV indisponible'
-          : 'TV connection unavailable'
+        ? t('welcomePage.tvConnectionUnavailable')
         : screen.state.call
-          ? fr
-            ? 'Appel en cours'
-            : 'Call in progress'
-          : fr
-            ? 'Aucun média en cours'
-            : 'No media playing');
+          ? t('welcomePage.callInProgress')
+          : t('welcomePage.noMediaPlaying'));
   const screenMediaType = !activeScreenMedia
     ? ''
     : activeScreenMedia.kind === 'stream'
       ? 'Radio'
       : activeScreenMedia.kind === 'tv'
-        ? fr
-          ? 'Télévision'
-          : 'TV'
+        ? t('welcomePage.tv')
         : activeScreenMedia.kind === 'youtube'
           ? 'YouTube'
           : 'Podcast';
@@ -1070,23 +939,15 @@ export function WelcomePage({
     const available = Boolean(entranceContact?.available);
     usageSensors.push({
       key: 'main-entrance',
-      title: fr ? 'Porte d’entrée' : 'Front door',
+      title: t('welcomePage.frontDoor'),
       value: !available
-        ? fr
-          ? 'Indisponible'
-          : 'Unavailable'
+        ? t('welcomePage.unavailable')
         : entranceContact?.state === 'ACTIVE'
-          ? fr
-            ? 'Ouverte'
-            : 'Open'
+          ? t('welcomePage.open2')
           : entranceContact?.state === 'INACTIVE'
-            ? fr
-              ? 'Fermée'
-              : 'Closed'
-            : fr
-              ? 'État inconnu'
-              : 'Unknown state',
-      detail: fr ? 'État actuel' : 'Current state',
+            ? t('welcomePage.closed2')
+            : t('welcomePage.unknownState'),
+      detail: t('welcomePage.currentState'),
       available,
       roomId: entranceRoom?.roomId ?? null,
       icon: DoorOpen,
@@ -1098,25 +959,15 @@ export function WelcomePage({
     const fridgeRoom = data?.roomSummaries.find((candidate) => candidate.name === fridge.label);
     usageSensors.push({
       key: fridge.id,
-      title: fr ? 'Réfrigérateur' : 'Refrigerator',
+      title: t('welcomePage.refrigerator'),
       value: !fridge.available
-        ? fr
-          ? 'Indisponible'
-          : 'Unavailable'
+        ? t('welcomePage.unavailable')
         : fridge.state === 'ACTIVE'
-          ? fr
-            ? 'Ouvert'
-            : 'Open'
+          ? t('welcomePage.open')
           : fridge.state === 'INACTIVE'
-            ? fr
-              ? 'Fermé'
-              : 'Closed'
-            : fr
-              ? 'État inconnu'
-              : 'Unknown state',
-      detail: fr
-        ? `${fridge.countToday} ouverture${fridge.countToday === 1 ? '' : 's'} aujourd’hui`
-        : `${fridge.countToday} opening${fridge.countToday === 1 ? '' : 's'} today`,
+            ? t('welcomePage.closed')
+            : t('welcomePage.unknownState'),
+      detail: t('welcomePage.openingsToday', { count: fridge.countToday }),
       available: fridge.available,
       roomId: fridgeRoom?.roomId ?? null,
       icon: Refrigerator,
@@ -1128,21 +979,13 @@ export function WelcomePage({
     const toiletRoom = data?.roomSummaries.find((candidate) => candidate.name === toilet.label);
     usageSensors.push({
       key: toilet.id,
-      title: fr ? 'Toilettes' : 'Toilet',
+      title: t('welcomePage.toilet'),
       value: !toilet.available
-        ? fr
-          ? 'Indisponible'
-          : 'Unavailable'
+        ? t('welcomePage.unavailable')
         : toilet.countToday > 0
-          ? fr
-            ? 'Passage détecté'
-            : 'Visit detected'
-          : fr
-            ? 'Aucun passage'
-            : 'No visit',
-      detail: fr
-        ? `${toilet.countToday} passage${toilet.countToday === 1 ? '' : 's'} aujourd’hui`
-        : `${toilet.countToday} visit${toilet.countToday === 1 ? '' : 's'} today`,
+          ? t('welcomePage.visitDetected')
+          : t('welcomePage.noVisit'),
+      detail: t('welcomePage.visitsToday', { count: toilet.countToday }),
       available: toilet.available,
       roomId: toiletRoom?.roomId ?? null,
       icon: Toilet,
@@ -1157,20 +1000,14 @@ export function WelcomePage({
     const unavailable = !humidity?.available || shower?.state === 'UNAVAILABLE';
     usageSensors.push({
       key: `shower:${bathroom.roomId}`,
-      title: fr ? 'Douche' : 'Shower',
+      title: t('welcomePage.shower'),
       value: !configured
-        ? fr
-          ? 'À configurer'
-          : 'Setup required'
+        ? t('welcomePage.setupRequired')
         : unavailable
-          ? fr
-            ? 'Indisponible'
-            : 'Unavailable'
-          : showerStatusText(shower, locale),
+          ? t('welcomePage.unavailable')
+          : showerStatusText(shower),
       detail: !configured
-        ? fr
-          ? 'Associer un capteur d’humidité'
-          : 'Assign a humidity sensor'
+        ? t('welcomePage.assignAHumiditySensor')
         : showerDetailText(shower, humidity, locale, timezone, now),
       available: configured ? !unavailable : null,
       roomId: bathroom.roomId,
@@ -1186,31 +1023,19 @@ export function WelcomePage({
     const available = configured ? Boolean(sleep?.available) : null;
     usageSensors.push({
       key: 'bedtime',
-      title: fr ? 'Coucher de la veille' : "Yesterday's bedtime",
+      title: t('welcomePage.yesterdaySBedtime'),
       value: !configured
-        ? fr
-          ? 'À configurer'
-          : 'Setup required'
+        ? t('welcomePage.setupRequired')
         : sleep?.bedtimeAt
           ? time(sleep.bedtimeAt)
-          : fr
-            ? 'En attente'
-            : 'Awaiting observation',
+          : t('welcomePage.awaitingObservation'),
       detail: !configured
-        ? fr
-          ? 'Associer le contact du lit'
-          : 'Assign the bed contact'
+        ? t('welcomePage.assignTheBedContact')
         : !available
-          ? fr
-            ? 'Capteur indisponible'
-            : 'Sensor unavailable'
+          ? t('welcomePage.sensorUnavailable')
           : sleep?.bedtimeAt
-            ? fr
-              ? 'Coucher repéré la nuit précédente'
-              : 'Bedtime observed during the previous night'
-            : fr
-              ? 'Aucun coucher repéré la nuit précédente'
-              : 'No bedtime observed during the previous night',
+            ? t('welcomePage.bedtimeObservedDuringThePrevious')
+            : t('welcomePage.noBedtimeObservedDuringThe'),
       available,
       roomId,
       icon: MoonStar,
@@ -1218,31 +1043,19 @@ export function WelcomePage({
     });
     usageSensors.push({
       key: 'wake-up',
-      title: fr ? 'Réveil du jour' : "Today's wake-up",
+      title: t('welcomePage.todaySWakeUp'),
       value: !configured
-        ? fr
-          ? 'À configurer'
-          : 'Setup required'
+        ? t('welcomePage.setupRequired')
         : sleep?.wakeAt
           ? time(sleep.wakeAt)
-          : fr
-            ? 'En attente'
-            : 'Awaiting observation',
+          : t('welcomePage.awaitingObservation'),
       detail: !configured
-        ? fr
-          ? 'Associer le contact du lit'
-          : 'Assign the bed contact'
+        ? t('welcomePage.assignTheBedContact')
         : !available
-          ? fr
-            ? 'Capteur indisponible'
-            : 'Sensor unavailable'
+          ? t('welcomePage.sensorUnavailable')
           : sleep?.wakeAt
-            ? fr
-              ? 'Réveil repéré aujourd’hui'
-              : 'Wake-up observed today'
-            : fr
-              ? 'Aucun réveil repéré aujourd’hui'
-              : 'No wake-up observed today',
+            ? t('welcomePage.wakeUpObservedToday')
+            : t('welcomePage.noWakeUpObservedToday'),
       available,
       roomId,
       icon: Sunrise,
@@ -1273,11 +1086,7 @@ export function WelcomePage({
       setWeatherModalOpen(false);
     } catch (cause) {
       setWeatherModalError(
-        cause instanceof Error
-          ? cause.message
-          : fr
-            ? 'La météo n’a pas pu être enregistrée.'
-            : 'The weather settings could not be saved.',
+        cause instanceof Error ? cause.message : t('welcomePage.theWeatherSettingsCouldNot'),
       );
     } finally {
       setWeatherSaving(false);
@@ -1285,21 +1094,14 @@ export function WelcomePage({
   }
 
   if (!data && !error)
-    return (
-      <DataLoadingScreen
-        locale={locale}
-        message={fr ? 'Préparation de votre journée…' : 'Preparing your day…'}
-      />
-    );
+    return <DataLoadingScreen locale={locale} message={t('welcomePage.preparingYourDay')} />;
   return (
     <section className="welcome-page">
       <header className="page-hero welcome-hero">
         <div className="page-hero__copy welcome-greeting">
-          <h2 className="page-hero__title">
-            {fr ? `Bonjour ${caregiverFirstName},` : `Hello ${caregiverFirstName},`}
-          </h2>
+          <h2 className="page-hero__title">{t('welcomePage.hello', { caregiverFirstName })}</h2>
           <p className="page-hero__text">
-            {fr ? `Élise veille sur ${residentName}.` : `Élise is watching over ${residentName}.`}
+            {t('welcomePage.eliseIsWatchingOver', { residentName })}
           </p>
         </div>
         <div className="welcome-context">
@@ -1318,11 +1120,7 @@ export function WelcomePage({
               <button
                 type="button"
                 className="welcome-weather welcome-weather--button welcome-weather--configured"
-                aria-label={
-                  fr
-                    ? `Modifier la météo sur la TV, ${configuredWeatherCity}`
-                    : `Change TV weather, ${configuredWeatherCity}`
-                }
+                aria-label={t('welcomePage.changeTvWeather', { configuredWeatherCity })}
                 onClick={openWeatherEditor}
               >
                 <WeatherIcon aria-hidden="true" />
@@ -1351,12 +1149,8 @@ export function WelcomePage({
             >
               <CloudSun aria-hidden="true" />
               <span>
-                <strong>{fr ? 'Configurer la météo' : 'Set up weather'}</strong>
-                <small>
-                  {fr
-                    ? 'Choisir la ville pour le logement et la TV'
-                    : 'Choose the home and TV city'}
-                </small>
+                <strong>{t('welcomePage.setUpWeather')}</strong>
+                <small>{t('welcomePage.chooseTheHomeAndTv')}</small>
               </span>
               <ChevronRight className="welcome-weather-action-icon" aria-hidden="true" />
             </button>
@@ -1364,8 +1158,8 @@ export function WelcomePage({
             <div className="welcome-weather welcome-weather--readonly">
               <CloudSun aria-hidden="true" />
               <span>
-                <strong>{fr ? 'Météo à configurer' : 'Weather needs setup'}</strong>
-                <small>{fr ? 'Par un administrateur' : 'Ask an administrator to set it up'}</small>
+                <strong>{t('welcomePage.weatherNeedsSetup')}</strong>
+                <small>{t('welcomePage.askAnAdministratorToSet')}</small>
               </span>
             </div>
           )}
@@ -1373,7 +1167,7 @@ export function WelcomePage({
       </header>
       <section
         className={`welcome-playback${screenIsPlaying ? ' is-playing' : ''}`}
-        aria-label={fr ? 'Lecture sur la TV' : 'TV playback'}
+        aria-label={t('welcomePage.tvPlayback')}
         aria-live="polite"
       >
         <span className={`welcome-playback__dot${screenIsPlaying ? ' is-live' : ''}`} />
@@ -1392,7 +1186,7 @@ export function WelcomePage({
             <CalendarDays aria-hidden="true" />
           </span>
           <span className="welcome-appointment-bar__copy">
-            <small>{fr ? 'Prochain rendez-vous' : 'Next appointment'}</small>
+            <small>{t('welcomePage.nextAppointment')}</small>
             <strong>{reminder.title}</strong>
           </span>
           <span className="welcome-appointment-bar__when">{reminderDateLabel}</span>
@@ -1402,12 +1196,8 @@ export function WelcomePage({
       {error && (
         <div className="welcome-error" role="status">
           <AlertTriangle />
-          <p>
-            {fr
-              ? 'La mise à jour est indisponible. Les informations affichées peuvent être anciennes.'
-              : 'Updates are unavailable. Displayed information may be out of date.'}
-          </p>
-          <button onClick={() => setRetry((n) => n + 1)}>{fr ? 'Réessayer' : 'Try again'}</button>
+          <p>{t('welcomePage.updatesAreUnavailableDisplayedInformatio')}</p>
+          <button onClick={() => setRetry((n) => n + 1)}>{t('welcomePage.tryAgain')}</button>
         </div>
       )}
       <div className="welcome-main-grid">
@@ -1415,18 +1205,14 @@ export function WelcomePage({
           <header className="welcome-card-heading">
             <h3>
               <i className={`welcome-dot ${data?.alert || error ? 'is-warning' : ''}`} />
-              {fr ? 'En ce moment' : 'Right now'}
+              {t('welcomePage.rightNow')}
             </h3>
             <small className="welcome-time-pill">{time(data?.to ?? now)}</small>
           </header>
           <div className="welcome-presence">
             <div>
               <p className="welcome-moment-lead">
-                {data
-                  ? presenceText(data, locale)
-                  : fr
-                    ? 'Les informations du logement sont indisponibles.'
-                    : 'Home information is unavailable.'}
+                {data ? presenceText(data, locale) : t('welcomePage.homeInformationIsUnavailable')}
               </p>
             </div>
             <img className="welcome-chair" src="/welcome-chair.svg" alt="" />
@@ -1439,18 +1225,16 @@ export function WelcomePage({
           <header className="welcome-card-heading">
             <h3>
               <i className="welcome-dot" />
-              {fr ? `La journée de ${residentFirstName}` : `${residentFirstName}'s day`}
+              {t('welcomePage.sDay', { residentFirstName })}
             </h3>
           </header>
           <p className="welcome-day-story">
             {data
               ? dayNarrativeText(data, activitySummary, locale, previousActivitySummary)
-              : fr
-                ? 'Le résumé de la journée se prépare.'
-                : 'The day summary is being prepared.'}
+              : t('welcomePage.theDaySummaryIsBeing')}
           </p>
           <button type="button" className="welcome-day-activity" onClick={onActivity}>
-            {fr ? 'Voir toute l’activité' : 'View all activity'}
+            {t('welcomePage.viewAllActivity')}
             <ChevronRight aria-hidden="true" />
           </button>
         </article>
@@ -1458,7 +1242,7 @@ export function WelcomePage({
           <header className="welcome-card-heading">
             <h3>
               <i className="welcome-dot" />
-              {fr ? 'Repères du quotidien' : 'Daily essentials'}
+              {t('welcomePage.dailyEssentials')}
             </h3>
           </header>
           <div className="welcome-sensor-grid">
@@ -1480,13 +1264,7 @@ export function WelcomePage({
                     <i
                       className={usage.available ? 'is-online' : ''}
                       aria-label={
-                        usage.available
-                          ? fr
-                            ? 'En ligne'
-                            : 'Online'
-                          : fr
-                            ? 'Indisponible'
-                            : 'Unavailable'
+                        usage.available ? t('welcomePage.online') : t('welcomePage.unavailable')
                       }
                     />
                   )}
@@ -1495,21 +1273,17 @@ export function WelcomePage({
             })}
           </div>
           {!usageSensors.length && (
-            <p className="welcome-empty">
-              {fr
-                ? 'Les repères apparaîtront ici lorsque le logement sera disponible.'
-                : 'Daily essentials will appear here when home data is available.'}
-            </p>
+            <p className="welcome-empty">{t('welcomePage.dailyEssentialsWillAppearHere')}</p>
           )}
         </article>
         <article className="welcome-card welcome-events">
           <header className="welcome-card-heading">
             <h3>
               <Clock3 />
-              {fr ? 'Derniers événements' : 'Latest events'}
+              {t('welcomePage.latestEvents')}
             </h3>
             <button className="welcome-see-all" onClick={onActivity}>
-              {fr ? 'Tout voir' : 'View all'}
+              {t('welcomePage.viewAll')}
             </button>
           </header>
           <ul className="welcome-event-list">
@@ -1536,9 +1310,7 @@ export function WelcomePage({
               );
             })}
           </ul>
-          {!recent.length && (
-            <p className="welcome-empty">{fr ? 'Aucun événement récent.' : 'No recent events.'}</p>
-          )}
+          {!recent.length && <p className="welcome-empty">{t('welcomePage.noRecentEvents')}</p>}
         </article>
       </div>
       {weatherModalOpen && (
@@ -1561,19 +1333,13 @@ export function WelcomePage({
                 <CloudSun aria-hidden="true" />
               </span>
               <div>
-                <h2 id="welcome-weather-modal-title">
-                  {fr ? 'Météo du logement et de la TV' : 'Home and TV weather'}
-                </h2>
-                <p>
-                  {fr
-                    ? 'Choisissez une ville : elle sera affichée ici et sur la télévision.'
-                    : 'Choose a city to show here and on the television.'}
-                </p>
+                <h2 id="welcome-weather-modal-title">{t('welcomePage.homeAndTvWeather')}</h2>
+                <p>{t('welcomePage.chooseACityToShow')}</p>
               </div>
               <button
                 type="button"
                 className="welcome-weather-modal-close"
-                aria-label={fr ? 'Fermer' : 'Close'}
+                aria-label={t('welcomePage.close')}
                 disabled={weatherSaving}
                 onClick={() => setWeatherModalOpen(false)}
               >
@@ -1581,7 +1347,7 @@ export function WelcomePage({
               </button>
             </header>
             <label className="welcome-weather-search-label" htmlFor="welcome-weather-city">
-              {fr ? 'Ville' : 'City'}
+              {t('welcomePage.city')}
             </label>
             <div className="welcome-weather-search">
               <Search aria-hidden="true" />
@@ -1594,7 +1360,7 @@ export function WelcomePage({
                 aria-expanded={weatherCities.length > 0}
                 aria-controls="welcome-weather-city-options"
                 value={weatherCityQuery}
-                placeholder={fr ? 'Ex. Orléans, Tours…' : 'e.g. Orléans, Tours…'}
+                placeholder={t('welcomePage.eGOrleansTours')}
                 onChange={(event) => {
                   setWeatherCityQuery(event.target.value);
                   setSelectedWeatherCity('');
@@ -1609,7 +1375,7 @@ export function WelcomePage({
                 id="welcome-weather-city-options"
                 className="welcome-weather-city-options"
                 role="listbox"
-                aria-label={fr ? 'Villes suggérées' : 'Suggested cities'}
+                aria-label={t('welcomePage.suggestedCities')}
               >
                 {weatherCities.map((city) => (
                   <button
@@ -1644,20 +1410,14 @@ export function WelcomePage({
               weatherCityQuery.trim().length >= 2 &&
               weatherCities.length === 0 &&
               !selectedWeatherCity && (
-                <p className="welcome-weather-modal-hint">
-                  {fr ? 'Aucune suggestion pour le moment.' : 'No suggestions yet.'}
-                </p>
+                <p className="welcome-weather-modal-hint">{t('welcomePage.noSuggestionsYet')}</p>
               )}
             {weatherModalError && (
               <p className="welcome-weather-modal-error" role="alert">
                 {weatherModalError}
               </p>
             )}
-            <p className="welcome-weather-modal-hint">
-              {fr
-                ? 'La ville choisie mettra également à jour la météo affichée sur la TV.'
-                : 'The selected city will also update the weather shown on the TV.'}
-            </p>
+            <p className="welcome-weather-modal-hint">{t('welcomePage.theSelectedCityWillAlso')}</p>
             <footer>
               <button
                 type="button"
@@ -1665,7 +1425,7 @@ export function WelcomePage({
                 disabled={weatherSaving}
                 onClick={() => setWeatherModalOpen(false)}
               >
-                {fr ? 'Annuler' : 'Cancel'}
+                {t('welcomePage.cancel')}
               </button>
               <button
                 type="submit"
@@ -1673,16 +1433,10 @@ export function WelcomePage({
                 disabled={!selectedWeatherCity || weatherSaving || !screen?.grant.administer}
               >
                 {weatherSaving
-                  ? fr
-                    ? 'Enregistrement…'
-                    : 'Saving…'
+                  ? t('welcomePage.saving')
                   : configuredWeatherCity
-                    ? fr
-                      ? 'Mettre à jour'
-                      : 'Update city'
-                    : fr
-                      ? 'Configurer'
-                      : 'Set up'}
+                    ? t('welcomePage.updateCity')
+                    : t('welcomePage.setUp')}
               </button>
             </footer>
           </form>

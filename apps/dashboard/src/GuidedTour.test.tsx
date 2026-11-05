@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { GuidedTour, guidedTourSteps } from './GuidedTour';
+import { inLanguage } from './i18n/test-language';
 
 describe('Élise guided tour', () => {
   it('covers every visible sidebar destination in order', () => {
@@ -19,14 +20,16 @@ describe('Élise guided tour', () => {
         onSkip={() => undefined}
       />,
     );
-    const english = renderToStaticMarkup(
-      <GuidedTour
-        locale="en"
-        mode="replay"
-        onTargetChange={() => undefined}
-        onComplete={() => undefined}
-        onSkip={() => undefined}
-      />,
+    const english = inLanguage('en', () =>
+      renderToStaticMarkup(
+        <GuidedTour
+          locale="en"
+          mode="replay"
+          onTargetChange={() => undefined}
+          onComplete={() => undefined}
+          onSkip={() => undefined}
+        />,
+      ),
     );
 
     expect(french).toContain('Visite guidée');
@@ -39,10 +42,8 @@ describe('Élise guided tour', () => {
 
   it('ships translated content for every step', () => {
     for (const step of guidedTourSteps) {
-      expect(step.title.fr).toBeTruthy();
-      expect(step.title.en).toBeTruthy();
-      expect(step.description.fr).toBeTruthy();
-      expect(step.description.en).toBeTruthy();
+      expect(step.title()).toBeTruthy();
+      expect(step.description()).toBeTruthy();
     }
   });
 });

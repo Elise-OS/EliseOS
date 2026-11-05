@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { RemoteAccessCard } from './RemoteAccessCard';
+import { inLanguage } from './i18n/test-language';
 
 describe('RemoteAccessCard', () => {
   it('starts closed in settings while keeping its heading and status visible', () => {
@@ -14,7 +15,9 @@ describe('RemoteAccessCard', () => {
   });
 
   it('keeps the onboarding version open', () => {
-    const html = renderToStaticMarkup(<RemoteAccessCard locale="en" compact />);
+    const html = inLanguage('en', () =>
+      renderToStaticMarkup(<RemoteAccessCard locale="en" compact />),
+    );
 
     expect(html).toContain('<section class="remote-access-card is-compact"');
     expect(html).toContain('Remote access');

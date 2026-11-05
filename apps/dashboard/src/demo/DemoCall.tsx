@@ -1,45 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
+import { textBlock } from '../i18n';
 
 /** Sent by the demo API when the caregiver space starts a call to the resident's TV. */
 export const DEMO_CALL_EVENT = 'elise-demo-call';
-
-const copy = {
-  fr: {
-    title: 'Appel vidéo vers la télévision de Jeanne',
-    ringing: 'La télévision de Jeanne sonne…',
-    connected: 'Jeanne a décroché',
-    you: 'Vous',
-    mute: 'Couper le micro',
-    unmute: 'Réactiver le micro',
-    cameraOff: 'Couper la caméra',
-    cameraOn: 'Réactiver la caméra',
-    hangUp: 'Raccrocher',
-    howTitle: 'Chez vous, ça se passe comment ?',
-    how: 'Avec une caméra et un micro branchés sur le boîtier Élise OS, l’appel décroche tout seul sur la télévision de Jeanne : elle n’a ni bouton à trouver ni télécommande à prendre. Elle vous voit et vous entend tout de suite.',
-    simulated: 'Ici, l’appel est simulé : aucune image ni aucun son ne quitte votre navigateur.',
-  },
-  en: {
-    title: 'Video call to Jeanne’s TV',
-    ringing: 'Jeanne’s TV is ringing…',
-    connected: 'Jeanne picked up',
-    you: 'You',
-    mute: 'Mute microphone',
-    unmute: 'Unmute microphone',
-    cameraOff: 'Turn camera off',
-    cameraOn: 'Turn camera on',
-    hangUp: 'Hang up',
-    howTitle: 'How does it work at home?',
-    how: 'With a camera and a microphone plugged into the Élise OS box, the call is answered automatically on Jeanne’s TV: no button to find, no remote to pick up. She sees and hears you right away.',
-    simulated: 'Here the call is simulated: no picture or sound leaves your browser.',
-  },
-} as const;
 
 const clock = (seconds: number) =>
   `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 
 /** A pretend call: it rings, Jeanne's TV answers on its own, and the visitor can hang up. */
-export function DemoCall({ lang }: { lang: 'fr' | 'en' }) {
-  const t = copy[lang];
+export function DemoCall() {
+  const t = textBlock('demoCall.copy');
   const [open, setOpen] = useState(false);
   const [connected, setConnected] = useState(false);
   const [seconds, setSeconds] = useState(0);

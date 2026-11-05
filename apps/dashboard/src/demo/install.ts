@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { uiLocale } from '../screen-locale';
 import { DEMO_CALL_EVENT } from './DemoCall';
 import { handleDemoRequest } from './router';
@@ -101,7 +102,6 @@ try {
 } catch {
   // Private browsing: the dashboard keeps its defaults.
 }
-if (uiLocale() === 'en') {
-  document.documentElement.lang = 'en';
-  document.title = 'Demo — Élise OS';
-}
+// The demo page is written in French: name it in the visitor's language.
+document.documentElement.lang = uiLocale();
+document.title = t('install.documentTitle');

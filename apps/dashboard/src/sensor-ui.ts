@@ -1,5 +1,5 @@
-import { tr } from './screen-locale';
 import { deviceSupportsCategory, type RoomSensorCategory } from '@elise/contracts';
+import { t } from './i18n';
 
 export type SensorRoom = {
   id: string;
@@ -73,10 +73,7 @@ export async function sensorRequest<T>(url: string, init?: RequestInit): Promise
         'message' in result &&
         typeof result.message === 'string'
         ? result.message
-        : tr(
-            `Connexion impossible (${response.status}).`,
-            `Connection failed (${response.status}).`,
-          ),
+        : t('sensorUi.connectionFailed', { status: response.status }),
     );
   return result as T;
 }

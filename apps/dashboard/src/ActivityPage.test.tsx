@@ -9,8 +9,9 @@ import {
 } from '@elise/contracts';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { ActivityPage } from './ActivityPage';
+import { setLanguage } from './i18n';
 
 const activityEvent = {
   id: 'event-1',
@@ -315,6 +316,8 @@ describe('ActivityPage', () => {
   });
 
   it('keeps the new experience fully available in English', async () => {
+    setLanguage('en');
+    onTestFinished(() => setLanguage('fr'));
     await renderPage('en');
     expect(host!.querySelector('.activity-overview-hero h2')?.textContent).toBe('Activity');
     expect(host!.textContent).not.toContain('Home life');

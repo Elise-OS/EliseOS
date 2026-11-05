@@ -17,7 +17,7 @@ import {
 import { useMemo, useRef, useState } from 'react';
 import { EquipmentDialog } from './EquipmentDialog';
 import { HomeSensorOnboardingDialog } from './HomeSensorOnboardingDialog';
-import type { Locale } from './i18n';
+import { type Locale, t } from './i18n';
 import { DevicePhoto, lastReadingLabel, roomSensorReading } from './RoomEquipmentPage';
 import { ProductPhoto, SensorProductCard } from './SensorProductCard';
 import { SensorInstallationGuide } from './SensorInstallationGuide';
@@ -29,6 +29,7 @@ import {
   sensorRequest,
   type SensorUiDevice,
 } from './sensor-ui';
+import { productTexts, sensorCategoryDescription, sensorCategoryLabel } from './i18n/data';
 
 type StairSensorCategory = 'motion' | 'presence';
 
@@ -114,15 +115,15 @@ export function StairEquipmentPage({
   if (!stair || !context) {
     return (
       <section className="room-equipment-page">
-        <p>{fr ? 'Cet escalier n’existe plus.' : 'These stairs no longer exist.'}</p>
+        <p>{t('stairEquipmentPage.theseStairsNoLongerExist')}</p>
         <button className="equipment-secondary" onClick={onBack}>
-          {fr ? 'Retour au logement' : 'Back to home'}
+          {t('stairEquipmentPage.backToHome')}
         </button>
       </section>
     );
   }
 
-  const stairName = `${fr ? 'Escalier' : 'Stairs'} · ${context.fromRoom?.name ?? '—'} ↔ ${context.toRoom?.name ?? '—'}`;
+  const stairName = `${t('stairEquipmentPage.stairs')} · ${context.fromRoom?.name ?? '—'} ↔ ${context.toRoom?.name ?? '—'}`;
   const devicesByCategory = (id: RoomSensorCategory) =>
     stairCategoryDevices(plan, stair.id, devices, id);
   const deviceCount = new Set(
@@ -223,25 +224,25 @@ export function StairEquipmentPage({
 
   return (
     <section className="room-equipment-page stair-equipment-page">
-      <nav className="room-equipment-breadcrumb" aria-label={fr ? 'Navigation' : 'Navigation'}>
+      <nav className="room-equipment-breadcrumb" aria-label={t('stairEquipmentPage.navigation')}>
         <button className="room-equipment-back" onClick={onBack}>
           <span className="room-equipment-back-icon" aria-hidden="true">
             <ArrowLeft />
           </span>
           <span className="room-equipment-back-copy">
-            <span>{fr ? 'Retour à' : 'Back to'}</span>
-            <strong>{fr ? 'Mon logement' : 'My home'}</strong>
+            <span>{t('stairEquipmentPage.backTo')}</span>
+            <strong>{t('stairEquipmentPage.myHome')}</strong>
           </span>
         </button>
         <ChevronRight className="room-equipment-breadcrumb-divider" aria-hidden="true" />
         <span className="room-equipment-current-room" aria-current="page">
-          {fr ? 'Escaliers' : 'Stairs'}
+          {t('stairEquipmentPage.stairs2')}
         </span>
       </nav>
 
       <header className="room-equipment-header">
         <div className="room-equipment-title">
-          <span className="equipment-kicker">{fr ? 'Votre escalier' : 'Your stairs'}</span>
+          <span className="equipment-kicker">{t('stairEquipmentPage.yourStairs')}</span>
           <h1>{stairName}</h1>
           <div className="room-equipment-metadata">
             <span>
@@ -250,28 +251,21 @@ export function StairEquipmentPage({
             </span>
             <span className="room-equipment-status">
               <Radio />
-              {deviceCount}{' '}
-              {fr
-                ? `capteur${deviceCount > 1 ? 's' : ''} associé${deviceCount > 1 ? 's' : ''}`
-                : `sensor${deviceCount === 1 ? '' : 's'} assigned`}
+              {t('stairEquipmentPage.sensorsAssigned', { count: deviceCount })}
             </span>
           </div>
         </div>
         <div className="room-equipment-actions">
           <button className="primary" onClick={() => openCategory()}>
-            <Plus /> {fr ? 'Ajouter un capteur' : 'Add a sensor'}
+            <Plus /> {t('stairEquipmentPage.addASensor')}
           </button>
         </div>
       </header>
 
       <div className="room-equipment-section-heading">
         <div>
-          <h2>{fr ? 'Les capteurs de l’escalier' : 'Stair sensors'}</h2>
-          <p>
-            {fr
-              ? 'Suivez les passages entre ces deux espaces.'
-              : 'Monitor movement between these two spaces.'}
-          </p>
+          <h2>{t('stairEquipmentPage.stairSensors')}</h2>
+          <p>{t('stairEquipmentPage.monitorMovementBetweenTheseTwo')}</p>
         </div>
       </div>
 
@@ -294,16 +288,12 @@ export function StairEquipmentPage({
                   <span className={`room-sensor-status ${items.length ? 'is-configured' : ''}`}>
                     {items.length ? <CheckCircle2 /> : <span className="room-sensor-status-dot" />}
                     {items.length
-                      ? fr
-                        ? 'Configuré'
-                        : 'Configured'
-                      : fr
-                        ? 'Non configuré'
-                        : 'Not configured'}
+                      ? t('stairEquipmentPage.configured')
+                      : t('stairEquipmentPage.notConfigured')}
                   </span>
                 </span>
-                <h3>{definition[fr ? 'label' : 'labelEn']}</h3>
-                <p>{definition[fr ? 'description' : 'descriptionEn']}</p>
+                <h3>{sensorCategoryLabel(definition.id)}</h3>
+                <p>{sensorCategoryDescription(definition.id)}</p>
                 <div className="room-sensor-card-value">
                   {reading ? (
                     <>
@@ -315,24 +305,20 @@ export function StairEquipmentPage({
                     </>
                   ) : items.length > 1 ? (
                     <strong>
-                      {items.length} <span>{fr ? 'capteurs' : 'sensors'}</span>
+                      {items.length} <span>{t('stairEquipmentPage.sensors')}</span>
                     </strong>
                   ) : (
                     <>
                       <span className="room-sensor-empty-line">—</span>
-                      <small>{fr ? 'Aucun capteur associé' : 'No sensor assigned'}</small>
+                      <small>{t('stairEquipmentPage.noSensorAssigned')}</small>
                     </>
                   )}
                 </div>
                 <span className="room-sensor-card-footer">
                   <span>
                     {items.length
-                      ? fr
-                        ? `${items.length} appareil${items.length > 1 ? 's' : ''} · Gérer`
-                        : `${items.length} device${items.length === 1 ? '' : 's'} · Manage`
-                      : fr
-                        ? 'Ajouter un capteur'
-                        : 'Add a sensor'}
+                      ? t('stairEquipmentPage.devicesManage', { count: items.length })
+                      : t('stairEquipmentPage.addASensor')}
                   </span>
                   {items.length ? <ArrowRight /> : <Plus />}
                 </span>
@@ -344,14 +330,12 @@ export function StairEquipmentPage({
 
       <p className="room-equipment-footnote">
         <CheckCircle2 />
-        {fr
-          ? 'Ces capteurs sont associés directement à cet escalier.'
-          : 'These sensors are assigned directly to these stairs.'}
+        {t('stairEquipmentPage.theseSensorsAreAssignedDirectly')}
       </p>
 
       {selected && category && (
         <EquipmentDialog
-          title={`${selected[fr ? 'label' : 'labelEn']} · ${stairName}`}
+          title={`${sensorCategoryLabel(selected.id)} · ${stairName}`}
           wide
           busy={busy}
           onClose={() => {
@@ -371,18 +355,19 @@ export function StairEquipmentPage({
                     setConfirmRemoval(false);
                   }}
                 >
-                  <ArrowLeft /> {fr ? 'Retour aux capteurs' : 'Back to sensors'}
+                  <ArrowLeft /> {t('stairEquipmentPage.backToSensors')}
                 </button>
                 <h3>{assigning.name}</h3>
                 {!selectedDevices.some(({ id }) => id === assigning.id) && assigning.room && (
                   <p className="equipment-note">
-                    {fr
-                      ? `Cet appareil sera déplacé de « ${assigning.room.name} » vers « ${stairName} », avec toutes ses mesures.`
-                      : `This device and all its readings will move from ${assigning.room.name} to ${stairName}.`}
+                    {t('stairEquipmentPage.thisDeviceAndAllIts', {
+                      name: assigning.room.name,
+                      stairName,
+                    })}
                   </p>
                 )}
                 <label className="equipment-field">
-                  {fr ? 'Nom' : 'Name'}
+                  {t('stairEquipmentPage.name')}
                   <input
                     value={name}
                     maxLength={120}
@@ -390,14 +375,12 @@ export function StairEquipmentPage({
                   />
                 </label>
                 <label className="equipment-field">
-                  {fr ? 'Emplacement (facultatif)' : 'Location (optional)'}
+                  {t('stairEquipmentPage.locationOptional')}
                   <input
                     value={note}
                     maxLength={500}
                     onChange={(event) => setNote(event.target.value)}
-                    placeholder={
-                      fr ? 'Par exemple : milieu de l’escalier' : 'For example: midway up'
-                    }
+                    placeholder={t('stairEquipmentPage.forExampleMidwayUp')}
                   />
                 </label>
                 <footer className="equipment-dialog-footer">
@@ -408,42 +391,30 @@ export function StairEquipmentPage({
                   >
                     <Check />
                     {selectedDevices.some(({ id }) => id === assigning.id)
-                      ? fr
-                        ? 'Enregistrer'
-                        : 'Save'
-                      : fr
-                        ? 'Associer à cet escalier'
-                        : 'Assign to these stairs'}
+                      ? t('stairEquipmentPage.save')
+                      : t('stairEquipmentPage.assignToTheseStairs')}
                   </button>
                 </footer>
                 {assigning.protocol === 'zigbee' && (
                   <div className="equipment-removal">
                     {confirmRemoval ? (
                       <div className="equipment-removal-confirmation" role="group">
-                        <strong>
-                          {fr
-                            ? 'Retirer ce capteur du réseau ?'
-                            : 'Remove this sensor from the network?'}
-                        </strong>
-                        <p>
-                          {fr
-                            ? 'Il sera supprimé de cet escalier et du réseau Zigbee.'
-                            : 'It will be removed from these stairs and the Zigbee network.'}
-                        </p>
+                        <strong>{t('stairEquipmentPage.removeThisSensorFromThe')}</strong>
+                        <p>{t('stairEquipmentPage.itWillBeRemovedFrom')}</p>
                         <div>
                           <button
                             className="equipment-secondary"
                             disabled={busy}
                             onClick={() => setConfirmRemoval(false)}
                           >
-                            {fr ? 'Annuler' : 'Cancel'}
+                            {t('stairEquipmentPage.cancel')}
                           </button>
                           <button
                             className="equipment-delete-confirm"
                             disabled={busy}
                             onClick={() => void removeDevice()}
                           >
-                            <Trash2 /> {fr ? 'Supprimer du réseau' : 'Remove from network'}
+                            <Trash2 /> {t('stairEquipmentPage.removeFromNetwork')}
                           </button>
                         </div>
                       </div>
@@ -453,7 +424,7 @@ export function StairEquipmentPage({
                         disabled={busy}
                         onClick={() => setConfirmRemoval(true)}
                       >
-                        <Trash2 /> {fr ? 'Supprimer du réseau' : 'Remove from network'}
+                        <Trash2 /> {t('stairEquipmentPage.removeFromNetwork')}
                       </button>
                     )}
                   </div>
@@ -462,28 +433,28 @@ export function StairEquipmentPage({
             ) : product ? (
               <>
                 <button className="equipment-text-button" onClick={() => setProduct(null)}>
-                  <ArrowLeft /> {fr ? 'Tous les produits' : 'All products'}
+                  <ArrowLeft /> {t('stairEquipmentPage.allProducts')}
                 </button>
                 <div className="equipment-product-detail">
                   <ProductPhoto product={product} />
                   <div>
                     <span className="equipment-kicker">{product.brand}</span>
-                    <h3>{fr ? product.name : product.nameEn}</h3>
+                    <h3>{productTexts(product).name}</h3>
                     <p>{product.model}</p>
                     <span className="equipment-product-badge">
-                      {fr ? 'Compatibilité documentée' : 'Documented compatibility'}
+                      {t('stairEquipmentPage.documentedCompatibility')}
                     </span>
                   </div>
                 </div>
-                <h4>{fr ? 'Où le placer' : 'Where to place it'}</h4>
+                <h4>{t('stairEquipmentPage.whereToPlaceIt')}</h4>
                 <ul>
-                  {(fr ? product.placement : product.placementEn).map((step) => (
+                  {productTexts(product).placement.map((step) => (
                     <li key={step}>{step}</li>
                   ))}
                 </ul>
                 <footer className="equipment-dialog-footer">
                   <button className="equipment-primary" onClick={() => void startInstall(product)}>
-                    {fr ? 'Installer ce capteur' : 'Install this sensor'} <ChevronRight />
+                    {t('stairEquipmentPage.installThisSensor')} <ChevronRight />
                   </button>
                 </footer>
               </>
@@ -491,7 +462,7 @@ export function StairEquipmentPage({
               <>
                 {!!selectedDevices.length && (
                   <section className="equipment-assigned">
-                    <h3>{fr ? 'Dans cet escalier' : 'On these stairs'}</h3>
+                    <h3>{t('stairEquipmentPage.onTheseStairs')}</h3>
                     {selectedDevices.map((device) => {
                       const reading = roomSensorReading(device, category, fr, now);
                       return (
@@ -520,14 +491,14 @@ export function StairEquipmentPage({
                             )}
                             {device.batteryPercent !== null && (
                               <small>
-                                <BatteryMedium /> {fr ? 'Batterie' : 'Battery'}{' '}
+                                <BatteryMedium /> {t('stairEquipmentPage.battery')}{' '}
                                 {device.batteryPercent} %
                               </small>
                             )}
                           </div>
                           <div className="equipment-device-actions">
                             <button onClick={() => editDevice(device)}>
-                              {fr ? 'Gérer' : 'Manage'}
+                              {t('stairEquipmentPage.manage')}
                             </button>
                             <button
                               onClick={() => {
@@ -535,7 +506,7 @@ export function StairEquipmentPage({
                                 setCategory(undefined);
                               }}
                             >
-                              {fr ? 'Guide et test' : 'Guide and test'}
+                              {t('stairEquipmentPage.guideAndTest')}
                             </button>
                           </div>
                         </article>
@@ -543,21 +514,21 @@ export function StairEquipmentPage({
                     })}
                   </section>
                 )}
-                <h3>{fr ? 'Ajouter un capteur' : 'Add a sensor'}</h3>
+                <h3>{t('stairEquipmentPage.addASensor')}</h3>
                 <div className="equipment-catalog-tabs" role="tablist">
                   <button
                     role="tab"
                     aria-selected={tab === 'PRODUCTS'}
                     onClick={() => setTab('PRODUCTS')}
                   >
-                    {fr ? 'Produits documentés' : 'Documented products'}
+                    {t('stairEquipmentPage.documentedProducts')}
                   </button>
                   <button
                     role="tab"
                     aria-selected={tab === 'CONNECTED'}
                     onClick={() => setTab('CONNECTED')}
                   >
-                    {fr ? 'Autres capteurs connectés' : 'Other connected sensors'}
+                    {t('stairEquipmentPage.otherConnectedSensors')}
                   </button>
                 </div>
                 {tab === 'PRODUCTS' ? (
@@ -566,7 +537,6 @@ export function StairEquipmentPage({
                       <SensorProductCard
                         key={item.id}
                         product={item}
-                        fr={fr}
                         onSelect={() => setProduct(item)}
                       />
                     ))}
@@ -582,7 +552,7 @@ export function StairEquipmentPage({
                         <Radio />
                         <span>
                           <strong>{device.name}</strong>
-                          <small>{device.room?.name ?? (fr ? 'Sans pièce' : 'Unassigned')}</small>
+                          <small>{device.room?.name ?? t('stairEquipmentPage.unassigned')}</small>
                         </span>
                         <Plus />
                       </button>
@@ -590,14 +560,8 @@ export function StairEquipmentPage({
                     {!availableConnected.length && (
                       <div className="equipment-connected-empty" role="status">
                         <Radio />
-                        <strong>
-                          {fr ? 'Aucun autre capteur à ajouter' : 'No other sensor to add'}
-                        </strong>
-                        <p>
-                          {fr
-                            ? 'Les capteurs de cet escalier sont déjà affichés plus haut.'
-                            : 'Sensors on these stairs are already shown above.'}
-                        </p>
+                        <strong>{t('stairEquipmentPage.noOtherSensorToAdd')}</strong>
+                        <p>{t('stairEquipmentPage.sensorsOnTheseStairsAre')}</p>
                       </div>
                     )}
                   </div>
@@ -609,10 +573,8 @@ export function StairEquipmentPage({
                 >
                   <Radio />
                   <span>
-                    {fr ? 'Mon modèle n’est pas dans la liste' : 'My model is not listed'}
-                    <small>
-                      {fr ? 'Lancer la détection automatique' : 'Start automatic detection'}
-                    </small>
+                    {t('stairEquipmentPage.myModelIsNotListed')}
+                    <small>{t('stairEquipmentPage.startAutomaticDetection')}</small>
                   </span>
                   <ArrowRight />
                 </button>
@@ -629,7 +591,7 @@ export function StairEquipmentPage({
 
       {guideId && (
         <EquipmentDialog
-          title={shownGuide?.name ?? (fr ? 'Guide du capteur' : 'Sensor guide')}
+          title={shownGuide?.name ?? t('stairEquipmentPage.sensorGuide')}
           onClose={() => setGuideId(null)}
         >
           {shownGuide ? (
@@ -640,7 +602,7 @@ export function StairEquipmentPage({
               onDone={() => setGuideId(null)}
             />
           ) : (
-            <p>{fr ? 'Le capteur n’est plus disponible.' : 'Sensor no longer available.'}</p>
+            <p>{t('stairEquipmentPage.sensorNoLongerAvailable')}</p>
           )}
         </EquipmentDialog>
       )}

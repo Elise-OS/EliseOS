@@ -1,12 +1,12 @@
+import { t } from './i18n';
 type DataLoadingScreenProps = {
   locale: 'fr' | 'en';
   message?: string;
   fullPage?: boolean;
 };
 
-export function DataLoadingScreen({ locale, message, fullPage = false }: DataLoadingScreenProps) {
-  const fr = locale === 'fr';
-  const loadingMessage = message ?? (fr ? 'Chargement de vos données…' : 'Loading your data…');
+export function DataLoadingScreen({ message, fullPage = false }: DataLoadingScreenProps) {
+  const loadingMessage = message ?? t('dataLoadingScreen.loadingYourData');
 
   return (
     <section
@@ -37,14 +37,14 @@ export function DataLoadingScreen({ locale, message, fullPage = false }: DataLoa
             élise<span className="brand-os">OS</span>
           </span>
         </div>
-        <p className="data-loading-eyebrow">{fr ? 'Un instant' : 'Just a moment'}</p>
-        <h1>{fr ? 'Votre espace prend vie' : 'Your space is coming to life'}</h1>
+        <p className="data-loading-eyebrow">{t('dataLoadingScreen.justAMoment')}</p>
+        <h1>{t('dataLoadingScreen.yourSpaceIsComingTo')}</h1>
         <p className="data-loading-message">{loadingMessage}</p>
         <span className="data-loading-progress" aria-hidden="true">
           <i />
         </span>
         <span className="data-loading-reassurance">
-          {fr ? 'Vos données restent chez vous.' : 'Your data stays in your home.'}
+          {t('dataLoadingScreen.yourDataStaysInYour')}
         </span>
       </div>
     </section>

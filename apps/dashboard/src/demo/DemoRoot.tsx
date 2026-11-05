@@ -4,55 +4,16 @@ import { App } from '../App';
 import { ResidentScreen } from '../ResidentScreen';
 import { DemoCall } from './DemoCall';
 import './demo.css';
+import { FlagIcon } from '../FlagIcons';
+import { currentLanguage, dashboardLanguages, t as i18nT, textBlock, type Language } from '../i18n';
 
 type View = 'aidant' | 'tv';
-
-const copy = {
-  fr: {
-    badge: 'Démonstration',
-    home: 'Maison Martin · données fictives',
-    frozen: 'Figée le mardi 13 octobre, 10 h 40',
-    views: { aidant: 'Espace aidant', tv: 'Télévision de Jeanne' },
-    viewsLabel: 'Vue de la démonstration',
-    restart: 'Recommencer',
-    exit: 'Retour au site',
-    hide: 'Réduire le bandeau',
-    show: 'Afficher le bandeau de démonstration',
-    closeSidebar: 'Fermer le menu latéral',
-    openSidebar: 'Ouvrir le menu latéral',
-    language: 'Langue de la démonstration',
-  },
-  en: {
-    badge: 'Demo',
-    home: 'Martin home · fictional data',
-    frozen: 'Frozen on Tuesday 13 October, 10:40',
-    views: { aidant: 'Caregiver space', tv: 'Jeanne’s TV' },
-    viewsLabel: 'Demo view',
-    restart: 'Start over',
-    exit: 'Back to the site',
-    hide: 'Collapse the banner',
-    show: 'Show the demo banner',
-    closeSidebar: 'Close the side menu',
-    openSidebar: 'Open the side menu',
-    language: 'Demo language',
-  },
-} as const;
 
 const initialView = (): View =>
   new URLSearchParams(window.location.search).get('vue') === 'tv' ? 'tv' : 'aidant';
 
-function currentLang(): 'fr' | 'en' {
-  const asked = new URLSearchParams(window.location.search).get('lang');
-  if (asked === 'en' || asked === 'fr') return asked;
-  try {
-    return window.localStorage.getItem('elise_locale') === 'en' ? 'en' : 'fr';
-  } catch {
-    return 'fr';
-  }
-}
-
 /** The demo home is built in one language, so switching reloads it in the other. */
-function switchLang(next: 'fr' | 'en') {
+function switchLang(next: Language) {
   const url = new URL(window.location.href);
   url.searchParams.set('lang', next);
   window.location.replace(url);
@@ -73,8 +34,9 @@ export function DemoRoot() {
   const [view, setView] = useState<View>(initialView);
   const [collapsed, setCollapsed] = useState(false);
   const [sidebarClosed, setSidebarClosed] = useState(initialSidebarClosed);
-  const lang = currentLang();
-  const t = copy[lang];
+  // ?lang= in the address, then the choice saved in this browser (read by ../i18n).
+  const lang = currentLanguage();
+  const t = textBlock('demoRoot.copy');
 
   // Demo only: on wide screens the visitor can fold the side menu away to see more of a page.
   useEffect(() => {
@@ -100,7 +62,7 @@ export function DemoRoot() {
   return (
     <>
       {view === 'tv' ? <ResidentScreen /> : <App />}
-      <DemoCall lang={lang} />
+      <DemoCall />
       {view === 'aidant' && (
         <button
           type="button"
@@ -144,15 +106,17 @@ export function DemoRoot() {
             ))}
           </div>
           <div className="demo-bar-lang" role="group" aria-label={t.language}>
-            {(['fr', 'en'] as const).map((item) => (
+            {dashboardLanguages.map(({ code: item, name }) => (
               <button
                 key={item}
                 type="button"
                 lang={item}
+                title={name}
+                aria-label={name}
                 aria-pressed={lang === item}
                 onClick={() => item !== lang && switchLang(item)}
               >
-                {item.toUpperCase()}
+                <FlagIcon language={item} /> {item.toUpperCase()}
               </button>
             ))}
           </div>
@@ -160,7 +124,7 @@ export function DemoRoot() {
             <button type="button" onClick={() => window.location.reload()}>
               {t.restart}
             </button>
-            <a href={lang === 'en' ? '/en/' : '/'}>{t.exit}</a>
+            <a href={i18nT('demoRoot.exitUrl')}>{t.exit}</a>
             <button
               type="button"
               className="demo-bar-hide"

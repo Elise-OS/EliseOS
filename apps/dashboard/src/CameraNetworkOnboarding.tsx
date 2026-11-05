@@ -9,7 +9,7 @@ import {
   Wifi,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { Locale } from './i18n';
+import { type Locale, t, textBlock } from './i18n';
 import { sensorJson, sensorRequest } from './sensor-ui';
 
 type RoomCamera = {
@@ -29,27 +29,24 @@ type CameraNetworkOnboardingProps = {
 
 type Step = 1 | 2 | 3;
 
-function errorMessage(cause: unknown, fr: boolean, fallback: string): string {
+function errorMessage(cause: unknown, fallback: string): string {
   if (cause instanceof Error && /Connexion impossible \((502|503|504)\)/.test(cause.message))
-    return fr
-      ? 'Le serveur Élise est momentanément indisponible. Réessayez dans quelques instants.'
-      : 'The Élise server is temporarily unavailable. Please try again shortly.';
-  if (cause instanceof TypeError)
-    return fr
-      ? 'La connexion au logement a été interrompue. Vérifiez le réseau puis réessayez.'
-      : 'The connection to your home was interrupted. Check the network and try again.';
+    return t('cameraNetworkOnboarding.theEliseServerIsTemporarily');
+  if (cause instanceof TypeError) return t('cameraNetworkOnboarding.theConnectionToYourHome');
   return cause instanceof Error && cause.message ? cause.message : fallback;
 }
 
 export function CameraNetworkOnboarding({
-  locale,
   roomId,
   roomName,
   cameras,
   onAdded,
 }: CameraNetworkOnboardingProps) {
-  const fr = locale === 'fr';
-  const steps = fr ? ['Rechercher', 'Connecter', 'Ajouter'] : ['Search', 'Connect', 'Add'];
+  const steps = [
+    t('cameraNetworkOnboarding.steps.search'),
+    t('cameraNetworkOnboarding.steps.connect'),
+    t('cameraNetworkOnboarding.steps.add'),
+  ];
   const activeDiscovery = useRef<AbortController | null>(null);
   const [step, setStep] = useState<Step>(1);
   const [devices, setDevices] = useState<CameraNetworkDevice[]>([]);
@@ -59,7 +56,7 @@ export function CameraNetworkOnboarding({
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState('');
   const [complete, setComplete] = useState(false);
-  const [name, setName] = useState(fr ? `Caméra ${roomName}` : `${roomName} camera`);
+  const [name, setName] = useState(t('cameraNetworkOnboarding.camera', { roomName }));
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [consented, setConsented] = useState(false);
@@ -102,14 +99,8 @@ export function CameraNetworkOnboarding({
       if (activeDiscovery.current !== controller) return;
       setError(
         timedOut
-          ? fr
-            ? 'La recherche prend trop de temps. Réessayez dans quelques instants.'
-            : 'The search is taking too long. Please try again shortly.'
-          : errorMessage(
-              cause,
-              fr,
-              fr ? 'La recherche réseau a échoué.' : 'The network search failed.',
-            ),
+          ? t('cameraNetworkOnboarding.theSearchIsTakingToo')
+          : errorMessage(cause, t('cameraNetworkOnboarding.theNetworkSearchFailed')),
       );
     } finally {
       window.clearTimeout(timeout);
@@ -142,13 +133,7 @@ export function CameraNetworkOnboarding({
       setPassword('');
       void Promise.resolve(onAdded()).catch(() => undefined);
     } catch (cause) {
-      setError(
-        errorMessage(
-          cause,
-          fr,
-          fr ? 'La caméra n’a pas pu être ajoutée.' : 'The camera could not be added.',
-        ),
-      );
+      setError(errorMessage(cause, t('cameraNetworkOnboarding.theCameraCouldNotBe')));
     } finally {
       setSaving(false);
     }
@@ -157,7 +142,7 @@ export function CameraNetworkOnboarding({
   return (
     <div
       className="equipment-onboarding camera-network-onboarding"
-      aria-label={fr ? 'Ajout d’une caméra réseau' : 'Add a network camera'}
+      aria-label={t('cameraNetworkOnboarding.addANetworkCamera')}
       aria-busy={scanning || saving}
     >
       <ol className="equipment-steps">
@@ -171,7 +156,7 @@ export function CameraNetworkOnboarding({
             >
               <span>{number < step ? <Check aria-hidden="true" /> : number}</span>
               <div>
-                <small>{fr ? `Étape ${number} sur 3` : `Step ${number} of 3`}</small>
+                <small>{t('cameraNetworkOnboarding.stepOf3', { number })}</small>
                 <strong>{label}</strong>
               </div>
             </li>
@@ -181,7 +166,7 @@ export function CameraNetworkOnboarding({
 
       {cameras.length > 0 && (
         <p className="camera-network-existing equipment-muted">
-          {fr ? 'Déjà dans cette pièce : ' : 'Already in this room: '}
+          {t('cameraNetworkOnboarding.alreadyInThisRoom')}
           {cameras.map(({ name: cameraName }) => cameraName).join(', ')}
         </p>
       )}
@@ -190,24 +175,11 @@ export function CameraNetworkOnboarding({
         <>
           <div className="equipment-onboarding-intro">
             <Wifi aria-hidden="true" />
-            <h3>{fr ? 'Rechercher une caméra sur le réseau' : 'Find a camera on the network'}</h3>
-            <p>
-              {fr
-                ? 'Élise recherche les caméras accessibles depuis le réseau de votre logement.'
-                : 'Élise looks for cameras available on your home network.'}
-            </p>
+            <h3>{t('cameraNetworkOnboarding.findACameraOnThe')}</h3>
+            <p>{t('cameraNetworkOnboarding.eliseLooksForCamerasAvailable')}</p>
           </div>
           <ol className="equipment-guide-steps">
-            {(fr
-              ? [
-                  'La caméra doit être allumée et connectée au même réseau que le NAS.',
-                  'Son flux RTSP doit être activé dans les réglages locaux de la caméra.',
-                ]
-              : [
-                  'The camera must be powered on and connected to the same network as the NAS.',
-                  'Its RTSP stream must be enabled in the camera’s local settings.',
-                ]
-            ).map((line) => (
+            {textBlock('cameraNetworkOnboarding.requirements').map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ol>
@@ -222,22 +194,16 @@ export function CameraNetworkOnboarding({
               <Wifi aria-hidden="true" />
             )}
             {scanning
-              ? fr
-                ? 'Recherche en cours…'
-                : 'Searching…'
+              ? t('cameraNetworkOnboarding.searching')
               : searched
-                ? fr
-                  ? 'Rechercher à nouveau'
-                  : 'Search again'
-                : fr
-                  ? 'Rechercher sur mon réseau'
-                  : 'Search my network'}
+                ? t('cameraNetworkOnboarding.searchAgain')
+                : t('cameraNetworkOnboarding.searchMyNetwork')}
           </button>
 
           {scanning && (
             <p className="camera-network-status" role="status" aria-live="polite">
               <LoaderCircle className="is-spinning" aria-hidden="true" />
-              {fr ? 'Élise analyse le réseau local…' : 'Élise is scanning the local network…'}
+              {t('cameraNetworkOnboarding.eliseIsScanningTheLocal')}
             </p>
           )}
 
@@ -245,12 +211,8 @@ export function CameraNetworkOnboarding({
             <div className="camera-network-empty" role="status">
               <Camera aria-hidden="true" />
               <div>
-                <strong>{fr ? 'Aucune caméra trouvée' : 'No camera found'}</strong>
-                <p>
-                  {fr
-                    ? 'Vérifiez que la caméra est allumée, sur le réseau du logement et que son flux RTSP est activé, puis relancez la recherche.'
-                    : 'Check that the camera is powered on, on your home network, and has RTSP enabled, then search again.'}
-                </p>
+                <strong>{t('cameraNetworkOnboarding.noCameraFound')}</strong>
+                <p>{t('cameraNetworkOnboarding.checkThatTheCameraIs')}</p>
               </div>
             </div>
           )}
@@ -264,15 +226,11 @@ export function CameraNetworkOnboarding({
             aria-labelledby="camera-network-results-title"
           >
             <h4 id="camera-network-results-title">
-              {fr
-                ? `${devices.length} caméra${devices.length > 1 ? 's' : ''} trouvée${devices.length > 1 ? 's' : ''}`
-                : `${devices.length} camera${devices.length > 1 ? 's' : ''} found`}
+              {t('cameraNetworkOnboarding.camerasFound', { count: devices.length })}
             </h4>
             {devices.length > 1 && (
               <p className="equipment-muted">
-                {fr
-                  ? 'Sélectionnez la caméra installée dans cette pièce.'
-                  : 'Select the camera installed in this room.'}
+                {t('cameraNetworkOnboarding.selectTheCameraInstalledIn')}
               </p>
             )}
             <div className="camera-network-result-list" role="list">
@@ -292,10 +250,13 @@ export function CameraNetworkOnboarding({
                       <Camera aria-hidden="true" />
                     </span>
                     <span className="camera-network-result-copy">
-                      <strong>{fr ? 'Caméra détectée' : 'Camera detected'}</strong>
+                      <strong>{t('cameraNetworkOnboarding.cameraDetected')}</strong>
                       <small>
-                        {device.address} · RTSP · {fr ? 'port' : 'port'} {device.rtspPort}
-                        {device.authenticationRequired ? (fr ? ' · protégé' : ' · protected') : ''}
+                        {device.address} · RTSP · {t('cameraNetworkOnboarding.port')}{' '}
+                        {device.rtspPort}
+                        {device.authenticationRequired
+                          ? t('cameraNetworkOnboarding.protected')
+                          : ''}
                       </small>
                     </span>
                     {isSelected && <CheckCircle2 aria-hidden="true" />}
@@ -318,20 +279,16 @@ export function CameraNetworkOnboarding({
               <div className="equipment-install-form-heading">
                 <Camera aria-hidden="true" />
                 <div>
-                  <h4>{fr ? 'Connexion locale' : 'Local connection'}</h4>
+                  <h4>{t('cameraNetworkOnboarding.localConnection')}</h4>
                   <p>
-                    {fr
-                      ? selected.authenticationRequired
-                        ? 'Le flux local demande un mot de passe. Le nom courant « admin » est prérempli. Saisissez le mot de passe de la caméra, pas celui de votre compte Imou Life.'
-                        : 'Élise essaiera de lire le flux sans identifiants. Si la caméra le protège, vous pourrez ajouter ses identifiants locaux.'
-                      : selected.authenticationRequired
-                        ? 'The local stream requires a password. The common “admin” username is prefilled. Enter the camera password, not your Imou Life account password.'
-                        : 'Élise will first try to read the stream without credentials. If the camera protects it, you can add its local credentials.'}
+                    {selected.authenticationRequired
+                      ? t('cameraNetworkOnboarding.theLocalStreamRequiresA')
+                      : t('cameraNetworkOnboarding.eliseWillFirstTryTo')}
                   </p>
                 </div>
               </div>
               <label className="equipment-field">
-                {fr ? 'Nom de la caméra' : 'Camera name'}
+                {t('cameraNetworkOnboarding.cameraName')}
                 <input
                   value={name}
                   onChange={(event) => setName(event.target.value)}
@@ -340,13 +297,11 @@ export function CameraNetworkOnboarding({
                 />
               </label>
               <p className="equipment-install-warning">
-                {fr
-                  ? 'Saisissez les identifiants locaux de l’appareil, pas ceux du compte Imou Life. Élise ne demande pas le chemin du flux vidéo.'
-                  : 'Enter the camera’s local device credentials, not your Imou Life account. Élise does not ask for the video stream path.'}
+                {t('cameraNetworkOnboarding.enterTheCameraSLocal')}
               </p>
               <div className="camera-network-credentials">
                 <label className="equipment-field">
-                  {fr ? 'Identifiant local' : 'Local username'}
+                  {t('cameraNetworkOnboarding.localUsername')}
                   <input
                     autoComplete="username"
                     value={username}
@@ -356,7 +311,7 @@ export function CameraNetworkOnboarding({
                   />
                 </label>
                 <label className="equipment-field">
-                  {fr ? 'Mot de passe de la caméra' : 'Camera password'}
+                  {t('cameraNetworkOnboarding.cameraPassword')}
                   <input
                     type="password"
                     autoComplete="current-password"
@@ -374,11 +329,7 @@ export function CameraNetworkOnboarding({
                   onChange={(event) => setConsented(event.target.checked)}
                   required
                 />
-                <span>
-                  {fr
-                    ? 'Je confirme avoir l’autorisation d’installer et d’utiliser cette caméra dans cette pièce.'
-                    : 'I confirm that I am authorized to install and use this camera in this room.'}
-                </span>
+                <span>{t('cameraNetworkOnboarding.iConfirmThatIAm')}</span>
               </label>
               <footer className="equipment-dialog-footer camera-network-form-footer">
                 <button
@@ -389,7 +340,7 @@ export function CameraNetworkOnboarding({
                     setStep(1);
                   }}
                 >
-                  <ArrowLeft aria-hidden="true" /> {fr ? 'Retour' : 'Back'}
+                  <ArrowLeft aria-hidden="true" /> {t('cameraNetworkOnboarding.back')}
                 </button>
                 <button
                   className="equipment-primary"
@@ -398,7 +349,7 @@ export function CameraNetworkOnboarding({
                     !name.trim() || (selected.authenticationRequired && !password) || !consented
                   }
                 >
-                  {fr ? 'Détecter le flux et ajouter' : 'Detect stream and add'}
+                  {t('cameraNetworkOnboarding.detectStreamAndAdd')}
                   <ArrowRight aria-hidden="true" />
                 </button>
               </footer>
@@ -413,7 +364,7 @@ export function CameraNetworkOnboarding({
                   setStep(1);
                 }}
               >
-                <ArrowLeft aria-hidden="true" /> {fr ? 'Retour' : 'Back'}
+                <ArrowLeft aria-hidden="true" /> {t('cameraNetworkOnboarding.back')}
               </button>
             </footer>
           )}
@@ -426,11 +377,9 @@ export function CameraNetworkOnboarding({
             <div className="equipment-found" role="status">
               <CheckCircle2 aria-hidden="true" />
               <span>
-                <strong>{fr ? 'Caméra ajoutée' : 'Camera added'}</strong>
+                <strong>{t('cameraNetworkOnboarding.cameraAdded')}</strong>
                 <br />
-                {fr
-                  ? `${name} est associée à ${roomName}. Son flux en direct est maintenant disponible dans Caméras.`
-                  : `${name} is assigned to ${roomName}. Its live stream is now available in Cameras.`}
+                {t('cameraNetworkOnboarding.isAssignedToItsLive', { name, roomName })}
               </span>
             </div>
           ) : (
@@ -444,21 +393,13 @@ export function CameraNetworkOnboarding({
                 <div>
                   <h3>
                     {saving
-                      ? fr
-                        ? 'Vérification du flux vidéo'
-                        : 'Checking the video stream'
-                      : fr
-                        ? 'Vérifier le flux vidéo'
-                        : 'Check the video stream'}
+                      ? t('cameraNetworkOnboarding.checkingTheVideoStream')
+                      : t('cameraNetworkOnboarding.checkTheVideoStream')}
                   </h3>
                   <p>
                     {saving
-                      ? fr
-                        ? 'Élise cherche un flux et vérifie qu’une image arrive.'
-                        : 'Élise is finding a stream and checking for a video frame.'
-                      : fr
-                        ? 'Les identifiants et l’accès au flux seront vérifiés avant l’ajout.'
-                        : 'The credentials and stream will be checked before the camera is added.'}
+                      ? t('cameraNetworkOnboarding.eliseIsFindingAStream')
+                      : t('cameraNetworkOnboarding.theCredentialsAndStreamWill')}
                   </p>
                 </div>
               </div>
@@ -487,7 +428,7 @@ export function CameraNetworkOnboarding({
                   }}
                 >
                   <ArrowLeft aria-hidden="true" />
-                  {fr ? 'Modifier les identifiants' : 'Edit credentials'}
+                  {t('cameraNetworkOnboarding.editCredentials')}
                 </button>
                 <button
                   type="button"
@@ -501,16 +442,10 @@ export function CameraNetworkOnboarding({
                     <CheckCircle2 aria-hidden="true" />
                   )}
                   {saving
-                    ? fr
-                      ? 'Vérification…'
-                      : 'Checking…'
+                    ? t('cameraNetworkOnboarding.checking')
                     : error
-                      ? fr
-                        ? 'Réessayer'
-                        : 'Try again'
-                      : fr
-                        ? 'Détecter le flux et ajouter'
-                        : 'Detect stream and add'}
+                      ? t('cameraNetworkOnboarding.tryAgain')
+                      : t('cameraNetworkOnboarding.detectStreamAndAdd')}
                 </button>
               </footer>
             </>

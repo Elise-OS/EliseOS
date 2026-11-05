@@ -2,6 +2,7 @@ import type { RequestedRoom } from '@elise/contracts';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { DrawingSetupPanel, HomeSetupOnboarding } from './HomeSetupOnboarding';
+import { inLanguage } from './i18n/test-language';
 
 const room: RequestedRoom = {
   id: 'requested-living',
@@ -35,8 +36,8 @@ describe('home creation onboarding', () => {
   });
 
   it('renders the room checklist in English', () => {
-    const html = renderToStaticMarkup(
-      <HomeSetupOnboarding locale="en" stage="ROOMS" {...shared} />,
+    const html = inLanguage('en', () =>
+      renderToStaticMarkup(<HomeSetupOnboarding locale="en" stage="ROOMS" {...shared} />),
     );
     expect(html).toContain('Which rooms are in the home?');
     expect(html).toContain('Living room');

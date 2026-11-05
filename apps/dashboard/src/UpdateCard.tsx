@@ -11,7 +11,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { Locale } from './i18n';
+import { type Locale, t } from './i18n';
 
 interface UpdateCardProps {
   locale: Locale;
@@ -33,7 +33,6 @@ const terminalStates = new Set<UpdateStatus['state']>([
 ]);
 
 export function UpdateCard({
-  locale,
   status,
   busy,
   onCheck,
@@ -44,7 +43,6 @@ export function UpdateCard({
   const [username, setUsername] = useState('');
   const [token, setToken] = useState('');
   const [credentialsOpen, setCredentialsOpen] = useState(false);
-  const tr = (fr: string, en: string) => (locale === 'fr' ? fr : en);
   const state = status?.state ?? 'CHECKING';
   const running = busy || !terminalStates.has(state);
   const available = status?.updateAvailable && status.latestVersion;
@@ -54,17 +52,17 @@ export function UpdateCard({
   }, [status?.authConfigured]);
 
   const stateLabel: Record<UpdateStatus['state'], string> = {
-    UNCONFIGURED: tr('Compte à configurer', 'Account needed'),
-    CHECKING: tr('Vérification…', 'Checking…'),
-    UP_TO_DATE: tr('À jour', 'Up to date'),
-    AVAILABLE: tr('Mise à jour disponible', 'Update available'),
-    DOWNLOADING: tr('Téléchargement…', 'Downloading…'),
-    INSTALLING: tr('Installation…', 'Installing…'),
-    VERIFYING: tr('Vérification…', 'Verifying…'),
-    RESTARTING: tr('Redémarrage…', 'Restarting…'),
-    SUCCEEDED: tr('Mise à jour terminée', 'Update complete'),
-    ROLLED_BACK: tr('Retour à la version précédente', 'Rolled back'),
-    FAILED: tr('Échec', 'Failed'),
+    UNCONFIGURED: t('updateCard.accountNeeded'),
+    CHECKING: t('updateCard.checking'),
+    UP_TO_DATE: t('updateCard.upToDate'),
+    AVAILABLE: t('updateCard.updateAvailable'),
+    DOWNLOADING: t('updateCard.downloading'),
+    INSTALLING: t('updateCard.installing'),
+    VERIFYING: t('updateCard.verifying'),
+    RESTARTING: t('updateCard.restarting'),
+    SUCCEEDED: t('updateCard.updateComplete'),
+    ROLLED_BACK: t('updateCard.rolledBack'),
+    FAILED: t('updateCard.failed'),
   };
 
   return (
@@ -77,14 +75,9 @@ export function UpdateCard({
           <Download />
         </span>
         <div>
-          <span className="eyebrow">{tr('Maintenance de l’appareil', 'Device maintenance')}</span>
-          <h2>{tr('Mise à jour d’Élise OS', 'Élise OS updates')}</h2>
-          <p>
-            {tr(
-              'Chaque version est vérifiée avant installation ; en cas de problème, Élise revient seule à la version précédente.',
-              'Each version is verified before it installs; if anything goes wrong, Élise returns to the previous version on its own.',
-            )}
-          </p>
+          <span className="eyebrow">{t('updateCard.deviceMaintenance')}</span>
+          <h2>{t('updateCard.eliseOsUpdates')}</h2>
+          <p>{t('updateCard.eachVersionIsVerifiedBefore')}</p>
         </div>
         <span className={`update-state update-state--${state.toLowerCase()}`} role="status">
           {state === 'UP_TO_DATE' || state === 'SUCCEEDED' ? <Check /> : null}
@@ -101,19 +94,16 @@ export function UpdateCard({
         <div className="update-card-status">
           {status?.currentVersion && (
             <small>
-              {tr('Version installée', 'Installed version')}: {status.currentVersion}
+              {t('updateCard.installedVersion')}: {status.currentVersion}
             </small>
           )}
           {status?.checkedAt && (
             <small>
-              {tr('Dernière vérification', 'Last checked')}: {status.checkedAt}
+              {t('updateCard.lastChecked')}: {status.checkedAt}
             </small>
           )}
           {status?.progress != null && running && (
-            <div
-              className="update-progress"
-              aria-label={tr('Progression de la mise à jour', 'Update progress')}
-            >
+            <div className="update-progress" aria-label={t('updateCard.updateProgress')}>
               <progress max={100} value={status.progress} />
               <span>{status.progress}%</span>
             </div>
@@ -122,17 +112,16 @@ export function UpdateCard({
 
         <div className="update-card-actions">
           <Button className="button-secondary" onClick={onCheck} disabled={running}>
-            <RefreshCw /> {tr('Rechercher', 'Check now')}
+            <RefreshCw /> {t('updateCard.checkNow')}
           </Button>
           {available && (
             <Button
               onClick={() => {
                 if (
                   window.confirm(
-                    tr(
-                      `Installer ${status.latestVersion} maintenant ? Élise redémarrera brièvement.`,
-                      `Install ${status.latestVersion} now? Élise will briefly restart.`,
-                    ),
+                    t('updateCard.installNowEliseWillBriefly', {
+                      latestVersion: status.latestVersion,
+                    }),
                   )
                 ) {
                   onInstall(status.latestVersion!);
@@ -140,23 +129,20 @@ export function UpdateCard({
               }}
               disabled={running}
             >
-              <Download />{' '}
-              {tr(`Installer ${status.latestVersion}`, `Install ${status.latestVersion}`)}
+              <Download /> {t('updateCard.install', { latestVersion: status.latestVersion })}
             </Button>
           )}
           {state === 'SUCCEEDED' && (
             // This page still runs the previous dashboard until it reloads.
             <Button onClick={() => window.location.reload()}>
-              <RefreshCw /> {tr('Ouvrir la nouvelle version', 'Open the new version')}
+              <RefreshCw /> {t('updateCard.openTheNewVersion')}
             </Button>
           )}
         </div>
 
         {status?.latestVersion && status.updateAvailable && (
           <div className="update-release-notes">
-            <strong>
-              {tr(`Version ${status.latestVersion}`, `Version ${status.latestVersion}`)}
-            </strong>
+            <strong>{t('updateCard.version', { latestVersion: status.latestVersion })}</strong>
             {status.releaseNotes && <p>{status.releaseNotes}</p>}
           </div>
         )}
@@ -174,17 +160,12 @@ export function UpdateCard({
             <summary>
               <KeyRound />
               {status?.authConfigured
-                ? tr('Changer le compte de téléchargement', 'Change download account')
-                : tr('Configurer le compte de téléchargement', 'Configure download account')}
+                ? t('updateCard.changeDownloadAccount')
+                : t('updateCard.configureDownloadAccount')}
             </summary>
-            <p>
-              {tr(
-                'Le jeton reste sur cet appareil, protégé par le système, et n’est jamais enregistré dans Élise.',
-                'The token stays on this device, protected by the system, and is never stored in Élise.',
-              )}
-            </p>
+            <p>{t('updateCard.theTokenStaysOnThis')}</p>
             <label>
-              {tr('Nom du compte bot', 'Bot account name')}
+              {t('updateCard.botAccountName')}
               <input
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
@@ -193,7 +174,7 @@ export function UpdateCard({
               />
             </label>
             <label>
-              {tr('Jeton GitHub', 'GitHub token')}
+              {t('updateCard.githubToken')}
               <input
                 type="password"
                 value={token}
@@ -210,11 +191,11 @@ export function UpdateCard({
                 }}
                 disabled={!username.trim() || !token.trim() || busy}
               >
-                <ShieldCheck /> {tr('Enregistrer', 'Save')}
+                <ShieldCheck /> {t('updateCard.save')}
               </Button>
               {status?.authConfigured && (
                 <Button className="button-secondary" onClick={onDeleteCredentials} disabled={busy}>
-                  {tr('Supprimer le compte', 'Remove account')}
+                  {t('updateCard.removeAccount')}
                 </Button>
               )}
             </div>

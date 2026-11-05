@@ -28,6 +28,8 @@ import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';
 import { sensorDeviceHealthStatus } from './sensor-ui';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import { roomIcon, roomKindLabel } from './home-visuals';
+import { t, textBlock } from './i18n';
+import { coverageFamilyLabel } from './i18n/data';
 
 export { roomIconKey } from './home-visuals';
 
@@ -69,11 +71,6 @@ const emptyCoverage: EquipmentCoverage = {
     totals: { required: 0, covered: 0, toAdd: 0, optional: 0 },
     warnings: [],
   },
-};
-
-const homeTypeLabels: Record<'fr' | 'en', Record<string, string>> = {
-  fr: { HOUSE: 'Maison', APARTMENT: 'Appartement', SENIOR_RESIDENCE: 'Résidence' },
-  en: { HOUSE: 'House', APARTMENT: 'Apartment', SENIOR_RESIDENCE: 'Residence' },
 };
 
 export const roomAreaM2 = (room: PlanRoom) =>
@@ -347,7 +344,6 @@ function MiniPlan({
   plan,
   presence,
   onSelect,
-  locale,
 }: {
   floor: FloorLayout;
   plan: HomePlan;
@@ -355,13 +351,12 @@ function MiniPlan({
   onSelect: (roomId: string) => void;
   locale: 'fr' | 'en';
 }) {
-  const fr = locale === 'fr';
   return (
     <svg
       className="home-overview-map"
       viewBox={`0 0 ${Math.max(floor.width, 400)} ${Math.max(floor.height, 300)}`}
       role="img"
-      aria-label={fr ? `Plan de ${floor.name}` : `${floor.name} floor plan`}
+      aria-label={t('homeOverview.floorPlan', { name: floor.name })}
     >
       <defs>
         <pattern id="overview-grid" width="25" height="25" patternUnits="userSpaceOnUse">
@@ -394,9 +389,7 @@ function MiniPlan({
               <g
                 className="presence-marker"
                 transform={`translate(${center.x} ${center.y + 52})`}
-                aria-label={
-                  fr ? `Présence probable dans ${room.name}` : `Likely presence in ${room.name}`
-                }
+                aria-label={t('homeOverview.likelyPresenceIn', { name: room.name })}
               >
                 <circle className="presence-marker-pulse" cx="0" cy="0" r="24" />
                 <circle className="presence-marker-core" cx="0" cy="0" r="13" />
@@ -499,11 +492,7 @@ export function HomeOverview({
           setCoverage((await coverageResponse.json()) as EquipmentCoverage);
           setCoverageError('');
         } else {
-          setCoverageError(
-            fr
-              ? 'L’analyse des capteurs n’a pas pu être chargée.'
-              : 'The sensor analysis could not be loaded.',
-          );
+          setCoverageError(t('homeOverview.theSensorAnalysisCouldNot'));
         }
         if (protocolsResponse.ok) setProtocols((await protocolsResponse.json()) as Protocol[]);
         setUnavailable(false);
@@ -566,27 +555,19 @@ export function HomeOverview({
   const completionProblems =
     unassignedCameras + essentialMissing + structuralIssues + (planNeedsSetup ? 1 : 0);
   const overallStatus = equipmentProblems
-    ? fr
-      ? 'Équipements à vérifier'
-      : 'Equipment to check'
+    ? t('homeOverview.equipmentToCheck')
     : completionProblems
-      ? fr
-        ? 'À compléter'
-        : 'To complete'
-      : fr
-        ? 'Opérationnel'
-        : 'Operational';
+      ? t('homeOverview.toComplete')
+      : t('homeOverview.operational');
   const statusClass = equipmentProblems ? 'attention' : completionProblems ? 'incomplete' : 'ready';
   const coverageCards = COVERAGE_FAMILIES.map((family) => {
     const needs = family.types.flatMap((type) => coverageNeeds(type, coverage, plan, devices));
     const covered = needs.filter((need) => need.covered).length;
     return {
-      label: fr ? family.label : family.labelEn,
+      label: coverageFamilyLabel(family.id),
       text: needs.length
-        ? covered + '/' + needs.length + (fr ? ' équipés' : ' equipped')
-        : fr
-          ? 'À découvrir'
-          : 'Explore',
+        ? t('homeOverview.equippedCount', { covered, total: needs.length })
+        : t('homeOverview.explore'),
     };
   });
   const stairs = plan
@@ -602,25 +583,22 @@ export function HomeOverview({
   const levelById = new Map(plan?.levels.map((level) => [level.id, level] as const) ?? []);
 
   if (loading)
-    return (
-      <DataLoadingScreen
-        locale={locale}
-        message={fr ? 'Préparation de votre logement…' : 'Preparing your home…'}
-      />
-    );
+    return <DataLoadingScreen locale={locale} message={t('homeOverview.preparingYourHome')} />;
 
   return (
     <section className="home-overview-page">
       <header className="page-hero home-overview-hero">
         <div className="page-hero__copy home-overview-hero-copy">
           <div>
-            <span className="page-hero__eyebrow">{fr ? 'Vue d’ensemble' : 'Overview'}</span>
-            <h2 className="page-hero__title">{home?.name ?? (fr ? 'Mon logement' : 'My home')}</h2>
+            <span className="page-hero__eyebrow">{t('homeOverview.overview')}</span>
+            <h2 className="page-hero__title">{home?.name ?? t('homeOverview.myHome')}</h2>
             <div className="home-overview-meta">
               <span>
-                {homeTypeLabels[locale][home?.type ?? ''] ??
+                {(textBlock('homeOverview.homeTypeLabels') as Record<string, string>)[
+                  home?.type ?? ''
+                ] ??
                   home?.type ??
-                  (fr ? 'Logement' : 'Home')}
+                  t('homeOverview.home')}
               </span>
               {equipmentProblems === 0 && (
                 <span className={`home-overview-status ${statusClass}`}>
@@ -633,7 +611,7 @@ export function HomeOverview({
         <div className="page-hero__actions home-overview-actions">
           {canManage && (
             <button className="primary" onClick={() => onManage()}>
-              <Home /> {fr ? 'Modifier mon logement' : 'Manage my home'}
+              <Home /> {t('homeOverview.manageMyHome')}
             </button>
           )}
           {canManage && (
@@ -644,7 +622,7 @@ export function HomeOverview({
                 setSensorFlowOpen(true);
               }}
             >
-              <Plus /> {fr ? 'Ajouter un capteur' : 'Add a sensor'}
+              <Plus /> {t('homeOverview.addASensor')}
             </button>
           )}
         </div>
@@ -654,18 +632,10 @@ export function HomeOverview({
         <div className="home-overview-empty">
           <AlertTriangle />
           <div>
-            <h3>
-              {fr
-                ? 'Le plan est momentanément indisponible'
-                : 'The plan is temporarily unavailable'}
-            </h3>
-            <p>
-              {fr
-                ? 'Les autres informations du logement restent accessibles.'
-                : 'Other home information remains available.'}
-            </p>
+            <h3>{t('homeOverview.thePlanIsTemporarilyUnavailable')}</h3>
+            <p>{t('homeOverview.otherHomeInformationRemainsAvailable')}</p>
           </div>
-          <button onClick={() => void refresh(true)}>{fr ? 'Réessayer' : 'Try again'}</button>
+          <button onClick={() => void refresh(true)}>{t('homeOverview.tryAgain')}</button>
         </div>
       ) : (
         <>
@@ -673,8 +643,8 @@ export function HomeOverview({
             <article className="home-overview-plan-card">
               <header>
                 <div>
-                  <span className="eyebrow">{fr ? 'Plan interactif' : 'Interactive plan'}</span>
-                  <h3>{fr ? 'Votre logement en un coup d’œil' : 'Your home at a glance'}</h3>
+                  <span className="eyebrow">{t('homeOverview.interactivePlan')}</span>
+                  <h3>{t('homeOverview.yourHomeAtAGlance')}</h3>
                 </div>
               </header>
               <div className="home-overview-floor-tabs" role="tablist">
@@ -693,7 +663,7 @@ export function HomeOverview({
                     </button>
                   ))}
                 <button className={showStairs ? 'active' : ''} onClick={() => setShowStairs(true)}>
-                  {fr ? 'Escaliers' : 'Stairs'}
+                  {t('homeOverview.stairs')}
                 </button>
               </div>
               {!showStairs && (
@@ -718,19 +688,17 @@ export function HomeOverview({
                       onClick={() => setFloorId(activePresenceLocation.level.id)}
                     >
                       <CircleDot />
-                      {fr ? 'Présence probable' : 'Probable presence'} ·{' '}
-                      {activePresenceLocation.room.name}
+                      {t('homeOverview.probablePresence')} · {activePresenceLocation.room.name}
                     </button>
                   ) : lastPresenceLocation ? (
                     <span className="presence-stale">
                       <CircleDot />
-                      {fr ? 'Dernière présence connue' : 'Last known presence'} ·{' '}
-                      {lastPresenceLocation.room.name}
+                      {t('homeOverview.lastKnownPresence')} · {lastPresenceLocation.room.name}
                     </span>
                   ) : (
                     <span className="presence-empty">
                       <CircleDot />
-                      {fr ? 'Aucune présence récente' : 'No recent presence'}
+                      {t('homeOverview.noRecentPresence')}
                     </span>
                   )}
                 </footer>
@@ -740,33 +708,18 @@ export function HomeOverview({
                 <header>
                   <div>
                     <span className="eyebrow">
-                      {showStairs
-                        ? fr
-                          ? 'Passage entre les niveaux'
-                          : 'Between floors'
-                        : fr
-                          ? 'Pièce par pièce'
-                          : 'Room by room'}
+                      {showStairs ? t('homeOverview.betweenFloors') : t('homeOverview.roomByRoom')}
                     </span>
                     <h3>
                       {showStairs
-                        ? fr
-                          ? 'Les escaliers du logement'
-                          : 'Stairs in this home'
-                        : fr
-                          ? 'Le détail de ce niveau'
-                          : 'Details for this level'}
+                        ? t('homeOverview.stairsInThisHome')
+                        : t('homeOverview.detailsForThisLevel')}
                     </h3>
                   </div>
                   <span>
-                    {showStairs ? stairs.length : (floor?.rooms.length ?? 0)}{' '}
                     {showStairs
-                      ? fr
-                        ? `escalier${stairs.length > 1 ? 's' : ''}`
-                        : `stair${stairs.length === 1 ? '' : 's'}`
-                      : fr
-                        ? 'pièces'
-                        : 'rooms'}
+                      ? t('homeOverview.stairCount', { count: stairs.length })
+                      : t('homeOverview.roomCount', { count: floor?.rooms.length ?? 0 })}
                   </span>
                 </header>
                 <div className="home-overview-room-cards">
@@ -793,15 +746,15 @@ export function HomeOverview({
                             </span>
                             <span className="room-card-copy">
                               <strong>
-                                {fr ? 'Escalier' : 'Stairs'} · {fromRoom?.name ?? '—'} ↔{' '}
+                                {t('homeOverview.stairs2')} · {fromRoom?.name ?? '—'} ↔{' '}
                                 {toRoom?.name ?? '—'}
                               </strong>
                               <small>
                                 {fromLevel?.name ?? '—'} → {toLevel?.name ?? '—'}
                               </small>
                               <i>
-                                {sensorCount} {fr ? 'capteurs' : 'sensors'} ·{' '}
-                                {fr ? 'Mouvement et présence' : 'Motion and presence'}
+                                {sensorCount} {t('homeOverview.sensors')} ·{' '}
+                                {t('homeOverview.motionAndPresence')}
                               </i>
                             </span>
                             <ArrowRight />
@@ -844,12 +797,11 @@ export function HomeOverview({
                             <span className="room-card-copy">
                               <strong>{room.name}</strong>
                               <small>
-                                {roomKindLabel(room.kind, locale)} · {roomAreaM2(room).toFixed(1)}{' '}
-                                m²
+                                {roomKindLabel(room.kind)} · {roomAreaM2(room).toFixed(1)} m²
                               </small>
                               <i>
-                                {sensorCount} {fr ? 'capteurs' : 'sensors'} · {cameraCount}{' '}
-                                {fr ? 'caméras' : 'cameras'}
+                                {sensorCount} {t('homeOverview.sensors')} · {cameraCount}{' '}
+                                {t('homeOverview.cameras')}
                               </i>
                             </span>
                             <ArrowRight />
@@ -860,14 +812,10 @@ export function HomeOverview({
                 {showStairs && !stairs.length && (
                   <div className="home-overview-stairs-empty">
                     <Stairs aria-hidden="true" />
-                    <p>
-                      {fr
-                        ? 'Aucun escalier n’est encore défini dans le plan.'
-                        : 'No stairs have been added to the floor plan yet.'}
-                    </p>
+                    <p>{t('homeOverview.noStairsHaveBeenAdded')}</p>
                     {canManage && (
                       <button onClick={() => onManage()}>
-                        <Plus /> {fr ? 'Ajouter un escalier au plan' : 'Add stairs to the plan'}
+                        <Plus /> {t('homeOverview.addStairsToThePlan')}
                       </button>
                     )}
                   </div>
@@ -879,51 +827,47 @@ export function HomeOverview({
               <article className="home-overview-summary-card">
                 <header>
                   <div>
-                    <span className="eyebrow">{fr ? 'État du domicile' : 'Home status'}</span>
-                    <h3>{fr ? 'Équipement du logement' : 'Home equipment'}</h3>
+                    <span className="eyebrow">{t('homeOverview.homeStatus')}</span>
+                    <h3>{t('homeOverview.homeEquipment')}</h3>
                   </div>
                   <Wifi />
                 </header>
                 <div className="equipment-state-row">
                   <span>
                     <i className="online" />
-                    {fr ? 'En ligne' : 'Online'}
+                    {t('homeOverview.online')}
                   </span>
                   <strong>{metrics.online}</strong>
                 </div>
                 <div className="equipment-state-row">
                   <span>
                     <i className="degraded" />
-                    {fr ? 'Dégradés' : 'Degraded'}
+                    {t('homeOverview.degraded')}
                   </span>
                   <strong>{metrics.degraded}</strong>
                 </div>
                 <div className="equipment-state-row">
                   <span>
                     <i className="offline" />
-                    {fr ? 'Hors ligne' : 'Offline'}
+                    {t('homeOverview.offline')}
                   </span>
                   <strong>{metrics.offline}</strong>
                 </div>
                 <div className="equipment-state-row">
                   <span>
                     <Camera />
-                    {fr ? 'Caméras disponibles' : 'Available cameras'}
+                    {t('homeOverview.availableCameras')}
                   </span>
                   <strong>{metrics.onlineCameras}</strong>
                 </div>
                 <div className="zigbee-state">
                   <Radio />
                   <div>
-                    <strong>{fr ? 'Réseau Zigbee' : 'Zigbee network'}</strong>
+                    <strong>{t('homeOverview.zigbeeNetwork')}</strong>
                     <span>
                       {protocols.find(({ id }) => id === 'zigbee')?.available
-                        ? fr
-                          ? 'Disponible'
-                          : 'Available'
-                        : fr
-                          ? 'À configurer'
-                          : 'To configure'}
+                        ? t('homeOverview.available')
+                        : t('homeOverview.toConfigure')}
                     </span>
                   </div>
                 </div>
@@ -935,8 +879,8 @@ export function HomeOverview({
               >
                 <span className="coverage-card-title">
                   <span>
-                    <span className="eyebrow">{fr ? 'Compréhension' : 'Understanding'}</span>
-                    <strong>{fr ? 'Ce qu’Élise couvre' : 'What Élise covers'}</strong>
+                    <span className="eyebrow">{t('homeOverview.understanding')}</span>
+                    <strong>{t('homeOverview.whatEliseCovers')}</strong>
                   </span>
                   <ShieldCheck />
                 </span>
@@ -947,7 +891,7 @@ export function HomeOverview({
                   </span>
                 ))}
                 <span className="coverage-card-hint">
-                  {fr ? 'Fonctions, pièces et produits' : 'Functions, rooms and products'}
+                  {t('homeOverview.functionsRoomsAndProducts')}
                   <ArrowRight />
                 </span>
               </button>
@@ -960,14 +904,7 @@ export function HomeOverview({
           locale={locale}
           coverage={coverage}
           loading={coverageLoading}
-          error={
-            coverageError ||
-            (unavailable
-              ? fr
-                ? 'L’analyse n’a pas pu être chargée.'
-                : 'The analysis could not be loaded.'
-              : '')
-          }
+          error={coverageError || (unavailable ? t('homeOverview.theAnalysisCouldNotBe') : '')}
           onRetry={() => void refresh(true)}
           onClose={() => setCoverageOpen(false)}
         />
