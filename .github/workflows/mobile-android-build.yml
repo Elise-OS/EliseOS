@@ -4,13 +4,10 @@ on:
   push:
     branches:
       - main
+    # Signed Android builds use runner minutes: only run them when the mobile app itself changes.
+    # Trigger it manually (workflow_dispatch) for anything else, such as a shared contracts change.
     paths:
-      - '.github/workflows/mobile-android-build.yml'
       - 'apps/mobile/**'
-      - 'packages/contracts/**'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'package.json'
   workflow_dispatch:
 
 permissions:
