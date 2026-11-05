@@ -15,7 +15,14 @@ import { translateDeep } from './english';
 /** The caregiver apps send the language chosen on the device with each request. */
 export const LOCALE_HEADER = 'x-elise-locale';
 
-const wantsEnglish = (request: Request | undefined) => request?.headers?.[LOCALE_HEADER] === 'en';
+/**
+ * Texts are written in French and translated to English here. Any other language the apps
+ * offer gets English too until the server speaks it: closer for most people than French.
+ */
+export const wantsEnglish = (request: Pick<Request, 'headers'> | undefined) => {
+  const language = request?.headers?.[LOCALE_HEADER];
+  return typeof language === 'string' && language !== '' && !/^fr\b/i.test(language);
+};
 
 // The plan is edited and saved back as a whole: its texts must reach the editor unchanged.
 const keepsOriginalTexts = (request: Request) => /\/plan(\/|$)/.test(request.path ?? '');
