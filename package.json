@@ -29,7 +29,11 @@
     "zigbee:detect": "bash scripts/detect-zigbee-adapter.sh --write-env .env",
     "test:zigbee-detection": "bash scripts/detect-zigbee-adapter.test.sh",
     "test:distribution": "bash scripts/test-distribution.sh",
-    "prepare": "husky"
+    "prepare": "husky",
+    "i18n:status": "node packages/i18n/scripts/translations.mjs status",
+    "i18n:export": "node packages/i18n/scripts/translations.mjs export",
+    "i18n:import": "node packages/i18n/scripts/translations.mjs import",
+    "i18n:check": "node packages/i18n/scripts/translations.mjs check"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",

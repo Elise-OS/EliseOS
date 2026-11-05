@@ -88,13 +88,15 @@ const isStringish = (node) =>
   ts.isTemplateExpression(node);
 
 const localeNames = new Set(['locale', 'language', 'lang', 'current', 'appLanguage']);
-const localeCalls = new Set(['appLocale', 'currentLanguage']);
+const localeCalls = new Set(['appLocale', 'currentLanguage', 'uiLocale']);
 const frenchFlags = new Set(['fr', 'isFr', 'isFrench', 'french']);
+const englishFlags = new Set(['en', 'isEn', 'isEnglish', 'english']);
 
 /** 'fr' when the true branch is French, 'en' when it is English, null when not a language test. */
 function languageTest(node) {
   node = unwrap(node);
   if (ts.isIdentifier(node) && frenchFlags.has(node.text)) return 'fr';
+  if (ts.isIdentifier(node) && englishFlags.has(node.text)) return 'en';
   if (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.ExclamationToken) {
     const inner = languageTest(node.operand);
     return inner && (inner === 'fr' ? 'en' : 'fr');

@@ -106,13 +106,17 @@ const walk = (dir, out = []) => {
 if (codeDir)
   for (const file of walk(codeDir)) {
     const code = readFileSync(file, 'utf8');
-    for (const match of code.matchAll(/\b(?:t|i18nT)\(\s*(['`])((?:(?!\1).)+)\1\s*(,\s*)?/g)) {
+    // t('key', { … }), i18nT(…), textBlock('screen.copy'), readBlock(`products.${id}`).
+    for (const match of code.matchAll(
+      /\b(?:t|i18nT|textBlock|readBlock)\(\s*(['`])((?:(?!\1).)+)\1\s*(,\s*)?/g,
+    )) {
       const key = match[2];
       if (match[1] === '`' && key.includes('${')) {
         dynamicPrefixes.push(key.slice(0, key.indexOf('${')));
         continue;
       }
-      const options = match[3] ? objectAfter(code, match.index + match[0].length) : null;
+      const rawOptions = match[3] ? objectAfter(code, match.index + match[0].length) : null;
+      const options = rawOptions?.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g, '') ?? null;
       const names = new Set(
         (options ? splitTopLevel(options) : [])
           .map((entry) => entry.split(':')[0].trim())
@@ -163,6 +167,15 @@ for (const language of languages) {
       if (!catalog.has(`${base}_${form}`) && catalogBases.has(base))
         warn(`${language}: "${base}" has no "${form}" plural form`);
 }
+// Keys chosen by a condition, t(up ? 'plan.stairsUp' : 'plan.stairsDown'), appear as plain strings.
+const quotedKeys = new Set();
+if (codeDir)
+  for (const file of walk(codeDir))
+    for (const match of readFileSync(file, 'utf8').matchAll(
+      /['"`]([a-zA-Z][\w-]*(?:\.[\w-]+)+)['"`]/g,
+    ))
+      quotedKeys.add(match[1]);
+
 if (provided) {
   const objectBases = new Set(
     [...referenceBases.keys()].filter((base) => /\.\d+$|\.copy\./.test(base)),
@@ -170,6 +183,7 @@ if (provided) {
   for (const base of referenceBases.keys()) {
     const used =
       provided.has(base) ||
+      quotedKeys.has(base) ||
       dynamicPrefixes.some((prefix) => base.startsWith(prefix)) ||
       // Blocks read with returnObjects: t('screen.copy', { returnObjects: true }).
       [...provided.keys()].some((key) => base.startsWith(`${key}.`));
