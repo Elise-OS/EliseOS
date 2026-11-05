@@ -22,6 +22,16 @@ if ! tailscale status --json 2>/dev/null \
   exit 0
 fi
 
+# Share the update lock: recreating api/dashboard while an update recreates the stack makes
+# both compose runs fight over the same containers and the update rolls back.
+UPDATE_LOCK_FILE="${ELISE_UPDATE_LOCK_FILE:-/run/elise-update/update.lock}"
+install -d -m 0755 "$(dirname "$UPDATE_LOCK_FILE")"
+exec 9>>"$UPDATE_LOCK_FILE"
+if ! flock -n 9; then
+  echo "Mise à jour Élise en cours ; l’écran sera installé au prochain passage."
+  exit 0
+fi
+
 echo "→ Installation automatique de Jitsi et de l’affichage résident"
 ELISE_APPLICATION_ENV="$ELISE_CONFIG_FILE" bash "$release_dir/scripts/install-jitsi.sh"
 
