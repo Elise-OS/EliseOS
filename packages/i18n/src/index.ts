@@ -61,4 +61,41 @@ export function createI18n(
   return instance;
 }
 
+/** Type of the value at a dotted path of a catalog ("screen.copy.hero"). */
+export type PathValue<T, P extends string> = P extends `${infer Head}.${infer Rest}`
+  ? Head extends keyof T
+    ? PathValue<T[Head], Rest>
+    : never
+  : P extends keyof T
+    ? T[P]
+    : never;
+
+/**
+ * Reader for whole blocks of texts (a screen's copy): it rebuilds the block from the source
+ * catalog's layout and reads each text on its own, so a text missing in a translation falls
+ * back to English instead of leaving a hole in the block.
+ */
+export function blockReader<Source>(instance: i18n, source: Source) {
+  const translate = instance.t.bind(instance) as unknown as (key: string) => string;
+  const build = (node: unknown, path: string): unknown => {
+    if (typeof node === 'string') return translate(path);
+    if (Array.isArray(node)) return node.map((item, index) => build(item, `${path}.${index}`));
+    if (node && typeof node === 'object')
+      return Object.fromEntries(
+        Object.entries(node).map(([key, item]) => [key, build(item, `${path}.${key}`)]),
+      );
+    return node;
+  };
+  return <P extends string>(path: P): PathValue<Source, P> => {
+    const node = path
+      .split('.')
+      .reduce<unknown>(
+        (value, key) => (value as Record<string, unknown> | undefined)?.[key],
+        source,
+      );
+    if (node === undefined) throw new Error(`No text block "${path}" in the catalog`);
+    return build(node, path) as PathValue<Source, P>;
+  };
+}
+
 export { FLAG_VIEWBOX, FLAGS, type FlagShape } from './flags.js';

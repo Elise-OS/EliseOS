@@ -14,10 +14,10 @@
     "ios": "expo run:ios"
   },
   "dependencies": {
-    "@expo/metro-runtime": "~6.1.2",
-    "@expo/vector-icons": "^15.1.1",
     "@elise/contracts": "workspace:*",
     "@elise/i18n": "workspace:*",
+    "@expo/metro-runtime": "~6.1.2",
+    "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-native-community/netinfo": "11.4.1",
@@ -26,6 +26,7 @@
     "@tanstack/react-query-persist-client": "^5.101.4",
     "expo": "^54.0.36",
     "expo-build-properties": "~1.0.10",
+    "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "^6.0.21",
     "expo-device": "^8.0.10",

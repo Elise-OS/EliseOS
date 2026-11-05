@@ -41,7 +41,7 @@ import interBold from '../../assets/fonts/Inter-Bold.ttf';
 import sourceSerifRegular from '../../assets/fonts/SourceSerif4-Regular.ttf';
 import sourceSerifItalic from '../../assets/fonts/SourceSerif4-Italic.ttf';
 import type { Locale } from '../setup/MobileSetup';
-import { t as i18nT } from '../i18n';
+import { t as i18nT, textBlock } from '../i18n';
 import { LanguageMenu } from '../i18n/LanguagePicker';
 
 type Props = {
@@ -73,7 +73,7 @@ const fonts = {
 } as const;
 
 // Texts of this screen, kept as one block in the catalogs (welcomeExperience.copy).
-const copyText = () => i18nT('welcomeExperience.copy', { returnObjects: true });
+const copyText = () => textBlock('welcomeExperience.copy');
 
 function useReducedMotion() {
   const [reducedMotion, setReducedMotion] = useState<boolean | null>(null);

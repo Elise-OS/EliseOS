@@ -39,6 +39,8 @@ import {
 import { registerPushNotifications } from '../src/notifications';
 import { MobilePreparation } from '../src/setup/MobilePreparation';
 import { MobileSetup, type Locale } from '../src/setup/MobileSetup';
+import { WebHandoffModal } from '../src/setup/WebHandoffModal';
+import { homeWebAddresses } from '../src/setup/webAddresses';
 import { setAppLocale } from '../src/locale';
 import { WelcomeExperience } from '../src/welcome/WelcomeExperience';
 import { colors } from '../src/theme';
@@ -118,6 +120,8 @@ export default function HomeScreen() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [offline, setOffline] = useState(false);
+  // Invites the user to finish the home setup on the web, right after the mobile setup.
+  const [webHandoff, setWebHandoff] = useState(false);
   const radar = useRef(new Animated.Value(0)).current;
   const discoveryScrollRef = useRef<ScrollView | null>(null);
   const bootMotion = useRef(new Animated.Value(0)).current;
@@ -434,6 +438,7 @@ export default function HomeScreen() {
     setStage('boot');
     await prefetchHomeData(queryClient, server, accessToken);
     setStage('dashboard');
+    setWebHandoff(true);
   };
 
   const enterDemo = async () => {
@@ -905,14 +910,21 @@ export default function HomeScreen() {
 
   if (stage === 'dashboard' && server && token) {
     return (
-      <DashboardApp
-        server={server}
-        token={token}
-        userName={userName}
-        locale={locale}
-        onLocaleChange={changeLocale}
-        onLogout={logout}
-      />
+      <>
+        <DashboardApp
+          server={server}
+          token={token}
+          userName={userName}
+          locale={locale}
+          onLocaleChange={changeLocale}
+          onLogout={logout}
+        />
+        <WebHandoffModal
+          visible={webHandoff}
+          addresses={homeWebAddresses(server)}
+          onClose={() => setWebHandoff(false)}
+        />
+      </>
     );
   }
 

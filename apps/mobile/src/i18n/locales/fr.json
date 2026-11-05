@@ -956,7 +956,7 @@
         "Créons votre accès",
         "Qui Élise va-t-elle accompagner ?",
         "À quoi ressemble une journée habituelle ?",
-        "Gardez un œil sur Élise, même en déplacement",
+        "Gardez un œil sur {{name}}, même en déplacement",
         "Tout est prêt"
       ],
       "unknown": "Je ne sais pas encore",
@@ -1255,6 +1255,14 @@
   "remoteAccessStep": {
     "copy": {
       "address": "Adresse privée",
+      "addressClose": "Fermer",
+      "addressCopied": "Adresse copiée",
+      "addressCopy": "Copier l’adresse",
+      "addressHint": "Gardez cette adresse : elle permet de joindre Élise depuis un appareil connecté à Tailscale.",
+      "addressOpen": "Ouvrir dans le navigateur",
+      "addressOpenHint": "Affiche l’adresse complète pour la copier ou l’enregistrer",
+      "addressSave": "Enregistrer ou partager",
+      "addressSaveFailed": "Le partage n’a pas fonctionné. Copiez l’adresse à la place.",
       "approve": "Ouvrir Tailscale",
       "benefits": [
         "Tunnel privé et chiffré",
@@ -1392,6 +1400,25 @@
     "thePersonSupported": "La personne accompagnée",
     "toTurnOnLater": "À activer plus tard",
     "you": "Vous"
+  },
+  "webHandoff": {
+    "copied": "Copiée",
+    "copy": "Copier",
+    "done": "J’ai compris",
+    "fallback": "Si la première adresse ne s’ouvre pas, utilisez la seconde.",
+    "howTo": "Sur un ordinateur relié au même réseau Wi-Fi, ouvrez un navigateur et saisissez :",
+    "ipLabel": "ADRESSE IP LOCALE",
+    "kicker": "PROCHAINE ÉTAPE",
+    "nameLabel": "ADRESSE DU BOÎTIER",
+    "noAddress": "Élise n’a pas encore communiqué son adresse locale. Vous la retrouverez dans les réglages.",
+    "open": "Ouvrir",
+    "tasks": {
+      "home": "Créer le logement",
+      "rooms": "Dessiner les pièces",
+      "sensors": "Installer et placer les capteurs"
+    },
+    "text": "Votre environnement est prêt. Pour la suite, un grand écran est plus confortable.",
+    "title": "Continuez la configuration sur ordinateur"
   },
   "welcomeExperience": {
     "copy": {

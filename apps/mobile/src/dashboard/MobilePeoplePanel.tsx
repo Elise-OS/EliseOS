@@ -15,6 +15,7 @@ import * as Linking from 'expo-linking';
 import { mobileApi, type TrustedPerson } from '../api';
 import type { SavedServer } from '../discovery/types';
 import { t } from '../i18n';
+import { useTabBarPadding } from './tabBarSpace';
 
 const c = {
   navy: '#0B2948',
@@ -79,6 +80,7 @@ export function MobilePeoplePanel({
   role: MembershipRole;
   onBackToSettings: () => void;
 }) {
+  const tabBarPadding = useTabBarPadding(28);
   const canManage = role === 'OWNER' || role === 'ADMINISTRATOR';
   const [people, setPeople] = useState<TrustedPerson[]>([]);
   const [query, setQuery] = useState('');
@@ -280,7 +282,7 @@ export function MobilePeoplePanel({
     <>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.scroll}
+        contentContainerStyle={[s.scroll, tabBarPadding]}
         keyboardShouldPersistTaps="handled"
       >
         <Pressable

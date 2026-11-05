@@ -23,7 +23,7 @@ import { RemoteAccessStep } from './RemoteAccessStep';
 import { RoutineTimeField } from './RoutineTimeField';
 import { SetupSummary } from './SetupSummary';
 import { colors } from '../theme';
-import { currentLanguage, type Language, t as i18nT } from '../i18n';
+import { currentLanguage, type Language, t as i18nT, textBlock } from '../i18n';
 import { habitLabel, RELATIONS, relationLabel } from './labels';
 
 export type Locale = Language;
@@ -97,7 +97,7 @@ function generateUsername(firstName: string, lastName: string): string {
 }
 
 // Texts of this screen, kept as one block in the catalogs (mobileSetup.copy).
-const copyText = () => i18nT('mobileSetup.copy', { returnObjects: true });
+const copyText = () => textBlock('mobileSetup.copy');
 
 function Choice({
   active,
@@ -472,7 +472,12 @@ export function MobileSetup({
             </View>
           ) : null}
           {step > 0 ? <Text style={styles.eyebrow}>{t.eyebrows[step]}</Text> : null}
-          <Text style={styles.title}>{t.titles[step]}</Text>
+          <Text style={styles.title}>
+            {t.titles[step].replace(
+              '{{name}}',
+              draft.residentFirstName.trim() || draft.dailyName.trim() || t.profileDefault,
+            )}
+          </Text>
           <Text style={styles.intro}>{t.intros[step]}</Text>
 
           {step === 0 ? (

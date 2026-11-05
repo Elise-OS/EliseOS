@@ -1,6 +1,6 @@
-import { createI18n, matchLanguage } from '@elise/i18n';
 import { afterEach, describe, expect, it } from 'vitest';
-import { currentLanguage, dateLocale, setLanguage, t } from '.';
+import { blockReader, createI18n, matchLanguage } from '@elise/i18n';
+import { currentLanguage, dateLocale, setLanguage, t, textBlock } from '.';
 
 afterEach(() => setLanguage('fr'));
 
@@ -33,7 +33,7 @@ describe('App texts', () => {
 
   it('read whole screens as blocks', () => {
     setLanguage('en');
-    const copy = t('remoteAccessStep.copy', { returnObjects: true });
+    const copy = textBlock('remoteAccessStep.copy');
     expect(copy.benefits).toHaveLength(3);
     expect(copy.connect).toBe('Link Élise');
   });
@@ -47,6 +47,18 @@ describe('Language of a new install', () => {
     expect(matchLanguage(['de-DE', 'fr-FR'])).toBe('fr');
     expect(matchLanguage(['ja-JP'])).toBe('en');
     expect(matchLanguage([undefined])).toBe('en');
+  });
+
+  it('fills a partly translated block with English, text by text', () => {
+    const layout = { screen: { title: 'Titre', items: ['Un', 'Deux'] } };
+    // The catalog of the shown language lacks the second item.
+    const i18n = createI18n({
+      fr: { screen: { title: 'Titre', items: ['Un'] } },
+      en: { screen: { title: 'Title', items: ['One', 'Two'] } },
+    });
+    const block = blockReader(i18n, layout)('screen');
+    expect(block.title).toBe('Titre');
+    expect(block.items).toEqual(['Un', 'Two']);
   });
 
   it('falls back to English for a text a translation lacks', () => {

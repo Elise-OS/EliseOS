@@ -19,6 +19,7 @@ import type { SavedServer } from '../discovery/types';
 import { dateLocale } from '../locale';
 import { MobileDateTimePicker } from '../MobileDateTimePicker';
 import { t } from '../i18n';
+import { useTabBarPadding } from './tabBarSpace';
 
 type PickerTarget = 'start' | 'end';
 type PickerMode = 'date' | 'time';
@@ -59,6 +60,7 @@ export function MobileCalendarPanel({
   token: string;
   onBack: () => void;
 }) {
+  const tabBarPadding = useTabBarPadding(40);
   const client = useQueryClient();
   const queryKey = ['elise', server.id, 'calendar'];
   const calendar = useQuery({
@@ -185,7 +187,7 @@ export function MobileCalendarPanel({
   };
   return (
     <ScrollView
-      contentContainerStyle={s.page}
+      contentContainerStyle={[s.page, tabBarPadding]}
       refreshControl={
         <RefreshControl
           refreshing={calendar.isRefetching}

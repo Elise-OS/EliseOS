@@ -25,6 +25,7 @@ import { mobileApi, type AlertItem } from '../api';
 import type { SavedServer } from '../discovery/types';
 import { dateLocale } from '../locale';
 import { t } from '../i18n';
+import { useTabBarPadding } from './tabBarSpace';
 
 const MOODS = [
   {
@@ -78,6 +79,7 @@ export function MobileLiaisonPanel({
   onJournal: () => void;
   onCalendar: () => void;
 }) {
+  const tabBarPadding = useTabBarPadding(28);
   const { width } = useWindowDimensions();
   const compact = width <= 520;
   const client = useQueryClient();
@@ -206,7 +208,7 @@ export function MobileLiaisonPanel({
   return (
     <ScrollView
       keyboardShouldPersistTaps="handled"
-      contentContainerStyle={s.page}
+      contentContainerStyle={[s.page, tabBarPadding]}
       refreshControl={
         <RefreshControl refreshing={query.isRefetching} onRefresh={() => void refresh()} />
       }

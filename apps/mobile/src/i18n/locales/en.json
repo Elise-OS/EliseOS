@@ -939,7 +939,7 @@
         "Create your access",
         "Who will Élise support?",
         "What does a typical day look like?",
-        "Keep an eye on Élise while away",
+        "Keep an eye on {{name}}, even while away",
         "Everything is ready"
       ],
       "unknown": "I don’t know",
@@ -1236,6 +1236,14 @@
   "remoteAccessStep": {
     "copy": {
       "address": "Private address",
+      "addressClose": "Close",
+      "addressCopied": "Address copied",
+      "addressCopy": "Copy address",
+      "addressHint": "Keep this address: it lets you reach Élise from any device signed in to Tailscale.",
+      "addressOpen": "Open in browser",
+      "addressOpenHint": "Shows the full address so you can copy or save it",
+      "addressSave": "Save or share",
+      "addressSaveFailed": "Sharing didn’t work. Copy the address instead.",
       "approve": "Open Tailscale",
       "benefits": [
         "Private, encrypted tunnel",
@@ -1373,6 +1381,25 @@
     "thePersonSupported": "The person supported",
     "toTurnOnLater": "To turn on later",
     "you": "You"
+  },
+  "webHandoff": {
+    "copied": "Copied",
+    "copy": "Copy",
+    "done": "Got it",
+    "fallback": "If the first address doesn’t open, use the second one.",
+    "howTo": "On a computer connected to the same Wi-Fi network, open a browser and enter:",
+    "ipLabel": "LOCAL IP ADDRESS",
+    "kicker": "NEXT STEP",
+    "nameLabel": "DEVICE ADDRESS",
+    "noAddress": "Élise hasn’t shared its local address yet. You’ll find it in the settings.",
+    "open": "Open",
+    "tasks": {
+      "home": "Create the home",
+      "rooms": "Draw the rooms",
+      "sensors": "Install and place the sensors"
+    },
+    "text": "Your environment is ready. For the next steps, a bigger screen is more comfortable.",
+    "title": "Continue the setup on a computer"
   },
   "welcomeExperience": {
     "copy": {

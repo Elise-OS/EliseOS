@@ -17,6 +17,7 @@ import { caregiverPresenceCopy } from './presence-copy';
 import { friendlyValue, relativeTime, roomOf } from './formatters';
 import { dateKeyInZone, shiftDate } from './homeDates';
 import { dateLocale, type Language, t } from '../i18n';
+import { useTabBarPadding } from './tabBarSpace';
 
 const c = {
   navy: '#0B2948',
@@ -398,6 +399,7 @@ export function MobileWelcomePanel({
   onRefresh: () => void;
   onNavigate: (page: Page) => void;
 }) {
+  const tabBarPadding = useTabBarPadding(34);
   const [now, setNow] = useState(() => new Date());
   const [callConfirmOpen, setCallConfirmOpen] = useState(false);
   const [callPending, setCallPending] = useState(false);
@@ -522,7 +524,7 @@ export function MobileWelcomePanel({
     <>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.scroll}
+        contentContainerStyle={[s.scroll, tabBarPadding]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.blue} />
         }

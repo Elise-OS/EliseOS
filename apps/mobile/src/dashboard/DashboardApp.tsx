@@ -37,7 +37,7 @@ import {
   View,
 } from 'react-native';
 import EventSource, { type MessageEvent } from 'react-native-sse';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   isMobileApiAuthError,
   mobileApi,
@@ -58,6 +58,7 @@ import { isDemoServer } from '../demo/mock-api';
 import { colors } from '../theme';
 import { dateLocale } from '../locale';
 import { currentLanguage, t, type Language } from '../i18n';
+import { TabBarSpaceContext, useTabBarPadding } from './tabBarSpace';
 
 type Tab = 'home' | 'activity' | 'alerts' | 'house' | 'journal' | 'screen' | 'people' | 'settings';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -211,6 +212,12 @@ export function DashboardApp({
   onLogout,
 }: DashboardAppProps) {
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
+  // Floating tab bar: it sits low, over the home-indicator area like native iOS tab
+  // bars, and pages scroll behind its glass. TAB_BAR_HEIGHT matches styles.tabBar.
+  const tabBarBottom = Platform.OS === 'ios' ? Math.max(insets.bottom - 12, 10) : 0;
+  const tabBarSpace =
+    TAB_BAR_HEIGHT + tabBarBottom + (Platform.OS === 'ios' ? 0 : insets.bottom) + 12;
   const rootKey = useMemo(() => ['elise', server.id] as const, [server.id]);
   const [tab, setTab] = useState<Tab>('home');
   const [legacyJournal, setLegacyJournal] = useState(false);
@@ -599,7 +606,7 @@ export function DashboardApp({
   };
 
   return (
-    <SafeAreaView style={styles.shell} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.shell} edges={['top', 'left', 'right']}>
       {demoMode ? (
         <View style={styles.demoBanner}>
           <View style={styles.demoBannerLabel}>
@@ -628,150 +635,152 @@ export function DashboardApp({
           </Pressable>
         </View>
       ) : null}
-      <View style={styles.content}>
-        {tab === 'home' && (
-          <MobileWelcomePanel
-            server={server}
-            token={token}
-            userName={userName}
-            locale={locale}
-            overview={overview.data}
-            homeSummary={homeSummary.data}
-            screen={screen.data}
-            schedule={schedule.data ?? []}
-            activity={activityItems}
-            refreshing={overview.isRefetching || homeSummary.isRefetching}
-            connectionAvailable={!offline}
-            onStartCall={startMobileCall}
-            onRefresh={invalidateAll}
-            onNavigate={setTab}
-          />
-        )}
-        {tab === 'activity' && (
-          <ActivityTab
-            server={server}
-            token={token}
-            homeSummary={homeSummary.data}
-            timeZone={homeSummary.data?.timezone ?? 'Europe/Paris'}
-            refreshing={activity.isRefetching}
-            onRefresh={invalidateAll}
-            onOpenRoom={() => setTab('house')}
-            onOpenJournal={() => setTab('journal')}
-          />
-        )}
-        {tab === 'alerts' && (
-          <AlertsTab
-            server={server}
-            token={token}
-            locale={locale}
-            items={alertItems}
-            refreshing={alerts.isRefetching}
-            onRefresh={invalidateAll}
-            onMore={() => void alerts.fetchNextPage()}
-            hasMore={alerts.hasNextPage}
-            loadingMore={alerts.isFetchingNextPage}
-            canManage={currentUser.data?.capabilities.includes('alerts:manage') ?? false}
-            residentName={overview.data?.home?.resident ?? 'Élise'}
-            timezone={homeSummary.data?.timezone ?? 'Europe/Paris'}
-            homePlan={homePlan.data}
-            sensorDevices={sensorDevices.data}
-            safetyLoading={homePlan.isLoading || sensorDevices.isLoading}
-            onCall={startMobileCall}
-            onSettings={() => {
-              setSettingsSection('rules');
-              setTab('settings');
-            }}
-          />
-        )}
-        {tab === 'house' && (
-          <HouseTab
-            cameras={cameras.data ?? []}
-            sensorDevices={sensorDevices.data}
-            homePlan={homePlan.data}
-            imageBaseUrl={activeServerUrl(server)}
-            homePlanLoading={homePlan.isPending}
-            homePlanError={homePlan.isError}
-            protocols={sensorProtocols.data ?? []}
-            locale={locale}
-            refreshing={
-              cameras.isRefetching ||
-              sensorDevices.isRefetching ||
-              homePlan.isRefetching ||
-              sensorProtocols.isRefetching
-            }
-            onRefresh={invalidateAll}
-          />
-        )}
-        {tab === 'screen' && (
-          <Screen refreshing={screen.isRefetching} onRefresh={invalidateAll}>
-            <MobileScreenPanel
+      <TabBarSpaceContext.Provider value={tabBarSpace}>
+        <View style={styles.content}>
+          {tab === 'home' && (
+            <MobileWelcomePanel
               server={server}
               token={token}
-              snapshot={screen.data}
-              onChanged={() =>
+              userName={userName}
+              locale={locale}
+              overview={overview.data}
+              homeSummary={homeSummary.data}
+              screen={screen.data}
+              schedule={schedule.data ?? []}
+              activity={activityItems}
+              refreshing={overview.isRefetching || homeSummary.isRefetching}
+              connectionAvailable={!offline}
+              onStartCall={startMobileCall}
+              onRefresh={invalidateAll}
+              onNavigate={setTab}
+            />
+          )}
+          {tab === 'activity' && (
+            <ActivityTab
+              server={server}
+              token={token}
+              homeSummary={homeSummary.data}
+              timeZone={homeSummary.data?.timezone ?? 'Europe/Paris'}
+              refreshing={activity.isRefetching}
+              onRefresh={invalidateAll}
+              onOpenRoom={() => setTab('house')}
+              onOpenJournal={() => setTab('journal')}
+            />
+          )}
+          {tab === 'alerts' && (
+            <AlertsTab
+              server={server}
+              token={token}
+              locale={locale}
+              items={alertItems}
+              refreshing={alerts.isRefetching}
+              onRefresh={invalidateAll}
+              onMore={() => void alerts.fetchNextPage()}
+              hasMore={alerts.hasNextPage}
+              loadingMore={alerts.isFetchingNextPage}
+              canManage={currentUser.data?.capabilities.includes('alerts:manage') ?? false}
+              residentName={overview.data?.home?.resident ?? 'Élise'}
+              timezone={homeSummary.data?.timezone ?? 'Europe/Paris'}
+              homePlan={homePlan.data}
+              sensorDevices={sensorDevices.data}
+              safetyLoading={homePlan.isLoading || sensorDevices.isLoading}
+              onCall={startMobileCall}
+              onSettings={() => {
+                setSettingsSection('rules');
+                setTab('settings');
+              }}
+            />
+          )}
+          {tab === 'house' && (
+            <HouseTab
+              cameras={cameras.data ?? []}
+              sensorDevices={sensorDevices.data}
+              homePlan={homePlan.data}
+              imageBaseUrl={activeServerUrl(server)}
+              homePlanLoading={homePlan.isPending}
+              homePlanError={homePlan.isError}
+              protocols={sensorProtocols.data ?? []}
+              locale={locale}
+              refreshing={
+                cameras.isRefetching ||
+                sensorDevices.isRefetching ||
+                homePlan.isRefetching ||
+                sensorProtocols.isRefetching
+              }
+              onRefresh={invalidateAll}
+            />
+          )}
+          {tab === 'screen' && (
+            <Screen refreshing={screen.isRefetching} onRefresh={invalidateAll}>
+              <MobileScreenPanel
+                server={server}
+                token={token}
+                snapshot={screen.data}
+                onChanged={() =>
+                  void queryClient.invalidateQueries({ queryKey: [...rootKey, 'screen'] })
+                }
+              />
+            </Screen>
+          )}
+          {tab === 'people' && (
+            <MobilePeoplePanel
+              server={server}
+              token={token}
+              role={screenRole}
+              onBackToSettings={() => {
+                setSettingsSection('general');
+                setTab('settings');
+              }}
+            />
+          )}
+          {tab === 'settings' && (
+            <MobileSettingsPanel
+              server={server}
+              token={token}
+              role={screenRole}
+              locale={locale}
+              initialSection={settingsSection}
+              screen={screen.data}
+              onLocaleChange={onLocaleChange}
+              onScreenUpdated={() =>
                 void queryClient.invalidateQueries({ queryKey: [...rootKey, 'screen'] })
               }
+              onOpenPage={setTab}
+              onLogout={logout}
             />
-          </Screen>
-        )}
-        {tab === 'people' && (
-          <MobilePeoplePanel
-            server={server}
-            token={token}
-            role={screenRole}
-            onBackToSettings={() => {
-              setSettingsSection('general');
-              setTab('settings');
-            }}
-          />
-        )}
-        {tab === 'settings' && (
-          <MobileSettingsPanel
-            server={server}
-            token={token}
-            role={screenRole}
-            locale={locale}
-            initialSection={settingsSection}
-            screen={screen.data}
-            onLocaleChange={onLocaleChange}
-            onScreenUpdated={() =>
-              void queryClient.invalidateQueries({ queryKey: [...rootKey, 'screen'] })
-            }
-            onOpenPage={setTab}
-            onLogout={logout}
-          />
-        )}
-        {tab === 'journal' && calendarOpen && (
-          <MobileCalendarPanel
-            server={server}
-            token={token}
-            onBack={() => setCalendarOpen(false)}
-          />
-        )}
-        {tab === 'journal' && !legacyJournal && !calendarOpen && (
-          <MobileLiaisonPanel
-            server={server}
-            token={token}
-            offline={offline}
-            schedule={schedule.data ?? []}
-            alerts={alertItems}
-            residentName={overview.data?.home?.resident ?? 'Élise'}
-            onJournal={() => setLegacyJournal(true)}
-            onCalendar={() => setCalendarOpen(true)}
-          />
-        )}
-        {tab === 'journal' && legacyJournal && (
-          <JournalTab
-            items={journalItems}
-            timezone={homeSummary.data?.timezone ?? 'Europe/Paris'}
-            refreshing={journal.isRefetching}
-            onRefresh={invalidateAll}
-            onMore={() => void journal.fetchNextPage()}
-            hasMore={journal.hasNextPage}
-            onBack={() => setLegacyJournal(false)}
-          />
-        )}
-      </View>
+          )}
+          {tab === 'journal' && calendarOpen && (
+            <MobileCalendarPanel
+              server={server}
+              token={token}
+              onBack={() => setCalendarOpen(false)}
+            />
+          )}
+          {tab === 'journal' && !legacyJournal && !calendarOpen && (
+            <MobileLiaisonPanel
+              server={server}
+              token={token}
+              offline={offline}
+              schedule={schedule.data ?? []}
+              alerts={alertItems}
+              residentName={overview.data?.home?.resident ?? 'Élise'}
+              onJournal={() => setLegacyJournal(true)}
+              onCalendar={() => setCalendarOpen(true)}
+            />
+          )}
+          {tab === 'journal' && legacyJournal && (
+            <JournalTab
+              items={journalItems}
+              timezone={homeSummary.data?.timezone ?? 'Europe/Paris'}
+              refreshing={journal.isRefetching}
+              onRefresh={invalidateAll}
+              onMore={() => void journal.fetchNextPage()}
+              hasMore={journal.hasNextPage}
+              onBack={() => setLegacyJournal(false)}
+            />
+          )}
+        </View>
+      </TabBarSpaceContext.Provider>
       <MobileCallOverlay
         visible={Boolean(mobileCallId)}
         residentName={screen.data?.resident ?? overview.data?.home?.resident ?? 'Élise'}
@@ -783,7 +792,12 @@ export function DashboardApp({
         error={mobileCallJoinError}
         onEnd={endMobileCall}
       />
-      <View style={styles.tabBar}>
+      <View
+        style={[
+          styles.tabBar,
+          Platform.OS === 'ios' ? { bottom: tabBarBottom } : { paddingBottom: insets.bottom },
+        ]}
+      >
         {Platform.OS === 'ios' ? (
           <AppleLiquidGlassBackground style={StyleSheet.absoluteFill} />
         ) : null}
@@ -804,14 +818,14 @@ export function DashboardApp({
                 {item.id === 'house' ? (
                   <Sofa
                     color={active ? colors.blue : colors.muted}
-                    size={24}
+                    size={22}
                     strokeWidth={active ? 2.25 : 1.9}
                   />
                 ) : (
                   <Ionicons
                     name={active ? item.active : item.icon}
                     color={active ? colors.blue : colors.muted}
-                    size={22}
+                    size={21}
                   />
                 )}
               </View>
@@ -897,6 +911,7 @@ function Screen({
   onRefresh: () => void | Promise<unknown>;
 }>) {
   const [pullRefreshing, setPullRefreshing] = useState(false);
+  const tabBarPadding = useTabBarPadding(28);
   const refresh = async () => {
     if (pullRefreshing) return;
     setPullRefreshing(true);
@@ -916,7 +931,7 @@ function Screen({
           tintColor={colors.blue}
         />
       }
-      contentContainerStyle={styles.scroll}
+      contentContainerStyle={[styles.scroll, tabBarPadding]}
     >
       {children}
     </ScrollView>
@@ -2606,6 +2621,7 @@ function LoadMore({ onPress }: { onPress: () => void }) {
     </Pressable>
   );
 }
+const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 58 : 56;
 const styles = StyleSheet.create({
   shell: { flex: 1, backgroundColor: colors.cream },
   demoBanner: {
@@ -2632,31 +2648,31 @@ const styles = StyleSheet.create({
   },
   scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 28, gap: 12 },
   tabBar: {
-    minHeight: Platform.OS === 'ios' ? 72 : 66,
-    marginHorizontal: Platform.OS === 'ios' ? 14 : 0,
-    marginTop: Platform.OS === 'ios' ? 6 : 0,
-    marginBottom: Platform.OS === 'ios' ? 6 : 0,
-    paddingTop: Platform.OS === 'ios' ? 4 : 8,
-    paddingBottom: Platform.OS === 'ios' ? 4 : 0,
-    paddingHorizontal: Platform.OS === 'ios' ? 6 : 0,
+    position: 'absolute',
+    left: Platform.OS === 'ios' ? 18 : 0,
+    right: Platform.OS === 'ios' ? 18 : 0,
+    bottom: 0,
+    minHeight: TAB_BAR_HEIGHT,
+    paddingVertical: Platform.OS === 'ios' ? 3 : 4,
+    paddingHorizontal: Platform.OS === 'ios' ? 4 : 0,
     borderTopWidth: Platform.OS === 'ios' ? 0 : StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
-    borderRadius: Platform.OS === 'ios' ? 36 : 0,
+    borderRadius: Platform.OS === 'ios' ? TAB_BAR_HEIGHT / 2 : 0,
     flexDirection: 'row',
     backgroundColor: Platform.OS === 'ios' ? 'transparent' : colors.paper,
     ...(Platform.OS === 'ios'
       ? {
           shadowColor: '#172B3D',
-          shadowOpacity: 0.12,
-          shadowRadius: 14,
-          shadowOffset: { width: 0, height: 5 },
+          shadowOpacity: 0.1,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 6 },
         }
       : {}),
   },
-  tabButton: { flex: 1, minHeight: 58, alignItems: 'center', justifyContent: 'center', gap: 3 },
-  tabIcon: { paddingHorizontal: 14, paddingVertical: 4, borderRadius: 16 },
+  tabButton: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 1 },
+  tabIcon: { paddingHorizontal: 12, paddingVertical: 2, borderRadius: 13 },
   tabIconActive: { backgroundColor: colors.paleBlue },
-  tabText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
+  tabText: { color: colors.muted, fontSize: 10, fontWeight: '700' },
   tabTextActive: { color: colors.blue, fontWeight: '800' },
   hero: {
     padding: 21,

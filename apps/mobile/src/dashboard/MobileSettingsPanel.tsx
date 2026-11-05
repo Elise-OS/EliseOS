@@ -29,6 +29,7 @@ import { MobilePartnerRibbon } from './MobilePartnerRibbon';
 import { MobileWeatherCard } from './MobileWeatherCard';
 import { dateLocale, type Language, t } from '../i18n';
 import { LanguageList } from '../i18n/LanguagePicker';
+import { useTabBarPadding } from './tabBarSpace';
 
 type SettingsSection = 'general' | 'rules' | 'notifications' | 'about' | 'legal';
 type Locale = Language;
@@ -93,6 +94,7 @@ export function MobileSettingsPanel({
   ) => void;
   onLogout: () => void;
 }) {
+  const tabBarPadding = useTabBarPadding(28);
   const demoMode = isDemoServer(server);
   const appVersion = Constants.expoConfig?.version ?? '—';
   const privacyPolicyUrl = t('mobileSettingsPanel.privacyPolicyUrl');
@@ -312,7 +314,7 @@ export function MobileSettingsPanel({
       <ScrollView
         key={section}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.scroll}
+        contentContainerStyle={[s.scroll, tabBarPadding]}
       >
         <View style={s.hero}>
           <View style={s.heroHeadingRow}>

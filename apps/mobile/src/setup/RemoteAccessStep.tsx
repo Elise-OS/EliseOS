@@ -1,18 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { RemoteAccessStatus } from '@elise/contracts';
-import type { ComponentProps } from 'react';
+import * as Clipboard from 'expo-clipboard';
+import { type ComponentProps, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Modal,
   Platform,
   Pressable,
+  Share,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import type { Locale } from './MobileSetup';
 import { colors } from '../theme';
-import { t as i18nT } from '../i18n';
+import { textBlock } from '../i18n';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -22,7 +25,7 @@ const TAILSCALE_APP =
     : 'https://play.google.com/store/apps/details?id=com.tailscale.ipn';
 
 // Texts of this screen, kept as one block in the catalogs (remoteAccessStep.copy).
-const copyText = () => i18nT('remoteAccessStep.copy', { returnObjects: true });
+const copyText = () => textBlock('remoteAccessStep.copy');
 const BENEFIT_ICONS: IconName[] = ['lock-closed-outline', 'globe-outline', 'people-outline'];
 
 /** Which of the three visual steps is current: 0 link, 1 approve, 2 enable, 3 done. */
@@ -60,6 +63,8 @@ export function RemoteAccessStep({
   onError: () => void;
 }) {
   const t = copyText();
+  const [addressOpen, setAddressOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const progress = progressOf(status);
   const unavailable =
     !previewMode &&
@@ -152,12 +157,17 @@ export function RemoteAccessStep({
           {status.remoteUrl ? (
             <Pressable
               style={styles.address}
-              onPress={() => void Linking.openURL(status.remoteUrl!).catch(() => {})}
+              accessibilityRole="button"
+              accessibilityHint={t.addressOpenHint}
+              onPress={() => setAddressOpen(true)}
             >
-              <Text style={styles.addressLabel}>{t.address}</Text>
-              <Text style={styles.addressValue} numberOfLines={1}>
-                {status.remoteUrl}
-              </Text>
+              <View style={styles.addressText}>
+                <Text style={styles.addressLabel}>{t.address}</Text>
+                <Text style={styles.addressValue} numberOfLines={1}>
+                  {status.remoteUrl}
+                </Text>
+              </View>
+              <Ionicons name="expand-outline" size={20} color={colors.navy} />
             </Pressable>
           ) : null}
           <Text style={styles.readyHint}>{t.readyHint}</Text>
@@ -210,10 +220,103 @@ export function RemoteAccessStep({
         </View>
       )}
 
+      {status?.remoteUrl ? (
+        <AddressModal
+          visible={addressOpen}
+          url={status.remoteUrl}
+          copied={copied}
+          onCopy={() => {
+            void Clipboard.setStringAsync(status.remoteUrl!).then(() => setCopied(true));
+          }}
+          onClose={() => {
+            setAddressOpen(false);
+            setCopied(false);
+          }}
+        />
+      ) : null}
+
       {previewMode ? <Text style={styles.later}>{t.preview}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {progress < 3 ? <Text style={styles.later}>{t.later}</Text> : null}
     </View>
+  );
+}
+
+/** Full private address, large and selectable, with copy / save / open actions. */
+function AddressModal({
+  visible,
+  url,
+  copied,
+  onCopy,
+  onClose,
+}: {
+  visible: boolean;
+  url: string;
+  copied: boolean;
+  onCopy: () => void;
+  onClose: () => void;
+}) {
+  const t = copyText();
+  const [shareFailed, setShareFailed] = useState(false);
+  useEffect(() => {
+    if (!visible) setShareFailed(false);
+  }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t.addressClose}>
+        <Pressable style={styles.sheet} onPress={() => {}}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>{t.address}</Text>
+            <Pressable
+              onPress={onClose}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={t.addressClose}
+            >
+              <Ionicons name="close" size={24} color={colors.navy} />
+            </Pressable>
+          </View>
+          <Text style={styles.sheetHint}>{t.addressHint}</Text>
+          <View style={styles.urlBox}>
+            <Text style={styles.urlText} selectable>
+              {url}
+            </Text>
+          </View>
+          <Pressable
+            style={[styles.action, copied && styles.actionDone]}
+            onPress={onCopy}
+            accessibilityRole="button"
+          >
+            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={18} color="#fff" />
+            <Text style={styles.actionText}>{copied ? t.addressCopied : t.addressCopy}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.secondary}
+            accessibilityRole="button"
+            onPress={() =>
+              void Share.share(
+                Platform.OS === 'ios'
+                  ? { url, message: url }
+                  : { message: `${t.address} : ${url}`, title: t.address },
+              ).catch(() => setShareFailed(true))
+            }
+          >
+            <Ionicons name="share-outline" size={17} color={colors.navy} />
+            <Text style={styles.secondaryText}>{t.addressSave}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.secondary}
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(url).catch(() => {})}
+          >
+            <Ionicons name="open-outline" size={17} color={colors.navy} />
+            <Text style={styles.secondaryText}>{t.addressOpen}</Text>
+          </Pressable>
+          {shareFailed ? <Text style={styles.error}>{t.addressSaveFailed}</Text> : null}
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -271,6 +374,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
   },
+  actionDone: { backgroundColor: colors.green },
   actionText: { color: '#fff', fontWeight: '700', fontSize: 17 },
   waitingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   waitingText: { color: colors.accent, fontSize: 16, fontWeight: '600' },
@@ -294,8 +398,11 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 13,
     backgroundColor: colors.paper,
-    gap: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
+  addressText: { flex: 1, gap: 3 },
   addressLabel: { color: colors.muted, fontSize: 14, fontWeight: '700', letterSpacing: 0.6 },
   addressValue: { color: colors.navy, fontSize: 16, fontWeight: '600' },
   readyHint: { color: colors.navy, fontSize: 16, lineHeight: 23 },
@@ -321,4 +428,36 @@ const styles = StyleSheet.create({
   noticeText: { flex: 1, color: colors.navy, fontSize: 16, lineHeight: 23 },
   later: { color: colors.muted, fontSize: 15, lineHeight: 23, textAlign: 'center' },
   error: { color: colors.red, fontSize: 16, textAlign: 'center' },
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  sheet: {
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+    padding: 20,
+    borderRadius: 22,
+    backgroundColor: colors.paper,
+    gap: 12,
+  },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sheetTitle: { color: colors.navy, fontSize: 21, fontWeight: '700' },
+  sheetHint: { color: colors.muted, fontSize: 16, lineHeight: 23 },
+  urlBox: {
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.greenSoft,
+  },
+  urlText: {
+    color: colors.navy,
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: '700',
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace' }),
+  },
 });

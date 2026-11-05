@@ -24,7 +24,7 @@ final class EliseAppleLiquidGlassView: ExpoView {
     ])
 
     if #available(iOS 26.0, *) {
-      let effect = UIGlassEffect(style: .clear)
+      let effect = UIGlassEffect(style: .regular)
       effect.isInteractive = true
       glassView.effect = effect
     } else {
