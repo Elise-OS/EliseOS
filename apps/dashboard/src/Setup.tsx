@@ -29,8 +29,8 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { FRFlag, GBFlag } from './FlagIcons';
-import type { Locale } from './i18n';
+import { FlagIcon } from './FlagIcons';
+import { dashboardLanguages, type Locale } from './i18n';
 import { RemoteAccessCard } from './RemoteAccessCard';
 
 interface SetupProps {
@@ -1502,30 +1502,25 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
           </span>
           <div className="elise-language">
             <button type="button" onClick={() => setLangOpen(!langOpen)} aria-expanded={langOpen}>
-              {locale === 'fr' ? <FRFlag /> : <GBFlag />}
-              <span>{locale === 'fr' ? 'Français' : 'English'}</span>
+              <FlagIcon language={locale} />
+              <span>{dashboardLanguages.find(({ code }) => code === locale)?.name ?? locale}</span>
               <ChevronDown />
             </button>
             {langOpen && (
               <div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onLocaleChange('fr');
-                    setLangOpen(false);
-                  }}
-                >
-                  <FRFlag /> Français
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onLocaleChange('en');
-                    setLangOpen(false);
-                  }}
-                >
-                  <GBFlag /> English
-                </button>
+                {dashboardLanguages.map((language) => (
+                  <button
+                    key={language.code}
+                    type="button"
+                    aria-pressed={language.code === locale}
+                    onClick={() => {
+                      onLocaleChange(language.code);
+                      setLangOpen(false);
+                    }}
+                  >
+                    <FlagIcon language={language.code} /> {language.name}
+                  </button>
+                ))}
               </div>
             )}
           </div>

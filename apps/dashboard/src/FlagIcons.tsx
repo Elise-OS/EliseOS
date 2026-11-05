@@ -1,54 +1,42 @@
-import type { SVGProps } from 'react';
+import { FLAG_VIEWBOX, FLAGS, type Language } from '@elise/i18n';
+import { useId, type SVGProps } from 'react';
 
-export function FRFlag(props: SVGProps<SVGSVGElement>) {
+/** The flag of a language, drawn from @elise/i18n like in the mobile app. */
+export function FlagIcon({ language, ...props }: { language: Language } & SVGProps<SVGSVGElement>) {
+  const { width, height, radius } = FLAG_VIEWBOX;
+  // One id per drawing: several identical flags can share a page.
+  const clip = `flag-${language}-${useId().replace(/:/g, '')}`;
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 640 480"
+      viewBox={`0 0 ${width} ${height}`}
       className="flag-icon"
       width="24"
       height="18"
       aria-hidden="true"
       {...props}
     >
-      <rect width="640" height="480" fill="#fff" rx="40" />
-      <path fill="#00267f" d="M0 0h213.3v480H0z" />
-      <path fill="#f31830" d="M426.7 0H640v480H426.7z" />
+      <defs>
+        <clipPath id={clip}>
+          <rect width={width} height={height} rx={radius} />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${clip})`}>
+        {FLAGS[language].map(({ kind, ...shape }, index) =>
+          kind === 'rect' ? (
+            <rect key={index} {...shape} />
+          ) : (
+            <path key={index} fill={shape.fill ?? 'none'} {...shape} />
+          ),
+        )}
+      </g>
       <rect
-        width="640"
-        height="480"
+        width={width}
+        height={height}
         fill="none"
         stroke="rgba(0,0,0,0.15)"
         strokeWidth="20"
-        rx="40"
-      />
-    </svg>
-  );
-}
-
-export function GBFlag(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 640 480"
-      className="flag-icon"
-      width="24"
-      height="18"
-      aria-hidden="true"
-      {...props}
-    >
-      <rect width="640" height="480" fill="#012169" rx="40" />
-      <path stroke="#fff" strokeWidth="60" d="M0 0l640 480M0 480L640 0" />
-      <path stroke="#c8102e" strokeWidth="36" d="M0 0l640 480M0 480L640 0" />
-      <path stroke="#fff" strokeWidth="100" d="M320 0v480M0 240h640" />
-      <path stroke="#c8102e" strokeWidth="60" d="M320 0v480M0 240h640" />
-      <rect
-        width="640"
-        height="480"
-        fill="none"
-        stroke="rgba(0,0,0,0.15)"
-        strokeWidth="20"
-        rx="40"
+        rx={radius}
       />
     </svg>
   );

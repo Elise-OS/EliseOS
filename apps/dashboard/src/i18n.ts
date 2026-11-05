@@ -1,4 +1,17 @@
-export type Locale = 'fr' | 'en';
+import { LANGUAGES } from '@elise/i18n';
+
+/** Languages the dashboard texts exist in; others of LANGUAGES appear once migrated. */
+const LOCALES = ['fr', 'en'] as const;
+export type Locale = (typeof LOCALES)[number];
+
+export const isLocale = (value: unknown): value is Locale =>
+  typeof value === 'string' && (LOCALES as readonly string[]).includes(value);
+
+/** Choices of the language selectors, with their name and flag. */
+export const dashboardLanguages = LANGUAGES.filter(
+  (language): language is Extract<(typeof LANGUAGES)[number], { code: Locale }> =>
+    isLocale(language.code),
+);
 
 export const copy = {
   fr: {

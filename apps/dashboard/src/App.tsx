@@ -51,13 +51,13 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { copy, type Locale } from './i18n';
+import { copy, dashboardLanguages, isLocale, type Locale } from './i18n';
 import { resizeResidentPhoto, Setup } from './Setup';
 import { HomePlanEditor } from './HomePlanEditor';
 import { HomeOverview, homeRealtimeEventAction } from './HomeOverview';
 import { GuidedTour, type GuidedTourMode } from './GuidedTour';
 import { DataLoadingScreen } from './DataLoadingScreen';
-import { FRFlag, GBFlag } from './FlagIcons';
+import { FlagIcon } from './FlagIcons';
 import { RemoteAccessCard } from './RemoteAccessCard';
 import { ActivityPage } from './ActivityPage';
 import { UpdateCard } from './UpdateCard';
@@ -2096,7 +2096,8 @@ export function PeoplePanel({
 export function App() {
   const [locale, setLocale] = useState<Locale>(() => {
     if (typeof window === 'undefined') return 'fr';
-    return window.localStorage.getItem('elise_locale') === 'en' ? 'en' : 'fr';
+    const saved = window.localStorage.getItem('elise_locale');
+    return isLocale(saved) ? saved : 'fr';
   });
   const [overview, setOverview] = useState<Overview | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
@@ -3391,24 +3392,18 @@ export function App() {
                       </div>
                     </div>
                     <div className="settings-language-options" role="group" aria-label="Language">
-                      <button
-                        className={locale === 'fr' ? 'is-selected' : ''}
-                        onClick={() => changeLocale('fr')}
-                        aria-pressed={locale === 'fr'}
-                      >
-                        <FRFlag />
-                        <strong>Français</strong>
-                        {locale === 'fr' && <CircleCheck />}
-                      </button>
-                      <button
-                        className={locale === 'en' ? 'is-selected' : ''}
-                        onClick={() => changeLocale('en')}
-                        aria-pressed={locale === 'en'}
-                      >
-                        <GBFlag />
-                        <strong>English</strong>
-                        {locale === 'en' && <CircleCheck />}
-                      </button>
+                      {dashboardLanguages.map((language) => (
+                        <button
+                          key={language.code}
+                          className={locale === language.code ? 'is-selected' : ''}
+                          onClick={() => changeLocale(language.code)}
+                          aria-pressed={locale === language.code}
+                        >
+                          <FlagIcon language={language.code} />
+                          <strong>{language.name}</strong>
+                          {locale === language.code && <CircleCheck />}
+                        </button>
+                      ))}
                     </div>
                   </article>
 
