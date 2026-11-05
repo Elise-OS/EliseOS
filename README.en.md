@@ -59,7 +59,7 @@ When a parent grows older alone at home, families are caught between two worries
 - **Stay connected.** The TV becomes a family screen: messages, photos, today’s appointments and video calls that pick up gently.
 - **Truly stay at home.** Everything runs on a small box in the house (Raspberry Pi or Ubuntu server). Remote access goes through the family’s private Tailscale network, never exposed to the Internet.
 
-The project is dedicated to Michel.
+The project is dedicated to Élise.
 
 ---
 
@@ -419,7 +419,7 @@ Every push runs `format:check`, `lint`, `typecheck`, `test` and `build` across t
 - **License**: [AGPL-3.0-only](LICENSE). © 2026 Élise OS contributors.
 
 <div align="center">
-<sub>Made with care, for Michel and for every family looking after a loved one.</sub>
+<sub>Made with care, for Élise and for every family looking after a loved one.</sub>
 
 <a href="https://buymeacoffee.com/drsamourai">☕ Élise OS is free and open source: you can support its development on Buy Me a Coffee.</a>
 </div>

@@ -59,7 +59,7 @@ Quand un parent vieillit seul chez lui, la famille vit entre deux inquiétudes :
 - **Garder le lien.** La télévision devient un écran familial : messages, photos, rendez-vous du jour et appels vidéo qui décrochent en douceur.
 - **Rester chez soi, au sens propre.** Tout tourne sur un boîtier à la maison (Raspberry Pi ou serveur Ubuntu). L’accès à distance passe par le réseau privé Tailscale de la famille, sans exposition sur Internet.
 
-Le projet est dédié à Michel.
+Le projet est dédié à Élise.
 
 ---
 
@@ -423,7 +423,7 @@ Chaque push exécute `format:check`, `lint`, `typecheck`, `test` et `build` sur 
 - **Licence** : [AGPL-3.0-only](LICENSE). © 2026 contributeurs d’Élise OS.
 
 <div align="center">
-<sub>Fait avec soin, pour Michel et pour toutes les familles qui veillent sur un proche.</sub>
+<sub>Fait avec soin, pour Élise et pour toutes les familles qui veillent sur un proche.</sub>
 
 <a href="https://buymeacoffee.com/drsamourai">☕ Élise OS est gratuit et open source : vous pouvez soutenir son développement sur Buy Me a Coffee.</a>
 </div>
