@@ -2655,7 +2655,7 @@ export function PlanUnderstandingPanel({
   ] as const;
   const statementGroups = [
     {
-      key: 'walls',
+      key: 'walls' as const,
       icon: BrickWall,
       items: [...adjacencyGroups].map(([ownerId, neighbourIds]) => ({
         id: `adjacency-${ownerId}`,
@@ -2668,7 +2668,7 @@ export function PlanUnderstandingPanel({
       })),
     },
     {
-      key: 'links',
+      key: 'links' as const,
       icon: MoveHorizontal,
       items: roomLinks.map((connection) => ({
         id: connection.id,
@@ -2684,7 +2684,7 @@ export function PlanUnderstandingPanel({
       })),
     },
     {
-      key: 'stairs',
+      key: 'stairs' as const,
       icon: ArrowUpDown,
       items: stairs.map((stair) => {
         const toFloor = levels.get(stair.toFloorId);
