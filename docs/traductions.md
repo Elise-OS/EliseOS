@@ -10,6 +10,8 @@ Les textes d’Élise sont écrits en français, puis traduits. Chaque bloc a un
 
 Pour faire traduire par une personne ou un agent : **[traductions-agents.md](traductions-agents.md)** (un fichier par bloc, `pnpm i18n:export` puis `pnpm i18n:import`).
 
+**Langues disponibles** : français (source), anglais, espagnol (`es`, espagnol d’Espagne, dans les trois blocs, la documentation du site et la fiche App Store). Les textes de sécurité espagnols attendent la relecture d’une personne de langue maternelle : **[traductions-es-relecture.md](traductions-es-relecture.md)**.
+
 ## Les trois blocs
 
 | Bloc                                | Catalogues                                    | Langues et drapeaux                                 |
@@ -35,9 +37,10 @@ Les données partagées (catégories de capteurs, types de contact, humeurs, pic
 **Landing**
 
 1. Dans `eliselanding/src/i18n/languages.ts`, ajouter la langue et son drapeau.
-2. Faire traduire `translations/es/landing.json`, puis `pnpm i18n:import es` ; importer `es.json` dans `eliselanding/src/i18n/catalog.ts`.
-3. Les pages `/es/`, `/es/download/`, `/es/setup/`… sont créées toutes seules (mêmes adresses que l’anglais, sous `/es/`), comme le menu de langue et les `hreflang`.
-4. La documentation suit la même liste : ses pages non traduites s’affichent en français avec l’avis de Starlight. Pour les traduire, copier `src/content/docs/en/` en `src/content/docs/es/`.
+2. Faire traduire `translations/es/landing.json`, puis `pnpm i18n:import es` ; importer `es.json` dans `eliselanding/src/i18n/catalog.ts`. `i18n:import` recopie aussi du français ce qui ne se traduit pas (identifiants, tailles d’images, listes vides).
+3. Ajouter la description de chaque partenaire dans la langue (`eliselanding/src/data/partners.ts`, TypeScript le réclame).
+4. Les pages `/es/`, `/es/download/`, `/es/setup/`… sont créées toutes seules (mêmes adresses que l’anglais, sous `/es/`), comme le menu de langue et les `hreflang`.
+5. La documentation suit la même liste : ses pages non traduites s’affichent en français avec l’avis de Starlight. Pour les traduire, copier `src/content/docs/en/` en `src/content/docs/es/`.
 
 Les sélecteurs de langue (accueil et Réglages de l’app, assistant et réglages du dashboard, bandeau de la démo, en-tête du site) proposent la nouvelle langue tout seuls, avec son drapeau.
 
@@ -77,6 +80,7 @@ Les scripts qui ont sorti les textes du code restent dans `packages/i18n/scripts
 ```bash
 bash apps/mobile/scripts/store-screenshots.sh <chemin vers lise.app> fr
 bash apps/mobile/scripts/store-screenshots.sh <chemin vers lise.app> en
+bash apps/mobile/scripts/store-screenshots.sh <chemin vers lise.app> es
 ```
 
-Pour une nouvelle langue, ajouter son cas dans le script (`STORE_LOCALE`, `DEVICE_LOCALE`) et ses libellés dans `apps/mobile/.maestro/store-labels.js`.
+Pour une nouvelle langue, ajouter son cas dans le script (`STORE_LOCALE`, `DEVICE_LOCALE`) ses libellés dans `apps/mobile/.maestro/store-labels.js` et le passage à la langue dans `apps/mobile/.maestro/store-screenshots.yaml`.
