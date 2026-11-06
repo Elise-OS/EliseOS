@@ -21,6 +21,27 @@ export const TV_GUIDE_SOURCES = {
     label: 'TDTChannels',
     site: 'https://www.tdtchannels.com/',
   },
+  // epg.pw publishes one small XMLTV file per channel (not compressed).
+  epgpwDwEnglish: {
+    url: 'https://epg.pw/api/epg.xml?channel_id=55871',
+    label: 'epg.pw',
+    site: 'https://epg.pw/',
+  },
+  epgpwFrance24En: {
+    url: 'https://epg.pw/api/epg.xml?channel_id=443227',
+    label: 'epg.pw',
+    site: 'https://epg.pw/',
+  },
+  epgpwFrance24Es: {
+    url: 'https://epg.pw/api/epg.xml?channel_id=448584',
+    label: 'epg.pw',
+    site: 'https://epg.pw/',
+  },
+  epgpwAlJazeeraEn: {
+    url: 'https://epg.pw/api/epg.xml?channel_id=443134',
+    label: 'epg.pw',
+    site: 'https://epg.pw/',
+  },
 } as const;
 export type TvGuideSourceId = keyof typeof TV_GUIDE_SOURCES;
 
@@ -84,6 +105,8 @@ export const TV_CHANNELS = [
     badge: { label: 'RMC', color: '#ffffff', background: '#19365b' },
     guide: { source: 'xmltvfr', id: 'RMCDecouverte.fr' },
   },
+  // RTVE blocks La 1, La 2 and Clan outside Spain for many programmes (tested from France on
+  // 2026-11-06: segments refused); 24h plays abroad.
   {
     id: 'la1',
     name: 'La 1',
@@ -92,6 +115,7 @@ export const TV_CHANNELS = [
     url: 'https://rtvelivestream.rtve.es/rtvesec/la1/la1_main_dvr.m3u8',
     badge: { label: 'La 1', color: '#ffffff', background: '#c8102e' },
     guide: { source: 'tdtchannels', id: 'La1.TV' },
+    geoRestriction: { country: 'ES', timezones: SPAIN_TIMEZONES },
   },
   {
     id: 'la2',
@@ -120,14 +144,24 @@ export const TV_CHANNELS = [
     url: 'https://rtvelivestream.rtve.es/rtvesec/clan/clan_main_dvr.m3u8',
     badge: { label: 'Clan', color: '#ffffff', background: '#e8710a' },
     guide: { source: 'tdtchannels', id: 'Clan.TV' },
+    geoRestriction: { country: 'ES', timezones: SPAIN_TIMEZONES },
   },
   {
     id: 'france24Es',
     name: 'France 24 Español',
     languages: ['es'],
     country: 'FR',
-    url: 'https://static.france24.com/live/F24_ES_HI_HLS/live_web.m3u8',
+    url: 'https://live.france24.com/hls/live/2037220-b/F24_ES_HI_HLS/master_2300.m3u8',
     badge: { label: 'F24', color: '#ffffff', background: '#0083c1' },
+    guide: { source: 'epgpwFrance24Es', id: '448584' },
+  },
+  {
+    id: 'dwEspanol',
+    name: 'DW Español',
+    languages: ['es'],
+    country: 'DE',
+    url: 'https://dwamdstream104.akamaized.net/hls/live/2015530/dwstream104/index.m3u8',
+    badge: { label: 'DW', color: '#ffffff', background: '#05141f' },
   },
   {
     id: 'dwEnglish',
@@ -136,14 +170,25 @@ export const TV_CHANNELS = [
     country: 'DE',
     url: 'https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/index.m3u8',
     badge: { label: 'DW', color: '#ffffff', background: '#05141f' },
+    guide: { source: 'epgpwDwEnglish', id: '55871' },
   },
   {
     id: 'france24En',
     name: 'France 24 English',
     languages: ['en'],
     country: 'FR',
-    url: 'https://static.france24.com/live/F24_EN_HI_HLS/live_web.m3u8',
+    url: 'https://live.france24.com/hls/live/2037218-b/F24_EN_HI_HLS/master_2300.m3u8',
     badge: { label: 'F24', color: '#ffffff', background: '#0083c1' },
+    guide: { source: 'epgpwFrance24En', id: '443227' },
+  },
+  {
+    id: 'alJazeeraEn',
+    name: 'Al Jazeera English',
+    languages: ['en'],
+    country: 'QA',
+    url: 'https://live-hls-apps-aje-fa.getaj.net/AJE/index.m3u8',
+    badge: { label: 'AJ', color: '#ffffff', background: '#b8862b' },
+    guide: { source: 'epgpwAlJazeeraEn', id: '443134' },
   },
 ] as const satisfies readonly TvChannel[];
 

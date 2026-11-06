@@ -1,6 +1,6 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { promises as fs } from 'node:fs';
-import { gzipSync } from 'node:zlib';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import {
   ScreenService,
   cityFromAddress,
@@ -495,6 +495,10 @@ describe('TV channels by language', () => {
       ['Arte.fr', 'Arte Journal', at(10), at(30)],
       ['TF1.fr', 'Hors catalogue', at(-20), at(10)],
     ]),
+    // epg.pw serves plain XML.
+    [TV_GUIDE_SOURCES.epgpwFrance24Es.url]: gunzipSync(
+      xmltv([['448584', 'Noticias', at(-10), at(20)]]),
+    ),
     [TV_GUIDE_SOURCES.tdtchannels.url]: xmltv([
       ['La1.TV', 'Telediario 2', at(-30), at(15)],
       ['La1.TV', 'El tiempo', at(15), at(25)],
@@ -552,16 +556,26 @@ describe('TV channels by language', () => {
       { label: 'XMLTV France', site: TV_GUIDE_SOURCES.xmltvfr.site },
     ]);
 
-    const spanish = await screenTvGuide([...lineup('es'), tvChannelById('arte')!]);
-    expect(fetched()).toEqual([TV_GUIDE_SOURCES.xmltvfr.url, TV_GUIDE_SOURCES.tdtchannels.url]);
+    const spanish = await screenTvGuide([...lineup('es', 'Europe/Madrid'), tvChannelById('arte')!]);
+    expect(fetched()).toEqual([
+      TV_GUIDE_SOURCES.xmltvfr.url,
+      TV_GUIDE_SOURCES.tdtchannels.url,
+      TV_GUIDE_SOURCES.epgpwFrance24Es.url,
+    ]);
     expect(spanish.channels.find(({ id }) => id === 'la1')).toMatchObject({
       current: { title: 'Telediario 2' },
       next: { title: 'El tiempo' },
     });
+    expect(spanish.channels.find(({ id }) => id === 'france24Es')?.current?.title).toBe('Noticias');
+    expect(spanish.channels.some(({ id }) => id === 'dwEspanol')).toBe(false);
     expect(spanish.channels.find(({ id }) => id === 'arte')?.current?.title).toBe(
       'Le Dessous des cartes',
     );
-    expect(spanish.sources.map(({ label }) => label)).toEqual(['TDTChannels', 'XMLTV France']);
+    expect(spanish.sources.map(({ label }) => label)).toEqual([
+      'TDTChannels',
+      'epg.pw',
+      'XMLTV France',
+    ]);
   });
 
   it('keeps the guides that answered when another source fails', async () => {
@@ -575,13 +589,15 @@ describe('TV channels by language', () => {
     );
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const guide = await screenTvGuide([...lineup('es'), tvChannelById('arte')!]);
-    expect(guide.channels.map(({ id }) => id)).toEqual(['arte']);
-    await expect(screenTvGuide(lineup('es'))).rejects.toThrow('temporairement indisponible');
+    expect(guide.channels.map(({ id }) => id)).toEqual(['france24Es', 'arte']);
+    await expect(screenTvGuide([tvChannelById('canal24h')!])).rejects.toThrow(
+      'temporairement indisponible',
+    );
   });
 
   it('answers without downloading anything for channels without a guide', async () => {
     vi.stubGlobal('fetch', fetchGuide);
-    const guide = await screenTvGuide(lineup('en'));
+    const guide = await screenTvGuide([tvChannelById('dwEspanol')!]);
     expect(fetched()).toEqual([]);
     expect(guide).toMatchObject({ channels: [], sources: [], stale: false });
   });

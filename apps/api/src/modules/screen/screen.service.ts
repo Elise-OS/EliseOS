@@ -403,10 +403,15 @@ async function refreshTvGuide(source: TvGuideSourceId): Promise<void> {
   const contentLength = Number(response.headers.get('content-length'));
   if (Number.isFinite(contentLength) && contentLength > 5 * 1024 * 1024)
     throw new Error('XMLTV source file exceeded the expected size.');
-  const compressed = new Uint8Array(await response.arrayBuffer());
-  if (compressed.byteLength > 5 * 1024 * 1024)
+  const body = new Uint8Array(await response.arrayBuffer());
+  if (body.byteLength > 5 * 1024 * 1024)
     throw new Error('XMLTV source file exceeded the expected size.');
-  const xml = gunzipSync(compressed, { maxOutputLength: 16 * 1024 * 1024 }).toString('utf8');
+  // Most sources are gzipped; some (epg.pw) serve plain XML.
+  const xml = (
+    body[0] === 0x1f && body[1] === 0x8b
+      ? gunzipSync(body, { maxOutputLength: 16 * 1024 * 1024 })
+      : Buffer.from(body)
+  ).toString('utf8');
   if (!xml.startsWith('<?xml') && !xml.includes('<tv'))
     throw new Error('XMLTV source did not contain a valid guide.');
   tvGuideCaches.set(source, {
@@ -473,10 +478,15 @@ export async function screenTvGuide(channels: readonly TvChannel[]): Promise<Scr
   return {
     retrievedAt: new Date(Math.min(currentTime, ...retrievedAt)).toISOString(),
     stale: retrievedAt.some((at) => currentTime - at >= TV_GUIDE_REFRESH_MS),
-    sources: available.map((source) => ({
-      label: TV_GUIDE_SOURCES[source].label,
-      site: TV_GUIDE_SOURCES[source].site,
-    })),
+    // Several files can come from one provider: credit it once.
+    sources: [
+      ...new Map(
+        available.map((source) => {
+          const { label, site } = TV_GUIDE_SOURCES[source];
+          return [label, { label, site }] as const;
+        }),
+      ).values(),
+    ],
     channels: guided.flatMap(({ id, name, guide }) => {
       const cache = caches.get(guide!.source);
       if (!cache) return [];

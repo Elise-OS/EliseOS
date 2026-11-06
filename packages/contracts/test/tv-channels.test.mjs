@@ -32,11 +32,11 @@ test('a French screen keeps the four historical channels', () => {
   assert.deepEqual(ids(tvChannelLineup('fr-FR', undefined, 'Europe/Paris')), FRENCH);
 });
 
-test('a Spanish screen gets Spanish channels; La 2 only in Spain', () => {
+test('a Spanish screen gets Spanish channels; RTVE channels blocked abroad only in Spain', () => {
   const abroad = ids(defaultTvChannels('es', 'Europe/Paris'));
-  assert.ok(abroad.includes('la1') && abroad.includes('canal24h'));
-  assert.ok(!abroad.includes('la2'));
-  assert.ok(ids(defaultTvChannels('es', 'Europe/Madrid')).includes('la2'));
+  assert.deepEqual(abroad, ['canal24h', 'france24Es', 'dwEspanol']);
+  const inSpain = ids(defaultTvChannels('es', 'Europe/Madrid'));
+  for (const id of ['la1', 'la2', 'clan', 'canal24h']) assert.ok(inSpain.includes(id), id);
   assert.ok(!abroad.some((id) => FRENCH.includes(id)));
 });
 
@@ -51,12 +51,14 @@ test('a language without channels falls back to English', () => {
 test('the caregiver adds channels of another language and removes default ones', () => {
   let choices = toggleTvChannel(undefined, 'arte', true, 'es', 'Europe/Paris');
   assert.deepEqual(choices, { added: ['arte'], removed: [] });
-  choices = toggleTvChannel(choices, 'clan', false, 'es', 'Europe/Paris');
-  assert.deepEqual(choices, { added: ['arte'], removed: ['clan'] });
+  choices = toggleTvChannel(choices, 'dwEspanol', false, 'es', 'Europe/Paris');
+  assert.deepEqual(choices, { added: ['arte'], removed: ['dwEspanol'] });
   const lineup = ids(tvChannelLineup('es', choices, 'Europe/Paris'));
-  assert.ok(lineup.includes('arte') && lineup.includes('la1') && !lineup.includes('clan'));
+  assert.ok(
+    lineup.includes('arte') && lineup.includes('canal24h') && !lineup.includes('dwEspanol'),
+  );
   choices = toggleTvChannel(choices, 'arte', false, 'es', 'Europe/Paris');
-  choices = toggleTvChannel(choices, 'clan', true, 'es', 'Europe/Paris');
+  choices = toggleTvChannel(choices, 'dwEspanol', true, 'es', 'Europe/Paris');
   assert.deepEqual(choices, { added: [], removed: [] });
 });
 
