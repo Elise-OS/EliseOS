@@ -55,7 +55,13 @@ export interface TvChannel {
   country: string;
   /** Official HLS stream. */
   url: string;
-  /** Text logo: short label and its colors. */
+  /**
+   * Official logo, embedded in the apps (no network at run time): file name without extension of
+   * `apps/dashboard/public/tv-logos/<logo>.svg` and `apps/mobile/assets/tv-logos/<logo>.png`.
+   * Sources and licences: THIRD_PARTY_LOGOS.md.
+   */
+  logo?: string;
+  /** Text logo, shown when the logo is missing or does not load: short label and its colors. */
   badge: { label: string; color: string; background: string };
   /** Programme guide: XMLTV source and channel id in that file. No guide when absent. */
   guide?: { source: TvGuideSourceId; id: string };
@@ -75,6 +81,7 @@ const CHANNELS = [
     languages: ['fr'],
     country: 'FR',
     url: 'https://artesimulcast.akamaized.net/hls/live/2031003/artelive_fr/master.m3u8',
+    logo: 'arte',
     badge: { label: 'arte', color: '#f0673c', background: '#fff4ec' },
     guide: { source: 'xmltvfr', id: 'Arte.fr' },
   },
@@ -84,6 +91,7 @@ const CHANNELS = [
     languages: ['fr'],
     country: 'FR',
     url: 'https://d3dcdjv6dx07iz.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-eaaww2dyp3iih/RMC_Life_FR.m3u8',
+    logo: 'rmc-life',
     badge: { label: 'RMC', color: '#ffffff', background: '#19365b' },
     guide: { source: 'xmltvfr', id: 'Cherie25.fr' },
   },
@@ -93,6 +101,7 @@ const CHANNELS = [
     languages: ['fr'],
     country: 'FR',
     url: 'https://d15aro46bnpfm8.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-fqkqiax1078up/RMC_Story_FR.m3u8',
+    logo: 'rmc-story',
     badge: { label: 'RMC', color: '#ffffff', background: '#19365b' },
     guide: { source: 'xmltvfr', id: 'Numero23.fr' },
   },
@@ -102,6 +111,7 @@ const CHANNELS = [
     languages: ['fr'],
     country: 'FR',
     url: 'https://d16zzycxcd0m0r.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-hixvx5kymecr9/RMC_Decouverte_FR.m3u8',
+    logo: 'rmc-decouverte',
     badge: { label: 'RMC', color: '#ffffff', background: '#19365b' },
     guide: { source: 'xmltvfr', id: 'RMCDecouverte.fr' },
   },
@@ -113,6 +123,7 @@ const CHANNELS = [
     languages: ['es'],
     country: 'ES',
     url: 'https://rtvelivestream.rtve.es/rtvesec/la1/la1_main_dvr.m3u8',
+    logo: 'la1',
     badge: { label: 'La 1', color: '#ffffff', background: '#c8102e' },
     guide: { source: 'tdtchannels', id: 'La1.TV' },
     geoRestriction: { country: 'ES', timezones: SPAIN_TIMEZONES },
@@ -123,6 +134,7 @@ const CHANNELS = [
     languages: ['es'],
     country: 'ES',
     url: 'https://rtvelivestream.rtve.es/rtvesec/la2/la2_main_dvr.m3u8',
+    logo: 'la2',
     badge: { label: 'La 2', color: '#ffffff', background: '#1f4e8c' },
     guide: { source: 'tdtchannels', id: 'La2.TV' },
     geoRestriction: { country: 'ES', timezones: SPAIN_TIMEZONES },
@@ -133,6 +145,7 @@ const CHANNELS = [
     languages: ['es'],
     country: 'ES',
     url: 'https://rtvelivestream.rtve.es/rtvesec/24h/24h_main_dvr.m3u8',
+    logo: '24h',
     badge: { label: '24h', color: '#ffffff', background: '#a5162b' },
     guide: { source: 'tdtchannels', id: '24Horas.TV' },
   },
@@ -142,6 +155,7 @@ const CHANNELS = [
     languages: ['es'],
     country: 'ES',
     url: 'https://rtvelivestream.rtve.es/rtvesec/clan/clan_main_dvr.m3u8',
+    logo: 'clan',
     badge: { label: 'Clan', color: '#ffffff', background: '#e8710a' },
     guide: { source: 'tdtchannels', id: 'Clan.TV' },
     geoRestriction: { country: 'ES', timezones: SPAIN_TIMEZONES },
@@ -152,6 +166,7 @@ const CHANNELS = [
     languages: ['es'],
     country: 'FR',
     url: 'https://live.france24.com/hls/live/2037220-b/F24_ES_HI_HLS/master_2300.m3u8',
+    logo: 'france24',
     badge: { label: 'F24', color: '#ffffff', background: '#0083c1' },
     guide: { source: 'epgpwFrance24Es', id: '448584' },
   },
@@ -161,6 +176,7 @@ const CHANNELS = [
     languages: ['es'],
     country: 'DE',
     url: 'https://dwamdstream104.akamaized.net/hls/live/2015530/dwstream104/index.m3u8',
+    logo: 'dw',
     badge: { label: 'DW', color: '#ffffff', background: '#05141f' },
   },
   {
@@ -169,6 +185,7 @@ const CHANNELS = [
     languages: ['en'],
     country: 'DE',
     url: 'https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/index.m3u8',
+    logo: 'dw',
     badge: { label: 'DW', color: '#ffffff', background: '#05141f' },
     guide: { source: 'epgpwDwEnglish', id: '55871' },
   },
@@ -178,6 +195,7 @@ const CHANNELS = [
     languages: ['en'],
     country: 'FR',
     url: 'https://live.france24.com/hls/live/2037218-b/F24_EN_HI_HLS/master_2300.m3u8',
+    logo: 'france24',
     badge: { label: 'F24', color: '#ffffff', background: '#0083c1' },
     guide: { source: 'epgpwFrance24En', id: '443227' },
   },
@@ -187,6 +205,7 @@ const CHANNELS = [
     languages: ['en'],
     country: 'QA',
     url: 'https://live-hls-apps-aje-fa.getaj.net/AJE/index.m3u8',
+    logo: 'al-jazeera-english',
     badge: { label: 'AJ', color: '#ffffff', background: '#b8862b' },
     guide: { source: 'epgpwAlJazeeraEn', id: '443134' },
   },

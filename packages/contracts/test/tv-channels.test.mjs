@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
   LEGACY_TV_CHANNEL_CHOICES,
@@ -24,6 +25,27 @@ test('the catalog has unique ids and URLs, known guide sources and HTTPS streams
     assert.match(channel.url, /^https:\/\/.+\.m3u8$/);
     assert.ok(channel.languages.length > 0, channel.id);
     if (channel.guide) assert.ok(TV_GUIDE_SOURCES[channel.guide.source], channel.id);
+  }
+});
+
+const repoFile = (path) => new URL(`../../../${path}`, import.meta.url);
+
+test('every channel has its official logo bundled in the web and mobile apps', () => {
+  const mobileLogos = readFileSync(repoFile('apps/mobile/src/screen/TvChannelLogo.tsx'), 'utf8');
+  for (const channel of TV_CHANNELS) {
+    assert.match(channel.logo ?? '', /^[a-z0-9-]+$/, channel.id);
+    const svg = repoFile(`apps/dashboard/public/tv-logos/${channel.logo}.svg`);
+    assert.ok(existsSync(svg), `${channel.id}: ${svg.pathname}`);
+    const source = readFileSync(svg, 'utf8');
+    assert.match(source, /^<svg[^>]*viewBox=/, channel.id);
+    // Served as is to every screen: nothing that runs or fetches.
+    assert.doesNotMatch(
+      source,
+      /<script|<foreignObject|\son[a-z]+=|href="(?!#)|url\((?!#)/i,
+      channel.id,
+    );
+    assert.ok(existsSync(repoFile(`apps/mobile/assets/tv-logos/${channel.logo}.png`)), channel.id);
+    assert.ok(mobileLogos.includes(`assets/tv-logos/${channel.logo}.png'`), channel.id);
   }
 });
 
