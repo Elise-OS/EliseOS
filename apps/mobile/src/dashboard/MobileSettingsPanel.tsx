@@ -968,7 +968,7 @@ export function MobileSettingsPanel({
             </Card>
             <Card
               eyebrow={t('mobileSettingsPanel.pleaseNote')}
-              title={t('mobileSettingsPanel.aPrototypeInProgress')}
+              title={t('mobileSettingsPanel.inAnEmergencyCall112')}
               icon="information-circle-outline"
             >
               <Text style={s.notice}>{t('mobileSettingsPanel.eliseIsNeitherAMedical')}</Text>
