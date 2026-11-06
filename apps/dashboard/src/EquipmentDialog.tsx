@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import './room-equipment.css';
@@ -23,6 +23,49 @@ export function EquipmentDialog({
 }) {
   const titleId = useId();
   const root = useRef<HTMLDivElement>(null);
+  useDialogFocusTrap(root, onClose, busy);
+  return createPortal(
+    <div
+      className="equipment-dialog-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !busy) onClose();
+      }}
+    >
+      <div
+        className={`equipment-dialog ${wide ? 'is-wide' : ''} ${sidePanel ? 'is-side-panel' : ''}`}
+        ref={root}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <header className="equipment-dialog-heading">
+          <h2 id={titleId}>{title}</h2>
+          <button
+            className="equipment-icon-button"
+            onClick={onClose}
+            disabled={busy}
+            aria-label={closeLabel}
+          >
+            <X />
+          </button>
+        </header>
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * Modal behaviour shared by Élise dialogs: locks the page scroll, keeps Tab inside
+ * the dialog, closes on Escape unless busy and gives focus back on close.
+ */
+export function useDialogFocusTrap(
+  root: RefObject<HTMLElement | null>,
+  onClose: () => void,
+  busy: boolean,
+) {
   const close = useRef(onClose);
   const busyRef = useRef(busy);
   close.current = onClose;
@@ -71,35 +114,4 @@ export function EquipmentDialog({
       if (previous?.isConnected) previous.focus();
     };
   }, []);
-  return createPortal(
-    <div
-      className="equipment-dialog-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !busy) onClose();
-      }}
-    >
-      <div
-        className={`equipment-dialog ${wide ? 'is-wide' : ''} ${sidePanel ? 'is-side-panel' : ''}`}
-        ref={root}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
-        <header className="equipment-dialog-heading">
-          <h2 id={titleId}>{title}</h2>
-          <button
-            className="equipment-icon-button"
-            onClick={onClose}
-            disabled={busy}
-            aria-label={closeLabel}
-          >
-            <X />
-          </button>
-        </header>
-        {children}
-      </div>
-    </div>,
-    document.body,
-  );
 }

@@ -1,5 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
-import { Check, LoaderCircle, MapPin, Radio, RadioTower, RefreshCw, Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  AppWindow,
+  Check,
+  DoorClosed,
+  DoorOpen,
+  Ellipsis,
+  LoaderCircle,
+  MapPin,
+  Radio,
+  RadioTower,
+  Refrigerator,
+  RefreshCw,
+  Sun,
+} from 'lucide-react';
 import {
   CONTACT_TYPES,
   type ContactRole,
@@ -9,10 +22,22 @@ import {
   type SensorProduct,
 } from '@elise/contracts';
 import { type Locale, t, textBlock } from './i18n';
-import { EquipmentDialog } from './EquipmentDialog';
 import { ProductPhoto } from './SensorProductCard';
+import {
+  SetupField,
+  SetupList,
+  SetupNotice,
+  SetupPage,
+  SetupRow,
+  SetupSection,
+  SetupSegmented,
+  SetupChoices,
+  SetupSheet,
+  useSetupStep,
+  useSheetControls,
+} from './SetupSheet';
 import { sensorJson, sensorRequest, type SensorRoom, type SensorUiDevice } from './sensor-ui';
-import { productMatchesDetectedModel } from './sensor-products';
+import { productMatchesDetectedModel, sensorDevicePhoto } from './sensor-products';
 import { contactTypeLabel, productTexts, sensorCategoryLabel } from './i18n/data';
 
 type Session = {
@@ -20,15 +45,41 @@ type Session = {
   protocol: string;
   status: string;
   expiresAt: string;
+  errorCode?: string | null;
   errorMessage?: string | null;
   detectedDevice?: (SensorUiDevice & { detectedType?: string }) | null;
   connection?: { pairingOpen: boolean; deviceDetected?: boolean } | null;
 };
 
-/** One installation flow for both the sensor list and a contextual room page. */
-export function SensorOnboardingDialog({
-  open,
-  locale,
+type Phase = 'LOADING' | 'PREPARE' | 'SEARCH' | 'FOUND' | 'DONE';
+type Failure = {
+  reason: 'TIMEOUT' | 'REJECTED' | 'CANCELLED';
+  message?: string | null | undefined;
+};
+
+const ACTIVE = ['PENDING', 'WAITING_FOR_DEVICE', 'DEVICE_FOUND'];
+const SESSIONS = '/api/v1/sensor-devices/onboarding-sessions';
+/** After the countdown, the hub gets a few seconds to report a late sensor. */
+const EXPIRY_GRACE_SECONDS = 8;
+const SEARCH_SECONDS = 240;
+
+const contactIcons: Record<ContactRole, ReactNode> = {
+  DOOR: <DoorClosed />,
+  MAIN_ENTRANCE: <DoorOpen />,
+  WINDOW: <AppWindow />,
+  VERANDA: <Sun />,
+  FRIDGE: <Refrigerator />,
+  OTHER: <Ellipsis />,
+  BED: <Ellipsis />,
+};
+
+export type PairingProgress = { offset: number; total: number };
+
+/**
+ * Pairing part of the sensor setup: prepare the sensor, let the hub find it, then
+ * name it and place it. Rendered inside a SetupSheet so a longer flow can lead into it.
+ */
+export function SensorPairingFlow({
   rooms,
   initialRoomId,
   initialTarget,
@@ -36,195 +87,218 @@ export function SensorOnboardingDialog({
   bedOccupiedWhen = 'CLOSED',
   category,
   product,
+  progress = { offset: 0, total: 3 },
+  onBack,
+  backLabel,
   onClose,
   onInstalled,
-  onResume,
+  onAddAnother,
 }: {
-  open: boolean;
-  locale: Locale;
   rooms: SensorRoom[];
-  initialRoomId?: string;
+  initialRoomId?: string | undefined;
   initialTarget?: { type: 'OPENING' | 'STAIR'; id: string } | undefined;
   contactRole?: ContactRole | undefined;
   bedOccupiedWhen?: 'CLOSED' | 'OPEN' | undefined;
   category?: RoomSensorCategory | undefined;
   product?: SensorProduct | undefined;
+  progress?: PairingProgress;
+  onBack?: (() => void) | undefined;
+  backLabel?: string | undefined;
   onClose: () => void;
   onInstalled: () => Promise<void>;
-  onResume?: () => void;
+  onAddAnother?: (() => void) | undefined;
 }) {
+  const { step: phase, direction, go, back } = useSetupStep<Phase>('LOADING');
   const [session, setSession] = useState<Session | null>(null);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [roomId, setRoomId] = useState(initialRoomId ?? '');
   const [name, setName] = useState('');
   const [openingType, setOpeningType] = useState<ContactRole | ''>(contactRole ?? '');
   const [occupiedWhen, setOccupiedWhen] = useState<'CLOSED' | 'OPEN'>(bedOccupiedWhen);
   const [error, setError] = useState('');
+  const [failure, setFailure] = useState<Failure | null>(null);
+  const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [remaining, setRemaining] = useState(0);
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [installed, setInstalled] = useState<{ name: string; room: string } | null>(null);
   const alive = useRef(true);
-  const onChanged = useRef(onInstalled);
-  onChanged.current = onInstalled;
-  const resume = useRef(onResume);
-  resume.current = onResume;
-  const restoreOnce = useRef(false);
-  const adopt = (next: Session) => {
-    setSession(next);
-    if (next.status === 'DEVICE_FOUND' && next.detectedDevice) {
-      setStep(3);
-      setName(product ? productTexts(product).name : next.detectedDevice.name);
-      if (category === 'bed' && isBedOccupancySensorModel(next.detectedDevice.model))
-        setOccupiedWhen('OPEN');
-    } else setStep(2);
-  };
+  const refresh = useRef(onInstalled);
+  refresh.current = onInstalled;
+
+  const adopt = useCallback(
+    (next: Session) => {
+      setSession(next);
+      if (next.status === 'DEVICE_FOUND' && next.detectedDevice) {
+        setName(product ? productTexts(product).name : next.detectedDevice.name);
+        if (category === 'bed' && isBedOccupancySensorModel(next.detectedDevice.model))
+          setOccupiedWhen('OPEN');
+        setFailure(null);
+        go('FOUND');
+      } else if (ACTIVE.includes(next.status)) go('SEARCH');
+    },
+    // `go` only replaces state; the product and category are fixed for one flow.
+    [product, category],
+  );
+
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
     };
   }, []);
+
+  // A search started earlier (another tab, a reload) is picked up where it was.
   useEffect(() => {
-    if (!open && (!onResume || restoreOnce.current)) return;
-    restoreOnce.current = true;
     const controller = new AbortController();
-    setReady(false);
-    setError('');
-    if (open) {
-      setRoomId(initialRoomId ?? '');
-      setName('');
-      setOpeningType(contactRole ?? '');
-      setOccupiedWhen(bedOccupiedWhen);
-      setStep(1);
-      setSession(null);
-    }
     void (async () => {
       try {
-        const current = await sensorRequest<Session | null>(
-          '/api/v1/sensor-devices/onboarding-sessions/current',
-          { signal: controller.signal },
-        );
+        const current = await sensorRequest<Session | null>(`${SESSIONS}/current`, {
+          signal: controller.signal,
+        });
         if (controller.signal.aborted) return;
-        if (current && ['DEVICE_FOUND', 'PENDING', 'WAITING_FOR_DEVICE'].includes(current.status)) {
-          adopt(current);
-          if (!open) resume.current?.();
-        }
-        if (!controller.signal.aborted) setReady(true);
+        if (current && ACTIVE.includes(current.status)) adopt(current);
+        else go('PREPARE');
       } catch (err) {
-        if (!controller.signal.aborted && open) {
-          setError((err as Error).message);
-          setReady(true);
-        }
+        if (controller.signal.aborted) return;
+        setError((err as Error).message);
+        go('PREPARE');
       }
     })();
     return () => controller.abort();
-  }, [
-    open,
-    initialRoomId,
-    initialTarget?.id,
-    onResume,
-    product,
-    locale,
-    contactRole,
-    bedOccupiedWhen,
-  ]);
+  }, [adopt]);
+
+  const searching = phase === 'SEARCH' && !failure && !!session && ACTIVE.includes(session.status);
 
   useEffect(() => {
-    if (!open || !session || !['PENDING', 'WAITING_FOR_DEVICE'].includes(session.status)) return;
+    if (!searching || !session) return;
     const controller = new AbortController();
-    let timer: number;
+    let timer = 0;
     const poll = async () => {
+      window.clearTimeout(timer);
       try {
-        const next = await sensorRequest<Session>(
-          `/api/v1/sensor-devices/onboarding-sessions/${session.id}`,
-          { signal: controller.signal },
-        );
+        const next = await sensorRequest<Session>(`${SESSIONS}/${session.id}`, {
+          signal: withTimeout(controller.signal, 10_000),
+        });
         if (controller.signal.aborted) return;
+        setOffline(false);
+        if (next.status === 'DEVICE_FOUND' && next.detectedDevice) return adopt(next);
         setSession(next);
-        if (next.status === 'DEVICE_FOUND') {
-          adopt(next);
-          setError('');
-        } else if (['FAILED', 'EXPIRED', 'CANCELLED'].includes(next.status))
-          setError(next.errorMessage ?? t('sensorOnboardingDialog.noDeviceFoundYouCan'));
-        else timer = window.setTimeout(() => void poll(), 1500);
-      } catch (err) {
-        if (!controller.signal.aborted) {
-          setError((err as Error).message);
-          timer = window.setTimeout(() => void poll(), 3000);
-        }
+        if (next.status === 'FAILED')
+          return setFailure({ reason: 'REJECTED', message: next.errorMessage });
+        if (next.status === 'EXPIRED') return setFailure({ reason: 'TIMEOUT' });
+        if (next.status === 'CANCELLED' || next.status === 'COMPLETED')
+          return setFailure({ reason: 'CANCELLED' });
+        timer = window.setTimeout(() => void poll(), 1500);
+      } catch {
+        if (controller.signal.aborted) return;
+        // A dropped request does not end the search: the hub keeps listening.
+        setOffline(true);
+        timer = window.setTimeout(() => void poll(), 3000);
       }
     };
-    timer = window.setTimeout(() => void poll(), 1500);
+    // Background tabs slow timers down; look again as soon as the page is visible.
+    const visible = () => {
+      if (document.visibilityState === 'visible') void poll();
+    };
+    document.addEventListener('visibilitychange', visible);
+    timer = window.setTimeout(() => void poll(), 1200);
     return () => {
       controller.abort();
       window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', visible);
     };
-  }, [open, session?.id, session?.status, locale]);
+  }, [searching, session?.id, adopt]);
+
   useEffect(() => {
-    if (!open || !session || step !== 2) return;
-    const update = () =>
-      setRemaining(Math.max(0, Math.ceil((Date.parse(session.expiresAt) - Date.now()) / 1000)));
+    if (!searching || !session) return;
+    const update = () => {
+      const left = Math.ceil((Date.parse(session.expiresAt) - Date.now()) / 1000);
+      setSecondsLeft(left);
+      if (left <= -EXPIRY_GRACE_SECONDS && !session.connection?.deviceDetected)
+        setFailure({ reason: 'TIMEOUT' });
+    };
     update();
     const timer = window.setInterval(update, 1000);
     return () => window.clearInterval(timer);
-  }, [open, session, step]);
+  }, [searching, session]);
+
+  const cancelSession = async (target: Session | null) => {
+    if (!target || !ACTIVE.includes(target.status)) return;
+    await sensorRequest(`${SESSIONS}/${target.id}`, {
+      method: 'DELETE',
+      signal: AbortSignal.timeout(6_000),
+    }).catch(() => undefined);
+  };
 
   const start = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      if (session)
-        await sensorRequest(`/api/v1/sensor-devices/onboarding-sessions/${session.id}`, {
-          method: 'DELETE',
-        });
-      const next = await sensorRequest<Session>(
-        '/api/v1/sensor-devices/onboarding-sessions',
-        sensorJson('POST', { protocol: product?.protocol ?? 'zigbee' }),
-      );
-      if (alive.current) adopt(next);
-    } catch (err) {
-      if (alive.current) setError((err as Error).message);
-    } finally {
-      if (alive.current) setBusy(false);
-    }
-  };
-  const close = async () => {
     if (busy) return;
     setBusy(true);
     setError('');
+    setFailure(null);
+    setOffline(false);
     try {
-      if (session)
-        await sensorRequest(`/api/v1/sensor-devices/onboarding-sessions/${session.id}`, {
-          method: 'DELETE',
-        });
-      setSession(null);
-      setStep(1);
-      onClose();
+      // Starting a search replaces any earlier one on the hub as well.
+      await cancelSession(session);
+      const next = await sensorRequest<Session>(SESSIONS, {
+        ...sensorJson('POST', { protocol: product?.protocol ?? 'zigbee' }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!alive.current) return;
+      setSecondsLeft(Math.ceil((Date.parse(next.expiresAt) - Date.now()) / 1000));
+      adopt(next);
     } catch (err) {
-      if (alive.current) setError((err as Error).message);
+      if (alive.current) setError(friendlyError(err));
     } finally {
       if (alive.current) setBusy(false);
     }
   };
+
+  const stopSearch = async () => {
+    if (busy) return;
+    setBusy(true);
+    await cancelSession(session);
+    if (!alive.current) return;
+    setSession(null);
+    setFailure(null);
+    setOffline(false);
+    setBusy(false);
+    back('PREPARE');
+  };
+
+  const close = async () => {
+    if (busy) return;
+    if (phase !== 'DONE') {
+      setBusy(true);
+      await cancelSession(session);
+      if (alive.current) setBusy(false);
+    }
+    onClose();
+  };
+  useSheetControls({ busy, onClose: () => void close() });
+
+  const device = session?.detectedDevice;
+  const room = rooms.find(({ id }) => id === roomId);
+  const isContact = !!device && deviceSupportsCategory(device, 'contact') && category !== 'bed';
+  const mismatch = !!(category && device && !deviceSupportsCategory(device, category));
+  const wrongTarget =
+    !!device &&
+    ((initialTarget?.type === 'OPENING' && !deviceSupportsCategory(device, 'contact')) ||
+      (initialTarget?.type === 'STAIR' &&
+        !(['motion', 'presence'] as RoomSensorCategory[]).some((id) =>
+          deviceSupportsCategory(device, id),
+        )));
+  const canFinish =
+    !!device &&
+    !!name.trim() &&
+    !!room &&
+    !mismatch &&
+    !wrongTarget &&
+    !(deviceSupportsCategory(device, 'contact') && category !== 'bed' && !openingType);
+
   const finish = async () => {
-    if (!session?.detectedDevice || !name.trim() || !roomId) return;
-    if (category && !deviceSupportsCategory(session.detectedDevice, category)) return;
-    if (
-      initialTarget?.type === 'OPENING' &&
-      !deviceSupportsCategory(session.detectedDevice, 'contact')
-    )
-      return;
-    if (
-      initialTarget?.type === 'STAIR' &&
-      !(['motion', 'presence'] as RoomSensorCategory[]).some((id) =>
-        deviceSupportsCategory(session.detectedDevice!, id),
-      )
-    )
-      return;
-    if (deviceSupportsCategory(session.detectedDevice, 'contact') && !openingType) return;
+    if (!session || !device || !canFinish || busy) return;
     setBusy(true);
     setError('');
-    const sessionUrl = `/api/v1/sensor-devices/onboarding-sessions/${session.id}`;
+    const sessionUrl = `${SESSIONS}/${session.id}`;
     try {
       try {
         await sensorRequest(`${sessionUrl}/complete`, {
@@ -248,282 +322,580 @@ export function SensorOnboardingDialog({
         if (confirmed?.status !== 'COMPLETED') throw requestError;
       }
       if (!alive.current) return;
-      const refresh = onChanged.current;
-      onClose();
-      // The installation is complete; a slow page refresh must not hold the dialog open.
-      void refresh().catch(() => undefined);
+      setSession((current) => (current ? { ...current, status: 'COMPLETED' } : current));
+      setInstalled({ name: name.trim(), room: room?.name ?? '' });
+      go('DONE');
+      // The installation is complete; a slow page refresh must not hold the flow.
+      void refresh.current().catch(() => undefined);
     } catch (err) {
-      if (alive.current) setError((err as Error).message);
+      if (alive.current) setError(friendlyError(err));
     } finally {
       if (alive.current) setBusy(false);
     }
   };
-  if (!open) return null;
-  const device = session?.detectedDevice;
-  const room = rooms.find(({ id }) => id === roomId);
-  const mismatch = category && device && !deviceSupportsCategory(device, category);
-  const modelMatch = product && device ? productMatchesDetectedModel(product, device.model) : null;
-  const categoryLabel = category ? sensorCategoryLabel(category) : undefined;
-  const deviceDetected = session?.connection?.deviceDetected === true;
-  return (
-    <EquipmentDialog
-      title={t('sensorOnboardingDialog.addASensor')}
-      onClose={() => void close()}
-      busy={busy}
-      closeLabel={t('sensorOnboardingDialog.close')}
-    >
-      <div className="equipment-onboarding">
-        <ol className="equipment-steps">
-          {[
-            t('sensorOnboardingDialog.steps.prepare'),
-            t('sensorOnboardingDialog.steps.connect'),
-            t('sensorOnboardingDialog.steps.install'),
-          ].map((label, index) => (
-            <li
-              className={step > index + 1 ? 'is-complete' : step === index + 1 ? 'is-current' : ''}
-              aria-current={step === index + 1 ? 'step' : undefined}
-              key={label}
-            >
-              <span>{step > index + 1 ? <Check /> : index + 1}</span>
-              <div>
-                <small>{t('sensorOnboardingDialog.stepOf3', { value: index + 1 })}</small>
-                <strong>{label}</strong>
-              </div>
-            </li>
-          ))}
-        </ol>
-        {!ready && (
-          <p role="status">
-            <LoaderCircle className="is-spinning" /> {t('sensorOnboardingDialog.preparing')}
-          </p>
-        )}
-        {ready && step === 1 && (
-          <>
-            <div className="equipment-onboarding-intro">
+
+  const step = (value: number) => ({ value: progress.offset + value, total: progress.total });
+  const productName = product ? productTexts(product).name : undefined;
+
+  if (phase === 'LOADING')
+    return (
+      <SetupPage
+        pageKey="loading"
+        progress={step(1)}
+        centered
+        title={t('sensorSetup.preparing')}
+        hero={<LoaderCircle className="ss-spinner is-large" aria-hidden />}
+      />
+    );
+
+  if (phase === 'DONE' && installed)
+    return (
+      <SensorInstalledPage
+        direction={direction}
+        progress={progress.total}
+        name={installed.name}
+        room={installed.room}
+        photo={product ? <ProductPhoto product={product} /> : <DevicePicture device={device} />}
+        tip={product ? productTexts(product).placement[0] : undefined}
+        onDone={onClose}
+        onAddAnother={onAddAnother}
+      />
+    );
+
+  if (phase === 'FOUND' && device) {
+    const photo = sensorDevicePhoto(device);
+    const features = device.capabilities.filter(
+      ({ capability, primary }) =>
+        primary && !['battery', 'signal_strength', 'unknown'].includes(capability),
+    );
+    const modelMatch = product ? productMatchesDetectedModel(product, device.model) : undefined;
+    const suggestions = [
+      productName,
+      category && room ? `${sensorCategoryLabel(category)} ${room.name}` : undefined,
+      device.name,
+    ].filter((value, index, all): value is string => !!value && all.indexOf(value) === index);
+    return (
+      <SetupPage
+        pageKey="found"
+        direction={direction}
+        progress={step(3)}
+        eyebrow={t('sensorSetup.connectionSuccessful')}
+        title={t('sensorSetup.yourSensorIsReady')}
+        subtitle={[device.manufacturer, device.model].filter(Boolean).join(' · ') || device.name}
+        hero={
+          <div className="ss-found-hero">
+            <span className="ss-found-photo">
               {product ? (
-                <div className="equipment-onboarding-product-photo">
-                  <ProductPhoto product={product} />
-                </div>
+                <ProductPhoto product={product} />
+              ) : photo ? (
+                <img src={photo} alt="" />
               ) : (
-                <RadioTower />
+                <Radio aria-hidden />
               )}
-              <h3>
-                {product
-                  ? `${product.brand} ${productTexts(product).name}`
-                  : t('sensorOnboardingDialog.prepareYourSensor')}
-              </h3>
-              <p>{t('sensorOnboardingDialog.eliseFindsTheRightConnection')}</p>
-            </div>
-            <ol className="equipment-guide-steps">
-              {(product
-                ? productTexts(product).preparation
-                : textBlock('sensorOnboardingDialog.genericPreparation')
-              ).map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ol>
+            </span>
+            <span className="ss-found-badge" aria-hidden>
+              <Check />
+            </span>
+          </div>
+        }
+        footer={
+          <>
+            {error && (
+              <button
+                type="button"
+                className="ss-secondary"
+                disabled={busy}
+                onClick={() => void start()}
+              >
+                <RefreshCw aria-hidden />
+                {t('sensorSetup.retrySearch')}
+              </button>
+            )}
             <button
-              className="equipment-primary equipment-search-button"
+              type="button"
+              className="ss-primary"
+              disabled={busy || !canFinish}
+              onClick={() => void finish()}
+            >
+              {busy ? <LoaderCircle className="ss-spinner" aria-hidden /> : <Check aria-hidden />}
+              {busy
+                ? t('sensorSetup.installing')
+                : room
+                  ? t('sensorSetup.installIn', { name: room.name })
+                  : t('sensorSetup.chooseARoom')}
+            </button>
+          </>
+        }
+      >
+        {features.length > 0 && (
+          <div className="ss-tags" aria-label={t('sensorSetup.detectedFeatures')}>
+            {features.map((feature) => (
+              <span key={feature.sensorId}>
+                <Check aria-hidden /> {feature.label}
+              </span>
+            ))}
+          </div>
+        )}
+        {mismatch && (
+          <SetupNotice tone="danger">
+            {t('sensorSetup.thisDeviceDoesNotProvide', {
+              categoryLabel: category ? sensorCategoryLabel(category) : '',
+            })}
+          </SetupNotice>
+        )}
+        {!mismatch && wrongTarget && (
+          <SetupNotice tone="danger">{t('sensorSetup.wrongTarget')}</SetupNotice>
+        )}
+        {modelMatch === false && (
+          <SetupNotice tone="warning">
+            {t('sensorSetup.differentModelDetectedYouSelected', {
+              model: product?.model,
+              model2: device.model,
+            })}
+          </SetupNotice>
+        )}
+        {modelMatch === null && product && (
+          <SetupNotice tone="warning">
+            {t('sensorSetup.eliseCouldNotConfirmModel', { model: product.model })}
+          </SetupNotice>
+        )}
+
+        <SetupSection title={t('sensorSetup.finishInstallation')}>
+          <div className="ss-form">
+            {initialRoomId && room ? (
+              <SetupList>
+                <SetupRow
+                  icon={<MapPin aria-hidden />}
+                  title={room.name}
+                  detail={t('sensorSetup.room')}
+                  trailing={<Check className="ss-row-check" aria-hidden />}
+                />
+              </SetupList>
+            ) : (
+              <SetupField label={t('sensorSetup.whichRoom')}>
+                <select value={roomId} onChange={(event) => setRoomId(event.target.value)}>
+                  <option value="">{t('sensorSetup.chooseARoom')}</option>
+                  {[...rooms]
+                    .sort((a, b) => (a.floor ?? 0) - (b.floor ?? 0))
+                    .map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>
+                        {candidate.name}
+                      </option>
+                    ))}
+                </select>
+              </SetupField>
+            )}
+            <SetupField label={t('sensorSetup.sensorName')}>
+              <input
+                autoComplete="off"
+                maxLength={120}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </SetupField>
+            {suggestions.length > 1 && (
+              <div className="ss-suggestions" aria-label={t('sensorSetup.nameSuggestions')}>
+                {suggestions.map((suggestion) => (
+                  <button
+                    type="button"
+                    key={suggestion}
+                    aria-pressed={suggestion === name.trim()}
+                    onClick={() => setName(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
+            {isContact && (
+              <div className="ss-field">
+                <span className="ss-field-label">
+                  {t('sensorSetup.whatDoesThisOpeningMonitor')}
+                </span>
+                <SetupChoices
+                  label={t('sensorSetup.whatDoesThisOpeningMonitor')}
+                  value={openingType}
+                  onChange={setOpeningType}
+                  options={CONTACT_TYPES.filter(({ id }) => id !== 'BED').map(({ id }) => ({
+                    value: id,
+                    label: contactTypeLabel(id),
+                    icon: contactIcons[id],
+                  }))}
+                />
+              </div>
+            )}
+            {category === 'bed' && (
+              <>
+                <SetupNotice>
+                  {isBedOccupancySensorModel(device.model)
+                    ? t('sensorSetup.theTuyaPressureStripDetects')
+                    : t('sensorSetup.connectTheSdc41')}
+                </SetupNotice>
+                {!isBedOccupancySensorModel(device.model) && (
+                  <BedContactChoice value={occupiedWhen} onChange={setOccupiedWhen} />
+                )}
+              </>
+            )}
+          </div>
+        </SetupSection>
+        {error && <SetupNotice tone="danger">{error}</SetupNotice>}
+      </SetupPage>
+    );
+  }
+
+  if (phase === 'SEARCH') {
+    const detected = session?.connection?.deviceDetected === true;
+    const listening = session?.connection?.pairingOpen === true;
+    const shown = Math.max(0, secondsLeft);
+    if (failure)
+      return (
+        <SetupPage
+          pageKey="search-failed"
+          direction={direction}
+          progress={step(2)}
+          onBack={() => back('PREPARE')}
+          centered
+          eyebrow={t('sensorSetup.searchEnded')}
+          title={
+            failure.reason === 'REJECTED'
+              ? t('sensorSetup.pairingRejected')
+              : failure.reason === 'CANCELLED'
+                ? t('sensorSetup.searchStopped')
+                : t('sensorSetup.noSensorFound')
+          }
+          subtitle={
+            failure.reason === 'REJECTED'
+              ? (failure.message ?? t('sensorSetup.pairingRejectedText'))
+              : failure.reason === 'CANCELLED'
+                ? t('sensorSetup.searchStoppedText')
+                : t('sensorSetup.noDeviceFoundYouCan')
+          }
+          hero={
+            <span className="ss-hero-icon is-warning">
+              <RadioTower aria-hidden />
+            </span>
+          }
+          footer={
+            <button
+              type="button"
+              className="ss-primary"
               disabled={busy}
               onClick={() => void start()}
             >
-              <Radio />
-              {t('sensorOnboardingDialog.findMySensor')}
-            </button>
-          </>
-        )}
-        {step === 2 && (
-          <div className="equipment-onboarding-intro">
-            <Radio className={remaining > 0 ? 'equipment-pulse' : ''} />
-            <span className="equipment-kicker">
-              {deviceDetected
-                ? t('sensorOnboardingDialog.sensorDetected')
-                : t('sensorOnboardingDialog.searchingAroundTheHub')}
-            </span>
-            <h3>
-              {deviceDetected
-                ? t('sensorOnboardingDialog.pairingInProgress')
-                : t('sensorOnboardingDialog.waitingForYourSensor')}
-            </h3>
-            <p>
-              {deviceDetected
-                ? t('sensorOnboardingDialog.eliseFoundYourSensorAnd')
-                : t('sensorOnboardingDialog.keepTheSensorInPairing')}
-            </p>
-            <strong className="equipment-countdown" role="timer">
-              {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
-            </strong>
-            {session?.connection?.pairingOpen && !deviceDetected && (
-              <p>{t('sensorOnboardingDialog.theHubIsReady')}</p>
-            )}
-            {(error || remaining === 0) && (
-              <button className="equipment-secondary" disabled={busy} onClick={() => void start()}>
-                <RefreshCw />
-                {t('sensorOnboardingDialog.retrySearch')}
-              </button>
-            )}
-          </div>
-        )}
-        {step === 3 && device && (
-          <div className="equipment-install-step">
-            <div className="equipment-found-hero">
-              <span className="equipment-found-icon">
-                <Check />
-              </span>
-              <div>
-                <span className="equipment-kicker">
-                  {t('sensorOnboardingDialog.connectionSuccessful')}
-                </span>
-                <h3>{t('sensorOnboardingDialog.yourSensorIsReady')}</h3>
-                <p>
-                  {[device.manufacturer, device.model].filter(Boolean).join(' · ') || device.name}
-                </p>
-              </div>
-            </div>
-            <div className="equipment-detected-functions">
-              <span>{t('sensorOnboardingDialog.detectedFeatures')}</span>
-              <div className="equipment-capability-tags">
-                {device.capabilities
-                  .filter(
-                    ({ capability, primary }) =>
-                      primary && !['battery', 'signal_strength', 'unknown'].includes(capability),
-                  )
-                  .map((c) => (
-                    <span key={c.sensorId}>
-                      <Check /> {c.label}
-                    </span>
-                  ))}
-              </div>
-            </div>
-            {mismatch && (
-              <p className="equipment-install-warning" role="status">
-                {t('sensorOnboardingDialog.thisDeviceDoesNotProvide', { categoryLabel })}
-              </p>
-            )}
-            {modelMatch === false && (
-              <p className="equipment-install-warning" role="status">
-                {t('sensorOnboardingDialog.differentModelDetectedYouSelected', {
-                  model: product?.model,
-                  model2: device.model,
-                })}
-              </p>
-            )}
-            {modelMatch === null && product && (
-              <p className="equipment-install-warning" role="status">
-                {t('sensorOnboardingDialog.eliseCouldNotConfirmModel', { model: product.model })}
-              </p>
-            )}
-            <section className="equipment-install-form">
-              <div className="equipment-install-form-heading">
-                <Sparkles />
-                <div>
-                  <h4>{t('sensorOnboardingDialog.finishInstallation')}</h4>
-                  <p>{t('sensorOnboardingDialog.simplyChooseItsRoomAnd')}</p>
-                </div>
-              </div>
-              {initialRoomId ? (
-                <div className="equipment-room-choice is-selected">
-                  <MapPin />
-                  <span>
-                    <small>{t('sensorOnboardingDialog.room')}</small>
-                    <strong>{room?.name}</strong>
-                  </span>
-                  <Check />
-                </div>
+              {busy ? (
+                <LoaderCircle className="ss-spinner" aria-hidden />
               ) : (
-                <label className="equipment-field">
-                  {t('sensorOnboardingDialog.whichRoom')}
-                  <select value={roomId} onChange={(e) => setRoomId(e.target.value)}>
-                    <option value="">{t('sensorOnboardingDialog.chooseARoom')}</option>
-                    {[...rooms]
-                      .sort((a, b) => (a.floor ?? 0) - (b.floor ?? 0))
-                      .map((candidateRoom) => (
-                        <option key={candidateRoom.id} value={candidateRoom.id}>
-                          {candidateRoom.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
+                <RefreshCw aria-hidden />
               )}
-              {deviceSupportsCategory(device, 'contact') && category !== 'bed' && (
-                <label className="equipment-field">
-                  {t('sensorOnboardingDialog.whatDoesThisOpeningMonitor')}
-                  <select
-                    value={openingType}
-                    onChange={(e) => setOpeningType(e.target.value as ContactRole)}
-                  >
-                    <option value="">{t('sensorOnboardingDialog.chooseAnOpeningType')}</option>
-                    {CONTACT_TYPES.map((type) => (
-                      <option key={type.id} value={type.id}>
-                        {contactTypeLabel(type.id)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              {category === 'bed' && (
-                <>
-                  <p className="equipment-note">
-                    {isBedOccupancySensorModel(device.model)
-                      ? t('sensorOnboardingDialog.theTuyaPressureStripDetects')
-                      : t('sensorOnboardingDialog.connectTheSdc41')}
-                  </p>
-                  {!isBedOccupancySensorModel(device.model) && (
-                    <label className="equipment-field">
-                      {t('sensorOnboardingDialog.whenTheBedIsOccupied')}
-                      <select
-                        value={occupiedWhen}
-                        onChange={(event) =>
-                          setOccupiedWhen(event.target.value as 'CLOSED' | 'OPEN')
-                        }
-                      >
-                        <option value="CLOSED">
-                          {t('sensorOnboardingDialog.theContactIsClosed')}
-                        </option>
-                        <option value="OPEN">{t('sensorOnboardingDialog.theContactIsOpen')}</option>
-                      </select>
-                    </label>
-                  )}
-                </>
-              )}
-              <label className="equipment-field">
-                {t('sensorOnboardingDialog.sensorName')}
-                <input
-                  autoComplete="off"
-                  maxLength={120}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </label>
-            </section>
-            <footer className="equipment-dialog-footer">
-              <button
-                className="equipment-primary"
-                disabled={
-                  busy ||
-                  !name.trim() ||
-                  !room ||
-                  Boolean(mismatch) ||
-                  (deviceSupportsCategory(device, 'contact') && !openingType)
-                }
-                onClick={() => void finish()}
-              >
-                <Check />
-                {busy
-                  ? t('sensorOnboardingDialog.installing')
-                  : room
-                    ? t('sensorOnboardingDialog.installIn', { name: room.name })
-                    : t('sensorOnboardingDialog.chooseARoom')}
-              </button>
-            </footer>
+              {t('sensorSetup.retrySearch')}
+            </button>
+          }
+        >
+          <SetupSection title={t('sensorSetup.troubleshootingTitle')}>
+            <ol className="ss-steps is-compact">
+              {textBlock('sensorSetup.troubleshooting').map((line, index) => (
+                <li key={line}>
+                  <span>{index + 1}</span>
+                  <p>{line}</p>
+                </li>
+              ))}
+            </ol>
+          </SetupSection>
+          {error && <SetupNotice tone="danger">{error}</SetupNotice>}
+        </SetupPage>
+      );
+    // The hub listens for four minutes; a resumed search may have a little more left.
+    const total = Math.max(SEARCH_SECONDS, shown);
+    return (
+      <SetupPage
+        pageKey="search"
+        direction={direction}
+        progress={step(2)}
+        onBack={() => void stopSearch()}
+        backLabel={t('sensorSetup.cancel')}
+        centered
+        eyebrow={
+          detected ? t('sensorSetup.sensorDetected') : t('sensorSetup.searchingAroundTheHub')
+        }
+        title={
+          detected ? t('sensorSetup.pairingInProgress') : t('sensorSetup.waitingForYourSensor')
+        }
+        subtitle={
+          detected
+            ? t('sensorSetup.eliseFoundYourSensorAnd')
+            : t('sensorSetup.keepTheSensorInPairing')
+        }
+        hero={
+          <div className={`ss-radar ${detected ? 'is-detected' : ''}`} aria-hidden>
+            <span className="ss-radar-wave" />
+            <span className="ss-radar-wave" />
+            <span className="ss-radar-wave" />
+            <svg className="ss-radar-ring" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="56" />
+              <circle
+                cx="60"
+                cy="60"
+                r="56"
+                className="is-value"
+                style={{ strokeDashoffset: 352 * (1 - Math.min(1, shown / total)) }}
+              />
+            </svg>
+            <span className="ss-radar-core">
+              {product ? <ProductPhoto product={product} /> : <Radio />}
+            </span>
           </div>
+        }
+        footer={
+          <button
+            type="button"
+            className="ss-secondary"
+            disabled={busy}
+            onClick={() => void stopSearch()}
+          >
+            {t('sensorSetup.stopSearch')}
+          </button>
+        }
+      >
+        <strong className="ss-countdown" role="timer" aria-live="off">
+          {t('sensorSetup.timeLeft', {
+            time: `${Math.floor(shown / 60)}:${String(shown % 60).padStart(2, '0')}`,
+          })}
+        </strong>
+        <ol className="ss-checklist" aria-label={t('sensorSetup.searchProgress')}>
+          <CheckItem state="done">{t('sensorSetup.check.started')}</CheckItem>
+          <CheckItem state={listening || detected ? 'done' : 'active'}>
+            {t('sensorSetup.check.listening')}
+          </CheckItem>
+          <CheckItem state={detected ? 'done' : listening ? 'active' : 'waiting'}>
+            {t('sensorSetup.check.spotted')}
+          </CheckItem>
+          <CheckItem state={detected ? 'active' : 'waiting'}>
+            {t('sensorSetup.check.configuring')}
+          </CheckItem>
+        </ol>
+        {offline && (
+          <SetupNotice tone="warning" title={t('sensorSetup.offlineTitle')}>
+            {t('sensorSetup.offlineText')}
+          </SetupNotice>
         )}
-        {error && (
-          <p className="equipment-error" role="alert">
-            {error}
-          </p>
-        )}
-      </div>
-    </EquipmentDialog>
+      </SetupPage>
+    );
+  }
+
+  // PREPARE
+  const preparation = product
+    ? productTexts(product).preparation
+    : textBlock('sensorSetup.genericPreparation');
+  return (
+    <SetupPage
+      pageKey="prepare"
+      direction={direction}
+      progress={step(1)}
+      onBack={onBack}
+      backLabel={backLabel}
+      eyebrow={product ? `${product.brand} · ${productName}` : t('sensorSetup.preparation')}
+      title={t('sensorSetup.prepareYourSensor')}
+      subtitle={t('sensorSetup.eliseFindsTheRightConnection')}
+      hero={
+        product ? (
+          <div className="ss-product-hero ss-prepare-photo">
+            <ProductPhoto product={product} />
+          </div>
+        ) : (
+          <span className="ss-hero-icon">
+            <RadioTower aria-hidden />
+          </span>
+        )
+      }
+      footer={
+        <button type="button" className="ss-primary" disabled={busy} onClick={() => void start()}>
+          {busy ? <LoaderCircle className="ss-spinner" aria-hidden /> : <Radio aria-hidden />}
+          {busy ? t('sensorSetup.starting') : t('sensorSetup.findMySensor')}
+        </button>
+      }
+    >
+      <ol className="ss-steps">
+        {preparation.map((line, index) => (
+          <li key={line}>
+            <span>{index + 1}</span>
+            <p>{line}</p>
+          </li>
+        ))}
+      </ol>
+      <SetupNotice>{t('sensorSetup.stayClose')}</SetupNotice>
+      {error && <SetupNotice tone="danger">{error}</SetupNotice>}
+    </SetupPage>
+  );
+}
+
+function CheckItem({
+  state,
+  children,
+}: {
+  state: 'done' | 'active' | 'waiting';
+  children: ReactNode;
+}) {
+  return (
+    <li className={`is-${state}`}>
+      <span aria-hidden>
+        {state === 'done' ? <Check /> : state === 'active' ? <LoaderCircle /> : null}
+      </span>
+      {children}
+    </li>
+  );
+}
+
+function DevicePicture({ device }: { device: SensorUiDevice | null | undefined }) {
+  const photo = device ? sensorDevicePhoto(device) : null;
+  return photo ? <img src={photo} alt="" /> : <Radio aria-hidden />;
+}
+
+export function BedContactChoice({
+  value,
+  onChange,
+}: {
+  value: 'CLOSED' | 'OPEN';
+  onChange: (value: 'CLOSED' | 'OPEN') => void;
+}) {
+  return (
+    <div className="ss-field">
+      <span className="ss-field-label">{t('sensorSetup.whenTheBedIsOccupied')}</span>
+      <SetupSegmented
+        label={t('sensorSetup.whenTheBedIsOccupied')}
+        value={value}
+        onChange={onChange}
+        options={[
+          { value: 'CLOSED', label: t('sensorSetup.theContactIsClosed') },
+          { value: 'OPEN', label: t('sensorSetup.theContactIsOpen') },
+        ]}
+      />
+    </div>
+  );
+}
+
+/** Last page of every sensor setup: what was done and what comes next. */
+export function SensorInstalledPage({
+  direction,
+  progress,
+  name,
+  room,
+  photo,
+  tip,
+  onDone,
+  onAddAnother,
+}: {
+  direction: 'forward' | 'back';
+  progress: number;
+  name: string;
+  room: string;
+  photo: ReactNode;
+  tip?: string | undefined;
+  onDone: () => void;
+  onAddAnother?: (() => void) | undefined;
+}) {
+  return (
+    <SetupPage
+      pageKey="done"
+      direction={direction}
+      progress={{ value: progress, total: progress, label: t('sensorSetup.done') }}
+      centered
+      eyebrow={t('sensorSetup.allSet')}
+      title={t('sensorSetup.sensorInstalled')}
+      subtitle={t('sensorSetup.sensorInstalledText', { name, room })}
+      hero={
+        <div className="ss-done-hero">
+          <span className="ss-done-photo">{photo}</span>
+          <span className="ss-done-check" aria-hidden>
+            <svg viewBox="0 0 52 52">
+              <circle cx="26" cy="26" r="24" />
+              <path d="M15 27l7 7 15-16" />
+            </svg>
+          </span>
+        </div>
+      }
+      footer={
+        <>
+          {onAddAnother && (
+            <button type="button" className="ss-secondary" onClick={onAddAnother}>
+              {t('sensorSetup.addAnother')}
+            </button>
+          )}
+          <button type="button" className="ss-primary" onClick={onDone}>
+            {t('sensorSetup.finish')}
+          </button>
+        </>
+      }
+    >
+      {tip && (
+        <SetupList>
+          <SetupRow
+            icon={<MapPin aria-hidden />}
+            title={t('sensorSetup.nextPlaceIt')}
+            detail={tip}
+          />
+        </SetupList>
+      )}
+    </SetupPage>
+  );
+}
+
+/** Aborts with the flow or after `ms`; AbortSignal.any is missing on older iPads. */
+function withTimeout(parent: AbortSignal, ms: number) {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  const timer = window.setTimeout(abort, ms);
+  parent.addEventListener('abort', abort, { once: true });
+  controller.signal.addEventListener('abort', () => window.clearTimeout(timer), { once: true });
+  return controller.signal;
+}
+
+const friendlyError = (err: unknown) => {
+  const error = err as Error;
+  if (error?.name === 'TimeoutError' || error?.name === 'AbortError')
+    return t('sensorSetup.eliseDidNotAnswer');
+  if (error instanceof TypeError) return t('sensorSetup.eliseUnreachable');
+  return error?.message || t('sensorSetup.eliseUnreachable');
+};
+
+/** Sensor setup on its own: used by the room and stair pages. */
+export function SensorOnboardingDialog({
+  open,
+  rooms,
+  initialRoomId,
+  initialTarget,
+  contactRole,
+  bedOccupiedWhen,
+  category,
+  product,
+  onClose,
+  onInstalled,
+}: {
+  open: boolean;
+  locale: Locale;
+  rooms: SensorRoom[];
+  initialRoomId?: string;
+  initialTarget?: { type: 'OPENING' | 'STAIR'; id: string } | undefined;
+  contactRole?: ContactRole | undefined;
+  bedOccupiedWhen?: 'CLOSED' | 'OPEN' | undefined;
+  category?: RoomSensorCategory | undefined;
+  product?: SensorProduct | undefined;
+  onClose: () => void;
+  onInstalled: () => Promise<void>;
+}) {
+  if (!open) return null;
+  return (
+    <SetupSheet onClose={onClose}>
+      <SensorPairingFlow
+        rooms={rooms}
+        initialRoomId={initialRoomId}
+        initialTarget={initialTarget}
+        contactRole={contactRole}
+        bedOccupiedWhen={bedOccupiedWhen}
+        category={category}
+        product={product}
+        onClose={onClose}
+        onInstalled={onInstalled}
+      />
+    </SetupSheet>
   );
 }

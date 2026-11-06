@@ -89,11 +89,11 @@ describe('sensor installation confirmation', () => {
       item.textContent?.includes('Installer dans Salon'),
     )!;
     expect(button.disabled).toBe(true);
-    const select = document.body.querySelector('select')!;
-    act(() => {
-      select.value = 'FRIDGE';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    const fridge = Array.from(document.body.querySelectorAll('[role="radio"]')).find((item) =>
+      item.textContent?.includes('Frigo'),
+    ) as HTMLButtonElement;
+    act(() => fridge.click());
+    expect(fridge.getAttribute('aria-checked')).toBe('true');
     expect(button.disabled).toBe(false);
     await install();
     const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
@@ -184,9 +184,9 @@ describe('sensor installation confirmation', () => {
       await Promise.resolve();
     });
 
-    const photo = document.querySelector('.equipment-onboarding-product-photo img');
+    const photo = document.querySelector('.ss-prepare-photo img');
     expect(photo?.getAttribute('src')).toBe(product.image);
-    expect(document.querySelector('.equipment-onboarding-intro > svg')).toBeNull();
+    expect(document.querySelector('.ss-hero-icon')).toBeNull();
   });
 
   it('shows the live pairing phase as soon as the Zigbee sensor is detected', async () => {
@@ -221,7 +221,7 @@ describe('sensor installation confirmation', () => {
     expect(document.body.textContent).not.toContain('La box est prête à détecter.');
   });
 
-  it('closes after confirmation even if refreshing the page never finishes', async () => {
+  it('shows the end screen after confirmation even if refreshing never finishes', async () => {
     const onClose = vi.fn();
     const onInstalled = vi.fn(() => new Promise<void>(() => undefined));
     vi.stubGlobal(
@@ -237,8 +237,14 @@ describe('sensor installation confirmation', () => {
     await openDialog(onClose, onInstalled);
     await install();
 
-    expect(onClose).toHaveBeenCalledOnce();
     expect(onInstalled).toHaveBeenCalledOnce();
+    expect(document.body.textContent).toContain('Capteur installé');
+    expect(onClose).not.toHaveBeenCalled();
+    const done = Array.from(document.body.querySelectorAll('button')).find(
+      (item) => item.textContent === 'Terminé',
+    );
+    act(() => done!.click());
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it('recognizes a completed installation when its confirmation response is lost', async () => {
@@ -261,7 +267,64 @@ describe('sensor installation confirmation', () => {
     await openDialog(onClose, onInstalled);
     await install();
 
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(document.body.textContent).toContain('Capteur installé');
+    expect(onInstalled).toHaveBeenCalledOnce();
     expect(document.body.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('keeps searching through a dropped connection, then explains an expired search', async () => {
+    vi.useFakeTimers();
+    try {
+      const waiting = {
+        ...session,
+        status: 'WAITING_FOR_DEVICE',
+        detectedDevice: null,
+        connection: { pairingOpen: true, deviceDetected: false },
+      };
+      let polls = 0;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockImplementation((url: string) => {
+          if (url.endsWith('/current'))
+            return Promise.resolve({ ok: true, json: () => Promise.resolve(waiting) });
+          polls += 1;
+          if (polls === 1) return Promise.reject(new TypeError('Failed to fetch'));
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ ...waiting, status: 'EXPIRED' }),
+          });
+        }),
+      );
+      await act(async () => {
+        root.render(
+          <SensorOnboardingDialog
+            open
+            locale="fr"
+            rooms={[{ id: 'salon', name: 'Salon', kind: 'LIVING_ROOM' }]}
+            initialRoomId="salon"
+            onClose={() => undefined}
+            onInstalled={() => Promise.resolve()}
+          />,
+        );
+        await Promise.resolve();
+      });
+      expect(document.body.textContent).toContain('En attente de votre capteur');
+
+      const tick = async (ms: number) => {
+        await act(async () => {
+          vi.advanceTimersByTime(ms);
+          for (let i = 0; i < 5; i += 1) await Promise.resolve();
+        });
+      };
+      await tick(1300);
+      expect(document.body.textContent).toContain('Connexion à Élise interrompue');
+      expect(document.body.textContent).toContain('En attente de votre capteur');
+
+      await tick(3100);
+      expect(document.body.textContent).toContain('Aucun capteur trouvé');
+      expect(document.body.textContent).toContain('Relancer la recherche');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

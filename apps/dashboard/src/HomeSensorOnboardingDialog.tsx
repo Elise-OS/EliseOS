@@ -1,4 +1,3 @@
-import { ProductPhoto, SensorProductCard } from './SensorProductCard';
 import type { HomePlan, RoomSensorCategory, SensorProduct } from '@elise/contracts';
 import {
   ROOM_SENSOR_CATEGORIES,
@@ -7,45 +6,52 @@ import {
 } from '@elise/contracts';
 import {
   Activity,
-  Camera,
-  ArrowLeft,
-  Bath,
   BedDouble,
   Bell,
-  Boxes,
+  BookOpen,
+  Camera,
   Check,
   ChevronRight,
-  CookingPot,
   DoorOpen,
   Droplets,
   Flame,
-  Footprints,
-  House,
-  Plus,
+  LoaderCircle,
+  MapPin,
+  Plug,
   Radio,
+  ScanSearch,
   ShieldAlert,
-  Sofa,
   Sun,
   Thermometer,
-  Toilet,
-  Trees,
   UserRound,
-  Utensils,
-  Warehouse,
   Wind,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { EquipmentDialog } from './EquipmentDialog';
+import { useEffect, useState, type ReactNode } from 'react';
+import { roomIcon } from './home-visuals';
 import { dateLocale, type Locale, t } from './i18n';
-import { SENSOR_PRODUCTS, productsForCategory } from './sensor-products';
-import { SensorOnboardingDialog } from './SensorOnboardingDialog';
+import { productTexts, sensorCategoryDescription, sensorCategoryLabel } from './i18n/data';
+import { BedContactChoice, SensorInstalledPage, SensorPairingFlow } from './SensorOnboardingDialog';
+import { ProductPhoto } from './SensorProductCard';
+import {
+  SetupField,
+  SetupList,
+  SetupNotice,
+  SetupPage,
+  SetupRow,
+  SetupSection,
+  SetupSegmented,
+  SetupSheet,
+  SetupTile,
+  useSetupStep,
+  useSheetControls,
+} from './SetupSheet';
+import { SENSOR_PRODUCTS, productsForCategory, sensorDevicePhoto } from './sensor-products';
 import {
   connectedDevicesForCategory,
   sensorJson,
   sensorRequest,
   type SensorUiDevice,
 } from './sensor-ui';
-import { productTexts, sensorCategoryDescription, sensorCategoryLabel } from './i18n/data';
 
 const categoryIcons: Record<RoomSensorCategory, typeof Thermometer> = {
   temperature: Thermometer,
@@ -65,58 +71,31 @@ const categoryIcons: Record<RoomSensorCategory, typeof Thermometer> = {
   camera: Camera,
 };
 
-const roomIcons: Record<string, typeof House> = {
-  LIVING_ROOM: Sofa,
-  KITCHEN: CookingPot,
-  BEDROOM: BedDouble,
-  BATHROOM: Bath,
-  TOILET: Toilet,
-  ENTRANCE: DoorOpen,
-  HALLWAY: Footprints,
-  DINING_ROOM: Utensils,
-  GARAGE: Warehouse,
-  GARDEN: Trees,
-  TERRACE: Sun,
-  STORAGE: Boxes,
+/** Sensor kinds, gathered the way a family thinks about them. */
+const categoryGroups: Array<{
+  id: 'activity' | 'openings' | 'safety' | 'comfort';
+  categories: RoomSensorCategory[];
+}> = [
+  { id: 'activity', categories: ['presence', 'motion', 'fall_detection', 'bed'] },
+  { id: 'openings', categories: ['contact', 'button', 'camera'] },
+  { id: 'safety', categories: ['smoke', 'carbon_monoxide', 'water_leak'] },
+  {
+    id: 'comfort',
+    categories: ['temperature', 'humidity', 'shower', 'air_quality', 'illuminance'],
+  },
+];
+
+type Step = 'ROOM' | 'CATEGORY' | 'CATALOG' | 'PRODUCT' | 'ASSIGN' | 'PAIR' | 'DONE';
+const TOTAL = 6;
+const stepProgress: Record<Exclude<Step, 'PAIR' | 'DONE'>, number> = {
+  ROOM: 1,
+  CATEGORY: 2,
+  CATALOG: 3,
+  PRODUCT: 3,
+  ASSIGN: 6,
 };
 
-export const roomIcon = (kind: string, name: string) => {
-  if (kind !== 'OTHER' && roomIcons[kind]) return roomIcons[kind];
-  const normalized = name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-  if (/salon|sejour/.test(normalized)) return Sofa;
-  if (/cuisine/.test(normalized)) return CookingPot;
-  if (/chambre/.test(normalized)) return BedDouble;
-  if (/salle de bain|sdb|douche/.test(normalized)) return Bath;
-  if (/toilette|\bwc\b/.test(normalized)) return Toilet;
-  if (/entree|vestibule/.test(normalized)) return DoorOpen;
-  if (/couloir|degagement|palier/.test(normalized)) return Footprints;
-  if (/salle a manger/.test(normalized)) return Utensils;
-  if (/garage/.test(normalized)) return Warehouse;
-  if (/jardin/.test(normalized)) return Trees;
-  if (/terrasse|balcon/.test(normalized)) return Sun;
-  if (/cagibi|cellier|rangement|placard|reserve/.test(normalized)) return Boxes;
-  return House;
-};
-
-type Step = 'ROOM' | 'CATEGORY' | 'CATALOG' | 'PRODUCT' | 'ASSIGN' | 'INSTALL';
-
-export function HomeSensorOnboardingDialog({
-  open,
-  locale,
-  plan,
-  devices,
-  initialRoomId,
-  initialCategory,
-  initialProduct,
-  initialTarget,
-  initialTargetLabel,
-  allowedCategories,
-  onClose,
-  onInstalled,
-}: {
+export function HomeSensorOnboardingDialog(props: {
   open: boolean;
   locale: Locale;
   plan: HomePlan;
@@ -130,41 +109,60 @@ export function HomeSensorOnboardingDialog({
   onClose: () => void;
   onInstalled: () => Promise<void>;
 }) {
-  const [step, setStep] = useState<Step>('ROOM');
-  const [roomId, setRoomId] = useState('');
-  const [category, setCategory] = useState<RoomSensorCategory | undefined>();
+  if (!props.open) return null;
+  return (
+    <SetupSheet onClose={props.onClose}>
+      <HomeSensorFlow {...props} />
+    </SetupSheet>
+  );
+}
+
+function HomeSensorFlow({
+  plan,
+  devices,
+  initialRoomId,
+  initialCategory,
+  initialProduct,
+  initialTarget,
+  initialTargetLabel,
+  allowedCategories,
+  onClose,
+  onInstalled,
+}: Parameters<typeof HomeSensorOnboardingDialog>[0]) {
+  const firstStep: Step = initialRoomId
+    ? initialProduct
+      ? 'PRODUCT'
+      : initialCategory
+        ? 'CATALOG'
+        : 'CATEGORY'
+    : 'ROOM';
+  const { step, direction, go, back, reset } = useSetupStep<Step>(firstStep);
+  const [roomId, setRoomId] = useState(initialRoomId ?? '');
+  const [category, setCategory] = useState<RoomSensorCategory | undefined>(initialCategory);
   const [tab, setTab] = useState<'PRODUCTS' | 'CONNECTED'>('PRODUCTS');
-  const [product, setProduct] = useState<SensorProduct | undefined>();
+  const [product, setProduct] = useState<SensorProduct | undefined>(initialProduct);
   const [assigning, setAssigning] = useState<SensorUiDevice | null>(null);
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
-  const [bedOccupiedWhen, setBedOccupiedWhen] = useState<'CLOSED' | 'OPEN'>('CLOSED');
+  const [bedOccupiedWhen, setBedOccupiedWhen] = useState<'CLOSED' | 'OPEN'>(
+    initialProduct && isBedOccupancySensorModel(initialProduct.model) ? 'OPEN' : 'CLOSED',
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [pairingRun, setPairingRun] = useState(0);
+  useSheetControls({ busy, onClose });
 
+  // The parent can point the same open flow at another room, kind or product.
   useEffect(() => {
-    if (!open) return;
-    setStep(
-      initialRoomId
-        ? initialProduct
-          ? 'PRODUCT'
-          : initialCategory
-            ? 'CATALOG'
-            : 'CATEGORY'
-        : 'ROOM',
-    );
+    reset(firstStep);
     setRoomId(initialRoomId ?? '');
     setCategory(initialCategory);
-    setTab('PRODUCTS');
     setProduct(initialProduct);
+    setTab('PRODUCTS');
     setAssigning(null);
-    setBedOccupiedWhen(
-      initialProduct && isBedOccupancySensorModel(initialProduct.model) ? 'OPEN' : 'CLOSED',
-    );
     setError('');
-  }, [open, initialRoomId, initialCategory, initialProduct, initialTarget?.id]);
-
-  if (!open) return null;
+    // The initial values identify one flow; `reset` only replaces state.
+  }, [initialRoomId, initialCategory, initialProduct, initialTarget?.id]);
 
   const rooms = plan.levels.flatMap((level) =>
     level.rooms.map((room) => ({
@@ -175,40 +173,50 @@ export function HomeSensorOnboardingDialog({
       floorName: level.name,
     })),
   );
-
-  if (step === 'INSTALL' && roomId) {
-    return (
-      <SensorOnboardingDialog
-        open
-        locale={locale}
-        rooms={rooms}
-        initialRoomId={roomId}
-        initialTarget={category === 'bed' ? undefined : initialTarget}
-        category={category}
-        contactRole={category === 'bed' ? 'BED' : undefined}
-        bedOccupiedWhen={bedOccupiedWhen}
-        product={product}
-        onClose={onClose}
-        onInstalled={onInstalled}
-      />
-    );
-  }
-
   const selectedRoom = rooms.find((room) => room.id === roomId);
-  const selectedCategory = ROOM_SENSOR_CATEGORIES.find(({ id }) => id === category);
-  const requestedCategory = ROOM_SENSOR_CATEGORIES.find(({ id }) => id === initialCategory);
-  const outdoor = plan.levels
-    .flatMap(({ rooms }) => rooms)
-    .some(({ id, kind }) => id === roomId && ['GARDEN', 'TERRACE'].includes(kind));
+  const place = initialTargetLabel ?? selectedRoom?.name ?? '';
+  const outdoor = !!selectedRoom && ['GARDEN', 'TERRACE'].includes(selectedRoom.kind);
   const products = category
     ? productsForCategory(category, outdoor)
     : initialProduct && initialProduct.kind !== 'ROOM_SENSOR'
       ? SENSOR_PRODUCTS.filter((item) => item.kind !== 'ROOM_SENSOR' && (!outdoor || item.outdoor))
       : [];
   const compatible = category ? connectedDevicesForCategory(devices, category) : [];
+  const devicesInRoom = (id: string) => devices.filter((device) => device.room?.id === id).length;
+  const progress = (value: number) => ({ value, total: TOTAL });
+  const placeChip = place ? (
+    <span className="ss-place">
+      <MapPin aria-hidden />
+      {place}
+    </span>
+  ) : undefined;
+
+  const restart = () => {
+    setProduct(undefined);
+    setAssigning(null);
+    setError('');
+    if (initialRoomId) {
+      setCategory(initialCategory);
+      reset(initialCategory ? 'CATALOG' : 'CATEGORY');
+    } else {
+      setRoomId('');
+      setCategory(initialCategory);
+      reset('ROOM');
+    }
+  };
+
+  const chooseRoom = (id: string, kind: string) => {
+    setRoomId(id);
+    setError('');
+    if (initialCategory && roomSupportsCategory(kind, initialCategory)) {
+      setCategory(initialCategory);
+      setTab('PRODUCTS');
+      go('CATALOG');
+    } else go('CATEGORY');
+  };
 
   const assign = async () => {
-    if (!assigning || !name.trim()) return;
+    if (!assigning || !name.trim() || busy) return;
     setBusy(true);
     setError('');
     try {
@@ -223,8 +231,8 @@ export function HomeSensorOnboardingDialog({
           ...(category === 'bed' ? { contactRole: 'BED', bedOccupiedWhen } : {}),
         }),
       );
-      await onInstalled();
-      onClose();
+      go('DONE');
+      void onInstalled().catch(() => undefined);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -232,340 +240,436 @@ export function HomeSensorOnboardingDialog({
     }
   };
 
-  return (
-    <EquipmentDialog
-      title={
-        step === 'ROOM'
-          ? t('homeSensorOnboardingDialog.chooseARoom')
-          : step === 'CATEGORY'
-            ? (initialTargetLabel ?? selectedRoom?.name)
-              ? t('homeSensorOnboardingDialog.addTo', {
-                  place: initialTargetLabel ?? selectedRoom?.name,
-                })
-              : t('homeSensorOnboardingDialog.addToTheRoom')
-            : `${selectedCategory ? sensorCategoryLabel(selectedCategory.id) : t('homeSensorOnboardingDialog.sensor')} · ${initialTargetLabel ?? selectedRoom?.name ?? ''}`
-      }
-      onClose={onClose}
-      busy={busy}
-    >
-      <div className="home-sensor-flow">
-        <ol className="home-sensor-flow-steps" aria-label={t('homeSensorOnboardingDialog.steps')}>
-          <li className="is-active">
-            <span>{step !== 'ROOM' ? <Check /> : '1'}</span>
-            {t('homeSensorOnboardingDialog.room')}
-          </li>
-          <li className={step !== 'ROOM' ? 'is-active' : ''}>
-            <span>{!['ROOM', 'CATEGORY'].includes(step) ? <Check /> : '2'}</span>
-            {t('homeSensorOnboardingDialog.sensorType')}
-          </li>
-        </ol>
+  if (step === 'PAIR' && roomId)
+    return (
+      <SensorPairingFlow
+        key={pairingRun}
+        rooms={rooms}
+        initialRoomId={roomId}
+        initialTarget={category === 'bed' ? undefined : initialTarget}
+        category={category}
+        contactRole={category === 'bed' ? 'BED' : undefined}
+        bedOccupiedWhen={bedOccupiedWhen}
+        product={product}
+        progress={{ offset: 3, total: TOTAL }}
+        onBack={() => back(product ? 'PRODUCT' : 'CATALOG')}
+        backLabel={product ? productTexts(product).name : t('sensorSetup.devices')}
+        onClose={onClose}
+        onInstalled={onInstalled}
+        onAddAnother={() => {
+          setPairingRun((run) => run + 1);
+          restart();
+        }}
+      />
+    );
 
-        {step === 'ROOM' ? (
-          <>
-            <div className="home-sensor-flow-intro">
-              <span className="home-sensor-flow-icon">
-                <House />
-              </span>
-              <div>
-                <h3>{t('homeSensorOnboardingDialog.whereWillYouInstallIt')}</h3>
-                <p>
-                  {requestedCategory
-                    ? t('homeSensorOnboardingDialog.chooseRoomFor', {
-                        category: sensorCategoryLabel(requestedCategory.id),
-                      })
-                    : t('homeSensorOnboardingDialog.choosingARoomLetsElise')}
-                </p>
-              </div>
-            </div>
-            <div className="home-sensor-room-groups">
-              {plan.levels.map((level) => (
-                <section key={level.id}>
-                  <h4>{level.name}</h4>
-                  <div className="home-sensor-room-grid">
-                    {level.rooms.map((room) => {
-                      const RoomIcon = roomIcon(room.kind, room.name);
-                      return (
-                        <button
-                          key={room.id}
-                          onClick={() => {
-                            setRoomId(room.id);
-                            if (
-                              initialCategory &&
-                              roomSupportsCategory(room.kind, initialCategory)
-                            ) {
-                              setCategory(initialCategory);
-                              setTab('PRODUCTS');
-                              setStep('CATALOG');
-                            } else {
-                              setStep('CATEGORY');
-                            }
-                          }}
-                        >
-                          <span
-                            className="home-sensor-room-icon"
-                            style={{ background: room.geometry.color }}
-                          >
-                            <RoomIcon />
-                          </span>
-                          <span>
-                            <strong>{room.name}</strong>
-                            <small>
-                              {room.areaM2 != null
-                                ? `${new Intl.NumberFormat(dateLocale(), { maximumFractionDigits: 1 }).format(room.areaM2)} m²`
-                                : t('homeSensorOnboardingDialog.chooseThisRoom')}
-                            </small>
-                          </span>
-                          <Plus />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
-            </div>
-            {!rooms.length && (
-              <p className="equipment-note" role="status">
-                {t('homeSensorOnboardingDialog.noRoomsAreDefinedClose')}
-              </p>
+  if (step === 'DONE' && assigning)
+    return (
+      <SensorInstalledPage
+        direction={direction}
+        progress={TOTAL}
+        name={name.trim()}
+        room={selectedRoom?.name ?? place}
+        photo={<DeviceIcon device={assigning} />}
+        onDone={onClose}
+        onAddAnother={restart}
+      />
+    );
+
+  if (step === 'ASSIGN' && assigning) {
+    const moving = !!assigning.room && assigning.room.id !== roomId;
+    return (
+      <SetupPage
+        pageKey="assign"
+        direction={direction}
+        progress={progress(stepProgress.ASSIGN)}
+        onBack={() => back('CATALOG')}
+        backLabel={t('sensorSetup.devices')}
+        eyebrow={t('sensorSetup.alreadyConnectedToElise')}
+        title={assigning.name}
+        subtitle={
+          [assigning.manufacturer, assigning.model].filter(Boolean).join(' · ') || undefined
+        }
+        hero={
+          <div className="ss-found-hero">
+            <span className="ss-found-photo">
+              <DeviceIcon device={assigning} />
+            </span>
+          </div>
+        }
+        footer={
+          <button
+            type="button"
+            className="ss-primary"
+            disabled={busy || !name.trim()}
+            onClick={() => void assign()}
+          >
+            {busy ? <LoaderCircle className="ss-spinner" aria-hidden /> : <Check aria-hidden />}
+            {assigning.room?.id === roomId
+              ? t('sensorSetup.save')
+              : t('sensorSetup.assignTo', { name: selectedRoom?.name })}
+          </button>
+        }
+      >
+        {moving && (
+          <SetupNotice tone="warning">
+            {t('sensorSetup.thisDeviceAndAllIts', {
+              name: assigning.room?.name,
+              name2: selectedRoom?.name,
+            })}
+          </SetupNotice>
+        )}
+        <div className="ss-form">
+          <SetupField label={t('sensorSetup.name')}>
+            <input
+              value={name}
+              maxLength={120}
+              autoComplete="off"
+              onChange={(event) => setName(event.target.value)}
+            />
+          </SetupField>
+          <SetupField label={t('sensorSetup.locationOptional')}>
+            <input
+              value={note}
+              maxLength={500}
+              autoComplete="off"
+              onChange={(event) => setNote(event.target.value)}
+              placeholder={t('sensorSetup.forExampleByTheBed')}
+            />
+          </SetupField>
+          {category === 'bed' && (
+            <SetupNotice>
+              {isBedOccupancySensorModel(assigning.model)
+                ? t('sensorSetup.theTuyaStripConnectsDirectly')
+                : t('sensorSetup.connectADryContactPressure')}
+            </SetupNotice>
+          )}
+          {category === 'bed' && !isBedOccupancySensorModel(assigning.model) && (
+            <BedContactChoice value={bedOccupiedWhen} onChange={setBedOccupiedWhen} />
+          )}
+        </div>
+        {error && <SetupNotice tone="danger">{error}</SetupNotice>}
+      </SetupPage>
+    );
+  }
+
+  if (step === 'PRODUCT' && product) {
+    const texts = productTexts(product);
+    return (
+      <SetupPage
+        pageKey={`product-${product.id}`}
+        direction={direction}
+        progress={progress(stepProgress.PRODUCT)}
+        onBack={() => back('CATALOG')}
+        backLabel={t('sensorSetup.devices')}
+        eyebrow={product.brand}
+        title={texts.name}
+        subtitle={product.model}
+        hero={
+          <div className="ss-product-hero">
+            <ProductPhoto product={product} />
+          </div>
+        }
+        footer={
+          <button type="button" className="ss-primary" onClick={() => go('PAIR')}>
+            {t('sensorSetup.installThisSensor')}
+            <ChevronRight aria-hidden />
+          </button>
+        }
+      >
+        <div className="ss-tags">
+          <span className="is-accent">
+            <Radio aria-hidden /> {product.protocol === 'zigbee' ? 'Zigbee' : product.protocol}
+          </span>
+          {product.compatibility === 'DOCUMENTED' && (
+            <span>
+              <Check aria-hidden /> {t('sensorSetup.documentedCompatibility')}
+            </span>
+          )}
+          {product.categories.map((id) => (
+            <span key={id}>{sensorCategoryLabel(id)}</span>
+          ))}
+        </div>
+        <SetupSection title={t('sensorSetup.documentedFeatures')}>
+          <SetupList>
+            {texts.features.map((feature) => (
+              <SetupRow key={feature} icon={<Check aria-hidden />} title={feature} />
+            ))}
+          </SetupList>
+        </SetupSection>
+        <SetupSection title={t('sensorSetup.practical')}>
+          <SetupList>
+            <SetupRow
+              icon={<Plug aria-hidden />}
+              title={t('sensorSetup.power')}
+              detail={texts.power}
+            />
+            {product.manualUrl && (
+              <a className="ss-row" href={product.manualUrl} target="_blank" rel="noreferrer">
+                <span className="ss-row-icon">
+                  <BookOpen aria-hidden />
+                </span>
+                <span className="ss-row-text">
+                  <strong>{t('sensorSetup.manual')}</strong>
+                  <small>{t('sensorSetup.manualDetail')}</small>
+                </span>
+                <ChevronRight className="ss-row-chevron" aria-hidden />
+              </a>
             )}
-          </>
-        ) : step === 'CATEGORY' ? (
+          </SetupList>
+        </SetupSection>
+      </SetupPage>
+    );
+  }
+
+  if (step === 'CATALOG' || step === 'PRODUCT') {
+    const showConnected = compatible.length > 0 && tab === 'CONNECTED';
+    return (
+      <SetupPage
+        pageKey={`catalog-${category ?? 'any'}`}
+        direction={direction}
+        progress={progress(stepProgress.CATALOG)}
+        onBack={initialCategory && initialRoomId ? undefined : () => back('CATEGORY')}
+        backLabel={t('sensorSetup.usage')}
+        eyebrow={
           <>
-            <button className="equipment-text-button" onClick={() => setStep('ROOM')}>
-              <ArrowLeft />
-              {t('homeSensorOnboardingDialog.changeRoom')}
-            </button>
-            <div className="home-sensor-flow-intro is-compact">
-              <div>
-                <h3>{t('homeSensorOnboardingDialog.whatDoYouWantTo')}</h3>
-                <p>{t('homeSensorOnboardingDialog.everySensorTypeSupportedBy')}</p>
+            {category ? sensorCategoryLabel(category) : t('sensorSetup.sensor')}
+            {placeChip}
+          </>
+        }
+        title={t('sensorSetup.chooseYourDevice')}
+        subtitle={t('sensorSetup.chooseYourDeviceText')}
+      >
+        {compatible.length > 0 && (
+          <SetupSegmented
+            label={t('sensorSetup.devices')}
+            value={tab}
+            onChange={setTab}
+            options={[
+              {
+                value: 'PRODUCTS',
+                label: (
+                  <>
+                    {t('sensorSetup.documentedProducts')}{' '}
+                    <span className="ss-count">{products.length}</span>
+                  </>
+                ),
+              },
+              {
+                value: 'CONNECTED',
+                label: (
+                  <>
+                    {t('sensorSetup.alreadyConnected')}{' '}
+                    <span className="ss-count">{compatible.length}</span>
+                  </>
+                ),
+              },
+            ]}
+          />
+        )}
+        {showConnected ? (
+          <SetupList>
+            {compatible.map((device) => (
+              <SetupRow
+                key={device.id}
+                icon={<DeviceIcon device={device} />}
+                title={device.name}
+                detail={[
+                  device.room?.id === roomId
+                    ? t('sensorSetup.alreadyInThisRoom')
+                    : (device.room?.name ?? t('sensorSetup.unassigned')),
+                  device.batteryPercent !== null
+                    ? t('sensorSetup.battery', { value: device.batteryPercent })
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                trailing={
+                  device.room?.id === roomId ? (
+                    <Check className="ss-row-check" aria-hidden />
+                  ) : undefined
+                }
+                onSelect={() => {
+                  setAssigning(device);
+                  setName(device.name);
+                  setNote(device.placementNote ?? '');
+                  if (category === 'bed')
+                    setBedOccupiedWhen(isBedOccupancySensorModel(device.model) ? 'OPEN' : 'CLOSED');
+                  setError('');
+                  go('ASSIGN');
+                }}
+              />
+            ))}
+          </SetupList>
+        ) : products.length > 0 ? (
+          <div className="ss-products">
+            {products.map((item) => (
+              <button
+                type="button"
+                className="ss-product"
+                key={item.id}
+                onClick={() => {
+                  setProduct(item);
+                  go('PRODUCT');
+                }}
+              >
+                <span className="ss-product-photo">
+                  <ProductPhoto product={item} />
+                </span>
+                <span className="ss-product-text">
+                  <small>{item.brand}</small>
+                  <strong>{productTexts(item).name}</strong>
+                  <span>
+                    {item.categories.length
+                      ? item.categories.map((id) => sensorCategoryLabel(id)).join(' · ')
+                      : t('sensorProductCard.powerEnergy')}
+                  </span>
+                </span>
+                <ChevronRight className="ss-product-chevron" aria-hidden />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <SetupNotice>{t('sensorSetup.noDocumentedProduct')}</SetupNotice>
+        )}
+        <SetupList>
+          <SetupRow
+            tone="accent"
+            icon={<ScanSearch aria-hidden />}
+            title={t('sensorSetup.myModelIsNotListed')}
+            detail={t('sensorSetup.startAutomaticDetection')}
+            onSelect={() => {
+              setProduct(undefined);
+              go('PAIR');
+            }}
+          />
+        </SetupList>
+      </SetupPage>
+    );
+  }
+
+  if (step === 'CATEGORY' && selectedRoom) {
+    const available = (id: RoomSensorCategory) =>
+      roomSupportsCategory(selectedRoom.kind, id) &&
+      (!allowedCategories || allowedCategories.includes(id));
+    const groups = categoryGroups
+      .map((group) => ({ ...group, categories: group.categories.filter(available) }))
+      .filter((group) => group.categories.length > 0);
+    // Kinds Élise knows but that no group lists still appear, at the end.
+    const grouped = new Set(categoryGroups.flatMap((group) => group.categories));
+    const others = ROOM_SENSOR_CATEGORIES.map(({ id }) => id).filter(
+      (id) => !grouped.has(id) && available(id),
+    );
+    return (
+      <SetupPage
+        pageKey="category"
+        direction={direction}
+        progress={progress(stepProgress.CATEGORY)}
+        onBack={initialRoomId ? undefined : () => back('ROOM')}
+        backLabel={t('sensorSetup.rooms')}
+        eyebrow={placeChip}
+        title={t('sensorSetup.whatDoYouWantTo')}
+        subtitle={t('sensorSetup.everySensorTypeSupportedBy')}
+      >
+        {[...groups, ...(others.length ? [{ id: 'other' as const, categories: others }] : [])].map(
+          (group) => (
+            <SetupSection key={group.id} title={t(`sensorSetup.groups.${group.id}`)}>
+              <div className="ss-tiles">
+                {group.categories.map((id) => {
+                  const Icon = categoryIcons[id];
+                  const installed = connectedDevicesForCategory(devices, id).some(
+                    (device) => device.room?.id === roomId,
+                  );
+                  return (
+                    <SetupTile
+                      key={id}
+                      icon={<Icon aria-hidden />}
+                      tint={`var(--ss-group-${group.id}, var(--ss-fill))`}
+                      title={sensorCategoryLabel(id)}
+                      detail={sensorCategoryDescription(id)}
+                      badge={
+                        installed ? (
+                          <>
+                            <Check aria-hidden /> {t('sensorSetup.installed')}
+                          </>
+                        ) : undefined
+                      }
+                      onSelect={() => {
+                        setCategory(id);
+                        setTab('PRODUCTS');
+                        go('CATALOG');
+                      }}
+                    />
+                  );
+                })}
               </div>
-            </div>
-            <div className="equipment-category-picker home-sensor-category-picker">
-              {ROOM_SENSOR_CATEGORIES.filter(
-                ({ id }) =>
-                  (!selectedRoom || roomSupportsCategory(selectedRoom.kind, id)) &&
-                  (!allowedCategories || allowedCategories.includes(id)),
-              ).map((definition) => {
-                const Icon = categoryIcons[definition.id];
+            </SetupSection>
+          ),
+        )}
+      </SetupPage>
+    );
+  }
+  // ROOM
+  return (
+    <SetupPage
+      pageKey="room"
+      direction={direction}
+      progress={progress(stepProgress.ROOM)}
+      title={t('sensorSetup.whereWillYouInstallIt')}
+      subtitle={
+        initialCategory
+          ? t('sensorSetup.chooseRoomFor', { category: sensorCategoryLabel(initialCategory) })
+          : t('sensorSetup.choosingARoomLetsElise')
+      }
+    >
+      {plan.levels
+        .filter((level) => level.rooms.length > 0)
+        .map((level) => (
+          <SetupSection
+            key={level.id}
+            title={plan.levels.length > 1 ? level.name : undefined}
+            aside={
+              plan.levels.length > 1
+                ? t('sensorSetup.roomCount', { count: level.rooms.length })
+                : undefined
+            }
+          >
+            <div className="ss-tiles">
+              {level.rooms.map((room) => {
+                const RoomIcon = roomIcon(room);
+                const count = devicesInRoom(room.id);
+                const area =
+                  room.areaM2 != null
+                    ? `${new Intl.NumberFormat(dateLocale(), { maximumFractionDigits: 1 }).format(room.areaM2)} m²`
+                    : null;
                 return (
-                  <button
-                    key={definition.id}
-                    onClick={() => {
-                      setCategory(definition.id);
-                      setTab('PRODUCTS');
-                      setStep('CATALOG');
-                    }}
-                  >
-                    <Icon />
-                    <span>
-                      <strong>{sensorCategoryLabel(definition.id)}</strong>
-                      <small>{sensorCategoryDescription(definition.id)}</small>
-                    </span>
-                    <Plus />
-                  </button>
+                  <SetupTile
+                    key={room.id}
+                    icon={<RoomIcon aria-hidden />}
+                    tint={room.geometry.color}
+                    title={room.name}
+                    detail={
+                      [area, count ? t('sensorSetup.sensorCount', { count }) : null]
+                        .filter(Boolean)
+                        .join(' · ') || t('sensorSetup.noSensorYet')
+                    }
+                    onSelect={() => chooseRoom(room.id, room.kind)}
+                  />
                 );
               })}
             </div>
-          </>
-        ) : step === 'ASSIGN' && assigning ? (
-          <>
-            <button className="equipment-text-button" onClick={() => setStep('CATALOG')}>
-              <ArrowLeft /> {t('homeSensorOnboardingDialog.backToSensors')}
-            </button>
-            <h3>{assigning.name}</h3>
-            {assigning.room && assigning.room.id !== roomId && (
-              <p className="equipment-note">
-                {t('homeSensorOnboardingDialog.thisDeviceAndAllIts', {
-                  name: assigning.room.name,
-                  name2: selectedRoom?.name,
-                })}
-              </p>
-            )}
-            <label className="equipment-field">
-              {t('homeSensorOnboardingDialog.name')}
-              <input
-                value={name}
-                maxLength={120}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </label>
-            <label className="equipment-field">
-              {t('homeSensorOnboardingDialog.locationOptional')}
-              <input
-                value={note}
-                maxLength={500}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder={t('homeSensorOnboardingDialog.forExampleByTheBed')}
-              />
-            </label>
-            {category === 'bed' && (
-              <p className="equipment-note">
-                {assigning
-                  ? isBedOccupancySensorModel(assigning.model)
-                    ? t('homeSensorOnboardingDialog.theTuyaStripConnectsDirectly')
-                    : t('homeSensorOnboardingDialog.connectADryContactPressure')
-                  : t('homeSensorOnboardingDialog.theTuyaStripSitsUnder')}
-              </p>
-            )}
-            {category === 'bed' && (!assigning || !isBedOccupancySensorModel(assigning.model)) && (
-              <label className="equipment-field">
-                {t('homeSensorOnboardingDialog.whenTheBedIsOccupied')}
-                <select
-                  value={bedOccupiedWhen}
-                  onChange={(event) => setBedOccupiedWhen(event.target.value as 'CLOSED' | 'OPEN')}
-                >
-                  <option value="CLOSED">
-                    {t('homeSensorOnboardingDialog.theContactIsClosed')}
-                  </option>
-                  <option value="OPEN">{t('homeSensorOnboardingDialog.theContactIsOpen')}</option>
-                </select>
-              </label>
-            )}
-            <footer className="equipment-dialog-footer">
-              <button
-                className="equipment-primary"
-                disabled={busy || !name.trim()}
-                onClick={() => void assign()}
-              >
-                <Check />
-                {assigning.room?.id === roomId
-                  ? t('homeSensorOnboardingDialog.save')
-                  : t('homeSensorOnboardingDialog.assignTo', { name: selectedRoom?.name })}
-              </button>
-            </footer>
-          </>
-        ) : step === 'PRODUCT' && product ? (
-          <>
-            <button className="equipment-text-button" onClick={() => setStep('CATALOG')}>
-              <ArrowLeft /> {t('homeSensorOnboardingDialog.allProducts')}
-            </button>
-            <div className="equipment-product-detail">
-              <ProductPhoto product={product} />
-              <div>
-                <span className="equipment-kicker">{product.brand}</span>
-                <h3>{productTexts(product).name}</h3>
-                <p>{product.model}</p>
-                <span className="equipment-product-badge">
-                  {t('homeSensorOnboardingDialog.documentedCompatibility')}
-                </span>
-              </div>
-            </div>
-            <div className="equipment-capability-tags">
-              {product.categories.map((id) => (
-                <span key={id}>{sensorCategoryLabel(id)}</span>
-              ))}
-            </div>
-            <h4>{t('homeSensorOnboardingDialog.documentedFeatures')}</h4>
-            <ul>
-              {productTexts(product).features.map((feature) => (
-                <li key={feature}>{feature}</li>
-              ))}
-            </ul>
-            <footer className="equipment-dialog-footer">
-              <button className="equipment-primary" onClick={() => setStep('INSTALL')}>
-                {t('homeSensorOnboardingDialog.installThisSensor')} <ChevronRight />
-              </button>
-            </footer>
-          </>
-        ) : (
-          <>
-            <button className="equipment-text-button" onClick={() => setStep('CATEGORY')}>
-              <ArrowLeft /> {t('homeSensorOnboardingDialog.changeType')}
-            </button>
-            <h3>{t('homeSensorOnboardingDialog.addASensor')}</h3>
-            <div className="equipment-catalog-tabs" role="tablist">
-              <button
-                role="tab"
-                aria-selected={tab === 'PRODUCTS'}
-                onClick={() => setTab('PRODUCTS')}
-              >
-                {t('homeSensorOnboardingDialog.documentedProducts')}
-              </button>
-              <button
-                role="tab"
-                aria-selected={tab === 'CONNECTED'}
-                onClick={() => setTab('CONNECTED')}
-              >
-                {t('homeSensorOnboardingDialog.alreadyConnected')} <span>{compatible.length}</span>
-              </button>
-            </div>
-            {tab === 'PRODUCTS' ? (
-              <div className="equipment-product-grid">
-                {products.map((item) => (
-                  <SensorProductCard
-                    key={item.id}
-                    product={item}
-                    onSelect={() => {
-                      setProduct(item);
-                      setStep('PRODUCT');
-                    }}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div>
-                {compatible.map((device) => (
-                  <button
-                    className="equipment-connected-choice"
-                    key={device.id}
-                    onClick={() => {
-                      setAssigning(device);
-                      setName(device.name);
-                      setNote(device.placementNote ?? '');
-                      if (category === 'bed')
-                        setBedOccupiedWhen(
-                          isBedOccupancySensorModel(device.model) ? 'OPEN' : 'CLOSED',
-                        );
-                      setStep('ASSIGN');
-                    }}
-                  >
-                    <Radio />
-                    <span>
-                      <strong>{device.name}</strong>
-                      <small>
-                        {device.room?.id === roomId
-                          ? t('homeSensorOnboardingDialog.alreadyInThisRoom')
-                          : (device.room?.name ?? t('homeSensorOnboardingDialog.unassigned'))}
-                      </small>
-                      {device.batteryPercent !== null && (
-                        <small>
-                          {t('homeSensorOnboardingDialog.battery')} {device.batteryPercent} %
-                        </small>
-                      )}
-                    </span>
-                    {device.room?.id === roomId ? <Check /> : <Plus />}
-                  </button>
-                ))}
-                {!compatible.length && (
-                  <p className="equipment-note">
-                    {t('homeSensorOnboardingDialog.noCompatibleDeviceIsConnected')}
-                  </p>
-                )}
-              </div>
-            )}
-            <button
-              className="equipment-unlisted"
-              onClick={() => {
-                setProduct(undefined);
-                setStep('INSTALL');
-              }}
-            >
-              <Radio />
-              <span>
-                {t('homeSensorOnboardingDialog.myModelIsNotListed')}
-                <small>{t('homeSensorOnboardingDialog.startAutomaticDetection')}</small>
-              </span>
-              <ChevronRight />
-            </button>
-          </>
-        )}
-        {error && (
-          <p className="equipment-error" role="alert">
-            {error}
-          </p>
-        )}
-      </div>
-    </EquipmentDialog>
+          </SetupSection>
+        ))}
+      {!rooms.length && (
+        <SetupNotice title={t('sensorSetup.noRoomsTitle')}>
+          {t('sensorSetup.noRoomsAreDefinedClose')}
+        </SetupNotice>
+      )}
+    </SetupPage>
   );
+}
+
+function DeviceIcon({ device }: { device: SensorUiDevice }): ReactNode {
+  const photo = sensorDevicePhoto(device);
+  return photo ? <img src={photo} alt="" /> : <Radio aria-hidden />;
 }
