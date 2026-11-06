@@ -646,11 +646,21 @@
     "cannotOpenThePhotoLibrary": "Cannot open the photo library.",
     "captionUnderThePhotoOptional": "Caption under the photo (optional)",
     "channelNote": {
+      "alJazeeraEn": "International news in English.",
       "arte": "Culture, documentaries and cinema.",
+      "canal24h": "Rolling news (RTVE).",
+      "clan": "Children’s programmes (RTVE).",
+      "dwEnglish": "News and reports in English (DW).",
+      "dwEspanol": "News and reports in Spanish (DW).",
+      "france24En": "International news in English.",
+      "france24Es": "International news in Spanish.",
+      "la1": "RTVE’s main channel: news, series, entertainment.",
+      "la2": "Culture, documentaries and films.",
       "rmcDecouverte": "Discovery, science and adventure.",
       "rmcLife": "Entertainment and everyday programmes.",
       "rmcStory": "Documentaries and magazines."
     },
+    "channelSpainOnly": "Only available in Spain",
     "chooseADateAndTime": "Choose a date and time",
     "chooseAFutureTimeTo": "Choose a future time to schedule the message.",
     "chooseAFutureTimeTo2": "Choose a future time to schedule the photo.",
@@ -723,6 +733,7 @@
     "theTvMustBeConnected3": "The TV must be connected to start media.",
     "thisActionCouldNotBe": "This action could not be completed.",
     "tvChannel": "TV channel",
+    "watch": "Watch",
     "weLlBeThereSoon": "We’ll be there soon! See you in a bit 👋"
   },
   "mobileSettingsPanel": {

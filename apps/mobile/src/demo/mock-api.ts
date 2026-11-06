@@ -1,5 +1,6 @@
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
+  defaultTvChannels,
   initialScreenState,
   type ActivitySummary,
   type AlertRuleSettings,
@@ -1619,6 +1620,10 @@ function capabilityLabel(capability: string) {
 
 function createScreenSnapshot(): ScreenSnapshot {
   const state = initialScreenState();
+  // The demo TV shows the app language, so it offers the channels of that language.
+  const language = appLocale();
+  const timezone = 'Europe/Paris';
+  const demoTvChannel = defaultTvChannels(language, timezone)[0];
   const mediaId = 'c17b5f20-08c0-4da0-b0bc-3e78b0f6a351';
   state.settings = {
     consent: true,
@@ -1667,8 +1672,8 @@ function createScreenSnapshot(): ScreenSnapshot {
     {
       id: 'dd421624-87ef-4afe-ab68-2cc26ec72918',
       kind: 'tv',
-      title: 'Arte',
-      url: 'https://demo.invalid/arte.m3u8',
+      title: demoTvChannel.name,
+      url: demoTvChannel.url,
     },
     {
       id: 'da9f6cc0-ff07-49c6-b2bb-fd4be8e6a015',
@@ -1699,6 +1704,8 @@ function createScreenSnapshot(): ScreenSnapshot {
     feedUrl,
   }));
   state.call = null;
+  state.language = language;
+  state.tvChannels = { added: [], removed: [] };
   state.tvControl = {
     id: 'tv-living-room',
     name: t('mockApi.livingRoomTv'),
@@ -1747,7 +1754,8 @@ function createScreenSnapshot(): ScreenSnapshot {
     userId: 'person-claire',
     jitsiUrl: null,
     resident: 'Jeanne Martin',
-    timezone: 'Europe/Paris',
+    timezone,
+    language,
     visit: null,
     agenda: [
       {

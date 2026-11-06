@@ -1,10 +1,4 @@
-import {
-  ARTE_LIVE_URL,
-  RMC_DECOUVERTE_LIVE_URL,
-  RMC_LIFE_LIVE_URL,
-  RMC_STORY_LIVE_URL,
-  youtubeVideoId,
-} from '@elise/contracts';
+import { tvChannelLineup, youtubeVideoId } from '@elise/contracts';
 import type {
   ScreenMedia,
   ScreenPodcastEpisode,
@@ -12,6 +6,8 @@ import type {
   ScreenScheduledContentInput,
   ScreenSettings,
   ScreenSnapshot,
+  TvChannel,
+  TvChannelId,
 } from '@elise/contracts';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -68,36 +64,6 @@ const favoriteMessages = () => [
     emoji: '🏡',
     label: t('mobileScreenTabs.onOurWay'),
     message: t('mobileScreenTabs.weLlBeThereSoon'),
-  },
-];
-const liveChannels = [
-  {
-    title: 'ARTE en direct',
-    url: ARTE_LIVE_URL,
-    note: () => t('mobileScreenTabs.channelNote.arte'),
-    brand: 'arte',
-    brandLabel: 'arte',
-  },
-  {
-    title: 'RMC Life',
-    url: RMC_LIFE_LIVE_URL,
-    note: () => t('mobileScreenTabs.channelNote.rmcLife'),
-    brand: 'rmc-life',
-    brandLabel: 'RMC',
-  },
-  {
-    title: 'RMC Story',
-    url: RMC_STORY_LIVE_URL,
-    note: () => t('mobileScreenTabs.channelNote.rmcStory'),
-    brand: 'rmc-story',
-    brandLabel: 'RMC',
-  },
-  {
-    title: 'RMC Découverte',
-    url: RMC_DECOUVERTE_LIVE_URL,
-    note: () => t('mobileScreenTabs.channelNote.rmcDecouverte'),
-    brand: 'rmc-decouverte',
-    brandLabel: 'RMC',
   },
 ];
 const slideshowOptions = [5, 10, 15, 30, 60, 120];
@@ -419,14 +385,22 @@ export function MobileScreenTabs({
   const mediaIdForUrl = (kind: ScreenMedia['kind'], url: string) =>
     screenState?.media.find((item) => item.kind === kind && item.url === url)?.id ?? createUuid();
 
-  const playLiveChannel = (channel: (typeof liveChannels)[number]) =>
+  // Channels of the TV language (French on servers that do not report it), plus the
+  // caregiver's choices.
+  const liveChannels = tvChannelLineup(
+    snapshot?.language ?? 'fr',
+    screenState?.tvChannels,
+    snapshot?.timezone,
+  );
+
+  const playLiveChannel = (channel: TvChannel) =>
     run(async () => {
       if (!snapshot?.online || screenState?.call)
         throw new Error(t('mobileScreenTabs.theTvMustBeConnected'));
       const id = mediaIdForUrl('tv', channel.url);
       await mobileApi.createScreenMedia(server, token, {
         id,
-        title: channel.title,
+        title: channel.name,
         kind: 'tv',
         url: channel.url,
       });
@@ -911,33 +885,37 @@ export function MobileScreenTabs({
           {mediaSource === 'tv' ? (
             <View style={s.mediaList}>
               {liveChannels.map((channel) => (
-                <View key={channel.url} style={s.sourceCard}>
-                  <View
-                    style={[
-                      s.channelBrand,
-                      channel.brand === 'arte' ? s.channelBrandArte : s.channelBrandRmc,
-                    ]}
-                  >
+                <View key={channel.id} style={s.sourceCard}>
+                  <View style={[s.channelBrand, { backgroundColor: channel.badge.background }]}>
                     <Text
+                      adjustsFontSizeToFit
+                      numberOfLines={1}
                       style={[
                         s.channelBrandText,
-                        channel.brand === 'arte' ? s.channelBrandTextArte : s.channelBrandTextRmc,
+                        channel.id === 'arte' ? s.channelBrandTextArte : s.channelBrandTextLabel,
+                        { color: channel.badge.color },
                       ]}
                     >
-                      {channel.brandLabel}
+                      {channel.badge.label}
                     </Text>
                   </View>
                   <View style={s.flex}>
-                    <Text style={s.mediaTitle}>{channel.title}</Text>
-                    <Text style={s.mediaSubtitle}>{channel.note()}</Text>
+                    <Text style={s.mediaTitle}>{channel.name}</Text>
+                    <Text style={s.mediaSubtitle}>
+                      {t(`mobileScreenTabs.channelNote.${channel.id as TvChannelId}`)}
+                    </Text>
+                    {channel.geoRestriction ? (
+                      <Text style={s.mediaSubtitle}>{t('mobileScreenTabs.channelSpainOnly')}</Text>
+                    ) : null}
                   </View>
                   <Pressable
+                    accessibilityLabel={t('mobileScreenTabs.playChannel', { title: channel.name })}
                     disabled={busy || !snapshot?.online}
                     style={s.playButton}
                     onPress={() => void playLiveChannel(channel)}
                   >
                     <Ionicons name="play" size={15} color="#fff" />
-                    <Text style={s.playButtonText}>Regarder</Text>
+                    <Text style={s.playButtonText}>{t('mobileScreenTabs.watch')}</Text>
                   </Pressable>
                 </View>
               ))}
@@ -1818,11 +1796,9 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  channelBrandArte: { backgroundColor: '#FFF4EC' },
-  channelBrandRmc: { backgroundColor: '#19365B' },
   channelBrandText: { fontWeight: '900' },
-  channelBrandTextArte: { color: '#F0673C', fontSize: 23, letterSpacing: -2 },
-  channelBrandTextRmc: { color: '#fff', fontSize: 15, letterSpacing: -0.3 },
+  channelBrandTextArte: { fontSize: 23, letterSpacing: -2 },
+  channelBrandTextLabel: { fontSize: 15, letterSpacing: -0.3 },
   mediaTitle: { color: c.navy, fontSize: 13, fontWeight: '900' },
   mediaSubtitle: { marginTop: 3, color: c.muted, fontSize: 12 },
   sourceCard: {

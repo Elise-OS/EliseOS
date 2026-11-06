@@ -656,11 +656,21 @@
     "cannotOpenThePhotoLibrary": "No se puede abrir la fototeca.",
     "captionUnderThePhotoOptional": "Comentario bajo la foto (opcional)",
     "channelNote": {
+      "alJazeeraEn": "Actualidad internacional en inglés.",
       "arte": "Cultura, documentales y cine.",
+      "canal24h": "Noticias en directo (RTVE).",
+      "clan": "Programación infantil (RTVE).",
+      "dwEnglish": "Noticias y reportajes en inglés (DW).",
+      "dwEspanol": "Noticias y reportajes en español (DW).",
+      "france24En": "Actualidad internacional en inglés.",
+      "france24Es": "Actualidad internacional en español.",
+      "la1": "Generalista de RTVE: actualidad, series, entretenimiento.",
+      "la2": "Cultura, documentales y cine.",
       "rmcDecouverte": "Descubrimiento, ciencia y aventuras.",
       "rmcLife": "Entretenimiento y programas del día a día.",
       "rmcStory": "Documentales y magacines."
     },
+    "channelSpainOnly": "Solo disponible en España",
     "chooseADateAndTime": "Elegir una fecha y una hora",
     "chooseAFutureTimeTo": "Elija una hora futura para programar el mensaje.",
     "chooseAFutureTimeTo2": "Elija una hora futura para programar la foto.",
@@ -733,6 +743,7 @@
     "theTvMustBeConnected3": "La TV debe estar conectada para reproducir contenido.",
     "thisActionCouldNotBe": "No se ha podido completar esta acción.",
     "tvChannel": "Canal de TV",
+    "watch": "Ver",
     "weLlBeThereSoon": "¡Llegamos enseguida! Hasta ahora 👋"
   },
   "mobileSettingsPanel": {
