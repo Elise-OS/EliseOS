@@ -2489,7 +2489,7 @@
 }
 
 .resident-tv-channel__logo.tv-channel-logo {
-  padding: clamp(8px, 0.7vw, 13px) clamp(10px, 0.9vw, 16px);
+  --tv-logo-inset: clamp(8px, 0.7vw, 13px) clamp(10px, 0.9vw, 16px);
   border: 0;
 }
 
@@ -4128,7 +4128,7 @@
 }
 
 .screen-playback-now__logo.tv-channel-logo {
-  padding: 4px 6px;
+  --tv-logo-inset: 4px 6px;
 }
 
 .screen-playback-now__copy {
@@ -4472,7 +4472,7 @@
 .screen-tv-channel__brand.tv-channel-logo {
   width: 76px;
   height: 44px;
-  padding: 6px 8px;
+  --tv-logo-inset: 6px 8px;
 }
 
 .screen-tv-channel__identity h4 {
@@ -4579,7 +4579,7 @@
 .screen-tv-catalog__brand.tv-channel-logo {
   width: 60px;
   height: 32px;
-  padding: 4px 6px;
+  --tv-logo-inset: 4px 6px;
 }
 
 .screen-tv-catalog__channel strong,
@@ -4944,7 +4944,7 @@
 .screen-tv-guide__brand.tv-channel-logo {
   width: 72px;
   height: 34px;
-  padding: 4px 7px;
+  --tv-logo-inset: 4px 7px;
 }
 
 .screen-tv-guide__identity > strong {

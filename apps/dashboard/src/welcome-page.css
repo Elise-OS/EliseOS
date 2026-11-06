@@ -82,7 +82,7 @@
   font-weight: 850;
 }
 .welcome-playback__logo.tv-channel-logo {
-  padding: 4px 6px;
+  --tv-logo-inset: 4px 6px;
 }
 .welcome-playback__copy {
   display: grid;
