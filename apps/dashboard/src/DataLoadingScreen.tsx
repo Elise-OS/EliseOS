@@ -1,6 +1,6 @@
-import { t } from './i18n';
+import { type Locale, t } from './i18n';
 type DataLoadingScreenProps = {
-  locale: 'fr' | 'en';
+  locale: Locale;
   message?: string;
   fullPage?: boolean;
 };

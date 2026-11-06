@@ -8,6 +8,7 @@ import i18next, { type i18n, type Resource } from 'i18next';
 export const LANGUAGES = [
   { code: 'fr', name: 'Français', dateLocale: 'fr-FR' },
   { code: 'en', name: 'English', dateLocale: 'en-GB' },
+  { code: 'es', name: 'Español', dateLocale: 'es-ES' },
 ] as const;
 
 export type Language = (typeof LANGUAGES)[number]['code'];

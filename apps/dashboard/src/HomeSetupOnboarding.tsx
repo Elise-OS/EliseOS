@@ -29,9 +29,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { t, textBlock } from './i18n';
-
-type Locale = 'fr' | 'en';
+import { type Locale, t, textBlock } from './i18n';
 
 export type HomeSetupDetails = {
   name: string;

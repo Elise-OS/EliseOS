@@ -28,7 +28,7 @@ import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';
 import { sensorDeviceHealthStatus } from './sensor-ui';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import { roomIcon, roomKindLabel } from './home-visuals';
-import { t, textBlock } from './i18n';
+import { type Locale, t, textBlock } from './i18n';
 import { coverageFamilyLabel } from './i18n/data';
 
 export { roomIconKey } from './home-visuals';
@@ -349,7 +349,7 @@ function MiniPlan({
   plan: HomePlan;
   presence: PresenceEstimate | null;
   onSelect: (roomId: string) => void;
-  locale: 'fr' | 'en';
+  locale: Locale;
 }) {
   return (
     <svg
@@ -424,7 +424,7 @@ export function HomeOverview({
   onManage,
   onManageStair,
 }: {
-  locale: 'fr' | 'en';
+  locale: Locale;
   home: HomeInfo | undefined;
   cameras: CameraItem[];
   canManage: boolean;

@@ -1,4 +1,4 @@
-import { t } from '../i18n';
+import { isLocale, t } from '../i18n';
 import { uiLocale } from '../screen-locale';
 import { DEMO_CALL_EVENT } from './DemoCall';
 import { handleDemoRequest } from './router';
@@ -82,7 +82,7 @@ if ('serviceWorker' in navigator) {
 
 const lang = new URLSearchParams(window.location.search).get('lang');
 try {
-  if (lang === 'fr' || lang === 'en') window.localStorage.setItem('elise_locale', lang);
+  if (isLocale(lang)) window.localStorage.setItem('elise_locale', lang);
   // The demo home is built in one language: a language picked in the settings reloads it in that one.
   // Patched on the prototype: assigning to localStorage itself would store a key instead.
   // eslint-disable-next-line @typescript-eslint/unbound-method

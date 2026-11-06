@@ -53,7 +53,7 @@ import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import { connectionBoundary, connectionCurve } from './plan-connections';
 import './plan-connections.css';
-import { t } from './i18n';
+import { type Locale, t } from './i18n';
 
 type Sensor = {
   id: string;
@@ -552,7 +552,7 @@ export function HomePlanEditor({
   setupPreview = false,
   onSetupPreviewClose,
 }: {
-  locale: 'fr' | 'en';
+  locale: Locale;
   home:
     | {
         name: string;
@@ -2448,7 +2448,7 @@ function RoomDeleteDialog({
 }: {
   roomName: string;
   blocked: boolean;
-  locale: 'fr' | 'en';
+  locale: Locale;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -2546,7 +2546,7 @@ export function PlanUnderstandingPanel({
   onFocusFloor,
 }: {
   plan: HomePlan;
-  locale: 'fr' | 'en';
+  locale: Locale;
   updating: boolean;
   onFocusRoom: (roomId: string) => void;
   onFocusFloor: (floorId: string) => void;

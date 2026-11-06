@@ -32,4 +32,9 @@ export const FLAGS: Record<Language, readonly FlagShape[]> = {
     { kind: 'path', stroke: '#fff', strokeWidth: 100, d: 'M320 0v480M0 240h640' },
     { kind: 'path', stroke: '#c8102e', strokeWidth: 60, d: 'M320 0v480M0 240h640' },
   ],
+  // Red, yellow, red in 1:2:1 bands, without the coat of arms (too small to read at this size).
+  es: [
+    { kind: 'rect', width: 640, height: 480, fill: '#aa151b' },
+    { kind: 'path', fill: '#f1bf00', d: 'M0 120h640v240H0z' },
+  ],
 };

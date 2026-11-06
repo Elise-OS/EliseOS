@@ -11,7 +11,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { ActivityPage } from './ActivityPage';
-import { setLanguage } from './i18n';
+import { type Locale, setLanguage } from './i18n';
 
 const activityEvent = {
   id: 'event-1',
@@ -218,10 +218,7 @@ describe('ActivityPage', () => {
     vi.unstubAllGlobals();
   });
 
-  const renderPage = async (
-    locale: 'fr' | 'en' = 'fr',
-    activitySummary: ActivitySummary = summary,
-  ) => {
+  const renderPage = async (locale: Locale = 'fr', activitySummary: ActivitySummary = summary) => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     const fetchMock = vi.fn().mockImplementation((input: string | URL | Request) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;

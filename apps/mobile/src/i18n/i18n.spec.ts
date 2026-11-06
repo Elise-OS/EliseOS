@@ -55,6 +55,7 @@ describe('Language of a new install', () => {
     const i18n = createI18n({
       fr: { screen: { title: 'Titre', items: ['Un'] } },
       en: { screen: { title: 'Title', items: ['One', 'Two'] } },
+      es: { screen: { title: 'Título', items: ['Uno', 'Dos'] } },
     });
     const block = blockReader(i18n, layout)('screen');
     expect(block.title).toBe('Titre');
@@ -62,7 +63,11 @@ describe('Language of a new install', () => {
   });
 
   it('falls back to English for a text a translation lacks', () => {
-    const i18n = createI18n({ fr: { a: 'Bonjour' }, en: { a: 'Hello', b: 'Not translated yet' } });
+    const i18n = createI18n({
+      fr: { a: 'Bonjour' },
+      en: { a: 'Hello', b: 'Not translated yet' },
+      es: { a: 'Hola' },
+    });
     // The app's keys are typed; this test catalog has its own.
     const translate = i18n.t.bind(i18n) as unknown as (key: string) => string;
     expect(translate('a')).toBe('Bonjour');

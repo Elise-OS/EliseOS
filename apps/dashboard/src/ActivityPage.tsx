@@ -36,10 +36,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import { presenceText } from './WelcomePage';
 import './activity-page.css';
-import { dateLocale, t } from './i18n';
+import { dateLocale, type Locale, t } from './i18n';
 
 type ActivityPageProps = {
-  locale: 'fr' | 'en';
+  locale: Locale;
   homeName: string;
   timeZone: string;
   residentName: string;
@@ -111,7 +111,7 @@ function capabilityLabel(capability: string) {
   return capabilityLabels[capability]?.() ?? capability;
 }
 
-function clock(value: string, locale: 'fr' | 'en', timeZone: string) {
+function clock(value: string, locale: Locale, timeZone: string) {
   return new Intl.DateTimeFormat(dateLocale(), {
     hour: '2-digit',
     minute: '2-digit',
@@ -137,7 +137,7 @@ function readableDuration(seconds: number) {
   return `${hours} ${t('activityPage.hr')}${rest ? ` ${rest} min` : ''}`;
 }
 
-function dayLabel(value: string, locale: 'fr' | 'en', timeZone: string) {
+function dayLabel(value: string, locale: Locale, timeZone: string) {
   const formatted = new Intl.DateTimeFormat(dateLocale(), {
     weekday: 'long',
     day: 'numeric',
@@ -164,7 +164,7 @@ function shiftDateKey(value: string, days: number) {
   return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`;
 }
 
-function dateKeyLabel(value: string, locale: 'fr' | 'en', timeZone: string) {
+function dateKeyLabel(value: string, locale: Locale, timeZone: string) {
   return dayLabel(`${value}T12:00:00.000Z`, locale, timeZone);
 }
 
