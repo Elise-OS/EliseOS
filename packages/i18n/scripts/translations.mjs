@@ -58,11 +58,28 @@ const flatten = (value, prefix = '', out = new Map()) => {
       flatten(item, prefix ? `${prefix}.${key}` : key, out);
   return out;
 };
+/** "a.b.0.c" → value, for every text, number, flag or empty list of a catalog. */
+const leaves = (value, prefix = '', out = new Map()) => {
+  if (value && typeof value === 'object' && Object.keys(value).length)
+    for (const [key, item] of Object.entries(value))
+      leaves(item, prefix ? `${prefix}.${key}` : key, out);
+  else out.set(prefix, value);
+  return out;
+};
 /** Writes `text` at `path`, building objects or lists like the French catalog does. */
 const place = (target, template, path, text) => {
-  const parts = path.split('.');
-  let node = target;
+  // Keys may hold a dot themselves ("HS2FD-EF1-3.0"): the French layout tells them apart.
+  const parts = [];
   let shape = template;
+  for (const segments = path.split('.'); segments.length;) {
+    let size = segments.length;
+    while (size > 1 && !Object.hasOwn(Object(shape), segments.slice(0, size).join('.'))) size -= 1;
+    const part = segments.splice(0, size).join('.');
+    parts.push(part);
+    shape = shape?.[part];
+  }
+  let node = target;
+  shape = template;
   parts.forEach((part, index) => {
     const last = index === parts.length - 1;
     const key = Array.isArray(node) ? Number(part) : part;
@@ -182,7 +199,7 @@ if (command === 'export') {
 }
 
 if (command === 'import') {
-  for (const { name, dir } of blocks) {
+  for (const { name, dir, dataFields } of blocks) {
     const file = join(outDir, `${name}.json`);
     const entries = readJson(file);
     if (!entries) {
@@ -195,10 +212,16 @@ if (command === 'import') {
     let count = 0;
     for (const [key, entry] of Object.entries(entries)) {
       const text = entry?.[language];
-      if (typeof text !== 'string' || !text.trim()) continue;
+      // A text that is only a line break in French stays one.
+      if (typeof text !== 'string' || (!text.trim() && text !== entry.fr)) continue;
       place(catalog, template, key, text);
       count += 1;
     }
+    // Data fields, numbers and texts left empty in French are never exported: copied as they are.
+    const current = leaves(catalog);
+    for (const [key, value] of leaves(template))
+      if ((typeof value !== 'string' || dataFields?.test(key) || !value) && !current.has(key))
+        place(catalog, template, key, value);
     writeJson(catalogPath, sortDeep(catalog));
     console.log(`${name}: ${count} texts written to ${relative(root, catalogPath)}`);
   }
