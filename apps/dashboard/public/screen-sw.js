@@ -1,5 +1,6 @@
 /* Cache only the resident shell and immutable build assets, never family API data. */
-const SHELL = 'elise-screen-shell-v1';
+// v2 drops v1 caches, which could hold an HTML page saved under an /assets/ address.
+const SHELL = 'elise-screen-shell-v2';
 self.addEventListener('install', (event) =>
   event.waitUntil(
     caches
@@ -8,7 +9,16 @@ self.addEventListener('install', (event) =>
       .then(() => self.skipWaiting()),
   ),
 );
-self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+self.addEventListener('activate', (event) =>
+  event.waitUntil(
+    caches
+      .keys()
+      .then((names) =>
+        Promise.all(names.filter((name) => name !== SHELL).map((name) => caches.delete(name))),
+      )
+      .then(() => self.clients.claim()),
+  ),
+);
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
@@ -32,7 +42,9 @@ self.addEventListener('fetch', (event) => {
         (cached) =>
           cached ||
           fetch(event.request).then((response) => {
-            if (response.ok) {
+            // An HTML page under /assets/ is a missing file answered by the app shell: never keep it.
+            const html = (response.headers.get('content-type') || '').includes('text/html');
+            if (response.ok && !html) {
               const copy = response.clone();
               void caches.open(SHELL).then((cache) => cache.put(event.request, copy));
             }

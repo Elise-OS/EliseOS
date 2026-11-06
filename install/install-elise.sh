@@ -379,12 +379,25 @@ else
   progress "Téléchargement des composants Élise"
   pull_or_build=(pull)
 fi
-if ! "${compose[@]}" "${pull_or_build[@]}"; then
-  # The exit handler puts the previous release back; its containers never stopped.
-  fail "le téléchargement a été interrompu ; relancez la même commande"
-fi
+# A dropped connection to the registry (EOF, reset) is common on home networks:
+# try again, Docker keeps the layers already downloaded.
+pull_attempt=1
+until "${compose[@]}" "${pull_or_build[@]}"; do
+  if [[ "$VERSION" == dev || "$pull_attempt" -ge 4 ]]; then
+    # The exit handler puts the previous release back; its containers never stopped.
+    fail "le téléchargement a été interrompu ; relancez la même commande"
+  fi
+  printf 'Téléchargement interrompu, nouvel essai dans %s s…\n' "$((pull_attempt * 15))"
+  sleep "$((pull_attempt * 15))"
+  pull_attempt=$((pull_attempt + 1))
+done
 progress "Démarrage et vérification d’Élise"
 if [[ "${ELISE_FIRST_BOOT:-false}" == true ]]; then systemctl stop elise-preparation.service || true; fi
+# Compose renames a container to <id>_<name> while recreating it; an interrupted
+# run leaves that copy behind and the next `up` fails on a name conflict.
+docker ps -a --format '{{.Names}}' \
+  | grep -E '^[0-9a-f]{12}_elise-os-' \
+  | xargs -r docker rm -f >/dev/null || true
 containers_changed=true
 if ! "${compose[@]}" up -d; then
   "${compose[@]}" down || true

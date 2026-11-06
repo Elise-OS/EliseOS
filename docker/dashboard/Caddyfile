@@ -11,6 +11,19 @@
 (elise_static) {
   @sensor_product_images path /sensor-products/*
   header @sensor_product_images Cache-Control "public, max-age=604800"
+  # Everything else, index.html first, is checked again on each load so a page
+  # opened after an update never asks for the files of the previous release.
+  @revalidated not path /assets/* /sensor-products/*
+  header @revalidated Cache-Control "no-cache"
+  # A build file missing after an update must fail plainly, not come back as the
+  # HTML page with a 200 that a browser or the screen service worker would keep.
+  handle /assets/* {
+    root * /srv
+    # Build files carry a content hash in their name: they never change.
+    @build_file file
+    header @build_file Cache-Control "public, max-age=31536000, immutable"
+    file_server
+  }
   handle {
     root * /srv
     try_files {path} /index.html
