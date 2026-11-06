@@ -269,9 +269,7 @@ function FamilyMessageBanner({ state, now }: { state: ScreenSnapshot['state']; n
       <div className="tv-family-message-meta">
         {state.messageAuthor && <span>— {state.messageAuthor}</span>}
         {count > 1 && (
-          <small>
-            Message {index + 1} / {count}
-          </small>
+          <small>{t('residentScreen.messageCount', { index: index + 1, count })}</small>
         )}
       </div>
     </header>

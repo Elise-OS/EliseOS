@@ -353,7 +353,7 @@ export function SidebarNavigation({
   onSelect: (index: number) => void;
 }) {
   return (
-    <nav aria-label="Navigation principale">
+    <nav aria-label={i18nT('app.mainNavigation')}>
       {sidebarNavOrder.map((index) => {
         const label = labels[index];
         if (!label) return null;

@@ -18073,3 +18073,36 @@ textarea:focus-visible {
     width: 100%;
   }
 }
+
+/* Spanish dates keep their small words in lower case ("martes, 13 de octubre"):
+   only the first letter is raised, where the element allows it. */
+:lang(es)
+  :is(
+    .tv-clock span,
+    .tv-agenda li small,
+    .screen-activity-list li small,
+    .screen-appointment-list small,
+    .screen-scheduled-list li > span:nth-child(2) small,
+    .house-journal-hero-actions time span,
+    .house-journal-day-heading,
+    .calendar-toolbar h2,
+    .liaison-hero-actions time span,
+    .dose-history time
+  ) {
+  text-transform: none;
+}
+:lang(es)
+  :is(
+    .tv-clock span,
+    .tv-agenda li small,
+    .screen-activity-list li small,
+    .screen-appointment-list small,
+    .screen-scheduled-list li > span:nth-child(2) small,
+    .house-journal-hero-actions time span,
+    .house-journal-day-heading,
+    .calendar-toolbar h2,
+    .liaison-hero-actions time span,
+    .dose-history time
+  )::first-letter {
+  text-transform: uppercase;
+}

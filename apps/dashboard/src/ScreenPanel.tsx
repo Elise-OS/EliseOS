@@ -215,14 +215,14 @@ type ScreenMainTab = 'album' | 'messages' | 'medias' | 'activity';
 const LIVE_TV_CHANNELS = [
   {
     url: ARTE_LIVE_URL,
-    mediaTitle: 'ARTE en direct',
+    mediaTitle: () => t('screenPanel.channelLive', { name: 'ARTE' }),
     name: 'ARTE',
     description: () => t('screenPanel.channelDescription.arte'),
     brand: 'arte',
   },
   {
     url: RMC_LIFE_LIVE_URL,
-    mediaTitle: 'RMC Life en direct',
+    mediaTitle: () => t('screenPanel.channelLive', { name: 'RMC Life' }),
     name: 'RMC Life',
     description: () => t('screenPanel.channelDescription.rmcLife'),
     brand: 'rmc-life',
@@ -230,7 +230,7 @@ const LIVE_TV_CHANNELS = [
   },
   {
     url: RMC_STORY_LIVE_URL,
-    mediaTitle: 'RMC Story en direct',
+    mediaTitle: () => t('screenPanel.channelLive', { name: 'RMC Story' }),
     name: 'RMC Story',
     description: () => t('screenPanel.channelDescription.rmcStory'),
     brand: 'rmc-story',
@@ -238,22 +238,21 @@ const LIVE_TV_CHANNELS = [
   },
   {
     url: RMC_DECOUVERTE_LIVE_URL,
-    mediaTitle: 'RMC Découverte en direct',
+    mediaTitle: () => t('screenPanel.channelLive', { name: 'RMC Découverte' }),
     name: 'RMC Découverte',
     description: () => t('screenPanel.channelDescription.rmcDecouverte'),
     brand: 'rmc-decouverte',
     brandLabel: 'RMC',
   },
 ] as const;
-const tvGuideTime = new Intl.DateTimeFormat('fr-FR', {
-  hour: '2-digit',
-  minute: '2-digit',
-  timeZone: 'Europe/Paris',
-});
+const tvGuideTime = (value: string) =>
+  new Intl.DateTimeFormat(dateLocale(), {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Paris',
+  }).format(new Date(value));
 function tvGuideRange(program: TvGuideProgram | null): string {
-  return program
-    ? `${tvGuideTime.format(new Date(program.startAt))} – ${tvGuideTime.format(new Date(program.endAt))}`
-    : '';
+  return program ? `${tvGuideTime(program.startAt)} – ${tvGuideTime(program.endAt)}` : '';
 }
 function tvSelection(selected: TvHostStatus['networkTv'], discovered: NetworkTv): NetworkTv {
   if (!selected?.id) return discovered;
@@ -1473,7 +1472,7 @@ export function ScreenPanel({
             ))}
           </div>
           <label className="screen-message-input">
-            <span>Message {messageIndex + 1}</span>
+            <span>{t('screenPanel.messageNumber', { index: messageIndex + 1 })}</span>
             <textarea
               maxLength={1000}
               value={message}
@@ -1642,7 +1641,10 @@ export function ScreenPanel({
                         hour: '2-digit',
                         minute: '2-digit',
                       })}{' '}
-                      · {item.kind === 'message' ? 'Message' : 'Photo'}
+                      ·{' '}
+                      {item.kind === 'message'
+                        ? t('screenPanel.kindMessage')
+                        : t('screenPanel.kindPhoto')}
                     </small>
                   </span>
                   <button
@@ -1765,7 +1767,7 @@ export function ScreenPanel({
                               {channel.brand === 'arte' ? 'arte' : channel.brandLabel}
                             </span>
                             <div>
-                              <h4>{channel.mediaTitle}</h4>
+                              <h4>{channel.mediaTitle()}</h4>
                               <p>{channel.description()}</p>
                             </div>
                           </div>
@@ -1784,7 +1786,7 @@ export function ScreenPanel({
                                 if (!existing)
                                   await screenRequest('screen/media', {
                                     id: mediaId,
-                                    title: channel.mediaTitle,
+                                    title: channel.mediaTitle(),
                                     kind: 'tv',
                                     url: channel.url,
                                   });
@@ -2502,7 +2504,7 @@ export function ScreenPanel({
                 )}
                 <p className="screen-tv-guide__source">
                   {tvGuide?.stale
-                    ? `${t('screenPanel.lastGuideReceivedAt')} ${tvGuideTime.format(new Date(tvGuide.retrievedAt))} · `
+                    ? `${t('screenPanel.lastGuideReceivedAt')} ${tvGuideTime(tvGuide.retrievedAt)} · `
                     : t('screenPanel.guideRefreshedAutomatically')}
                   <a href="https://www.xmltvfr.fr/xmltv.php" target="_blank" rel="noreferrer">
                     {t('screenPanel.sourceXmltvFrance')} <ExternalLink aria-hidden="true" />

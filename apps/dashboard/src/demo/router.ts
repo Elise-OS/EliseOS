@@ -304,8 +304,8 @@ function tvGuide() {
       {
         id: 'arte',
         name: 'Arte',
-        current: program('Le jardin au printemps', [10, 20], [11, 10]),
-        next: program('Paysages d’ici et d’ailleurs', [11, 10], [11, 40]),
+        current: program(t('scenario.gardenInSpring'), [10, 20], [11, 10]),
+        next: program(t('scenario.landscapesFromHereAndElsewhere'), [11, 10], [11, 40]),
       },
     ],
     retrievedAt: iso(-20 * MINUTE),

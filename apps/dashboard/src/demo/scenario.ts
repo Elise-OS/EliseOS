@@ -129,7 +129,7 @@ const DEMO_PODCASTS = [
     title: 'Affaires sensibles',
     author: 'France Inter',
     episodeCount: 650,
-    genre: 'Histoire',
+    genre: t('scenario.history'),
     feedUrl: 'https://demo.invalid/podcasts/affaires-sensibles.xml',
   },
   {
@@ -146,8 +146,8 @@ const DEMO_PODCAST_EPISODES = {
   '100001': [
     {
       id: 'demo-affaires-giscard-chirac',
-      title: 'Giscard / Chirac — La guerre des chefs',
-      description: 'Un épisode consacré aux rivalités politiques de la droite française.',
+      title: t('scenario.giscardChiracTheWarOfChiefs'),
+      description: t('scenario.anEpisodeOnThePolitical'),
       enclosureUrl: 'https://demo.invalid/podcasts/affaires-giscard-chirac.mp3',
       durationSeconds: 54 * 60,
       publishedAt: Date.parse('2023-07-06T13:00:00Z'),
@@ -164,8 +164,8 @@ const DEMO_PODCAST_EPISODES = {
   '100002': [
     {
       id: 'demo-pieds-profession-pecheur',
-      title: 'Profession pêcheur',
-      description: 'Trois récits de pêcheurs face aux surprises de la mer.',
+      title: t('scenario.fishermanByTrade'),
+      description: t('scenario.threeFishermenFacingTheSea'),
       enclosureUrl: 'https://demo.invalid/podcasts/pieds-profession-pecheur.mp3',
       durationSeconds: 28 * 60,
       publishedAt: Date.parse('2021-08-16T13:00:00Z'),
@@ -258,7 +258,7 @@ function createDemoSession() {
         sensors: [
           {
             capability: 'contact',
-            value: 'Fermée',
+            value: t('scenario.entranceDoorClosed'),
             unit: null,
             state: 'INACTIVE',
             available: true,
@@ -306,7 +306,7 @@ function createDemoSession() {
         sensors: [
           {
             capability: 'contact',
-            value: 'Frigo ouvert',
+            value: t('scenario.fridgeOpen'),
             unit: null,
             state: 'ACTIVE',
             available: true,
@@ -1687,7 +1687,7 @@ function sensor(
         classification: {
           source: 'USER',
           confidence: 0.98,
-          reason: 'Confirmé pour la démonstration.',
+          reason: t('scenario.confirmedForTheDemo'),
           confirmedAt: iso(-30 * DAY),
         },
       },
@@ -2565,7 +2565,7 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
         t('scenario.avoidHeatSourcesAndMetal'),
         t('scenario.checkTheSignalFromThe'),
       ],
-      avoid: ['Derrière un meuble métallique', t('scenario.rightNextToARadiator')],
+      avoid: [t('scenario.behindMetalFurniture'), t('scenario.rightNextToARadiator')],
       testInstruction: t('scenario.triggerTheSensorToCheck'),
       safetyNote: t('scenario.aSensorGivesACue'),
     } as T;
