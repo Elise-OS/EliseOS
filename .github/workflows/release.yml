@@ -85,6 +85,9 @@ jobs:
             apps/*/package.json \
             packages/*/package.json \
             package.json \
+            README.md \
+            README.en.md \
+            README.es.md \
             compose.yaml \
             compose.raspberry.yaml \
             docker/homeassistant/custom_components/elise_bridge/__init__.py \

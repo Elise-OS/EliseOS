@@ -2,8 +2,8 @@
 """Synchronize release metadata with the version selected by GitHub Actions.
 
 The release tag is the source of truth.  This script keeps the versions exposed
-by the workspace, the Raspberry defaults, the mobile package, and the
-Home Assistant bridge aligned with that tag.
+by the workspace, the Raspberry defaults, the mobile package, the
+Home Assistant bridge and the README badges aligned with that tag.
 """
 
 from __future__ import annotations
@@ -124,6 +124,14 @@ def synchronize(version: str, check: bool) -> int:
             ROOT / "docker/homeassistant/custom_components/elise_bridge/__init__.py",
             re.compile(r'("status": "online", "version": ")[^"]+(")'),
             rf"\g<1>{plain_version}\g<2>",
+        ),
+        *(
+            (
+                ROOT / readme,
+                re.compile(r"(img\.shields\.io/badge/version-)\d+\.\d+\.\d+(-)"),
+                rf"\g<1>{plain_version}\g<2>",
+            )
+            for readme in ("README.md", "README.en.md", "README.es.md")
         ),
     ]
     for path, pattern, replacement in line_updates:
