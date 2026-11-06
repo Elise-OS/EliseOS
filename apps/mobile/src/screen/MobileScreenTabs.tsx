@@ -31,6 +31,7 @@ import { MobileDateTimePicker } from '../MobileDateTimePicker';
 import { activeServerUrl } from '../discovery/helpers';
 import { dateLocale } from '../locale';
 import { t } from '../i18n';
+import { TvChannelLogo } from './TvChannelLogo';
 
 const c = {
   navy: '#0B2948',
@@ -886,19 +887,7 @@ export function MobileScreenTabs({
             <View style={s.mediaList}>
               {liveChannels.map((channel) => (
                 <View key={channel.id} style={s.sourceCard}>
-                  <View style={[s.channelBrand, { backgroundColor: channel.badge.background }]}>
-                    <Text
-                      adjustsFontSizeToFit
-                      numberOfLines={1}
-                      style={[
-                        s.channelBrandText,
-                        channel.id === 'arte' ? s.channelBrandTextArte : s.channelBrandTextLabel,
-                        { color: channel.badge.color },
-                      ]}
-                    >
-                      {channel.badge.label}
-                    </Text>
-                  </View>
+                  <TvChannelLogo channel={channel} />
                   <View style={s.flex}>
                     <Text style={s.mediaTitle}>{channel.name}</Text>
                     <Text style={s.mediaSubtitle}>
@@ -1789,16 +1778,6 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: c.paleBlue,
   },
-  channelBrand: {
-    width: 43,
-    height: 43,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  channelBrandText: { fontWeight: '900' },
-  channelBrandTextArte: { fontSize: 23, letterSpacing: -2 },
-  channelBrandTextLabel: { fontSize: 15, letterSpacing: -0.3 },
   mediaTitle: { color: c.navy, fontSize: 13, fontWeight: '900' },
   mediaSubtitle: { marginTop: 3, color: c.muted, fontSize: 12 },
   sourceCard: {

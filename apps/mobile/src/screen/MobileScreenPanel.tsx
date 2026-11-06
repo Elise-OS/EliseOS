@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { ScreenCommand, ScreenSnapshot } from '@elise/contracts';
+import { tvChannelByUrl, type ScreenCommand, type ScreenSnapshot } from '@elise/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { mobileApi, type ScreenTvStatus } from '../api';
 import type { SavedServer } from '../discovery/types';
 import { MobileScreenTabs } from './MobileScreenTabs';
+import { TvChannelLogo } from './TvChannelLogo';
 import { dateLocale } from '../i18n';
 import { t } from '../i18n';
 
@@ -54,6 +55,8 @@ export function MobileScreenPanel({
     : playback?.asleep
       ? t('mobileScreenPanel.tvResting')
       : (currentMedia?.title ?? t('mobileScreenPanel.homeScreen'));
+  const currentTvChannel =
+    currentMedia?.kind === 'tv' ? tvChannelByUrl(currentMedia.url) : undefined;
   const playbackLabel = !snapshot
     ? t('mobileScreenPanel.loading')
     : !snapshot.online
@@ -210,19 +213,23 @@ export function MobileScreenPanel({
           )}
         </View>
         <View style={s.playback}>
-          <View style={[s.playbackIcon, currentMedia && s.playbackIconLive]}>
-            <Ionicons
-              name={
-                currentMedia?.kind === 'photo'
-                  ? 'image-outline'
-                  : currentMedia?.kind === 'youtube'
-                    ? 'logo-youtube'
-                    : 'play-outline'
-              }
-              size={19}
-              color={currentMedia ? c.green : c.accent}
-            />
-          </View>
+          {currentTvChannel ? (
+            <TvChannelLogo channel={currentTvChannel} style={s.playbackLogo} />
+          ) : (
+            <View style={[s.playbackIcon, currentMedia && s.playbackIconLive]}>
+              <Ionicons
+                name={
+                  currentMedia?.kind === 'photo'
+                    ? 'image-outline'
+                    : currentMedia?.kind === 'youtube'
+                      ? 'logo-youtube'
+                      : 'play-outline'
+                }
+                size={19}
+                color={currentMedia ? c.green : c.accent}
+              />
+            </View>
+          )}
           <View style={s.flex}>
             <Text style={s.eyebrow}>
               {currentMedia
@@ -550,6 +557,7 @@ const s = StyleSheet.create({
     backgroundColor: c.paleBlue,
   },
   playbackIconLive: { backgroundColor: c.paleGreen },
+  playbackLogo: { width: 52, height: 35, borderRadius: 10 },
   contentTitle: { marginTop: 2, color: c.navy, fontSize: 14, fontWeight: '800' },
   commandRow: { flexDirection: 'row', gap: 7 },
   commandButton: {
