@@ -39,6 +39,16 @@ import {
   type ScreenGrant,
   type ScreenSnapshot,
   type ScreenTvControl,
+  TV_CHANNELS,
+  TV_GUIDE_SOURCES,
+  LEGACY_TV_CHANNEL_CHOICES,
+  cleanTvChannelChoices,
+  installationTvLanguage,
+  tvChannelChoicesSchema,
+  tvChannelLineup,
+  tvLanguageCode,
+  type TvChannel,
+  type TvGuideSourceId,
 } from '@elise/contracts';
 import { PrismaService } from '../../platform/prisma.service';
 import { parseRequest } from '../../platform/zod-validation';
@@ -273,6 +283,7 @@ export interface ScreenTvGuideProgramResult {
   endAt: string;
 }
 export interface ScreenTvGuideChannelResult {
+  /** Channel id in the catalog of @elise/contracts. */
   id: string;
   name: string;
   current: ScreenTvGuideProgramResult | null;
@@ -280,23 +291,27 @@ export interface ScreenTvGuideChannelResult {
 }
 export interface ScreenTvGuideResult {
   channels: ScreenTvGuideChannelResult[];
+  /** Guides the programmes come from, to credit them. */
+  sources: Array<{ label: string; site: string }>;
   retrievedAt: string;
   stale: boolean;
 }
 type XmlTvProgram = ScreenTvGuideProgramResult & { startMs: number; endMs: number };
-const TV_GUIDE_SOURCE_URL = 'https://xmltvfr.fr/xmltv/xmltv_tnt.xml.gz';
-const TV_GUIDE_CHANNELS = [
-  { id: 'Arte.fr', name: 'ARTE' },
-  { id: 'Cherie25.fr', name: 'RMC Life' },
-  { id: 'Numero23.fr', name: 'RMC Story' },
-  { id: 'RMCDecouverte.fr', name: 'RMC Découverte' },
-] as const;
+type TvGuideCache = { retrievedAtMs: number; programs: Map<string, XmlTvProgram[]> };
 const TV_GUIDE_REFRESH_MS = 6 * 60 * 60 * 1000;
 const TV_GUIDE_RETRY_MS = 5 * 60 * 1000;
 const TV_GUIDE_STALE_MAX_MS = 48 * 60 * 60 * 1000;
-let tvGuideCache: { retrievedAtMs: number; programs: Map<string, XmlTvProgram[]> } | null = null;
-let tvGuideRefresh: Promise<void> | null = null;
-let tvGuideRetryAt = 0;
+// One cache per XMLTV source: a source is only downloaded once a screen offers one of its channels.
+const tvGuideCaches = new Map<TvGuideSourceId, TvGuideCache>();
+const tvGuideRefreshes = new Map<TvGuideSourceId, Promise<void>>();
+const tvGuideRetryAt = new Map<TvGuideSourceId, number>();
+
+/** XMLTV ids of the catalog channels whose guide comes from this source. */
+function tvGuideChannelIds(source: TvGuideSourceId): string[] {
+  return TV_CHANNELS.flatMap((channel: TvChannel) =>
+    channel.guide?.source === source ? [channel.guide.id] : [],
+  );
+}
 
 function decodeXmlText(value: string): string {
   return value
@@ -345,8 +360,11 @@ function xmlTvDate(value: string | undefined): number | null {
   return localAsUtc - (sign === '+' ? offset : -offset);
 }
 
-function parseXmlTvGuide(xml: string): Map<string, XmlTvProgram[]> {
-  const programs = new Map<string, XmlTvProgram[]>(TV_GUIDE_CHANNELS.map(({ id }) => [id, []]));
+export function parseXmlTvGuide(
+  xml: string,
+  channelIds: readonly string[],
+): Map<string, XmlTvProgram[]> {
+  const programs = new Map<string, XmlTvProgram[]>(channelIds.map((id) => [id, []]));
   const attribute = (attributes: string, name: string) =>
     new RegExp(`\\b${name}=["']([^"']+)["']`, 'i').exec(attributes)?.[1];
   for (const match of xml.matchAll(/<programme\b([^>]*)>([\s\S]*?)<\/programme\s*>/gi)) {
@@ -376,8 +394,8 @@ function parseXmlTvGuide(xml: string): Map<string, XmlTvProgram[]> {
   return programs;
 }
 
-async function refreshTvGuide(): Promise<void> {
-  const response = await fetch(TV_GUIDE_SOURCE_URL, {
+async function refreshTvGuide(source: TvGuideSourceId): Promise<void> {
+  const response = await fetch(TV_GUIDE_SOURCES[source].url, {
     headers: { 'user-agent': 'Elise household TV guide/1.0' },
     signal: AbortSignal.timeout(10_000),
   });
@@ -391,54 +409,101 @@ async function refreshTvGuide(): Promise<void> {
   const xml = gunzipSync(compressed, { maxOutputLength: 16 * 1024 * 1024 }).toString('utf8');
   if (!xml.startsWith('<?xml') && !xml.includes('<tv'))
     throw new Error('XMLTV source did not contain a valid guide.');
-  tvGuideCache = { retrievedAtMs: Date.now(), programs: parseXmlTvGuide(xml) };
-  tvGuideRetryAt = 0;
+  tvGuideCaches.set(source, {
+    retrievedAtMs: Date.now(),
+    programs: parseXmlTvGuide(xml, tvGuideChannelIds(source)),
+  });
+  tvGuideRetryAt.delete(source);
 }
 
-async function screenTvGuide(): Promise<ScreenTvGuideResult> {
+/** The guide of one source, refreshed when old; null while it has never been available. */
+async function tvGuideSource(source: TvGuideSourceId): Promise<TvGuideCache | null> {
   const now = Date.now();
-  if (!tvGuideCache || now - tvGuideCache.retrievedAtMs >= TV_GUIDE_REFRESH_MS) {
-    if (now >= tvGuideRetryAt) {
-      tvGuideRefresh ??= refreshTvGuide()
-        .catch((error: unknown) => {
-          tvGuideRetryAt = Date.now() + TV_GUIDE_RETRY_MS;
-          console.warn('[screen] TV guide refresh failed; retaining the last valid guide.', error);
-        })
-        .finally(() => {
-          tvGuideRefresh = null;
-        });
+  const cached = tvGuideCaches.get(source);
+  if (!cached || now - cached.retrievedAtMs >= TV_GUIDE_REFRESH_MS) {
+    if (now >= (tvGuideRetryAt.get(source) ?? 0) && !tvGuideRefreshes.has(source)) {
+      tvGuideRefreshes.set(
+        source,
+        refreshTvGuide(source)
+          .catch((error: unknown) => {
+            tvGuideRetryAt.set(source, Date.now() + TV_GUIDE_RETRY_MS);
+            console.warn(
+              `[screen] TV guide refresh failed (${source}); retaining the last valid guide.`,
+              error,
+            );
+          })
+          .finally(() => {
+            tvGuideRefreshes.delete(source);
+          }),
+      );
     }
-    if (tvGuideRefresh) await tvGuideRefresh;
+    await tvGuideRefreshes.get(source);
   }
-  const cache = tvGuideCache;
-  if (!cache || Date.now() - cache.retrievedAtMs > TV_GUIDE_STALE_MAX_MS)
+  const cache = tvGuideCaches.get(source);
+  return cache && Date.now() - cache.retrievedAtMs <= TV_GUIDE_STALE_MAX_MS ? cache : null;
+}
+
+/** Tests start from empty caches. */
+export function resetTvGuideCaches() {
+  tvGuideCaches.clear();
+  tvGuideRefreshes.clear();
+  tvGuideRetryAt.clear();
+}
+
+/** "On now / next" for the channels of a screen that have a guide. */
+export async function screenTvGuide(channels: readonly TvChannel[]): Promise<ScreenTvGuideResult> {
+  const guided = channels.filter((channel) => channel.guide);
+  const sources = [...new Set(guided.map((channel) => channel.guide!.source))];
+  const caches = new Map(
+    await Promise.all(
+      sources.map(async (source) => [source, await tvGuideSource(source)] as const),
+    ),
+  );
+  const available = sources.filter((source) => caches.get(source));
+  if (sources.length > 0 && available.length === 0)
     throw new ServiceUnavailableException('Le programme TV est temporairement indisponible.');
   const currentTime = Date.now();
+  const retrievedAt = available.map((source) => caches.get(source)!.retrievedAtMs);
+  const toResult = ({ title, description, startAt, endAt }: XmlTvProgram) => ({
+    title,
+    description,
+    startAt,
+    endAt,
+  });
   return {
-    retrievedAt: new Date(cache.retrievedAtMs).toISOString(),
-    stale: currentTime - cache.retrievedAtMs >= TV_GUIDE_REFRESH_MS,
-    channels: TV_GUIDE_CHANNELS.map(({ id, name }) => {
-      const upcoming = (cache.programs.get(id) ?? []).filter(({ endMs }) => endMs > currentTime);
+    retrievedAt: new Date(Math.min(currentTime, ...retrievedAt)).toISOString(),
+    stale: retrievedAt.some((at) => currentTime - at >= TV_GUIDE_REFRESH_MS),
+    sources: available.map((source) => ({
+      label: TV_GUIDE_SOURCES[source].label,
+      site: TV_GUIDE_SOURCES[source].site,
+    })),
+    channels: guided.flatMap(({ id, name, guide }) => {
+      const cache = caches.get(guide!.source);
+      if (!cache) return [];
+      const upcoming = (cache.programs.get(guide!.id) ?? []).filter(
+        ({ endMs }) => endMs > currentTime,
+      );
       const currentIndex = upcoming.findIndex(
         ({ startMs, endMs }) => startMs <= currentTime && endMs > currentTime,
       );
       const current = currentIndex >= 0 ? (upcoming[currentIndex] ?? null) : null;
       const following =
         currentIndex >= 0 ? (upcoming[currentIndex + 1] ?? null) : (upcoming[0] ?? null);
-      const toResult = ({ title, description, startAt, endAt }: XmlTvProgram) => ({
-        title,
-        description,
-        startAt,
-        endAt,
-      });
-      return {
-        id,
-        name,
-        current: current ? toResult(current) : null,
-        next: following ? toResult(following) : null,
-      };
+      return [
+        {
+          id,
+          name,
+          current: current ? toResult(current) : null,
+          next: following ? toResult(following) : null,
+        },
+      ];
     }),
   };
+}
+
+/** Language of a screen for its channels: the TV's, else the one chosen at installation. */
+export function screenTvLanguage(state: ScreenState, spokenLanguage?: string | null): string {
+  return tvLanguageCode(state.language) ?? installationTvLanguage(spokenLanguage) ?? 'fr';
 }
 
 @Injectable()
@@ -447,6 +512,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
   private tickRunning = false;
   private tvRecoveryTimer?: NodeJS.Timeout;
   private tvGuideTimer?: NodeJS.Timeout;
+  private readonly offeredTvChannels = new Set<string>();
   private readonly homeAssistantCommandAt = new Map<string, number>();
   constructor(
     private readonly prisma: PrismaService,
@@ -454,12 +520,6 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
   ) {}
   async onModuleInit() {
     await fs.mkdir(mediaRoot, { recursive: true });
-    void screenTvGuide().catch(() => undefined);
-    this.tvGuideTimer = setInterval(
-      () => void screenTvGuide().catch(() => undefined),
-      TV_GUIDE_RETRY_MS,
-    );
-    this.tvGuideTimer.unref();
     // A process restart never resurrects a conference or replays pending commands.
     for (const row of await this.prisma.residentScreen.findMany())
       await this.mutate(row.homeId, (s) => {
@@ -467,6 +527,11 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
         s.settings.slideshowSeconds ??= 15;
         s.activity ??= [];
         s.scheduledContent ??= [];
+        // Screens from before channels followed the language keep the French channels.
+        s.tvChannels ??= {
+          added: [...LEGACY_TV_CHANNEL_CHOICES.added],
+          removed: [...LEGACY_TV_CHANNEL_CHOICES.removed],
+        };
         this.finish(s, 'restart');
         s.commands.forEach((c) => {
           if (c.status === 'pending') {
@@ -490,6 +555,37 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       void this.automaticTvRecovery().catch(() => undefined);
     }, 30_000);
     this.tvRecoveryTimer.unref();
+    // Only the guides of channels some screen offers are downloaded, then kept fresh.
+    void this.refreshTvGuides(true).catch(() => undefined);
+    this.tvGuideTimer = setInterval(
+      () => void this.refreshTvGuides(false).catch(() => undefined),
+      TV_GUIDE_RETRY_MS,
+    );
+    this.tvGuideTimer.unref();
+  }
+  private async refreshTvGuides(listScreens: boolean) {
+    if (listScreens) {
+      const rows = await this.prisma.residentScreen.findMany({
+        include: { home: { include: { primaryResident: true } } },
+      });
+      for (const row of rows) this.tvChannels(row.state as unknown as ScreenState, row.home);
+    }
+    await screenTvGuide(TV_CHANNELS.filter(({ id }) => this.offeredTvChannels.has(id))).catch(
+      () => undefined,
+    );
+  }
+  /** Channels offered on a screen; remembers them so that their guide stays fresh. */
+  private tvChannels(
+    state: ScreenState,
+    home: { timezone: string; primaryResident?: { spokenLanguage: string } | null },
+  ) {
+    const channels = tvChannelLineup(
+      screenTvLanguage(state, home.primaryResident?.spokenLanguage),
+      state.tvChannels,
+      home.timezone,
+    );
+    for (const { id } of channels) this.offeredTvChannels.add(id);
+    return channels;
   }
   onModuleDestroy() {
     if (this.timer) clearInterval(this.timer);
@@ -676,8 +772,28 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     };
   }
   async tvGuide(userId: string): Promise<ScreenTvGuideResult> {
-    await this.access(userId, 'control');
-    return screenTvGuide();
+    const { home, state } = await this.access(userId, 'control');
+    return screenTvGuide(this.tvChannels(state, home));
+  }
+  /** Channels the caregiver added to or removed from those of the screen language. */
+  async setTvChannels(userId: string, body: unknown) {
+    const { home } = await this.access(userId, 'control');
+    const choices = cleanTvChannelChoices(parseRequest(tvChannelChoicesSchema, body));
+    const actor = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { displayName: true },
+    });
+    await this.mutate(home.id, (s) => {
+      s.tvChannels = choices;
+      this.addActivity(s, {
+        id: randomUUID(),
+        kind: 'settings',
+        title: 'Chaînes TV mises à jour',
+        actor: actor.displayName,
+        status: 'applied',
+      });
+    });
+    return this.snapshot(userId);
   }
   async reclaimTv(userId: string) {
     const { home, state } = await this.access(userId, 'control');
@@ -1006,6 +1122,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       agenda,
       weather,
       members,
+      language: screenTvLanguage(state, home.primaryResident?.spokenLanguage),
     };
   }
   async pairCode(userId: string) {
@@ -1037,8 +1154,14 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     if (!row) throw new UnauthorizedException();
     return row;
   }
-  async heartbeat(token: string, capabilities: Record<string, boolean>) {
+  async heartbeat(token: string, capabilities: Record<string, boolean>, locale?: string) {
     const row = await this.device(token);
+    // The TV page sends the language it shows; its channels follow it.
+    const language = capabilities.host ? null : tvLanguageCode(locale);
+    if (language && (row.state as unknown as ScreenState).language !== language)
+      await this.mutate(row.homeId, (s) => {
+        s.language = language;
+      });
     const storedCapabilities = row.capabilities as Record<string, boolean>;
     const updatedCapabilities = { ...storedCapabilities, ...capabilities };
     if (!capabilities.host && storedCapabilities.host === true) {

@@ -1,18 +1,5 @@
 import { z } from 'zod';
-export const ARTE_LIVE_URL =
-  'https://artesimulcast.akamaized.net/hls/live/2031003/artelive_fr/master.m3u8';
-export const RMC_LIFE_LIVE_URL =
-  'https://d3dcdjv6dx07iz.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-eaaww2dyp3iih/RMC_Life_FR.m3u8';
-export const RMC_STORY_LIVE_URL =
-  'https://d15aro46bnpfm8.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-fqkqiax1078up/RMC_Story_FR.m3u8';
-export const RMC_DECOUVERTE_LIVE_URL =
-  'https://d16zzycxcd0m0r.cloudfront.net/v1/master/3722c60a815c199d9c0ef36c5b73da68a62b09d1/cc-hixvx5kymecr9/RMC_Decouverte_FR.m3u8';
-const SUPPORTED_TV_LIVE_URLS = new Set<string>([
-  ARTE_LIVE_URL,
-  RMC_LIFE_LIVE_URL,
-  RMC_STORY_LIVE_URL,
-  RMC_DECOUVERTE_LIVE_URL,
-]);
+import { isSupportedTvLiveUrl, type TvChannelChoices } from './tv-channels.js';
 export function youtubeVideoId(value: string): string | null {
   try {
     const url = new URL(value);
@@ -88,7 +75,7 @@ export const screenMediaSchema = z
         path: ['playlistUrls'],
         message: 'Playlist réservée à YouTube.',
       });
-    if (media.kind === 'tv' && !SUPPORTED_TV_LIVE_URLS.has(media.url))
+    if (media.kind === 'tv' && !isSupportedTvLiveUrl(media.url))
       ctx.addIssue({ code: 'custom', path: ['url'], message: 'Chaîne TV non prise en charge.' });
     if (media.kind === 'podcast') {
       if (!media.podcastFeedId)
@@ -275,6 +262,10 @@ export interface ScreenState {
   history: Array<{ id: string; name: string; startedAt: number; endedAt: number; result: string }>;
   activity: ScreenActivity[];
   scheduledContent?: ScreenScheduledContent[];
+  /** Language the TV shows, reported by its heartbeats (fr, en, es…). */
+  language?: string;
+  /** Live TV channels the caregiver added to or removed from the default ones. */
+  tvChannels?: TvChannelChoices;
   commands: Array<{
     id: string;
     action: string;
@@ -314,6 +305,8 @@ export interface ScreenSnapshot {
     observedAt: string;
   } | null;
   members?: Array<{ id: string; name: string }> | undefined;
+  /** Language of the screen used for its channels: the TV's, else the installation's. */
+  language?: string;
 }
 export interface ScreenJoin {
   url: string;
@@ -346,6 +339,7 @@ export const initialScreenState = (): ScreenState => ({
   history: [],
   activity: [],
   scheduledContent: [],
+  tvChannels: { added: [], removed: [] },
   commands: [],
 });
 export function screenLocalTime(now: Date, timezone: string) {

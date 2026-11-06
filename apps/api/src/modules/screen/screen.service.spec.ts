@@ -1,8 +1,19 @@
-import { describe, it, expect, vi } from 'vitest';
-import { ScreenService, cityFromAddress } from './screen.service';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { promises as fs } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import {
-  ARTE_LIVE_URL,
+  ScreenService,
+  cityFromAddress,
+  parseXmlTvGuide,
+  resetTvGuideCaches,
+  screenTvGuide,
+} from './screen.service';
+import {
+  LEGACY_TV_CHANNEL_CHOICES,
+  TV_GUIDE_SOURCES,
   initialScreenState,
+  tvChannelById,
+  tvChannelLineup,
   advanceScreenSchedule,
   screenIsQuiet,
   screenLocalTime,
@@ -293,7 +304,7 @@ describe('TV and YouTube playlists', () => {
       id: playlist.id,
       title: 'ARTE',
       kind: 'tv',
-      url: ARTE_LIVE_URL,
+      url: tvChannelById('arte')!.url,
     });
     state.media.push({
       id: '3b2c2950-6fe5-45f8-82a5-a28707113e53',
@@ -460,5 +471,169 @@ describe('TV messages and appointment pictograms', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+const xmltv = (programmes: Array<[channel: string, title: string, start: Date, stop: Date]>) => {
+  const stamp = (date: Date) => `${date.toISOString().replace(/[-:T]/g, '').slice(0, 14)} +0000`;
+  return gzipSync(
+    `<?xml version="1.0" encoding="UTF-8"?><tv>${programmes
+      .map(
+        ([channel, title, start, stop]) =>
+          `<programme start="${stamp(start)}" stop="${stamp(stop)}" channel="${channel}"><title>${title}</title><desc>À propos de ${title}</desc></programme>`,
+      )
+      .join('')}</tv>`,
+  );
+};
+
+describe('TV channels by language', () => {
+  const now = new Date('2026-11-06T19:30:00.000Z');
+  const at = (minutes: number) => new Date(now.getTime() + minutes * 60_000);
+  const guides: Record<string, Buffer> = {
+    [TV_GUIDE_SOURCES.xmltvfr.url]: xmltv([
+      ['Arte.fr', 'Le Dessous des cartes', at(-20), at(10)],
+      ['Arte.fr', 'Arte Journal', at(10), at(30)],
+      ['TF1.fr', 'Hors catalogue', at(-20), at(10)],
+    ]),
+    [TV_GUIDE_SOURCES.tdtchannels.url]: xmltv([
+      ['La1.TV', 'Telediario 2', at(-30), at(15)],
+      ['La1.TV', 'El tiempo', at(15), at(25)],
+      ['24Horas.TV', 'La noche en 24h', at(-5), at(55)],
+    ]),
+  };
+  const fetchGuide = vi.fn((url: string) =>
+    guides[url]
+      ? new Response(new Uint8Array(guides[url]), { status: 200 })
+      : new Response('', { status: 404 }),
+  );
+  const fetched = () => fetchGuide.mock.calls.map(([url]) => url);
+  const lineup = (language: string, timezone = 'Europe/Paris') =>
+    tvChannelLineup(language, { added: [], removed: [] }, timezone);
+  afterEach(() => {
+    resetTvGuideCaches();
+    fetchGuide.mockClear();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('reads only the catalog channels of an XMLTV file', () => {
+    const programs = parseXmlTvGuide(
+      '<tv><programme start="20261106190000 +0100" stop="20261106200000 +0100" channel="La1.TV"><title>Telediario &amp; más</title></programme>' +
+        '<programme start="20261106190000 +0100" stop="20261106200000 +0100" channel="Other.TV"><title>Otro</title></programme></tv>',
+      ['La1.TV', 'Clan.TV'],
+    );
+    expect([...programs.keys()]).toEqual(['La1.TV', 'Clan.TV']);
+    expect(programs.get('La1.TV')?.[0]).toMatchObject({
+      title: 'Telediario & más',
+      startAt: '2026-11-06T18:00:00.000Z',
+    });
+    expect(() => parseXmlTvGuide('<tv></tv>', ['La1.TV'])).toThrow();
+  });
+
+  it('downloads only the guide of the channels a screen offers', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(now);
+    vi.stubGlobal('fetch', fetchGuide);
+    const french = await screenTvGuide(lineup('fr'));
+    expect(fetched()).toEqual([TV_GUIDE_SOURCES.xmltvfr.url]);
+    expect(french.channels.map(({ id }) => id)).toEqual([
+      'arte',
+      'rmcLife',
+      'rmcStory',
+      'rmcDecouverte',
+    ]);
+    expect(french.channels[0]).toMatchObject({
+      name: 'ARTE',
+      current: { title: 'Le Dessous des cartes' },
+      next: { title: 'Arte Journal' },
+    });
+    expect(french.channels[1]).toMatchObject({ current: null, next: null });
+    expect(french.sources).toEqual([
+      { label: 'XMLTV France', site: TV_GUIDE_SOURCES.xmltvfr.site },
+    ]);
+
+    const spanish = await screenTvGuide([...lineup('es'), tvChannelById('arte')!]);
+    expect(fetched()).toEqual([TV_GUIDE_SOURCES.xmltvfr.url, TV_GUIDE_SOURCES.tdtchannels.url]);
+    expect(spanish.channels.find(({ id }) => id === 'la1')).toMatchObject({
+      current: { title: 'Telediario 2' },
+      next: { title: 'El tiempo' },
+    });
+    expect(spanish.channels.find(({ id }) => id === 'arte')?.current?.title).toBe(
+      'Le Dessous des cartes',
+    );
+    expect(spanish.sources.map(({ label }) => label)).toEqual(['TDTChannels', 'XMLTV France']);
+  });
+
+  it('keeps the guides that answered when another source fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url === TV_GUIDE_SOURCES.tdtchannels.url
+          ? new Response('', { status: 503 })
+          : new Response(new Uint8Array(guides[url]!), { status: 200 }),
+      ),
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const guide = await screenTvGuide([...lineup('es'), tvChannelById('arte')!]);
+    expect(guide.channels.map(({ id }) => id)).toEqual(['arte']);
+    await expect(screenTvGuide(lineup('es'))).rejects.toThrow('temporairement indisponible');
+  });
+
+  it('answers without downloading anything for channels without a guide', async () => {
+    vi.stubGlobal('fetch', fetchGuide);
+    const guide = await screenTvGuide(lineup('en'));
+    expect(fetched()).toEqual([]);
+    expect(guide).toMatchObject({ channels: [], sources: [], stale: false });
+  });
+
+  it('remembers the language the TV shows, not the one of the screen agent', async () => {
+    const { service, state } = fixture();
+    await service.heartbeat('token', { camera: true }, 'es-ES');
+    expect(state.language).toBe('es');
+    await service.heartbeat('token', { host: true }, 'en');
+    expect(state.language).toBe('es');
+    await service.heartbeat('token', { camera: true }, undefined);
+    expect(state.language).toBe('es');
+    expect((await service.snapshot('user1')).language).toBe('es');
+  });
+
+  it('falls back to the installation language, then French', async () => {
+    const { service, home } = fixture();
+    expect((await service.snapshot('user1')).language).toBe('fr');
+    Object.assign(home.primaryResident, { spokenLanguage: 'English' });
+    expect((await service.snapshot('user1')).language).toBe('en');
+  });
+
+  it('keeps the French channels of screens set up before, and stores new choices', async () => {
+    const { service, state, db, row, home } = fixture();
+    delete state.tvChannels;
+    vi.spyOn(fs, 'mkdir').mockResolvedValue(undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve(new Response('', { status: 503 }))),
+    );
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    db.residentScreen.findMany.mockResolvedValue([{ ...row, home }]);
+    await service.onModuleInit();
+    service.onModuleDestroy();
+    expect(state.tvChannels).toEqual(LEGACY_TV_CHANNEL_CHOICES);
+    expect(initialScreenState().tvChannels).toEqual({ added: [], removed: [] });
+
+    await service.setTvChannels('user1', { added: ['la1', 'unknown', 'la1'], removed: ['clan'] });
+    expect(state.tvChannels).toEqual({ added: ['la1'], removed: ['clan'] });
+    expect(state.activity.at(-1)?.title).toBe('Chaînes TV mises à jour');
+    await expect(service.setTvChannels('user1', { added: 'arte' })).rejects.toThrow();
+  });
+
+  it('requires the control right to change the channels', async () => {
+    const { service, state } = fixture();
+    state.settings.grants.user1 = {
+      message: true,
+      control: false,
+      call: true,
+      autoAnswer: false,
+      administer: false,
+    };
+    await expect(service.setTvChannels('user1', { added: [], removed: [] })).rejects.toThrow();
   });
 });

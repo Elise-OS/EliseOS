@@ -1379,6 +1379,7 @@ export const MQTT_TOPICS = {
 } as const;
 
 export * from './screen.js';
+export * from './tv-channels.js';
 
 export const entranceSummarySchema = z.object({
   state: z.enum([

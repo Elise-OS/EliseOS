@@ -12,6 +12,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   Res,
@@ -77,6 +78,9 @@ export class ScreenController {
   }
   @Get('tv-guide') tvGuide(@Req() r: AuthenticatedRequest) {
     return this.screens.tvGuide(r.userId);
+  }
+  @Put('tv-channels') tvChannels(@Req() r: AuthenticatedRequest, @Body() b: unknown) {
+    return this.screens.setTvChannels(r.userId, b);
   }
   @Post('tv/reclaim') reclaimTv(@Req() r: AuthenticatedRequest) {
     return this.screens.reclaimTv(r.userId);
@@ -331,10 +335,15 @@ export class ScreenDeviceController {
   @Post('pair') pair(@Body() b: unknown) {
     return this.screens.pair(parseRequest(z.object({ code: z.string().max(100) }), b).code);
   }
-  @Post('heartbeat') heartbeat(@Headers('x-screen-token') token: string, @Body() b: unknown) {
+  @Post('heartbeat') heartbeat(
+    @Headers('x-screen-token') token: string,
+    @Headers('x-elise-locale') locale: string | undefined,
+    @Body() b: unknown,
+  ) {
     return this.screens.heartbeat(
       token,
       parseRequest(z.record(z.string().max(40), z.boolean()), b),
+      locale,
     );
   }
   @Sse('events') events(@Headers('x-screen-token') token: string) {

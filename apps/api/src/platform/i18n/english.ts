@@ -210,6 +210,7 @@ const EXACT: Record<string, string> = {
   'Radio retirée des favoris': 'Radio removed from favourites',
   'Playlist retirée': 'Playlist removed',
   'Chaîne retirée': 'Channel removed',
+  'Chaînes TV mises à jour': 'TV channels updated',
   'Photo retirée': 'Photo removed',
   'Jitsi doit être installé.': 'Jitsi must be installed.',
   'Le résident est déjà en communication.': 'The resident is already on a call.',
