@@ -1,0 +1,1 @@
+cuidador,familia,mayores,personas mayores,domicilio,autonomía,sensor,caída,alerta,bienestar

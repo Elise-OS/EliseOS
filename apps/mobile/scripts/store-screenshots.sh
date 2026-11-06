@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Captures the App Store screenshots (iPhone 6.9" and iPad 13") in demo mode.
-# Usage: bash scripts/store-screenshots.sh path/to/lise.app [fr|en]
+# Usage: bash scripts/store-screenshots.sh path/to/lise.app [fr|en|es]
 set -euo pipefail
 
-APP_PATH="${1:?Usage: store-screenshots.sh path/to/lise.app [fr|en]}"
+APP_PATH="${1:?Usage: store-screenshots.sh path/to/lise.app [fr|en|es]}"
 LANG_CODE="${2:-fr}"
 case "$LANG_CODE" in
   fr) STORE_LOCALE=fr-FR; DEVICE_LOCALE=fr_FR ;;
   en) STORE_LOCALE=en-US; DEVICE_LOCALE=en_US ;;
-  *) echo "Unknown language: $LANG_CODE (fr or en)" >&2; exit 1 ;;
+  es) STORE_LOCALE=es-ES; DEVICE_LOCALE=es_ES ;;
+  *) echo "Unknown language: $LANG_CODE (fr, en or es)" >&2; exit 1 ;;
 esac
 MOBILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_DIR="$MOBILE_DIR/fastlane/screenshots/$STORE_LOCALE"
