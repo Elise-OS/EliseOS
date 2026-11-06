@@ -934,6 +934,25 @@ export function WelcomePage({
     icon: typeof Activity;
     tone: string;
   }> = [];
+  // The six daily landmarks always show, even before their sensor is set up,
+  // so the caregiver sees what is still to configure.
+  const pushUnconfiguredUsage = (
+    key: string,
+    title: string,
+    detail: string,
+    icon: typeof Activity,
+    tone: string,
+  ) =>
+    usageSensors.push({
+      key,
+      title,
+      value: t('welcomePage.setupRequired'),
+      detail,
+      available: null,
+      roomId: null,
+      icon,
+      tone,
+    });
   const entranceRoom = data?.roomSummaries.find(
     (candidate) =>
       candidate.name === data?.entrance?.roomName || roomIconKey(candidate) === 'ENTRANCE',
@@ -957,6 +976,14 @@ export function WelcomePage({
       icon: DoorOpen,
       tone: 'entrance',
     });
+  } else if (data) {
+    pushUnconfiguredUsage(
+      'main-entrance',
+      t('welcomePage.frontDoor'),
+      t('welcomePage.assignTheEntranceContact'),
+      DoorOpen,
+      'entrance',
+    );
   }
   const fridge = data?.cards.find((card) => card.kind === 'FRIDGE');
   if (fridge) {
@@ -977,6 +1004,14 @@ export function WelcomePage({
       icon: Refrigerator,
       tone: 'fridge',
     });
+  } else if (data) {
+    pushUnconfiguredUsage(
+      'fridge',
+      t('welcomePage.refrigerator'),
+      t('welcomePage.assignTheFridgeContact'),
+      Refrigerator,
+      'fridge',
+    );
   }
   const toilet = data?.cards.find((card) => card.kind === 'TOILET');
   if (toilet) {
@@ -995,6 +1030,14 @@ export function WelcomePage({
       icon: Toilet,
       tone: 'toilet',
     });
+  } else if (data) {
+    pushUnconfiguredUsage(
+      'toilet',
+      t('welcomePage.toilet'),
+      t('welcomePage.assignAToiletMotionSensor'),
+      Toilet,
+      'toilet',
+    );
   }
   const bathroom = data?.roomSummaries.find((candidate) => roomIconKey(candidate) === 'BATHROOM');
   if (bathroom) {
@@ -1018,6 +1061,14 @@ export function WelcomePage({
       icon: ShowerHead,
       tone: 'shower',
     });
+  } else if (data) {
+    pushUnconfiguredUsage(
+      'shower',
+      t('welcomePage.shower'),
+      t('welcomePage.assignAHumiditySensor'),
+      ShowerHead,
+      'shower',
+    );
   }
   if (data) {
     const bedroom = data.rooms.find(({ kind }) => kind === 'BEDROOM');

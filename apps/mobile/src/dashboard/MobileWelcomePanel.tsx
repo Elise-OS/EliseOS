@@ -228,6 +228,24 @@ function dayNarrative(
 
 function essentialCards(data: HomeSummary, now: Date): SensorCard[] {
   const cards: SensorCard[] = [];
+  // The six daily landmarks always show, even before their sensor is set up,
+  // so the caregiver sees what is still to configure.
+  const unconfigured = (
+    id: string,
+    title: string,
+    detail: string,
+    icon: SensorCard['icon'],
+    tone: SensorCard['tone'],
+  ): SensorCard => ({
+    id,
+    title,
+    value: t('mobileWelcomePanel.setupRequired'),
+    detail,
+    icon,
+    tone,
+    available: null,
+    roomId: null,
+  });
   const entranceRoom = data.roomSummaries.find(
     (candidate) => candidate.name === data.entrance?.roomName || candidate.kind === 'ENTRANCE',
   );
@@ -249,6 +267,16 @@ function essentialCards(data: HomeSummary, now: Date): SensorCard[] {
       available: Boolean(entry?.available),
       roomId: entranceRoom?.roomId ?? null,
     });
+  else
+    cards.push(
+      unconfigured(
+        'main-entry',
+        t('mobileWelcomePanel.frontDoor'),
+        t('mobileWelcomePanel.assignTheEntranceContact'),
+        DoorOpen,
+        'entrance',
+      ),
+    );
   const fridge = data.cards.find(({ kind }) => kind === 'FRIDGE');
   if (fridge) {
     const room = data.roomSummaries.find(({ name }) => name === fridge.label);
@@ -268,6 +296,16 @@ function essentialCards(data: HomeSummary, now: Date): SensorCard[] {
       available: fridge.available,
       roomId: room?.roomId ?? null,
     });
+  } else {
+    cards.push(
+      unconfigured(
+        'fridge',
+        t('mobileWelcomePanel.refrigerator'),
+        t('mobileWelcomePanel.assignTheFridgeContact'),
+        Refrigerator,
+        'fridge',
+      ),
+    );
   }
   const toilet = data.cards.find(({ kind }) => kind === 'TOILET');
   if (toilet) {
@@ -286,6 +324,16 @@ function essentialCards(data: HomeSummary, now: Date): SensorCard[] {
       available: toilet.available,
       roomId: room?.roomId ?? null,
     });
+  } else {
+    cards.push(
+      unconfigured(
+        'toilet',
+        t('mobileWelcomePanel.toilet'),
+        t('mobileWelcomePanel.assignAToiletMotionSensor'),
+        Toilet,
+        'toilet',
+      ),
+    );
   }
   const bathroom = data.roomSummaries.find(({ kind }) => kind === 'BATHROOM');
   if (bathroom) {
@@ -325,6 +373,16 @@ function essentialCards(data: HomeSummary, now: Date): SensorCard[] {
       available: configured ? !unavailable : null,
       roomId: bathroom.roomId,
     });
+  } else {
+    cards.push(
+      unconfigured(
+        'shower',
+        t('mobileWelcomePanel.shower'),
+        t('mobileWelcomePanel.assignAHumiditySensor'),
+        ShowerHead,
+        'shower',
+      ),
+    );
   }
   const bedroom = data.rooms.find(({ kind }) => kind === 'BEDROOM');
   const sleep = data.sleep;

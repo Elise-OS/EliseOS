@@ -155,6 +155,20 @@ describe('Accueil weather settings', () => {
     });
   }
 
+  it('shows all six daily landmarks even when no sensor is set up yet', async () => {
+    await mount();
+    const landmarks = Array.from(host.querySelectorAll('.welcome-sensor'));
+    expect(landmarks.map((landmark) => landmark.querySelector('strong')?.textContent)).toEqual([
+      'Porte d’entrée',
+      'Réfrigérateur',
+      'Toilettes',
+      'Douche',
+      'Coucher de la veille',
+      'Réveil du jour',
+    ]);
+    for (const landmark of landmarks) expect(landmark.textContent).toContain('À configurer');
+  });
+
   it('configures weather from the home hero and lets the city be changed there', async () => {
     await mount();
     const setupButton = Array.from(host.querySelectorAll('button')).find((button) =>
