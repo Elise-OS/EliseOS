@@ -224,8 +224,7 @@ export function tvLanguageCode(value: string | null | undefined): string | null 
 /** The language whose channels are proposed: the screen's, or English when it has none. */
 export function tvChannelLanguage(language: string | null | undefined): string {
   const code = tvLanguageCode(language);
-  return code &&
-    TV_CHANNELS.some((channel) => (channel.languages as readonly string[]).includes(code))
+  return code && TV_CHANNELS.some((channel) => channel.languages.includes(code))
     ? code
     : TV_CHANNEL_FALLBACK_LANGUAGE;
 }
