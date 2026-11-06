@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import { type Locale, t } from './i18n';
 import { dateLocale } from './screen-locale';
+import { DEMO_SHOW_TV_EVENT, residentScreenHref } from './resident-screen-link';
 import type {
   ScreenPodcastEpisode,
   ScreenPodcastSearchResult,
@@ -977,9 +978,21 @@ export function ScreenPanel({
           <div className="page-hero__actions screen-panel__hero-actions">
             <a
               className="screen-button screen-button--secondary"
-              href="/resident-screen"
+              href={residentScreenHref()}
               target="_blank"
               rel="noreferrer"
+              onClick={(event) => {
+                // The demo has no separate TV page: a plain click shows its TV view in place.
+                if (
+                  import.meta.env.MODE !== 'demo' ||
+                  event.ctrlKey ||
+                  event.metaKey ||
+                  event.shiftKey
+                )
+                  return;
+                event.preventDefault();
+                window.dispatchEvent(new Event(DEMO_SHOW_TV_EVENT));
+              }}
             >
               {t('screenPanel.viewTheScreen')} <ExternalLink aria-hidden="true" />
             </a>

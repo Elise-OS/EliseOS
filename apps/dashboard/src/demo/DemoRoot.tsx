@@ -1,11 +1,12 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { App } from '../App';
 import { ResidentScreen } from '../ResidentScreen';
 import { DemoCall } from './DemoCall';
 import './demo.css';
 import { FlagIcon } from '../FlagIcons';
 import { currentLanguage, dashboardLanguages, t as i18nT, textBlock, type Language } from '../i18n';
+import { DEMO_SHOW_TV_EVENT } from '../resident-screen-link';
 
 type View = 'aidant' | 'tv';
 
@@ -51,13 +52,23 @@ export function DemoRoot() {
     }
   }, [sidebarClosed, view]);
 
-  const show = (next: View) => {
+  const show = useCallback((next: View) => {
     const url = new URL(window.location.href);
     if (next === 'tv') url.searchParams.set('vue', 'tv');
     else url.searchParams.delete('vue');
     window.history.replaceState(null, '', url);
     setView(next);
-  };
+  }, []);
+
+  // "View the screen" in the caregiver space switches to the TV view without reloading the home.
+  useEffect(() => {
+    const showTv = () => {
+      show('tv');
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener(DEMO_SHOW_TV_EVENT, showTv);
+    return () => window.removeEventListener(DEMO_SHOW_TV_EVENT, showTv);
+  }, [show]);
 
   return (
     <>
