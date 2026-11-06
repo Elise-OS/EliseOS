@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   activitySummarySchema,
   homeSummarySchema,
+  tvChannelByUrl,
   type ActivitySummary,
   type HomeSummary,
   type EntranceSummary,
@@ -48,6 +49,7 @@ import {
 } from 'lucide-react';
 import { roomIconKey } from './home-visuals';
 import { DataLoadingScreen } from './DataLoadingScreen';
+import { TvChannelLogo } from './TvChannelLogo';
 
 type WeatherCity = {
   name: string;
@@ -903,6 +905,8 @@ export function WelcomePage({
         : activeScreenMedia.kind === 'youtube'
           ? 'YouTube'
           : 'Podcast';
+  const screenTvChannel =
+    activeScreenMedia?.kind === 'tv' ? tvChannelByUrl(activeScreenMedia.url) : undefined;
   const ScreenMediaIcon = !activeScreenMedia
     ? Tv
     : activeScreenMedia.kind === 'stream'
@@ -1171,9 +1175,13 @@ export function WelcomePage({
         aria-live="polite"
       >
         <span className={`welcome-playback__dot${screenIsPlaying ? ' is-live' : ''}`} />
-        <span className="welcome-playback__icon">
-          <ScreenMediaIcon aria-hidden="true" />
-        </span>
+        {screenTvChannel ? (
+          <TvChannelLogo channel={screenTvChannel} className="welcome-playback__logo" />
+        ) : (
+          <span className="welcome-playback__icon">
+            <ScreenMediaIcon aria-hidden="true" />
+          </span>
+        )}
         <span className="welcome-playback__copy">
           <small>{screenPlaybackStatus}</small>
           <strong>{screenPlaybackTitle}</strong>

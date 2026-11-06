@@ -1,7 +1,8 @@
-import { appointmentPictograms } from '@elise/contracts';
+import { appointmentPictograms, tvChannelByUrl } from '@elise/contracts';
 import { residentMessageAt } from './resident-messages';
 import { dateLocale } from './screen-locale';
 import { ResidentVideo, type VideoStatus } from './ResidentVideo';
+import { TvChannelLogo } from './TvChannelLogo';
 import { subscribeScreenEvents } from './screen-events';
 import { advanceScreenSchedule } from '@elise/contracts';
 import {
@@ -559,6 +560,16 @@ export function ResidentScreen() {
     [activeVideoKey],
   );
   const currentVideoStatus = videoStatus.id === activeVideoKey ? videoStatus.status : 'loading';
+  const activeTvChannel = activeVideo?.kind === 'tv' ? tvChannelByUrl(activeVideo.url) : undefined;
+  // As on a television, the channel shows its logo when it starts, then gives the picture back.
+  const [channelShownFor, setChannelShownFor] = useState('');
+  useEffect(() => {
+    if (!activeTvChannel || currentVideoStatus !== 'ready') return;
+    const timer = window.setTimeout(() => setChannelShownFor(activeVideoKey), 6000);
+    return () => window.clearTimeout(timer);
+  }, [activeTvChannel, activeVideoKey, currentVideoStatus]);
+  const showChannel =
+    !!activeTvChannel && channelShownFor !== activeVideoKey && currentVideoStatus !== 'error';
   const activeRadio = activeMedia?.kind === 'stream' ? activeMedia : undefined;
   const activePodcast = activeMedia?.kind === 'podcast' ? activeMedia : undefined;
   const activeAudio = activeRadio ?? activePodcast;
@@ -774,6 +785,12 @@ export function ResidentScreen() {
               }
               onStatus={reportVideoStatus}
             />
+            {showChannel && activeTvChannel && (
+              <div className="resident-tv-channel">
+                <TvChannelLogo channel={activeTvChannel} className="resident-tv-channel__logo" />
+                <strong>{activeTvChannel.name}</strong>
+              </div>
+            )}
             {currentVideoStatus === 'error' && (
               <p className="resident-video-error" role="alert">
                 {t('residentScreen.playbackUnavailableCheckTheInternet')}

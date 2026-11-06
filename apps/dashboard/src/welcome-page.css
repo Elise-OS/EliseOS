@@ -71,6 +71,19 @@
   width: 19px;
   height: 19px;
 }
+.welcome-playback__logo {
+  display: grid;
+  width: 60px;
+  height: 36px;
+  flex: 0 0 60px;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 850;
+}
+.welcome-playback__logo.tv-channel-logo {
+  padding: 4px 6px;
+}
 .welcome-playback__copy {
   display: grid;
   min-width: 0;

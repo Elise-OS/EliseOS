@@ -2,6 +2,7 @@ import {
   TV_CHANNELS,
   toggleTvChannel,
   tvChannelById,
+  tvChannelByUrl,
   tvChannelLanguage,
   tvChannelLanguages,
   tvChannelLineup,
@@ -13,6 +14,7 @@ import { subscribeScreenEvents } from './screen-events';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DataLoadingScreen } from './DataLoadingScreen';
+import { TvChannelLogo } from './TvChannelLogo';
 import { isLocale, type Locale, t, textBlock } from './i18n';
 import { dateLocale } from './screen-locale';
 import { DEMO_SHOW_TV_EVENT, residentScreenHref } from './resident-screen-link';
@@ -221,18 +223,6 @@ type ScreenMainTab = 'album' | 'messages' | 'medias' | 'activity';
 const tvChannelTitle = (channel: TvChannel) => t('screenPanel.channelLive', { name: channel.name });
 const tvChannelDescription = (channel: TvChannel): string =>
   (textBlock('screenPanel.channelDescription') as Record<string, string>)[channel.id] ?? '';
-/** Text logo of a channel, in its colors (catalog of @elise/contracts). */
-function TvChannelBadge({ channel, className }: { channel: TvChannel; className: string }) {
-  return (
-    <span
-      className={`${className} ${className}--${channel.id}`}
-      style={{ color: channel.badge.color, background: channel.badge.background }}
-      aria-hidden="true"
-    >
-      {channel.badge.label}
-    </span>
-  );
-}
 /** Name of a language in the language of the page ("Espagnol", "Spanish"…). */
 function tvLanguageName(code: string) {
   try {
@@ -795,6 +785,7 @@ export function ScreenPanel({
       ['stream', 'tv', 'youtube', 'podcast'].includes(media.kind) &&
       media.id === state.playback.mediaId,
   );
+  const activeTvChannel = activeMedia?.kind === 'tv' ? tvChannelByUrl(activeMedia.url) : undefined;
   const MediaIcon =
     activeMedia?.kind === 'youtube'
       ? Youtube
@@ -1118,9 +1109,13 @@ export function ScreenPanel({
           <span
             className={`screen-playback-now__dot ${activeMedia && mediaRunning ? 'is-live' : ''}`}
           />
-          <span className="screen-playback-now__icon">
-            {activeMedia ? <MediaIcon aria-hidden="true" /> : <Volume2 aria-hidden="true" />}
-          </span>
+          {activeTvChannel ? (
+            <TvChannelLogo channel={activeTvChannel} className="screen-playback-now__logo" />
+          ) : (
+            <span className="screen-playback-now__icon">
+              {activeMedia ? <MediaIcon aria-hidden="true" /> : <Volume2 aria-hidden="true" />}
+            </span>
+          )}
           <span className="screen-playback-now__copy">
             <small>{activeMedia ? mediaStatus : t('screenPanel.tvSound')}</small>
             <strong>{activeMedia?.title ?? t('screenPanel.noMediaPlaying')}</strong>
@@ -1764,10 +1759,7 @@ export function ScreenPanel({
                           key={channel.id}
                         >
                           <div className="screen-tv-channel__identity">
-                            <TvChannelBadge
-                              channel={channel}
-                              className="screen-tv-channel__brand"
-                            />
+                            <TvChannelLogo channel={channel} className="screen-tv-channel__brand" />
                             <div>
                               <h4>{tvChannelTitle(channel)}</h4>
                               <p>{tvChannelDescription(channel)}</p>
@@ -1842,10 +1834,7 @@ export function ScreenPanel({
                                 void run(() => screenRequest('screen/tv-channels', choices, 'PUT'));
                               }}
                             />
-                            <TvChannelBadge
-                              channel={channel}
-                              className="screen-tv-catalog__brand"
-                            />
+                            <TvChannelLogo channel={channel} className="screen-tv-catalog__brand" />
                             <span>
                               <strong>{channel.name}</strong>
                               <small>
@@ -2520,7 +2509,7 @@ export function ScreenPanel({
                         <article className="screen-tv-guide__channel" key={channel.id}>
                           <div className="screen-tv-guide__identity">
                             {catalogChannel ? (
-                              <TvChannelBadge
+                              <TvChannelLogo
                                 channel={catalogChannel}
                                 className="screen-tv-guide__brand"
                               />

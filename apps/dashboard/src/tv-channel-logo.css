@@ -1,0 +1,19 @@
+/*
+ * Official channel logos sit on a white tile, so that dark and light logos read on any card.
+ * `span.` outweighs the badge rules of each view (sizes stay theirs), whatever the CSS order.
+ */
+span.tv-channel-logo {
+  display: grid;
+  box-sizing: border-box;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #e1e9ed;
+  background: #fff;
+}
+
+span.tv-channel-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}

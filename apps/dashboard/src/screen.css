@@ -2461,6 +2461,38 @@
   border-radius: 10px;
 }
 
+.resident-tv-channel {
+  position: absolute;
+  top: clamp(16px, 2.2vw, 40px);
+  left: clamp(16px, 2.2vw, 40px);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1vw, 18px);
+  padding: clamp(8px, 0.7vw, 12px) clamp(16px, 1.5vw, 26px) clamp(8px, 0.7vw, 12px)
+    clamp(8px, 0.7vw, 12px);
+  border-radius: clamp(14px, 1.2vw, 22px);
+  color: #fff;
+  background: rgb(10 22 34 / 78%);
+  font-size: clamp(18px, 1.6vw, 30px);
+  pointer-events: none;
+}
+
+.resident-tv-channel__logo {
+  display: grid;
+  width: clamp(112px, 10vw, 190px);
+  height: clamp(60px, 5.4vw, 102px);
+  place-items: center;
+  border-radius: clamp(10px, 0.9vw, 16px);
+  font-size: clamp(20px, 1.8vw, 34px);
+  font-weight: 850;
+}
+
+.resident-tv-channel__logo.tv-channel-logo {
+  padding: clamp(8px, 0.7vw, 13px) clamp(10px, 0.9vw, 16px);
+  border: 0;
+}
+
 .tv-family-message-meta {
   width: 100%;
   display: flex;
@@ -4084,6 +4116,21 @@
   height: 18px;
 }
 
+.screen-playback-now__logo {
+  display: grid;
+  width: 58px;
+  height: 34px;
+  flex: 0 0 58px;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.screen-playback-now__logo.tv-channel-logo {
+  padding: 4px 6px;
+}
+
 .screen-playback-now__copy {
   display: grid;
   min-width: 70px;
@@ -4422,6 +4469,12 @@
   letter-spacing: -2px;
 }
 
+.screen-tv-channel__brand.tv-channel-logo {
+  width: 76px;
+  height: 44px;
+  padding: 6px 8px;
+}
+
 .screen-tv-channel__identity h4 {
   margin: 0 0 3px;
   color: #173c5f;
@@ -4521,6 +4574,12 @@
   border-radius: 7px;
   font-size: 10px;
   font-weight: 850;
+}
+
+.screen-tv-catalog__brand.tv-channel-logo {
+  width: 60px;
+  height: 32px;
+  padding: 4px 6px;
 }
 
 .screen-tv-catalog__channel strong,
@@ -4880,6 +4939,12 @@
   background: #fff1e9;
   font-size: 15px;
   letter-spacing: -0.06em;
+}
+
+.screen-tv-guide__brand.tv-channel-logo {
+  width: 72px;
+  height: 34px;
+  padding: 4px 7px;
 }
 
 .screen-tv-guide__identity > strong {
