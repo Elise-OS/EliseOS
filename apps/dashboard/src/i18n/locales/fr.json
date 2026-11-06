@@ -1631,7 +1631,28 @@
     "medication": "Médicament",
     "notAvailableInTheDemo": "Indisponible en démonstration : rien ne quitte cette page.",
     "onAnEmptyStomachWith": "À jeun, avec un verre d’eau.",
-    "speakClearlyFacingHer": "Parler distinctement, face à elle."
+    "speakClearlyFacingHer": "Parler distinctement, face à elle.",
+    "tvGuide": {
+      "rmcLifeCurrent": "Cuisine en famille",
+      "rmcLifeNext": "Une maison à rénover",
+      "rmcStoryCurrent": "Enquêtes au cœur des douanes",
+      "rmcStoryNext": "Les héros du quotidien",
+      "rmcDecouverteCurrent": "Les mécaniciens du vintage",
+      "rmcDecouverteNext": "Bâtisseurs de l’impossible",
+      "la1Current": "Matinale en direct",
+      "la1Next": "Cuisine de saison",
+      "la2Current": "Grands espaces naturels",
+      "la2Next": "Voyage en train",
+      "canal24hCurrent": "La matinée en 24h",
+      "canal24hNext": "Journal de la mi-journée",
+      "clanCurrent": "Aventures dans la forêt",
+      "clanNext": "Chansons pour petits et grands",
+      "newsCurrent": "Journal",
+      "france24Next": "Le débat",
+      "dwNext": "Regards sur l’Europe",
+      "alJazeeraCurrent": "Journal du matin",
+      "alJazeeraNext": "Le grand entretien"
+    }
   },
   "scenario": {
     "aFewMovementsInThe": "Quelques passages dans la cuisine, le séjour et la salle de bains.",
@@ -1823,7 +1844,16 @@
       "arte": "Culture, documentaires et cinéma.",
       "rmcDecouverte": "Documentaires et découverte.",
       "rmcLife": "Séries, films et divertissement.",
-      "rmcStory": "Séries, fiction et divertissement."
+      "rmcStory": "Séries, fiction et divertissement.",
+      "la1": "Généraliste de RTVE : actualité, séries, divertissement.",
+      "la2": "Culture, documentaires et cinéma.",
+      "canal24h": "Information en continu de RTVE.",
+      "clan": "Programmes jeunesse de RTVE.",
+      "france24Es": "Actualité internationale en espagnol.",
+      "dwEspanol": "Actualité et reportages en espagnol.",
+      "dwEnglish": "Actualité et reportages en anglais.",
+      "france24En": "Actualité internationale en anglais.",
+      "alJazeeraEn": "Actualité internationale en anglais."
     },
     "channelLive": "{{name}} en direct",
     "chooseAPhoto": "Choisir une photo",
@@ -1989,7 +2019,7 @@
     "show": "Afficher",
     "showOnTheTv": "Afficher sur la TV",
     "showThisPhotoLater": "Afficher cette photo plus tard",
-    "sourceXmltvFrance": "Source XMLTV France",
+    "guideSource": "Source : {{source}}",
     "starting": "Lancement…",
     "starting2": "Lancement",
     "startingOnTheTv": "Lancement sur la TV…",
@@ -2041,7 +2071,13 @@
     "yourRadios": "Vos radios",
     "yourYoutubePlaylists": "Vos playlists YouTube",
     "youtubeAccount": "Compte YouTube",
-    "youtubeLinks": "Liens YouTube"
+    "youtubeLinks": "Liens YouTube",
+    "channelSpainOnly": "Disponible seulement en Espagne",
+    "noTvChannelChosen": "Aucune chaîne n’est proposée. Choisissez-en ci-dessous.",
+    "chooseTvChannels": "Choisir les chaînes",
+    "tvChannelsFollowTheScreenLanguage": "Les chaînes proposées suivent la langue de l’écran ({{language}}). Vous pouvez en ajouter d’autres langues.",
+    "screenLanguage": "Langue de l’écran",
+    "noTvGuideForTheseChannels": "Pas de programme disponible pour ces chaînes."
   },
   "sensorCategories": {
     "air_quality": {

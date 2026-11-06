@@ -1,4 +1,9 @@
-import type { EquipmentCoverage, UpdateStatus } from '@elise/contracts';
+import {
+  TV_GUIDE_SOURCES,
+  tvChannelLineup,
+  type EquipmentCoverage,
+  type UpdateStatus,
+} from '@elise/contracts';
 import { DemoRouteNotFound, demoState, mockDemoRequest, resetDemoSession } from './scenario';
 import { t } from '../i18n';
 
@@ -271,43 +276,128 @@ const updateStatus = (): UpdateStatus => ({
   error: null,
 });
 
-/** A plausible evening of French TV, around the frozen moment. */
+/** Invented "on now / next" of each catalog channel with a guide, around the frozen moment. */
+const DEMO_TV_PROGRAMMES: Record<
+  string,
+  { current: () => string; next: () => string; from: [number, number]; to: [number, number] }
+> = {
+  arte: {
+    current: () => t('scenario.gardenInSpring'),
+    next: () => t('scenario.landscapesFromHereAndElsewhere'),
+    from: [10, 20],
+    to: [11, 10],
+  },
+  rmcLife: {
+    current: () => t('router.tvGuide.rmcLifeCurrent'),
+    next: () => t('router.tvGuide.rmcLifeNext'),
+    from: [9, 55],
+    to: [10, 50],
+  },
+  rmcStory: {
+    current: () => t('router.tvGuide.rmcStoryCurrent'),
+    next: () => t('router.tvGuide.rmcStoryNext'),
+    from: [10, 0],
+    to: [11, 0],
+  },
+  rmcDecouverte: {
+    current: () => t('router.tvGuide.rmcDecouverteCurrent'),
+    next: () => t('router.tvGuide.rmcDecouverteNext'),
+    from: [10, 10],
+    to: [11, 5],
+  },
+  la1: {
+    current: () => t('router.tvGuide.la1Current'),
+    next: () => t('router.tvGuide.la1Next'),
+    from: [10, 0],
+    to: [11, 30],
+  },
+  la2: {
+    current: () => t('router.tvGuide.la2Current'),
+    next: () => t('router.tvGuide.la2Next'),
+    from: [10, 5],
+    to: [10, 55],
+  },
+  canal24h: {
+    current: () => t('router.tvGuide.canal24hCurrent'),
+    next: () => t('router.tvGuide.canal24hNext'),
+    from: [10, 0],
+    to: [11, 0],
+  },
+  clan: {
+    current: () => t('router.tvGuide.clanCurrent'),
+    next: () => t('router.tvGuide.clanNext'),
+    from: [10, 15],
+    to: [10, 40],
+  },
+  france24Es: {
+    current: () => t('router.tvGuide.newsCurrent'),
+    next: () => t('router.tvGuide.france24Next'),
+    from: [10, 30],
+    to: [10, 45],
+  },
+  dwEnglish: {
+    current: () => t('router.tvGuide.newsCurrent'),
+    next: () => t('router.tvGuide.dwNext'),
+    from: [10, 30],
+    to: [10, 45],
+  },
+  france24En: {
+    current: () => t('router.tvGuide.newsCurrent'),
+    next: () => t('router.tvGuide.france24Next'),
+    from: [10, 30],
+    to: [10, 45],
+  },
+  alJazeeraEn: {
+    current: () => t('router.tvGuide.alJazeeraCurrent'),
+    next: () => t('router.tvGuide.alJazeeraNext'),
+    from: [10, 0],
+    to: [11, 0],
+  },
+};
+
+/** The guide of the channels the demo screen offers, as the API answers it. */
 function tvGuide() {
   const today = new Date();
   const slot = (hours: number, minutes: number) => atClock(today, hours, minutes).toISOString();
-  const program = (title: string, from: [number, number], to: [number, number]) => ({
-    title,
-    description: null,
-    startAt: slot(...from),
-    endAt: slot(...to),
+  const screen = demoState().screen;
+  const channels = tvChannelLineup(screen.language, screen.state.tvChannels, screen.timezone);
+  const programmes = channels.flatMap((channel) => {
+    const programme = DEMO_TV_PROGRAMMES[channel.id];
+    if (!programme || !channel.guide) return [];
+    const length = (programme.to[0] - programme.from[0]) * 60 + programme.to[1] - programme.from[1];
+    const nextEnd = atClock(today, ...programme.to);
+    nextEnd.setMinutes(nextEnd.getMinutes() + Math.min(length, 45));
+    return [
+      {
+        sourceId: channel.guide.source,
+        id: channel.id,
+        name: channel.name,
+        current: {
+          title: programme.current(),
+          description: null,
+          startAt: slot(...programme.from),
+          endAt: slot(...programme.to),
+        },
+        next: {
+          title: programme.next(),
+          description: null,
+          startAt: slot(...programme.to),
+          endAt: nextEnd.toISOString(),
+        },
+      },
+    ];
   });
+  const sources = [
+    ...new Map(
+      programmes.map(({ sourceId }) => {
+        const { label, site } = TV_GUIDE_SOURCES[sourceId];
+        return [label, { label, site }] as const;
+      }),
+    ).values(),
+  ];
   return {
-    channels: [
-      {
-        id: 'tf1',
-        name: 'TF1',
-        current: program('Les feux de l’amour', [10, 25], [11, 5]),
-        next: program('Les 12 coups de midi', [12, 0], [12, 55]),
-      },
-      {
-        id: 'france-2',
-        name: 'France 2',
-        current: program('Télématin', [6, 30], [10, 50]),
-        next: program('Tout le monde veut prendre sa place', [11, 25], [12, 50]),
-      },
-      {
-        id: 'france-3',
-        name: 'France 3',
-        current: program('Ensemble c’est mieux', [10, 15], [11, 0]),
-        next: program('Le 12/13', [12, 0], [13, 0]),
-      },
-      {
-        id: 'arte',
-        name: 'Arte',
-        current: program(t('scenario.gardenInSpring'), [10, 20], [11, 10]),
-        next: program(t('scenario.landscapesFromHereAndElsewhere'), [11, 10], [11, 40]),
-      },
-    ],
+    channels: programmes.map(({ id, name, current, next }) => ({ id, name, current, next })),
+    sources,
     retrievedAt: iso(-20 * MINUTE),
     stale: false,
   };

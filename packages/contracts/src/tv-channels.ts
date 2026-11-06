@@ -68,7 +68,7 @@ export interface TvChannel {
 
 const SPAIN_TIMEZONES = ['Europe/Madrid', 'Atlantic/Canary', 'Africa/Ceuta'] as const;
 
-export const TV_CHANNELS = [
+const CHANNELS = [
   {
     id: 'arte',
     name: 'ARTE',
@@ -192,7 +192,8 @@ export const TV_CHANNELS = [
   },
 ] as const satisfies readonly TvChannel[];
 
-export type TvChannelId = (typeof TV_CHANNELS)[number]['id'];
+export const TV_CHANNELS: readonly TvChannel[] = CHANNELS;
+export type TvChannelId = (typeof CHANNELS)[number]['id'];
 
 /** Language whose channels a screen gets when its own language has none (as for the texts). */
 export const TV_CHANNEL_FALLBACK_LANGUAGE = 'en';
@@ -236,7 +237,7 @@ export function defaultTvChannels(
 ): TvChannel[] {
   const channelLanguage = tvChannelLanguage(language);
   return TV_CHANNELS.filter(
-    (channel: TvChannel) =>
+    (channel) =>
       channel.languages.includes(channelLanguage) &&
       (!channel.geoRestriction ||
         (!!timezone && channel.geoRestriction.timezones.includes(timezone))),

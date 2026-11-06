@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { setLanguage } from '../i18n';
 import { handleDemoRequest, resetDemo } from './router';
 
 const sourceDir = fileURLToPath(new URL('..', import.meta.url));
@@ -118,5 +119,47 @@ describe('demo router', () => {
   it('refuses actions that would leave the page', () => {
     expect(handleDemoRequest('POST', '/system/update/install', '{}').status).toBe(403);
     expect(handleDemoRequest('POST', '/cameras/camera-entry/live-session').status).toBe(403);
+  });
+});
+
+describe('demo TV channels', () => {
+  const guideChannels = () =>
+    (
+      handleDemoRequest('GET', '/screen/tv-guide').body as {
+        channels: Array<{ id: string; current: { title: string } | null }>;
+      }
+    ).channels;
+  afterEach(() => {
+    setLanguage('fr');
+    resetDemo();
+  });
+
+  it('shows the channels and invented programmes of the demo language', () => {
+    resetDemo();
+    expect(guideChannels().map(({ id }) => id)).toEqual([
+      'arte',
+      'rmcLife',
+      'rmcStory',
+      'rmcDecouverte',
+    ]);
+    setLanguage('es');
+    resetDemo();
+    // DW Español has no guide; RTVE channels blocked abroad are not offered from Paris.
+    expect(guideChannels().map(({ id }) => id)).toEqual(['canal24h', 'france24Es']);
+    expect(guideChannels()[0]?.current?.title).toBe('La mañana en 24h');
+    setLanguage('en');
+    resetDemo();
+    expect(guideChannels().map(({ id }) => id)).toEqual(['dwEnglish', 'france24En', 'alJazeeraEn']);
+  });
+
+  it('follows the channels the caregiver adds', () => {
+    setLanguage('es');
+    resetDemo();
+    handleDemoRequest(
+      'PUT',
+      '/screen/tv-channels',
+      JSON.stringify({ added: ['arte'], removed: [] }),
+    );
+    expect(guideChannels().map(({ id }) => id)).toContain('arte');
   });
 });

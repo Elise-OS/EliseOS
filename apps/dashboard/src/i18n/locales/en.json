@@ -1613,7 +1613,28 @@
     "medication": "Medication",
     "notAvailableInTheDemo": "Not available in the demo: nothing leaves this page.",
     "onAnEmptyStomachWith": "On an empty stomach, with a glass of water.",
-    "speakClearlyFacingHer": "Speak clearly, facing her."
+    "speakClearlyFacingHer": "Speak clearly, facing her.",
+    "tvGuide": {
+      "rmcLifeCurrent": "Family cooking",
+      "rmcLifeNext": "A house to renovate",
+      "rmcStoryCurrent": "Inside customs investigations",
+      "rmcStoryNext": "Everyday heroes",
+      "rmcDecouverteCurrent": "Vintage car mechanics",
+      "rmcDecouverteNext": "Builders of the impossible",
+      "la1Current": "Live morning show",
+      "la1Next": "Seasonal cooking",
+      "la2Current": "Great natural landscapes",
+      "la2Next": "Journey by train",
+      "canal24hCurrent": "The morning on 24h",
+      "canal24hNext": "Midday news",
+      "clanCurrent": "Adventures in the forest",
+      "clanNext": "Songs for young and old",
+      "newsCurrent": "News",
+      "france24Next": "The debate",
+      "dwNext": "Focus on Europe",
+      "alJazeeraCurrent": "Morning news",
+      "alJazeeraNext": "The big interview"
+    }
   },
   "scenario": {
     "aFewMovementsInThe": "A few movements in the kitchen, living room and bathroom.",
@@ -1805,7 +1826,16 @@
       "arte": "Culture, documentaries and cinema.",
       "rmcDecouverte": "Documentaries and discovery.",
       "rmcLife": "Series, films and entertainment.",
-      "rmcStory": "Series, fiction and entertainment."
+      "rmcStory": "Series, fiction and entertainment.",
+      "la1": "RTVE’s main channel: news, series, entertainment.",
+      "la2": "Culture, documentaries and films.",
+      "canal24h": "RTVE’s rolling news.",
+      "clan": "RTVE’s children’s programmes.",
+      "france24Es": "International news in Spanish.",
+      "dwEspanol": "News and reports in Spanish.",
+      "dwEnglish": "News and reports in English.",
+      "france24En": "International news in English.",
+      "alJazeeraEn": "International news in English."
     },
     "channelLive": "{{name}} live",
     "chooseAPhoto": "Choose a photo",
@@ -1970,7 +2000,7 @@
     "show": "Show",
     "showOnTheTv": "Show on the TV",
     "showThisPhotoLater": "Show this photo later",
-    "sourceXmltvFrance": "Source: XMLTV France",
+    "guideSource": "Source: {{source}}",
     "starting": "Starting…",
     "starting2": "Starting",
     "startingOnTheTv": "Starting on the TV…",
@@ -2022,7 +2052,13 @@
     "yourRadios": "Your radios",
     "yourYoutubePlaylists": "Your YouTube playlists",
     "youtubeAccount": "YouTube account",
-    "youtubeLinks": "YouTube links"
+    "youtubeLinks": "YouTube links",
+    "channelSpainOnly": "Only available in Spain",
+    "noTvChannelChosen": "No channel is offered. Choose some below.",
+    "chooseTvChannels": "Choose the channels",
+    "tvChannelsFollowTheScreenLanguage": "The channels offered follow the screen language ({{language}}). You can add channels in other languages.",
+    "screenLanguage": "Screen language",
+    "noTvGuideForTheseChannels": "No TV guide is available for these channels."
   },
   "sensorCategories": {
     "air_quality": {

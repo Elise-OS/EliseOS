@@ -4422,15 +4422,6 @@
   letter-spacing: -2px;
 }
 
-.screen-tv-channel__brand--rmc-life,
-.screen-tv-channel__brand--rmc-story,
-.screen-tv-channel__brand--rmc-decouverte {
-  color: #fff;
-  background: #19365b;
-  font-size: 12px;
-  letter-spacing: -0.3px;
-}
-
 .screen-tv-channel__identity h4 {
   margin: 0 0 3px;
   color: #173c5f;
@@ -4452,6 +4443,106 @@
   justify-content: center;
   white-space: normal;
   text-align: center;
+}
+
+.screen-tv-channel__identity .screen-tv-channel__restriction {
+  margin-top: 3px;
+  color: #8a5a12;
+  font-weight: 700;
+}
+
+.screen-tv-catalog {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid #e1e9eb;
+  border-radius: 14px;
+  background: #f8fbfc;
+}
+
+.screen-tv-catalog > summary {
+  color: #173c5f;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.screen-tv-catalog > p {
+  margin: 8px 0 4px;
+  color: #708394;
+  font-size: 12px;
+}
+
+.screen-tv-catalog__language {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.screen-tv-catalog__language > legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: #29485e;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.screen-tv-catalog__language > legend small {
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: #234f76;
+  background: #e3f0f8;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.screen-tv-catalog__channel {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #e6edf1;
+  border-radius: 11px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.screen-tv-catalog__brand {
+  display: grid;
+  min-width: 34px;
+  height: 26px;
+  padding: 0 5px;
+  place-items: center;
+  border-radius: 7px;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.screen-tv-catalog__channel strong,
+.screen-tv-catalog__channel small {
+  display: block;
+}
+
+.screen-tv-catalog__channel strong {
+  color: #173c5f;
+  font-size: 12px;
+}
+
+.screen-tv-catalog__channel small {
+  color: #708394;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+@media (max-width: 560px) {
+  .screen-tv-catalog__language {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .screen-tv-card > .screen-tv-note {
@@ -4784,7 +4875,7 @@
   letter-spacing: 0.02em;
 }
 
-.screen-tv-guide__brand--arte-fr {
+.screen-tv-guide__brand--arte {
   color: #f0673c;
   background: #fff1e9;
   font-size: 15px;

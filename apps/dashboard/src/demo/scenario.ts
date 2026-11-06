@@ -2,6 +2,7 @@
 // so the web demo shows the same home, people and day. Keep both in step when the scenario changes.
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
+  defaultTvChannels,
   initialScreenState,
   type ActivitySummary,
   type AlertRuleSettings,
@@ -12,6 +13,7 @@ import {
   type ScreenSnapshot,
   type SensorDevice,
   type SensorOnboardingSession,
+  type TvChannelChoices,
 } from '@elise/contracts';
 import type {
   ActivityItem,
@@ -25,7 +27,7 @@ import type {
   TrustedPerson,
 } from './types';
 import type { SavedServer } from './types';
-import { t } from '../i18n';
+import { currentLanguage, t } from '../i18n';
 
 // The demo home speaks the visitor’s language: the page reloads when it changes.
 
@@ -1894,12 +1896,15 @@ function createScreenSnapshot(): ScreenSnapshot {
       title: t('scenario.coffeeWithClaire'),
       url: '/welcome-home.jpg',
     },
-    {
-      id: 'dd421624-87ef-4afe-ab68-2cc26ec72918',
-      kind: 'tv',
-      title: 'Arte',
-      url: 'https://demo.invalid/arte.m3u8',
-    },
+    // The channel of the demo language that the family watches most.
+    ...defaultTvChannels(currentLanguage(), 'Europe/Paris')
+      .slice(0, 1)
+      .map((channel) => ({
+        id: 'dd421624-87ef-4afe-ab68-2cc26ec72918',
+        kind: 'tv' as const,
+        title: t('screenPanel.channelLive', { name: channel.name }),
+        url: channel.url,
+      })),
     {
       id: 'da9f6cc0-ff07-49c6-b2bb-fd4be8e6a015',
       kind: 'audio',
@@ -1978,6 +1983,8 @@ function createScreenSnapshot(): ScreenSnapshot {
     jitsiUrl: null,
     resident: 'Jeanne Martin',
     timezone: 'Europe/Paris',
+    // The TV shows the demo language: its channels follow it.
+    language: currentLanguage(),
     visit: null,
     // The TV shows the resident's own day: Sophie this morning, then Claire's visit.
     agenda: [
@@ -2177,6 +2184,10 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
     if (typeof body.messageIntervalSeconds === 'number')
       state.screen.state.messageIntervalSeconds = body.messageIntervalSeconds;
     state.screen.state.messageUpdatedAt = Date.now();
+    return state.screen as T;
+  }
+  if (pathname === '/screen/tv-channels' && method === 'PUT') {
+    state.screen.state.tvChannels = body as unknown as TvChannelChoices;
     return state.screen as T;
   }
   if (pathname === '/screen/settings' && method === 'PATCH') {

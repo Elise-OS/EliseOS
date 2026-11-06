@@ -1,15 +1,19 @@
 import {
-  ARTE_LIVE_URL,
-  RMC_DECOUVERTE_LIVE_URL,
-  RMC_LIFE_LIVE_URL,
-  RMC_STORY_LIVE_URL,
+  TV_CHANNELS,
+  toggleTvChannel,
+  tvChannelById,
+  tvChannelLanguage,
+  tvChannelLanguages,
+  tvChannelLineup,
   youtubeVideoId,
+  type TvChannel,
 } from '@elise/contracts';
+import { languageInfo } from '@elise/i18n';
 import { subscribeScreenEvents } from './screen-events';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DataLoadingScreen } from './DataLoadingScreen';
-import { type Locale, t } from './i18n';
+import { isLocale, type Locale, t, textBlock } from './i18n';
 import { dateLocale } from './screen-locale';
 import { DEMO_SHOW_TV_EVENT, residentScreenHref } from './resident-screen-link';
 import type {
@@ -185,6 +189,8 @@ type TvGuideData = {
     current: TvGuideProgram | null;
     next: TvGuideProgram | null;
   }>;
+  /** Guides the programmes come from (absent on older servers: XMLTV France). */
+  sources?: Array<{ label: string; site: string }>;
   retrievedAt: string;
   stale: boolean;
 };
@@ -212,47 +218,41 @@ type TvHostStatus = {
   homeAssistantTv?: Partial<NetworkTv> | null;
 };
 type ScreenMainTab = 'album' | 'messages' | 'medias' | 'activity';
-const LIVE_TV_CHANNELS = [
-  {
-    url: ARTE_LIVE_URL,
-    mediaTitle: () => t('screenPanel.channelLive', { name: 'ARTE' }),
-    name: 'ARTE',
-    description: () => t('screenPanel.channelDescription.arte'),
-    brand: 'arte',
-  },
-  {
-    url: RMC_LIFE_LIVE_URL,
-    mediaTitle: () => t('screenPanel.channelLive', { name: 'RMC Life' }),
-    name: 'RMC Life',
-    description: () => t('screenPanel.channelDescription.rmcLife'),
-    brand: 'rmc-life',
-    brandLabel: 'RMC',
-  },
-  {
-    url: RMC_STORY_LIVE_URL,
-    mediaTitle: () => t('screenPanel.channelLive', { name: 'RMC Story' }),
-    name: 'RMC Story',
-    description: () => t('screenPanel.channelDescription.rmcStory'),
-    brand: 'rmc-story',
-    brandLabel: 'RMC',
-  },
-  {
-    url: RMC_DECOUVERTE_LIVE_URL,
-    mediaTitle: () => t('screenPanel.channelLive', { name: 'RMC Découverte' }),
-    name: 'RMC Découverte',
-    description: () => t('screenPanel.channelDescription.rmcDecouverte'),
-    brand: 'rmc-decouverte',
-    brandLabel: 'RMC',
-  },
-] as const;
-const tvGuideTime = (value: string) =>
+const tvChannelTitle = (channel: TvChannel) => t('screenPanel.channelLive', { name: channel.name });
+const tvChannelDescription = (channel: TvChannel): string =>
+  (textBlock('screenPanel.channelDescription') as Record<string, string>)[channel.id] ?? '';
+/** Text logo of a channel, in its colors (catalog of @elise/contracts). */
+function TvChannelBadge({ channel, className }: { channel: TvChannel; className: string }) {
+  return (
+    <span
+      className={`${className} ${className}--${channel.id}`}
+      style={{ color: channel.badge.color, background: channel.badge.background }}
+      aria-hidden="true"
+    >
+      {channel.badge.label}
+    </span>
+  );
+}
+/** Name of a language in the language of the page ("Espagnol", "Spanish"…). */
+function tvLanguageName(code: string) {
+  try {
+    const name = new Intl.DisplayNames([dateLocale()], { type: 'language' }).of(code);
+    if (name) return name.charAt(0).toLocaleUpperCase(dateLocale()) + name.slice(1);
+  } catch {
+    // Older browsers: native name below.
+  }
+  return isLocale(code) ? languageInfo(code).name : code;
+}
+const tvGuideTime = (value: string, timeZone = 'Europe/Paris') =>
   new Intl.DateTimeFormat(dateLocale(), {
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: 'Europe/Paris',
+    timeZone,
   }).format(new Date(value));
-function tvGuideRange(program: TvGuideProgram | null): string {
-  return program ? `${tvGuideTime(program.startAt)} – ${tvGuideTime(program.endAt)}` : '';
+function tvGuideRange(program: TvGuideProgram | null, timeZone?: string): string {
+  return program
+    ? `${tvGuideTime(program.startAt, timeZone)} – ${tvGuideTime(program.endAt, timeZone)}`
+    : '';
 }
 function tvSelection(selected: TvHostStatus['networkTv'], discovered: NetworkTv): NetworkTv {
   if (!selected?.id) return discovered;
@@ -528,6 +528,10 @@ export function ScreenPanel({
     const timer = window.setInterval(() => void refreshTvHost().catch(() => undefined), 5000);
     return () => window.clearInterval(timer);
   }, [snapshot?.grant.control, refreshTvHost]);
+  // Channels offered on this screen: those of its language, with the caregiver's choices.
+  const tvLanguage = snapshot?.language ?? 'fr';
+  const tvLineup = tvChannelLineup(tvLanguage, snapshot?.state.tvChannels, snapshot?.timezone);
+  const tvLineupKey = tvLineup.map(({ id }) => id).join(',');
   useEffect(() => {
     if (!snapshot?.grant.control) return;
     let disposed = false;
@@ -548,7 +552,7 @@ export function ScreenPanel({
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [snapshot?.grant.control]);
+  }, [snapshot?.grant.control, tvLineupKey]);
   const refresh = useCallback(async () => {
     const s = await screenRequest<ScreenSnapshot>('screen', undefined, 'GET');
     setSnapshot(s);
@@ -1749,7 +1753,7 @@ export function ScreenPanel({
                     className="screen-tv-channels"
                     aria-label={t('screenPanel.liveTvChannels')}
                   >
-                    {LIVE_TV_CHANNELS.map((channel) => {
+                    {tvLineup.map((channel) => {
                       const channelMedia = state.media.find(
                         (media) => media.kind === 'tv' && media.url === channel.url,
                       );
@@ -1757,18 +1761,21 @@ export function ScreenPanel({
                       return (
                         <article
                           className={`screen-tv-channel${playbackState === 'idle' ? '' : ` is-${playbackState}`}`}
-                          key={channel.url}
+                          key={channel.id}
                         >
                           <div className="screen-tv-channel__identity">
-                            <span
-                              className={`screen-tv-channel__brand screen-tv-channel__brand--${channel.brand}`}
-                              aria-hidden="true"
-                            >
-                              {channel.brand === 'arte' ? 'arte' : channel.brandLabel}
-                            </span>
+                            <TvChannelBadge
+                              channel={channel}
+                              className="screen-tv-channel__brand"
+                            />
                             <div>
-                              <h4>{channel.mediaTitle()}</h4>
-                              <p>{channel.description()}</p>
+                              <h4>{tvChannelTitle(channel)}</h4>
+                              <p>{tvChannelDescription(channel)}</p>
+                              {channel.geoRestriction && (
+                                <p className="screen-tv-channel__restriction">
+                                  {t('screenPanel.channelSpainOnly')}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <MediaPlaybackButton
@@ -1786,7 +1793,7 @@ export function ScreenPanel({
                                 if (!existing)
                                   await screenRequest('screen/media', {
                                     id: mediaId,
-                                    title: channel.mediaTitle(),
+                                    title: tvChannelTitle(channel),
                                     kind: 'tv',
                                     url: channel.url,
                                   });
@@ -1797,7 +1804,61 @@ export function ScreenPanel({
                         </article>
                       );
                     })}
+                    {tvLineup.length === 0 && (
+                      <p className="screen-empty-library">{t('screenPanel.noTvChannelChosen')}</p>
+                    )}
                   </section>
+                  <details className="screen-tv-catalog">
+                    <summary>{t('screenPanel.chooseTvChannels')}</summary>
+                    <p>
+                      {t('screenPanel.tvChannelsFollowTheScreenLanguage', {
+                        language: tvLanguageName(tvChannelLanguage(tvLanguage)),
+                      })}
+                    </p>
+                    {tvChannelLanguages().map((language) => (
+                      <fieldset className="screen-tv-catalog__language" key={language}>
+                        <legend>
+                          {tvLanguageName(language)}
+                          {language === tvChannelLanguage(tvLanguage) && (
+                            <small>{t('screenPanel.screenLanguage')}</small>
+                          )}
+                        </legend>
+                        {TV_CHANNELS.filter((channel: TvChannel) =>
+                          channel.languages.includes(language),
+                        ).map((channel) => (
+                          <label className="screen-tv-catalog__channel" key={channel.id}>
+                            <input
+                              type="checkbox"
+                              checked={tvLineup.some(({ id }) => id === channel.id)}
+                              disabled={busy || !grant.control}
+                              onChange={(event) => {
+                                const choices = toggleTvChannel(
+                                  state.tvChannels,
+                                  channel.id,
+                                  event.currentTarget.checked,
+                                  tvLanguage,
+                                  snapshot.timezone,
+                                );
+                                void run(() => screenRequest('screen/tv-channels', choices, 'PUT'));
+                              }}
+                            />
+                            <TvChannelBadge
+                              channel={channel}
+                              className="screen-tv-catalog__brand"
+                            />
+                            <span>
+                              <strong>{channel.name}</strong>
+                              <small>
+                                {tvChannelDescription(channel)}
+                                {channel.geoRestriction &&
+                                  ` · ${t('screenPanel.channelSpainOnly')}`}
+                              </small>
+                            </span>
+                          </label>
+                        ))}
+                      </fieldset>
+                    ))}
+                  </details>
                   <p className="screen-tv-note">{t('screenPanel.liveViewingMayBeLimited')}</p>
                 </div>
                 <div
@@ -2433,9 +2494,14 @@ export function ScreenPanel({
                   </h4>
                   <span>{t('screenPanel.onNowAndNext')}</span>
                 </div>
-                {tvGuide ? (
+                {tvGuide && tvGuide.channels.length === 0 ? (
+                  <p className="screen-tv-guide__empty">
+                    {t('screenPanel.noTvGuideForTheseChannels')}
+                  </p>
+                ) : tvGuide ? (
                   <div className="screen-tv-guide__list">
                     {tvGuide.channels.map((channel) => {
+                      const catalogChannel = tvChannelById(channel.id);
                       const current = channel.current;
                       const next = channel.next;
                       const progress = current
@@ -2453,11 +2519,16 @@ export function ScreenPanel({
                       return (
                         <article className="screen-tv-guide__channel" key={channel.id}>
                           <div className="screen-tv-guide__identity">
-                            <span
-                              className={`screen-tv-guide__brand screen-tv-guide__brand--${channel.id.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`}
-                            >
-                              {channel.name === 'ARTE' ? 'arte' : 'RMC'}
-                            </span>
+                            {catalogChannel ? (
+                              <TvChannelBadge
+                                channel={catalogChannel}
+                                className="screen-tv-guide__brand"
+                              />
+                            ) : (
+                              <span className="screen-tv-guide__brand" aria-hidden="true">
+                                {channel.name.slice(0, 4)}
+                              </span>
+                            )}
                             <strong>{channel.name}</strong>
                           </div>
                           <div className="screen-tv-guide__programs">
@@ -2468,7 +2539,7 @@ export function ScreenPanel({
                                   : next
                                     ? t('screenPanel.comingUp')
                                     : t('screenPanel.programme')}
-                                {current && <time>{tvGuideRange(current)}</time>}
+                                {current && <time>{tvGuideRange(current, snapshot.timezone)}</time>}
                               </span>
                               <strong>
                                 {current?.title ??
@@ -2485,7 +2556,8 @@ export function ScreenPanel({
                             {current && next && (
                               <div className="screen-tv-guide__program screen-tv-guide__program--next">
                                 <span className="screen-tv-guide__label">
-                                  {t('screenPanel.next2')} <time>{tvGuideRange(next)}</time>
+                                  {t('screenPanel.next2')}{' '}
+                                  <time>{tvGuideRange(next, snapshot.timezone)}</time>
                                 </span>
                                 <strong>{next.title}</strong>
                               </div>
@@ -2504,11 +2576,18 @@ export function ScreenPanel({
                 )}
                 <p className="screen-tv-guide__source">
                   {tvGuide?.stale
-                    ? `${t('screenPanel.lastGuideReceivedAt')} ${tvGuideTime(tvGuide.retrievedAt)} · `
+                    ? `${t('screenPanel.lastGuideReceivedAt')} ${tvGuideTime(tvGuide.retrievedAt, snapshot.timezone)} · `
                     : t('screenPanel.guideRefreshedAutomatically')}
-                  <a href="https://www.xmltvfr.fr/xmltv.php" target="_blank" rel="noreferrer">
-                    {t('screenPanel.sourceXmltvFrance')} <ExternalLink aria-hidden="true" />
-                  </a>
+                  {(
+                    tvGuide?.sources ?? [
+                      { label: 'XMLTV France', site: 'https://www.xmltvfr.fr/xmltv.php' },
+                    ]
+                  ).map((source) => (
+                    <a key={source.site} href={source.site} target="_blank" rel="noreferrer">
+                      {t('screenPanel.guideSource', { source: source.label })}{' '}
+                      <ExternalLink aria-hidden="true" />
+                    </a>
+                  ))}
                 </p>
               </section>
             )}
