@@ -10,14 +10,14 @@
 and connects an older relative to their family through the living-room TV — without ever sending their data to the cloud.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0--only-12385f)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.1.12-12385f)
+![Version](https://img.shields.io/badge/version-0.1.15-12385f)
 ![Raspberry Pi 4/5](https://img.shields.io/badge/Raspberry%20Pi-4%20%7C%205-c51a4a)
 ![Ubuntu 24.04](https://img.shields.io/badge/Ubuntu-24.04-e95420)
 ![iOS and Android](https://img.shields.io/badge/app-iPhone%20%C2%B7%20iPad%20%C2%B7%20Android-555)
 ![100% local](https://img.shields.io/badge/data-100%25%20local-2e7d32)
 [![Support on Buy Me a Coffee](https://img.shields.io/badge/support-Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/drsamourai)
 
-[🇫🇷 Français](README.md) · **🇬🇧 English**
+[🇫🇷 Français](README.md) · **🇬🇧 English** · [🇪🇸 Español](README.es.md)
 
 [Live demo](https://eliseos.paulbreton.dev/demo/?lang=en) · [Website and docs](https://eliseos.paulbreton.dev/en/) · [Download](https://github.com/Elise-OS/EliseOS/releases/latest) · [☕ Support the project](https://buymeacoffee.com/drsamourai)
 
@@ -65,7 +65,7 @@ The project is dedicated to Élise.
 
 ## Screenshots
 
-Taken from the [public demo](https://eliseos.paulbreton.dev/demo/?lang=en): the fictional “Martin home”, frozen on Tuesday 13 October 2026 at 10:40. Claire, the daughter, looks after her mother Jeanne. The interface is fully bilingual; the screens below show the French locale.
+Taken from the [public demo](https://eliseos.paulbreton.dev/demo/?lang=en): the fictional “Martin home”, frozen on Tuesday 13 October 2026 at 10:40. Claire, the daughter, looks after her mother Jeanne. The interface is available in French, English and Spanish; the screens below show the French locale.
 
 ### Caregiver space
 

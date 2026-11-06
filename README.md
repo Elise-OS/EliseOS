@@ -10,14 +10,14 @@
 et relie le proche âgé à sa famille par la télévision du salon — sans jamais envoyer ses données dans le cloud.
 
 [![Licence : AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0--only-12385f)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.1.12-12385f)
+![Version](https://img.shields.io/badge/version-0.1.15-12385f)
 ![Raspberry Pi 4/5](https://img.shields.io/badge/Raspberry%20Pi-4%20%7C%205-c51a4a)
 ![Ubuntu 24.04](https://img.shields.io/badge/Ubuntu-24.04-e95420)
 ![iOS et Android](https://img.shields.io/badge/app-iPhone%20%C2%B7%20iPad%20%C2%B7%20Android-555)
 ![100 % local](https://img.shields.io/badge/donn%C3%A9es-100%20%25%20locales-2e7d32)
 [![Soutenir sur Buy Me a Coffee](https://img.shields.io/badge/soutenir-Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/drsamourai)
 
-**🇫🇷 Français** · [🇬🇧 English](README.en.md)
+**🇫🇷 Français** · [🇬🇧 English](README.en.md) · [🇪🇸 Español](README.es.md)
 
 [Démo en ligne](https://eliseos.paulbreton.dev/demo/) · [Site et documentation](https://eliseos.paulbreton.dev) · [Télécharger](https://github.com/Elise-OS/EliseOS/releases/latest) · [☕ Soutenir le projet](https://buymeacoffee.com/drsamourai)
 
@@ -94,7 +94,7 @@ Un écran calme, lisible de loin : message du jour, heure, météo, rendez-vous 
 | :----------------------------------------------------------------------------------: | :---------------------------------------------------------: |
 | <img src="docs/images/mobile-accueil.jpg" alt="Accueil sur téléphone" width="260" /> | <img src="docs/images/home-en.jpg" alt="Home in English" /> |
 
-L’interface est entièrement responsive et bilingue français / anglais.
+L’interface est entièrement responsive et disponible en français, anglais et espagnol.
 
 ---
 
