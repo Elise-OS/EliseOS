@@ -16,6 +16,7 @@ import {
   MapPin,
   Minus,
   MousePointer2,
+  PencilLine,
   Play,
   Plus,
   RotateCcw,
@@ -28,6 +29,7 @@ import {
   Warehouse,
   X,
 } from 'lucide-react';
+import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type Locale, t, textBlock } from './i18n';
 
@@ -56,9 +58,43 @@ const roomCatalog = [
 ] as const;
 type RoomKind = (typeof roomCatalog)[number][0];
 const roomKindName = (kind: RoomKind) => t(`homeSetupOnboarding.roomKind.${kind}`);
+const roomKindIcon = (kind: string) =>
+  roomCatalog.find(([catalogKind]) => catalogKind === kind)?.[1] ?? Grid2X2;
+// Each kind of room gets its own colour so the list reads at a glance.
+const roomKindTone: Record<RoomKind, readonly [tone: string, tint: string]> = {
+  ENTRANCE: ['#9a6a1f', '#fbf0dc'],
+  LIVING_ROOM: ['#2d6aa0', '#e4eefa'],
+  KITCHEN: ['#c05a24', '#fde9dc'],
+  DINING_ROOM: ['#a5473a', '#f9e5e1'],
+  BEDROOM: ['#6450a8', '#eeeafa'],
+  BATHROOM: ['#167f92', '#def3f6'],
+  TOILET: ['#2a8565', '#e0f3ea'],
+  HALLWAY: ['#5f6b7a', '#edf0f3'],
+  GARAGE: ['#4a5363', '#e9ecf0'],
+  GARDEN: ['#3d8236', '#e5f2e2'],
+  TERRACE: ['#a87a06', '#faf1d4'],
+  OTHER: ['#5d6b80', '#edf1f5'],
+};
+const roomToneStyle = (kind: string) => {
+  const [tone, tint] = roomKindTone[kind as RoomKind] ?? roomKindTone.OTHER;
+  return { '--room-tone': tone, '--room-tint': tint } as React.CSSProperties;
+};
 
 const draftId = () =>
   `requested-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
+
+// Rooms almost every home has: preselected while the list is still empty,
+// so the person only adds the rest or removes what does not apply.
+const preselectedRoomKinds: RoomKind[] = ['ENTRANCE', 'KITCHEN', 'BATHROOM', 'TOILET'];
+const roomsOrPreselection = (requested: RequestedRoom[]): RequestedRoom[] =>
+  requested.length
+    ? requested
+    : preselectedRoomKinds.map((kind, index) => ({
+        id: `${draftId()}-${index}`,
+        name: roomKindName(kind),
+        kind,
+        floor: 0,
+      }));
 
 const floorName = (floor: number) =>
   floor === 0
@@ -116,11 +152,11 @@ export function HomeSetupOnboarding({
   onClosePreview?: (() => void) | undefined;
 }) {
   const [details, setDetails] = useState<HomeSetupDetails>({ ...home, levels: floorCount });
-  const [rooms, setRooms] = useState<RequestedRoom[]>(requestedRooms);
+  const [rooms, setRooms] = useState<RequestedRoom[]>(() => roomsOrPreselection(requestedRooms));
   const [localError, setLocalError] = useState('');
   const [animationKey, setAnimationKey] = useState(0);
 
-  useEffect(() => setRooms(requestedRooms), [requestedRooms]);
+  useEffect(() => setRooms(roomsOrPreselection(requestedRooms)), [requestedRooms]);
   useEffect(
     () => setDetails({ ...home, levels: floorCount }),
     [floorCount, home.address, home.name, home.timezone, home.type],
@@ -315,7 +351,7 @@ export function HomeSetupOnboarding({
               </header>
               <div className="home-requested-rooms-list">
                 {rooms.map((room) => {
-                  const RoomIcon = roomCatalog.find(([kind]) => kind === room.kind)?.[1] ?? Grid2X2;
+                  const RoomIcon = roomKindIcon(room.kind);
                   return (
                     <div key={room.id}>
                       <span className="home-requested-room-icon">
@@ -550,20 +586,56 @@ export function DrawingSetupPanel({
           <p>{t('homeSetupOnboarding.pressTheGridHoldAnd')}</p>
         </div>
       </div>
+      <div className="drawing-room-progress" aria-live="polite">
+        <span>{t('homeSetupOnboarding.roomsDrawn')}</span>
+        <strong>
+          {t('homeSetupOnboarding.drawnOutOf', {
+            drawn: requestedRooms.length - remaining,
+            total: requestedRooms.length,
+          })}
+        </strong>
+        <span className="drawing-room-progress-bar" aria-hidden="true">
+          <span
+            style={{
+              width: `${requestedRooms.length ? ((requestedRooms.length - remaining) / requestedRooms.length) * 100 : 0}%`,
+            }}
+          />
+        </span>
+      </div>
       <div className="drawing-room-checklist">
         {requestedRooms.map((room) => {
           const done = drawnRoomIds.has(room.id);
+          const selected = !done && selectedRoomId === room.id;
+          const RoomIcon = roomKindIcon(room.kind);
+          const status = done ? 'drawn' : selected ? 'drawing' : 'toDraw';
           return (
             <button
               type="button"
               disabled={done}
-              className={`${done ? 'is-done' : ''} ${selectedRoomId === room.id ? 'is-selected' : ''}`}
+              aria-pressed={selected}
+              className={`${done ? 'is-done' : ''} ${selected ? 'is-selected' : ''}`}
+              style={roomToneStyle(room.kind)}
               key={room.id}
               onClick={() => onSelect(room)}
             >
-              <span>{done ? <Check /> : <Grid2X2 />}</span>
-              <strong>{room.name}</strong>
-              <small>{floorName(room.floor)}</small>
+              <span className="drawing-room-icon">
+                <RoomIcon aria-hidden="true" />
+                {done && (
+                  <span className="drawing-room-done-badge">
+                    <Check aria-hidden="true" />
+                  </span>
+                )}
+              </span>
+              <span className="drawing-room-text">
+                <strong>{room.name}</strong>
+                <span className="drawing-room-meta">
+                  <small>{floorName(room.floor)}</small>
+                  <span className={`drawing-room-status is-${status}`}>
+                    {selected && <PencilLine aria-hidden="true" />}
+                    {t(`homeSetupOnboarding.roomStatus.${status}`)}
+                  </span>
+                </span>
+              </span>
             </button>
           );
         })}

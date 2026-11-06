@@ -13,18 +13,25 @@ import {
   ArrowRight,
   ArrowDown,
   ArrowUp,
+  ArrowUpDown,
+  BrickWall,
+  ChevronDown,
   CircleCheck,
   DoorOpen,
   Grid2X2,
+  Layers,
+  LayoutGrid,
   Link2,
   MousePointer2,
   MoveHorizontal,
   MoveUpRight,
+  PencilLine,
   Plus,
   Radio,
   Redo2,
   Route,
   RotateCcw,
+  Ruler,
   Save,
   Square,
   Trash2,
@@ -32,6 +39,7 @@ import {
   Waves,
 } from 'lucide-react';
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -579,6 +587,8 @@ export function HomePlanEditor({
   const [coverageError, setCoverageError] = useState('');
   const [tool, setTool] = useState<Tool>('SELECT');
   const [floorId, setFloorId] = useState('');
+  const [editingFloorId, setEditingFloorId] = useState<string | null>(null);
+  const [floorNameDraft, setFloorNameDraft] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [selectedPlacementId, setSelectedPlacementId] = useState<string | null>(null);
@@ -1245,6 +1255,21 @@ export function HomePlanEditor({
         area;
     });
   };
+  const startRenamingFloor = (level: FloorLayout) => {
+    setEditingFloorId(level.id);
+    setFloorNameDraft(level.name);
+  };
+  const finishRenamingFloor = (save: boolean) => {
+    const id = editingFloorId;
+    const name = floorNameDraft.trim();
+    setEditingFloorId(null);
+    if (!save || !id || !name) return;
+    if (plan?.levels.find((level) => level.id === id)?.name === name) return;
+    commit((draft) => {
+      const level = draft.levels.find((item) => item.id === id);
+      if (level) level.name = name;
+    });
+  };
   const addFloor = () => {
     if (!plan) return;
     const floor = Math.max(...plan.levels.map((item) => item.floor), -1) + 1;
@@ -1268,6 +1293,9 @@ export function HomePlanEditor({
     setSelectedRoomId(null);
     setSelectedOpeningId(null);
     setMovingOpeningId(null);
+    // A new level opens straight on its name, so it can be called "Sous-sol" or "Combles".
+    setEditingFloorId(id);
+    setFloorNameDraft(levelName(floor));
   };
   const deleteCurrentFloor = () => {
     if (!plan || !currentFloor || plan.levels.length <= 1) return;
@@ -1294,9 +1322,10 @@ export function HomePlanEditor({
       [...draft.levels]
         .sort((a, b) => a.order - b.order)
         .forEach((level, index) => {
+          // Only levels still carrying their automatic name follow the new numbering.
+          if (level.name === levelName(level.floor)) level.name = levelName(index);
           level.order = index;
           level.floor = index;
-          level.name = levelName(index);
         });
     });
     setFloorId(fallback.id);
@@ -1823,20 +1852,47 @@ export function HomePlanEditor({
       <div className="home-plan-floorbar">
         {[...plan.levels]
           .sort((a, b) => a.order - b.order)
-          .map((level) => (
-            <button
-              key={level.id}
-              className={level.id === currentFloor.id ? 'active' : ''}
-              onClick={() => {
-                setFloorId(level.id);
-                setSelectedRoomId(null);
-                setSelectedOpeningId(null);
-                setMovingOpeningId(null);
-              }}
-            >
-              {level.name}
-            </button>
-          ))}
+          .map((level) =>
+            editingFloorId === level.id ? (
+              <input
+                key={level.id}
+                className="floor-name-input"
+                aria-label={t('homePlanEditor.levelNameField')}
+                value={floorNameDraft}
+                maxLength={40}
+                size={Math.max(8, floorNameDraft.length + 1)}
+                autoFocus
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) => setFloorNameDraft(event.target.value)}
+                onBlur={() => finishRenamingFloor(true)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') event.currentTarget.blur();
+                  if (event.key === 'Escape') finishRenamingFloor(false);
+                }}
+              />
+            ) : (
+              <button
+                key={level.id}
+                className={level.id === currentFloor.id ? 'active' : ''}
+                title={level.id === currentFloor.id ? t('homePlanEditor.renameLevel') : undefined}
+                onClick={() => {
+                  if (level.id === currentFloor.id) {
+                    startRenamingFloor(level);
+                    return;
+                  }
+                  setFloorId(level.id);
+                  setSelectedRoomId(null);
+                  setSelectedOpeningId(null);
+                  setMovingOpeningId(null);
+                }}
+              >
+                {level.name}
+                {level.id === currentFloor.id && (
+                  <PencilLine aria-hidden="true" className="floor-rename-hint" />
+                )}
+              </button>
+            ),
+          )}
         <button className="add-floor" onClick={addFloor}>
           <Plus /> {t('homePlanEditor.level')}
         </button>
@@ -2560,6 +2616,7 @@ export function PlanUnderstandingPanel({
   const list = (names: string[]) =>
     new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format(names);
   const roomName = (id: string) => rooms.get(id)?.name ?? t('homePlanEditor.unknownRoom');
+  const [openFloorId, setOpenFloorId] = useState<string | null>(null);
   const adjacencyGroups = new Map<string, Set<string>>();
   for (const adjacency of plan.adjacencies) {
     const [firstId, secondId] = adjacency.roomIds;
@@ -2581,6 +2638,87 @@ export function PlanUnderstandingPanel({
     plan.understanding.floorsWithoutStairs.length +
     plan.understanding.incompleteStairIds.length;
 
+  const levelsTopDown = [...plan.levels].sort((a, b) => b.floor - a.floor);
+  const totalRooms = plan.understanding.levels.reduce((sum, { roomCount }) => sum + roomCount, 0);
+  const totalArea = plan.understanding.levels.reduce((sum, { areaM2 }) => sum + areaM2, 0);
+  const anyApproximate = plan.understanding.levels.some(({ approximate }) => approximate);
+  const formatArea = (value: number, approximate: boolean) =>
+    t(approximate ? 'homePlanEditor.areaValueApprox' : 'homePlanEditor.areaValue', {
+      area: value.toLocaleString(locale, { maximumFractionDigits: 1 }),
+    });
+  const stats = [
+    { key: 'rooms', icon: LayoutGrid, value: String(totalRooms) },
+    { key: 'area', icon: Ruler, value: formatArea(totalArea, anyApproximate) },
+    { key: 'walls', icon: BrickWall, value: String(adjacencyGroups.size) },
+    { key: 'links', icon: MoveHorizontal, value: String(roomLinks.length) },
+    { key: 'stairs', icon: ArrowUpDown, value: String(stairs.length) },
+  ] as const;
+  const statementGroups = [
+    {
+      key: 'walls',
+      icon: BrickWall,
+      items: [...adjacencyGroups].map(([ownerId, neighbourIds]) => ({
+        id: `adjacency-${ownerId}`,
+        floorIds: [rooms.get(ownerId)?.level.id],
+        onClick: () => onFocusRoom(ownerId),
+        text: t('homePlanEditor.sharesAWallWith', {
+          roomName: roomName(ownerId),
+          list: list([...neighbourIds].map(roomName)),
+        }),
+      })),
+    },
+    {
+      key: 'links',
+      icon: MoveHorizontal,
+      items: roomLinks.map((connection) => ({
+        id: connection.id,
+        floorIds: [
+          rooms.get(connection.fromRoomId)?.level.id,
+          rooms.get(connection.toRoomId)?.level.id,
+        ],
+        onClick: () => onFocusRoom(connection.fromRoomId),
+        text: t('homePlanEditor.isLinkedTo', {
+          roomName: roomName(connection.fromRoomId),
+          roomName2: roomName(connection.toRoomId),
+        }),
+      })),
+    },
+    {
+      key: 'stairs',
+      icon: ArrowUpDown,
+      items: stairs.map((stair) => {
+        const toFloor = levels.get(stair.toFloorId);
+        const goingUp = (toFloor?.floor ?? 0) > (levels.get(stair.fromFloorId)?.floor ?? 0);
+        return {
+          id: `statement-${stair.id}`,
+          floorIds: [stair.fromFloorId, stair.toFloorId],
+          onClick: () => onFocusRoom(stair.fromRoomId),
+          text: t(goingUp ? 'homePlanEditor.stairsGoUp' : 'homePlanEditor.stairsGoDown', {
+            from: roomName(stair.fromRoomId),
+            to: roomName(stair.toRoomId),
+            floor: toFloor?.name,
+          }),
+        };
+      }),
+    },
+  ].filter(({ items }) => items.length);
+  const largestFloorArea = Math.max(1, ...plan.understanding.levels.map(({ areaM2 }) => areaM2));
+  const floorSentence = (metric: (typeof plan.understanding.levels)[number]) =>
+    t(metric.approximate ? 'homePlanEditor.floorSummaryApprox' : 'homePlanEditor.floorSummary', {
+      level: levels.get(metric.floorId)?.name,
+      count: metric.roomCount,
+      area: metric.areaM2.toLocaleString(locale, { maximumFractionDigits: 1 }),
+    });
+  const openMetric = plan.understanding.levels.find(({ floorId }) => floorId === openFloorId);
+  const openFloorGroups = openMetric
+    ? statementGroups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter(({ floorIds }) => floorIds.includes(openMetric.floorId)),
+        }))
+        .filter(({ items }) => items.length)
+    : [];
+
   return (
     <div className="home-plan-understanding">
       <section className="floor-routes" aria-label={t('homePlanEditor.routesBetweenFloors')}>
@@ -2594,42 +2732,95 @@ export function PlanUnderstandingPanel({
               <h3>{t('homePlanEditor.routesBetweenFloors')}</h3>
             </div>
           </div>
-          <small>
-            {stairs.length} {t('homePlanEditor.routeS')}
-          </small>
+          <span className="understanding-count">
+            <strong>{stairs.length}</strong>
+            {t('homePlanEditor.routeS')}
+          </span>
         </header>
         {stairs.length ? (
           <div className="floor-route-list">
             {stairs.map((stair) => {
               const fromFloor = levels.get(stair.fromFloorId);
               const toFloor = levels.get(stair.toFloorId);
-              const goingUp = (toFloor?.floor ?? 0) > (fromFloor?.floor ?? 0);
+              const fromLevel = fromFloor?.floor ?? 0;
+              const toLevel = toFloor?.floor ?? 0;
+              const goingUp = toLevel > fromLevel;
+              const low = Math.min(fromLevel, toLevel);
+              const high = Math.max(fromLevel, toLevel);
+              const stops = [
+                {
+                  role: 'from',
+                  label: t('homePlanEditor.start'),
+                  floor: fromFloor?.name,
+                  roomId: stair.fromRoomId,
+                },
+                {
+                  role: 'to',
+                  label: t('homePlanEditor.arrival'),
+                  floor: toFloor?.name,
+                  roomId: stair.toRoomId,
+                },
+              ];
+              // The higher floor is drawn on top, as in the building.
+              if (goingUp) stops.reverse();
               return (
-                <article className="floor-route-card" key={stair.id}>
-                  <button onClick={() => onFocusRoom(stair.fromRoomId)}>
-                    <small>{t('homePlanEditor.start')}</small>
-                    <strong>{fromFloor?.name}</strong>
-                    <span>{roomName(stair.fromRoomId)}</span>
-                  </button>
-                  <div className="route-direction">
-                    {goingUp ? <ArrowUp /> : <ArrowDown />}
-                    <span>{goingUp ? t('homePlanEditor.up') : t('homePlanEditor.down')}</span>
+                <article
+                  className={`floor-route-card ${goingUp ? 'is-up' : 'is-down'}`}
+                  key={stair.id}
+                >
+                  <div className="floor-route-building" aria-hidden="true">
+                    {levelsTopDown.map((level) => (
+                      <span
+                        key={level.id}
+                        className={[
+                          level.id === stair.fromFloorId ? 'is-from' : '',
+                          level.id === stair.toFloorId ? 'is-to' : '',
+                          level.floor > low && level.floor < high ? 'is-path' : '',
+                        ].join(' ')}
+                      />
+                    ))}
+                    <i>{goingUp ? <ArrowUp /> : <ArrowDown />}</i>
                   </div>
-                  <button onClick={() => onFocusRoom(stair.toRoomId)}>
-                    <small>{t('homePlanEditor.arrival')}</small>
-                    <strong>{toFloor?.name}</strong>
-                    <span>{roomName(stair.toRoomId)}</span>
-                  </button>
+                  <div className="floor-route-stops">
+                    {stops.map((stop, index) => (
+                      <Fragment key={stop.role}>
+                        {index === 1 && (
+                          <span className="route-direction">
+                            {goingUp ? <ArrowUp /> : <ArrowDown />}
+                            {goingUp ? t('homePlanEditor.up') : t('homePlanEditor.down')}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          className={`floor-route-stop is-${stop.role}`}
+                          onClick={() => onFocusRoom(stop.roomId)}
+                        >
+                          <i aria-hidden="true" />
+                          <span>
+                            <small>{stop.label}</small>
+                            <strong>{roomName(stop.roomId)}</strong>
+                            <span>{stop.floor}</span>
+                          </span>
+                          <ArrowRight aria-hidden="true" />
+                        </button>
+                      </Fragment>
+                    ))}
+                  </div>
                 </article>
               );
             })}
           </div>
         ) : (
-          <p className="understanding-empty">
-            {plan.levels.length > 1
-              ? t('homePlanEditor.noStairsConnectTheFloors')
-              : t('homePlanEditor.addAFloorToCreate')}
-          </p>
+          <div className="understanding-empty">
+            <span aria-hidden="true">
+              <Layers />
+            </span>
+            <p>
+              {plan.levels.length > 1
+                ? t('homePlanEditor.noStairsConnectTheFloors')
+                : t('homePlanEditor.addAFloorToCreate')}
+            </p>
+          </div>
         )}
       </section>
 
@@ -2644,95 +2835,138 @@ export function PlanUnderstandingPanel({
               <h3>{t('homePlanEditor.whatEliseUnderstands')}</h3>
             </div>
           </div>
-          <small className={updating ? 'is-updating' : ''}>
+          <span
+            className={`understanding-status ${
+              updating ? 'is-updating' : issueCount ? 'is-attention' : 'is-ready'
+            }`}
+          >
+            <i aria-hidden="true" />
             {updating
               ? t('homePlanEditor.updating')
               : issueCount
                 ? t('homePlanEditor.itemSToCheck', { issueCount })
                 : t('homePlanEditor.planConsistent')}
-          </small>
+          </span>
         </header>
 
+        <div className="understanding-stats">
+          {stats.map(({ key, icon: Icon, value }) => (
+            <div className={`understanding-stat is-${key}`} key={key}>
+              <span aria-hidden="true">
+                <Icon />
+              </span>
+              <strong>{value}</strong>
+              <small>{t(`homePlanEditor.understandingStat.${key}`)}</small>
+            </div>
+          ))}
+        </div>
+
         <div className="understanding-grid">
-          <div className="understanding-statements">
-            {plan.understanding.levels.map((metric) => {
-              const level = levels.get(metric.floorId);
-              const area = metric.areaM2.toLocaleString(locale, { maximumFractionDigits: 1 });
-              return (
-                <button key={metric.floorId} onClick={() => onFocusFloor(metric.floorId)}>
-                  <CircleCheck />
-                  <span>
-                    {t(
-                      metric.approximate
-                        ? 'homePlanEditor.floorSummaryApprox'
-                        : 'homePlanEditor.floorSummary',
-                      { level: level?.name, count: metric.roomCount, area },
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-            {[...adjacencyGroups].map(([ownerId, neighbourIds]) => (
-              <button key={`adjacency-${ownerId}`} onClick={() => onFocusRoom(ownerId)}>
-                <Link2 />
-                <span>
-                  {t('homePlanEditor.sharesAWallWith', {
-                    roomName: roomName(ownerId),
-                    list: list([...neighbourIds].map(roomName)),
-                  })}
-                </span>
-              </button>
-            ))}
-            {roomLinks.map((connection) => (
-              <button key={connection.id} onClick={() => onFocusRoom(connection.fromRoomId)}>
-                <MoveHorizontal />
-                <span>
-                  {t('homePlanEditor.isLinkedTo', {
-                    roomName: roomName(connection.fromRoomId),
-                    roomName2: roomName(connection.toRoomId),
-                  })}
-                </span>
-              </button>
-            ))}
-            {stairs.map((stair) => {
-              const fromFloor = levels.get(stair.fromFloorId);
-              const toFloor = levels.get(stair.toFloorId);
-              const goingUp = (toFloor?.floor ?? 0) > (fromFloor?.floor ?? 0);
-              return (
-                <button key={`statement-${stair.id}`} onClick={() => onFocusRoom(stair.fromRoomId)}>
-                  {goingUp ? <ArrowUp /> : <ArrowDown />}
-                  <span>
-                    {t(goingUp ? 'homePlanEditor.stairsGoUp' : 'homePlanEditor.stairsGoDown', {
-                      from: roomName(stair.fromRoomId),
-                      to: roomName(stair.toRoomId),
-                      floor: toFloor?.name,
-                    })}
-                  </span>
-                </button>
-              );
-            })}
+          <div className="understanding-main">
+            <div className="understanding-floors">
+              {[...plan.understanding.levels]
+                .sort(
+                  (a, b) =>
+                    (levels.get(b.floorId)?.floor ?? 0) - (levels.get(a.floorId)?.floor ?? 0),
+                )
+                .map((metric) => {
+                  const level = levels.get(metric.floorId);
+                  const open = metric.floorId === openFloorId;
+                  return (
+                    <button
+                      type="button"
+                      key={metric.floorId}
+                      className={open ? 'is-open' : ''}
+                      aria-label={floorSentence(metric)}
+                      aria-expanded={open}
+                      aria-controls="understanding-floor-detail"
+                      onClick={() => {
+                        setOpenFloorId(open ? null : metric.floorId);
+                        if (!open) onFocusFloor(metric.floorId);
+                      }}
+                    >
+                      <span className="understanding-floor-head">
+                        <Layers aria-hidden="true" />
+                        <strong>{level?.name}</strong>
+                        <ChevronDown aria-hidden="true" className="understanding-floor-chevron" />
+                      </span>
+                      <span className="understanding-floor-figures">
+                        <span>
+                          <strong>{metric.roomCount}</strong>
+                          {t('homePlanEditor.roomCount', { count: metric.roomCount })}
+                        </span>
+                        <span>{formatArea(metric.areaM2, metric.approximate)}</span>
+                      </span>
+                      <span className="understanding-floor-bar" aria-hidden="true">
+                        <span style={{ width: `${(metric.areaM2 / largestFloorArea) * 100}%` }} />
+                      </span>
+                    </button>
+                  );
+                })}
+            </div>
+
+            {openMetric && (
+              <div className="understanding-floor-detail" id="understanding-floor-detail">
+                <p className="understanding-floor-sentence">
+                  <CircleCheck aria-hidden="true" />
+                  {floorSentence(openMetric)}
+                </p>
+                {openFloorGroups.map(({ key, icon: Icon, items }) => (
+                  <div className={`understanding-group is-${key}`} key={key}>
+                    <h4>
+                      <span aria-hidden="true">
+                        <Icon />
+                      </span>
+                      {t(`homePlanEditor.understandingStat.${key}`)}
+                      <small>{items.length}</small>
+                    </h4>
+                    <div>
+                      {items.map((item) => (
+                        <button type="button" key={item.id} onClick={item.onClick}>
+                          {item.text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <aside className={`understanding-issues ${issueCount ? '' : 'is-clear'}`}>
-            <h4>{t('homePlanEditor.check')}</h4>
+            <h4>
+              {t('homePlanEditor.check')}
+              {!!issueCount && <small>{issueCount}</small>}
+            </h4>
             {!issueCount && (
-              <p>
-                <CircleCheck /> {t('homePlanEditor.allRoomsAreProperlyConnected')}
-              </p>
+              <div className="understanding-clear">
+                <span aria-hidden="true">
+                  <CircleCheck />
+                </span>
+                <p>{t('homePlanEditor.allRoomsAreProperlyConnected')}</p>
+              </div>
             )}
             {plan.understanding.isolatedRoomIds.map((roomId) => (
-              <button key={`isolated-${roomId}`} onClick={() => onFocusRoom(roomId)}>
-                <AlertTriangle />{' '}
-                {t('homePlanEditor.isNotConnectedToAnother', { roomName: roomName(roomId) })}
+              <button type="button" key={`isolated-${roomId}`} onClick={() => onFocusRoom(roomId)}>
+                <AlertTriangle aria-hidden="true" />
+                <span>
+                  {t('homePlanEditor.isNotConnectedToAnother', { roomName: roomName(roomId) })}
+                </span>
               </button>
             ))}
             {plan.understanding.adjacentWithoutPassage.map(([first, second]) => (
-              <button key={`missing-${first}-${second}`} onClick={() => onFocusRoom(first)}>
-                <AlertTriangle />{' '}
-                {t('homePlanEditor.andTouchButNoLink', {
-                  roomName: roomName(first),
-                  roomName2: roomName(second),
-                })}
+              <button
+                type="button"
+                key={`missing-${first}-${second}`}
+                onClick={() => onFocusRoom(first)}
+              >
+                <AlertTriangle aria-hidden="true" />
+                <span>
+                  {t('homePlanEditor.andTouchButNoLink', {
+                    roomName: roomName(first),
+                    roomName2: roomName(second),
+                  })}
+                </span>
               </button>
             ))}
             {plan.understanding.nearAdjacencyIds.map((adjacencyId) => {
@@ -2740,29 +2974,38 @@ export function PlanUnderstandingPanel({
               if (!adjacency) return null;
               return (
                 <button
+                  type="button"
                   key={`near-${adjacencyId}`}
                   onClick={() => onFocusRoom(adjacency.roomIds[0])}
                 >
-                  <AlertTriangle />{' '}
-                  {t('homePlanEditor.theWallsOfAndNearly', {
-                    roomName: roomName(adjacency.roomIds[0]),
-                    roomName2: roomName(adjacency.roomIds[1]),
-                  })}
+                  <AlertTriangle aria-hidden="true" />
+                  <span>
+                    {t('homePlanEditor.theWallsOfAndNearly', {
+                      roomName: roomName(adjacency.roomIds[0]),
+                      roomName2: roomName(adjacency.roomIds[1]),
+                    })}
+                  </span>
                 </button>
               );
             })}
             {plan.understanding.floorsWithoutStairs.map((floorId) => (
-              <button key={`floor-${floorId}`} onClick={() => onFocusFloor(floorId)}>
-                <AlertTriangle />{' '}
-                {t('homePlanEditor.isNotConnectedToAnother2', { name: levels.get(floorId)?.name })}
+              <button type="button" key={`floor-${floorId}`} onClick={() => onFocusFloor(floorId)}>
+                <AlertTriangle aria-hidden="true" />
+                <span>
+                  {t('homePlanEditor.isNotConnectedToAnother2', {
+                    name: levels.get(floorId)?.name,
+                  })}
+                </span>
               </button>
             ))}
             {plan.understanding.incompleteStairIds.map((stairId) => (
               <button
+                type="button"
                 key={`incomplete-stair-${stairId}`}
                 onClick={() => onFocusFloor(plan.levels[0]?.id ?? '')}
               >
-                <AlertTriangle /> {t('homePlanEditor.aStaircaseIsIncompleteChoose')}
+                <AlertTriangle aria-hidden="true" />
+                <span>{t('homePlanEditor.aStaircaseIsIncompleteChoose')}</span>
               </button>
             ))}
           </aside>

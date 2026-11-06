@@ -216,11 +216,10 @@ describe('structural home understanding', () => {
     expect(html).toContain('Parcours entre les niveaux');
     expect(html).toContain('Rez-de-chaussée');
     expect(html).toContain('1er étage');
-    expect(html).toContain('Couloir partage un mur avec Cuisine');
     expect(html).not.toContain('Une porte permet de passer de Couloir à Cuisine');
     expect(html).not.toContain('L’entrée principale donne dans Couloir');
-    expect(html).toContain('Un escalier monte de Couloir vers Salon');
-    expect(html).toContain('Couloir est relié à Cuisine');
+    // The sentences of a level only appear once its card is opened.
+    expect(html).not.toContain('Couloir partage un mur avec Cuisine');
     expect(html).toContain('environ 12 m² dessinés');
   });
 
