@@ -50,6 +50,10 @@ Les textes de sécurité doivent être exacts, sans ambiguïté :
 
 Les signaler dans le compte rendu de traduction.
 
+## Chaînes TV
+
+Les noms de chaînes (ARTE, La 1, DW…) ne se traduisent pas. Les descriptions (`screenPanel.channelDescription.*`, `mobileScreenTabs.channelNote.*`) se traduisent comme les autres textes, en restant aussi courtes. Une nouvelle langue n’a pas besoin de ses propres chaînes : sans lignes dans le catalogue (voir « Chaînes TV » dans `docs/traductions.md`), l’écran reçoit les chaînes anglaises.
+
 ## Ce qui n’est pas dans ces fichiers
 
 - La documentation de la landing (`eliselanding/src/content/docs/<langue>/`) : des pages Markdown à traduire telles quelles, en gardant les blocs de code et les liens.

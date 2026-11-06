@@ -71,6 +71,28 @@ Dans le mobile et le dashboard, TypeScript refuse en plus toute clé `t('…')` 
 - **Dashboard** : `?lang=` dans l’adresse, puis le choix gardé dans le navigateur, le français sinon.
 - **API** : elle répond en anglais à toute langue autre que le français, en attendant d’en parler d’autres.
 
+## Chaînes TV
+
+L’écran TV propose les chaînes en direct **de sa langue** : celle qu’affiche la TV (elle l’envoie à chaque battement de cœur), à défaut la langue choisie à l’installation, le français sinon. Une langue sans chaînes reçoit les chaînes anglaises, comme pour les textes. Dans « Affichage TV » → TV → « Choisir les chaînes », l’aidant ajoute des chaînes d’une autre langue (un Espagnol vivant en France garde ARTE) ou en retire.
+
+Tout est dans un seul catalogue, `packages/contracts/src/tv-channels.ts` (`TV_CHANNELS`) :
+
+| Champ            | Rôle                                                                                                 |
+| ---------------- | ---------------------------------------------------------------------------------------------------- |
+| `id`             | identifiant stable (gardé dans les choix de l’écran) et suffixe des textes de description            |
+| `name`, `badge`  | nom affiché et logo texte (libellé, couleurs)                                                        |
+| `languages`      | langues dont l’écran reçoit la chaîne d’office                                                       |
+| `country`        | pays du diffuseur                                                                                    |
+| `url`            | flux HLS officiel ; seules ces adresses sont acceptées comme TV en direct                            |
+| `guide`          | source XMLTV (`TV_GUIDE_SOURCES`) et identifiant de la chaîne dans ce fichier ; sans guide si absent |
+| `geoRestriction` | flux lisible seulement dans ce pays : proposé d’office aux foyers de ses fuseaux horaires seulement  |
+
+**Ajouter une langue = ajouter des lignes** à `TV_CHANNELS` (et sa source de guide à `TV_GUIDE_SOURCES` s’il en faut une), puis une description par chaîne dans les trois catalogues : `screenPanel.channelDescription.<id>` (web) et `mobileScreenTabs.channelNote.<id>` (mobile), et des programmes inventés pour la démo (`router.tvGuide.*` et `DEMO_TV_PROGRAMMES` dans `apps/dashboard/src/demo/router.ts`).
+
+Avant d’ajouter une chaîne, la tester en lecture réelle depuis le pays des foyers concernés : playlist maîtresse → variante → téléchargement d’un segment (ou `ffmpeg -t 5`), CORS autorisé (`Access-Control-Allow-Origin`), et le guide : l’identifiant doit exister dans le fichier XMLTV avec des programmes. Limites de l’API par source : 5 Mo téléchargés, 16 Mo une fois décompressé ; une source n’est téléchargée que si un écran propose une de ses chaînes, puis gardée 6 h.
+
+Les écrans installés avant ce mécanisme gardent les quatre chaînes françaises, quelle que soit leur langue.
+
 ## Outils de migration
 
 Les scripts qui ont sorti les textes du code restent dans `packages/i18n/scripts/` pour le reste à migrer (l’API notamment) : `migrate-bilingual.mjs` (paires `tr('fr', 'en')`, `fr ? … : …`) et `migrate-pair-tables.mjs` (tables `{ CLÉ: ['fr', 'en'] }`).
