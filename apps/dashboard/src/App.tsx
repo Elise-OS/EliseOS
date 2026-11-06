@@ -26,6 +26,7 @@ import {
   Home,
   Languages,
   KeyRound,
+  LoaderCircle,
   LogOut,
   Mail,
   Maximize2,
@@ -2107,6 +2108,15 @@ export function App() {
     [locale],
   );
 
+  const unreachable = dataError && !overview;
+  useEffect(() => {
+    // During an update the API restarts for a minute or two: a page opened or
+    // reloaded meanwhile comes back on its own once Élise answers again.
+    if (!unreachable) return;
+    const timer = window.setInterval(() => void refresh(), 5000);
+    return () => window.clearInterval(timer);
+  }, [unreachable, refresh]);
+
   const updateRunning =
     updateStatus !== null &&
     ['DOWNLOADING', 'INSTALLING', 'VERIFYING', 'RESTARTING'].includes(updateStatus.state);
@@ -2417,6 +2427,10 @@ export function App() {
         </span>
         <h1>{i18nT('app.eliseIsTemporarilyUnreachable')}</h1>
         <p>{i18nT('app.checkThatTheLocalService')}</p>
+        <p className="unavailable-retry" role="status">
+          <LoaderCircle className="spin" aria-hidden="true" />
+          {i18nT('app.retryingAutomatically')}
+        </p>
         <Button onClick={() => void refresh()}>{i18nT('app.tryAgain')}</Button>
       </main>
     );

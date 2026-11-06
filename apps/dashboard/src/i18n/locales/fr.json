@@ -600,6 +600,7 @@
     "restoreThisProfileAccessWill": "Restaurer cette fiche ? L’accès restera suspendu jusqu’à sa réactivation.",
     "retry": "Réessayer",
     "retrySigningOut": "Réessayer la déconnexion",
+    "retryingAutomatically": "Nouvel essai automatique toutes les quelques secondes, par exemple pendant une mise à jour.",
     "role": "Rôle",
     "rules": "Règles",
     "run": "Lancer",

@@ -593,6 +593,7 @@
     "restoreThisProfileAccessWill": "Restore this profile? Access will remain suspended until it is enabled.",
     "retry": "Retry",
     "retrySigningOut": "Retry signing out",
+    "retryingAutomatically": "Trying again automatically every few seconds, for example during an update.",
     "role": "Role",
     "rules": "Rules",
     "run": "Run",

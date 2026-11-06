@@ -600,6 +600,7 @@
     "restoreThisProfileAccessWill": "¿Restaurar esta ficha? El acceso seguirá suspendido hasta que se reactive.",
     "retry": "Reintentar",
     "retrySigningOut": "Reintentar cerrar sesión",
+    "retryingAutomatically": "Nuevo intento automático cada pocos segundos, por ejemplo durante una actualización.",
     "role": "Rol",
     "rules": "Reglas",
     "run": "Iniciar",
