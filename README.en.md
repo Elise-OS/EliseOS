@@ -17,7 +17,7 @@ and connects an older relative to their family through the living-room TV — wi
 ![100% local](https://img.shields.io/badge/data-100%25%20local-2e7d32)
 [![Support on Buy Me a Coffee](https://img.shields.io/badge/support-Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/drsamourai)
 
-[🇫🇷 Français](README.md) · **🇬🇧 English** · [🇪🇸 Español](README.es.md)
+[🇫🇷 Français](README.md) · **🇬🇧 English** · [🇪🇸 Español](README.es.md) · [🇮🇹 Italiano](README.it.md)
 
 [Live demo](https://eliseos.paulbreton.dev/demo/?lang=en) · [Website and docs](https://eliseos.paulbreton.dev/en/) · [Download](https://github.com/Elise-OS/EliseOS/releases/latest) · [☕ Support the project](https://buymeacoffee.com/drsamourai)
 
@@ -65,7 +65,7 @@ The project is dedicated to Élise.
 
 ## Screenshots
 
-Taken from the [public demo](https://eliseos.paulbreton.dev/demo/?lang=en): the fictional “Martin home”, frozen on Tuesday 13 October 2026 at 10:40. Claire, the daughter, looks after her mother Jeanne. The interface is available in French, English and Spanish; the screens below show the French locale.
+Taken from the [public demo](https://eliseos.paulbreton.dev/demo/?lang=en): the fictional “Martin home”, frozen on Tuesday 13 October 2026 at 10:40. Claire, the daughter, looks after her mother Jeanne. The interface is available in French, English, Spanish and Italian; the screens below show the French locale.
 
 ### Caregiver space
 

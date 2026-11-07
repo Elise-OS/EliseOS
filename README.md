@@ -17,7 +17,7 @@ et relie le proche âgé à sa famille par la télévision du salon — sans jam
 ![100 % local](https://img.shields.io/badge/donn%C3%A9es-100%20%25%20locales-2e7d32)
 [![Soutenir sur Buy Me a Coffee](https://img.shields.io/badge/soutenir-Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/drsamourai)
 
-**🇫🇷 Français** · [🇬🇧 English](README.en.md) · [🇪🇸 Español](README.es.md)
+**🇫🇷 Français** · [🇬🇧 English](README.en.md) · [🇪🇸 Español](README.es.md) · [🇮🇹 Italiano](README.it.md)
 
 [Démo en ligne](https://eliseos.paulbreton.dev/demo/) · [Site et documentation](https://eliseos.paulbreton.dev) · [Télécharger](https://github.com/Elise-OS/EliseOS/releases/latest) · [☕ Soutenir le projet](https://buymeacoffee.com/drsamourai)
 
@@ -94,7 +94,7 @@ Un écran calme, lisible de loin : message du jour, heure, météo, rendez-vous 
 | :----------------------------------------------------------------------------------: | :---------------------------------------------------------: |
 | <img src="docs/images/mobile-accueil.jpg" alt="Accueil sur téléphone" width="260" /> | <img src="docs/images/home-en.jpg" alt="Home in English" /> |
 
-L’interface est entièrement responsive et disponible en français, anglais et espagnol.
+L’interface est entièrement responsive et disponible en français, anglais, espagnol et italien.
 
 ---
 
