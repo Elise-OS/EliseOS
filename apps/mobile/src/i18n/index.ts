@@ -2,9 +2,10 @@ import { blockReader, createI18n, languageInfo, type Language } from '@elise/i18
 import en from './locales/en.json';
 import es from './locales/es.json';
 import fr from './locales/fr.json';
+import it from './locales/it.json';
 
 // One import per language: TypeScript flags a language of LANGUAGES without catalog here.
-const i18n = createI18n({ fr, en, es });
+const i18n = createI18n({ fr, en, es, it });
 
 export type { Language } from '@elise/i18n';
 export { isLanguage, LANGUAGES } from '@elise/i18n';

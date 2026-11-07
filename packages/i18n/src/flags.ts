@@ -37,4 +37,10 @@ export const FLAGS: Record<Language, readonly FlagShape[]> = {
     { kind: 'rect', width: 640, height: 480, fill: '#aa151b' },
     { kind: 'path', fill: '#f1bf00', d: 'M0 120h640v240H0z' },
   ],
+  // Green, white, red in vertical 1:1:1 bands.
+  it: [
+    { kind: 'rect', width: 640, height: 480, fill: '#fff' },
+    { kind: 'path', fill: '#009246', d: 'M0 0h213.3v480H0z' },
+    { kind: 'path', fill: '#ce2b37', d: 'M426.7 0H640v480H426.7z' },
+  ],
 };
