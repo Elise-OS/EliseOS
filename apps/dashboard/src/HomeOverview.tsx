@@ -641,12 +641,14 @@ export function HomeOverview({
         <>
           <div className="home-overview-main-grid">
             <article className="home-overview-plan-card">
-              <header>
-                <div>
-                  <span className="eyebrow">{t('homeOverview.interactivePlan')}</span>
-                  <h3>{t('homeOverview.yourHomeAtAGlance')}</h3>
-                </div>
-              </header>
+              {!showStairs && (
+                <header>
+                  <div>
+                    <span className="eyebrow">{t('homeOverview.interactivePlan')}</span>
+                    <h3>{t('homeOverview.yourHomeAtAGlance')}</h3>
+                  </div>
+                </header>
+              )}
               <div className="home-overview-floor-tabs" role="tablist">
                 {[...plan.levels]
                   .sort((a, b) => a.order - b.order)
