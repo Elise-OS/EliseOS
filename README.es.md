@@ -21,7 +21,7 @@ y conecta al familiar mayor con su familia a través del televisor del salón �
 
 [Demo en línea](https://eliseos.paulbreton.dev/demo/?lang=es) · [Sitio y documentación](https://eliseos.paulbreton.dev/es/) · [Descargar](https://github.com/Elise-OS/EliseOS/releases/latest) · [☕ Apoyar el proyecto](https://buymeacoffee.com/drsamourai)
 
-<img src="docs/images/accueil.jpg" alt="Inicio del espacio del cuidador de Élise OS" width="900" />
+<img src="docs/images/es/accueil.jpg" alt="Inicio del espacio del cuidador de Élise OS" width="900" />
 
 </div>
 
@@ -71,28 +71,28 @@ Capturas tomadas de la [demostración pública](https://eliseos.paulbreton.dev/d
 
 |                                                                                                                        |                                                                                                                                                  |
 | :--------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------------------: |
-|                                   <img src="docs/images/accueil.jpg" alt="Inicio" />                                   |                                              <img src="docs/images/activite.jpg" alt="Actividad" />                                              |
+|                                 <img src="docs/images/es/accueil.jpg" alt="Inicio" />                                  |                                            <img src="docs/images/es/activite.jpg" alt="Actividad" />                                             |
 |     **Inicio** — dónde se encuentra Jeanne, el resumen de su día, las referencias del día a día y la próxima cita.     |                              **Actividad** — la cronología de los desplazamientos y eventos, estancia por estancia.                              |
-|                                  <img src="docs/images/alertes.jpg" alt="Alertas" />                                   |                                       <img src="docs/images/liaison.jpg" alt="Cuaderno de seguimiento" />                                        |
+|                                 <img src="docs/images/es/alertes.jpg" alt="Alertas" />                                 |                                      <img src="docs/images/es/liaison.jpg" alt="Cuaderno de seguimiento" />                                      |
 | **Alertas** — cada situación con el hecho detectado, la hora y lo que se puede comprobar; se atiende con un solo clic. | **Cuaderno de seguimiento** — las notas compartidas entre cuidadores (comidas, estado de ánimo, tratamiento) y las citas que no hay que olvidar. |
-|                                <img src="docs/images/logement.jpg" alt="La vivienda" />                                |                                              <img src="docs/images/proches.jpg" alt="Familiares" />                                              |
+|                              <img src="docs/images/es/logement.jpg" alt="La vivienda" />                               |                                            <img src="docs/images/es/proches.jpg" alt="Familiares" />                                             |
 |     **La vivienda** — estancias, plano interactivo, estado de los sensores y de la red Zigbee, cobertura por uso.      |                                   **Familiares** — el residente, los cuidadores, sus funciones y sus permisos.                                   |
-|                              <img src="docs/images/affichage-tv.jpg" alt="Pantalla TV" />                              |                                               <img src="docs/images/reglages.jpg" alt="Ajustes" />                                               |
+|                            <img src="docs/images/es/affichage-tv.jpg" alt="Pantalla TV" />                             |                                             <img src="docs/images/es/reglages.jpg" alt="Ajustes" />                                              |
 |          **Pantalla TV** — mensajes, fotos, vídeos, programación y llamadas enviados a la pantalla del salón.          |                                   **Ajustes** — actualizaciones, acceso remoto, cuentas, copias de seguridad.                                    |
 
 ### Televisor del residente
 
 <div align="center">
-<img src="docs/images/tv-resident.jpg" alt="Pantalla de la TV del residente" width="900" />
+<img src="docs/images/es/tv-resident.jpg" alt="Pantalla de la TV del residente" width="900" />
 </div>
 
 Una pantalla tranquila, legible a distancia: mensaje del día, hora, tiempo, citas y álbum de fotos. Las videollamadas (Jitsi, autoalojado) se anuncian con una melodía progresiva y se descuelgan con un simple botón.
 
-### En el teléfono y en inglés
+### En el teléfono y el ordenador
 
-|                                       Teléfono                                       |                           English                            |
-| :----------------------------------------------------------------------------------: | :----------------------------------------------------------: |
-| <img src="docs/images/mobile-accueil.jpg" alt="Inicio en el teléfono" width="260" /> | <img src="docs/images/home-en.jpg" alt="Inicio en inglés" /> |
+|                                        Teléfono                                         |                               Ordenador                               |
+| :-------------------------------------------------------------------------------------: | :-------------------------------------------------------------------: |
+| <img src="docs/images/es/mobile-accueil.jpg" alt="Inicio en el teléfono" width="260" /> | <img src="docs/images/es/accueil.jpg" alt="Inicio en el ordenador" /> |
 
 La interfaz es totalmente adaptable a cualquier pantalla y está disponible en francés, inglés, español e italiano.
 

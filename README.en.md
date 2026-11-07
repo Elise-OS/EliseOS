@@ -21,7 +21,7 @@ and connects an older relative to their family through the living-room TV — wi
 
 [Live demo](https://eliseos.paulbreton.dev/demo/?lang=en) · [Website and docs](https://eliseos.paulbreton.dev/en/) · [Download](https://github.com/Elise-OS/EliseOS/releases/latest) · [☕ Support the project](https://buymeacoffee.com/drsamourai)
 
-<img src="docs/images/home-en.jpg" alt="Élise OS caregiver home screen" width="900" />
+<img src="docs/images/en/accueil.jpg" alt="Élise OS caregiver home screen" width="900" />
 
 </div>
 
@@ -65,25 +65,25 @@ The project is dedicated to Élise.
 
 ## Screenshots
 
-Taken from the [public demo](https://eliseos.paulbreton.dev/demo/?lang=en): the fictional “Martin home”, frozen on Tuesday 13 October 2026 at 10:40. Claire, the daughter, looks after her mother Jeanne. The interface is available in French, English, Spanish and Italian; the screens below show the French locale.
+Taken from the [public demo](https://eliseos.paulbreton.dev/demo/?lang=en): the fictional “Martin home”, frozen on Tuesday 13 October 2026 at 10:40. Claire, the daughter, looks after her mother Jeanne. The interface is available in French, English, Spanish and Italian; the screens below show the English locale.
 
 ### Caregiver space
 
 |                                                                                                                    |                                                                                                     |
 | :----------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------: |
-|                                  <img src="docs/images/accueil.jpg" alt="Home" />                                  |                        <img src="docs/images/activite.jpg" alt="Activity" />                        |
+|                                <img src="docs/images/en/accueil.jpg" alt="Home" />                                 |                      <img src="docs/images/en/activite.jpg" alt="Activity" />                       |
 |            **Home** — where Jeanne is, a summary of her day, daily essentials and the next appointment.            |                   **Activity** — a room-by-room timeline of movements and events.                   |
-|                                 <img src="docs/images/alertes.jpg" alt="Alerts" />                                 |                        <img src="docs/images/liaison.jpg" alt="Notebook" />                         |
+|                               <img src="docs/images/en/alertes.jpg" alt="Alerts" />                                |                       <img src="docs/images/en/liaison.jpg" alt="Notebook" />                       |
 | **Alerts** — each situation with the detected fact, the time and what can be checked; take ownership in one click. | **Notebook** — notes shared between caregivers (meals, mood, medication) and upcoming appointments. |
-|                                <img src="docs/images/logement.jpg" alt="My home" />                                |                         <img src="docs/images/proches.jpg" alt="People" />                          |
+|                              <img src="docs/images/en/logement.jpg" alt="My home" />                               |                        <img src="docs/images/en/proches.jpg" alt="People" />                        |
 |          **My home** — rooms, interactive floor plan, sensor health, Zigbee network and coverage by use.           |               **People** — the resident, the caregivers, their roles and permissions.               |
-|                            <img src="docs/images/affichage-tv.jpg" alt="TV display" />                             |                        <img src="docs/images/reglages.jpg" alt="Settings" />                        |
+|                           <img src="docs/images/en/affichage-tv.jpg" alt="TV display" />                           |                      <img src="docs/images/en/reglages.jpg" alt="Settings" />                       |
 |           **TV display** — messages, photos, videos, schedule and calls sent to the living-room screen.            |                      **Settings** — updates, remote access, accounts, backups.                      |
 
 ### Resident TV
 
 <div align="center">
-<img src="docs/images/tv-resident.jpg" alt="Resident TV screen" width="900" />
+<img src="docs/images/en/tv-resident.jpg" alt="Resident TV screen" width="900" />
 </div>
 
 A calm screen, readable from the sofa: message of the day, clock, weather, appointments and photo album. Video calls (self-hosted Jitsi) are announced by a gently rising chime and answered with a single button.
@@ -91,7 +91,7 @@ A calm screen, readable from the sofa: message of the day, clock, weather, appoi
 ### On a phone
 
 <div align="center">
-<img src="docs/images/mobile-accueil.jpg" alt="Home on a phone" width="260" />
+<img src="docs/images/en/mobile-accueil.jpg" alt="Home on a phone" width="260" />
 </div>
 
 ---

@@ -21,7 +21,7 @@ e collega il familiare anziano alla sua famiglia attraverso il televisore del sa
 
 [Demo online](https://eliseos.paulbreton.dev/demo/?lang=it) · [Sito e documentazione](https://eliseos.paulbreton.dev/it/) · [Scarica](https://github.com/Elise-OS/EliseOS/releases/latest) · [☕ Sostieni il progetto](https://buymeacoffee.com/drsamourai)
 
-<img src="docs/images/accueil.jpg" alt="Home dell'area caregiver di Élise OS" width="900" />
+<img src="docs/images/it/accueil.jpg" alt="Home dell'area caregiver di Élise OS" width="900" />
 
 </div>
 
@@ -71,30 +71,30 @@ Schermate tratte dalla [demo pubblica](https://eliseos.paulbreton.dev/demo/?lang
 
 |                                                                                                                                 |                                                                                                                     |
 | :-----------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------: |
-|                                        <img src="docs/images/accueil.jpg" alt="Home" />                                         |                                <img src="docs/images/activite.jpg" alt="Attività" />                                |
+|                                       <img src="docs/images/it/accueil.jpg" alt="Home" />                                       |                              <img src="docs/images/it/activite.jpg" alt="Attività" />                               |
 | **Home** — dove si trova Jeanne, il riepilogo della sua giornata, i punti di riferimento quotidiani e il prossimo appuntamento. |                  **Attività** — la cronologia degli spostamenti e degli eventi, stanza per stanza.                  |
-|                                       <img src="docs/images/alertes.jpg" alt="Avvisi" />                                        |                          <img src="docs/images/liaison.jpg" alt="Diario di assistenza" />                           |
+|                                      <img src="docs/images/it/alertes.jpg" alt="Avvisi" />                                      |                         <img src="docs/images/it/liaison.jpg" alt="Diario di assistenza" />                         |
 |  **Avvisi** — ogni situazione con il fatto rilevato, l'ora e ciò che si può verificare; si prende in carico con un solo clic.   | **Diario di assistenza** — le note condivise tra caregiver (pasti, umore, terapia) e gli appuntamenti da ricordare. |
-|                                    <img src="docs/images/logement.jpg" alt="L'abitazione" />                                    |                                <img src="docs/images/proches.jpg" alt="Familiari" />                                |
+|                                  <img src="docs/images/it/logement.jpg" alt="L'abitazione" />                                   |                              <img src="docs/images/it/proches.jpg" alt="Familiari" />                               |
 |       **L'abitazione** — stanze, planimetria interattiva, stato dei sensori e della rete Zigbee, copertura per utilizzo.        |                  **Familiari** — il residente, i caregiver, i loro ruoli e le loro autorizzazioni.                  |
-|                                   <img src="docs/images/affichage-tv.jpg" alt="Schermo TV" />                                   |                              <img src="docs/images/reglages.jpg" alt="Impostazioni" />                              |
+|                                 <img src="docs/images/it/affichage-tv.jpg" alt="Schermo TV" />                                  |                            <img src="docs/images/it/reglages.jpg" alt="Impostazioni" />                             |
 |               **Schermo TV** — messaggi, foto, video, programmazione e chiamate inviati allo schermo del salotto.               |                        **Impostazioni** — aggiornamenti, accesso da remoto, account, backup.                        |
 
 ### Televisore del residente
 
 <div align="center">
-<img src="docs/images/tv-resident.jpg" alt="Schermata della TV del residente" width="900" />
+<img src="docs/images/it/tv-resident.jpg" alt="Schermata della TV del residente" width="900" />
 </div>
 
 Uno schermo tranquillo, leggibile da lontano: messaggio del giorno, ora, meteo, appuntamenti e album fotografico. Le videochiamate (Jitsi, self-hosted) si annunciano con una melodia progressiva e si accettano con un semplice pulsante.
 
-### Su smartphone e in inglese
+### Su smartphone e computer
 
-|                                      Smartphone                                      |                           English                           |
-| :----------------------------------------------------------------------------------: | :---------------------------------------------------------: |
-| <img src="docs/images/mobile-accueil.jpg" alt="Home sullo smartphone" width="260" /> | <img src="docs/images/home-en.jpg" alt="Home in inglese" /> |
+|                                       Smartphone                                        |                             Computer                             |
+| :-------------------------------------------------------------------------------------: | :--------------------------------------------------------------: |
+| <img src="docs/images/it/mobile-accueil.jpg" alt="Home sullo smartphone" width="260" /> | <img src="docs/images/it/accueil.jpg" alt="Home sul computer" /> |
 
-L'interfaccia è completamente adattabile a qualsiasi schermo ed è disponibile in francese, inglese e spagnolo.
+L'interfaccia è completamente adattabile a qualsiasi schermo ed è disponibile in francese, inglese, spagnolo e italiano.
 
 ---
 

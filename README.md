@@ -21,7 +21,7 @@ et relie le proche âgé à sa famille par la télévision du salon — sans jam
 
 [Démo en ligne](https://eliseos.paulbreton.dev/demo/) · [Site et documentation](https://eliseos.paulbreton.dev) · [Télécharger](https://github.com/Elise-OS/EliseOS/releases/latest) · [☕ Soutenir le projet](https://buymeacoffee.com/drsamourai)
 
-<img src="docs/images/accueil.jpg" alt="Accueil de l’espace aidant d’Élise OS" width="900" />
+<img src="docs/images/fr/accueil.jpg" alt="Accueil de l’espace aidant d’Élise OS" width="900" />
 
 </div>
 
@@ -71,28 +71,28 @@ Captures issues de la [démonstration publique](https://eliseos.paulbreton.dev/d
 
 |                                                                                                                        |                                                                                                                     |
 | :--------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------: |
-|                                  <img src="docs/images/accueil.jpg" alt="Accueil" />                                   |                                <img src="docs/images/activite.jpg" alt="Activité" />                                |
+|                                 <img src="docs/images/fr/accueil.jpg" alt="Accueil" />                                 |                              <img src="docs/images/fr/activite.jpg" alt="Activité" />                               |
 |    **Accueil** — où se trouve Jeanne, le résumé de sa journée, les repères du quotidien et le prochain rendez-vous.    |                   **Activité** — la chronologie des déplacements et événements, pièce par pièce.                    |
-|                                  <img src="docs/images/alertes.jpg" alt="Alertes" />                                   |                            <img src="docs/images/liaison.jpg" alt="Carnet de liaison" />                            |
+|                                 <img src="docs/images/fr/alertes.jpg" alt="Alertes" />                                 |                          <img src="docs/images/fr/liaison.jpg" alt="Carnet de liaison" />                           |
 | **Alertes** — chaque situation avec le fait détecté, l’heure et ce qui peut être vérifié ; prise en charge en un clic. | **Carnet de liaison** — les notes partagées entre aidants (repas, humeur, traitement) et les rendez-vous à retenir. |
-|                                <img src="docs/images/logement.jpg" alt="Le logement" />                                |                                 <img src="docs/images/proches.jpg" alt="Proches" />                                 |
+|                              <img src="docs/images/fr/logement.jpg" alt="Le logement" />                               |                               <img src="docs/images/fr/proches.jpg" alt="Proches" />                                |
 |          **Le logement** — pièces, plan interactif, état des capteurs et réseau Zigbee, couverture par usage.          |                        **Proches** — le résident, les aidants, leurs rôles et leurs droits.                         |
-|                             <img src="docs/images/affichage-tv.jpg" alt="Affichage TV" />                              |                                <img src="docs/images/reglages.jpg" alt="Réglages" />                                |
+|                            <img src="docs/images/fr/affichage-tv.jpg" alt="Affichage TV" />                            |                              <img src="docs/images/fr/reglages.jpg" alt="Réglages" />                               |
 |              **Affichage TV** — messages, photos, vidéos, programme et appels envoyés à l’écran du salon.              |                        **Réglages** — mises à jour, accès à distance, comptes, sauvegardes.                         |
 
 ### Télévision du résident
 
 <div align="center">
-<img src="docs/images/tv-resident.jpg" alt="Écran TV du résident" width="900" />
+<img src="docs/images/fr/tv-resident.jpg" alt="Écran TV du résident" width="900" />
 </div>
 
 Un écran calme, lisible de loin : message du jour, heure, météo, rendez-vous et album photo. Les appels vidéo (Jitsi, auto-hébergé) s’annoncent par une mélodie progressive et se décrochent avec un simple bouton.
 
-### Sur téléphone et en anglais
+### Sur téléphone et ordinateur
 
-|                                      Téléphone                                       |                           English                           |
-| :----------------------------------------------------------------------------------: | :---------------------------------------------------------: |
-| <img src="docs/images/mobile-accueil.jpg" alt="Accueil sur téléphone" width="260" /> | <img src="docs/images/home-en.jpg" alt="Home in English" /> |
+|                                        Téléphone                                        |                              Ordinateur                               |
+| :-------------------------------------------------------------------------------------: | :-------------------------------------------------------------------: |
+| <img src="docs/images/fr/mobile-accueil.jpg" alt="Accueil sur téléphone" width="260" /> | <img src="docs/images/fr/accueil.jpg" alt="Accueil sur ordinateur" /> |
 
 L’interface est entièrement responsive et disponible en français, anglais, espagnol et italien.
 
