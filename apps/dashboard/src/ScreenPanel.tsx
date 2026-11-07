@@ -1437,7 +1437,7 @@ export function ScreenPanel({
                 aria-pressed={index === messageIndex}
                 onClick={() => setMessageIndex(index)}
               >
-                Message {index + 1}
+                {t('screenPanel.messageNumber', { index: index + 1 })}
                 {text.trim() ? '' : t('screenPanel.empty')}
               </button>
             ))}
