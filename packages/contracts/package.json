@@ -15,7 +15,7 @@
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsc -p tsconfig.json && node --test"
+    "test": "node --test"
   },
   "dependencies": {
     "zod": "^4.0.10"
