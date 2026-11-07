@@ -62,6 +62,13 @@ test('a Spanish screen gets Spanish channels; RTVE channels blocked abroad only 
   assert.ok(!abroad.some((id) => FRENCH.includes(id)));
 });
 
+test('an Italian screen gets the Italian channels, none of them blocked abroad', () => {
+  const channels = ids(defaultTvChannels('it', 'Europe/Paris'));
+  assert.deepEqual(channels, ['rai3Trento', 'rai3Bolzano', 'rai3Friuli', 'tv2000', 'euronewsIt']);
+  assert.deepEqual(ids(defaultTvChannels('it-IT', 'Europe/Rome')), channels);
+  assert.equal(tvChannelLanguage('IT'), 'it');
+});
+
 test('a language without channels falls back to English', () => {
   assert.equal(tvChannelLanguage('de'), 'en');
   assert.equal(tvChannelLanguage(null), 'en');
@@ -85,7 +92,7 @@ test('the caregiver adds channels of another language and removes default ones',
 });
 
 test('screens set up before keep the French channels in any language', () => {
-  for (const language of ['fr', 'en', 'es']) {
+  for (const language of ['fr', 'en', 'es', 'it']) {
     const lineup = ids(tvChannelLineup(language, LEGACY_TV_CHANNEL_CHOICES, 'Europe/Paris'));
     for (const id of FRENCH) assert.ok(lineup.includes(id), `${language}: ${id}`);
   }
@@ -115,5 +122,6 @@ test('the installation language maps to a channel language', () => {
   assert.equal(installationTvLanguage('Français'), 'fr');
   assert.equal(installationTvLanguage('English'), 'en');
   assert.equal(installationTvLanguage('Español'), 'es');
+  assert.equal(installationTvLanguage('Italiano'), 'it');
   assert.equal(installationTvLanguage('Klingon'), null);
 });

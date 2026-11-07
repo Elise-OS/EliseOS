@@ -1610,7 +1610,12 @@
       "france24Next": "The debate",
       "dwNext": "Focus on Europe",
       "alJazeeraCurrent": "Morning news",
-      "alJazeeraNext": "The big interview"
+      "alJazeeraNext": "The big interview",
+      "rai3Current": "Documentary: Italy from above",
+      "rai3Next": "Regional news",
+      "tv2000Current": "Morning Mass",
+      "tv2000Next": "Documentary: pilgrimage routes",
+      "euronewsNext": "Europe behind the scenes"
     }
   },
   "scenario": {
@@ -1812,7 +1817,12 @@
       "dwEspanol": "News and reports in Spanish.",
       "dwEnglish": "News and reports in English.",
       "france24En": "International news in English.",
-      "alJazeeraEn": "International news in English."
+      "alJazeeraEn": "International news in English.",
+      "rai3Trento": "Culture, documentaries and news, with Trentino regional news.",
+      "rai3Bolzano": "Culture, documentaries and news, with South Tyrol regional news.",
+      "rai3Friuli": "Culture, documentaries and news, with Friuli-Venezia Giulia regional news.",
+      "tv2000": "General-interest Catholic channel: Mass, documentaries and drama.",
+      "euronewsIt": "European and international news in Italian."
     },
     "channelLive": "{{name}} live",
     "chooseAPhoto": "Choose a photo",

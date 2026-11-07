@@ -147,6 +147,15 @@ describe('demo TV channels', () => {
     // DW Español has no guide; RTVE channels blocked abroad are not offered from Paris.
     expect(guideChannels().map(({ id }) => id)).toEqual(['canal24h', 'france24Es']);
     expect(guideChannels()[0]?.current?.title).toBe('La mañana en 24h');
+    setLanguage('it');
+    resetDemo();
+    expect(guideChannels().map(({ id }) => id)).toEqual([
+      'rai3Trento',
+      'rai3Bolzano',
+      'rai3Friuli',
+      'euronewsIt',
+    ]);
+    expect(guideChannels()[0]?.current?.title).toBe('Documentario: l’Italia vista dall’alto');
     setLanguage('en');
     resetDemo();
     expect(guideChannels().map(({ id }) => id)).toEqual(['dwEnglish', 'france24En', 'alJazeeraEn']);

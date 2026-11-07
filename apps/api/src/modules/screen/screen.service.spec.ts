@@ -499,6 +499,11 @@ describe('TV channels by language', () => {
     [TV_GUIDE_SOURCES.epgpwFrance24Es.url]: gunzipSync(
       xmltv([['448584', 'Noticias', at(-10), at(20)]]),
     ),
+    [TV_GUIDE_SOURCES.epgshareIt.url]: xmltv([
+      ['Rai3.it', 'Tg3', at(-15), at(10)],
+      ['Rai3.it', 'Meteo 3', at(10), at(15)],
+      ['Euronews.it', 'Notizie', at(-5), at(25)],
+    ]),
     [TV_GUIDE_SOURCES.tdtchannels.url]: xmltv([
       ['La1.TV', 'Telediario 2', at(-30), at(15)],
       ['La1.TV', 'El tiempo', at(15), at(25)],
@@ -576,6 +581,25 @@ describe('TV channels by language', () => {
       'epg.pw',
       'XMLTV France',
     ]);
+  });
+
+  it('reads the Italian guide from its single source; TV2000 has none', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(now);
+    vi.stubGlobal('fetch', fetchGuide);
+    const italian = await screenTvGuide(lineup('it'));
+    expect(fetched()).toEqual([TV_GUIDE_SOURCES.epgshareIt.url]);
+    expect(italian.channels.map(({ id }) => id)).toEqual([
+      'rai3Trento',
+      'rai3Bolzano',
+      'rai3Friuli',
+      'euronewsIt',
+    ]);
+    expect(italian.channels[0]).toMatchObject({
+      current: { title: 'Tg3' },
+      next: { title: 'Meteo 3' },
+    });
+    expect(italian.channels.find(({ id }) => id === 'euronewsIt')?.current?.title).toBe('Notizie');
   });
 
   it('keeps the guides that answered when another source fails', async () => {

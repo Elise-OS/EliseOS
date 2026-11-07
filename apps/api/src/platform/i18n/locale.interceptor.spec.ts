@@ -15,6 +15,7 @@ describe('Language of the answers', () => {
   it('answers in English for English and the languages the server does not speak yet', () => {
     expect(wantsEnglish(withLanguage('en'))).toBe(true);
     expect(wantsEnglish(withLanguage('es'))).toBe(true);
+    expect(wantsEnglish(withLanguage('it'))).toBe(true);
     expect(wantsEnglish(withLanguage('de'))).toBe(true);
   });
 });

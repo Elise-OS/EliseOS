@@ -1629,7 +1629,12 @@
       "france24Next": "El debate",
       "dwNext": "Enfoque Europa",
       "alJazeeraCurrent": "Informativo de la mañana",
-      "alJazeeraNext": "La gran entrevista"
+      "alJazeeraNext": "La gran entrevista",
+      "rai3Current": "Documental: Italia desde el aire",
+      "rai3Next": "Informativo regional",
+      "tv2000Current": "La misa de la mañana",
+      "tv2000Next": "Documental: caminos de peregrinación",
+      "euronewsNext": "Europa entre bastidores"
     }
   },
   "scenario": {
@@ -1831,7 +1836,12 @@
       "dwEspanol": "Noticias y reportajes en español.",
       "dwEnglish": "Noticias y reportajes en inglés.",
       "france24En": "Actualidad internacional en inglés.",
-      "alJazeeraEn": "Actualidad internacional en inglés."
+      "alJazeeraEn": "Actualidad internacional en inglés.",
+      "rai3Trento": "Cultura, documentales y actualidad, con las noticias regionales del Trentino.",
+      "rai3Bolzano": "Cultura, documentales y actualidad, con las noticias regionales del Tirol del Sur.",
+      "rai3Friuli": "Cultura, documentales y actualidad, con las noticias regionales de Friul-Venecia Julia.",
+      "tv2000": "Cadena católica generalista: misas, documentales y series.",
+      "euronewsIt": "Actualidad europea e internacional en italiano."
     },
     "channelLive": "{{name}} en directo",
     "chooseAPhoto": "Elegir una foto",

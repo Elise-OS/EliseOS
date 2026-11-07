@@ -14,12 +14,15 @@ import logoAlJazeeraEnglish from '../../assets/tv-logos/al-jazeera-english.png';
 import logoArte from '../../assets/tv-logos/arte.png';
 import logoClan from '../../assets/tv-logos/clan.png';
 import logoDw from '../../assets/tv-logos/dw.png';
+import logoEuronews from '../../assets/tv-logos/euronews.png';
 import logoFrance24 from '../../assets/tv-logos/france24.png';
 import logoLa1 from '../../assets/tv-logos/la1.png';
 import logoLa2 from '../../assets/tv-logos/la2.png';
+import logoRai3 from '../../assets/tv-logos/rai-3.png';
 import logoRmcDecouverte from '../../assets/tv-logos/rmc-decouverte.png';
 import logoRmcLife from '../../assets/tv-logos/rmc-life.png';
 import logoRmcStory from '../../assets/tv-logos/rmc-story.png';
+import logoTv2000 from '../../assets/tv-logos/tv2000.png';
 
 /** Official logos of the catalog channels (`logo` of @elise/contracts), bundled with the app. */
 export const TV_CHANNEL_LOGOS: Record<string, ImageSourcePropType> = {
@@ -28,12 +31,15 @@ export const TV_CHANNEL_LOGOS: Record<string, ImageSourcePropType> = {
   arte: logoArte,
   clan: logoClan,
   dw: logoDw,
+  euronews: logoEuronews,
   france24: logoFrance24,
   la1: logoLa1,
   la2: logoLa2,
+  'rai-3': logoRai3,
   'rmc-decouverte': logoRmcDecouverte,
   'rmc-life': logoRmcLife,
   'rmc-story': logoRmcStory,
+  tv2000: logoTv2000,
 };
 
 /** Logo of a channel on a white tile (dark and light logos stay readable), or its text badge. */

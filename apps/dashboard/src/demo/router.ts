@@ -335,6 +335,36 @@ const DEMO_TV_PROGRAMMES: Record<
     from: [10, 30],
     to: [10, 45],
   },
+  rai3Trento: {
+    current: () => t('router.tvGuide.rai3Current'),
+    next: () => t('router.tvGuide.rai3Next'),
+    from: [10, 0],
+    to: [11, 0],
+  },
+  rai3Bolzano: {
+    current: () => t('router.tvGuide.rai3Current'),
+    next: () => t('router.tvGuide.rai3Next'),
+    from: [10, 0],
+    to: [11, 0],
+  },
+  rai3Friuli: {
+    current: () => t('router.tvGuide.rai3Current'),
+    next: () => t('router.tvGuide.rai3Next'),
+    from: [10, 0],
+    to: [11, 0],
+  },
+  tv2000: {
+    current: () => t('router.tvGuide.tv2000Current'),
+    next: () => t('router.tvGuide.tv2000Next'),
+    from: [10, 0],
+    to: [11, 0],
+  },
+  euronewsIt: {
+    current: () => t('router.tvGuide.newsCurrent'),
+    next: () => t('router.tvGuide.euronewsNext'),
+    from: [10, 30],
+    to: [10, 45],
+  },
   dwEnglish: {
     current: () => t('router.tvGuide.newsCurrent'),
     next: () => t('router.tvGuide.dwNext'),

@@ -37,6 +37,12 @@ export const TV_GUIDE_SOURCES = {
     label: 'epg.pw',
     site: 'https://epg.pw/',
   },
+  // One file for all Italian channels (1.7 MB, 13.5 MB once decompressed: close to the API limit).
+  epgshareIt: {
+    url: 'https://epgshare01.online/epgshare01/epg_ripper_IT1.xml.gz',
+    label: 'EPG Share',
+    site: 'https://epgshare01.online/',
+  },
   epgpwAlJazeeraEn: {
     url: 'https://epg.pw/api/epg.xml?channel_id=443134',
     label: 'epg.pw',
@@ -178,6 +184,60 @@ const CHANNELS = [
     url: 'https://dwamdstream104.akamaized.net/hls/live/2015530/dwstream104/index.m3u8',
     logo: 'dw',
     badge: { label: 'DW', color: '#ffffff', background: '#05141f' },
+  },
+  // Rai 3 national programmes with the regional news windows (TGR) of three regions: official Rai
+  // streams that play abroad (tested from France 2026-11-07). The RaiPlay relinker URLs of Rai 1,
+  // Rai 2, Rai 3 and Rai News 24 are not usable: geo-blocked outside Italy, tokenised, and no CORS
+  // for other origins.
+  {
+    id: 'rai3Trento',
+    name: 'Rai 3 Trento',
+    languages: ['it'],
+    country: 'IT',
+    url: 'https://tgrtrento-live.akamaized.net/hls/live/2025575/tgrtrento/tgrtrento/playlist.m3u8',
+    logo: 'rai-3',
+    badge: { label: 'Rai 3', color: '#ffffff', background: '#00b26a' },
+    guide: { source: 'epgshareIt', id: 'Rai3.it' },
+  },
+  {
+    id: 'rai3Bolzano',
+    name: 'Rai 3 Bolzano',
+    languages: ['it'],
+    country: 'IT',
+    url: 'https://tgrbolzano-live.akamaized.net/hls/live/2025560/tgrbolzano/tgrbolzano/playlist.m3u8',
+    logo: 'rai-3',
+    badge: { label: 'Rai 3', color: '#ffffff', background: '#00b26a' },
+    guide: { source: 'epgshareIt', id: 'Rai3.it' },
+  },
+  {
+    id: 'rai3Friuli',
+    name: 'Rai 3 Friuli-Venezia Giulia',
+    languages: ['it'],
+    country: 'IT',
+    url: 'https://tgrfriuli-live.akamaized.net/hls/live/2025564/tgrfriuli/tgrfriuli/playlist.m3u8',
+    logo: 'rai-3',
+    badge: { label: 'Rai 3', color: '#ffffff', background: '#00b26a' },
+    guide: { source: 'epgshareIt', id: 'Rai3.it' },
+  },
+  {
+    id: 'tv2000',
+    name: 'TV2000',
+    languages: ['it'],
+    country: 'IT',
+    url: 'https://hls-live-tv2000.akamaized.net/hls/live/2028510/tv2000/master.m3u8',
+    logo: 'tv2000',
+    badge: { label: 'TV2000', color: '#ffffff', background: '#0065b2' },
+  },
+  // Euronews Italiano as distributed by Wurl (Euronews has no HLS URL on its own domain).
+  {
+    id: 'euronewsIt',
+    name: 'Euronews Italiano',
+    languages: ['it'],
+    country: 'FR',
+    url: 'https://acb6ca89.wurl.com/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/UmxheHhUVi1ldV9FdXJvbmV3c0l0YWxpYW5vX0hMUw/playlist.m3u8',
+    logo: 'euronews',
+    badge: { label: 'euronews', color: '#ffffff', background: '#0072f5' },
+    guide: { source: 'epgshareIt', id: 'Euronews.it' },
   },
   {
     id: 'dwEnglish',
@@ -322,5 +382,6 @@ export function installationTvLanguage(spokenLanguage: string | null | undefined
   if (/^(fran[cç]ais|french|franc[eé]s)/.test(name)) return 'fr';
   if (/^(english|anglais|ingl[eé]s)/.test(name)) return 'en';
   if (/^(espa[nñ]ol|spanish|espagnol|castellano)/.test(name)) return 'es';
+  if (/^(italiano|italian|italien)/.test(name)) return 'it';
   return tvLanguageCode(name.length <= 3 ? name : null);
 }
