@@ -322,6 +322,26 @@
 .zigbee-advanced {
   margin-top: 0;
 }
+.zigbee-advanced > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px;
+  list-style: none;
+  cursor: pointer;
+}
+.zigbee-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+.zigbee-advanced > summary > span:nth-child(2) {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+}
+.zigbee-advanced > summary small {
+  color: #657983;
+  line-height: 1.45;
+}
 .zigbee-advanced-body {
   margin-top: 16px;
 }

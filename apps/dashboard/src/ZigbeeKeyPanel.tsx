@@ -780,6 +780,10 @@ function CandidateCard({
         await zigbeeRequest('/probe', 'POST', { candidateId: candidate.id }),
       );
       setProbeNotice(result.answered ? 'answered' : 'silent');
+      const identified = result.candidate.identity.options[0];
+      if (result.candidate.identity.options.length === 1 && identified) {
+        setChoice(zigbeeOptionKey(identified));
+      }
       await onChanged();
     } catch {
       setProbeNotice('silent');
