@@ -10,7 +10,7 @@ bash -n "$root/install/install-elise.sh" "$root/install/elise" \
   "$root/appliance/elise-zigbee-setup.sh"
 bash "$root/scripts/detect-zigbee-adapter.test.sh"
 python3 - <<PY
-for path in ("$root/appliance/remote-access-agent.py", "$root/appliance/elise-update-agent.py", "$root/appliance/elise-zigbee-agent.py", "$root/appliance/elise-preparation.py"):
+for path in ("$root/appliance/remote-access-agent.py", "$root/appliance/elise-update-agent.py", "$root/appliance/elise-zigbee-agent.py", "$root/appliance/elise-preparation.py", "$root/appliance/elise_install_state.py"):
     compile(open(path, encoding="utf-8").read(), path, "exec")
 PY
 python3 "$root/appliance/test_remote_access_agent.py"

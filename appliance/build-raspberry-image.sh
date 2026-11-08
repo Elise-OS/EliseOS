@@ -99,6 +99,7 @@ sed -i 's|^ELISE_LOCAL_URL=.*|ELISE_LOCAL_URL=http://elise.local|' "$work_dir/ro
 install -m 0755 "$ROOT_DIR/install/install-elise.sh" "$work_dir/root/usr/lib/elise/install-elise.sh"
 install -m 0755 "$ROOT_DIR/appliance/elise-firstboot.sh" "$work_dir/root/usr/lib/elise/elise-firstboot.sh"
 install -m 0755 "$ROOT_DIR/appliance/elise-preparation.py" "$work_dir/root/usr/lib/elise/elise-preparation.py"
+install -m 0644 "$ROOT_DIR/appliance/elise_install_state.py" "$work_dir/root/usr/lib/elise/elise_install_state.py"
 install -m 0644 "$ROOT_DIR/appliance/systemd/elise-firstboot.service" "$work_dir/root/etc/systemd/system/elise-firstboot.service"
 install -m 0644 "$ROOT_DIR/appliance/systemd/elise-preparation.service" "$work_dir/root/etc/systemd/system/elise-preparation.service"
 chroot "$work_dir/root" groupadd --system elise-agent
