@@ -72,6 +72,8 @@ chroot "$work_dir/root" /bin/bash -euc '
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
   apt-get install -y -qq age ca-certificates curl gnupg avahi-daemon docker.io docker-compose-v2 nftables python3 xz-utils
+  # The TV installation screen draws with Pillow: no X server nor browser before the resident screen.
+  apt-get install -y -qq --no-install-recommends python3-pil python3-qrcode
   install -d -m 0755 /usr/share/keyrings
   curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg
   curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list -o /etc/apt/sources.list.d/tailscale.list
@@ -100,14 +102,17 @@ install -m 0755 "$ROOT_DIR/install/install-elise.sh" "$work_dir/root/usr/lib/eli
 install -m 0755 "$ROOT_DIR/appliance/elise-firstboot.sh" "$work_dir/root/usr/lib/elise/elise-firstboot.sh"
 install -m 0755 "$ROOT_DIR/appliance/elise-preparation.py" "$work_dir/root/usr/lib/elise/elise-preparation.py"
 install -m 0644 "$ROOT_DIR/appliance/elise_install_state.py" "$work_dir/root/usr/lib/elise/elise_install_state.py"
+install -m 0755 "$ROOT_DIR/appliance/elise-install-screen.py" "$work_dir/root/usr/lib/elise/elise-install-screen.py"
 install -m 0644 "$ROOT_DIR/appliance/systemd/elise-firstboot.service" "$work_dir/root/etc/systemd/system/elise-firstboot.service"
 install -m 0644 "$ROOT_DIR/appliance/systemd/elise-preparation.service" "$work_dir/root/etc/systemd/system/elise-preparation.service"
+install -m 0644 "$ROOT_DIR/appliance/systemd/elise-install-screen.service" "$work_dir/root/etc/systemd/system/elise-install-screen.service"
 chroot "$work_dir/root" groupadd --system elise-agent
 agent_gid="$(chroot "$work_dir/root" getent group elise-agent | cut -d: -f3)"
 printf 'ELISE_AGENT_GID=%s\n' "$agent_gid" > "$work_dir/root/etc/elise/agent.env"
 sed -i "s/^ELISE_AGENT_GID=.*/ELISE_AGENT_GID=$agent_gid/" "$work_dir/root/etc/elise/elise.env"
 ln -sf ../elise-preparation.service "$work_dir/root/etc/systemd/system/multi-user.target.wants/elise-preparation.service"
 ln -sf ../elise-firstboot.service "$work_dir/root/etc/systemd/system/multi-user.target.wants/elise-firstboot.service"
+ln -sf ../elise-install-screen.service "$work_dir/root/etc/systemd/system/multi-user.target.wants/elise-install-screen.service"
 
 # Ubuntu's cloud-init datasource and growpart configuration are deliberately
 # retained so Raspberry Pi Imager can apply hostname, user, SSH, locale and Wi-Fi.

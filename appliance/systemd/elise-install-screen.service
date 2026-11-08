@@ -1,0 +1,24 @@
+[Unit]
+Description=Élise installation screen on the TV
+# The resident screen owns the TV for good once it is installed.
+ConditionPathExists=!/var/lib/elise/.screen-setup-complete
+# Before the network: the TV guides the family from the first minute, even offline.
+DefaultDependencies=no
+After=local-fs.target systemd-tmpfiles-setup.service plymouth-start.service
+# Starting the resident screen's display manager stops this one first.
+Before=lightdm.service display-manager.service shutdown.target
+Conflicts=lightdm.service display-manager.service shutdown.target
+
+[Service]
+# Ubuntu's boot splash would keep the framebuffer to itself.
+ExecStartPre=-/bin/sh -c 'if command -v plymouth >/dev/null; then plymouth quit; fi'
+ExecStart=/usr/lib/elise/elise-install-screen.py
+Restart=on-failure
+RestartSec=15
+# Never slow down the installation it displays.
+Nice=10
+IOSchedulingClass=idle
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

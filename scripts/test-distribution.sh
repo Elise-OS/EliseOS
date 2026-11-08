@@ -10,13 +10,14 @@ bash -n "$root/install/install-elise.sh" "$root/install/elise" \
   "$root/appliance/elise-zigbee-setup.sh"
 bash "$root/scripts/detect-zigbee-adapter.test.sh"
 python3 - <<PY
-for path in ("$root/appliance/remote-access-agent.py", "$root/appliance/elise-update-agent.py", "$root/appliance/elise-zigbee-agent.py", "$root/appliance/elise-preparation.py", "$root/appliance/elise_install_state.py"):
+for path in ("$root/appliance/remote-access-agent.py", "$root/appliance/elise-update-agent.py", "$root/appliance/elise-zigbee-agent.py", "$root/appliance/elise-preparation.py", "$root/appliance/elise_install_state.py", "$root/appliance/elise-install-screen.py"):
     compile(open(path, encoding="utf-8").read(), path, "exec")
 PY
 python3 "$root/appliance/test_remote_access_agent.py"
 python3 "$root/appliance/test_update_agent.py"
 python3 "$root/appliance/test_zigbee_agent.py"
 python3 "$root/appliance/test_screen_agent.py"
+python3 "$root/appliance/test_install_screen.py"
 docker compose --env-file "$root/.env.example" -f "$root/compose.yaml" -f "$root/compose.release.yaml" config --quiet
 docker compose --env-file "$root/.env.example" -f "$root/compose.yaml" -f "$root/compose.release.yaml" -f "$root/compose.raspberry.yaml" -f "$root/compose.raspberry.release.yaml" config --quiet
 if grep -R -nE --exclude-dir=node_modules --exclude-dir=dist \
@@ -46,7 +47,7 @@ grep -qF -- 'ELISE_INSTALLER_HANDOFF=true ELISE_UPDATE_LOCK_HELD=true' "$root/in
 grep -qF -- 'until host_files_current; do' "$root/install/install-elise.sh"
 # Every host file the app relies on must be in the installer's list.
 for host_file in appliance/elise-zigbee-agent.py appliance/systemd/elise-zigbee-agent.service \
-  appliance/elise-zigbee-adapters.json appliance/elise-update-agent.py; do
+  appliance/elise-zigbee-adapters.json appliance/elise-update-agent.py appliance/elise_install_state.py; do
   grep -qF -- " $host_file " "$root/install/install-elise.sh" \
     || { echo "$host_file manque dans la liste des fichiers système." >&2; exit 1; }
 done
@@ -58,6 +59,15 @@ if grep -Eq '^(After|Wants|Requires)=.*cloud-final' "$root/appliance/systemd/eli
 fi
 grep -q -- '^Type=simple$' "$root/appliance/systemd/elise-firstboot.service"
 grep -q -- 'stub-resolv.conf' "$root/appliance/build-raspberry-image.sh"
+# The TV installation screen: in the image from the first boot, never in the resident screen's way.
+grep -q -- 'python3-pil python3-qrcode' "$root/appliance/build-raspberry-image.sh"
+for host_file in appliance/elise-install-screen.py appliance/elise_install_state.py appliance/systemd/elise-install-screen.service; do
+  grep -qF -- "$host_file" "$root/appliance/build-raspberry-image.sh" \
+    || { echo "$host_file manque dans l’image Raspberry Pi." >&2; exit 1; }
+done
+grep -q -- '^ConditionPathExists=!/var/lib/elise/.screen-setup-complete$' "$root/appliance/systemd/elise-install-screen.service"
+grep -q -- '^Conflicts=lightdm.service' "$root/appliance/systemd/elise-install-screen.service"
+grep -q -- 'disable --now elise-install-screen.service' "$root/scripts/install-screen.sh"
 # A fresh install must not mistake the missing current link for a previous release.
 grep -q -- '-L "$ELISE_ROOT/current"' "$root/install/install-elise.sh"
 # GitHub honours only the first Accept header; assets need octet-stream alone.
