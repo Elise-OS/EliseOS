@@ -11,7 +11,9 @@ import uuid
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import elise_language
 from elise_install_state import STATUS, hostname, read_env, read_status as install_status, version
+from elise_install_texts import TEXT, page_texts
 
 AUTH_FILE = os.environ.get("ELISE_GITHUB_AUTH_FILE", "/etc/elise/github-auth")
 LOGO_FILE = os.environ.get("ELISE_PREPARATION_LOGO", "/usr/share/elise/runtime/appliance/elise-logo.png")
@@ -21,7 +23,7 @@ USERNAME = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})")
 TOKEN = re.compile(r"[A-Za-z0-9_]{20,255}")
 STARTED_AT = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-HTML = """<!doctype html>
+HTML = r"""<!doctype html>
 <html lang="fr">
 <head>
 <meta charset="utf-8">
@@ -88,50 +90,81 @@ footer b{color:var(--navy-2);font-weight:600}
 <main>
   <header>
     <div class="logo"><img src="/logo.png" alt="" onerror="this.replaceWith(Object.assign(document.createElement('b'),{textContent:'É'}))"></div>
-    <div><div class="eyebrow">Élise OS</div><h1>Préparation d’Élise</h1></div>
+    <div><div class="eyebrow">Élise OS</div><h1 id="title">Préparation d’Élise</h1></div>
   </header>
   <p id="message">Connexion à Élise…</p>
   <div class="meter"><div class="track busy" id="track"><div class="fill" id="fill"></div></div><span id="percent">0 %</span></div>
   <ol id="steps"></ol>
   <div class="notice" id="error"></div>
   <form id="auth">
-    <p>Le dépôt Élise est privé : indiquez le compte bot GitHub pour télécharger les composants.</p>
+    <p id="intro">Le dépôt Élise est privé : indiquez le compte bot GitHub pour télécharger les composants.</p>
     <input id="username" placeholder="Nom du compte bot GitHub" autocomplete="off" required>
     <input id="token" type="password" placeholder="Jeton (ghp_…)" autocomplete="off" required>
     <button id="submit">Enregistrer et continuer</button>
     <p id="formMessage"></p>
   </form>
   <footer>
-    <span>Adresse : <b id="address">elise.local</b></span>
+    <span id="address">Adresse : <b>elise.local</b></span>
     <span id="remote">Accès à distance : à configurer depuis l’application</span>
     <span id="version"></span>
     <span class="app"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
-    Cette page se met à jour toute seule. L’app Élise détecte aussi ce boîtier sur le Wi-Fi de la maison.</span>
+    <span id="note">Cette page se met à jour toute seule. L’app Élise détecte aussi ce boîtier sur le Wi-Fi de la maison.</span></span>
   </footer>
 </main>
 <script>
+// The TV's catalogue (elise_install_texts.py), inserted by the server.
+const TEXTS=__TEXTS__;
 const $=id=>document.getElementById(id);
 const icons={done:'✓',failed:'!'};
+const fmt=(text,values)=>String(text).replace(/\{(\w+)\}/g,(all,key)=>key in values?values[key]:all);
+// The visitor's own language when Élise offers it, else the box's, else English.
+const browser=(navigator.languages&&navigator.languages.length?navigator.languages:[navigator.language])
+  .map(tag=>String(tag||'').toLowerCase().split(/[-_]/)[0]).find(code=>code in TEXTS)||null;
+let lang=browser||'en',last=null,sent=false;
+function applyTexts(){
+  const t=TEXTS[lang];
+  document.documentElement.lang=lang;document.title=t.page_title;$('title').textContent=t.page_title;
+  $('intro').textContent=t.page_auth_intro;$('username').placeholder=t.page_auth_username;
+  $('token').placeholder=t.page_auth_token;$('submit').textContent=t.page_auth_submit;$('note').textContent=t.page_footer;
+  if(!last)$('message').textContent=t.page_connecting;
+}
+function labelled(element,template,value){
+  const [before,after='']=template.split('{value}');const b=document.createElement('b');b.textContent=value;
+  element.replaceChildren(before,b,after);
+}
+// Tells the box which language this browser reads, unless the Élise app already chose one.
+function sendLanguage(s){
+  if(sent||!browser||['app','config'].includes(s.languageSource)||(s.languageSource==='browser'&&s.language===browser))return;
+  sent=true;
+  fetch('/language',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({language:browser,source:'browser'})}).catch(()=>{});
+}
 function render(s){
-  $('message').textContent=s.message||'Préparation en cours…';
+  if(!browser&&s.language in TEXTS&&s.language!==lang){lang=s.language;applyTexts()}
+  last=s;sendLanguage(s);
+  const t=TEXTS[lang];
+  // The installer writes in French: other languages read what the step does.
+  $('message').textContent=lang==='fr'&&s.message?s.message:(t.leads[s.step]||t.page_connecting);
   const pct=Math.max(2,Math.min(100,Math.round(s.percent||0)));
-  $('fill').style.width=pct+'%';$('percent').textContent=pct+' %';
+  $('fill').style.width=pct+'%';$('percent').textContent=fmt(t.percent,{percent:pct});
   $('track').classList.toggle('busy',!s.error);
   $('steps').replaceChildren(...(s.steps||[]).map(step=>{
     const li=document.createElement('li');li.className=step.state;
     const dot=document.createElement('span');dot.className='dot';dot.textContent=icons[step.state]||'';
-    const label=document.createElement('span');label.textContent=step.label;
+    const label=document.createElement('span');label.textContent=t.steps[step.id]||step.label;
     li.append(dot,label);
     if(step.detail){const d=document.createElement('small');d.textContent=step.detail;li.append(d)}
     return li;
   }));
-  $('error').classList.toggle('on',!!s.error);$('error').textContent=s.error?s.message:'';
-  if(s.error)$('message').textContent='Un problème est survenu';
+  $('error').classList.toggle('on',!!s.error);
+  $('error').textContent=s.error?(lang==='fr'?s.message:t.auto_body):'';
+  if(s.error)$('message').textContent=s.step==='network'?t.problem_network:t.problem_other;
   $('auth').classList.toggle('on',!!s.needsGithubAuth);
-  if(s.address)$('address').textContent=s.address+(s.ipAddress?' · '+s.ipAddress:'');
-  $('remote').textContent='Accès à distance : '+(s.tailscaleAddress||'à configurer depuis l’application');
-  if(s.version)$('version').textContent='Version '+s.version;
+  if(s.address)labelled($('address'),t.page_address,s.address+(s.ipAddress?' · '+s.ipAddress:''));
+  $('remote').textContent=fmt(t.remote_value,{value:s.tailscaleAddress||t.remote_later});
+  if(s.version)$('version').textContent=fmt(t.version,{version:s.version});
 }
+applyTexts();
 async function poll(){
   try{const r=await fetch('/status.json',{cache:'no-store'});render(await r.json())}catch{}
   setTimeout(poll,2000);
@@ -139,13 +172,14 @@ async function poll(){
 poll();
 setInterval(()=>fetch('/api/v1/system/health',{cache:'no-store'}).then(r=>{if(r.ok)location.reload()}).catch(()=>{}),3000);
 $('auth').onsubmit=async ev=>{
-  ev.preventDefault();$('submit').disabled=true;$('formMessage').textContent='Vérification auprès de GitHub…';
+  ev.preventDefault();$('submit').disabled=true;$('formMessage').textContent=TEXTS[lang].page_auth_checking;
   try{
     const r=await fetch('/github-auth',{method:'POST',headers:{'content-type':'application/json'},
       body:JSON.stringify({username:$('username').value.trim(),token:$('token').value.trim()})});
-    const j=await r.json();$('formMessage').textContent=j.message||'';
+    const j=await r.json();
+    $('formMessage').textContent=j.code&&TEXTS[lang][j.code]?fmt(TEXTS[lang][j.code],j.params||{}):(j.message||'');
     if(r.ok){$('token').value='';$('auth').classList.remove('on')}
-  }catch{$('formMessage').textContent='Élise ne répond pas, réessayez.'}
+  }catch{$('formMessage').textContent=TEXTS[lang].page_auth_no_answer}
   $('submit').disabled=false;
 };
 </script>
@@ -166,7 +200,23 @@ def instance_id() -> str:
 
 
 def read_status() -> dict:
-    return {**install_status(), "startedAt": STARTED_AT}
+    language = elise_language.current()
+    return {
+        **install_status(),
+        "startedAt": STARTED_AT,
+        # None while nothing tells the family's language (the TV takes turns in every language).
+        "language": language["language"],
+        "languageSource": language["source"],
+    }
+
+
+def page() -> bytes:
+    return HTML.replace("__TEXTS__", json.dumps(page_texts(), ensure_ascii=False).replace("</", "<\\/")).encode()
+
+
+def problem(code: str, **params) -> dict:
+    """An answer the page shows in its language; the French message stays for older clients."""
+    return {"message": TEXT["fr"][code].format(**params), "code": code, "params": params}
 
 
 def discovery() -> dict:
@@ -198,7 +248,7 @@ def is_local(address: str) -> bool:
     return (ip.is_private or ip.is_loopback or ip.is_link_local) and ip not in ipaddress.ip_network("100.64.0.0/10")
 
 
-def verify_token(username: str, token: str) -> str | None:
+def verify_token(username: str, token: str) -> dict | None:
     request = urllib.request.Request(
         f"{GITHUB_API}/repos/{REPOSITORY}",
         headers={
@@ -213,15 +263,15 @@ def verify_token(username: str, token: str) -> str | None:
             scopes = response.headers.get("X-OAuth-Scopes")
     except urllib.error.HTTPError as error:
         if error.code in (401, 403, 404):
-            return "GitHub refuse ce jeton ou il n’a pas accès au dépôt Élise."
-        return f"GitHub a répondu {error.code}, réessayez dans un instant."
+            return problem("page_auth_refused")
+        return problem("page_auth_github_status", status=error.code)
     except (urllib.error.URLError, TimeoutError):
-        return "GitHub est injoignable, vérifiez la connexion Internet."
+        return problem("page_auth_github_unreachable")
     # Classic tokens list their scopes; ghcr.io needs read:packages to pull the images.
     if scopes is not None:
         granted = {scope.strip() for scope in scopes.split(",")}
         if not granted & {"read:packages", "write:packages"}:
-            return "Le jeton doit aussi avoir la permission read:packages."
+            return problem("page_auth_scope")
     return None
 
 
@@ -263,30 +313,47 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 self.send_json(404, {"message": "Introuvable."})
         else:
-            self.send(200, HTML.encode(), "text/html; charset=utf-8")
+            self.send(200, page(), "text/html; charset=utf-8")
 
     def do_POST(self):
-        if self.path != "/github-auth":
+        if self.path not in ("/github-auth", "/language"):
             return self.send_json(404, {"message": "Introuvable."})
         if not is_local(self.client_address[0]):
-            return self.send_json(403, {"message": "Disponible uniquement depuis le réseau local."})
+            return self.send_json(403, problem("page_local_only"))
         if self.headers.get("content-type", "").split(";")[0].strip() != "application/json":
             return self.send_json(415, {"message": "Format non pris en charge."})
         length = int(self.headers.get("content-length") or 0)
         if not 0 < length <= 4096:
-            return self.send_json(400, {"message": "Requête non valide."})
+            return self.send_json(400, problem("page_bad_request"))
         try:
             body = json.loads(self.rfile.read(length))
-            username, token = str(body.get("username", "")).strip(), str(body.get("token", "")).strip()
-        except (ValueError, AttributeError):
-            return self.send_json(400, {"message": "Requête non valide."})
+            if not isinstance(body, dict):
+                raise ValueError
+        except ValueError:
+            return self.send_json(400, problem("page_bad_request"))
+        if self.path == "/language":
+            return self.post_language(body)
+        username, token = str(body.get("username", "")).strip(), str(body.get("token", "")).strip()
         if not USERNAME.fullmatch(username) or not TOKEN.fullmatch(token):
-            return self.send_json(400, {"message": "Nom de compte ou jeton non valide."})
-        problem = verify_token(username, token)
-        if problem:
-            return self.send_json(400, {"message": problem})
+            return self.send_json(400, problem("page_auth_invalid"))
+        refused = verify_token(username, token)
+        if refused:
+            return self.send_json(400, refused)
         save_auth(username, token)
-        return self.send_json(200, {"message": "Compte bot enregistré, la préparation reprend."})
+        return self.send_json(200, problem("page_auth_saved"))
+
+    def post_language(self, body: dict):
+        """The language of the Élise app or of a browser; the TV switches to it at once."""
+        language, source = body.get("language"), body.get("source", "app")
+        try:
+            if not isinstance(language, str) or not isinstance(source, str):
+                raise ValueError(language)
+            chosen, changed = elise_language.save(language, source)
+        except ValueError:
+            return self.send_json(400, {**problem("page_bad_request"), "languages": list(elise_language.LANGUAGES)})
+        except OSError:
+            return self.send_json(500, {"message": "Élise n’a pas pu enregistrer la langue."})
+        return self.send_json(200, {"language": chosen["language"], "languageSource": chosen["source"], "changed": changed})
 
     def log_message(self, *_args):
         pass

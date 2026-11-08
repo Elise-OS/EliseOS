@@ -294,6 +294,8 @@ HOST_FILES="$(cat <<'FILES'
 0644 appliance/systemd/elise-zigbee-setup.service /etc/systemd/system/
 0644 appliance/udev/90-elise-zigbee.rules /etc/udev/rules.d/
 0644 appliance/elise_install_state.py /usr/lib/elise/elise_install_state.py
+0644 appliance/elise_install_texts.py /usr/lib/elise/elise_install_texts.py
+0644 appliance/elise_language.py /usr/lib/elise/elise_language.py
 0755 appliance/elise-install-screen.py /usr/lib/elise/elise-install-screen.py
 0644 appliance/systemd/elise-install-screen.service /etc/systemd/system/
 FILES

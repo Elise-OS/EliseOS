@@ -8,14 +8,20 @@ import pathlib
 import random
 import subprocess
 import sys
+import re
 import tempfile
+import textwrap
+import threading
 import unittest
+import urllib.error
+import urllib.request
 from unittest.mock import patch
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 import elise_install_state as install  # noqa: E402
+import elise_language  # noqa: E402
 
 SCREEN = pathlib.Path(__file__).with_name("elise-install-screen.py")
 spec = importlib.util.spec_from_file_location("elise_install_screen", SCREEN)
@@ -135,26 +141,127 @@ class TailscaleTests(unittest.TestCase):
 
 
 class LanguageTests(unittest.TestCase):
-    def language(self, env="", locale="LANG=C.UTF-8\n", keyboard='XKBLAYOUT="us"\n'):
-        with tempfile.TemporaryDirectory() as folder:
-            paths = {}
-            for name, content in (("locale", locale), ("keyboard", keyboard)):
-                paths[name] = os.path.join(folder, name)
-                pathlib.Path(paths[name]).write_text(content, encoding="utf-8")
-            with patch.object(screen, "LOCALE_FILE", paths["locale"]), patch.object(screen, "KEYBOARD_FILE", paths["keyboard"]), \
-                    patch.object(install, "read_env", side_effect=lambda key: env if key == "ELISE_LANGUAGE" else ""):
-                return screen.language()
+    # (what Imager or cloud-init left on the card, language expected; None = every language in turn)
+    CASES = [
+        ("untouched image", dict(locale="C.UTF-8", layout="us", zone="Etc/UTC", keyboard_chosen=False), None),
+        ("cloud-init's default locale", dict(locale="en_US.UTF-8", layout="us", zone="Etc/UTC", keyboard_chosen=False), None),
+        ("French keyboard in Paris", dict(layout="fr", zone="Europe/Paris"), "fr"),
+        ("French keyboard in Madrid", dict(layout="fr", zone="Europe/Madrid"), "fr"),
+        ("Belgian keyboard in Brussels", dict(layout="be", zone="Europe/Brussels"), "fr"),
+        ("Swiss French keyboard", dict(layout="ch", variant="fr", zone="Europe/Zurich"), "fr"),
+        ("Swiss German keyboard", dict(layout="ch", zone="Europe/Zurich"), None),
+        ("Canadian French keyboard", dict(layout="ca", zone="America/Toronto"), "fr"),
+        ("Canadian English keyboard", dict(layout="ca", variant="eng", zone="America/Toronto"), "en"),
+        ("US keyboard in Toronto", dict(layout="us", zone="America/Toronto"), None),
+        ("Spanish keyboard", dict(layout="es", zone="Europe/Madrid"), "es"),
+        ("Latin American keyboard", dict(layout="latam", zone="America/Mexico_City"), "es"),
+        ("Italian keyboard", dict(layout="it", zone="Europe/Rome"), "it"),
+        ("British keyboard in Paris", dict(layout="gb", zone="Europe/Paris"), "en"),
+        ("US keyboard in New York", dict(layout="us", zone="America/New_York"), "en"),
+        ("US keyboard in Paris", dict(layout="us", zone="Europe/Paris"), None),
+        ("German keyboard", dict(layout="de", zone="Europe/Berlin"), None),
+        ("German keyboard in Paris", dict(layout="de", zone="Europe/Paris"), None),
+        ("time zone alone, image keyboard", dict(layout="us", zone="Europe/Rome", keyboard_chosen=False), "it"),
+        ("Brussels alone", dict(zone="Europe/Brussels"), None),
+        ("Zurich alone", dict(zone="Europe/Zurich"), None),
+        ("Buenos Aires alone", dict(zone="America/Argentina/Buenos_Aires"), "es"),
+        ("Reunion alone", dict(zone="Indian/Reunion"), "fr"),
+        ("several layouts, the first counts", dict(layout="it,us", zone="Europe/Rome"), "it"),
+        ("a chosen locale wins", dict(locale="es_ES.UTF-8", layout="fr", zone="Europe/Paris"), "es"),
+        ("British locale", dict(locale="en_GB.UTF-8", layout="us", zone="Etc/UTC", keyboard_chosen=False), "en"),
+        ("unsupported locale, French keyboard", dict(locale="de_DE.UTF-8", layout="fr"), "fr"),
+        ("nothing at all", dict(), None),
+    ]
 
-    def test_french_by_default_on_the_untouched_image(self):
-        self.assertEqual(self.language(), "fr")
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.root = folder.name
+        self.choice = os.path.join(self.root, "var/lib/elise/language.json")
+        self.env = {}
+        for patcher in (
+            patch.object(elise_language, "CHOICE_FILE", self.choice),
+            patch.object(install, "read_env", side_effect=lambda key: self.env.get(key, "")),
+            patch.object(elise_language, "_detected", {"at": -60.0, "root": None, "value": None}),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
-    def test_configured_language_wins(self):
-        self.assertEqual(self.language(env="it", locale="LANG=es_ES.UTF-8\n"), "it")
+    def write(self, path, content):
+        target = pathlib.Path(self.root, path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
 
-    def test_locale_then_keyboard_hint_the_language(self):
-        self.assertEqual(self.language(locale="LANG=es_ES.UTF-8\n"), "es")
-        self.assertEqual(self.language(keyboard='XKBLAYOUT="it"\n'), "it")
-        self.assertEqual(self.language(locale="LANG=de_DE.UTF-8\n"), "en")
+    def test_guess_from_what_the_card_says(self):
+        for name, hints, expected in self.CASES:
+            with self.subTest(name):
+                self.assertEqual(elise_language.guess(**hints), expected)
+
+    def test_offered_languages_follow_the_apps(self):
+        source = pathlib.Path(__file__).parents[1].joinpath("packages/i18n/src/index.ts").read_text(encoding="utf-8")
+        block = source.split("export const LANGUAGES = [", 1)[1].split("] as const", 1)[0]
+        self.assertEqual(tuple(re.findall(r"code: '([a-z]+)'", block)), elise_language.LANGUAGES)
+        self.assertEqual(set(screen.TEXT), set(elise_language.LANGUAGES))
+
+    def test_reads_imager_user_data_before_cloud_init_applies_it(self):
+        self.write("boot/firmware/user-data", textwrap.dedent("""\
+            #cloud-config
+            hostname: elise
+            users:
+            - name: paul
+              groups: users,adm
+            keyboard:
+              model: pc105
+              layout: "it"
+            timezone: Europe/Rome
+            write_files: []
+        """))
+        self.write("etc/default/keyboard", 'XKBMODEL="pc105"\nXKBLAYOUT="us"\n')
+        self.write("etc/default/locale", "LANG=C.UTF-8\n")
+        self.assertEqual(elise_language.hints(self.root), {
+            "locale": "C.UTF-8", "layout": "it", "variant": "", "zone": "Europe/Rome", "keyboard_chosen": True,
+        })
+        self.assertEqual(elise_language.detect(self.root), "it")
+
+    def test_reads_the_system_files_otherwise(self):
+        self.write("etc/default/keyboard", 'XKBLAYOUT="ch"\nXKBVARIANT="fr"\n')
+        self.write("etc/timezone", "Europe/Zurich\n")
+        self.assertEqual(elise_language.detect(self.root), "fr")
+        os.remove(os.path.join(self.root, "etc/timezone"))
+        self.write("etc/default/keyboard", 'XKBLAYOUT="us"\n')
+        os.symlink("/usr/share/zoneinfo/Europe/Madrid", os.path.join(self.root, "etc/localtime"))
+        self.assertEqual(elise_language.hints(self.root)["zone"], "Europe/Madrid")
+        self.assertEqual(elise_language.detect(self.root), "es")
+        self.assertIsNone(elise_language.detect(os.path.join(self.root, "missing")))
+
+    def test_chosen_beats_detected_beats_taking_turns(self):
+        self.assertEqual(elise_language.current(self.root), {"language": None, "source": None})
+        self.write("etc/default/keyboard", 'XKBLAYOUT="fr"\n')
+        elise_language._detected["at"] = -60.0
+        self.assertEqual(elise_language.current(self.root), {"language": "fr", "source": "detected"})
+        self.assertEqual(elise_language.save("es", "browser"), ({"language": "es", "source": "browser"}, True))
+        self.assertEqual(elise_language.current(self.root), {"language": "es", "source": "browser"})
+        self.env["ELISE_LANGUAGE"] = "it"
+        self.assertEqual(elise_language.current(self.root), {"language": "it", "source": "config"})
+        self.assertEqual(elise_language.save("en", "app"), ({"language": "en", "source": "app"}, True))
+        self.assertEqual(elise_language.current(self.root), {"language": "en", "source": "app"})
+
+    def test_the_app_wins_over_a_browser_and_saving_again_changes_nothing(self):
+        elise_language.save("it", "app")
+        before = os.stat(self.choice).st_mtime_ns
+        self.assertEqual(elise_language.save("it", "app"), ({"language": "it", "source": "app"}, False))
+        self.assertEqual(elise_language.save("fr", "browser"), ({"language": "it", "source": "app"}, False))
+        self.assertEqual(os.stat(self.choice).st_mtime_ns, before)
+        self.assertEqual(json.loads(pathlib.Path(self.choice).read_text())["language"], "it")
+        self.assertEqual(elise_language.save("es", "app"), ({"language": "es", "source": "app"}, True))
+
+    def test_only_offered_languages_are_kept(self):
+        for language, source in (("de", "app"), ("es-ES", "app"), ("", "app"), ("fr", "tv")):
+            with self.subTest(language=language, source=source), self.assertRaises(ValueError):
+                elise_language.save(language, source)
+        self.assertFalse(os.path.exists(self.choice))
+        self.write("var/lib/elise/language.json", '{"language": "de", "source": "app"}')
+        self.assertIsNone(elise_language.chosen())
 
     def test_catalogue_is_complete_in_every_language(self):
         def shape(value):
@@ -165,6 +272,160 @@ class LanguageTests(unittest.TestCase):
 
         for lang in ("en", "es", "it"):
             self.assertEqual(shape(screen.TEXT[lang]), shape(screen.TEXT["fr"]), lang)
+
+
+class PreparationServerTests(unittest.TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.choice = os.path.join(folder.name, "language.json")
+        for patcher in (
+            patch.object(elise_language, "CHOICE_FILE", self.choice),
+            patch.object(elise_language, "detect", return_value=None),
+            patch.object(elise_language, "_detected", {"at": -60.0, "root": None, "value": None}),
+            patch.object(install, "read_env", return_value=""),
+            patch.object(install, "images_progress", return_value=None),
+            patch.object(install, "local_address", return_value="192.168.1.42"),
+            patch.object(install, "tailscale", return_value={"running": False, "ip": None, "name": None}),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        server = preparation.ThreadingHTTPServer(("127.0.0.1", 0), preparation.Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        self.url = f"http://127.0.0.1:{server.server_address[1]}"
+
+    def request(self, path, body=None, content_type="application/json"):
+        data = None if body is None else (body if isinstance(body, bytes) else json.dumps(body).encode())
+        request = urllib.request.Request(self.url + path, data=data, headers={"content-type": content_type})
+        try:
+            with urllib.request.urlopen(request, timeout=5) as response:
+                return response.status, response.read().decode()
+        except urllib.error.HTTPError as error:
+            with error:
+                return error.code, error.read().decode()
+
+    def post_language(self, language, source="app", **options):
+        status, body = self.request("/language", {"language": language, "source": source}, **options)
+        return status, json.loads(body) if body.startswith("{") else body
+
+    def test_the_app_sets_the_language_once_and_it_lasts(self):
+        status, body = self.request("/status.json")
+        self.assertEqual((json.loads(body)["language"], json.loads(body)["languageSource"]), (None, None))
+        self.assertEqual(self.post_language("es"), (200, {"language": "es", "languageSource": "app", "changed": True}))
+        self.assertEqual(self.post_language("es"), (200, {"language": "es", "languageSource": "app", "changed": False}))
+        self.assertEqual(json.loads(pathlib.Path(self.choice).read_text())["language"], "es")
+        status = json.loads(self.request("/status.json")[1])
+        self.assertEqual((status["language"], status["languageSource"]), ("es", "app"))
+        discovery = json.loads(self.request("/api/v1/discovery")[1])
+        self.assertEqual(discovery["preparation"]["language"], "es")
+
+    def test_a_browser_counts_until_the_app_answers(self):
+        self.assertEqual(self.post_language("it", "browser")[1]["languageSource"], "browser")
+        self.assertEqual(self.post_language("fr", "app")[1]["language"], "fr")
+        self.assertEqual(self.post_language("en", "browser"), (200, {"language": "fr", "languageSource": "app", "changed": False}))
+
+    def test_unknown_languages_and_odd_requests_are_refused(self):
+        for language in ("de", "ES-es", None, 3):
+            with self.subTest(language=language):
+                status, body = self.post_language(language)
+                self.assertEqual(status, 400)
+                self.assertEqual(body["languages"], list(elise_language.LANGUAGES))
+        self.assertEqual(self.post_language("fr", "tv")[0], 400)
+        self.assertEqual(self.request("/language", b"[]")[0], 400)
+        self.assertEqual(self.request("/language", b"{", )[0], 400)
+        self.assertEqual(self.request("/language", b"language=fr", content_type="application/x-www-form-urlencoded")[0], 415)
+        self.assertFalse(os.path.exists(self.choice))
+
+    def test_only_the_home_network_may_choose(self):
+        with patch.object(preparation, "is_local", return_value=False):
+            status, body = self.post_language("it")
+        self.assertEqual(status, 403)
+        self.assertEqual(body["code"], "page_local_only")
+        self.assertFalse(os.path.exists(self.choice))
+        self.assertFalse(preparation.is_local("100.101.42.7"))
+        self.assertTrue(preparation.is_local("192.168.1.20"))
+
+    def test_page_carries_every_language(self):
+        status, page = self.request("/")
+        self.assertEqual(status, 200)
+        self.assertNotIn("__TEXTS__", page)
+        texts = json.loads(page.split("const TEXTS=", 1)[1].split(";\n", 1)[0])
+        self.assertEqual(set(texts), set(elise_language.LANGUAGES))
+        self.assertEqual(texts["es"]["steps"]["download"], screen.TEXT["es"]["steps"]["download"])
+
+    def test_github_answers_keep_their_french_message_and_gain_a_code(self):
+        status, body = self.request("/github-auth", {"username": "", "token": ""})
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)["code"], "page_auth_invalid")
+        self.assertEqual(json.loads(body)["message"], "Nom de compte ou jeton non valide.")
+
+
+class RotationTests(unittest.TestCase):
+    LEFT = (100, 200, 1190, 950)
+
+    def test_every_language_takes_turns_without_overflow(self):
+        for kind, size in itertools.product(KINDS, SIZES):
+            for hero in (None, *elise_language.LANGUAGES):
+                with self.subTest(kind=kind, size=size, hero=hero):
+                    assert_inside(self, screen.render(sample(kind, None), size, hero=hero), size)
+
+    def test_only_the_message_changes_between_languages(self):
+        for kind in KINDS:
+            with self.subTest(kind=kind):
+                m = sample(kind, None, remote="100.101.42.7")
+                base = screen.render(m)
+                left = base.box(self.LEFT)
+                for hero in elise_language.LANGUAGES:
+                    frame = screen.render(m, hero=hero)
+                    box = ImageChops.difference(base.image, frame.image).getbbox()
+                    self.assertIsNotNone(box, hero)
+                    self.assertTrue(left[0] <= box[0] and left[1] <= box[1] and box[2] <= left[2] and box[3] <= left[3],
+                                    f"{hero}: {box} outside the message column")
+
+    def test_fixed_parts_are_in_english(self):
+        paint = screen.render(sample("progress", None), hero="it")
+        texts = [text for text, _ in paint.boxes]
+        self.assertIn(screen.TEXT["en"]["steps"]["download"], texts)  # the list of steps
+        self.assertIn("41%", texts)
+        self.assertIn(screen.TEXT["it"]["progress_eyebrow"], texts)  # the message
+        self.assertTrue(any(text.startswith("Élise scarica") for text in texts))
+
+    def test_fades_through_the_bare_screen_to_the_next_language(self):
+        rotation = screen.Rotation(sample("welcome", None), (640, 360), now=0)
+        self.assertEqual(rotation.language, "fr")
+        self.assertFalse(rotation.due(2.5))
+        self.assertTrue(rotation.due(3.0))
+        self.assertGreater(screen.Rotation.DEFAULT_HOLD, screen.Rotation.HOLD["welcome"])
+        first, base = rotation.frame().image, rotation.base.image
+        split = rotation.FADE_OUT / (rotation.FADE_OUT + rotation.FADE_IN)
+        second = rotation.frame(1).image
+        self.assertEqual(rotation.between(first, base, second, 0).tobytes(), first.tobytes())
+        self.assertEqual(rotation.between(first, base, second, split).tobytes(), base.tobytes())
+        self.assertEqual(rotation.between(first, base, second, 1).tobytes(), second.tobytes())
+        shown = []
+        frame = rotation.advance(lambda image, origin: shown.append((image, origin)), sleep=lambda _: None)
+        self.assertEqual(rotation.language, "en")
+        self.assertEqual(len(shown), round((rotation.FADE_OUT + rotation.FADE_IN) * rotation.FPS))
+        box = rotation.region(first, frame.image)
+        self.assertEqual({origin for _, origin in shown}, {box[:2]})
+        self.assertEqual(shown[-1][0].tobytes(), frame.image.crop(box).tobytes())
+        for _ in range(3):
+            rotation.advance()
+        self.assertEqual(rotation.language, "fr")
+
+
+def assert_inside(test, paint, size):
+    margin = 60 * paint.k
+    for text, (left, top, right, bottom) in paint.boxes:
+        test.assertGreaterEqual(left, margin, text)
+        test.assertLessEqual(right, size[0] - margin, text)
+        test.assertGreaterEqual(top, 0, text)
+        test.assertLessEqual(bottom, size[1], text)
+    for (first, a), (second, b) in itertools.combinations(paint.boxes, 2):
+        overlap = min(a[2], b[2]) - max(a[0], b[0]), min(a[3], b[3]) - max(a[1], b[1])
+        test.assertFalse(overlap[0] > 1 and overlap[1] > 1, f"{first!r} overlaps {second!r}")
 
 
 class RenderTests(unittest.TestCase):
@@ -204,8 +465,9 @@ class RenderTests(unittest.TestCase):
     @unittest.skipIf(zxingcpp is None or screen.qrcode is None, "QR decoder unavailable")
     def test_qr_code_opens_the_preparation_page(self):
         for size in SIZES:
-            image = screen.render(sample("welcome"), size).image
-            self.assertEqual([code.text for code in zxingcpp.read_barcodes(image)], ["http://192.168.1.42"])
+            for image in (screen.render(sample("welcome"), size).image,
+                          screen.render(sample("welcome", None), size, hero="it").image):
+                self.assertEqual([code.text for code in zxingcpp.read_barcodes(image)], ["http://192.168.1.42"])
 
 
 class FramebufferTests(unittest.TestCase):

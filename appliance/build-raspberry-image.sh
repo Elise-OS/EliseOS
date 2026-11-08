@@ -102,6 +102,8 @@ install -m 0755 "$ROOT_DIR/install/install-elise.sh" "$work_dir/root/usr/lib/eli
 install -m 0755 "$ROOT_DIR/appliance/elise-firstboot.sh" "$work_dir/root/usr/lib/elise/elise-firstboot.sh"
 install -m 0755 "$ROOT_DIR/appliance/elise-preparation.py" "$work_dir/root/usr/lib/elise/elise-preparation.py"
 install -m 0644 "$ROOT_DIR/appliance/elise_install_state.py" "$work_dir/root/usr/lib/elise/elise_install_state.py"
+install -m 0644 "$ROOT_DIR/appliance/elise_install_texts.py" "$work_dir/root/usr/lib/elise/elise_install_texts.py"
+install -m 0644 "$ROOT_DIR/appliance/elise_language.py" "$work_dir/root/usr/lib/elise/elise_language.py"
 install -m 0755 "$ROOT_DIR/appliance/elise-install-screen.py" "$work_dir/root/usr/lib/elise/elise-install-screen.py"
 install -m 0644 "$ROOT_DIR/appliance/systemd/elise-firstboot.service" "$work_dir/root/etc/systemd/system/elise-firstboot.service"
 install -m 0644 "$ROOT_DIR/appliance/systemd/elise-preparation.service" "$work_dir/root/etc/systemd/system/elise-preparation.service"

@@ -16,6 +16,8 @@ import time
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 import elise_install_state as install
+import elise_install_texts as texts
+import elise_language
 
 try:
     import qrcode
@@ -32,8 +34,6 @@ ASSET_DIRS = (
 FRAMEBUFFER = os.environ.get("ELISE_INSTALL_SCREEN_FB", "/dev/fb0")
 TERMINAL = int(os.environ.get("ELISE_INSTALL_SCREEN_VT", "8"))
 AUTH_FILE = os.environ.get("ELISE_GITHUB_AUTH_FILE", "/etc/elise/github-auth")
-LOCALE_FILE = "/etc/default/locale"
-KEYBOARD_FILE = "/etc/default/keyboard"
 STEP_IDS = [step[0] for step in install.STEPS]
 
 # Élise's palette, deepened for a television seen from the sofa.
@@ -52,309 +52,7 @@ ACCENTS = {
     "ready": GREEN, "pair": GREEN, "installing": GREEN,
 }
 
-TEXT = {
-    "fr": {
-        "elapsed": "Commencé il y a {duration}",
-        "step_of": "Étape {n} sur {total}",
-        "steps": {
-            "settings": "Réglages du Raspberry Pi", "network": "Connexion à Internet", "clock": "Mise à l’heure",
-            "verify": "Vérification de la version", "download": "Téléchargement des composants",
-            "start": "Démarrage d’Élise",
-        },
-        "leads": {
-            "settings": "Élise applique les réglages choisis lors de la préparation de la carte.",
-            "network": "Élise vérifie sa connexion à Internet.",
-            "clock": "Élise se met à l’heure pour sécuriser ses échanges.",
-            "verify": "Élise vérifie que sa version est authentique.",
-            "download": "Élise télécharge ses composants. C’est l’étape la plus longue.",
-            "start": "Élise démarre et vérifie que tout fonctionne.",
-        },
-        "components": "{done} composants sur {total}",
-        "percent": "{percent} %",
-        "local": "Adresse locale",
-        "remote": "Accès à distance",
-        "remote_later": "à configurer depuis l’application",
-        "remote_value": "Accès à distance : {value}",
-        "follow": "Suivre sur votre téléphone",
-        "no_network": "en attente du réseau",
-        "version": "Version {version}",
-        "scan": "Avec l’appareil photo du téléphone",
-        "welcome_eyebrow": "PREMIÈRE INSTALLATION",
-        "welcome_title": "Élise OS est en cours d’installation",
-        "welcome_lead": "Tout se fait automatiquement. Laissez le boîtier allumé et relié à Internet.",
-        "continue": "Pour continuer",
-        "continue_body": "Ouvrez l’application mobile Élise, ou rendez-vous sur",
-        "progress_eyebrow": "INSTALLATION EN COURS",
-        "reassure": "Vous n’avez rien à faire : cet écran se met à jour tout seul.",
-        "action_eyebrow": "UNE INFORMATION EST NÉCESSAIRE",
-        "action_title": "Continuez sur votre téléphone ou votre ordinateur",
-        "action_body": "Pour télécharger ses composants, Élise a besoin du compte bot GitHub. "
-        "Indiquez-le dans l’application Élise ou sur la page de préparation.",
-        "action_note": "Rien à saisir sur la télévision. L’installation reprendra toute seule.",
-        "action_scan": "Scannez pour continuer",
-        "paused": "Installation en pause · étape {n} sur {total}",
-        "problem_eyebrow": "INSTALLATION EN PAUSE",
-        "problem_network": "Élise n’arrive pas à joindre Internet",
-        "problem_other": "L’installation a rencontré un problème",
-        "auto_title": "Ce qu’Élise fait",
-        "auto_body": "Élise réessaie toute seule, chaque minute. Inutile de débrancher le boîtier.",
-        "check_title": "Ce que vous pouvez vérifier",
-        "checks_network": [
-            "Le câble réseau relie bien le boîtier à la box Internet.",
-            "La box Internet est allumée et fonctionne.",
-            "En Wi-Fi : le nom et le mot de passe saisis lors de la préparation de la carte.",
-        ],
-        "checks_other": [
-            "Laissez le boîtier allumé et relié à Internet.",
-            "Si le problème revient, ouvrez l’application Élise pour voir le détail.",
-        ],
-        "detail": "Détail : {message}",
-        "done_eyebrow": "INSTALLATION TERMINÉE",
-        "done_title": "Élise est prête",
-        "ready_body": "Ouvrez l’application Élise, ou l’adresse ci-contre, pour créer le compte de la famille.",
-        "pair_title": "Dernière étape : l’écran du salon",
-        "pair_steps": [
-            "Ouvrez l’application Élise sur votre téléphone.",
-            "Touchez « Activer l’accès privé » et suivez les étapes.",
-            "La télévision affichera ensuite Élise toute seule.",
-        ],
-        "installing_title": "L’écran du salon se prépare",
-        "installing_body": "L’accès privé est actif. Élise installe l’affichage de la télévision : "
-        "cela peut prendre une vingtaine de minutes. Cet écran sera remplacé automatiquement.",
-        "open": "Ouvrir Élise",
-    },
-    "en": {
-        "elapsed": "Started {duration} ago",
-        "step_of": "Step {n} of {total}",
-        "steps": {
-            "settings": "Raspberry Pi settings", "network": "Internet connection", "clock": "Setting the clock",
-            "verify": "Checking the version", "download": "Downloading components", "start": "Starting Élise",
-        },
-        "leads": {
-            "settings": "Élise is applying the settings chosen when the card was prepared.",
-            "network": "Élise is checking its Internet connection.",
-            "clock": "Élise is setting its clock to keep its connections secure.",
-            "verify": "Élise is checking that its version is authentic.",
-            "download": "Élise is downloading its components. This is the longest step.",
-            "start": "Élise is starting and checking that everything works.",
-        },
-        "components": "{done} of {total} components",
-        "percent": "{percent}%",
-        "local": "Local address",
-        "remote": "Remote access",
-        "remote_later": "to set up from the app",
-        "remote_value": "Remote access: {value}",
-        "follow": "Follow on your phone",
-        "no_network": "waiting for the network",
-        "version": "Version {version}",
-        "scan": "With your phone’s camera",
-        "welcome_eyebrow": "FIRST INSTALLATION",
-        "welcome_title": "Élise OS is being installed",
-        "welcome_lead": "Everything happens automatically. Keep the box switched on and connected to the Internet.",
-        "continue": "To continue",
-        "continue_body": "Open the Élise mobile app, or go to",
-        "progress_eyebrow": "INSTALLING",
-        "reassure": "Nothing to do: this screen updates by itself.",
-        "action_eyebrow": "INFORMATION NEEDED",
-        "action_title": "Continue on your phone or computer",
-        "action_body": "To download its components, Élise needs the GitHub bot account. "
-        "Enter it in the Élise app or on the preparation page.",
-        "action_note": "Nothing to type on the TV. The installation will resume by itself.",
-        "action_scan": "Scan to continue",
-        "paused": "Installation paused · step {n} of {total}",
-        "problem_eyebrow": "INSTALLATION PAUSED",
-        "problem_network": "Élise cannot reach the Internet",
-        "problem_other": "The installation ran into a problem",
-        "auto_title": "What Élise is doing",
-        "auto_body": "Élise tries again by itself every minute. No need to unplug the box.",
-        "check_title": "What you can check",
-        "checks_network": [
-            "The network cable connects the box to your Internet router.",
-            "Your Internet router is switched on and working.",
-            "On Wi-Fi: the network name and password entered when preparing the card.",
-        ],
-        "checks_other": [
-            "Keep the box switched on and connected to the Internet.",
-            "If the problem comes back, open the Élise app to see the details.",
-        ],
-        "detail": "Details: {message}",
-        "done_eyebrow": "INSTALLATION COMPLETE",
-        "done_title": "Élise is ready",
-        "ready_body": "Open the Élise app, or the address shown here, to create the family account.",
-        "pair_title": "Last step: the living room screen",
-        "pair_steps": [
-            "Open the Élise app on your phone.",
-            "Tap “Enable private access” and follow the steps.",
-            "The TV will then show Élise by itself.",
-        ],
-        "installing_title": "Preparing the living room screen",
-        "installing_body": "Private access is on. Élise is installing the TV display, which can take about "
-        "twenty minutes. This screen will be replaced automatically.",
-        "open": "Open Élise",
-    },
-    "es": {
-        "elapsed": "Iniciada hace {duration}",
-        "step_of": "Paso {n} de {total}",
-        "steps": {
-            "settings": "Ajustes de la Raspberry Pi", "network": "Conexión a Internet", "clock": "Puesta en hora",
-            "verify": "Verificación de la versión", "download": "Descarga de componentes", "start": "Inicio de Élise",
-        },
-        "leads": {
-            "settings": "Élise aplica los ajustes elegidos al preparar la tarjeta.",
-            "network": "Élise comprueba su conexión a Internet.",
-            "clock": "Élise se pone en hora para proteger sus comunicaciones.",
-            "verify": "Élise comprueba que su versión es auténtica.",
-            "download": "Élise descarga sus componentes. Es el paso más largo.",
-            "start": "Élise se inicia y comprueba que todo funciona.",
-        },
-        "components": "{done} de {total} componentes",
-        "percent": "{percent} %",
-        "local": "Dirección local",
-        "remote": "Acceso remoto",
-        "remote_later": "se configura desde la aplicación",
-        "remote_value": "Acceso remoto: {value}",
-        "follow": "Siga en su teléfono",
-        "no_network": "esperando la red",
-        "version": "Versión {version}",
-        "scan": "Con la cámara del teléfono",
-        "welcome_eyebrow": "PRIMERA INSTALACIÓN",
-        "welcome_title": "Élise OS se está instalando",
-        "welcome_lead": "Todo se hace automáticamente. Deje el equipo encendido y conectado a Internet.",
-        "continue": "Para continuar",
-        "continue_body": "Abra la aplicación móvil Élise o vaya a",
-        "progress_eyebrow": "INSTALACIÓN EN CURSO",
-        "reassure": "No tiene que hacer nada: esta pantalla se actualiza sola.",
-        "action_eyebrow": "SE NECESITA UN DATO",
-        "action_title": "Continúe en su teléfono u ordenador",
-        "action_body": "Para descargar sus componentes, Élise necesita la cuenta bot de GitHub. "
-        "Indíquela en la aplicación Élise o en la página de preparación.",
-        "action_note": "No hay nada que escribir en el televisor. La instalación continuará sola.",
-        "action_scan": "Escanee para continuar",
-        "paused": "Instalación en pausa · paso {n} de {total}",
-        "problem_eyebrow": "INSTALACIÓN EN PAUSA",
-        "problem_network": "Élise no consigue conectarse a Internet",
-        "problem_other": "La instalación ha encontrado un problema",
-        "auto_title": "Lo que hace Élise",
-        "auto_body": "Élise lo vuelve a intentar sola cada minuto. No hace falta desenchufar el equipo.",
-        "check_title": "Lo que puede comprobar",
-        "checks_network": [
-            "El cable de red conecta el equipo con el router de Internet.",
-            "El router de Internet está encendido y funciona.",
-            "Por Wi-Fi: el nombre y la contraseña indicados al preparar la tarjeta.",
-        ],
-        "checks_other": [
-            "Deje el equipo encendido y conectado a Internet.",
-            "Si el problema vuelve, abra la aplicación Élise para ver el detalle.",
-        ],
-        "detail": "Detalle: {message}",
-        "done_eyebrow": "INSTALACIÓN TERMINADA",
-        "done_title": "Élise está lista",
-        "ready_body": "Abra la aplicación Élise, o la dirección indicada, para crear la cuenta de la familia.",
-        "pair_title": "Último paso: la pantalla del salón",
-        "pair_steps": [
-            "Abra la aplicación Élise en su teléfono.",
-            "Toque «Activar el acceso privado» y siga los pasos.",
-            "El televisor mostrará Élise automáticamente.",
-        ],
-        "installing_title": "Preparando la pantalla del salón",
-        "installing_body": "El acceso privado está activo. Élise instala la pantalla del televisor: "
-        "puede tardar unos veinte minutos. Esta pantalla se sustituirá automáticamente.",
-        "open": "Abrir Élise",
-    },
-    "it": {
-        "elapsed": "Avviata {duration} fa",
-        "step_of": "Passaggio {n} di {total}",
-        "steps": {
-            "settings": "Impostazioni del Raspberry Pi", "network": "Connessione a Internet",
-            "clock": "Regolazione dell’ora", "verify": "Verifica della versione",
-            "download": "Download dei componenti", "start": "Avvio di Élise",
-        },
-        "leads": {
-            "settings": "Élise applica le impostazioni scelte durante la preparazione della scheda.",
-            "network": "Élise controlla la connessione a Internet.",
-            "clock": "Élise regola l’ora per proteggere le sue comunicazioni.",
-            "verify": "Élise verifica che la sua versione sia autentica.",
-            "download": "Élise scarica i suoi componenti. È il passaggio più lungo.",
-            "start": "Élise si avvia e controlla che tutto funzioni.",
-        },
-        "components": "{done} componenti su {total}",
-        "percent": "{percent}%",
-        "local": "Indirizzo locale",
-        "remote": "Accesso remoto",
-        "remote_later": "da configurare dall’app",
-        "remote_value": "Accesso remoto: {value}",
-        "follow": "Segua dal telefono",
-        "no_network": "in attesa della rete",
-        "version": "Versione {version}",
-        "scan": "Con la fotocamera del telefono",
-        "welcome_eyebrow": "PRIMA INSTALLAZIONE",
-        "welcome_title": "Élise OS è in fase di installazione",
-        "welcome_lead": "Tutto avviene automaticamente. Lasci il dispositivo acceso e collegato a Internet.",
-        "continue": "Per continuare",
-        "continue_body": "Apra l’app Élise sul telefono oppure vada su",
-        "progress_eyebrow": "INSTALLAZIONE IN CORSO",
-        "reassure": "Non deve fare nulla: questa schermata si aggiorna da sola.",
-        "action_eyebrow": "SERVE UN’INFORMAZIONE",
-        "action_title": "Continui dal telefono o dal computer",
-        "action_body": "Per scaricare i suoi componenti, Élise ha bisogno dell’account bot GitHub. "
-        "Lo indichi nell’app Élise o nella pagina di preparazione.",
-        "action_note": "Non c’è nulla da digitare sul televisore. L’installazione riprenderà da sola.",
-        "action_scan": "Inquadri per continuare",
-        "paused": "Installazione in pausa · passaggio {n} di {total}",
-        "problem_eyebrow": "INSTALLAZIONE IN PAUSA",
-        "problem_network": "Élise non riesce a raggiungere Internet",
-        "problem_other": "L’installazione ha incontrato un problema",
-        "auto_title": "Cosa fa Élise",
-        "auto_body": "Élise riprova da sola ogni minuto. Non serve scollegare il dispositivo.",
-        "check_title": "Cosa può controllare",
-        "checks_network": [
-            "Il cavo di rete collega il dispositivo al modem/router.",
-            "Il modem/router è acceso e funziona.",
-            "In Wi-Fi: nome e password inseriti durante la preparazione della scheda.",
-        ],
-        "checks_other": [
-            "Lasci il dispositivo acceso e collegato a Internet.",
-            "Se il problema si ripresenta, apra l’app Élise per vedere i dettagli.",
-        ],
-        "detail": "Dettaglio: {message}",
-        "done_eyebrow": "INSTALLAZIONE COMPLETATA",
-        "done_title": "Élise è pronta",
-        "ready_body": "Apra l’app Élise, o l’indirizzo indicato, per creare l’account della famiglia.",
-        "pair_title": "Ultimo passaggio: lo schermo del soggiorno",
-        "pair_steps": [
-            "Apra l’app Élise sul telefono.",
-            "Tocchi «Attiva l’accesso privato» e segua i passaggi.",
-            "Il televisore mostrerà poi Élise da solo.",
-        ],
-        "installing_title": "Lo schermo del soggiorno si sta preparando",
-        "installing_body": "L’accesso privato è attivo. Élise installa la visualizzazione sul televisore: "
-        "può richiedere una ventina di minuti. Questa schermata verrà sostituita automaticamente.",
-        "open": "Aprire Élise",
-    },
-}
-# Raspberry Pi Imager sets the keyboard, rarely the locale: both hint at the family's language.
-# "us" is also the untouched image's layout, so it says nothing.
-KEYBOARDS = {"fr": "fr", "be": "fr", "ch": "fr", "ca": "fr", "es": "es", "latam": "es", "it": "it", "gb": "en", "us": ""}
-
-
-def language() -> str:
-    configured = install.read_env("ELISE_LANGUAGE") or install.read_env("ELISE_LOCALE")
-    hints = [configured]
-    for path, keys in ((LOCALE_FILE, ("LANGUAGE", "LC_ALL", "LANG")), (KEYBOARD_FILE, ("XKBLAYOUT",))):
-        try:
-            with open(path, encoding="utf-8") as settings:
-                values = dict(line.strip().split("=", 1) for line in settings if "=" in line and not line.startswith("#"))
-        except OSError:
-            continue
-        for key in keys:
-            value = values.get(key, "").strip().strip('"').split(",")[0].split(":")[0]
-            hints.append(KEYBOARDS.get(value, value or "") if key == "XKBLAYOUT" else value)
-    for hint in hints:
-        code = (hint or "").lower()[:2]
-        if not code or code in ("c", "c.", "po"):
-            continue
-        return code if code in TEXT else "en"
-    return "fr"
+TEXT = texts.TEXT
 
 
 def duration(minutes: int) -> str:
@@ -412,7 +110,7 @@ def choose_screen(view: dict, screen_enabled: bool, tailscale_running: bool) -> 
     return "installing" if tailscale_running else "pair"
 
 
-def snapshot(tracker: Tracker, lang: str, started: float) -> dict:
+def snapshot(tracker: Tracker, started: float) -> dict:
     status = install.read_status()
     firstboot_done = os.path.exists(install.FIRSTBOOT_MARKER)
     view = tracker.update(status, firstboot_done, auth_saved())
@@ -423,7 +121,8 @@ def snapshot(tracker: Tracker, lang: str, started: float) -> dict:
         port = int(install.read_env("ELISE_HTTP_PORT") or 80)
     return model(
         kind=choose_screen(view, screen_enabled, remote["running"]),
-        lang=lang,
+        # None while nothing tells the family's language: the screen takes turns.
+        lang=elise_language.current()["language"],
         step=view["step"],
         percent=100 if firstboot_done else status["percent"],
         images=install.images_progress() if STEP_IDS[view["step"]] == "download" else None,
@@ -525,6 +224,8 @@ class Painter:
 
     def text(self, x, y, text, kind, size, fill, anchor="la", tracking=0.0, width=None):
         """One line at design coordinates; shrinks to `width` rather than overflowing."""
+        if not text:
+            return size
         while width and size > 12 and self.measure(text, kind, size, tracking) > width:
             size -= 1
         typeface = self.font(kind, size)
@@ -657,8 +358,18 @@ class Painter:
         return True
 
 
-def text_for(lang: str) -> dict:
-    return TEXT.get(lang, TEXT["en"])
+def text_for(lang: str | None) -> dict:
+    return TEXT.get(lang or elise_language.FALLBACK, TEXT[elise_language.FALLBACK])
+
+
+def blank(value):
+    """The catalogue's shape without its words: the screen as it looks between two languages."""
+    if isinstance(value, dict):
+        return {key: blank(item) for key, item in value.items()}
+    return [] if isinstance(value, list) else ""
+
+
+BLANK = blank(TEXT["fr"])
 
 
 def header(paint: Painter, m: dict, t: dict, elapsed: bool = True):
@@ -761,60 +472,75 @@ def progress_bar(paint: Painter, x, y, width, percent, accent):
     paint.image.paste(Image.composite(Image.new("RGB", mask.size, GREEN), Image.new("RGB", mask.size, accent), ramp), origin, mask)
 
 
-def draw_welcome(paint, m, t):
-    eyebrow(paint, 246, t["welcome_eyebrow"], SKY, icon="dot")
-    bottom = paint.paragraph(120, 286, t["welcome_title"], "serif", 80, CREAM, 1040, leading=1.12, max_lines=2, minimum=60)
-    paint.paragraph(120, bottom + 28, t["welcome_lead"], "sans", 34, MUTED, 1000, max_lines=2, minimum=26)
+def tallest(paint, m, t, key, x, y, kind, size, width, **options) -> float:
+    """Bottom of a paragraph in its longest language: a box taking turns must fit them all."""
+    catalogs = [t] if m["lang"] else [TEXT[code] for code in elise_language.LANGUAGES]
+    return max(paint.paragraph(x, y, texts[key], kind, size, CREAM, width, dry=True, **options) for texts in catalogs)
+
+
+def welcome_height(paint, texts) -> float:
+    title = paint.paragraph(120, 0, texts["welcome_title"], "serif", 80, CREAM, 1040, leading=1.12, max_lines=2, minimum=60, dry=True)
+    return 52 + paint.paragraph(120, title + 28, texts["welcome_lead"], "sans", 34, MUTED, 1000, max_lines=2, minimum=26, dry=True)
+
+
+def draw_welcome(paint, m, t, h):
+    # Centred above the card; while languages take turns, on the longest so nothing jumps.
+    catalogs = [h] if m["lang"] else [TEXT[code] for code in elise_language.LANGUAGES]
+    top = 200 + (400 - max(welcome_height(paint, texts) for texts in catalogs)) / 2 + 12
+    eyebrow(paint, top, h["welcome_eyebrow"], SKY, icon="dot")
+    bottom = paint.paragraph(120, top + 40, h["welcome_title"], "serif", 80, CREAM, 1040, leading=1.12, max_lines=2, minimum=60)
+    paint.paragraph(120, bottom + 28, h["welcome_lead"], "sans", 34, MUTED, 1000, max_lines=2, minimum=26)
     paint.rounded((120, 624, 1160, 912), 32, CREAM, alpha=0.06, outline=CREAM, outline_alpha=0.10)
-    paint.text(164, 670, t["continue"], "bold", 32, CREAM, anchor="lm", width=950)
-    paint.text(164, 716, t["continue_body"], "sans", 28, MUTED, anchor="lm", width=950)
+    paint.text(164, 670, h["continue"], "bold", 32, CREAM, anchor="lm", width=950)
+    paint.text(164, 716, h["continue_body"], "sans", 28, MUTED, anchor="lm", width=950)
     paint.text(164, 768, m["home"], "bold", 50, SKY, anchor="lm", width=950)
-    address_rows(paint, m, t, 164, 822, 950)
+    address_rows(paint, m, h, 164, 822, 950)
     qr_card(paint, m, t, m["url"], t["follow"], SKY)
     footer(paint, m, t, left=f"{t['step_of'].format(n=m['step'] + 1, total=len(STEP_IDS))}  ·  {t['steps'][STEP_IDS[m['step']]]}")
 
 
-def draw_progress(paint, m, t):
+def draw_progress(paint, m, t, h):
     key = STEP_IDS[m["step"]]
-    eyebrow(paint, 246, t["progress_eyebrow"], SKY, icon="dot")
-    bottom = paint.paragraph(120, 286, t["steps"][key], "serif", 76, CREAM, 860, leading=1.1, max_lines=2, minimum=56)
-    paint.paragraph(120, bottom + 26, t["leads"][key], "sans", 34, MUTED, 860, max_lines=3, minimum=26)
+    eyebrow(paint, 246, h["progress_eyebrow"], SKY, icon="dot")
+    bottom = paint.paragraph(120, 286, h["steps"].get(key, ""), "serif", 76, CREAM, 860, leading=1.1, max_lines=2, minimum=56)
+    paint.paragraph(120, bottom + 26, h["leads"].get(key, ""), "sans", 34, MUTED, 860, max_lines=3, minimum=26)
+    # The number stays put while the words around it take turns.
     paint.text(116, 790, t["percent"].format(percent=m["percent"]), "serif", 150, CREAM, anchor="ls")
     progress_bar(paint, 120, 820, 860, m["percent"], SKY)
     if m["images"]:
-        below = t["components"].format(done=m["images"][0], total=m["images"][1])
+        below = h["components"].format(done=m["images"][0], total=m["images"][1])
     else:
-        below = t["step_of"].format(n=m["step"] + 1, total=len(STEP_IDS))
+        below = h["step_of"].format(n=m["step"] + 1, total=len(STEP_IDS))
     paint.text(120, 872, below, "bold", 28, CREAM, anchor="lm", width=420)
-    paint.paragraph(120, 908, t["reassure"], "sans", 26, MUTED, 860, max_lines=1, minimum=20)
+    paint.paragraph(120, 908, h["reassure"], "sans", 26, MUTED, 860, max_lines=1, minimum=20)
     steps_card(paint, m, t, failed=False)
     footer(paint, m, t)
 
 
-def draw_action(paint, m, t):
-    eyebrow(paint, 246, t["action_eyebrow"], AMBER, icon="dot")
-    bottom = paint.paragraph(120, 286, t["action_title"], "serif", 78, CREAM, 1040, leading=1.1, max_lines=2, minimum=56)
-    bottom = paint.paragraph(120, bottom + 30, t["action_body"], "sans", 34, MUTED, 1000, max_lines=4, minimum=26)
-    note = paint.paragraph(160, 0, t["action_note"], "bold", 30, CREAM, 960, max_lines=2, minimum=22, dry=True)
+def draw_action(paint, m, t, h):
+    eyebrow(paint, 246, h["action_eyebrow"], AMBER, icon="dot")
+    bottom = paint.paragraph(120, 286, h["action_title"], "serif", 78, CREAM, 1040, leading=1.1, max_lines=2, minimum=56)
+    bottom = paint.paragraph(120, bottom + 30, h["action_body"], "sans", 34, MUTED, 1000, max_lines=4, minimum=26)
+    note = tallest(paint, m, t, "action_note", 160, 0, "bold", 30, 960, max_lines=2, minimum=22)
     top = 852 - note - 60
     paint.rounded((120, top, 1160, 852), 28, AMBER, alpha=0.12)
-    paint.paragraph(160, top + 30, t["action_note"], "bold", 30, CREAM, 960, max_lines=2, minimum=22)
-    paint.text(120, 896, t["paused"].format(n=m["step"] + 1, total=len(STEP_IDS)), "sans", 26, DIM, anchor="lm", width=1040)
+    paint.paragraph(160, top + 30, h["action_note"], "bold", 30, CREAM, 960, max_lines=2, minimum=22)
+    paint.text(120, 896, h["paused"].format(n=m["step"] + 1, total=len(STEP_IDS)), "sans", 26, DIM, anchor="lm", width=1040)
     qr_card(paint, m, t, m["url"], t["action_scan"], AMBER)
     footer(paint, m, t)
 
 
-def draw_problem(paint, m, t):
+def draw_problem(paint, m, t, h):
     network = (m["problem"] or {}).get("category") == "network"
-    eyebrow(paint, 246, t["problem_eyebrow"], CORAL, icon="dot")
-    title = t["problem_network"] if network else t["problem_other"]
+    eyebrow(paint, 246, h["problem_eyebrow"], CORAL, icon="dot")
+    title = h["problem_network"] if network else h["problem_other"]
     bottom = paint.paragraph(120, 286, title, "serif", 72, CREAM, 880, leading=1.1, max_lines=2, minimum=52)
     y = bottom + 40
-    paint.text(120, y, t["auto_title"], "bold", 30, CREAM, width=880)
-    y = paint.paragraph(120, y + 46, t["auto_body"], "sans", 30, MUTED, 880, max_lines=2, minimum=24) + 34
-    paint.text(120, y, t["check_title"], "bold", 30, CREAM, width=880)
+    paint.text(120, y, h["auto_title"], "bold", 30, CREAM, width=880)
+    y = paint.paragraph(120, y + 46, h["auto_body"], "sans", 30, MUTED, 880, max_lines=2, minimum=24) + 34
+    paint.text(120, y, h["check_title"], "bold", 30, CREAM, width=880)
     y += 50
-    for item in t["checks_network" if network else "checks_other"]:
+    for item in h["checks_network" if network else "checks_other"]:
         paint.circle(130, y + 17, 6, CORAL)
         y = paint.paragraph(156, y, item, "sans", 28, MUTED, 840, max_lines=2, minimum=22) + 14
     # The installer writes French: elsewhere the app gives the details.
@@ -825,25 +551,26 @@ def draw_problem(paint, m, t):
     footer(paint, m, t)
 
 
-def draw_done(paint, m, t):
-    eyebrow(paint, 246, t["done_eyebrow"], GREEN, icon="check")
-    paint.paragraph(120, 286, t["done_title"], "serif", 104, CREAM, 1040, leading=1.08, max_lines=1, minimum=64)
+def draw_done(paint, m, t, h):
+    eyebrow(paint, 246, h["done_eyebrow"], GREEN, icon="check")
+    paint.paragraph(120, 286, h["done_title"], "serif", 104, CREAM, 1040, leading=1.08, max_lines=1, minimum=64)
     if m["kind"] == "ready":
-        bottom = paint.paragraph(120, 450, t["ready_body"], "sans", 36, MUTED, 1000, max_lines=3, minimum=26)
+        bottom = tallest(paint, m, t, "ready_body", 120, 450, "sans", 36, 1000, max_lines=3, minimum=26)
+        paint.paragraph(120, 450, h["ready_body"], "sans", 36, MUTED, 1000, max_lines=3, minimum=26)
         paint.text(120, bottom + 64, m["home"], "bold", 56, GREEN, anchor="lm", width=1040)
-        address_rows(paint, m, t, 120, bottom + 136, 1040)
+        address_rows(paint, m, h, 120, bottom + 136, 1040)
     elif m["kind"] == "installing":
-        bottom = paint.paragraph(164, 584, t["installing_body"], "sans", 32, MUTED, 950, max_lines=4, minimum=24, dry=True)
+        bottom = tallest(paint, m, t, "installing_body", 164, 584, "sans", 32, 950, max_lines=4, minimum=24)
         paint.rounded((120, 470, 1160, bottom + 52), 32, CREAM, alpha=0.06, outline=CREAM, outline_alpha=0.10)
         paint.circle(178, 532, 12, GREEN)
         paint.mark_pulse(178, 532, 12, GREEN)
-        paint.text(206, 532, t["installing_title"], "bold", 36, CREAM, anchor="lm", width=920)
-        paint.paragraph(164, 584, t["installing_body"], "sans", 32, MUTED, 950, max_lines=4, minimum=24)
+        paint.text(206, 532, h["installing_title"], "bold", 36, CREAM, anchor="lm", width=920)
+        paint.paragraph(164, 584, h["installing_body"], "sans", 32, MUTED, 950, max_lines=4, minimum=24)
     else:
         paint.rounded((120, 470, 1160, 912), 32, CREAM, alpha=0.06, outline=CREAM, outline_alpha=0.10)
-        paint.text(164, 530, t["pair_title"], "bold", 38, CREAM, anchor="lm", width=950)
+        paint.text(164, 530, h["pair_title"], "bold", 38, CREAM, anchor="lm", width=950)
         y = 600
-        for number, line in enumerate(t["pair_steps"], 1):
+        for number, line in enumerate(h["pair_steps"], 1):
             paint.circle(190, y + 24, 26, GREEN, alpha=0.18)
             paint.text(190, y + 24, str(number), "bold", 28, GREEN, anchor="mm")
             if number == 2:
@@ -859,11 +586,14 @@ SCREENS = {
 }
 
 
-def render(m: dict, size=(1920, 1080)) -> Painter:
+def render(m: dict, size=(1920, 1080), hero: str | None = None) -> Painter:
+    """Draws a screen. Without a language (`m["lang"]` None), the message on the left is in
+    `hero`, or left out when `hero` is None, and the rest is in English: see Rotation."""
     paint = Painter(size, ACCENTS[m["kind"]])
     t = text_for(m["lang"])
+    h = t if m["lang"] else (text_for(hero) if hero else BLANK)
     header(paint, m, t, elapsed=m["kind"] not in ("ready", "pair", "installing"))
-    SCREENS[m["kind"]](paint, m, t)
+    SCREENS[m["kind"]](paint, m, t, h)
     return paint
 
 
@@ -885,6 +615,80 @@ def pulse_frame(base: Image.Image, pulse, phase: float):
     mask = mask.reduce(scale).point(lambda value: round(value * 0.7 * (1 - grow)))
     region.paste(color, (0, 0, region.width, region.height), mask)
     return region, box
+
+
+# Languages taking turns ------------------------------------------------------------------------
+
+def ease(value: float) -> float:
+    return (1 - math.cos(math.pi * max(0.0, min(1.0, value)))) / 2
+
+
+class Rotation:
+    """Bonjour · Hello · Hola · Ciao, while no language is known.
+
+    The message on the left takes turns in every language; the QR code, the addresses, the
+    steps, the header and the footer stay still, in English, the language most families can
+    read. Between two languages the words fade out to the bare screen and the next ones fade
+    in: no flash, no two languages over each other. The welcome changes every four seconds;
+    the following screens hold each language longer, their message is longer to read.
+    """
+
+    HOLD = {"welcome": 3.0}
+    DEFAULT_HOLD = 5.0
+    FADE_OUT, FADE_IN, FPS = 0.45, 0.65, 14
+
+    def __init__(self, m: dict, size, index: int = 0, now: float | None = None):
+        self.model, self.size = m, size
+        self.order = elise_language.LANGUAGES
+        self.index = index % len(self.order)
+        self.base = render(m, size)
+        self.frames: dict[int, Painter] = {}
+        self.since = time.monotonic() if now is None else now
+
+    @property
+    def language(self) -> str:
+        return self.order[self.index]
+
+    def frame(self, index: int | None = None) -> Painter:
+        index = self.index if index is None else index % len(self.order)
+        if index not in self.frames:
+            self.frames[index] = render(self.model, self.size, hero=self.order[index])
+        return self.frames[index]
+
+    def prepared(self) -> bool:
+        return (self.index + 1) % len(self.order) in self.frames
+
+    def due(self, now: float) -> bool:
+        return now - self.since >= self.HOLD.get(self.model["kind"], self.DEFAULT_HOLD)
+
+    def region(self, first: Image.Image, second: Image.Image) -> tuple[int, int, int, int]:
+        boxes = [ImageChops.difference(self.base.image, image).getbbox() for image in (first, second)]
+        boxes = [box for box in boxes if box]
+        if not boxes:
+            return (0, 0, 0, 0)
+        return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
+
+    @classmethod
+    def between(cls, first: Image.Image, base: Image.Image, second: Image.Image, progress: float) -> Image.Image:
+        """The picture `progress` (0 to 1) of the way from one language to the next."""
+        split = cls.FADE_OUT / (cls.FADE_OUT + cls.FADE_IN)
+        if progress < split:
+            return Image.blend(first, base, ease(progress / split))
+        return Image.blend(base, second, ease((progress - split) / (1 - split)))
+
+    def advance(self, show=None, sleep=time.sleep) -> Painter:
+        """Fades to the next language through `show(image, origin)` and returns its frame."""
+        current, following = self.frame(), self.frame(self.index + 1)
+        box = self.region(current.image, following.image)
+        if show and box[2] > box[0] and box[3] > box[1]:
+            first, base, second = (image.crop(box) for image in (current.image, self.base.image, following.image))
+            count = round((self.FADE_OUT + self.FADE_IN) * self.FPS)
+            for step in range(1, count + 1):
+                show(self.between(first, base, second, step / count), box[:2])
+                sleep(1 / self.FPS)
+        self.index = (self.index + 1) % len(self.order)
+        self.since = time.monotonic()
+        return following
 
 
 # Framebuffer ----------------------------------------------------------------------------------
@@ -1081,9 +885,8 @@ def run() -> int:
     if should_leave(started_done):
         print("Écran d’installation inutile : il laisse la place.")
         return 0
-    lang = language()
     tracker = Tracker()
-    display = console = current = shown = pulse = None
+    display = console = current = shown = pulse = rotation = None
     waiting_logged = False
     try:
         while not stopping["now"] and not should_leave(started_done):
@@ -1099,13 +902,19 @@ def run() -> int:
                     pause(2)
                     continue
                 console = console or Console()
-                current = shown = None
+                current = shown = rotation = None
                 waiting_logged = False
                 print(f"Écran d’installation affiché en {display.size[0]}×{display.size[1]} ({display.format}).")
             try:
-                state = snapshot(tracker, lang, started)
+                state = snapshot(tracker, started)
                 if state != current or shown is None:
-                    frame = render(state, display.size)
+                    if state["lang"] is None:
+                        # The same language keeps its turn when the progress moves on.
+                        rotation = Rotation(state, display.size, rotation.index if rotation else 0)
+                        frame = rotation.frame()
+                    else:
+                        rotation = None
+                        frame = render(state, display.size)
                     if shown is not None and display.size[0] * display.size[1] <= 1920 * 1080:
                         for step in range(1, 9):
                             display.show(Image.blend(shown, frame.image, step / 8))
@@ -1116,6 +925,11 @@ def run() -> int:
                 for _ in range(14):
                     if stopping["now"]:
                         break
+                    if rotation and not rotation.prepared():
+                        rotation.frame(rotation.index + 1)
+                    elif rotation and rotation.due(time.monotonic()):
+                        frame = rotation.advance(display.show)
+                        shown, pulse = frame.image, frame.pulse
                     if pulse:
                         region, box = pulse_frame(shown, pulse, (time.monotonic() % 2.2) / 2.2)
                         display.show(region, box[:2])

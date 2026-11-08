@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Draw every TV installation screen into PNG files, without a framebuffer.
 
-Usage: render-install-screen-previews.py OUTPUT_DIR [--lang fr] [--size 1920x1080]
+Usage: render-install-screen-previews.py OUTPUT_DIR [--lang fr|rotation] [--size 1920x1080]
+
+With --lang rotation: the languages taking turns on the welcome (each language, and the fade
+between French and English), then the following screens with their message in one language.
 """
 import argparse
 import importlib.util
@@ -33,14 +36,34 @@ PREVIEWS = {
 }
 
 
+def rotation(output, size):
+    m = screen.model(lang=None, **{**COMMON, **PREVIEWS["1-accueil"]})
+    turns = screen.Rotation(m, size)
+    first, base, second = turns.frame(0).image, turns.base.image, turns.frame(1).image
+    images = {f"rotation-{index + 1}-{code}": turns.frame(index).image for index, code in enumerate(turns.order)}
+    split = turns.FADE_OUT / (turns.FADE_OUT + turns.FADE_IN)
+    images["rotation-fondu-1-fr-sortie"] = turns.between(first, base, second, split * 0.5)
+    images["rotation-fondu-2-ecran-nu"] = base
+    images["rotation-fondu-3-en-entree"] = turns.between(first, base, second, split + (1 - split) * 0.5)
+    for (name, values), hero in zip(list(PREVIEWS.items())[2:], ["es", "it", "fr", "es", "it", "fr", "en"]):
+        model = screen.model(lang=None, **{**COMMON, **values})
+        images[f"rotation-{name}-{hero}"] = screen.render(model, size, hero=hero).image
+    for name, image in images.items():
+        path = os.path.join(output, f"{name}.png")
+        image.save(path)
+        print(path)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("output")
-    parser.add_argument("--lang", default="fr", choices=sorted(screen.TEXT))
+    parser.add_argument("--lang", default="fr", choices=[*sorted(screen.TEXT), "rotation"])
     parser.add_argument("--size", default="1920x1080")
     args = parser.parse_args()
     size = tuple(int(value) for value in args.size.split("x"))
     os.makedirs(args.output, exist_ok=True)
+    if args.lang == "rotation":
+        return rotation(args.output, size)
     for name, values in PREVIEWS.items():
         path = os.path.join(args.output, f"{name}.png")
         screen.render(screen.model(lang=args.lang, **{**COMMON, **values}), size).image.save(path)
