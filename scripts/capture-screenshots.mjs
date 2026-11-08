@@ -42,7 +42,8 @@ const requestedLanguages = (option('--languages') ?? supportedLanguages.join(','
 const unknownLanguages = requestedLanguages.filter(
   (language) => !supportedLanguages.includes(language),
 );
-if (unknownLanguages.length) throw new Error(`Unsupported languages: ${unknownLanguages.join(', ')}`);
+if (unknownLanguages.length)
+  throw new Error(`Unsupported languages: ${unknownLanguages.join(', ')}`);
 
 const baseURL = option('--url') ?? process.env.DEMO_URL ?? 'http://127.0.0.1:18091/demo/';
 const parsedURL = new URL(baseURL);
@@ -178,11 +179,7 @@ async function captureReadme(language) {
 async function captureLanding(language) {
   const outputDir = path.join(landingDir, 'public', 'screenshots', language);
   await mkdir(outputDir, { recursive: true });
-  const { context, page } = await newPage(
-    language,
-    { width: 2000, height: 1000 },
-    2,
-  );
+  const { context, page } = await newPage(language, { width: 2000, height: 1000 }, 2);
   await page.locator('.sidebar-navigation').waitFor();
 
   const mainClip = async (height) => {

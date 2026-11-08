@@ -15,7 +15,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const landingDir = path.join(rootDir, 'eliselanding');
-const sharpEntry = path.join(process.env.CAPTURE_NODE_MODULES ?? path.join(landingDir, 'node_modules'), 'sharp/dist/index.mjs');
+const sharpEntry = path.join(
+  process.env.CAPTURE_NODE_MODULES ?? path.join(landingDir, 'node_modules'),
+  'sharp/dist/index.mjs',
+);
 try {
   await access(sharpEntry);
 } catch {
@@ -35,15 +38,28 @@ const views = {
     '06': 'liaison',
     '07': 'affichage-tv',
   },
-  ipad: { '01': 'tableau-de-bord', '02': 'alertes', '03': 'logement', '04': 'liaison', '05': 'affichage-tv' },
+  ipad: {
+    '01': 'tableau-de-bord',
+    '02': 'alertes',
+    '03': 'logement',
+    '04': 'liaison',
+    '05': 'affichage-tv',
+  },
 };
 // 1x output size (the @2x file is twice as large).
 const size = { iphone: [440, 956], ipad: [600, 800] };
 
-const option = (name) => process.argv.slice(2).find((a) => a.startsWith(`${name}=`))?.slice(name.length + 1);
+const option = (name) =>
+  process.argv
+    .slice(2)
+    .find((a) => a.startsWith(`${name}=`))
+    ?.slice(name.length + 1);
 const from = option('--from');
-if (!from) throw new Error('Usage: import-mobile-screenshots.mjs --from=<dir> [--languages=fr,en,es,it]');
-const languages = (option('--languages') ?? Object.keys(storeLocale).join(',')).split(',').filter(Boolean);
+if (!from)
+  throw new Error('Usage: import-mobile-screenshots.mjs --from=<dir> [--languages=fr,en,es,it]');
+const languages = (option('--languages') ?? Object.keys(storeLocale).join(','))
+  .split(',')
+  .filter(Boolean);
 
 for (const language of languages) {
   if (!storeLocale[language]) throw new Error(`Unsupported language: ${language}`);
@@ -56,7 +72,10 @@ for (const language of languages) {
       const file = files.find((f) => f.startsWith(`${device}-${number}-`));
       if (!file) throw new Error(`Missing ${device}-${number}-* in ${sourceDir}`);
       const [width, height] = size[device];
-      for (const [suffix, factor] of [['', 1], ['@2x', 2]]) {
+      for (const [suffix, factor] of [
+        ['', 1],
+        ['@2x', 2],
+      ]) {
         await sharp(path.join(sourceDir, file))
           .resize(width * factor, height * factor, { fit: 'fill' })
           .webp({ quality: 82, effort: 6 })
@@ -64,5 +83,7 @@ for (const language of languages) {
       }
     }
   }
-  console.log(`${language}: ${Object.keys(views.iphone).length} iPhone + ${Object.keys(views.ipad).length} iPad views`);
+  console.log(
+    `${language}: ${Object.keys(views.iphone).length} iPhone + ${Object.keys(views.ipad).length} iPad views`,
+  );
 }
