@@ -1,0 +1,31 @@
+[Unit]
+Description=Élise Zigbee key agent
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/elise/elise-zigbee-agent.py
+Environment=ELISE_ZIGBEE_AGENT_SOCKET=/run/elise-zigbee/agent.sock
+Environment=ELISE_ZIGBEE_STATE_DIR=/var/lib/elise/zigbee
+Environment=ELISE_ZIGBEE_MODELS_FILE=/usr/lib/elise/elise-zigbee-adapters.json
+Environment=ELISE_CONFIG_FILE=/etc/elise/elise.env
+Environment=ELISE_ROOT_DIR=/opt/elise
+EnvironmentFile=-/etc/elise/agent.env
+RuntimeDirectory=elise-zigbee
+RuntimeDirectoryMode=0755
+# The API container bind-mounts this folder: it must survive agent restarts.
+RuntimeDirectoryPreserve=yes
+StateDirectory=elise/zigbee
+StateDirectoryMode=0755
+Restart=on-failure
+RestartSec=3
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/run/elise-zigbee /etc/elise /var/lib/elise /var/lib/docker/volumes
+
+[Install]
+WantedBy=multi-user.target
