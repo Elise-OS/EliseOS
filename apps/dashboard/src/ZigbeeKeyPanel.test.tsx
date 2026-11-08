@@ -69,7 +69,7 @@ const press = async (host: HTMLElement, label: string) => {
 describe('searching for a Zigbee key', () => {
   it('has a single search button instead of a detect button and a network button', async () => {
     const { host } = await render('ready');
-    const labels = Array.from(host.querySelectorAll('.update-hero-actions button')).map((button) =>
+    const labels = Array.from(host.querySelectorAll('.zk-hero-search')).map((button) =>
       button.textContent?.trim(),
     );
     expect(labels).toEqual(['Chercher une clé']);
@@ -86,7 +86,8 @@ describe('searching for a Zigbee key', () => {
     expect(cards).toHaveLength(2);
     const text = cards.map((card) => card.textContent ?? '').join('\n');
     expect(text).toContain('Branchée sur la box');
-    expect(text).toContain('Sur le réseau de la maison · 192.168.1.50:6638');
+    expect(text).toContain('Sur le réseau de la maison');
+    expect(text).toContain('192.168.1.50:6638');
     expect(text).toContain('SMLIGHT SLZB-06M');
     expect(host.textContent).not.toContain('n’a pas abouti');
   });
@@ -142,9 +143,12 @@ describe('searching for a Zigbee key', () => {
     });
     expect(host.textContent).not.toContain('Aucune autre clé trouvée');
     await press(host, 'Chercher une clé');
-    expect(host.textContent).toContain('Aucune autre clé trouvée');
-    expect(host.textContent).toContain('branchée sur la box');
-    expect(host.textContent).toContain('réseau de la maison (câble Ethernet ou Wi-Fi)');
+    const empty = host.querySelector('.zk-empty');
+    expect(empty?.textContent).toContain('Aucune autre clé trouvée');
+    expect(empty?.textContent).toContain('Branchée sur la box');
+    expect(empty?.textContent).toContain('Sur le réseau de la maison');
+    expect(empty?.textContent).toContain('(câble Ethernet ou Wi-Fi)');
+    expect(empty?.textContent).toContain('Chercher à nouveau');
   });
 
   it('keeps the manual network address in the folded advanced mode', async () => {
@@ -152,5 +156,55 @@ describe('searching for a Zigbee key', () => {
     const advanced = host.querySelector('details.zigbee-advanced') as HTMLDetailsElement;
     expect(advanced.open).toBe(false);
     expect(advanced.querySelector('input[placeholder="192.168.1.50:6638"]')).toBeTruthy();
+  });
+
+  it('shows the search going on, on the box and on the home network', async () => {
+    const { host } = await render('ready');
+    let release: () => void = () => undefined;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fetchMock = globalThis.fetch as unknown as (
+      url: string,
+      init?: RequestInit,
+    ) => Promise<Response>;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/scan')) await pending;
+        return fetchMock(url, init);
+      }),
+    );
+    await press(host, 'Chercher une clé');
+    const progress = host.querySelector('.zk-search');
+    expect(progress?.getAttribute('role')).toBe('status');
+    expect(progress?.textContent).toContain('Prises USB de la box');
+    expect(progress?.textContent).toContain('Réseau de la maison');
+    await act(async () => {
+      release();
+      await pending;
+    });
+    await act(() => Promise.resolve());
+    await act(() => Promise.resolve());
+    expect(host.querySelector('.zk-search')).toBeNull();
+    expect(host.querySelectorAll('[data-testid="zigbee-candidate"]')).toHaveLength(2);
+  });
+
+  it('says the keys were found, not plugged, when one of them is on the home network', async () => {
+    const { host } = await render('ready');
+    await press(host, 'Chercher une clé');
+    expect(host.textContent).toContain('2 autres clés ont été trouvées');
+    expect(host.textContent).not.toContain('sont branchées');
+    expect(host.textContent).not.toContain('Une autre clé est branchée');
+  });
+
+  it('puts the icon beside the text on the actions of a key', async () => {
+    const { host } = await render('ready');
+    await press(host, 'Chercher une clé');
+    const identify = Array.from(host.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Identifier la clé'),
+    );
+    expect(identify?.className).toContain('zk-button');
+    expect(identify?.querySelector('svg')).toBeTruthy();
   });
 });

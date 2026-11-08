@@ -16,7 +16,23 @@ import type {
  * installs a key, and the installation walks through its steps. Choosing a technology that does not
  * match the key makes the installation fail so that the rollback can be seen.
  */
-export type ZigbeeDemoScenario = 'ready' | 'none' | 'new' | 'missing';
+/** `empty`: the key works and nothing else is around, so a search finds nothing to choose. */
+export type ZigbeeDemoScenario = 'ready' | 'none' | 'new' | 'missing' | 'empty';
+
+export const ZIGBEE_DEMO_SCENARIOS: readonly ZigbeeDemoScenario[] = [
+  'ready',
+  'none',
+  'new',
+  'missing',
+  'empty',
+];
+
+export function isZigbeeDemoScenario(value: unknown): value is ZigbeeDemoScenario {
+  return ZIGBEE_DEMO_SCENARIOS.includes(value as ZigbeeDemoScenario);
+}
+
+/** A real search listens to the home network for a moment: the demos wait as long. */
+export const ZIGBEE_DEMO_SEARCH_MS = 2600;
 
 export interface ZigbeeDemoResponse {
   status: number;
@@ -144,21 +160,27 @@ const KEYS = {
   n: { source: KEY_N, model: MODEL_N, option: optionN },
 };
 
+function hiddenAtStart(scenario: ZigbeeDemoScenario): KeyId[] {
+  if (scenario === 'ready') return ['p', 'n'];
+  if (scenario === 'none') return ['e', 'n'];
+  if (scenario === 'empty') return [];
+  return ['n'];
+}
+
 export function createZigbeeDemo(
   options: { scenario?: ZigbeeDemoScenario; now?: () => number } = {},
 ) {
   const now = options.now ?? (() => Date.now());
   const scenario = options.scenario ?? 'ready';
-  let current: KeyId | null = scenario === 'ready' || scenario === 'missing' ? 'e' : null;
+  let current: KeyId | null = scenario === 'none' || scenario === 'new' ? null : 'e';
   const plugged: Record<KeyId, boolean> = {
-    e: scenario === 'ready',
+    e: scenario === 'ready' || scenario === 'empty',
     p: scenario === 'new',
     n: false,
   };
   // Keys plugged or online but still unnoticed: the first search of the demo reveals them. The one on
   // the home network only shows up when the network is searched too.
-  let hidden: KeyId[] =
-    scenario === 'ready' ? ['p', 'n'] : scenario === 'none' ? ['e', 'n'] : ['n'];
+  let hidden = hiddenAtStart(scenario);
   let probed = false;
   let run: {
     startedAt: number;
@@ -451,9 +473,9 @@ export function createZigbeeDemo(
       return { status: 404, body: { message: 'Not found' } };
     },
     reset() {
-      current = scenario === 'ready' || scenario === 'missing' ? 'e' : null;
+      current = scenario === 'none' || scenario === 'new' ? null : 'e';
       plugged.n = false;
-      hidden = scenario === 'ready' ? ['p', 'n'] : scenario === 'none' ? ['e', 'n'] : ['n'];
+      hidden = hiddenAtStart(scenario);
       probed = false;
       run = null;
       finished = null;

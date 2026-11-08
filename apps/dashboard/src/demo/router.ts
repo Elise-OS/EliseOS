@@ -1,5 +1,7 @@
 import {
   createZigbeeDemo,
+  isZigbeeDemoScenario,
+  type ZigbeeDemoScenario,
   TV_GUIDE_SOURCES,
   tvChannelLineup,
   type EquipmentCoverage,
@@ -97,12 +99,21 @@ function createWebState() {
 }
 
 let web = createWebState();
-let zigbee = createZigbeeDemo();
+
+/** `?zigbee=empty` (or none, new, missing) opens the Zigbee key settings in another situation. */
+function zigbeeScenario(): ZigbeeDemoScenario {
+  const value =
+    typeof window === 'undefined'
+      ? null
+      : new URLSearchParams(window.location.search).get('zigbee');
+  return isZigbeeDemoScenario(value) ? value : 'ready';
+}
+let zigbee = createZigbeeDemo({ scenario: zigbeeScenario() });
 
 export function resetDemo() {
   resetDemoSession();
   web = createWebState();
-  zigbee = createZigbeeDemo();
+  zigbee = createZigbeeDemo({ scenario: zigbeeScenario() });
 }
 
 function overview() {

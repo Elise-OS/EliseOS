@@ -25,45 +25,38 @@ import {
   type ZigbeeCurrent,
   type ZigbeeInstall,
   type ZigbeeInstallRequest,
+  type ZigbeeNoteCode,
   type ZigbeeOption,
   type ZigbeeScanOutcome,
   type ZigbeeStatus,
   type ZigbeeTechnology,
 } from '@elise/contracts';
-import { Button } from '@elise/ui';
 import {
   Check,
   ChevronRight,
   CircleAlert,
-  Cpu,
   ExternalLink,
   Info,
   KeyRound,
+  Lightbulb,
   LoaderCircle,
-  Network,
   PlugZap,
   RefreshCw,
   RotateCcw,
-  Save,
   ScanSearch,
   Settings2,
   ShieldCheck,
+  TriangleAlert,
   Usb,
   Wifi,
-  type LucideIcon,
+  X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { t } from './i18n';
+import { ZigbeeKeyArt } from './ZigbeeKeyArt';
+import './sensor-setup.css';
 
 type LoadError = 'unavailable' | 'forbidden' | 'network';
-
-const installStepIcons: Record<string, LucideIcon> = {
-  check: ScanSearch,
-  backup: Save,
-  configure: Settings2,
-  restart: PlugZap,
-  verify: ShieldCheck,
-};
 
 const technologies = Object.keys(ZIGBEE_TECHNOLOGY_DEFAULTS) as ZigbeeTechnology[];
 const baudrates = [38400, 57600, 115200, 230400, 460800, 921600];
@@ -101,6 +94,11 @@ async function zigbeeRequest(path: string, method = 'GET', body?: unknown): Prom
   if (response.status === 503 && (message === 'ZIGBEE_AGENT_UNAVAILABLE' || !message))
     throw new RequestFailure('unavailable', message);
   throw new RequestFailure(response.status === 400 ? 'refused' : 'network', message);
+}
+
+/** A key on the home network is configured as `tcp://host:port`; everything else is on the box. */
+function portKind(port: string | null | undefined): 'usb' | 'network' {
+  return port?.startsWith('tcp://') ? 'network' : 'usb';
 }
 
 export function ZigbeeKeyPanel() {
@@ -209,53 +207,36 @@ export function ZigbeeKeyPanel() {
 
   if (!status) {
     return (
-      <section className="elise-card settings-section-card zigbee-key" data-testid="zigbee-key">
+      <section
+        className="elise-card settings-section-card zigbee-key ss-scope"
+        data-testid="zigbee-key"
+      >
         {loadError ? (
           <ErrorBlock kind={loadError} onRetry={() => void refresh()} />
         ) : (
           <p className="zigbee-key-loading" role="status">
-            <LoaderCircle className="spin" /> {t('zigbeeKey.loading')}
+            <LoaderCircle className="ss-spinner" /> {t('zigbeeKey.loading')}
           </p>
         )}
       </section>
     );
   }
 
-  const headline = zigbeeHeadline(status);
   const result = zigbeeRecentResult(status.install);
   const shownResult = result && result.finishedAt !== dismissedAt ? result : null;
   const others = zigbeeOtherKeys(status);
-  const tone = installing ? 'busy' : headline.tone;
   const issues = zigbeeVisibleIssues(status.issues);
   const searchNotice = lastScan ? zigbeeSearchNotice(lastScan, others) : null;
-  const newKeys = status.state === 'NEW_KEY' ? others : [];
-  const HeroIcon: LucideIcon = installing
-    ? LoaderCircle
-    : status.state === 'READY'
-      ? Check
-      : status.state === 'NEW_KEY'
-        ? Usb
-        : status.state === 'NO_KEY'
-          ? PlugZap
-          : CircleAlert;
-  const title =
-    headline.title === 'newKey'
-      ? t('zigbeeKey.newKeyTitle', { count: Math.max(1, newKeys.length) })
-      : t(
-          (
-            {
-              ready: 'zigbeeKey.readyTitle',
-              attention: 'zigbeeKey.attentionTitle',
-              keyMissing: 'zigbeeKey.keyMissingTitle',
-              noKey: 'zigbeeKey.noKeyTitle',
-              installing: 'zigbeeKey.installingTitle',
-            } as const
-          )[headline.title],
-        );
+  const working = Boolean(status.current?.present);
+  const showEmpty =
+    !installing &&
+    !scanning &&
+    others.length === 0 &&
+    ((searched && searchNotice === 'none') || status.state === 'NO_KEY');
 
   return (
     <section
-      className={`elise-card settings-section-card update-card update-card--${tone} zigbee-key`}
+      className="elise-card settings-section-card zigbee-key ss-scope"
       data-testid="zigbee-key"
     >
       <header className="settings-section-heading">
@@ -269,90 +250,10 @@ export function ZigbeeKeyPanel() {
         </div>
       </header>
 
-      <div className="update-card-body">
-        <section className={`update-hero update-hero--${tone}`}>
-          <div className="update-hero-orb" aria-hidden="true">
-            <svg className="update-hero-ring" viewBox="0 0 100 100">
-              <circle className="update-hero-ring-track" cx="50" cy="50" r="42" />
-              <circle
-                className={`update-hero-ring-value${installing || tone === 'idle' ? ' is-indeterminate' : ''}`}
-                cx="50"
-                cy="50"
-                r="42"
-                strokeDasharray={2 * Math.PI * 42}
-                strokeDashoffset={
-                  tone === 'ok'
-                    ? 0
-                    : installing && status.install.progress != null
-                      ? 2 * Math.PI * 42 * (1 - status.install.progress / 100)
-                      : 2 * Math.PI * 42 * 0.72
-                }
-              />
-            </svg>
-            <span className="update-hero-icon">
-              <HeroIcon className={installing ? 'spin' : undefined} />
-            </span>
-          </div>
-          <div className="update-hero-copy">
-            <h3>{title}</h3>
-            <p>{t(`zigbeeKey.${headline.hint}`)}</p>
-            {status.current && (
-              <ul className="update-hero-meta">
-                {status.current.model && (
-                  <li>
-                    <Cpu />
-                    <span>{t('zigbeeKey.model')}</span>
-                    <strong>{status.current.model.name}</strong>
-                  </li>
-                )}
-                {status.current.deviceCount != null && (
-                  <li>
-                    <Network />
-                    <span>{t('zigbeeKey.devices')}</span>
-                    <strong>
-                      {t('zigbeeKey.deviceCount', { count: status.current.deviceCount })}
-                    </strong>
-                  </li>
-                )}
-              </ul>
-            )}
-          </div>
-          <div className="update-hero-actions">
-            <Button
-              className={
-                status.state === 'NEW_KEY' || status.state === 'NO_KEY' ? '' : 'button-secondary'
-              }
-              onClick={() => void search()}
-              disabled={scanning || installing}
-            >
-              {scanning ? <LoaderCircle className="spin" /> : <ScanSearch />}{' '}
-              {scanning ? t('zigbeeKey.searching') : t('zigbeeKey.search')}
-            </Button>
-          </div>
-        </section>
-
-        {!installing && !shownResult && (
-          <p className="zigbee-key-watching">
-            <RefreshCw /> {t('zigbeeKey.watching')}
-          </p>
-        )}
-
-        {!installing && !scanning && searchNotice && searchNotice !== 'none' && (
-          <p className="update-card-notice update-card-notice--warn" role="status">
-            <CircleAlert /> {t(`zigbeeKey.searchNotice.${searchNotice}`)}
-          </p>
-        )}
-        {!installing && !scanning && searched && others.length === 0 && searchNotice === 'none' && (
-          <p className="update-card-notice update-card-notice--info" role="status">
-            <Info /> {t('zigbeeKey.searchNotice.none')}
-          </p>
-        )}
-
-        {installing && (
+      <div className="zk-body">
+        {installing ? (
           <InstallProgress install={status.install} onStop={() => void stopInstall()} />
-        )}
-
-        {shownResult && !installing && (
+        ) : shownResult ? (
           <InstallResult
             install={shownResult}
             onDismiss={() => setDismissedAt(shownResult.finishedAt)}
@@ -360,38 +261,64 @@ export function ZigbeeKeyPanel() {
             onAdvanced={() => setAdvancedOpen(true)}
             current={status.current}
           />
+        ) : (
+          <KeyHero
+            status={status}
+            newKeys={status.state === 'NEW_KEY' ? others.length : 0}
+            scanning={scanning}
+            onSearch={() => void search()}
+          />
+        )}
+
+        {!installing && !scanning && (
+          <p className="zk-watching">
+            <span aria-hidden="true" /> {t('zigbeeKey.watching')}
+          </p>
+        )}
+
+        {scanning && <SearchProgress />}
+
+        {!installing && !scanning && searchNotice && searchNotice !== 'none' && (
+          <Notice tone="warning" role="status">
+            {t(`zigbeeKey.searchNotice.${searchNotice}`)}
+          </Notice>
+        )}
+
+        {showEmpty && (
+          <EmptyState
+            title={
+              status.state === 'NO_KEY' && !searched
+                ? t('zigbeeKey.emptyNoKeyTitle')
+                : t('zigbeeKey.searchNotice.none')
+            }
+            onSearch={status.state === 'NO_KEY' ? null : () => void search()}
+          />
         )}
 
         {message && !installing && (
-          <p className="update-card-notice update-card-notice--error" role="alert">
-            <CircleAlert /> {message}
-          </p>
+          <Notice tone="danger" role="alert">
+            {message}
+          </Notice>
         )}
 
-        {issues.map((issue) => (
-          <p key={issue} className="update-card-notice update-card-notice--warn">
-            <CircleAlert /> {t(`zigbeeKey.issue.${issue}`)}
-            {issue === 'firmware-old' && (
-              <a href={ZIGBEE_GUIDE_URL} target="_blank" rel="noreferrer">
-                {t('zigbeeKey.firmwareGuide')} <ExternalLink />
-              </a>
-            )}
-          </p>
-        ))}
-        {status.issues.includes('multiple-keys') && (
-          <p className="update-card-notice update-card-notice--warn">
-            <CircleAlert /> {t('zigbeeKey.multipleHint')}
-          </p>
-        )}
-
-        {status.current && <CurrentKey current={status.current} />}
+        {!installing &&
+          issues.map((issue) => (
+            <Notice key={issue} tone="warning">
+              {t(`zigbeeKey.issue.${issue}`)}{' '}
+              {issue === 'firmware-old' && (
+                <a href={ZIGBEE_GUIDE_URL} target="_blank" rel="noreferrer">
+                  {t('zigbeeKey.firmwareGuide')} <ExternalLink />
+                </a>
+              )}
+            </Notice>
+          ))}
 
         {!installing && others.length > 0 && (
-          <section className="zigbee-key-found">
-            {status.current?.present && (
+          <section className="zk-found" aria-label={t('zigbeeKey.foundKeys')}>
+            {(working || others.length > 1) && (
               <header>
-                <h3>{t('zigbeeKey.otherKeyTitle')}</h3>
-                <p>{t('zigbeeKey.otherKeyHint')}</p>
+                {working && <h3>{t('zigbeeKey.otherKeyTitle', { count: others.length })}</h3>}
+                <p>{working ? t('zigbeeKey.otherKeyHint') : t('zigbeeKey.multipleHint')}</p>
               </header>
             )}
             {others.map((candidate) => (
@@ -424,31 +351,39 @@ export function ZigbeeKeyPanel() {
   );
 }
 
+function Notice({
+  tone = 'info',
+  role,
+  children,
+}: {
+  tone?: 'info' | 'warning' | 'danger' | 'success';
+  role?: 'status' | 'alert';
+  children: ReactNode;
+}) {
+  const Icon = tone === 'info' ? Info : tone === 'success' ? Check : TriangleAlert;
+  return (
+    <div className={`ss-notice zk-notice${tone === 'info' ? '' : ` is-${tone}`}`} role={role}>
+      <Icon aria-hidden="true" />
+      <p>{children}</p>
+    </div>
+  );
+}
+
 function ErrorBlock({ kind, onRetry }: { kind: LoadError; onRetry: () => void }) {
   return (
     <div className="zigbee-key-error">
-      <span className="settings-section-icon settings-section-icon--blue">
-        <CircleAlert />
+      <span className="ss-hero-icon is-warning">
+        <CircleAlert aria-hidden="true" />
       </span>
       <div>
         <h3>{kind === 'forbidden' ? t('zigbeeKey.title') : t('zigbeeKey.unavailableTitle')}</h3>
         <p>{kind === 'forbidden' ? t('zigbeeKey.managersOnly') : t('zigbeeKey.unavailableText')}</p>
       </div>
       {kind !== 'forbidden' && (
-        <Button className="button-secondary" onClick={onRetry}>
-          <RefreshCw /> {t('zigbeeKey.retry')}
-        </Button>
+        <button type="button" className="ss-secondary zk-button" onClick={onRetry}>
+          <RefreshCw aria-hidden="true" /> {t('zigbeeKey.retry')}
+        </button>
       )}
-    </div>
-  );
-}
-
-function Fact({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
-  return (
-    <div className="zigbee-fact">
-      <dt>{label}</dt>
-      <dd>{value}</dd>
     </div>
   );
 }
@@ -459,80 +394,268 @@ function technologyLabel(technology: string) {
     : technology;
 }
 
-function CurrentKey({ current }: { current: ZigbeeCurrent }) {
-  const service = zigbeeServiceState(current);
-  const serviceLabel = {
-    running: t('zigbeeKey.serviceRunning'),
-    starting: t('zigbeeKey.serviceStarting'),
-    stopped: t('zigbeeKey.serviceStopped'),
-    unknown: t('zigbeeKey.serviceUnknown'),
-  }[service];
-  const notes = zigbeeKnownNotes(current.model?.notes ?? []);
-  const coordinator = current.coordinator;
+/** Where the key sits, with the matching icon: on the box (USB) or on the home network. */
+function OriginTag({ kind, address }: { kind: 'usb' | 'network'; address?: string | null }) {
+  const Icon = kind === 'network' ? Wifi : Usb;
   return (
-    <section className="zigbee-key-current" aria-label={t('zigbeeKey.currentKey')}>
-      <header>
-        <span className="zigbee-key-badge zigbee-key-badge--ok">{t('zigbeeKey.currentKey')}</span>
-        {current.model && (
-          <span className={`zigbee-key-badge zigbee-key-badge--${current.model.status}`}>
-            {t(statusLabelKey(current.model.status))}
-          </span>
-        )}
-      </header>
-      <dl className="zigbee-facts">
-        <Fact
-          label={t('zigbeeKey.model')}
-          value={current.model?.name ?? current.usb?.product ?? t('zigbeeKey.unknownModel')}
-        />
-        <Fact label={t('zigbeeKey.technology')} value={technologyLabel(current.adapter)} />
-        <Fact label={t('zigbeeKey.chip')} value={current.model?.chip} />
-        <div className="zigbee-fact">
-          <dt>{t('zigbeeKey.service')}</dt>
-          <dd className={`zigbee-service zigbee-service--${service}`}>
-            <span aria-hidden="true" /> {serviceLabel}
-          </dd>
-        </div>
-        <Fact
-          label={t('zigbeeKey.devices')}
-          value={
-            current.deviceCount != null
-              ? t('zigbeeKey.deviceCount', { count: current.deviceCount })
-              : null
-          }
-        />
-        <Fact
-          label={t('zigbeeKey.channel')}
-          value={coordinator?.channel != null ? String(coordinator.channel) : null}
-        />
-      </dl>
-      {notes.length > 0 && (
-        <ul className="zigbee-notes">
-          {notes.map((note) => (
-            <li key={note}>{t(`zigbeeKey.note.${note}`)}</li>
-          ))}
-        </ul>
+    <span className={`zk-origin zk-origin--${kind}`}>
+      <Icon aria-hidden="true" />
+      {kind === 'network' ? t('zigbeeKey.onNetwork') : t('zigbeeKey.pluggedOn')}
+      {address && <span className="zk-origin-address">{address}</span>}
+    </span>
+  );
+}
+
+/** Photo-like picture of the key with a small round badge, as on the sensor "found" page. */
+function KeyPicture({
+  kind,
+  badge,
+  size = 'large',
+  muted = false,
+}: {
+  kind: 'usb' | 'network';
+  badge?: 'ok' | 'warn' | 'new' | null;
+  size?: 'large' | 'small';
+  muted?: boolean;
+}) {
+  return (
+    <span
+      className={`zk-picture zk-picture--${size}${muted ? ' zk-picture--muted' : ''}`}
+      aria-hidden="true"
+    >
+      <span className="ss-found-photo">
+        <ZigbeeKeyArt kind={kind} />
+      </span>
+      {badge && (
+        <span className={`ss-found-badge zk-picture-badge zk-picture-badge--${badge}`}>
+          {badge === 'ok' ? <Check /> : badge === 'new' ? <PlugZap /> : <CircleAlert />}
+        </span>
       )}
-      <details className="zigbee-technical">
-        <summary>
-          <ChevronRight aria-hidden="true" /> {t('zigbeeKey.technicalDetails')}
-        </summary>
-        <dl className="zigbee-facts zigbee-facts--technical">
-          <Fact label={t('zigbeeKey.port')} value={current.port} />
-          <Fact label={t('zigbeeKey.coordinatorType')} value={coordinator?.type} />
-          <Fact label={t('zigbeeKey.firmware')} value={coordinator?.firmware} />
-          <Fact label={t('zigbeeKey.panId')} value={coordinator?.panId} />
-          <Fact label={t('zigbeeKey.extendedPanId')} value={coordinator?.extendedPanId} />
-          <Fact label={t('zigbeeKey.ieee')} value={coordinator?.ieee} />
-          <Fact
-            label={t('zigbeeKey.advancedBaudrate')}
-            value={current.baudrate != null ? String(current.baudrate) : null}
-          />
-          <Fact
-            label={t('zigbeeKey.advancedRtscts')}
-            value={current.rtscts != null ? (current.rtscts ? 'RTS/CTS' : '—') : null}
-          />
-        </dl>
-      </details>
+    </span>
+  );
+}
+
+function KeyHero({
+  status,
+  newKeys,
+  scanning,
+  onSearch,
+}: {
+  status: ZigbeeStatus;
+  newKeys: number;
+  scanning: boolean;
+  onSearch: () => void;
+}) {
+  const headline = zigbeeHeadline(status);
+  const current = status.current;
+  const kind = portKind(current?.port);
+  const title =
+    headline.title === 'newKey'
+      ? t('zigbeeKey.newKeyTitle', { count: Math.max(1, newKeys) })
+      : t(
+          (
+            {
+              ready: 'zigbeeKey.readyTitle',
+              attention: 'zigbeeKey.attentionTitle',
+              keyMissing: 'zigbeeKey.keyMissingTitle',
+              noKey: 'zigbeeKey.noKeyTitle',
+              installing: 'zigbeeKey.installingTitle',
+            } as const
+          )[headline.title],
+        );
+  const badge =
+    headline.tone === 'ok' ? 'ok' : headline.tone === 'new' ? 'new' : current ? 'warn' : null;
+  const service = current ? zigbeeServiceState(current) : null;
+  const notes = zigbeeKnownNotes(current?.model?.notes ?? []);
+  const primary = status.state === 'NEW_KEY' || status.state === 'NO_KEY';
+  return (
+    <section className={`zk-hero zk-hero--${headline.tone}`} aria-label={title}>
+      <div className="zk-hero-main">
+        <KeyPicture kind={current ? kind : 'usb'} badge={badge} muted={status.state === 'NO_KEY'} />
+        <div className="zk-hero-copy">
+          <div className="zk-hero-eyebrow">
+            {current && <span className="ss-eyebrow">{t('zigbeeKey.currentKey')}</span>}
+            {service && (
+              <span className={`zk-pill zk-pill--${service}`}>
+                <span aria-hidden="true" />
+                {t(
+                  (
+                    {
+                      running: 'zigbeeKey.serviceRunning',
+                      starting: 'zigbeeKey.serviceStarting',
+                      stopped: 'zigbeeKey.serviceStopped',
+                      unknown: 'zigbeeKey.serviceUnknown',
+                    } as const
+                  )[service],
+                )}
+              </span>
+            )}
+          </div>
+          <h3>{title}</h3>
+          <p>{t(`zigbeeKey.${headline.hint}`)}</p>
+        </div>
+        <button
+          type="button"
+          className={`${primary ? 'ss-primary' : 'ss-secondary'} zk-button zk-hero-search`}
+          onClick={onSearch}
+          disabled={scanning}
+        >
+          {scanning ? (
+            <LoaderCircle className="ss-spinner" aria-hidden="true" />
+          ) : (
+            <ScanSearch aria-hidden="true" />
+          )}
+          {scanning ? t('zigbeeKey.searching') : t('zigbeeKey.search')}
+        </button>
+      </div>
+
+      {current && (
+        <>
+          <dl className="zk-facts">
+            <div>
+              <dt>{t('zigbeeKey.model')}</dt>
+              <dd>{current.model?.name ?? current.usb?.product ?? t('zigbeeKey.unknownModel')}</dd>
+            </div>
+            <div>
+              <dt>{t('zigbeeKey.devices')}</dt>
+              <dd>
+                {current.deviceCount != null
+                  ? t('zigbeeKey.deviceCount', { count: current.deviceCount })
+                  : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt>{t('zigbeeKey.connection')}</dt>
+              <dd>
+                <OriginTag kind={kind} />
+              </dd>
+            </div>
+          </dl>
+          {notes.length > 0 && <Tips notes={notes} />}
+          <TechnicalDetails current={current} />
+        </>
+      )}
+    </section>
+  );
+}
+
+function Tips({ notes }: { notes: ZigbeeNoteCode[] }) {
+  return (
+    <ul className="zk-tips" aria-label={t('zigbeeKey.tips')}>
+      {notes.map((note) => (
+        <li key={note}>
+          <Lightbulb aria-hidden="true" />
+          {t(`zigbeeKey.note.${note}`)}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function TechnicalDetails({ current }: { current: ZigbeeCurrent }) {
+  const coordinator = current.coordinator;
+  const rows: [string, string | null | undefined][] = [
+    [t('zigbeeKey.technology'), technologyLabel(current.adapter)],
+    [t('zigbeeKey.chip'), current.model?.chip],
+    [t('zigbeeKey.port'), current.port],
+    [t('zigbeeKey.firmware'), coordinator?.firmware],
+    [t('zigbeeKey.coordinatorType'), coordinator?.type],
+    [t('zigbeeKey.channel'), coordinator?.channel != null ? String(coordinator.channel) : null],
+    [t('zigbeeKey.panId'), coordinator?.panId],
+    [t('zigbeeKey.extendedPanId'), coordinator?.extendedPanId],
+    [t('zigbeeKey.ieee'), coordinator?.ieee],
+    [t('zigbeeKey.advancedBaudrate'), current.baudrate != null ? String(current.baudrate) : null],
+    [
+      t('zigbeeKey.advancedRtscts'),
+      current.rtscts != null ? (current.rtscts ? 'RTS/CTS' : '—') : null,
+    ],
+  ];
+  return (
+    <details className="zk-technical">
+      <summary>
+        <ChevronRight aria-hidden="true" /> {t('zigbeeKey.technicalDetails')}
+      </summary>
+      <dl>
+        {rows
+          .filter((row): row is [string, string] => Boolean(row[1]))
+          .map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+      </dl>
+    </details>
+  );
+}
+
+/** Same calm radar as the sensor search, with what is being looked at. */
+function SearchProgress() {
+  return (
+    <section className="zk-search" role="status" aria-label={t('zigbeeKey.searchingTitle')}>
+      <div className="ss-radar zk-radar" aria-hidden="true">
+        <span className="ss-radar-wave" />
+        <span className="ss-radar-wave" />
+        <span className="ss-radar-wave" />
+        <span className="ss-radar-core">
+          <ScanSearch />
+        </span>
+      </div>
+      <div className="zk-search-copy">
+        <h3>{t('zigbeeKey.searchingTitle')}</h3>
+        <p>{t('zigbeeKey.searchingText')}</p>
+        <ol className="ss-checklist zk-checklist">
+          <li className="is-active">
+            <span aria-hidden="true">
+              <LoaderCircle />
+            </span>
+            <Usb className="zk-checklist-icon" aria-hidden="true" />
+            {t('zigbeeKey.searchUsb')}
+          </li>
+          <li className="is-active">
+            <span aria-hidden="true">
+              <LoaderCircle />
+            </span>
+            <Wifi className="zk-checklist-icon" aria-hidden="true" />
+            {t('zigbeeKey.searchNetwork')}
+          </li>
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+/** Nothing to choose from: the two ways a key can be reached, shown side by side. */
+function EmptyState({ title, onSearch }: { title: string; onSearch: (() => void) | null }) {
+  return (
+    <section className="zk-empty" aria-label={title}>
+      <header>
+        <h3>{title}</h3>
+        <p>{t('zigbeeKey.emptyText')}</p>
+      </header>
+      <div className="zk-empty-ways">
+        <article>
+          <KeyPicture kind="usb" size="small" />
+          <div>
+            <OriginTag kind="usb" />
+            <p>{t('zigbeeKey.emptyUsb')}</p>
+          </div>
+        </article>
+        <article>
+          <KeyPicture kind="network" size="small" />
+          <div>
+            <OriginTag kind="network" />
+            <p>{t('zigbeeKey.emptyNetwork')}</p>
+          </div>
+        </article>
+      </div>
+      {onSearch && (
+        <div className="zk-actions">
+          <button type="button" className="ss-secondary zk-button" onClick={onSearch}>
+            <RefreshCw aria-hidden="true" /> {t('zigbeeKey.searchAgain')}
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -551,46 +674,63 @@ function statusLabelKey(status: 'recommended' | 'supported' | 'experimental' | '
 }
 
 function InstallProgress({ install, onStop }: { install: ZigbeeInstall; onStop: () => void }) {
-  const progress = install.progress;
+  const progress = install.progress ?? 0;
+  const kind = portKind(install.target?.port);
+  const name = install.target?.modelName ?? install.target?.port ?? '';
   return (
-    <section className="update-steps zigbee-steps" aria-label={t('zigbeeKey.stepsTitle')}>
-      <ol>
-        {install.steps.map((step) => {
-          const Icon = installStepIcons[step.id] ?? Cpu;
-          const phase =
-            step.state === 'done' ? 'done' : step.state === 'running' ? 'current' : 'upcoming';
-          return (
-            <li key={step.id} className={`update-step update-step--${phase}`}>
-              <span className="update-step-dot">{phase === 'done' ? <Check /> : <Icon />}</span>
-              <span className="update-step-label">{t(`zigbeeKey.step.${step.id}`)}</span>
-            </li>
-          );
-        })}
-      </ol>
-      {progress != null && (
-        <div className="update-progress">
-          <div
-            className="update-progress-track"
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={progress}
-          >
-            <span style={{ width: `${progress}%` }} />
-          </div>
-          <strong>{progress}%</strong>
+    <section className="zk-install" aria-label={t('zigbeeKey.stepsTitle')}>
+      <div className="ss-radar zk-radar" aria-hidden="true">
+        <span className="ss-radar-wave" />
+        <span className="ss-radar-wave" />
+        <svg className="ss-radar-ring" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="56" />
+          <circle
+            cx="60"
+            cy="60"
+            r="56"
+            className="is-value"
+            style={{ strokeDashoffset: 352 * (1 - progress / 100) }}
+          />
+        </svg>
+        <span className="ss-radar-core">
+          <ZigbeeKeyArt kind={kind} />
+        </span>
+      </div>
+      <div className="zk-install-copy">
+        <span className="ss-eyebrow">
+          {t('zigbeeKey.installingTitle')} · {progress} %
+        </span>
+        <h3>{name}</h3>
+        <p>{t('zigbeeKey.installingHint')}</p>
+        <ol className="ss-checklist zk-checklist" aria-label={t('zigbeeKey.stepsTitle')}>
+          {install.steps.map((step) => {
+            const state =
+              step.state === 'done' ? 'done' : step.state === 'running' ? 'active' : 'waiting';
+            return (
+              <li key={step.id} className={`is-${state}`}>
+                <span aria-hidden="true">
+                  {state === 'done' ? <Check /> : state === 'active' ? <LoaderCircle /> : null}
+                </span>
+                {t(`zigbeeKey.step.${step.id}`)}
+              </li>
+            );
+          })}
+        </ol>
+        <div
+          className="zk-progress"
+          role="progressbar"
+          aria-label={t('zigbeeKey.stepsTitle')}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress}
+        >
+          <span style={{ width: `${progress}%` }} />
         </div>
-      )}
-      {install.target && (
-        <p className="zigbee-steps-target">
-          {install.target.modelName ?? install.target.port} ·{' '}
-          {technologyLabel(install.target.adapter)}
-        </p>
-      )}
-      <div className="zigbee-actions">
-        <Button className="button-secondary" onClick={onStop}>
-          {t('zigbeeKey.stop')}
-        </Button>
+        <div className="zk-actions zk-actions--start">
+          <button type="button" className="ss-secondary zk-button" onClick={onStop}>
+            <X aria-hidden="true" /> {t('zigbeeKey.stop')}
+          </button>
+        </div>
       </div>
     </section>
   );
@@ -615,6 +755,7 @@ function InstallResult({
   const failed = install.state === 'FAILED';
   const errorKey = zigbeeErrorKey(install.errorCode);
   const name = install.target?.modelName ?? current?.model?.name ?? '';
+  const kind = portKind(install.target?.port ?? current?.port);
   const title = succeeded
     ? t('zigbeeKey.successTitle')
     : cancelled
@@ -639,63 +780,82 @@ function InstallResult({
     : null;
   return (
     <section
-      className={`zigbee-result zigbee-result--${succeeded ? 'ok' : cancelled ? 'idle' : 'warn'}`}
+      className={`zk-result zk-result--${succeeded ? 'ok' : cancelled ? 'idle' : 'warn'}`}
       role="status"
     >
-      <span className="zigbee-result-icon" aria-hidden="true">
-        {succeeded ? <Check /> : cancelled ? <RotateCcw /> : <CircleAlert />}
-      </span>
-      <div className="zigbee-result-copy">
-        <h3>{title}</h3>
-        <p>{text}</p>
-        {!succeeded && install.errorCode && (
-          <p className="zigbee-result-reason">
-            {t(`zigbeeKey.error.${errorKey}`, { detail: install.detail ?? '' })}
-          </p>
-        )}
-        {!succeeded && install.rolledBack && (
-          <ol className="zigbee-rollback-steps">
-            <li>
-              <RotateCcw /> {t('zigbeeKey.step.rollback')}
-            </li>
-          </ol>
-        )}
-        {install.detail && !succeeded && (
-          <details className="zigbee-technical">
-            <summary>
-              <ChevronRight aria-hidden="true" /> {t('zigbeeKey.technicalDetails')}
-            </summary>
-            <code>{install.detail}</code>
-          </details>
-        )}
-        <div className="zigbee-actions">
-          {install.errorCode === 'NETWORK_MISMATCH' && retry && (
-            <Button className="button-secondary" onClick={() => setConfirmingNew(true)}>
-              {t('zigbeeKey.retryNewNetwork')}
-            </Button>
-          )}
-          {(install.errorCode === 'NO_ANSWER' || install.errorCode === 'WRONG_ADAPTER') && (
-            <Button className="button-secondary" onClick={onAdvanced}>
-              {t('zigbeeKey.openAdvanced')}
-            </Button>
-          )}
-          <Button onClick={onDismiss}>
-            {succeeded ? t('zigbeeKey.done') : t('zigbeeKey.dismiss')}
-          </Button>
+      {succeeded ? (
+        <div className="ss-done-hero zk-result-hero" aria-hidden="true">
+          <span className="ss-done-photo">
+            <ZigbeeKeyArt kind={kind} />
+          </span>
+          <span className="ss-done-check">
+            <svg viewBox="0 0 52 52">
+              <circle cx="26" cy="26" r="24" />
+              <path d="M15 27l7 7 15-16" />
+            </svg>
+          </span>
         </div>
-        {confirmingNew && retry && (
-          <InstallConfirm
-            name={name}
-            hasCurrent={false}
-            forceNew
-            onCancel={() => setConfirmingNew(false)}
-            onConfirm={(mode) => {
-              void onRetry({ ...retry, networkMode: mode, confirmNewNetwork: true });
-              setConfirmingNew(false);
-            }}
-          />
+      ) : (
+        <span className="zk-result-hero">
+          <span className={`ss-hero-icon${cancelled ? '' : ' is-warning'}`} aria-hidden="true">
+            {cancelled ? <RotateCcw /> : <TriangleAlert />}
+          </span>
+        </span>
+      )}
+      {succeeded && <span className="ss-eyebrow">{t('zigbeeKey.successEyebrow')}</span>}
+      <h3>{title}</h3>
+      <p className="zk-result-text">{text}</p>
+      {!succeeded && install.errorCode && (
+        <Notice tone="warning">
+          {t(`zigbeeKey.error.${errorKey}`, { detail: install.detail ?? '' })}
+        </Notice>
+      )}
+      {!succeeded && install.rolledBack && (
+        <p className="zk-rollback">
+          <RotateCcw aria-hidden="true" /> {t('zigbeeKey.step.rollback')}
+          <Check aria-hidden="true" />
+        </p>
+      )}
+      {install.detail && !succeeded && (
+        <details className="zk-technical zk-technical--inline">
+          <summary>
+            <ChevronRight aria-hidden="true" /> {t('zigbeeKey.technicalDetails')}
+          </summary>
+          <code>{install.detail}</code>
+        </details>
+      )}
+      <div className="zk-actions zk-actions--center">
+        {install.errorCode === 'NETWORK_MISMATCH' && retry && (
+          <button
+            type="button"
+            className="ss-secondary zk-button"
+            onClick={() => setConfirmingNew(true)}
+          >
+            {t('zigbeeKey.retryNewNetwork')}
+          </button>
         )}
+        {(install.errorCode === 'NO_ANSWER' || install.errorCode === 'WRONG_ADAPTER') && (
+          <button type="button" className="ss-secondary zk-button" onClick={onAdvanced}>
+            <Settings2 aria-hidden="true" /> {t('zigbeeKey.openAdvanced')}
+          </button>
+        )}
+        <button type="button" className="ss-primary zk-button" onClick={onDismiss}>
+          {succeeded && <Check aria-hidden="true" />}
+          {succeeded ? t('zigbeeKey.done') : t('zigbeeKey.dismiss')}
+        </button>
       </div>
+      {confirmingNew && retry && (
+        <InstallConfirm
+          name={name}
+          hasCurrent={false}
+          forceNew
+          onCancel={() => setConfirmingNew(false)}
+          onConfirm={(mode) => {
+            void onRetry({ ...retry, networkMode: mode, confirmNewNetwork: true });
+            setConfirmingNew(false);
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -718,11 +878,13 @@ function InstallConfirm({
   const askMode = hasCurrent || forceNew;
   const ready = mode === 'keep' || understood;
   return (
-    <div className="zigbee-confirm" role="group" aria-label={t('zigbeeKey.confirmTitle', { name })}>
-      <h4>{t('zigbeeKey.confirmTitle', { name })}</h4>
+    <div className="zk-confirm" role="group" aria-label={t('zigbeeKey.confirmTitle', { name })}>
+      <h4>
+        <ShieldCheck aria-hidden="true" /> {t('zigbeeKey.confirmTitle', { name })}
+      </h4>
       <p>{t('zigbeeKey.confirmText')}</p>
       {askMode && (
-        <fieldset className="zigbee-network-choice">
+        <fieldset className="zk-choices">
           <legend>{t('zigbeeKey.sensorsTitle')}</legend>
           {!forceNew && (
             <label className={mode === 'keep' ? 'is-selected' : ''}>
@@ -751,7 +913,7 @@ function InstallConfirm({
             </span>
           </label>
           {mode === 'new' && (
-            <label className="zigbee-understood">
+            <label className="zk-understood">
               <input
                 type="checkbox"
                 checked={understood}
@@ -762,13 +924,18 @@ function InstallConfirm({
           )}
         </fieldset>
       )}
-      <div className="zigbee-actions">
-        <Button className="button-secondary" onClick={onCancel}>
+      <div className="zk-actions">
+        <button type="button" className="ss-secondary zk-button" onClick={onCancel}>
           {t('zigbeeKey.cancel')}
-        </Button>
-        <Button onClick={() => onConfirm(mode)} disabled={!ready}>
-          <ShieldCheck /> {t('zigbeeKey.install')}
-        </Button>
+        </button>
+        <button
+          type="button"
+          className="ss-primary zk-button"
+          onClick={() => onConfirm(mode)}
+          disabled={!ready}
+        >
+          <ShieldCheck aria-hidden="true" /> {t('zigbeeKey.install')}
+        </button>
       </div>
     </div>
   );
@@ -803,10 +970,16 @@ function CandidateCard({
   const installable = zigbeeIsInstallable(candidate);
   const notes = zigbeeKnownNotes(identity.notes);
   const usbId = zigbeeUsbId(candidate);
-  const Icon = candidate.kind === 'network' ? Wifi : Usb;
+  const kind = candidate.kind === 'network' ? 'network' : 'usb';
   const chosen = identity.options.find((option) => zigbeeOptionKey(option) === choice) ?? null;
   const single = identity.options.length === 1 ? identity.options[0] : null;
   const proposal = single ?? chosen;
+  const confidence =
+    identity.confidence === 'high' || identity.confidence === 'medium'
+      ? 'ok'
+      : identity.confidence === 'ambiguous'
+        ? 'confirm'
+        : 'unknown';
 
   const identify = async () => {
     setProbing(true);
@@ -829,135 +1002,128 @@ function CandidateCard({
   };
 
   const confirmedName = proposal?.modelName ?? title;
+  const meta = [
+    identity.confidence !== 'unknown' ? identity.chip : null,
+    proposal ? technologyLabel(proposal.technology) : null,
+  ].filter(Boolean);
   return (
-    <article className="zigbee-candidate" data-testid="zigbee-candidate">
-      <header>
-        <span className="zigbee-candidate-icon" aria-hidden="true">
-          <Icon />
-        </span>
-        <div>
+    <article className="zk-candidate" data-testid="zigbee-candidate">
+      <KeyPicture kind={kind} size="small" />
+      <div className="zk-candidate-copy">
+        <div className="zk-candidate-title">
           <h4>{title}</h4>
-          <p>
-            {candidate.network
-              ? t('zigbeeKey.networkKey', {
-                  address: `${candidate.network.host}:${candidate.network.port}`,
-                })
-              : t('zigbeeKey.pluggedOn')}
-          </p>
-        </div>
-        <span className="zigbee-badges">
-          <span
-            className={`zigbee-key-badge zigbee-key-badge--${
-              identity.confidence === 'high'
-                ? 'ok'
-                : identity.confidence === 'unknown'
-                  ? 'warn'
-                  : 'new'
-            }`}
-          >
-            {identity.confidence === 'high' || identity.confidence === 'medium'
+          <span className={`zk-pill zk-pill--${confidence}`}>
+            <span aria-hidden="true" />
+            {confidence === 'ok'
               ? t('zigbeeKey.recognized')
-              : identity.confidence === 'ambiguous'
+              : confidence === 'confirm'
                 ? t('zigbeeKey.toConfirm')
                 : t('zigbeeKey.unknownKey')}
           </span>
-          {identity.status && (
-            <span className={`zigbee-key-badge zigbee-key-badge--${identity.status}`}>
+          {identity.status && identity.status !== 'supported' && (
+            <span className={`zk-pill zk-pill--${identity.status}`}>
               {t(statusLabelKey(identity.status))}
             </span>
           )}
-        </span>
-      </header>
+        </div>
+        <OriginTag
+          kind={kind}
+          address={candidate.network ? `${candidate.network.host}:${candidate.network.port}` : null}
+        />
+        {meta.length > 0 && <p className="zk-candidate-meta">{meta.join(' · ')}</p>}
 
-      {identity.confidence !== 'unknown' && identity.chip && (
-        <p className="zigbee-candidate-meta">
-          {identity.chip}
-          {proposal && ` · ${technologyLabel(proposal.technology)}`}
-        </p>
-      )}
+        {needsChoice && probeNotice !== 'silent' && (
+          <p className="zk-candidate-text">{t('zigbeeKey.ambiguousExplain')}</p>
+        )}
+        {needsChoice && probeNotice === 'silent' && (
+          <fieldset className="zk-choices">
+            <legend>{t('zigbeeKey.silent')}</legend>
+            {identity.options.map((option) => (
+              <label
+                key={zigbeeOptionKey(option)}
+                className={choice === zigbeeOptionKey(option) ? 'is-selected' : ''}
+              >
+                <input
+                  type="radio"
+                  name={`zigbee-option-${candidate.id}`}
+                  checked={choice === zigbeeOptionKey(option)}
+                  onChange={() => setChoice(zigbeeOptionKey(option))}
+                />
+                <span>
+                  <strong>{option.modelName ?? technologyLabel(option.technology)}</strong>
+                  <small>{technologyLabel(option.technology)}</small>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        )}
 
-      {needsChoice && (
-        <div className="zigbee-ambiguous">
-          <p>{t('zigbeeKey.ambiguousExplain')}</p>
-          {probeNotice !== 'silent' && (
-            <Button className="button-secondary" onClick={() => void identify()} disabled={probing}>
-              {probing ? <LoaderCircle className="spin" /> : <ScanSearch />}{' '}
+        {probeNotice === 'answered' && installable && (
+          <Notice tone="success">
+            {single?.modelName
+              ? t('zigbeeKey.identified', { name: single.modelName })
+              : t('zigbeeKey.identifiedGeneric', {
+                  technology: technologyLabel(single?.technology ?? ''),
+                })}
+          </Notice>
+        )}
+
+        {identity.confidence === 'unknown' && (
+          <p className="zk-candidate-text">{t('zigbeeKey.unknownExplain', { id: usbId ?? '—' })}</p>
+        )}
+
+        {candidate.busy && (
+          <Notice tone="warning">{t('zigbeeKey.busyBy', { by: candidate.busy.by })}</Notice>
+        )}
+        {candidate.portStability === 'by-path' && (
+          <Notice tone="warning">{t('zigbeeKey.stabilityByPath')}</Notice>
+        )}
+        {candidate.portStability === 'raw' && (
+          <Notice tone="warning">{t('zigbeeKey.stabilityRaw')}</Notice>
+        )}
+        {notes.length > 0 && !confirming && (
+          <details className="zk-technical zk-technical--tips">
+            <summary>
+              <Lightbulb aria-hidden="true" /> {t('zigbeeKey.tipsCount', { count: notes.length })}
+            </summary>
+            <Tips notes={notes} />
+          </details>
+        )}
+      </div>
+
+      {!confirming && (
+        <div className="zk-candidate-action">
+          {needsChoice && probeNotice !== 'silent' && (
+            <button
+              type="button"
+              className="ss-primary zk-button"
+              onClick={() => void identify()}
+              disabled={probing}
+            >
+              {probing ? (
+                <LoaderCircle className="ss-spinner" aria-hidden="true" />
+              ) : (
+                <ScanSearch aria-hidden="true" />
+              )}
               {probing ? t('zigbeeKey.identifying') : t('zigbeeKey.identify')}
-            </Button>
+            </button>
           )}
-          {probeNotice === 'silent' && (
-            <fieldset className="zigbee-options">
-              <legend>{t('zigbeeKey.silent')}</legend>
-              {identity.options.map((option) => (
-                <label
-                  key={zigbeeOptionKey(option)}
-                  className={choice === zigbeeOptionKey(option) ? 'is-selected' : ''}
-                >
-                  <input
-                    type="radio"
-                    name={`zigbee-option-${candidate.id}`}
-                    checked={choice === zigbeeOptionKey(option)}
-                    onChange={() => setChoice(zigbeeOptionKey(option))}
-                  />
-                  <span>
-                    <strong>{option.modelName ?? technologyLabel(option.technology)}</strong>
-                    <small>{technologyLabel(option.technology)}</small>
-                  </span>
-                </label>
-              ))}
-            </fieldset>
+          {identity.confidence === 'unknown' && (
+            <button type="button" className="ss-secondary zk-button" onClick={onAdvanced}>
+              <Settings2 aria-hidden="true" /> {t('zigbeeKey.openAdvanced')}
+            </button>
           )}
-        </div>
-      )}
-
-      {probeNotice === 'answered' && installable && (
-        <p className="update-card-notice update-card-notice--info">
-          <Check />{' '}
-          {single?.modelName
-            ? t('zigbeeKey.identified', { name: single.modelName })
-            : t('zigbeeKey.identifiedGeneric', {
-                technology: technologyLabel(single?.technology ?? ''),
-              })}
-        </p>
-      )}
-
-      {identity.confidence === 'unknown' && (
-        <div className="zigbee-ambiguous">
-          <p>{t('zigbeeKey.unknownExplain', { id: usbId ?? '—' })}</p>
-          <Button className="button-secondary" onClick={onAdvanced}>
-            <Settings2 /> {t('zigbeeKey.openAdvanced')}
-          </Button>
-        </div>
-      )}
-
-      {candidate.busy && (
-        <p className="update-card-notice update-card-notice--warn">
-          <CircleAlert /> {t('zigbeeKey.busyBy', { by: candidate.busy.by })}
-        </p>
-      )}
-      {candidate.portStability === 'by-path' && (
-        <p className="update-card-notice update-card-notice--warn">
-          <CircleAlert /> {t('zigbeeKey.stabilityByPath')}
-        </p>
-      )}
-      {candidate.portStability === 'raw' && (
-        <p className="update-card-notice update-card-notice--warn">
-          <CircleAlert /> {t('zigbeeKey.stabilityRaw')}
-        </p>
-      )}
-      {notes.length > 0 && (
-        <ul className="zigbee-notes">
-          {notes.map((note) => (
-            <li key={note}>{t(`zigbeeKey.note.${note}`)}</li>
-          ))}
-        </ul>
-      )}
-
-      {proposal && !candidate.busy && !confirming && (
-        <div className="zigbee-actions">
-          <Button disabled={busy} onClick={() => setConfirming(proposal)}>
-            <PlugZap /> {replacing ? t('zigbeeKey.useKeyInstead') : t('zigbeeKey.useKey')}
-          </Button>
+          {proposal && !candidate.busy && (
+            <button
+              type="button"
+              className="ss-primary zk-button"
+              disabled={busy}
+              onClick={() => setConfirming(proposal)}
+            >
+              <PlugZap aria-hidden="true" />
+              {replacing ? t('zigbeeKey.useKeyInstead') : t('zigbeeKey.useKey')}
+            </button>
+          )}
         </div>
       )}
       {confirming && (
@@ -1083,76 +1249,91 @@ function AdvancedMode({
           <strong>{t('zigbeeKey.advanced')}</strong>
           <small>{t('zigbeeKey.advancedHint')}</small>
         </span>
-        <ChevronRight className="update-credentials-chevron" />
+        <span className="settings-disclosure-chevron" aria-hidden="true">
+          <ChevronRight />
+        </span>
       </summary>
-      <div className="zigbee-advanced-body">
-        <div className="zigbee-fields">
-          <label>
-            {t('zigbeeKey.advancedPort')}
-            <select value={portChoice} onChange={(event) => setPortChoice(event.target.value)}>
-              {candidates.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
-                  {zigbeeCandidateTitle(candidate) ?? candidate.port} — {candidate.port}
-                </option>
-              ))}
-              <option value={CUSTOM_PORT}>{t('zigbeeKey.advancedCustomPort')}</option>
-            </select>
-          </label>
-          {portChoice === CUSTOM_PORT && (
-            <label>
-              {t('zigbeeKey.advancedCustomPort')}
-              <input
-                value={customPort}
-                onChange={(event) => setCustomPort(event.target.value)}
-                placeholder={t('zigbeeKey.advancedPortPlaceholder')}
-                autoCapitalize="none"
-                spellCheck={false}
-              />
+      <div className="zk-advanced-body">
+        <section className="zk-advanced-group">
+          <h4>{t('zigbeeKey.advancedSettings')}</h4>
+          <div className="zk-fields">
+            <label className="ss-field">
+              <span className="ss-field-label">{t('zigbeeKey.advancedPort')}</span>
+              <select value={portChoice} onChange={(event) => setPortChoice(event.target.value)}>
+                {candidates.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {zigbeeCandidateTitle(candidate) ?? candidate.port} — {candidate.port}
+                  </option>
+                ))}
+                <option value={CUSTOM_PORT}>{t('zigbeeKey.advancedCustomPort')}</option>
+              </select>
             </label>
-          )}
-          <label>
-            {t('zigbeeKey.advancedAdapter')}
-            <select
-              value={adapter}
-              onChange={(event) => {
-                const next = event.target.value as ZigbeeTechnology;
-                setAdapter(next);
-                setBaudrate(ZIGBEE_TECHNOLOGY_DEFAULTS[next].baudrates[0] ?? 115200);
-                setRtscts(ZIGBEE_TECHNOLOGY_DEFAULTS[next].rtscts);
-              }}
-            >
-              {technologies.map((technology) => (
-                <option key={technology} value={technology}>
-                  {t(`zigbeeKey.tech.${technology}`)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t('zigbeeKey.advancedBaudrate')}
-            <select value={baudrate} onChange={(event) => setBaudrate(Number(event.target.value))}>
-              {baudrates.map((rate) => (
-                <option key={rate} value={rate}>
-                  {rate}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="zigbee-checkbox">
-            <input
-              type="checkbox"
-              checked={rtscts}
-              onChange={(event) => setRtscts(event.target.checked)}
-            />
-            <span>{t('zigbeeKey.advancedRtscts')}</span>
-          </label>
-        </div>
-
-        <div className="zigbee-actions">
+            {portChoice === CUSTOM_PORT && (
+              <label className="ss-field">
+                <span className="ss-field-label">{t('zigbeeKey.advancedCustomPort')}</span>
+                <input
+                  value={customPort}
+                  onChange={(event) => setCustomPort(event.target.value)}
+                  placeholder={t('zigbeeKey.advancedPortPlaceholder')}
+                  autoCapitalize="none"
+                  spellCheck={false}
+                />
+              </label>
+            )}
+            <label className="ss-field">
+              <span className="ss-field-label">{t('zigbeeKey.advancedAdapter')}</span>
+              <select
+                value={adapter}
+                onChange={(event) => {
+                  const next = event.target.value as ZigbeeTechnology;
+                  setAdapter(next);
+                  setBaudrate(ZIGBEE_TECHNOLOGY_DEFAULTS[next].baudrates[0] ?? 115200);
+                  setRtscts(ZIGBEE_TECHNOLOGY_DEFAULTS[next].rtscts);
+                }}
+              >
+                {technologies.map((technology) => (
+                  <option key={technology} value={technology}>
+                    {t(`zigbeeKey.tech.${technology}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="ss-field">
+              <span className="ss-field-label">{t('zigbeeKey.advancedBaudrate')}</span>
+              <select
+                value={baudrate}
+                onChange={(event) => setBaudrate(Number(event.target.value))}
+              >
+                {baudrates.map((rate) => (
+                  <option key={rate} value={rate}>
+                    {rate}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="zk-checkbox">
+              <input
+                type="checkbox"
+                checked={rtscts}
+                onChange={(event) => setRtscts(event.target.checked)}
+              />
+              <span>
+                <strong>{t('zigbeeKey.advancedRtscts')}</strong>
+                <small>{t('zigbeeKey.advancedRtsctsHint')}</small>
+              </span>
+            </label>
+          </div>
           {!confirming ? (
-            <Button disabled={!canInstall} onClick={() => setConfirming(true)}>
-              <ShieldCheck /> {t('zigbeeKey.advancedInstall')}
-            </Button>
+            <div className="zk-actions">
+              <button
+                type="button"
+                className="ss-primary zk-button"
+                disabled={!canInstall}
+                onClick={() => setConfirming(true)}
+              >
+                <ShieldCheck aria-hidden="true" /> {t('zigbeeKey.advancedInstall')}
+              </button>
+            </div>
           ) : (
             <InstallConfirm
               name={selected ? (zigbeeCandidateTitle(selected) ?? selected.port) : customPort}
@@ -1161,46 +1342,58 @@ function AdvancedMode({
               onConfirm={() => void install()}
             />
           )}
-        </div>
+        </section>
 
-        <div className="zigbee-fields zigbee-network-address">
-          <label>
-            {t('zigbeeKey.networkAddress')}
-            <input
-              value={address}
-              onChange={(event) => setAddress(event.target.value)}
-              placeholder={t('zigbeeKey.networkPlaceholder')}
-              inputMode="url"
-              autoCapitalize="none"
-              spellCheck={false}
-            />
-          </label>
-          <Button
-            className="button-secondary"
-            disabled={!parsedAddress || testing}
-            onClick={() => void test()}
-          >
-            {testing ? <LoaderCircle className="spin" /> : <Wifi />}{' '}
-            {testing ? t('zigbeeKey.testing') : t('zigbeeKey.testAddress')}
-          </Button>
-        </div>
-        {addressResult && (
-          <p
-            className={`update-card-notice update-card-notice--${addressResult === 'ok' ? 'info' : 'error'}`}
-            role="status"
-          >
-            {addressResult === 'ok' ? <Check /> : <CircleAlert />}{' '}
-            {addressResult === 'ok' ? t('zigbeeKey.addressOk') : t('zigbeeKey.addressFail')}
-          </p>
-        )}
-        {networkKeys.map((candidate) => (
-          <p key={candidate.id} className="zigbee-forget">
-            <Wifi /> {candidate.port}
-            <button type="button" onClick={() => void forget(candidate.id)}>
-              {t('zigbeeKey.forget')}
+        <section className="zk-advanced-group">
+          <h4>
+            <Wifi aria-hidden="true" /> {t('zigbeeKey.networkSection')}
+          </h4>
+          <p className="zk-advanced-hint">{t('zigbeeKey.networkSectionHint')}</p>
+          <div className="zk-address">
+            <label className="ss-field">
+              <span className="ss-field-label">{t('zigbeeKey.networkAddress')}</span>
+              <input
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+                placeholder={t('zigbeeKey.networkPlaceholder')}
+                inputMode="url"
+                autoCapitalize="none"
+                spellCheck={false}
+              />
+            </label>
+            <button
+              type="button"
+              className="ss-secondary zk-button"
+              disabled={!parsedAddress || testing}
+              onClick={() => void test()}
+            >
+              {testing ? (
+                <LoaderCircle className="ss-spinner" aria-hidden="true" />
+              ) : (
+                <Wifi aria-hidden="true" />
+              )}
+              {testing ? t('zigbeeKey.testing') : t('zigbeeKey.testAddress')}
             </button>
-          </p>
-        ))}
+          </div>
+          {addressResult && (
+            <Notice tone={addressResult === 'ok' ? 'success' : 'danger'} role="status">
+              {addressResult === 'ok' ? t('zigbeeKey.addressOk') : t('zigbeeKey.addressFail')}
+            </Notice>
+          )}
+          {networkKeys.length > 0 && (
+            <ul className="zk-remembered">
+              {networkKeys.map((candidate) => (
+                <li key={candidate.id}>
+                  <Wifi aria-hidden="true" />
+                  <code>{candidate.port}</code>
+                  <button type="button" onClick={() => void forget(candidate.id)}>
+                    {t('zigbeeKey.forget')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
     </details>
   );

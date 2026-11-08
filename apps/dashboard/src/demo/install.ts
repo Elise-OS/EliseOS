@@ -1,3 +1,4 @@
+import { ZIGBEE_DEMO_SEARCH_MS } from '@elise/contracts';
 import { isLocale, t } from '../i18n';
 import { uiLocale } from '../screen-locale';
 import { DEMO_CALL_EVENT } from './DemoCall';
@@ -30,7 +31,10 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (path.split('?')[0]?.endsWith('/events')) return openStream();
 
   // A short pause keeps loading states and transitions as they are on a real installation.
-  await pause(method === 'GET' ? 90 : 180);
+  // A Zigbee key search listens to the home network for a moment, as on a real box.
+  await pause(
+    path.startsWith('/zigbee/adapter/scan') ? ZIGBEE_DEMO_SEARCH_MS : method === 'GET' ? 90 : 180,
+  );
   const answer = handleDemoRequest(
     method,
     path,

@@ -13,7 +13,9 @@
   animation: ss-fade 220ms ease-out;
 }
 
-.ss-sheet {
+/* The setup tokens; `.ss-scope` lends them to screens built from the same pieces (Zigbee key). */
+.ss-sheet,
+.ss-scope {
   --ss-ink: #102e49;
   --ss-ink-2: #4f677a;
   --ss-ink-3: #8597a6;
@@ -38,7 +40,9 @@
   --ss-group-other: #eef2f5;
   --ss-radius: 18px;
   --ss-ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
 
+.ss-sheet {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -78,7 +82,8 @@
 .ss-sheet button:disabled {
   cursor: default;
 }
-.ss-sheet :focus-visible {
+.ss-sheet :focus-visible,
+.ss-scope :focus-visible {
   outline: 3px solid color-mix(in srgb, var(--ss-accent) 55%, transparent);
   outline-offset: 2px;
 }
