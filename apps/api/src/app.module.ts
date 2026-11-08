@@ -49,6 +49,8 @@ import { RemoteAccessAgentClient } from './modules/remote-access/remote-access-a
 import { CalendarController } from './modules/calendar/calendar.controller';
 import { CalendarService } from './modules/calendar/calendar.service';
 import { UpdateAgentClient } from './modules/system/update-agent.client';
+import { ZigbeeController } from './modules/zigbee/zigbee.controller';
+import { ZigbeeAgentClient } from './modules/zigbee/zigbee-agent.client';
 
 @Module({
   controllers: [
@@ -75,6 +77,7 @@ import { UpdateAgentClient } from './modules/system/update-agent.client';
     PeopleController,
     RemoteAccessController,
     CalendarController,
+    ZigbeeController,
   ],
   providers: [
     LiaisonService,
@@ -103,6 +106,7 @@ import { UpdateAgentClient } from './modules/system/update-agent.client';
     RemoteAccessAgentClient,
     CalendarService,
     UpdateAgentClient,
+    ZigbeeAgentClient,
   ],
 })
 export class AppModule {}

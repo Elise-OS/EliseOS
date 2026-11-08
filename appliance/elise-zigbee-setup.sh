@@ -16,6 +16,14 @@ DRIVERS=(ember zstack zigate deconz zboss)
 
 [[ -L "$ELISE_ROOT_DIR/current" && -f "$ELISE_CONFIG_FILE" ]] || exit 0
 release_dir="$(readlink -f "$ELISE_ROOT_DIR/current")"
+
+# The Zigbee agent recognises the key from its USB identity (and a read-only probe when two
+# technologies share one chip), then installs it with a backup and a rollback. The loop below,
+# which tries every driver through Zigbee2MQTT, only remains for a box without the agent.
+zigbee_agent=/usr/lib/elise/elise-zigbee-agent.py
+if [[ -x "$zigbee_agent" && -f /usr/lib/elise/elise-zigbee-adapters.json ]] && "$zigbee_agent" auto; then
+  exit 0
+fi
 install -d -m 0755 "$STATE_DIR"
 exec 9>"$STATE_DIR/.lock"
 flock 9
