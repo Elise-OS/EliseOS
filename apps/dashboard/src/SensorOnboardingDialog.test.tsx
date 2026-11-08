@@ -463,11 +463,15 @@ describe('sensor installation confirmation', () => {
 
   it('stops a search it could not confirm when the person closes the screen', async () => {
     const onClose = vi.fn();
+    let posted = false;
     const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
-      if (init?.method === 'POST') return Promise.reject(new TypeError('Failed to fetch'));
+      if (init?.method === 'POST') {
+        posted = true;
+        return Promise.reject(new TypeError('Failed to fetch'));
+      }
       if (init?.method === 'DELETE')
         return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
-      if (url.endsWith('/current') && fetchMock.mock.calls.some(([, i]) => i?.method === 'POST'))
+      if (url.endsWith('/current') && posted)
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({ ...session, status: 'WAITING_FOR_DEVICE', id: 'late' }),
@@ -496,7 +500,7 @@ describe('sensor installation confirmation', () => {
       for (let i = 0; i < 5; i += 1) await Promise.resolve();
     });
     expect(document.body.textContent).toContain('Impossible de joindre Élise');
-    const close = document.body.querySelector('[aria-label="Fermer"]') as HTMLButtonElement | null;
+    const close = document.body.querySelector<HTMLButtonElement>('[aria-label="Fermer"]');
     expect(close).toBeTruthy();
     await act(async () => {
       close!.click();

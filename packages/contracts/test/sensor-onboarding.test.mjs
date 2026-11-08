@@ -31,7 +31,10 @@ test('the countdown reads m:ss and never goes below zero', () => {
   assert.equal(formatSearchCountdown(240), '4:00');
   assert.equal(formatSearchCountdown(65), '1:05');
   assert.equal(formatSearchCountdown(-3), '0:00');
-  assert.equal(secondsUntil('2026-01-01T00:04:00.000Z', Date.parse('2026-01-01T00:00:00.000Z')), 240);
+  assert.equal(
+    secondsUntil('2026-01-01T00:04:00.000Z', Date.parse('2026-01-01T00:00:00.000Z')),
+    240,
+  );
 });
 
 test('a late search ends only after the grace and when nothing was seen', () => {
