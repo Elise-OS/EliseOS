@@ -50,12 +50,20 @@ appId: org.michel.mobile
     timeout: 10000
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/mobile-${STORE_LANG}-cle-saine
-- tapOn: ${output.zigbee.detect}
+- tapOn: ${output.zigbee.search}
 - scrollUntilVisible:
     element: ${output.zigbee.identify}
     direction: DOWN
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/mobile-${STORE_LANG}-nouvelle-cle
+- scrollUntilVisible:
+    element: ${output.zigbee.network}
+    direction: DOWN
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-cle-reseau
+- scrollUntilVisible:
+    element: ${output.zigbee.identify}
+    direction: UP
 - tapOn: ${output.zigbee.identify}
 - extendedWaitUntil:
     visible: ${output.zigbee.useInstead}
@@ -75,10 +83,36 @@ appId: org.michel.mobile
 - scrollUntilVisible:
     element: ${output.zigbee.installing}
     direction: UP
+    centerElement: true
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/mobile-${STORE_LANG}-installation
 - extendedWaitUntil:
     visible: ${output.zigbee.success}
     timeout: 20000
+- scrollUntilVisible:
+    element: ${output.zigbee.success}
+    direction: UP
+    centerElement: true
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/mobile-${STORE_LANG}-succes
+- tapOn: ${output.zigbee.done}
+- scrollUntilVisible:
+    element: ${output.zigbee.advanced}
+    direction: DOWN
+- tapOn: ${output.zigbee.advanced}
+- scrollUntilVisible:
+    element: ${output.zigbee.testAddress}
+    direction: DOWN
+- tapOn:
+    id: zigbee-address
+- inputText: '192.168.1.50'
+- hideKeyboard
+- tapOn: ${output.zigbee.testAddress}
+- extendedWaitUntil:
+    visible: ${output.zigbee.addressOk}
+    timeout: 10000
+- scrollUntilVisible:
+    element: ${output.zigbee.addressOk}
+    direction: DOWN
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-mode-avance

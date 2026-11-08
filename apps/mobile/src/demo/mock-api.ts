@@ -1,6 +1,7 @@
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   createZigbeeDemo,
+  isZigbeeDemoScenario,
   defaultTvChannels,
   initialScreenState,
   type ActivitySummary,
@@ -36,7 +37,11 @@ import { appLocale } from '../locale';
 import { t } from '../i18n';
 
 // The demo home follows the app language; it is rebuilt when the language changes.
-let zigbeeDemo = createZigbeeDemo();
+// EXPO_PUBLIC_ZIGBEE_DEMO=empty (or none, new, missing) starts the Zigbee key in another situation.
+const zigbeeScenario = isZigbeeDemoScenario(process.env.EXPO_PUBLIC_ZIGBEE_DEMO)
+  ? process.env.EXPO_PUBLIC_ZIGBEE_DEMO
+  : 'ready';
+let zigbeeDemo = createZigbeeDemo({ scenario: zigbeeScenario });
 
 export const DEMO_SERVER_ID = 'elise-demo';
 export const DEMO_TOKEN = 'elise-demo-session';
@@ -1976,7 +1981,7 @@ let demoNotificationPreferences = { ...DEFAULT_NOTIFICATION_PREFERENCES };
 
 export function resetDemoSession() {
   demoSession = createDemoSession();
-  zigbeeDemo = createZigbeeDemo();
+  zigbeeDemo = createZigbeeDemo({ scenario: zigbeeScenario });
   demoSessionLocale = appLocale();
   demoNotificationPreferences = { ...DEFAULT_NOTIFICATION_PREFERENCES };
 }

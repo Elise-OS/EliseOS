@@ -4,15 +4,17 @@ L’onglet **Réglages → Clé Zigbee** montre la clé utilisée par la box Él
 
 ## Pour la famille
 
-1. Branchez la clé sur la box Élise. Une rallonge USB est conseillée, surtout près d’un port USB 3.
-2. Ouvrez **Réglages → Clé Zigbee**. L’écran surveille la box tant qu’il reste ouvert ; le bouton **Détecter** permet de relancer immédiatement la recherche.
+1. Branchez la clé sur la box Élise (une rallonge USB est conseillée, surtout près d’un port USB 3), ou, pour une clé qui se connecte par câble Ethernet ou Wi-Fi (type SLZB-06), allumez-la sur le réseau de la maison.
+2. Ouvrez **Réglages → Clé Zigbee** et touchez **Chercher une clé**. Un seul bouton cherche les deux à la fois : les clés branchées sur la box et celles du réseau de la maison. Tous les résultats arrivent dans une seule liste, chacun avec un petit libellé : **Branchée sur la box** ou **Sur le réseau de la maison**. L’écran cherche aussi tout seul tant qu’il reste ouvert (la box toutes les quelques secondes, le réseau toutes les 30 secondes).
 3. Si plusieurs clés sont présentes, choisissez celle à utiliser. Si le modèle ne peut pas être distingué par son nom USB, Élise interroge la clé sans modifier son contenu. Si elle ne répond pas, l’écran propose les technologies possibles avec une explication.
 4. Confirmez l’installation. Lors d’un remplacement, gardez le réseau existant pour donner aux capteurs la meilleure chance de rester associés. Une migration dépend toutefois du coordinateur et de son micrologiciel ; un nouvel appairage peut rester nécessaire.
 5. Élise sauvegarde la configuration et `coordinator_backup.json`, configure Zigbee2MQTT, le redémarre puis vérifie le coordinateur. Si la vérification échoue, l’ancienne configuration est remise automatiquement.
 
 L’écran affiche le modèle, la technologie, l’état du service, le micrologiciel, le canal, le PAN ID, l’IEEE et le nombre d’appareils. Les ports, débits et autres détails sont regroupés dans **Détails techniques** ou **Mode avancé**.
 
-Les coordinateurs réseau peuvent être découverts sur le réseau local (mDNS `_slzb-06._tcp` et `_zigstar_gw._tcp`) ou saisis sous la forme `tcp://adresse:6638`. Avant installation, Élise vérifie que l’adresse répond.
+Si la recherche ne trouve rien, l’écran propose de vérifier que la clé est branchée sur la box, ou qu’elle est allumée et reliée au réseau de la maison (câble Ethernet ou Wi-Fi). Si un des deux canaux ne répond pas (réseau lent, service mDNS arrêté…), les résultats de l’autre s’affichent quand même, avec une phrase simple qui dit ce qui n’a pas marché.
+
+Les coordinateurs réseau sont découverts sur le réseau local (mDNS `_slzb-06._tcp`, `_zigstar_gw._tcp` et `_tubeszb._tcp`). Pour une clé qui n’apparaît pas, le **Mode avancé** (replié par défaut, sur le web comme sur mobile) accepte son adresse : `192.168.1.50`, `192.168.1.50:6638` ou `tcp://192.168.1.50:6638` (port 6638 par défaut). Avant installation, Élise vérifie que l’adresse répond.
 
 ## Modèles et technologies connus
 
@@ -55,10 +57,16 @@ L’agent rassemble plusieurs signaux au lieu de se fier au seul nom du port :
 - liens stables `/dev/serial/by-id`, puis `/dev/serial/by-path` en repli ;
 - VID:PID, fabricant, produit et numéro de série lus dans sysfs/udev ;
 - pilote noyau, port réellement résolu, stabilité du chemin et processus qui l’occupe ;
-- annonces mDNS des coordinateurs réseau et adresses mémorisées ;
+- annonces mDNS des coordinateurs réseau (recherchées en parallèle, 8 s au plus par service) et adresses mémorisées ;
 - correspondances exactes ou pondérées de la base de modèles.
 
-Le scan retourne toutes les clés, y compris les clés inconnues, occupées ou multiples. Un branchement/débranchement déclenche aussi l’unité systemd par udev. Le lien `by-id` permet de retrouver la même clé après un redémarrage ou un changement de numéro `ttyUSB`.
+Le scan retourne toutes les clés, y compris les clés inconnues, occupées ou multiples.
+
+### Recherche combinée
+
+`POST /zigbee/adapter/scan` avec `{ "network": true }` lance dans la même requête le scan USB et la recherche mDNS, qui avance pendant ce temps sans bloquer le scan USB. La réponse est un `ZigbeeStatus` classique avec, en plus, `scan: { usb, network }`, où chaque canal vaut `ok`, `failed` (erreur ou trop lent), `unavailable` (pas d’`avahi-browse` sur la box) ou `skipped` (non demandé). Un canal en échec ne vide jamais la liste de l’autre. Sans `network`, le scan reste USB seul. Les clés réseau trouvées sont gardées 90 s par l’agent : le statut simple, relevé toutes les 3 s par les écrans, continue à les montrer entre deux recherches réseau.
+
+Côté écrans (`zigbeeSearch` dans `packages/contracts`), si la requête combinée elle-même échoue (délai dépassé), la box seule est cherchée aussitôt et le réseau est signalé comme non abouti. Le texte affiché vient de `zigbeeSearchNotice` : rien si tout va bien, une phrase simple si un canal a échoué, le texte d’aide si aucune autre clé n’est trouvée. Les écrans web et mobile relancent la recherche combinée toutes les `ZIGBEE_NETWORK_SEARCH_SECONDS` (30) secondes tant qu’ils sont ouverts, sans afficher de rotation ni d’erreur. Un branchement/débranchement déclenche aussi l’unité systemd par udev. Le lien `by-id` permet de retrouver la même clé après un redémarrage ou un changement de numéro `ttyUSB`.
 
 ### Ambiguïtés et sonde
 
@@ -88,12 +96,16 @@ Tout échec restaure les fichiers sauvegardés et redémarre l’ancien service.
 ### API et démo
 
 - `GET /zigbee/adapter` : clé actuelle, santé, coordinateur, nombre d’appareils, candidats et tâche en cours ;
-- `POST /zigbee/adapter/scan` : recherche USB et, sur demande, réseau ;
+- `POST /zigbee/adapter/scan` : recherche USB et, avec `{ "network": true }`, réseau en même temps (voir plus haut) ;
 - `POST /zigbee/adapter/probe` : identification sûre d’un candidat ambigu ;
 - `POST /zigbee/adapter/network/test` et `/network/forget` : gestion des adresses réseau ;
 - `POST /zigbee/adapter/install`, `GET /install`, `POST /install/cancel` : lancement, progression et annulation.
 
-Le dashboard et l’app mobile utilisent les mêmes schémas, aides de présentation et simulateur de `packages/contracts`. La démo commence avec un Sonoff ZBDongle-E sain ; **Détecter** fait apparaître une seconde clé ambiguë, puis simule la sonde et toutes les étapes d’installation. Une technologie volontairement incorrecte simule un échec et le rollback.
+Le dashboard et l’app mobile utilisent les mêmes schémas, aides de présentation et simulateur de `packages/contracts`. La démo commence avec un Sonoff ZBDongle-E sain ; **Chercher une clé** fait apparaître en même temps une seconde clé USB ambiguë (« Branchée sur la box ») et un SMLIGHT SLZB-06M sur le réseau (« Sur le réseau de la maison », `192.168.1.50`), puis simule la sonde et toutes les étapes d’installation (de l’une ou l’autre clé). Une technologie volontairement incorrecte simule un échec et le rollback.
+
+La recherche de la démo dure 3,5 s, comme sur une vraie box, pour que l’état « recherche en cours » soit visible. D’autres situations s’ouvrent avec `?zigbee=empty` (la clé marche et rien d’autre n’est trouvé), `none` (aucune clé), `new` (nouvelle clé branchée) ou `missing` (clé débranchée) dans l’URL de la démo web ; côté mobile, avec `EXPO_PUBLIC_ZIGBEE_DEMO=<situation>` au moment du bundle (`EXPO_PUBLIC_ZIGBEE_DEMO_SEARCH_MS` allonge la recherche pour les captures). Les flux Maestro `apps/mobile/.maestro/zigbee-settings.yaml` et `zigbee-settings-empty.yaml` capturent chaque état.
+
+L’écran reprend les éléments de l’ajout de capteur (`sensor-setup.css` côté web via `.ss-scope`, `src/sensors/ui.tsx` côté mobile) : carte de la clé avec dessin et pastille d’état, détails techniques repliés, radar pendant la recherche, état vide avec les deux possibilités, cartes de résultats avec une action principale, liste d’étapes pendant l’installation et page « clé installée ».
 
 ## Vérifications et dépannage
 

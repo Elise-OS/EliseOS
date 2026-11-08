@@ -65,6 +65,48 @@ describe('ZigbeeAgentClient', () => {
     expect(JSON.parse(received)).toEqual({ candidateId: 'a1b2c3d4e5f6', adapter: 'ember' });
   });
 
+  it('asks for the box and the home network in one scan and keeps the outcome of each channel', async () => {
+    let received = '';
+    let url = '';
+    const client = await agentReturning((request, response) => {
+      url = `${request.method} ${request.url}`;
+      request.on('data', (chunk) => (received += String(chunk)));
+      request.on('end', () => {
+        response.end(
+          JSON.stringify({
+            state: 'NO_KEY',
+            current: null,
+            candidates: [],
+            install: idleInstall,
+            issues: [],
+            checkedAt: '2026-06-12T10:00:00.000Z',
+            scan: { usb: 'ok', network: 'failed' },
+          }),
+        );
+      });
+    });
+    const status = await client.scan(true);
+    expect(url).toBe('POST /scan');
+    expect(JSON.parse(received)).toEqual({ network: true });
+    expect(status.scan).toEqual({ usb: 'ok', network: 'failed' });
+  });
+
+  it('still accepts the answer of an older agent that does not report the channels', async () => {
+    const client = await agentReturning((_request, response) => {
+      response.end(
+        JSON.stringify({
+          state: 'NO_KEY',
+          current: null,
+          candidates: [],
+          install: idleInstall,
+          issues: [],
+          checkedAt: '2026-06-12T10:00:00.000Z',
+        }),
+      );
+    });
+    await expect(client.scan(true)).resolves.toMatchObject({ state: 'NO_KEY' });
+  });
+
   it('turns a refusal of the agent into a 400 and its failures into a 503', async () => {
     const refusing = await agentReturning((_request, response) => {
       response.statusCode = 400;

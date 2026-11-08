@@ -140,3 +140,67 @@ test('the view helpers decide what the screens show', async () => {
   assert.equal(zigbeeRecentResult(finished, Date.parse('2026-06-12T11:00:00Z')), null);
   assert.equal(zigbeeRecentResult(status.install), null);
 });
+
+test('the search notice tells what failed without hiding the other channel', async () => {
+  const { zigbeeSearchNotice, zigbeeCandidateOrigin } = await import('../dist/index.js');
+  const status = zigbeeStatusSchema.parse(fixture);
+  const [key] = status.candidates;
+  const ok = { usb: 'ok', network: 'ok' };
+  assert.equal(zigbeeSearchNotice(ok, [key]), null);
+  assert.equal(zigbeeSearchNotice(ok, []), 'none');
+  assert.equal(zigbeeSearchNotice({ usb: 'ok', network: 'unavailable' }, []), 'none');
+  assert.equal(zigbeeSearchNotice({ usb: 'ok', network: 'failed' }, [key]), 'networkFailed');
+  assert.equal(zigbeeSearchNotice({ usb: 'ok', network: 'failed' }, []), 'networkFailed');
+  assert.equal(zigbeeSearchNotice({ usb: 'failed', network: 'ok' }, [key]), 'usbFailed');
+  assert.equal(zigbeeSearchNotice({ usb: 'failed', network: 'failed' }, []), 'bothFailed');
+  assert.equal(zigbeeSearchNotice(undefined, []), 'none');
+  assert.equal(zigbeeCandidateOrigin(key), 'box');
+  assert.equal(zigbeeCandidateOrigin({ ...key, kind: 'network' }), 'network');
+});
+
+test('the combined search falls back to the box alone when the network search breaks', async () => {
+  const { zigbeeSearch } = await import('../dist/index.js');
+  const status = zigbeeStatusSchema.parse(fixture);
+  const calls = [];
+  const together = await zigbeeSearch(async (network) => {
+    calls.push(network);
+    return { ...status, scan: { usb: 'ok', network: 'ok' } };
+  });
+  assert.deepEqual(calls, [true]);
+  assert.deepEqual(together.scan, { usb: 'ok', network: 'ok' });
+
+  const fallback = [];
+  const partial = await zigbeeSearch(async (network) => {
+    fallback.push(network);
+    if (network) throw new Error('timeout');
+    return status;
+  });
+  assert.deepEqual(fallback, [true, false]);
+  assert.deepEqual(partial.scan, { usb: 'ok', network: 'failed' });
+  assert.equal(partial.candidates.length, status.candidates.length);
+
+  await assert.rejects(
+    zigbeeSearch(async () => {
+      throw new Error('agent down');
+    }),
+    /agent down/,
+  );
+});
+
+test('a network address can be typed with or without port', async () => {
+  const { parseZigbeeNetworkAddress } = await import('../dist/index.js');
+  assert.deepEqual(parseZigbeeNetworkAddress('192.168.1.50'), { host: '192.168.1.50', port: 6638 });
+  assert.deepEqual(parseZigbeeNetworkAddress(' 192.168.1.50:6639 '), {
+    host: '192.168.1.50',
+    port: 6639,
+  });
+  assert.deepEqual(parseZigbeeNetworkAddress('tcp://slzb-06.local:6638/'), {
+    host: 'slzb-06.local',
+    port: 6638,
+  });
+  assert.equal(parseZigbeeNetworkAddress(''), null);
+  assert.equal(parseZigbeeNetworkAddress('192.168.1.50:99999'), null);
+  assert.equal(parseZigbeeNetworkAddress('192.168.1.50:0'), null);
+  assert.equal(parseZigbeeNetworkAddress('http://x y'), null);
+  assert.equal(parseZigbeeNetworkAddress('/dev/ttyUSB0'), null);
+});

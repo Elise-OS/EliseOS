@@ -102,7 +102,7 @@ describe('ZigbeeController requests', () => {
     );
   });
 
-  it('scans USB only by default and the network when asked', async () => {
+  it('scans the box only by default and the box plus the home network when asked', async () => {
     const { controller, agent } = build();
     await controller.scan(request('local'), undefined);
     await controller.scan(request('local'), { network: true });

@@ -5,6 +5,7 @@ import json
 import os
 import pathlib
 import re
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -379,6 +380,115 @@ class ParsingTests(unittest.TestCase):
         self.assertEqual(candidate["port"], "tcp://192.168.1.50:6638")
         described = agent.describe(MODELS, candidate, None)
         self.assertEqual(described["identity"]["modelId"], "smlight-slzb-06m")
+
+
+class CombinedSearchTests(unittest.TestCase):
+    """One search = USB keys + mDNS keys; one channel failing never hides the other."""
+
+    SLZB = {"host": "192.168.1.50", "port": 6638, "name": "slzb-06m", "service": "_slzb-06"}
+
+    def usb_key(self):
+        return {
+            "id": agent.candidate_id("/dev/serial/by-id/usb-x"),
+            "kind": "usb",
+            "port": "/dev/serial/by-id/usb-x",
+            "portStability": "by-id",
+            "device": "/dev/ttyUSB0",
+            "byIdName": "usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_abc-if00-port0",
+            "usb": usb("10c4", "ea60", "Sonoff Zigbee 3.0 USB Dongle Plus V2", "ITead"),
+            "driver": "cp210x",
+            "network": None,
+            "busyBy": None,
+        }
+
+    def search(self, usb_result, network_result, include_network=True):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "elise.env").write_text("ZIGBEE_ADAPTER=/dev/null\n")
+            agent.NETWORK_MEMORY.update(at=0.0, items=[])
+            patches = [
+                patch.object(agent, "ENV_FILE", root / "elise.env"),
+                patch.object(agent, "STATE_DIR", root / "state"),
+                patch.object(agent, "container_id", return_value=None),
+                patch.object(agent, "container_state", return_value="missing"),
+                patch.object(agent, "read_bridge", return_value=None),
+                patch.object(agent, "scan_usb", **usb_result),
+                patch.object(agent, "scan_network", **network_result),
+            ]
+            for item in patches:
+                item.start()
+            try:
+                return agent.build_status(include_network=include_network), agent.build_status()
+            finally:
+                for item in patches:
+                    item.stop()
+                agent.NETWORK_MEMORY.update(at=0.0, items=[])
+
+    def network_key(self):
+        return agent.network_candidate(self.SLZB["host"], 6638, "slzb-06m", "_slzb-06")
+
+    def test_usb_and_network_keys_come_back_in_one_list(self):
+        full, plain = self.search(
+            {"return_value": [self.usb_key()]}, {"return_value": ([self.network_key()], "ok")}
+        )
+        self.assertEqual([c["kind"] for c in full["candidates"]], ["usb", "network"])
+        self.assertEqual(full["scan"], {"usb": "ok", "network": "ok"})
+        # The cheap status polled in between keeps showing the network key found a moment ago.
+        self.assertEqual([c["kind"] for c in plain["candidates"]], ["usb", "network"])
+        self.assertEqual(plain["scan"]["network"], "skipped")
+
+    def test_a_failing_network_search_keeps_the_usb_keys(self):
+        full, _ = self.search({"return_value": [self.usb_key()]}, {"side_effect": RuntimeError("avahi")})
+        self.assertEqual([c["kind"] for c in full["candidates"]], ["usb"])
+        self.assertEqual(full["scan"], {"usb": "ok", "network": "failed"})
+
+    def test_a_failing_usb_scan_keeps_the_network_keys(self):
+        full, _ = self.search({"side_effect": OSError("sysfs")}, {"return_value": ([self.network_key()], "ok")})
+        self.assertEqual([c["kind"] for c in full["candidates"]], ["network"])
+        self.assertEqual(full["scan"], {"usb": "failed", "network": "ok"})
+
+    def test_missing_avahi_is_reported_without_failing(self):
+        full, _ = self.search({"return_value": [self.usb_key()]}, {"return_value": ([], "unavailable")})
+        self.assertEqual(full["scan"]["network"], "unavailable")
+        self.assertEqual(len(full["candidates"]), 1)
+
+    def test_network_is_not_searched_unless_asked(self):
+        full, _ = self.search(
+            {"return_value": [self.usb_key()]}, {"return_value": ([self.network_key()], "ok")}, False
+        )
+        self.assertEqual(full["scan"], {"usb": "ok", "network": "skipped"})
+        self.assertEqual([c["kind"] for c in full["candidates"]], ["usb"])
+
+    def test_nothing_found_is_an_empty_list_not_an_error(self):
+        full, _ = self.search({"return_value": []}, {"return_value": ([], "ok")})
+        self.assertEqual(full["candidates"], [])
+        self.assertEqual(full["scan"], {"usb": "ok", "network": "ok"})
+        self.assertEqual(full["state"], "NO_KEY")
+
+    def test_a_slow_service_does_not_block_the_others(self):
+        calls = []
+
+        def browse(_avahi, service):
+            calls.append(service)
+            if service == "_slzb-06._tcp":
+                raise subprocess.TimeoutExpired("avahi-browse", 8)
+            return [self.SLZB] if service == "_zigstar_gw._tcp" else []
+
+        with patch.object(agent.shutil, "which", return_value="/usr/bin/avahi-browse"), patch.object(
+            agent, "browse_service", side_effect=browse
+        ):
+            found, state = agent.scan_network()
+        self.assertEqual(state, "ok")
+        self.assertEqual([item["port"] for item in found], ["tcp://192.168.1.50:6638"])
+        self.assertCountEqual(calls, agent.MDNS_SERVICES)
+
+    def test_every_service_failing_is_a_failed_search(self):
+        with patch.object(agent.shutil, "which", return_value="/usr/bin/avahi-browse"), patch.object(
+            agent, "browse_service", side_effect=OSError("no daemon")
+        ):
+            self.assertEqual(agent.scan_network(), ([], "failed"))
+        with patch.object(agent.shutil, "which", return_value=None):
+            self.assertEqual(agent.scan_network(), ([], "unavailable"))
 
 
 class EnvAndConfigTests(unittest.TestCase):

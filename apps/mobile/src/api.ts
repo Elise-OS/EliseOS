@@ -44,6 +44,7 @@ import type {
   ZigbeeStatus,
 } from '@elise/contracts';
 import type { Installation } from '@elise/contracts';
+import { ZIGBEE_DEMO_SEARCH_MS } from '@elise/contracts';
 import type { SavedServer } from './discovery/types';
 import { preferredServerUrls, rememberActiveServerUrl } from './discovery/helpers';
 import { isDemoServer, mockDemoRequest } from './demo/mock-api';
@@ -299,7 +300,18 @@ const request = async <T>(
   init?: RequestInit,
   timeoutMs = REQUEST_TIMEOUT_MS,
 ) => {
-  if (isDemoServer(server)) return mockDemoRequest<T>(path, init);
+  if (isDemoServer(server)) {
+    // A Zigbee key search listens to the home network for a moment, as on a real box.
+    // EXPO_PUBLIC_ZIGBEE_DEMO_SEARCH_MS lengthens it for the screenshots of the searching state.
+    if (path.startsWith('/zigbee/adapter/scan'))
+      await new Promise((resolve) =>
+        setTimeout(
+          resolve,
+          Number(process.env.EXPO_PUBLIC_ZIGBEE_DEMO_SEARCH_MS) || ZIGBEE_DEMO_SEARCH_MS,
+        ),
+      );
+    return mockDemoRequest<T>(path, init);
+  }
 
   let response: Response | undefined;
   let lastError: unknown;
@@ -371,6 +383,11 @@ export const mobileApi = {
     request<ZigbeeProbeResult>(server, '/zigbee/adapter/probe', token, {
       method: 'POST',
       body: JSON.stringify({ candidateId }),
+    }),
+  testZigbeeNetwork: (server: SavedServer, token: string, host: string, port: number) =>
+    request<ZigbeeProbeResult>(server, '/zigbee/adapter/network/test', token, {
+      method: 'POST',
+      body: JSON.stringify({ host, port }),
     }),
   installZigbee: (server: SavedServer, token: string, input: ZigbeeInstallRequest) =>
     request<ZigbeeInstall>(server, '/zigbee/adapter/install', token, {

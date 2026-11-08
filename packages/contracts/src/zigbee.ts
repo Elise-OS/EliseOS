@@ -162,6 +162,16 @@ export const zigbeeStateSchema = z.enum([
   'INSTALLING',
 ]);
 
+/**
+ * How each channel of a search went: `ok`, `failed` (error or too slow), `unavailable` (the box
+ * cannot do it) or `skipped` (not asked). A failing channel never hides the results of the other.
+ */
+export const zigbeeSearchChannelSchema = z.enum(['ok', 'failed', 'unavailable', 'skipped']);
+export const zigbeeScanOutcomeSchema = z.object({
+  usb: zigbeeSearchChannelSchema,
+  network: zigbeeSearchChannelSchema,
+});
+
 export const zigbeeStatusSchema = z.object({
   state: zigbeeStateSchema,
   current: zigbeeCurrentSchema.nullable(),
@@ -173,8 +183,11 @@ export const zigbeeStatusSchema = z.object({
    */
   issues: z.array(z.string()),
   checkedAt: z.iso.datetime(),
+  /** Present on the answer of a search (older boxes do not send it). */
+  scan: zigbeeScanOutcomeSchema.optional(),
 });
 
+export type ZigbeeScanOutcome = z.infer<typeof zigbeeScanOutcomeSchema>;
 export type ZigbeeCandidate = z.infer<typeof zigbeeCandidateSchema>;
 export type ZigbeeIdentity = z.infer<typeof zigbeeIdentitySchema>;
 export type ZigbeeOption = z.infer<typeof zigbeeOptionSchema>;
@@ -218,6 +231,7 @@ export const zigbeeInstallRequestSchema = z
   });
 export type ZigbeeInstallRequest = z.input<typeof zigbeeInstallRequestSchema>;
 
+/** `network: true` searches the home network too, next to the keys plugged on the box. */
 export const zigbeeScanRequestSchema = z.object({ network: z.boolean().optional() });
 export const zigbeeProbeRequestSchema = z.object({
   candidateId: z.string().regex(/^[0-9a-f]{12}$/),

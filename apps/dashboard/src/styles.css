@@ -8,327 +8,793 @@
   font-display: swap;
 }
 
-/* Zigbee key settings */
-.zigbee-key .update-card-body {
+/* Zigbee key settings: built from the sensor setup pieces (sensor-setup.css, `.ss-scope`). */
+.zk-body {
   display: grid;
-  gap: 18px;
+  gap: 16px;
+  margin-top: 22px;
+  color: var(--ss-ink);
 }
-.zigbee-key-loading,
-.zigbee-key-watching {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  color: #587080;
+.zk-body h3,
+.zk-body h4,
+.zk-body p,
+.zk-body dl,
+.zk-body dd,
+.zk-body ol,
+.zk-body ul {
+  margin: 0;
 }
 .zigbee-key-loading {
+  display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 10px;
   min-height: 180px;
-}
-.zigbee-key-watching {
-  margin: -4px 2px 0;
-  font-size: 0.88rem;
-}
-.zigbee-key-watching svg,
-.zigbee-key-loading svg {
-  width: 17px;
-  height: 17px;
+  color: var(--ss-ink-2);
 }
 .zigbee-key-error {
   display: flex;
   align-items: center;
-  gap: 16px;
-  min-height: 120px;
+  gap: 18px;
+  min-height: 140px;
+}
+.zigbee-key-error .ss-hero-icon {
+  flex: none;
+  margin: 0;
 }
 .zigbee-key-error > div {
   flex: 1;
 }
-.zigbee-key-error h3,
-.zigbee-key-error p {
+.zigbee-key-error h3 {
   margin: 0;
+  font-size: 1.15rem;
 }
 .zigbee-key-error p {
-  margin-top: 5px;
-  color: #60717b;
+  margin: 5px 0 0;
+  color: var(--ss-ink-2);
 }
-.zigbee-key-current,
-.zigbee-candidate,
-.zigbee-result,
-.zigbee-confirm,
-.zigbee-advanced-body {
-  border: 1px solid #dce7e9;
-  border-radius: 18px;
-  background: #fff;
+
+/* Buttons: the setup buttons, a little more compact inside a card. */
+.zk-body .zk-button,
+.zigbee-key-error .zk-button {
+  flex: 0 0 auto;
+  max-width: none;
+  min-height: 46px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 0.97rem !important;
+  cursor: pointer;
 }
-.zigbee-key-current {
-  padding: 20px;
+.zk-button svg {
+  width: 18px;
+  height: 18px;
 }
-.zigbee-key-current > header,
-.zigbee-candidate > header,
-.zigbee-result,
-.zigbee-actions,
-.zigbee-badges {
+.zk-button:disabled {
+  cursor: default;
+}
+.zk-actions {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
 }
-.zigbee-key-badge {
+.zk-actions--start {
+  justify-content: flex-start;
+}
+.zk-actions--center {
+  justify-content: center;
+}
+
+/* Pills: state of the service, how sure the box is about a key. */
+.zk-pill {
   display: inline-flex;
   align-items: center;
-  padding: 5px 9px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 750;
-  background: #edf3f4;
-  color: #4c6874;
-}
-.zigbee-key-badge--ok,
-.zigbee-key-badge--recommended,
-.zigbee-key-badge--supported {
-  background: #e5f5ec;
-  color: #237148;
-}
-.zigbee-key-badge--new {
-  background: #e7f2fb;
-  color: #24658e;
-}
-.zigbee-key-badge--warn,
-.zigbee-key-badge--experimental,
-.zigbee-key-badge--discouraged {
-  background: #fff0d9;
-  color: #8a5918;
-}
-.zigbee-facts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  margin: 18px 0 0;
-  overflow: hidden;
-  border: 1px solid #e3eaec;
-  border-radius: 14px;
-  background: #e3eaec;
-}
-.zigbee-fact {
-  min-width: 0;
-  padding: 13px 15px;
-  background: #f8faf9;
-}
-.zigbee-fact dt {
-  color: #6a7d86;
-  font-size: 0.76rem;
-  font-weight: 700;
-}
-.zigbee-fact dd {
-  margin: 4px 0 0;
-  overflow-wrap: anywhere;
-  color: #173b4f;
-  font-weight: 750;
-}
-.zigbee-service {
-  display: flex;
-  align-items: center;
   gap: 7px;
+  padding: 4px 11px 4px 9px;
+  border-radius: 999px;
+  background: var(--ss-fill);
+  color: var(--ss-ink-2);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1.4;
+  white-space: nowrap;
 }
-.zigbee-service > span {
+.zk-pill > span {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #a0aeb4;
+  background: currentcolor;
 }
-.zigbee-service--running > span {
-  background: #35a568;
-  box-shadow: 0 0 0 3px #dff3e8;
+.zk-pill--running,
+.zk-pill--ok,
+.zk-pill--recommended {
+  background: var(--ss-success-soft);
+  color: #17744f;
 }
-.zigbee-service--starting > span {
-  background: #df9b2f;
+.zk-pill--running > span {
+  box-shadow: 0 0 0 3px rgb(31 148 103 / 0.18);
 }
-.zigbee-technical {
-  margin-top: 14px;
+.zk-pill--starting,
+.zk-pill--confirm,
+.zk-pill--experimental,
+.zk-pill--discouraged {
+  background: var(--ss-warning-soft);
+  color: #8a520c;
 }
-.zigbee-technical > summary {
+.zk-pill--stopped,
+.zk-pill--unknown {
+  background: var(--ss-fill);
+  color: var(--ss-ink-2);
+}
+.zk-pill--recommended {
+  padding-left: 11px;
+}
+
+/* Where a key sits: on the box (USB) or on the home network. */
+.zk-origin {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--ss-accent);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.zk-origin svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.zk-origin--network {
+  color: #3d6aa8;
+}
+.zk-origin-address {
+  padding: 1px 8px;
+  border-radius: 7px;
+  background: var(--ss-fill);
+  color: var(--ss-ink-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Picture of a key, as the product photo of the sensor setup. */
+.zk-picture {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 124px;
+  height: 124px;
+}
+.zk-picture .ss-found-photo {
+  width: 112px;
+  height: 112px;
+  border-radius: 30px;
+  background: radial-gradient(circle at 50% 28%, #ffffff, #e6eef3 82%);
+}
+.zk-picture .ss-found-photo > svg {
+  width: 84%;
+  height: 84%;
+}
+.zk-picture--small {
+  width: 76px;
+  height: 76px;
+}
+.zk-picture--small .ss-found-photo {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+}
+.zk-picture--muted .ss-found-photo > svg {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+.zk-picture-badge {
+  right: 0;
+  bottom: 0;
+}
+.zk-picture-badge--new {
+  background: var(--ss-accent);
+}
+.zk-picture-badge--warn {
+  background: #c27a17;
+}
+
+/* The key in use: one calm card that says it all. */
+.zk-hero {
+  display: grid;
+  gap: 18px;
+  padding: 22px 24px 18px;
+  border: 1px solid var(--ss-line);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 0% 0%, rgb(31 148 103 / 0.08), transparent 42%),
+    linear-gradient(180deg, #ffffff, #fbfcfd);
+  box-shadow: 0 10px 30px rgb(16 46 73 / 0.06);
+}
+.zk-hero--new {
+  background:
+    radial-gradient(circle at 0% 0%, rgb(36 127 164 / 0.1), transparent 42%),
+    linear-gradient(180deg, #ffffff, #fbfcfd);
+}
+.zk-hero--warn {
+  border-color: #f0dcbc;
+  background:
+    radial-gradient(circle at 0% 0%, rgb(194 122 23 / 0.1), transparent 42%),
+    linear-gradient(180deg, #ffffff, #fffdf9);
+}
+.zk-hero--idle {
+  background: linear-gradient(180deg, #ffffff, #fbfcfd);
+}
+.zk-hero-main {
   display: flex;
   align-items: center;
-  gap: 7px;
-  cursor: pointer;
-  color: #416579;
-  font-weight: 700;
+  gap: 22px;
 }
-.zigbee-technical > summary svg {
-  width: 16px;
-  transition: transform 160ms ease;
-}
-.zigbee-technical[open] > summary svg {
-  transform: rotate(90deg);
-}
-.zigbee-technical code {
-  display: block;
-  margin-top: 10px;
-  padding: 12px;
-  overflow-wrap: anywhere;
-  border-radius: 10px;
-  background: #f3f6f7;
-  font-size: 0.78rem;
-}
-.zigbee-facts--technical {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.zigbee-key-found {
+.zk-hero-copy {
   display: grid;
-  gap: 12px;
-}
-.zigbee-key-found > header h3,
-.zigbee-key-found > header p {
-  margin: 0;
-}
-.zigbee-key-found > header p {
-  margin-top: 4px;
-  color: #667b85;
-}
-.zigbee-candidate {
-  padding: 18px;
-  box-shadow: 0 6px 22px rgb(29 55 79 / 5%);
-}
-.zigbee-candidate > header > div {
   flex: 1;
+  gap: 6px;
   min-width: 0;
 }
-.zigbee-candidate h4,
-.zigbee-candidate p {
+.zk-hero-eyebrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.zk-hero-eyebrow .ss-eyebrow {
   margin: 0;
 }
-.zigbee-candidate header p,
-.zigbee-candidate-meta {
-  margin-top: 3px;
-  color: #667b85;
-  font-size: 0.88rem;
+.zk-hero h3 {
+  color: var(--navy-deep, #102e49);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 1.65rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
-.zigbee-candidate-icon,
-.zigbee-result-icon {
+.zk-hero-copy > p {
+  color: var(--ss-ink-2);
+  font-size: 1rem;
+}
+.zk-hero-search {
+  align-self: center;
+}
+.zk-facts {
   display: grid;
-  width: 42px;
-  height: 42px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 13px;
-  color: #24658e;
-  background: #e8f3f8;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 14px 0 0;
+  border-top: 1px solid var(--ss-line);
 }
-.zigbee-notes {
-  margin: 14px 0 0;
-  padding-left: 20px;
-  color: #526e7b;
-  font-size: 0.9rem;
-}
-.zigbee-notes li + li {
-  margin-top: 5px;
-}
-.zigbee-ambiguous,
-.zigbee-confirm,
-.zigbee-advanced-body {
-  margin-top: 14px;
-  padding: 16px;
-  background: #f7fafb;
-}
-.zigbee-options,
-.zigbee-network-choice {
+.zk-facts > div {
   display: grid;
-  gap: 8px;
-  margin: 13px 0 0;
-  padding: 0;
-  border: 0;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 18px;
 }
-.zigbee-options legend,
-.zigbee-network-choice legend {
-  margin-bottom: 7px;
-  color: #365a6c;
-  font-weight: 750;
+.zk-facts > div:first-child {
+  padding-left: 0;
 }
-.zigbee-options label,
-.zigbee-network-choice label {
+.zk-facts > div + div {
+  border-left: 1px solid var(--ss-line);
+}
+.zk-facts dt {
+  color: var(--ss-ink-3);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.zk-facts dd {
+  overflow-wrap: anywhere;
+  color: var(--ss-ink);
+  font-size: 1.02rem;
+  font-weight: 650;
+}
+.zk-facts dd .zk-origin {
+  font-size: 1rem;
+}
+.zk-tips {
+  display: grid;
+  gap: 6px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: var(--ss-fill);
+  list-style: none;
+}
+.zk-tips li {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 12px;
-  border: 1px solid #d8e3e6;
-  border-radius: 12px;
-  background: #fff;
+  color: var(--ss-ink-2);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.zk-tips svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  margin-top: 1px;
+  color: #b07a12;
+}
+
+/* Folded technical details, aligned label / value rows. */
+.zk-technical > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 2px;
+  border-radius: 8px;
+  color: var(--ss-accent);
+  font-size: 0.92rem;
+  font-weight: 650;
+  list-style: none;
   cursor: pointer;
 }
-.zigbee-options label.is-selected,
-.zigbee-network-choice label.is-selected {
-  border-color: #4c91b5;
-  box-shadow: 0 0 0 2px rgb(76 145 181 / 13%);
+.zk-technical > summary::-webkit-details-marker {
+  display: none;
 }
-.zigbee-options span,
-.zigbee-network-choice span {
+.zk-technical > summary svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 180ms ease;
+}
+.zk-technical[open] > summary > svg:first-child {
+  transform: rotate(90deg);
+}
+.zk-technical--tips > summary > svg:first-child,
+.zk-technical--tips[open] > summary > svg:first-child {
+  transform: none;
+  color: #b07a12;
+}
+.zk-technical > dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 28px;
+  margin-top: 10px;
+  padding: 6px 18px;
+  border-radius: 16px;
+  background: var(--ss-fill);
+}
+.zk-technical > dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--ss-fill-2);
+}
+.zk-technical > dl dt {
+  color: var(--ss-ink-2);
+  font-size: 0.84rem;
+}
+.zk-technical > dl dd {
+  overflow-wrap: anywhere;
+  color: var(--ss-ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+}
+.zk-technical code {
+  display: block;
+  margin-top: 8px;
+  padding: 12px 14px;
+  overflow-wrap: anywhere;
+  border-radius: 12px;
+  background: var(--ss-fill);
+  color: var(--ss-ink-2);
+  font-size: 0.78rem;
+  text-align: left;
+}
+.zk-technical--tips .zk-tips {
+  margin-top: 8px;
+}
+
+.zk-watching {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -4px 4px 0;
+  color: var(--ss-ink-3);
+  font-size: 0.86rem;
+}
+.zk-watching > span {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ss-accent);
+}
+.zk-watching > span::after {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: rgb(36 127 164 / 0.3);
+  content: '';
+  animation: zk-pulse 2.4s ease-out infinite;
+}
+@keyframes zk-pulse {
+  from {
+    opacity: 1;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+.zk-notice {
+  align-items: center;
+}
+.zk-notice a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+  font-weight: 650;
+}
+.zk-notice a svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Searching: the radar of the sensor search, with what is being looked at. */
+.zk-search,
+.zk-install {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 22px 28px;
+  border: 1px solid var(--ss-line);
+  border-radius: 24px;
+  background: linear-gradient(180deg, #ffffff, #f8fbfc);
+}
+.zk-radar {
+  flex: none;
+  width: 176px;
+  height: 176px;
+  margin: 0;
+}
+.zk-radar .ss-radar-wave {
+  width: 100px;
+  height: 100px;
+}
+.zk-radar .ss-radar-ring {
+  width: 116px;
+  height: 116px;
+}
+.zk-radar .ss-radar-core {
+  width: 96px;
+  height: 96px;
+}
+.zk-radar .ss-radar-core > svg {
+  width: 38px;
+  height: 38px;
+}
+.zk-install .zk-radar .ss-radar-core > svg {
+  width: 74px;
+  height: 74px;
+}
+.zk-search-copy,
+.zk-install-copy {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+.zk-search-copy h3,
+.zk-install-copy h3,
+.zk-empty h3,
+.zk-found h3 {
+  color: var(--ss-ink);
+  font-size: 1.25rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.zk-search-copy > p,
+.zk-install-copy > p,
+.zk-empty header p,
+.zk-found header p {
+  color: var(--ss-ink-2);
+}
+.zk-install-copy .ss-eyebrow {
+  margin: 0;
+}
+.zk-checklist {
+  max-width: 420px;
+  margin: 6px 0 0;
+}
+.zk-checklist-icon {
+  width: 17px !important;
+  height: 17px !important;
+  color: var(--ss-ink-3);
+}
+.zk-progress {
+  height: 6px;
+  max-width: 420px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ss-fill-2);
+}
+.zk-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ss-accent);
+  transition: width 1s linear;
+}
+.zk-install-copy .zk-actions {
+  margin-top: 6px;
+}
+
+/* Nothing found: the two ways to reach a key, side by side. */
+.zk-empty {
+  display: grid;
+  gap: 16px;
+  padding: 22px 24px;
+  border: 1px solid var(--ss-line);
+  border-radius: 24px;
+  background: #fff;
+}
+.zk-empty header {
+  display: grid;
+  gap: 4px;
+}
+.zk-empty-ways {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.zk-empty-ways article {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--ss-fill);
+}
+.zk-empty-ways article > div {
+  display: grid;
+  gap: 4px;
+}
+.zk-empty-ways p {
+  color: var(--ss-ink-2);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.zk-empty-ways .ss-found-photo {
+  background: #fff;
+}
+
+/* Keys found. */
+.zk-found {
+  display: grid;
+  gap: 12px;
+}
+.zk-found > header {
+  display: grid;
+  gap: 4px;
+  margin: 6px 4px 0;
+}
+.zk-candidate {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--ss-line);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 6px 22px rgb(16 46 73 / 0.05);
+}
+.zk-candidate > .zk-picture {
+  align-self: center;
+}
+.zk-candidate-copy {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  min-width: 0;
+}
+.zk-candidate-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.zk-candidate h4 {
+  color: var(--ss-ink);
+  font-size: 1.08rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.zk-candidate-meta {
+  color: var(--ss-ink-3);
+  font-size: 0.84rem;
+}
+.zk-candidate-text {
+  max-width: 560px;
+  color: var(--ss-ink-2);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.zk-candidate .ss-notice {
+  justify-self: stretch;
+}
+.zk-candidate-action {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-self: center;
+}
+.zk-candidate > .zk-confirm {
+  grid-column: 1 / -1;
+}
+
+/* Confirmation before installing. */
+.zk-confirm {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: var(--ss-fill);
+  text-align: left;
+}
+.zk-confirm h4 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ss-ink);
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+.zk-confirm h4 svg {
+  width: 20px;
+  height: 20px;
+  color: var(--ss-success);
+}
+.zk-confirm .ss-secondary {
+  background: #fff;
+  box-shadow: inset 0 0 0 1px var(--ss-line);
+}
+.zk-confirm > p {
+  color: var(--ss-ink-2);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.zk-choices {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.zk-choices legend {
+  margin-bottom: 8px;
+  padding: 0;
+  color: var(--ss-ink);
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+.zk-choices label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 15px;
+  border: 1.5px solid var(--ss-line);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+.zk-choices label.is-selected {
+  border-color: var(--ss-accent);
+  box-shadow: 0 0 0 3px rgb(36 127 164 / 0.12);
+}
+.zk-choices input {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 2px;
+  accent-color: var(--ss-primary);
+}
+.zk-choices label > span {
   display: grid;
   gap: 2px;
 }
-.zigbee-options small,
-.zigbee-network-choice small {
-  color: #6b7f88;
+.zk-choices strong {
+  font-size: 0.95rem;
 }
-.zigbee-understood {
-  background: #fff8e8 !important;
+.zk-choices small {
+  color: var(--ss-ink-2);
+  font-size: 0.85rem;
+  line-height: 1.45;
 }
-.zigbee-actions {
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  margin-top: 14px;
+.zk-choices label.zk-understood {
+  border-color: #efd8b0;
+  background: var(--ss-warning-soft);
 }
-.zigbee-result {
-  align-items: flex-start;
-  padding: 18px;
+.zk-candidate .zk-choices {
+  justify-self: stretch;
+  margin-top: 4px;
 }
-.zigbee-result--ok {
-  border-color: #bce3cd;
-  background: #f2fbf6;
+
+/* Result of an installation: the "installed" page of the sensor setup. */
+.zk-result {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 28px 28px 24px;
+  border: 1px solid var(--ss-line);
+  border-radius: 24px;
+  background: radial-gradient(circle at 50% 0%, rgb(31 148 103 / 0.1), transparent 55%), #fff;
+  text-align: center;
 }
-.zigbee-result--warn {
-  border-color: #efd1a5;
-  background: #fffaf1;
+.zk-result--warn {
+  background: radial-gradient(circle at 50% 0%, rgb(194 122 23 / 0.1), transparent 55%), #fff;
 }
-.zigbee-result-copy {
-  flex: 1;
-  min-width: 0;
+.zk-result--idle {
+  background: #fff;
 }
-.zigbee-result-copy h3,
-.zigbee-result-copy p {
+.zk-result-hero {
+  margin-bottom: 8px;
+}
+.zk-result .ss-done-photo > svg {
+  width: 84%;
+  height: 84%;
+}
+.zk-result .ss-hero-icon {
   margin: 0;
 }
-.zigbee-result-copy p {
-  margin-top: 5px;
+.zk-result .ss-eyebrow {
+  margin: 0;
 }
-.zigbee-result-reason {
-  color: #85501b;
-  font-weight: 650;
+.zk-result h3 {
+  color: var(--ss-ink);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
-.zigbee-rollback-steps {
-  padding-left: 20px;
+.zk-result-text {
+  max-width: 520px;
+  color: var(--ss-ink-2);
 }
-.zigbee-rollback-steps li {
-  display: flex;
+.zk-result .ss-notice {
+  max-width: 560px;
+  margin-top: 6px;
+}
+.zk-rollback {
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+  color: var(--ss-success);
+  font-size: 0.9rem;
+  font-weight: 600;
 }
-.zigbee-rollback-steps svg {
-  width: 17px;
+.zk-rollback svg {
+  width: 16px;
+  height: 16px;
 }
-.zigbee-steps-target {
-  margin: 10px 0 0;
-  text-align: center;
-  color: #607681;
-  font-size: 0.88rem;
+.zk-result .zk-actions {
+  margin-top: 10px;
 }
-.zigbee-steps ol {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+.zk-result > .zk-confirm {
+  width: min(560px, 100%);
 }
-.zigbee-advanced {
-  margin-top: 0;
-}
+
+/* Advanced mode. */
 .zigbee-advanced > summary {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   padding: 16px 18px;
   list-style: none;
   cursor: pointer;
@@ -342,72 +808,308 @@
   gap: 3px;
 }
 .zigbee-advanced > summary small {
-  color: #657983;
+  color: var(--ss-ink-2);
   line-height: 1.45;
 }
-.zigbee-advanced-body {
-  margin-top: 16px;
-}
-.zigbee-fields {
+.zk-advanced-body {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
+  padding: 0 18px 18px;
 }
-.zigbee-fields label,
-.zigbee-checkbox {
+.zk-advanced-group {
   display: grid;
-  gap: 6px;
-  color: #456374;
-  font-size: 0.86rem;
-  font-weight: 700;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: var(--ss-fill);
 }
-.zigbee-fields input,
-.zigbee-fields select {
-  width: 100%;
-  padding: 11px 12px;
-  border: 1px solid #cad9dd;
-  border-radius: 10px;
-  background: #fff;
-  color: #173b4f;
-}
-.zigbee-checkbox {
+.zk-advanced-group h4 {
   display: flex;
   align-items: center;
-  margin-top: 14px;
+  gap: 8px;
+  color: var(--ss-ink);
+  font-size: 1rem;
+  font-weight: 650;
 }
-.zigbee-network-address {
-  margin-top: 12px;
+.zk-advanced-group h4 svg {
+  width: 18px;
+  height: 18px;
+  color: var(--ss-accent);
 }
-.zigbee-forget {
-  margin-top: 12px;
-  color: #6a7d86;
-  font-size: 0.84rem;
+.zk-advanced-hint {
+  margin-top: -8px !important;
+  color: var(--ss-ink-2);
+  font-size: 0.88rem;
 }
-.zigbee-badges {
-  justify-content: flex-end;
-  flex-wrap: wrap;
+.zk-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 14px 16px;
 }
-@media (max-width: 760px) {
-  .zigbee-facts,
-  .zigbee-facts--technical,
-  .zigbee-fields {
-    grid-template-columns: 1fr;
+.zk-body .ss-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.zk-body .ss-field-label {
+  color: var(--ss-ink);
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+.zk-body .ss-field input,
+.zk-body .ss-field select {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid #d3dee5;
+  border-radius: 12px;
+  background-color: #fff;
+  color: var(--ss-ink);
+  font: inherit;
+  font-size: 0.95rem;
+}
+.zk-body .ss-field select {
+  padding-right: 42px;
+}
+.zk-body .ss-field input::placeholder {
+  color: var(--ss-ink-3);
+}
+.zk-body .ss-field input:focus,
+.zk-body .ss-field select:focus {
+  border-color: var(--ss-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(36 127 164 / 0.16);
+}
+.zk-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 6px 14px;
+  border: 1px solid #d3dee5;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+.zk-checkbox input {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  accent-color: var(--ss-primary);
+}
+.zk-checkbox > span {
+  display: grid;
+  gap: 1px;
+}
+.zk-checkbox strong {
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+.zk-checkbox small {
+  color: var(--ss-ink-3);
+  font-size: 0.78rem;
+}
+.zk-address {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+.zk-address .zk-button {
+  min-height: 48px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #d3dee5;
+}
+.zk-remembered {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  list-style: none;
+}
+.zk-remembered li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ss-ink-2);
+}
+.zk-remembered svg {
+  width: 16px;
+  height: 16px;
+  color: var(--ss-accent);
+}
+.zk-remembered code {
+  flex: 1;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+}
+.zk-remembered button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ss-danger);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.zk-remembered button:hover {
+  background: var(--ss-danger-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zk-watching > span::after {
+    animation: none;
   }
-  .zigbee-candidate > header {
-    align-items: flex-start;
+}
+
+/* Tablet */
+@media (max-width: 980px) {
+  .zk-hero-main {
     flex-wrap: wrap;
   }
-  .zigbee-badges {
+  .zk-hero-copy {
+    flex-basis: calc(100% - 150px);
+  }
+  .zk-hero-search {
     width: 100%;
-    justify-content: flex-start;
-    padding-left: 52px;
+  }
+  .zk-candidate {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .zk-candidate-action {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+}
+
+/* Phone */
+@media (max-width: 640px) {
+  .zk-hero,
+  .zk-empty,
+  .zk-candidate {
+    padding: 18px 16px;
+  }
+  .zk-hero-main {
+    gap: 14px;
+  }
+  .zk-picture {
+    width: 92px;
+    height: 92px;
+  }
+  .zk-picture .ss-found-photo {
+    width: 84px;
+    height: 84px;
+    border-radius: 24px;
+  }
+  .zk-picture--small,
+  .zk-picture--small .ss-found-photo {
+    width: 60px;
+    height: 60px;
+    border-radius: 18px;
+  }
+  .zk-hero-copy {
+    flex-basis: calc(100% - 110px);
+  }
+  .zk-hero h3 {
+    font-size: 1.35rem;
+  }
+  .zk-facts {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .zk-facts > div,
+  .zk-facts > div:first-child {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 0;
+  }
+  .zk-facts > div + div {
+    padding-top: 10px;
+    border-top: 1px solid var(--ss-line);
+    border-left: 0;
+  }
+  .zk-facts dd {
+    text-align: right;
+  }
+  .zk-technical > dl,
+  .zk-fields,
+  .zk-empty-ways {
+    grid-template-columns: 1fr;
+  }
+  .zk-technical > dl {
+    padding: 4px 14px;
+  }
+  .zk-search,
+  .zk-install {
+    flex-direction: column;
+    padding: 20px 16px;
+    text-align: center;
+  }
+  .zk-search .zk-checklist,
+  .zk-install .zk-checklist,
+  .zk-progress {
+    width: 100%;
+    margin-inline: auto;
+  }
+  .zk-install .zk-actions {
+    justify-content: center;
+  }
+  .zk-candidate-action,
+  .zk-candidate-action .zk-button,
+  .zk-actions .zk-button,
+  .zk-address {
+    width: 100%;
+  }
+  .zk-candidate-action {
+    flex-direction: column;
+  }
+  .zk-address {
+    grid-template-columns: 1fr;
   }
   .zigbee-key-error {
     align-items: flex-start;
     flex-wrap: wrap;
   }
-  .zigbee-key-error .button-secondary {
-    width: 100%;
+  .zk-picture {
+    width: 76px;
+    height: 76px;
+  }
+  .zk-picture .ss-found-photo {
+    width: 70px;
+    height: 70px;
+    border-radius: 20px;
+  }
+  .zk-picture--small,
+  .zk-picture--small .ss-found-photo {
+    width: 52px;
+    height: 52px;
+    border-radius: 15px;
+  }
+  .zk-hero-copy {
+    flex-basis: calc(100% - 92px);
+  }
+  .zk-candidate {
+    gap: 6px 12px;
+  }
+  .zk-candidate > .zk-picture {
+    align-self: start;
+  }
+  .zk-origin {
+    flex-wrap: nowrap;
+  }
+  .zk-origin:has(.zk-origin-address) {
+    flex-wrap: wrap;
+  }
+  .zk-origin-address {
+    flex-basis: 100%;
+    width: fit-content;
+    flex-grow: 0;
   }
 }
 
