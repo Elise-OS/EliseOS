@@ -1,5 +1,6 @@
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
+  createZigbeeDemo,
   defaultTvChannels,
   initialScreenState,
   type ActivitySummary,
@@ -35,6 +36,7 @@ import { appLocale } from '../locale';
 import { t } from '../i18n';
 
 // The demo home follows the app language; it is rebuilt when the language changes.
+let zigbeeDemo = createZigbeeDemo();
 
 export const DEMO_SERVER_ID = 'elise-demo';
 export const DEMO_TOKEN = 'elise-demo-session';
@@ -1974,6 +1976,7 @@ let demoNotificationPreferences = { ...DEFAULT_NOTIFICATION_PREFERENCES };
 
 export function resetDemoSession() {
   demoSession = createDemoSession();
+  zigbeeDemo = createZigbeeDemo();
   demoSessionLocale = appLocale();
   demoNotificationPreferences = { ...DEFAULT_NOTIFICATION_PREFERENCES };
 }
@@ -2007,6 +2010,19 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
   const [pathname, search = ''] = path.split('?');
   const params = new URLSearchParams(search);
   const method = init?.method?.toUpperCase() ?? 'GET';
+  const zigbeeAnswer = zigbeeDemo.handle(
+    method,
+    pathname ?? '',
+    typeof init?.body === 'string' ? init.body : undefined,
+  );
+  if (zigbeeAnswer) {
+    if (zigbeeAnswer.status >= 400) {
+      const failure = zigbeeAnswer.body as { error?: unknown; message?: unknown } | undefined;
+      const detail = failure?.error ?? failure?.message;
+      throw new Error(typeof detail === 'string' ? detail : 'Zigbee error');
+    }
+    return zigbeeAnswer.body as T;
+  }
   // The fictional home is written in one language: switching languages starts it afresh.
   if (demoSessionLocale !== appLocale()) resetDemoSession();
   const body =

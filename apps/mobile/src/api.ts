@@ -38,6 +38,10 @@ import type {
   SensorVerificationSession,
   RemoteAccessStatus,
   UpdateStatus,
+  ZigbeeInstall,
+  ZigbeeInstallRequest,
+  ZigbeeProbeResult,
+  ZigbeeStatus,
 } from '@elise/contracts';
 import type { Installation } from '@elise/contracts';
 import type { SavedServer } from './discovery/types';
@@ -356,6 +360,28 @@ const query = (values: Record<string, string | undefined>) => {
 };
 
 export const mobileApi = {
+  zigbeeStatus: (server: SavedServer, token: string) =>
+    request<ZigbeeStatus>(server, '/zigbee/adapter', token),
+  scanZigbee: (server: SavedServer, token: string, network = false) =>
+    request<ZigbeeStatus>(server, '/zigbee/adapter/scan', token, {
+      method: 'POST',
+      body: JSON.stringify({ network }),
+    }),
+  probeZigbee: (server: SavedServer, token: string, candidateId: string) =>
+    request<ZigbeeProbeResult>(server, '/zigbee/adapter/probe', token, {
+      method: 'POST',
+      body: JSON.stringify({ candidateId }),
+    }),
+  installZigbee: (server: SavedServer, token: string, input: ZigbeeInstallRequest) =>
+    request<ZigbeeInstall>(server, '/zigbee/adapter/install', token, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  cancelZigbeeInstall: (server: SavedServer, token: string) =>
+    request<ZigbeeInstall>(server, '/zigbee/adapter/install/cancel', token, {
+      method: 'POST',
+      body: '{}',
+    }),
   liaison: (server: SavedServer, token: string, filter: LiaisonFilter, cursor?: string) =>
     request<LiaisonPage>(server, `/liaison${query({ filter, cursor })}`, token),
   createLiaison: (server: SavedServer, token: string, input: LiaisonCreate) =>
