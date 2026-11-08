@@ -110,3 +110,31 @@ bash apps/mobile/scripts/store-screenshots.sh <chemin vers lise.app> it
 ```
 
 Pour une nouvelle langue, ajouter son cas dans le script (`STORE_LOCALE`, `DEVICE_LOCALE`) ses libellés dans `apps/mobile/.maestro/store-labels.js` et le passage à la langue dans `apps/mobile/.maestro/store-screenshots.yaml`.
+
+## Captures du site et des README
+
+Chaque langue a ses propres captures, prises dans le mode démo (foyer fictif) : aucune capture n’est partagée entre deux langues.
+
+| Où                   | Fichiers                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| README               | `docs/images/<langue>/<vue>.jpg`                                                         |
+| Site (bureau)        | `eliselanding/public/screenshots/<langue>/<vue>.webp` et `<vue>@2x.webp`                 |
+| Site (iPhone / iPad) | `eliselanding/public/screenshots/<langue>/mobile/<appareil>-NN-<vue>.webp` et `@2x.webp` |
+
+Le site choisit l’image de la langue de la page (`eliselanding/src/lib/screenshots.ts`), avec repli sur l’anglais puis le français.
+
+```bash
+# 1. Construire la démo en local (depuis la racine), puis la servir sur http://127.0.0.1:18091/demo/
+pnpm --filter @elise/i18n build
+ELISE_DEMO_OUT_DIR=/tmp/elise-demo/demo pnpm --filter @elise/dashboard build:demo
+python3 -m http.server 18091 --directory /tmp/elise-demo
+
+# 2. Bureau : README + site pour toutes les langues (ou --languages=it pour une seule)
+(cd eliselanding && npm ci)
+node scripts/capture-screenshots.mjs --languages=fr,en,es,it
+
+# 3. Mobile (sur un Mac, voir la section précédente) puis import dans le site
+node scripts/import-mobile-screenshots.mjs --from=<dossier fastlane/screenshots> --languages=fr,en,es,it
+```
+
+Pour une nouvelle langue : l’ajouter dans `supportedLanguages` de `scripts/capture-screenshots.mjs` et dans `storeLocale` de `scripts/import-mobile-screenshots.mjs`, relancer les trois commandes, puis ajouter le `README.<langue>.md` qui pointe vers `docs/images/<langue>/`.
