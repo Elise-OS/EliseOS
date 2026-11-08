@@ -8,7 +8,8 @@ import type { PairingApi, PairingError } from './pairing';
 export function pairingApiFor(server: SavedServer, token: string): PairingApi {
   return {
     current: (signal) => mobileApi.currentSensorOnboarding(server, token, { signal }),
-    start: (protocol) => mobileApi.startSensorOnboarding(server, token, protocol),
+    start: (protocol, model) =>
+      mobileApi.startSensorOnboarding(server, token, protocol, undefined, model),
     get: (id, signal) => mobileApi.sensorOnboarding(server, token, id, { signal }),
     cancel: (id) => mobileApi.cancelSensorOnboarding(server, token, id),
     complete: (id, body) => mobileApi.completeSensorOnboarding(server, token, id, body),

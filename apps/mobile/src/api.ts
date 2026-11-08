@@ -476,12 +476,21 @@ export const mobileApi = {
     token: string,
     protocol?: string,
     init?: RequestInit,
+    /** Model the person chose: only the demo uses it, to "find" that very sensor. */
+    demoModel?: string,
   ) =>
     request<SensorOnboardingSession>(
       server,
       '/sensor-devices/onboarding-sessions',
       token,
-      { ...init, method: 'POST', body: JSON.stringify(protocol ? { protocol } : {}) },
+      {
+        ...init,
+        method: 'POST',
+        body: JSON.stringify({
+          ...(protocol ? { protocol } : {}),
+          ...(demoModel && isDemoServer(server) ? { demoModel } : {}),
+        }),
+      },
       15_000,
     ),
   currentSensorOnboarding: (server: SavedServer, token: string, init?: RequestInit) =>

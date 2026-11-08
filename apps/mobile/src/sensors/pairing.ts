@@ -19,7 +19,7 @@ export type PairingSession = SensorOnboardingSession;
 
 export type PairingApi = {
   current(signal?: AbortSignal): Promise<PairingSession | null>;
-  start(protocol: string): Promise<PairingSession>;
+  start(protocol: string, model?: string): Promise<PairingSession>;
   get(id: string, signal?: AbortSignal): Promise<PairingSession>;
   cancel(id: string): Promise<unknown>;
   complete(id: string, body: SensorOnboardingCompletionRequest): Promise<unknown>;
@@ -196,7 +196,7 @@ export class PairingController {
     await this.options.api.cancel(target.id).catch(() => undefined);
   }
 
-  public async start(protocol = 'zigbee') {
+  public async start(protocol = 'zigbee', model?: string) {
     if (this.state.busy) return;
     this.deviceSeen = false;
     this.set({ busy: true, error: null, failure: null, offline: false });
@@ -204,7 +204,7 @@ export class PairingController {
       // Starting a search replaces any earlier one on the hub as well.
       await this.cancelSession(this.state.session);
       this.startUnanswered = true;
-      const next = await this.options.api.start(protocol);
+      const next = await this.options.api.start(protocol, model);
       this.startUnanswered = false;
       if (this.disposed) return;
       this.adopt(next);

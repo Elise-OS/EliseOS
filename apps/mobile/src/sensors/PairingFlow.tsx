@@ -351,7 +351,7 @@ export function SensorPairingFlow({
                 label={t('sensorSetup.retrySearch')}
                 disabled={busy}
                 icon={<RefreshCw size={18} color={ss.ink} />}
-                onPress={() => void controller.start(product?.protocol ?? 'zigbee')}
+                onPress={() => void controller.start(product?.protocol ?? 'zigbee', product?.model)}
               />
             ) : null}
           </>
@@ -525,7 +525,7 @@ export function SensorPairingFlow({
               label={t('sensorSetup.retrySearch')}
               busy={busy}
               icon={<RefreshCw size={20} color="#fff" />}
-              onPress={() => void controller.start(product?.protocol ?? 'zigbee')}
+              onPress={() => void controller.start(product?.protocol ?? 'zigbee', product?.model)}
             />
           }
         >
@@ -653,7 +653,7 @@ export function SensorPairingFlow({
           icon={<Radio size={20} color="#fff" />}
           onPress={() => {
             setMoved('forward');
-            void controller.start(product?.protocol ?? 'zigbee');
+            void controller.start(product?.protocol ?? 'zigbee', product?.model);
           }}
         />
       }
