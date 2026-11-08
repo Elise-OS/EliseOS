@@ -94,7 +94,8 @@ test('the view helpers decide what the screens show', async () => {
     zigbeeVisibleIssues,
   } = await import('../dist/index.js');
   const status = zigbeeStatusSchema.parse(fixture);
-  const [current, other] = status.candidates;
+  const current = status.candidates.find((item) => item.isCurrent);
+  const other = status.candidates.find((item) => !item.isCurrent);
   assert.equal(zigbeeErrorKey('NO_ANSWER'), 'NO_ANSWER');
   assert.equal(zigbeeErrorKey('SOMETHING_NEW'), 'unknown');
   assert.equal(zigbeeErrorKey(null), 'unknown');

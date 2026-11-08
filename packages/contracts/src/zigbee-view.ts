@@ -58,14 +58,17 @@ export const ZIGBEE_GUIDE_URL = 'https://www.zigbee2mqtt.io/guide/adapters/';
 export const ZIGBEE_RESULT_MINUTES = 20;
 
 /** Translation key suffix of an error code (`unknown` for a code this app does not know). */
-export function zigbeeErrorKey(code: string | null): string {
-  return (ZIGBEE_ERROR_CODES as readonly string[]).includes(code ?? '')
-    ? (code as string)
-    : 'unknown';
+export function zigbeeErrorKey(code: string | null): ZigbeeErrorCode | 'unknown' {
+  return ZIGBEE_ERROR_CODES.find((known) => known === code) ?? 'unknown';
 }
 
-export function zigbeeKnownNotes(notes: readonly string[]): string[] {
-  return notes.filter((note) => (ZIGBEE_NOTE_CODES as readonly string[]).includes(note));
+export function zigbeeKnownNotes(notes: readonly string[]): ZigbeeNoteCode[] {
+  return ZIGBEE_NOTE_CODES.filter((known) => notes.includes(known));
+}
+
+/** The warnings of the status that have a text in the apps. */
+export function zigbeeVisibleIssues(issues: readonly string[]): ZigbeeVisibleIssue[] {
+  return ZIGBEE_VISIBLE_ISSUES.filter((known) => issues.includes(known));
 }
 
 /** Name to show for a key, from the best source available. */
