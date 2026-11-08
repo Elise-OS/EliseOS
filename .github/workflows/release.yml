@@ -157,7 +157,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ghcr.io/elise-os/eliseos-${{ matrix.name }}:${{ needs.version.outputs.version }}
-      - uses: sigstore/cosign-installer@v3
+      - name: Install cosign
+        run: .github/scripts/install-cosign.sh
       - run: cosign sign --yes "ghcr.io/elise-os/eliseos-${{ matrix.name }}@${{ steps.build.outputs.digest }}"
 
   artifacts:
@@ -219,7 +220,8 @@ jobs:
           extract_sha="$(xz -dc "$image" | sha256sum | cut -d' ' -f1)"
           extract_size="$(xz -dc "$image" | wc -c)"
           sed -e "s/{{VERSION}}/${RELEASE_VERSION}/g" -e "s/{{DATE}}/$(date -u +%F)/g" -e "s/{{DOWNLOAD_SHA256}}/$download_sha/g" -e "s/22222222222/$download_size/g" -e "s/11111111111/$extract_size/g" -e "s/{{EXTRACT_SHA256}}/$extract_sha/g" appliance/os_list.template.json > dist/os_list.json
-      - uses: sigstore/cosign-installer@v3
+      - name: Install cosign
+        run: .github/scripts/install-cosign.sh
       - name: Sign release files
         run: |
           for file in dist/*.tar.gz dist/*.img.xz dist/release-manifest.json dist/install-elise.sh dist/os_list.json; do
