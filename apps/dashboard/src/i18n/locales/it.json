@@ -2065,7 +2065,10 @@
     "yourRadios": "Le Sue radio",
     "yourYoutubePlaylists": "Le Sue playlist YouTube",
     "youtubeAccount": "Account YouTube",
-    "youtubeLinks": "Link YouTube"
+    "youtubeLinks": "Link YouTube",
+    "allowVideoCalls": "Consenti le videochiamate",
+    "videoCallsAllowedHint": "Lei e i familiari autorizzati potete chiamare {{residentFirstName}} sulla televisione.",
+    "videoCallsBlockedHint": "Le chiamate a {{residentFirstName}} sono bloccate finché questa impostazione è disattivata."
   },
   "sensorCategories": {
     "air_quality": {

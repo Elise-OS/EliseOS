@@ -2065,7 +2065,10 @@
     "chooseTvChannels": "Elegir los canales",
     "tvChannelsFollowTheScreenLanguage": "Los canales propuestos siguen el idioma de la pantalla ({{language}}). Puede añadir canales de otros idiomas.",
     "screenLanguage": "Idioma de la pantalla",
-    "noTvGuideForTheseChannels": "No hay programación disponible para estos canales."
+    "noTvGuideForTheseChannels": "No hay programación disponible para estos canales.",
+    "allowVideoCalls": "Permitir videollamadas",
+    "videoCallsAllowedHint": "Usted y los familiares autorizados pueden llamar a {{residentFirstName}} en la televisión.",
+    "videoCallsBlockedHint": "Las llamadas a {{residentFirstName}} están bloqueadas mientras este ajuste esté desactivado."
   },
   "sensorCategories": {
     "air_quality": {

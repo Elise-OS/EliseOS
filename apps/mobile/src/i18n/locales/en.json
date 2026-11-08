@@ -630,7 +630,10 @@
     "volume": "Volume",
     "volumeDown": "Volume down",
     "volumeUp": "Volume up",
-    "waiting": "Waiting"
+    "waiting": "Waiting",
+    "allowVideoCalls": "Allow video calls",
+    "videoCallsAllowedHint": "Authorized family members can call on the TV.",
+    "videoCallsBlockedHint": "Calls are blocked while this setting is off."
   },
   "mobileScreenTabs": {
     "add": "Add",

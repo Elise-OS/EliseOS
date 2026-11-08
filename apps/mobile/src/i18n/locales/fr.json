@@ -640,7 +640,10 @@
     "volume": "Volume",
     "volumeDown": "Baisser le volume",
     "volumeUp": "Augmenter le volume",
-    "waiting": "En attente"
+    "waiting": "En attente",
+    "allowVideoCalls": "Autoriser les appels vidéo",
+    "videoCallsAllowedHint": "Les proches autorisés peuvent appeler sur la télévision.",
+    "videoCallsBlockedHint": "Les appels sont bloqués tant que ce réglage est désactivé."
   },
   "mobileScreenTabs": {
     "add": "Ajouter",

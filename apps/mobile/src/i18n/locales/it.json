@@ -640,7 +640,10 @@
     "volume": "Volume",
     "volumeDown": "Abbassa il volume",
     "volumeUp": "Alza il volume",
-    "waiting": "In attesa"
+    "waiting": "In attesa",
+    "allowVideoCalls": "Consenti le videochiamate",
+    "videoCallsAllowedHint": "I familiari autorizzati possono chiamare sulla televisione.",
+    "videoCallsBlockedHint": "Le chiamate sono bloccate finché questa impostazione è disattivata."
   },
   "mobileScreenTabs": {
     "add": "Aggiungi",

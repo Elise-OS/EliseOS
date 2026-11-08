@@ -2045,7 +2045,10 @@
     "chooseTvChannels": "Choose the channels",
     "tvChannelsFollowTheScreenLanguage": "The channels offered follow the screen language ({{language}}). You can add channels in other languages.",
     "screenLanguage": "Screen language",
-    "noTvGuideForTheseChannels": "No TV guide is available for these channels."
+    "noTvGuideForTheseChannels": "No TV guide is available for these channels.",
+    "allowVideoCalls": "Allow video calls",
+    "videoCallsAllowedHint": "You and authorized family members can call {{residentFirstName}} on the TV.",
+    "videoCallsBlockedHint": "Calls to {{residentFirstName}} are blocked while this setting is off."
   },
   "sensorCategories": {
     "air_quality": {

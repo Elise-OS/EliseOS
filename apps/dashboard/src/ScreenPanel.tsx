@@ -1058,6 +1058,30 @@ export function ScreenPanel({
               </span>
             </div>
           )}
+          {grant.administer && (
+            <label className={`screen-call-consent${state.settings.consent ? ' is-on' : ''}`}>
+              <input
+                type="checkbox"
+                checked={state.settings.consent}
+                disabled={busy}
+                onChange={(event) => {
+                  const next = { ...state.settings, consent: event.target.checked };
+                  setSettings((current) =>
+                    current ? { ...current, consent: next.consent } : next,
+                  );
+                  void run(() => screenRequest('screen/settings', next, 'PATCH'));
+                }}
+              />
+              <span>
+                <strong>{t('screenPanel.allowVideoCalls')}</strong>
+                <small>
+                  {state.settings.consent
+                    ? t('screenPanel.videoCallsAllowedHint', { residentFirstName })
+                    : t('screenPanel.videoCallsBlockedHint', { residentFirstName })}
+                </small>
+              </span>
+            </label>
+          )}
         </div>
       </header>
       {error && (
