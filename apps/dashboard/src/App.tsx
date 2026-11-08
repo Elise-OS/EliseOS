@@ -50,6 +50,7 @@ import {
   UserRound,
   Video,
   X,
+  Usb,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
@@ -70,6 +71,7 @@ import { FlagIcon } from './FlagIcons';
 import { RemoteAccessCard } from './RemoteAccessCard';
 import { ActivityPage } from './ActivityPage';
 import { UpdateCard } from './UpdateCard';
+import { ZigbeeKeyPanel } from './ZigbeeKeyPanel';
 import type { UpdateStatus } from '@elise/contracts';
 
 interface Overview {
@@ -1890,7 +1892,7 @@ export function App() {
   const [homeSection, setHomeSection] = useState<'OVERVIEW' | 'EDITOR'>('OVERVIEW');
   const [homeSensorCategory, setHomeSensorCategory] = useState<SafetyCategory | null>(null);
   const clearHomeSensorCategory = useCallback(() => setHomeSensorCategory(null), []);
-  const [settingsTab, setSettingsTab] = useState<'general' | 'rules'>('general');
+  const [settingsTab, setSettingsTab] = useState<'general' | 'zigbee' | 'rules'>('general');
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
   const [homeEditorRoomId, setHomeEditorRoomId] = useState<string | null>(null);
@@ -2989,6 +2991,16 @@ export function App() {
               >
                 <Settings aria-hidden="true" /> {i18nT('app.general')}
               </button>
+              {currentAccess.capabilities.includes('configuration:manage') && (
+                <button
+                  type="button"
+                  className={settingsTab === 'zigbee' ? 'is-selected' : ''}
+                  aria-selected={settingsTab === 'zigbee'}
+                  onClick={() => setSettingsTab('zigbee')}
+                >
+                  <Usb aria-hidden="true" /> {i18nT('zigbeeKey.tab')}
+                </button>
+              )}
               <button
                 type="button"
                 className={settingsTab === 'rules' ? 'is-selected' : ''}
@@ -3101,6 +3113,8 @@ export function App() {
                   onInstall={(version) => void installUpdate(version)}
                 />
               )}
+            {settingsTab === 'zigbee' &&
+              currentAccess.capabilities.includes('configuration:manage') && <ZigbeeKeyPanel />}
             {settingsTab === 'rules' && alertRules && (
               <AlertRulesPanel
                 rules={alertRules}

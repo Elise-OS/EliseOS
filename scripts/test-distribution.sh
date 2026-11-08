@@ -10,11 +10,12 @@ bash -n "$root/install/install-elise.sh" "$root/install/elise" \
   "$root/appliance/elise-zigbee-setup.sh"
 bash "$root/scripts/detect-zigbee-adapter.test.sh"
 python3 - <<PY
-for path in ("$root/appliance/remote-access-agent.py", "$root/appliance/elise-update-agent.py", "$root/appliance/elise-preparation.py"):
+for path in ("$root/appliance/remote-access-agent.py", "$root/appliance/elise-update-agent.py", "$root/appliance/elise-zigbee-agent.py", "$root/appliance/elise-preparation.py"):
     compile(open(path, encoding="utf-8").read(), path, "exec")
 PY
 python3 "$root/appliance/test_remote_access_agent.py"
 python3 "$root/appliance/test_update_agent.py"
+python3 "$root/appliance/test_zigbee_agent.py"
 python3 "$root/appliance/test_screen_agent.py"
 docker compose --env-file "$root/.env.example" -f "$root/compose.yaml" -f "$root/compose.release.yaml" config --quiet
 docker compose --env-file "$root/.env.example" -f "$root/compose.yaml" -f "$root/compose.release.yaml" -f "$root/compose.raspberry.yaml" -f "$root/compose.raspberry.release.yaml" config --quiet

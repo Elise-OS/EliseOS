@@ -27,11 +27,12 @@ import { isDemoServer } from '../demo/mock-api';
 import { activeServerUrl } from '../discovery/helpers';
 import { MobilePartnerRibbon } from './MobilePartnerRibbon';
 import { MobileWeatherCard } from './MobileWeatherCard';
+import { MobileZigbeeKeyPanel } from './MobileZigbeeKeyPanel';
 import { dateLocale, type Language, t } from '../i18n';
 import { LanguageList } from '../i18n/LanguagePicker';
 import { useTabBarPadding } from './tabBarSpace';
 
-type SettingsSection = 'general' | 'rules' | 'notifications' | 'about' | 'legal';
+type SettingsSection = 'general' | 'zigbee' | 'rules' | 'notifications' | 'about' | 'legal';
 type Locale = Language;
 
 const c = {
@@ -131,21 +132,25 @@ export function MobileSettingsPanel({
   const [pushStatus, setPushStatus] = useState<PushRegistrationStatus | null>(null);
 
   const sectionTitle =
-    section === 'notifications'
-      ? 'Notifications'
-      : section === 'about'
-        ? t('mobileSettingsPanel.about')
-        : section === 'legal'
-          ? t('mobileSettingsPanel.legalInformation')
-          : t('mobileSettingsPanel.settings');
+    section === 'zigbee'
+      ? t('zigbeeKey.tab')
+      : section === 'notifications'
+        ? 'Notifications'
+        : section === 'about'
+          ? t('mobileSettingsPanel.about')
+          : section === 'legal'
+            ? t('mobileSettingsPanel.legalInformation')
+            : t('mobileSettingsPanel.settings');
   const sectionSubtitle =
-    section === 'notifications'
-      ? t('mobileSettingsPanel.chooseWhichPushNotificationsYou')
-      : section === 'about'
-        ? t('mobileSettingsPanel.learnMoreAboutEliseAnd')
-        : section === 'legal'
-          ? t('mobileSettingsPanel.projectPublisherSoftwareLicenceAnd')
-          : t('mobileSettingsPanel.adaptEliseToYourDaily');
+    section === 'zigbee'
+      ? t('zigbeeKey.intro')
+      : section === 'notifications'
+        ? t('mobileSettingsPanel.chooseWhichPushNotificationsYou')
+        : section === 'about'
+          ? t('mobileSettingsPanel.learnMoreAboutEliseAnd')
+          : section === 'legal'
+            ? t('mobileSettingsPanel.projectPublisherSoftwareLicenceAnd')
+            : t('mobileSettingsPanel.adaptEliseToYourDaily');
 
   useEffect(() => setSection(initialSection), [initialSection]);
 
@@ -370,6 +375,23 @@ export function MobileSettingsPanel({
                 </View>
               ) : null}
             </View>
+            {canManage ? (
+              <Pressable
+                accessibilityRole="button"
+                style={s.settingsNavRow}
+                onPress={() => setSection('zigbee')}
+              >
+                <View style={[s.cardIcon, s.homeLandmarksIcon]}>
+                  <Ionicons name="key-outline" size={19} color={c.accent} />
+                </View>
+                <View style={s.flex}>
+                  <Text style={s.eyebrow}>{t('zigbeeKey.eyebrow')}</Text>
+                  <Text style={s.cardTitle}>{t('zigbeeKey.tab')}</Text>
+                  <Text style={s.body}>{t('zigbeeKey.intro')}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={19} color={c.muted} />
+              </Pressable>
+            ) : null}
             <Pressable
               accessibilityRole="button"
               style={s.settingsNavRow}
@@ -561,6 +583,20 @@ export function MobileSettingsPanel({
               </View>
               <Ionicons name="chevron-forward" size={19} color={c.muted} />
             </Pressable>
+          </>
+        ) : null}
+
+        {section === 'zigbee' ? (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              style={s.settingsBack}
+              onPress={() => setSection('general')}
+            >
+              <Ionicons name="chevron-back" size={18} color={c.blue} />
+              <Text style={s.settingsBackLabel}>{t('mobileSettingsPanel.backToSettings')}</Text>
+            </Pressable>
+            <MobileZigbeeKeyPanel server={server} token={token} />
           </>
         ) : null}
 

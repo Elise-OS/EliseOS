@@ -1,0 +1,529 @@
+{
+  "version": 1,
+  "technologies": {
+    "zstack": {
+      "label": "Texas Instruments Z-Stack",
+      "baudrates": [115200],
+      "rtscts": false,
+      "probe": "mt-ping"
+    },
+    "ember": {
+      "label": "Silicon Labs EmberZNet",
+      "baudrates": [115200, 460800],
+      "rtscts": false,
+      "probe": "ash-reset"
+    },
+    "deconz": {
+      "label": "dresden elektronik deCONZ",
+      "baudrates": [115200, 38400],
+      "rtscts": false,
+      "probe": "deconz-version"
+    },
+    "zigate": {
+      "label": "ZiGate",
+      "baudrates": [115200],
+      "rtscts": false,
+      "probe": "zigate-version"
+    },
+    "zboss": {
+      "label": "Nordic ZBOSS",
+      "baudrates": [115200],
+      "rtscts": false,
+      "probe": null
+    }
+  },
+  "models": [
+    {
+      "id": "sonoff-zbdongle-p",
+      "name": "Sonoff ZBDongle-P",
+      "vendor": "Sonoff (ITead)",
+      "chip": "CC2652P",
+      "technology": "zstack",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "recommended",
+      "notes": ["usb3-extension", "keep-firmware-current"],
+      "match": {
+        "usb": [
+          {
+            "vid": "10c4",
+            "pid": "ea60",
+            "product": "^sonoff zigbee 3\\.0 usb dongle plus$",
+            "ambiguousWith": ["sonoff-zbdongle-e"]
+          },
+          {
+            "vid": "1a86",
+            "pid": "55d4",
+            "product": "^sonoff zigbee 3\\.0 usb dongle plus$",
+            "ambiguousWith": ["sonoff-zbdongle-e"]
+          }
+        ],
+        "byId": ["zbdongle-p", "dongle_plus_p$", "dongle_plus_p_"]
+      }
+    },
+    {
+      "id": "sonoff-zbdongle-e",
+      "name": "Sonoff ZBDongle-E",
+      "vendor": "Sonoff (ITead)",
+      "chip": "EFR32MG21",
+      "technology": "ember",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "recommended",
+      "notes": ["usb3-extension", "keep-firmware-current"],
+      "match": {
+        "usb": [
+          { "vid": "10c4", "pid": "ea60", "product": "(dongle plus v2|zbdongle-e)" },
+          { "vid": "1a86", "pid": "55d4", "product": "(dongle plus v2|zbdongle-e)" }
+        ],
+        "byId": ["zbdongle-e", "dongle_plus_v2", "dongle_plus_mg21"]
+      }
+    },
+    {
+      "id": "sonoff-dongle-lite-mg21",
+      "name": "Sonoff Dongle Lite MG21",
+      "vendor": "Sonoff (ITead)",
+      "chip": "EFR32MG21",
+      "technology": "ember",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "supported",
+      "notes": ["usb3-extension", "keep-firmware-current"],
+      "match": {
+        "usb": [{ "vid": "1a86", "pid": "55d4", "product": "dongle lite mg21" }],
+        "byId": ["dongle_lite_mg21", "dongle-lite-mg21"]
+      }
+    },
+    {
+      "id": "sonoff-zbdongle-max",
+      "name": "Sonoff ZBDongle-Max (MG24)",
+      "vendor": "Sonoff (ITead)",
+      "chip": "EFR32MG24",
+      "technology": "ember",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "supported",
+      "notes": ["usb3-extension", "keep-firmware-current"],
+      "match": {
+        "usb": [{ "vid": "1a86", "pid": "55d4", "product": "(dongle max|mg24)" }],
+        "byId": ["dongle_max", "dongle-max", "zbdongle-max", "mg24"]
+      }
+    },
+    {
+      "id": "smlight-slzb-07",
+      "name": "SMLIGHT SLZB-07",
+      "vendor": "SMLIGHT",
+      "chip": "EFR32MG21",
+      "technology": "ember",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "recommended",
+      "notes": ["usb3-extension", "keep-firmware-current"],
+      "match": {
+        "usb": [{ "vid": "10c4", "pid": "ea60", "product": "slzb-07$" }],
+        "byId": ["slzb-07(?!p7|mg24)"]
+      }
+    },
+    {
+      "id": "smlight-slzb-07p7",
+      "name": "SMLIGHT SLZB-07p7",
+      "vendor": "SMLIGHT",
+      "chip": "CC2652P7",
+      "technology": "zstack",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "recommended",
+      "notes": ["usb3-extension", "keep-firmware-current"],
+      "match": {
+        "usb": [{ "vid": "10c4", "pid": "ea60", "product": "slzb-07p7" }],
+        "byId": ["slzb-07p7"]
+      }
+    },
+    {
+      "id": "smlight-slzb-07mg24",
+      "name": "SMLIGHT SLZB-07Mg24",
+      "vendor": "SMLIGHT",
+      "chip": "EFR32MG24",
+      "technology": "ember",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "recommended",
+      "notes": ["usb3-extension", "keep-firmware-current"],
+      "match": {
+        "usb": [{ "vid": "10c4", "pid": "ea60", "product": "slzb-07mg24" }],
+        "byId": ["slzb-07mg24"]
+      }
+    },
+    {
+      "id": "smlight-slzb-06",
+      "name": "SMLIGHT SLZB-06",
+      "vendor": "SMLIGHT",
+      "chip": "CC2652P",
+      "technology": "zstack",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "network",
+      "status": "recommended",
+      "notes": ["network-adapter", "keep-firmware-current"],
+      "match": { "hostname": ["^slzb-06(?![a-z0-9])", "^slzb-06-"] }
+    },
+    {
+      "id": "smlight-slzb-06m",
+      "name": "SMLIGHT SLZB-06M",
+      "vendor": "SMLIGHT",
+      "chip": "EFR32MG21",
+      "technology": "ember",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "network",
+      "status": "recommended",
+      "notes": ["network-adapter", "keep-firmware-current"],
+      "match": { "hostname": ["^slzb-06m"] }
+    },
+    {
+      "id": "smlight-slzb-06p7",
+      "name": "SMLIGHT SLZB-06p7",
+      "vendor": "SMLIGHT",
+      "chip": "CC2652P7",
+      "technology": "zstack",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "network",
+      "status": "recommended",
+      "notes": ["network-adapter", "keep-firmware-current"],
+      "match": { "hostname": ["^slzb-06p7"] }
+    },
+    {
+      "id": "smlight-slzb-06p10",
+      "name": "SMLIGHT SLZB-06p10",
+      "vendor": "SMLIGHT",
+      "chip": "CC2674P10",
+      "technology": "zstack",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "network",
+      "status": "recommended",
+      "notes": ["network-adapter", "keep-firmware-current"],
+      "match": { "hostname": ["^slzb-06p10"] }
+    },
+    {
+      "id": "smlight-slzb-mr",
+      "name": "SMLIGHT SLZB-MR (multi-radio)",
+      "vendor": "SMLIGHT",
+      "chip": "EFR32MG21 / CC2652P7",
+      "technology": "ember",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "network",
+      "status": "supported",
+      "notes": ["network-adapter", "keep-firmware-current", "check-radio"],
+      "match": { "hostname": ["^slzb-mr"] }
+    },
+    {
+      "id": "nabu-casa-skyconnect",
+      "name": "Home Assistant SkyConnect",
+      "vendor": "Nabu Casa",
+      "chip": "EFR32MG21",
+      "technology": "ember",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "supported",
+      "notes": ["ncp-firmware", "usb3-extension", "keep-firmware-current"],
+      "match": {
+        "usb": [{ "vid": "10c4", "pid": "ea60", "product": "skyconnect" }],
+        "byId": ["skyconnect"]
+      }
+    },
+    {
+      "id": "nabu-casa-connect-zbt-1",
+      "name": "Home Assistant Connect ZBT-1",
+      "vendor": "Nabu Casa",
+      "chip": "EFR32MG21",
+      "technology": "ember",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "supported",
+      "notes": ["ncp-firmware", "usb3-extension", "keep-firmware-current"],
+      "match": {
+        "usb": [{ "vid": "10c4", "pid": "ea60", "product": "zbt-1" }],
+        "byId": ["zbt-1", "zbt_1", "connect_zbt"]
+      }
+    },
+    {
+      "id": "nabu-casa-connect-zbt-2",
+      "name": "Home Assistant Connect ZBT-2",
+      "vendor": "Nabu Casa",
+      "chip": "EFR32MG24",
+      "technology": "ember",
+      "baudrate": 460800,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "supported",
+      "notes": ["ncp-firmware", "usb3-extension", "keep-firmware-current", "check-baudrate"],
+      "match": {
+        "usb": [{ "vid": "303a", "pid": "4001", "product": "zbt-2" }],
+        "byId": ["zbt-2", "zbt_2"]
+      }
+    },
+    {
+      "id": "dresden-conbee-iii",
+      "name": "ConBee III",
+      "vendor": "dresden elektronik",
+      "chip": "EFR32MG21",
+      "technology": "deconz",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "supported",
+      "notes": ["usb3-extension", "keep-firmware-current"],
+      "match": {
+        "usb": [{ "vid": "0403", "pid": "6015", "product": "conbee iii" }],
+        "byId": ["conbee_iii", "conbee-iii"]
+      }
+    },
+    {
+      "id": "dresden-conbee-ii",
+      "name": "ConBee II",
+      "vendor": "dresden elektronik",
+      "chip": "ATSAMR21",
+      "technology": "deconz",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "supported",
+      "notes": ["usb3-extension", "keep-firmware-current"],
+      "match": {
+        "usb": [{ "vid": "1cf1", "pid": "0030" }],
+        "byId": ["conbee_ii(?!i)", "conbee-ii(?!i)"]
+      }
+    },
+    {
+      "id": "dresden-conbee",
+      "name": "ConBee (first generation)",
+      "vendor": "dresden elektronik",
+      "chip": "ATMEGA256RFR2",
+      "technology": "deconz",
+      "baudrate": 38400,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "discouraged",
+      "notes": ["old-generation", "usb3-extension"],
+      "match": {
+        "usb": [{ "vid": "0403", "pid": "6015", "product": "^conbee$" }],
+        "byId": ["conbee(?![_-]?i)(?![a-z])"]
+      }
+    },
+    {
+      "id": "dresden-raspbee-ii",
+      "name": "RaspBee II (Raspberry Pi card)",
+      "vendor": "dresden elektronik",
+      "chip": "ATSAMR21",
+      "technology": "deconz",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "gpio",
+      "status": "supported",
+      "notes": ["gpio-uart", "keep-firmware-current"],
+      "defaultPort": "/dev/ttyAMA0",
+      "match": { "byId": ["raspbee"] }
+    },
+    {
+      "id": "zigate-usb-ttl",
+      "name": "ZiGate USB-TTL",
+      "vendor": "ZiGate",
+      "chip": "NXP JN5168",
+      "technology": "zigate",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "experimental",
+      "notes": ["experimental", "old-generation"],
+      "match": {
+        "usb": [{ "vid": "067b", "pid": "2303" }],
+        "byId": ["zigate"]
+      }
+    },
+    {
+      "id": "electrolama-zzh",
+      "name": "Electrolama zig-a-zig-ah! (zzh)",
+      "vendor": "Electrolama",
+      "chip": "CC2652R",
+      "technology": "zstack",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "supported",
+      "notes": ["usb3-extension", "keep-firmware-current"],
+      "match": {
+        "usb": [{ "vid": "10c4", "pid": "ea60", "product": "(zig-a-zig-ah|zzh)" }],
+        "byId": ["electrolama", "zig-a-zig-ah", "_zzh_"]
+      }
+    },
+    {
+      "id": "tubeszb-cc2652p",
+      "name": "TubesZB (CC2652P)",
+      "vendor": "TubesZB",
+      "chip": "CC2652P",
+      "technology": "zstack",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "network",
+      "status": "supported",
+      "notes": ["network-adapter", "keep-firmware-current"],
+      "match": { "hostname": ["^tubeszb.*(cc2652|zstack|ti)"] }
+    },
+    {
+      "id": "tubeszb-efr32",
+      "name": "TubesZB (EFR32)",
+      "vendor": "TubesZB",
+      "chip": "EFR32MG21",
+      "technology": "ember",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "network",
+      "status": "supported",
+      "notes": ["network-adapter", "keep-firmware-current"],
+      "match": { "hostname": ["^tubeszb.*(efr32|ember|silabs|mg21|mg24)"] }
+    },
+    {
+      "id": "zigstar-uzg-01",
+      "name": "ZigStar UZG-01",
+      "vendor": "ZigStar",
+      "chip": "EFR32MG21",
+      "technology": "ember",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "network",
+      "status": "supported",
+      "notes": ["network-adapter", "keep-firmware-current"],
+      "match": { "hostname": ["^uzg-01", "^zigstar.*uzg"] }
+    },
+    {
+      "id": "ti-cc2531",
+      "name": "Texas Instruments CC2531 (USB stick)",
+      "vendor": "Texas Instruments",
+      "chip": "CC2531",
+      "technology": "zstack",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "discouraged",
+      "notes": ["discouraged-cc2531"],
+      "match": {
+        "usb": [{ "vid": "0451", "pid": "16a8" }],
+        "byId": ["cc2531"]
+      }
+    },
+    {
+      "id": "ti-launchpad-xds110",
+      "name": "Texas Instruments LaunchPad (CC1352 / CC2652)",
+      "vendor": "Texas Instruments",
+      "chip": "CC1352P / CC2652R",
+      "technology": "zstack",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "supported",
+      "notes": ["multi-port", "keep-firmware-current"],
+      "match": {
+        "usb": [{ "vid": "0451", "pid": "bef3" }],
+        "byId": ["xds110", "launchpad"]
+      }
+    },
+    {
+      "id": "nordic-nrf52840-zboss",
+      "name": "Nordic nRF52840 (ZBOSS)",
+      "vendor": "Nordic Semiconductor",
+      "chip": "nRF52840",
+      "technology": "zboss",
+      "baudrate": 115200,
+      "rtscts": false,
+      "kind": "usb",
+      "status": "experimental",
+      "notes": ["experimental"],
+      "match": { "byId": ["zboss", "nrf52840"] }
+    }
+  ],
+  "genericChips": [
+    {
+      "id": "generic-cp210x",
+      "name": "USB-serial adapter CP210x (Silicon Labs)",
+      "usb": [
+        { "vid": "10c4", "pid": "ea60" },
+        { "vid": "10c4", "pid": "ea70" }
+      ],
+      "candidates": [
+        { "technology": "zstack", "baudrate": 115200, "rtscts": false },
+        { "technology": "ember", "baudrate": 115200, "rtscts": false },
+        { "technology": "zigate", "baudrate": 115200, "rtscts": false }
+      ]
+    },
+    {
+      "id": "generic-ch9102",
+      "name": "USB-serial adapter CH9102 / CH9101 / CH343",
+      "usb": [
+        { "vid": "1a86", "pid": "55d4" },
+        { "vid": "1a86", "pid": "55d3" },
+        { "vid": "1a86", "pid": "55d2" }
+      ],
+      "candidates": [
+        { "technology": "ember", "baudrate": 115200, "rtscts": false },
+        { "technology": "zstack", "baudrate": 115200, "rtscts": false }
+      ]
+    },
+    {
+      "id": "generic-ch340",
+      "name": "USB-serial adapter CH340 / CH341",
+      "usb": [
+        { "vid": "1a86", "pid": "7523" },
+        { "vid": "1a86", "pid": "7522" }
+      ],
+      "candidates": [
+        { "technology": "zstack", "baudrate": 115200, "rtscts": false },
+        { "technology": "ember", "baudrate": 115200, "rtscts": false }
+      ]
+    },
+    {
+      "id": "generic-ftdi",
+      "name": "USB-serial adapter FTDI",
+      "usb": [
+        { "vid": "0403", "pid": "6001" },
+        { "vid": "0403", "pid": "6010" },
+        { "vid": "0403", "pid": "6014" },
+        { "vid": "0403", "pid": "6015" }
+      ],
+      "candidates": [
+        { "technology": "zstack", "baudrate": 115200, "rtscts": false },
+        { "technology": "deconz", "baudrate": 38400, "rtscts": false },
+        { "technology": "zigate", "baudrate": 115200, "rtscts": false },
+        { "technology": "ember", "baudrate": 115200, "rtscts": false }
+      ]
+    },
+    {
+      "id": "generic-pl2303",
+      "name": "USB-serial adapter PL2303 (Prolific)",
+      "usb": [{ "vid": "067b", "pid": "2303" }],
+      "candidates": [{ "technology": "zigate", "baudrate": 115200, "rtscts": false }]
+    },
+    {
+      "id": "generic-cdc-acm",
+      "name": "USB serial port (CDC ACM)",
+      "usb": [],
+      "candidates": [
+        { "technology": "zstack", "baudrate": 115200, "rtscts": false },
+        { "technology": "ember", "baudrate": 115200, "rtscts": false },
+        { "technology": "zboss", "baudrate": 115200, "rtscts": false },
+        { "technology": "deconz", "baudrate": 115200, "rtscts": false }
+      ]
+    }
+  ]
+}

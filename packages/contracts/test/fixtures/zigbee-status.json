@@ -1,0 +1,162 @@
+{
+  "state": "READY",
+  "current": {
+    "port": "/dev/serial/by-id/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_abc-if00-port0",
+    "adapter": "ember",
+    "baudrate": 115200,
+    "rtscts": false,
+    "mode": "manual",
+    "present": true,
+    "candidateId": "73cf24792e3e",
+    "model": {
+      "id": "sonoff-zbdongle-e",
+      "name": "Sonoff ZBDongle-E",
+      "vendor": "Sonoff (ITead)",
+      "chip": "EFR32MG21",
+      "status": "recommended",
+      "notes": ["usb3-extension", "keep-firmware-current"]
+    },
+    "usb": {
+      "vid": "10c4",
+      "pid": "ea60",
+      "manufacturer": "ITead",
+      "product": "Sonoff Zigbee 3.0 USB Dongle Plus V2",
+      "serial": "abc"
+    },
+    "z2m": {
+      "container": "running",
+      "bridge": "online"
+    },
+    "coordinator": {
+      "type": "EZSP v13",
+      "firmware": "7.4.4.0 build 0",
+      "ieee": "0x00124b0001",
+      "channel": 11,
+      "panId": "0x1a62",
+      "extendedPanId": "0xdddddddddddddddd"
+    },
+    "deviceCount": 4,
+    "firmware": "ok"
+  },
+  "candidates": [
+    {
+      "id": "22624eb8fac2",
+      "kind": "usb",
+      "port": "/home/drsam/.hermes/cache/scratch/tmpky3tz54c/dev/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0",
+      "portStability": "by-id",
+      "device": "/dev/ttyUSB1",
+      "usb": {
+        "vid": "1a86",
+        "pid": "7523",
+        "manufacturer": "ITead",
+        "product": "USB Serial",
+        "serial": "abc"
+      },
+      "driver": "cp210x",
+      "network": null,
+      "busy": null,
+      "isCurrent": false,
+      "identity": {
+        "modelId": null,
+        "name": null,
+        "vendor": "ITead",
+        "chip": "USB-serial adapter CH340 / CH341",
+        "status": null,
+        "confidence": "ambiguous",
+        "source": "generic",
+        "notes": [],
+        "options": [
+          {
+            "technology": "zstack",
+            "baudrate": 115200,
+            "rtscts": false,
+            "modelId": null,
+            "modelName": null
+          },
+          {
+            "technology": "ember",
+            "baudrate": 115200,
+            "rtscts": false,
+            "modelId": null,
+            "modelName": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "73cf24792e3e",
+      "kind": "usb",
+      "port": "/home/drsam/.hermes/cache/scratch/tmpky3tz54c/dev/dev/serial/by-id/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_abc-if00-port0",
+      "portStability": "by-id",
+      "device": "/dev/ttyUSB0",
+      "usb": {
+        "vid": "10c4",
+        "pid": "ea60",
+        "manufacturer": "ITead",
+        "product": "Sonoff Zigbee 3.0 USB Dongle Plus V2",
+        "serial": "abc"
+      },
+      "driver": "cp210x",
+      "network": null,
+      "busy": null,
+      "isCurrent": true,
+      "identity": {
+        "modelId": "sonoff-zbdongle-e",
+        "name": "Sonoff ZBDongle-E",
+        "vendor": "Sonoff (ITead)",
+        "chip": "EFR32MG21",
+        "status": "recommended",
+        "confidence": "high",
+        "source": "usb-id",
+        "notes": ["usb3-extension", "keep-firmware-current"],
+        "options": [
+          {
+            "technology": "ember",
+            "baudrate": 115200,
+            "rtscts": false,
+            "modelId": "sonoff-zbdongle-e",
+            "modelName": "Sonoff ZBDongle-E"
+          }
+        ]
+      }
+    }
+  ],
+  "install": {
+    "state": "IDLE",
+    "step": null,
+    "steps": [
+      {
+        "id": "check",
+        "state": "pending"
+      },
+      {
+        "id": "backup",
+        "state": "pending"
+      },
+      {
+        "id": "configure",
+        "state": "pending"
+      },
+      {
+        "id": "restart",
+        "state": "pending"
+      },
+      {
+        "id": "verify",
+        "state": "pending"
+      }
+    ],
+    "progress": null,
+    "startedAt": null,
+    "finishedAt": null,
+    "target": null,
+    "networkMode": "keep",
+    "errorCode": null,
+    "detail": null,
+    "rolledBack": false,
+    "backupId": null,
+    "coordinator": null
+  },
+  "issues": ["multiple-keys", "other-key-plugged"],
+  "checkedAt": "2026-11-08T11:07:55.322328Z"
+}

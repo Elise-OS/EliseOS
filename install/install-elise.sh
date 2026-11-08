@@ -284,6 +284,9 @@ install_host_files() {
 0644 appliance/systemd/elise-screen-setup.service /etc/systemd/system/
 0644 appliance/systemd/elise-screen-setup.timer /etc/systemd/system/
 0755 appliance/elise-zigbee-setup.sh /usr/lib/elise/elise-zigbee-setup
+0755 appliance/elise-zigbee-agent.py /usr/lib/elise/elise-zigbee-agent.py
+0644 appliance/elise-zigbee-adapters.json /usr/lib/elise/elise-zigbee-adapters.json
+0644 appliance/systemd/elise-zigbee-agent.service /etc/systemd/system/
 0644 appliance/systemd/elise-zigbee-setup.service /etc/systemd/system/
 0644 appliance/udev/90-elise-zigbee.rules /etc/udev/rules.d/
 FILES
@@ -350,6 +353,7 @@ systemctl enable --now elise-remote-access-agent.service elise-update-agent.serv
 # A oneshot unit already active is not run again by `enable --now`: apply this release's rules.
 systemctl restart elise-tailscale-firewall.service
 [[ ! -f /etc/systemd/system/elise-zigbee-setup.service ]] || systemctl enable elise-zigbee-setup.service
+[[ ! -f /etc/systemd/system/elise-zigbee-agent.service ]] || systemctl enable --now elise-zigbee-agent.service
 
 progress "Détection des équipements Zigbee"
 "$release_dir/scripts/detect-zigbee-adapter.sh" --write-env "$ELISE_CONFIG/elise.env" || true
@@ -463,6 +467,7 @@ fi
 
 # Agents keep running their old code until restarted; their sockets survive it.
 systemctl try-restart elise-remote-access-agent.service || true
+systemctl try-restart elise-zigbee-agent.service || true
 if [[ "${ELISE_UPDATE_LOCK_HELD:-false}" != true ]]; then
   # A manual `elise update`; the dashboard's runner restarts the update agent itself.
   systemctl try-restart elise-update-agent.service || true

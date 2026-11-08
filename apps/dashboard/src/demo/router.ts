@@ -1,4 +1,5 @@
 import {
+  createZigbeeDemo,
   TV_GUIDE_SOURCES,
   tvChannelLineup,
   type EquipmentCoverage,
@@ -96,10 +97,12 @@ function createWebState() {
 }
 
 let web = createWebState();
+let zigbee = createZigbeeDemo();
 
 export function resetDemo() {
   resetDemoSession();
   web = createWebState();
+  zigbee = createZigbeeDemo();
 }
 
 function overview() {
@@ -448,6 +451,9 @@ export function handleDemoRequest(method: string, path: string, rawBody?: string
   const search = new URLSearchParams(query);
   const body = parse(rawBody);
   const state = demoState();
+
+  const zigbeeAnswer = zigbee.handle(method, pathname, rawBody);
+  if (zigbeeAnswer) return zigbeeAnswer;
 
   if (pathname === '/auth/setup-state')
     return { status: 200, body: { setupRequired: false, systemReady: true } };
