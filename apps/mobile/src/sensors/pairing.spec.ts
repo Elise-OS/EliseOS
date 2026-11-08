@@ -25,20 +25,19 @@ const detected = {
   detectedType: 'CONTACT',
 } as const;
 
-const session = (overrides: Partial<PairingSession> = {}): PairingSession =>
-  ({
-    id: 'session-1',
-    protocol: 'zigbee',
-    status: 'WAITING_FOR_DEVICE',
-    step: 'PAIRING',
-    deviceId: null,
-    errorCode: null,
-    errorMessage: null,
-    expiresAt: new Date(Date.now() + 240_000).toISOString(),
-    connection: { online: true, pairingOpen: true, deviceDetected: false, updatedAt: null },
-    detectedDevice: null,
-    ...overrides,
-  }) as PairingSession;
+const session = (overrides: Partial<PairingSession> = {}): PairingSession => ({
+  id: 'session-1',
+  protocol: 'zigbee',
+  status: 'WAITING_FOR_DEVICE',
+  step: 'PAIRING',
+  deviceId: null,
+  errorCode: null,
+  errorMessage: null,
+  expiresAt: new Date(Date.now() + 240_000).toISOString(),
+  connection: { online: true, pairingOpen: true, deviceDetected: false, updatedAt: null },
+  detectedDevice: null,
+  ...overrides,
+});
 
 const found = () => session({ status: 'DEVICE_FOUND', detectedDevice: detected as never });
 

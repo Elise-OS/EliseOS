@@ -42,7 +42,7 @@ describe('demo: add a sensor', () => {
     const started = post(SESSIONS, { demoModel: '3RDS17BZ' });
     vi.advanceTimersByTime(6_000);
     const plan = mockDemoRequest<HomePlan>('/household/plan');
-    const target = plan.levels.flatMap((level) => level.rooms)[0]!;
+    const target = plan.levels.flatMap((level) => level.rooms)[0];
     const done = mockDemoRequest<{ device: SensorDevice }>(`${SESSIONS}/${started.id}/complete`, {
       method: 'POST',
       body: JSON.stringify({ name: 'Porte du salon', roomId: target.id }),
