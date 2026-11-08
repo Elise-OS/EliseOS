@@ -256,7 +256,9 @@ export function MobileScreenPanel({
                     color={c.blue}
                   />
                   <Text style={s.commandLabel}>
-                    {playback?.paused || playback?.asleep ? t('mobileScreenPanel.resume') : 'Pause'}
+                    {playback?.paused || playback?.asleep
+                      ? t('mobileScreenPanel.resume')
+                      : t('mobileScreenPanel.pause')}
                   </Text>
                 </Pressable>
               ) : null}
@@ -273,7 +275,7 @@ export function MobileScreenPanel({
             </View>
             <View style={s.volumeRow}>
               <Ionicons name="volume-low-outline" size={18} color={c.accent} />
-              <Text style={s.volumeLabel}>Volume</Text>
+              <Text style={s.volumeLabel}>{t('mobileScreenPanel.volume')}</Text>
               <Pressable
                 accessibilityLabel={t('mobileScreenPanel.volumeDown')}
                 disabled={busy}

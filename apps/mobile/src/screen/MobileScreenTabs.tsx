@@ -120,13 +120,13 @@ export function MobileScreenTabs({
   const tabs = [
     {
       id: 'album' as const,
-      title: t('mobileScreenTabs.photoAlbum'),
+      title: t('mobileScreenTabs.albumTab'),
       icon: 'images-outline' as const,
       allowed: canControl,
     },
     {
       id: 'messages' as const,
-      title: 'Messages',
+      title: t('mobileScreenTabs.messages'),
       icon: 'chatbubble-ellipses-outline' as const,
       allowed: canMessage,
     },
@@ -592,7 +592,7 @@ export function MobileScreenTabs({
             <View style={s.flex}>
               <Text style={s.subheading}>{t('mobileScreenTabs.sAlbum', { residentName })}</Text>
               <Text style={s.detail}>
-                {photos.length} photo{photos.length === 1 ? '' : 's'}
+                {t('mobileScreenTabs.photoCount', { count: photos.length })}
               </Text>
             </View>
             <View style={s.speedControl}>
