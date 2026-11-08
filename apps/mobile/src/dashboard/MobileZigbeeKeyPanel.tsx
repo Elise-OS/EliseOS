@@ -439,7 +439,13 @@ function Candidate({
           <Ionicons name="hardware-chip-outline" size={21} color={colors.blue} />
         </View>
         <View style={s.flex}>
-          <Text style={s.eyebrow}>{t('zigbeeKey.recognized')}</Text>
+          <Text style={s.eyebrow}>
+            {candidate.identity.confidence === 'high' || candidate.identity.confidence === 'medium'
+              ? t('zigbeeKey.recognized')
+              : candidate.identity.confidence === 'ambiguous'
+                ? t('zigbeeKey.toConfirm')
+                : t('zigbeeKey.unknownKey')}
+          </Text>
           <Text style={s.title}>
             {zigbeeCandidateTitle(candidate) ?? t('zigbeeKey.unknownModel')}
           </Text>

@@ -50,12 +50,20 @@ appId: org.michel.mobile
     timeout: 10000
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/mobile-${STORE_LANG}-cle-saine
-- tapOn: ${output.zigbee.detect}
+- tapOn: ${output.zigbee.search}
 - scrollUntilVisible:
     element: ${output.zigbee.identify}
     direction: DOWN
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/mobile-${STORE_LANG}-nouvelle-cle
+- scrollUntilVisible:
+    element: ${output.zigbee.network}
+    direction: DOWN
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-cle-reseau
+- scrollUntilVisible:
+    element: ${output.zigbee.identify}
+    direction: UP
 - tapOn: ${output.zigbee.identify}
 - extendedWaitUntil:
     visible: ${output.zigbee.useInstead}

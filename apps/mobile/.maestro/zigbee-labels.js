@@ -3,7 +3,8 @@ var texts = {
   settings: { fr: '(.*, )?Réglages', en: '(.*, )?Settings' },
   zigbee: { fr: '.*Clé Zigbee.*', en: '.*Zigbee key.*' },
   healthy: { fr: '.*Votre clé Zigbee fonctionne.*', en: '.*Your Zigbee key is working.*' },
-  detect: { fr: '.*Détecter une clé.*', en: '.*Detect a key.*' },
+  search: { fr: '.*Chercher une clé.*', en: '.*Look for a key.*' },
+  network: { fr: '.*Sur le réseau de la maison.*', en: '.*On the home network.*' },
   identify: { fr: '.*Identifier la clé.*', en: '.*Identify the key.*' },
   useInstead: {
     fr: '.*Utiliser cette clé à la place.*',
