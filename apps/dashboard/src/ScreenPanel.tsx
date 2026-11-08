@@ -478,6 +478,7 @@ export function ScreenPanel({
   const [photoCaption, setPhotoCaption] = useState('');
   const [photoScheduleAt, setPhotoScheduleAt] = useState('');
   const [busy, setBusy] = useState(false);
+  const [callBusyOpen, setCallBusyOpen] = useState(false);
   const [host, setHost] = useState<Record<string, unknown>>();
   const [tvHost, setTvHost] = useState<TvHostStatus>();
   const [tvGuide, setTvGuide] = useState<TvGuideData>();
@@ -1006,11 +1007,16 @@ export function ScreenPanel({
             )}
             {grant.call && (
               <button
-                className="screen-button screen-button--call"
-                disabled={busy || !snapshot.online || !!call || !state.settings.consent}
-                onClick={() => void run(() => screenRequest('screen/calls'))}
+                className={`screen-button screen-button--call${call ? ' is-busy' : ''}`}
+                disabled={busy || !snapshot.online || (!call && !state.settings.consent)}
+                onClick={() =>
+                  call ? setCallBusyOpen(true) : void run(() => screenRequest('screen/calls'))
+                }
               >
-                <Phone aria-hidden="true" /> {t('screenPanel.call', { residentFirstName })}
+                <Phone aria-hidden="true" />{' '}
+                {call
+                  ? t('screenPanel.callInProgress')
+                  : t('screenPanel.call', { residentFirstName })}
               </button>
             )}
           </div>
@@ -1376,6 +1382,68 @@ export function ScreenPanel({
           </div>
         )
       )}
+      {callBusyOpen &&
+        createPortal(
+          <div className="screen-call-busy" onClick={() => setCallBusyOpen(false)}>
+            <section
+              className="screen-call-busy__card"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="screen-call-busy-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <span className="screen-call-busy__icon" aria-hidden="true">
+                <Phone />
+              </span>
+              <h2 id="screen-call-busy-title">{t('screenPanel.aCallIsInProgress')}</h2>
+              <p>
+                {call
+                  ? call.userId === snapshot.userId
+                    ? t('screenPanel.yourCallIsStillOpen', {
+                        resident: residentFirstName,
+                        time: new Date(call.createdAt).toLocaleTimeString(dateLocale(), {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }),
+                      })
+                    : t('screenPanel.someoneIsCalling', {
+                        name: call.name,
+                        resident: residentFirstName,
+                        time: new Date(call.createdAt).toLocaleTimeString(dateLocale(), {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }),
+                      })
+                  : t('screenPanel.theCallHasEnded')}
+              </p>
+              <div className="screen-call-busy__actions">
+                {call && call.userId === snapshot.userId && (
+                  <button
+                    type="button"
+                    className="screen-button screen-button--secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(async () => {
+                        await screenRequest(`screen/calls/${call.id}`, undefined, 'DELETE');
+                        setCallBusyOpen(false);
+                      })
+                    }
+                  >
+                    {t('screenPanel.cancelTheCall')}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="screen-button screen-button--call"
+                  onClick={() => setCallBusyOpen(false)}
+                >
+                  {t('screenPanel.close')}
+                </button>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
       {mainTabs.length > 0 && (
         <div
           className="screen-main-tabs"

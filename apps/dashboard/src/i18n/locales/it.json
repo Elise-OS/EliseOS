@@ -2068,7 +2068,12 @@
     "youtubeLinks": "Link YouTube",
     "allowVideoCalls": "Consenti le videochiamate",
     "videoCallsAllowedHint": "Lei e i familiari autorizzati potete chiamare {{residentFirstName}} sulla televisione.",
-    "videoCallsBlockedHint": "Le chiamate a {{residentFirstName}} sono bloccate finché questa impostazione è disattivata."
+    "videoCallsBlockedHint": "Le chiamate a {{residentFirstName}} sono bloccate finché questa impostazione è disattivata.",
+    "aCallIsInProgress": "È in corso una chiamata",
+    "yourCallIsStillOpen": "La sua chiamata con {{resident}}, iniziata alle {{time}}, non è terminata.",
+    "someoneIsCalling": "{{name}} è in chiamata con {{resident}} dalle {{time}}.",
+    "theCallHasEnded": "La chiamata è terminata.",
+    "close": "Chiudi"
   },
   "sensorCategories": {
     "air_quality": {

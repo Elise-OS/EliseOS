@@ -30,6 +30,7 @@ const c = {
   green: '#4F8569',
   paleGreen: '#E5EFE8',
   amber: '#D99A55',
+  paleAmber: '#F7E9D7',
   red: '#B74747',
   paleBlue: '#E8F0F3',
 };
@@ -439,6 +440,9 @@ export function MobileWelcomePanel({
   refreshing,
   connectionAvailable,
   onStartCall,
+  currentUserId,
+  onRejoinCall,
+  onEndOngoingCall,
   onRefresh,
   onNavigate,
 }: {
@@ -454,6 +458,9 @@ export function MobileWelcomePanel({
   refreshing: boolean;
   connectionAvailable: boolean;
   onStartCall: () => Promise<void>;
+  currentUserId?: string;
+  onRejoinCall: () => void;
+  onEndOngoingCall: () => Promise<void>;
   onRefresh: () => void;
   onNavigate: (page: Page) => void;
 }) {
@@ -462,6 +469,8 @@ export function MobileWelcomePanel({
   const [callConfirmOpen, setCallConfirmOpen] = useState(false);
   const [callPending, setCallPending] = useState(false);
   const [callError, setCallError] = useState('');
+  const [callBusyOpen, setCallBusyOpen] = useState(false);
+  const [callEnding, setCallEnding] = useState(false);
   const timezone = homeSummary?.timezone ?? screen?.timezone ?? 'Europe/Paris';
   const today = dateKeyInZone(now, timezone);
   const previousDate = shiftDate(today, -1);
@@ -544,6 +553,24 @@ export function MobileWelcomePanel({
     !screen.state.call &&
     screen.state.settings.consent,
   );
+  // A call already running keeps the button usable: it explains the call instead of greying out.
+  const ongoingCall = connectionAvailable && screen?.grant.call ? screen.state.call : null;
+  const ongoingCallIsMine = Boolean(ongoingCall && ongoingCall.userId === currentUserId);
+  const endOngoingCall = async () => {
+    if (callEnding) return;
+    setCallEnding(true);
+    setCallError('');
+    try {
+      await onEndOngoingCall();
+      setCallBusyOpen(false);
+    } catch (cause) {
+      setCallError(
+        cause instanceof Error ? cause.message : t('mobileWelcomePanel.theCallCouldNotBeEnded'),
+      );
+    } finally {
+      setCallEnding(false);
+    }
+  };
   const presence = homeSummary
     ? mobilePresenceText(homeSummary)
     : caregiverPresenceCopy(null).detail;
@@ -618,20 +645,23 @@ export function MobileWelcomePanel({
                     accessibilityRole="button"
                     accessibilityLabel={t('mobileWelcomePanel.call', { resident })}
                     accessibilityHint={t('mobileWelcomePanel.opensAConfirmationBeforeStarting')}
-                    disabled={!canStartCall || callPending}
+                    disabled={(!canStartCall && !ongoingCall) || callPending}
                     style={[
                       s.headerIconButton,
-                      (!canStartCall || callPending) && s.callIconButtonDisabled,
+                      ongoingCall && s.callIconButtonBusy,
+                      !canStartCall && !ongoingCall && s.callIconButtonDisabled,
+                      callPending && s.callIconButtonDisabled,
                     ]}
                     onPress={() => {
                       setCallError('');
-                      setCallConfirmOpen(true);
+                      if (ongoingCall) setCallBusyOpen(true);
+                      else setCallConfirmOpen(true);
                     }}
                   >
                     <Ionicons
                       name="call-outline"
                       size={21}
-                      color={canStartCall ? c.green : c.muted}
+                      color={ongoingCall ? c.amber : canStartCall ? c.green : c.muted}
                     />
                   </Pressable>
                 ) : null}
@@ -868,6 +898,91 @@ export function MobileWelcomePanel({
           </View>
         </View>
       </Modal>
+      <Modal
+        visible={callBusyOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCallBusyOpen(false)}
+      >
+        <View style={s.callModalRoot}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('mobileWelcomePanel.close')}
+            style={s.callModalScrim}
+            onPress={() => setCallBusyOpen(false)}
+          />
+          <View style={s.callModalCard}>
+            <View style={[s.callModalIcon, s.callModalIconBusy]}>
+              <Ionicons name="call-outline" size={22} color={c.amber} />
+            </View>
+            <Text style={s.callModalTitle}>{t('mobileWelcomePanel.aCallIsInProgress')}</Text>
+            <Text style={s.callModalBody}>
+              {ongoingCall
+                ? ongoingCallIsMine
+                  ? t('mobileWelcomePanel.yourCallIsStillOpen', {
+                      resident,
+                      time: time(ongoingCall.createdAt),
+                    })
+                  : t('mobileWelcomePanel.someoneIsCalling', {
+                      name: ongoingCall.name,
+                      resident,
+                      time: time(ongoingCall.createdAt),
+                    })
+                : t('mobileWelcomePanel.theCallHasEnded')}
+            </Text>
+            {callError ? (
+              <Text accessibilityRole="alert" style={s.callModalError}>
+                {callError}
+              </Text>
+            ) : null}
+            <View style={s.callModalActions}>
+              {ongoingCall && ongoingCallIsMine ? (
+                <>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={callEnding}
+                    style={[
+                      s.callModalButton,
+                      s.callModalCancel,
+                      callEnding && s.callModalButtonDisabled,
+                    ]}
+                    onPress={() => void endOngoingCall()}
+                  >
+                    <Text style={s.callModalCancelText}>
+                      {callEnding
+                        ? t('mobileWelcomePanel.endingTheCall')
+                        : t('mobileWelcomePanel.endTheCall')}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={callEnding}
+                    style={[
+                      s.callModalButton,
+                      s.callModalConfirm,
+                      callEnding && s.callModalButtonDisabled,
+                    ]}
+                    onPress={() => {
+                      setCallBusyOpen(false);
+                      onRejoinCall();
+                    }}
+                  >
+                    <Text style={s.callModalConfirmText}>{t('mobileWelcomePanel.rejoin')}</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  style={[s.callModalButton, s.callModalConfirm]}
+                  onPress={() => setCallBusyOpen(false)}
+                >
+                  <Text style={s.callModalConfirmText}>{t('mobileWelcomePanel.close')}</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -1004,6 +1119,7 @@ const s = StyleSheet.create({
     backgroundColor: c.red,
   },
   callIconButtonDisabled: { opacity: 0.5 },
+  callIconButtonBusy: { borderColor: c.amber, backgroundColor: c.paleAmber },
   callModalRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 22 },
   callModalScrim: {
     ...StyleSheet.absoluteFillObject,
@@ -1028,6 +1144,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: c.paleBlue,
   },
+  callModalIconBusy: { backgroundColor: c.paleAmber },
   callModalTitle: { color: c.navy, textAlign: 'center', fontFamily: 'Georgia', fontSize: 22 },
   callModalBody: { color: c.muted, textAlign: 'center', fontSize: 14, lineHeight: 22 },
   callModalError: {

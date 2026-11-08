@@ -359,7 +359,8 @@
     "theVideoCallIsTemporarily": "La visioconférence est momentanément inaccessible.",
     "unableToJoinTheCall": "Impossible de rejoindre l’appel",
     "unableToSwitchCamera": "Changement impossible",
-    "videoCall": "APPEL VIDÉO"
+    "videoCall": "APPEL VIDÉO",
+    "turnOnTailscale": "Le téléphone n’arrive pas à joindre la visio de la box. Activez Tailscale sur ce téléphone, puis relancez l’appel."
   },
   "mobileDateTimePicker": {
     "chooseTheDate": "Choisir la date",
@@ -1134,7 +1135,16 @@
     "visitsToday_other": "{{count}} passages aujourd’hui",
     "wakeUp": "Réveil ce matin vers {{wakeUp}}.",
     "wakeUpObservedToday": "Réveil repéré aujourd’hui",
-    "yesterdaySBedtime": "Coucher de la veille"
+    "yesterdaySBedtime": "Coucher de la veille",
+    "aCallIsInProgress": "Un appel est en cours",
+    "yourCallIsStillOpen": "Votre appel avec {{resident}}, lancé à {{time}}, n’est pas terminé.",
+    "someoneIsCalling": "{{name}} est en appel avec {{resident}} depuis {{time}}.",
+    "theCallHasEnded": "L’appel est terminé.",
+    "endTheCall": "Terminer l’appel",
+    "endingTheCall": "Fin de l’appel…",
+    "rejoin": "Rejoindre",
+    "close": "Fermer",
+    "theCallCouldNotBeEnded": "L’appel n’a pas pu être terminé."
   },
   "mockApi": {
     "aFewMovementsInThe": "Quelques passages dans la cuisine, le séjour et la salle de bains.",

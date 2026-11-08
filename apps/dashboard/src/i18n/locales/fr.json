@@ -2068,7 +2068,12 @@
     "noTvGuideForTheseChannels": "Pas de programme disponible pour ces chaînes.",
     "allowVideoCalls": "Autoriser les appels vidéo",
     "videoCallsAllowedHint": "Vous et les proches autorisés pouvez appeler {{residentFirstName}} sur la télévision.",
-    "videoCallsBlockedHint": "Les appels vers {{residentFirstName}} sont bloqués tant que ce réglage est désactivé."
+    "videoCallsBlockedHint": "Les appels vers {{residentFirstName}} sont bloqués tant que ce réglage est désactivé.",
+    "aCallIsInProgress": "Un appel est en cours",
+    "yourCallIsStillOpen": "Votre appel avec {{resident}}, lancé à {{time}}, n’est pas terminé.",
+    "someoneIsCalling": "{{name}} est en appel avec {{resident}} depuis {{time}}.",
+    "theCallHasEnded": "L’appel est terminé.",
+    "close": "Fermer"
   },
   "sensorCategories": {
     "air_quality": {

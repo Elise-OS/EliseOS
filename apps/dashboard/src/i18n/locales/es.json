@@ -2068,7 +2068,12 @@
     "noTvGuideForTheseChannels": "No hay programación disponible para estos canales.",
     "allowVideoCalls": "Permitir videollamadas",
     "videoCallsAllowedHint": "Usted y los familiares autorizados pueden llamar a {{residentFirstName}} en la televisión.",
-    "videoCallsBlockedHint": "Las llamadas a {{residentFirstName}} están bloqueadas mientras este ajuste esté desactivado."
+    "videoCallsBlockedHint": "Las llamadas a {{residentFirstName}} están bloqueadas mientras este ajuste esté desactivado.",
+    "aCallIsInProgress": "Hay una llamada en curso",
+    "yourCallIsStillOpen": "Su llamada con {{resident}}, iniciada a las {{time}}, no ha terminado.",
+    "someoneIsCalling": "{{name}} está en llamada con {{resident}} desde las {{time}}.",
+    "theCallHasEnded": "La llamada ha terminado.",
+    "close": "Cerrar"
   },
   "sensorCategories": {
     "air_quality": {

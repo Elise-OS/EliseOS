@@ -40,7 +40,12 @@ const callPage = (join: ScreenJoin) => {
             function send(value){ if(window.ReactNativeWebView) window.ReactNativeWebView.postMessage(value); }
             var script=document.createElement('script');
             script.src=${inlineJson(`${jitsi.origin}/external_api.js`)};
+            // A phone outside the box's private network never loads the Jitsi script.
+            var loaded=false;
+            script.onerror=function(){send('unreachable');};
+            setTimeout(function(){ if(!loaded) send('unreachable'); }, 15000);
             script.onload=function(){
+              loaded=true;
               if(!window.JitsiMeetExternalAPI){send('error');return;}
               var api=new window.JitsiMeetExternalAPI(${inlineJson(jitsi.host)}, ${options});
               var switchingCamera=false;
@@ -105,7 +110,7 @@ export function MobileCallOverlay({
   error,
   onEnd,
 }: MobileCallOverlayProps) {
-  const [webError, setWebError] = useState(false);
+  const [webError, setWebError] = useState<false | 'error' | 'unreachable'>(false);
   const [cameraSwitchAvailable, setCameraSwitchAvailable] = useState(false);
   const ended = useRef(false);
   const webViewRef = useRef<WebView>(null);
@@ -125,7 +130,8 @@ export function MobileCallOverlay({
 
   const onMessage = ({ nativeEvent }: WebViewMessageEvent) => {
     if (nativeEvent.data === 'hangup') finish();
-    if (nativeEvent.data === 'error') setWebError(true);
+    if (nativeEvent.data === 'error') setWebError('error');
+    if (nativeEvent.data === 'unreachable') setWebError('unreachable');
     if (nativeEvent.data === 'camera-switch-available') setCameraSwitchAvailable(true);
     if (nativeEvent.data === 'camera-switch-unavailable') setCameraSwitchAvailable(false);
     if (nativeEvent.data === 'camera-switch-error') {
@@ -136,9 +142,18 @@ export function MobileCallOverlay({
     }
   };
 
-  const onWebError = () => setWebError(true);
+  const onWebError = () => setWebError('unreachable');
 
-  const callError = error || (webError ? t('mobileCallOverlay.theVideoCallIsTemporarily') : '');
+  // The video server is published on the box's private Tailscale address: off Tailscale,
+  // the phone cannot reach it, which is the usual reason a call cannot be joined.
+  const privateVideoServer = join ? new URL(join.url).hostname.endsWith('.ts.net') : false;
+  const callError =
+    error ||
+    (webError === 'unreachable' && privateVideoServer
+      ? t('mobileCallOverlay.turnOnTailscale')
+      : webError
+        ? t('mobileCallOverlay.theVideoCallIsTemporarily')
+        : '');
 
   return (
     <Modal

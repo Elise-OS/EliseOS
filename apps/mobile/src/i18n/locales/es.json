@@ -359,7 +359,8 @@
     "theVideoCallIsTemporarily": "La videollamada no está disponible en este momento.",
     "unableToJoinTheCall": "No se puede unir a la llamada",
     "unableToSwitchCamera": "Cambio imposible",
-    "videoCall": "VIDEOLLAMADA"
+    "videoCall": "VIDEOLLAMADA",
+    "turnOnTailscale": "Este teléfono no logra conectar con la videollamada de la caja. Active Tailscale en este teléfono y vuelva a llamar."
   },
   "mobileDateTimePicker": {
     "chooseTheDate": "Elegir la fecha",
@@ -1127,7 +1128,16 @@
     "visitsToday_other": "{{count}} pasos hoy",
     "wakeUp": "Se despertó esta mañana hacia las {{wakeUp}}.",
     "wakeUpObservedToday": "Despertar detectado hoy",
-    "yesterdaySBedtime": "Hora de acostarse de anoche"
+    "yesterdaySBedtime": "Hora de acostarse de anoche",
+    "aCallIsInProgress": "Hay una llamada en curso",
+    "yourCallIsStillOpen": "Su llamada con {{resident}}, iniciada a las {{time}}, no ha terminado.",
+    "someoneIsCalling": "{{name}} está en llamada con {{resident}} desde las {{time}}.",
+    "theCallHasEnded": "La llamada ha terminado.",
+    "endTheCall": "Terminar la llamada",
+    "endingTheCall": "Terminando la llamada…",
+    "rejoin": "Volver a unirse",
+    "close": "Cerrar",
+    "theCallCouldNotBeEnded": "No se pudo terminar la llamada."
   },
   "mockApi": {
     "aFewMovementsInThe": "Algunos pasos por la cocina, el salón y el baño.",
