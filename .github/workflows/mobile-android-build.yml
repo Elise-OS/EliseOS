@@ -146,13 +146,17 @@ jobs:
           mkdir -p "$release_dir"
           cp "$outputs/apk/release/app-release.apk" "$release_dir/elise-companion-${VERSION_NAME}-${VERSION_CODE}.apk"
           cp "$outputs/bundle/release/app-release.aab" "$release_dir/elise-companion-${VERSION_NAME}-${VERSION_CODE}.aab"
-          gh release create "$tag" "$release_dir"/* \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title "Élise Companion Android ${VERSION_NAME} (${VERSION_CODE})" \
-            --notes "Signed Android builds from ${GITHUB_SHA}. The APK is for direct installation; upload the AAB to Google Play." \
-            --prerelease \
-            --latest=false
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" "$release_dir"/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$tag" "$release_dir"/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Élise Companion Android ${VERSION_NAME} (${VERSION_CODE})" \
+              --notes "Signed Android builds from ${GITHUB_SHA}. The APK is for direct installation; upload the AAB to Google Play." \
+              --prerelease \
+              --latest=false
+          fi
 
       - id: play-publishing
         name: Check Google Play publishing configuration
