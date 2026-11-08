@@ -955,7 +955,14 @@
       "routineUntil": "Until",
       "secure": "Your data stays locally on this Élise OS installation.",
       "start": "Start setup",
-      "steps": ["Welcome", "You", "Resident", "Learning", "Remote access", "Summary"],
+      "steps": [
+        "Welcome",
+        "You",
+        "Resident",
+        "Learning",
+        "Remote access",
+        "Summary"
+      ],
       "titles": [
         "Set up Élise for someone who matters.",
         "Create your access",
@@ -1296,9 +1303,18 @@
       "ready": "Remote access is on",
       "readyHint": "Install Tailscale on this phone with the same account to reach Élise away from home.",
       "steps": [
-        ["Link Élise to Tailscale", "Élise prepares a connection request."],
-        ["Approve in Tailscale", "Sign in or create a free account, then come back here."],
-        ["Turn on the private address", "Élise gets its secure address."]
+        [
+          "Link Élise to Tailscale",
+          "Élise prepares a connection request."
+        ],
+        [
+          "Approve in Tailscale",
+          "Sign in or create a free account, then come back here."
+        ],
+        [
+          "Turn on the private address",
+          "Élise gets its secure address."
+        ]
       ],
       "unavailable": "Remote access is not available on this box right now. You can turn it on later in settings.",
       "waiting": "Waiting for your approval…"
@@ -1746,7 +1762,11 @@
     },
     "nodon-opening": {
       "advice": "Attach the sensor to the frame and the magnet to the moving panel. Follow the alignment and maximum-gap guidance in the manual.",
-      "features": ["Open and closed state", "Battery level", "Over-the-air updates"],
+      "features": [
+        "Open and closed state",
+        "Battery level",
+        "Over-the-air updates"
+      ],
       "name": "Zigbee Door and Window Sensor",
       "placement": [
         "Attach the sensor to the frame and the magnet to the moving panel.",
@@ -1760,7 +1780,11 @@
     },
     "sonoff-climate": {
       "advice": "Place it in a representative, well-ventilated area of the room. Keep it away from sunlight, radiators, windows and steam.",
-      "features": ["Temperature", "Relative humidity", "Battery level"],
+      "features": [
+        "Temperature",
+        "Relative humidity",
+        "Battery level"
+      ],
       "name": "Temperature and humidity sensor",
       "placement": [
         "Place it in a representative, well-ventilated area of the room.",
@@ -1774,7 +1798,11 @@
     },
     "thirdreality-climate-lite": {
       "advice": "Choose a well-ventilated location representative of the room. Keep it away from sunlight, radiators, windows and steam.",
-      "features": ["Temperature", "Relative humidity", "Battery level"],
+      "features": [
+        "Temperature",
+        "Relative humidity",
+        "Battery level"
+      ],
       "name": "Temperature & Humidity Sensor Lite",
       "placement": [
         "Choose a well-ventilated location representative of the room.",
@@ -1788,7 +1816,11 @@
     },
     "thirdreality-door-window": {
       "advice": "Attach the sensor to the frame and the magnet to the moving panel. Align the marks, then verify both opening and closing in the test guide.",
-      "features": ["Open and closed state", "Battery level", "Configurable open delay"],
+      "features": [
+        "Open and closed state",
+        "Battery level",
+        "Configurable open delay"
+      ],
       "name": "Door & Window Sensor",
       "placement": [
         "Attach the sensor to the frame and the magnet to the moving panel.",
@@ -1802,7 +1834,10 @@
     },
     "thirdreality-motion": {
       "advice": "Aim it at passage areas with nothing blocking the lens. Avoid direct sunlight, heaters, steam and heat sources.",
-      "features": ["PIR motion up to approximately 6 m", "Battery level"],
+      "features": [
+        "PIR motion up to approximately 6 m",
+        "Battery level"
+      ],
       "name": "Motion Sensor",
       "placement": [
         "Aim it at passage areas with nothing blocking the lens.",
@@ -1836,7 +1871,12 @@
     },
     "thirdreality-smart-button": {
       "advice": "Keep it within easy reach, for example near the bed or armchair. Use the magnetic or adhesive mount and check that the person can press it easily.",
-      "features": ["Single press", "Double press", "Long press", "Battery level"],
+      "features": [
+        "Single press",
+        "Double press",
+        "Long press",
+        "Battery level"
+      ],
       "name": "Zigbee Smart Button",
       "placement": [
         "Keep it within easy reach, for example near the bed or armchair.",
@@ -1861,7 +1901,10 @@
         "Zigbee repeater"
       ],
       "name": "Smart Plug E2 EU with Power Monitoring",
-      "placement": ["Indoor use only.", "Do not exceed 16 A and do not daisy-chain power strips."],
+      "placement": [
+        "Indoor use only.",
+        "Do not exceed 16 A and do not daisy-chain power strips."
+      ],
       "power": "Mains 100–250 V · 50/60 Hz · 16 A maximum",
       "preparation": [
         "Plug it directly into a wall outlet near the hub.",
@@ -1870,7 +1913,11 @@
     },
     "thirdreality-water-leak": {
       "advice": "Lay it flat where water would appear first: under a sink, basin or water heater. Keep the enclosure accessible for testing and maintenance.",
-      "features": ["Water leak detection", "Built-in siren", "Battery level"],
+      "features": [
+        "Water leak detection",
+        "Built-in siren",
+        "Battery level"
+      ],
       "name": "Water Leak Sensor",
       "placement": [
         "Lay it flat where water would appear first: under a sink, basin or water heater.",
@@ -1909,5 +1956,169 @@
     "addASensor": "Add a sensor",
     "addToThisRoom": "Add a sensor to this room",
     "adminOnly": "Only a household administrator can add a sensor."
+  },
+  "zigbeeKey": {
+    "addressFail": "No answer at this address.",
+    "addressOk": "The network key answers: it appears in the list.",
+    "advanced": "Advanced mode",
+    "advancedAdapter": "Technology (adapter)",
+    "advancedBaudrate": "Speed (baud)",
+    "advancedCustomPort": "Other port or network address",
+    "advancedHint": "For people comfortable with Zigbee2MQTT: pick the port, technology and speed yourself. A wrong setting breaks nothing: the previous configuration comes back by itself.",
+    "advancedInstall": "Install with these settings",
+    "advancedPort": "Key port",
+    "advancedPortPlaceholder": "/dev/serial/by-id/… or tcp://192.168.1.50:6638",
+    "advancedRtscts": "Hardware flow control (RTS/CTS)",
+    "ambiguousExplain": "This key exists in several look-alike versions. The box can ask it which one it is, without changing anything.",
+    "attentionBusy": "Another program is already using the key. Close it, then try again.",
+    "attentionOffline": "The Zigbee service has started but is not ready yet. Please wait a moment.",
+    "attentionStopped": "The Zigbee service is stopped. It usually restarts by itself; otherwise unplug and replug the key.",
+    "attentionTitle": "The key is plugged in but not answering well",
+    "busyBy": "This key is being used by another program ({{by}}).",
+    "cancel": "Cancel",
+    "cancelledText": "The previous configuration is back in place.",
+    "cancelledTitle": "Installation cancelled",
+    "channel": "Zigbee channel",
+    "chip": "Chip",
+    "confirmNewNetwork": "I understand that all my sensors will have to be paired again.",
+    "confirmText": "Élise saves the current configuration, sets up the key, restarts the Zigbee service, then checks that everything works. At the first problem, the previous configuration comes back automatically.",
+    "confirmTitle": "Install {{name}}?",
+    "coordinatorType": "Coordinator type",
+    "currentKey": "Key in use",
+    "detect": "Detect a key",
+    "detecting": "Searching…",
+    "deviceCount_one": "{{count}} device",
+    "deviceCount_other": "{{count}} devices",
+    "devices": "Connected devices",
+    "dismiss": "Close",
+    "done": "Done",
+    "error": {
+      "CANCELLED": "You cancelled the installation.",
+      "INTERNAL": "An unexpected error occurred.",
+      "INTERRUPTED": "The installation was interrupted (the box restarted).",
+      "KEY_UNREACHABLE": "The network key does not answer at the given address.",
+      "NETWORK_MISMATCH": "This key already holds another Zigbee network, different from your sensors’ one.",
+      "NO_ANSWER": "The key did not answer with these settings. Check the model, or try another technology in the advanced mode.",
+      "NO_Z2M": "The Zigbee service is not installed on this box.",
+      "PORT_BUSY": "The key is being used by another program ({{detail}}).",
+      "PORT_UNAVAILABLE": "The key could not be opened: it is unplugged or busy.",
+      "ROLLBACK_FAILED": "The previous configuration could not be put back.",
+      "TIMEOUT": "The Zigbee service took too long to start.",
+      "WRONG_ADAPTER": "This technology does not suit the key.",
+      "unknown": "The installation stopped."
+    },
+    "extendedPanId": "Extended PAN ID",
+    "eyebrow": "Wireless sensors",
+    "failedText": "The previous configuration could not be put back automatically. Unplug and replug the key, or ask the person who installed the box for help.",
+    "failedTitle": "The installation failed",
+    "firmware": "Firmware",
+    "firmwareGuide": "Guide to compatible keys",
+    "forget": "Forget this address",
+    "identified": "The key answered: {{name}}.",
+    "identifiedGeneric": "The key answered: {{technology}} technology.",
+    "identify": "Identify the key",
+    "identifying": "Asking the key…",
+    "ieee": "Key address (IEEE)",
+    "install": "Install the key",
+    "installingHint": "Do not unplug anything during the installation.",
+    "installingTitle": "Installing the key",
+    "intro": "The Zigbee key is the small antenna plugged into the Élise box: it receives the information from your sensors.",
+    "issue": {
+      "firmware-old": "The key’s firmware is old: an update is recommended for a reliable network.",
+      "model-discouraged": "This key is an old model: a more recent one is recommended.",
+      "model-experimental": "Support for this key is experimental."
+    },
+    "keepNetwork": "Keep my sensors (recommended)",
+    "keepNetworkHint": "The current Zigbee network is copied onto the new key: your sensors keep working without being paired again. If one stops answering afterwards, it may need to be paired again.",
+    "keyMissingHint": "Plug it back into the Élise box. Without it, your sensors cannot send any information.",
+    "keyMissingTitle": "The Zigbee key is no longer plugged in",
+    "loading": "Looking for the Zigbee key…",
+    "managersOnly": "Only the owner and administrators can manage the Zigbee key.",
+    "model": "Model",
+    "multipleHint": "Several keys are plugged in. Keep only the one you want to use.",
+    "networkAddress": "Address of a network key",
+    "networkKey": "Network key · {{address}}",
+    "networkPlaceholder": "192.168.1.50",
+    "newKeyHint": "Check the model, then install it: it takes about a minute.",
+    "newKeyTitle_one": "New key found",
+    "newKeyTitle_other": "{{count}} keys found",
+    "newNetwork": "Start from scratch",
+    "newNetworkHint": "A new Zigbee network is created. Every sensor will have to be paired again, one by one.",
+    "noKeyHint": "Plug your Zigbee key into the Élise box, preferably on a USB extension cable. This screen detects it by itself.",
+    "noKeyTitle": "No Zigbee key detected",
+    "note": {
+      "check-baudrate": "The speed depends on the installed firmware: check it if the key does not answer.",
+      "check-radio": "Check that the Zigbee radio is enabled in the key’s own page.",
+      "discouraged-cc2531": "Old model: little memory (about twenty devices at most). A more recent key is recommended.",
+      "experimental": "Experimental support: correct operation is not guaranteed.",
+      "gpio-uart": "Board plugged on the Raspberry Pi pins: it is not detected by itself, use the advanced mode.",
+      "keep-firmware-current": "Keep the key’s firmware up to date for better performance.",
+      "multi-port": "This board exposes several ports: take the first one.",
+      "ncp-firmware": "This key must run the Zigbee firmware (not Thread or multiprotocol) to work with Élise.",
+      "network-adapter": "Network key: set it to Zigbee coordinator mode and give it a fixed IP address.",
+      "old-generation": "Old generation of key: a recent one is recommended.",
+      "usb3-extension": "Plug the key on a USB extension cable to keep it away from the box: range is better and interference weaker."
+    },
+    "openAdvanced": "Open the advanced mode",
+    "otherKeyHint": "Your current key is working. You can replace it with this one whenever you like.",
+    "otherKeyTitle": "Another key is plugged in",
+    "panId": "Network identifier (PAN ID)",
+    "pluggedOn": "Plugged into the box",
+    "port": "Connection",
+    "readyHint": "Your sensors can talk to the box.",
+    "readyTitle": "Your Zigbee key is working",
+    "recognized": "Recognised model",
+    "retry": "Try again",
+    "retryNewNetwork": "Start from scratch with this key",
+    "rolledBackText": "Don’t worry: the previous configuration was put back automatically.",
+    "rolledBackTitle": "The installation did not complete",
+    "searchNetwork": "Look for a network key",
+    "sensorsTitle": "Your sensors",
+    "service": "Zigbee service",
+    "serviceRunning": "Running",
+    "serviceStarting": "Starting…",
+    "serviceStopped": "Stopped",
+    "serviceUnknown": "Unknown",
+    "silent": "The key did not answer. Choose the version that matches what you bought:",
+    "stabilityByPath": "This key has no serial number: it is found again by the USB socket it uses. Always plug it back into the same one.",
+    "stabilityRaw": "Unstable connection: the port name may change when the box restarts. Use the advanced mode to pick a stable port.",
+    "statusDiscouraged": "Not recommended",
+    "statusExperimental": "Experimental",
+    "statusRecommended": "Recommended",
+    "statusSupported": "Compatible",
+    "step": {
+      "backup": "Saving the configuration",
+      "check": "Checking the key",
+      "configure": "Setting up the key",
+      "restart": "Restarting the Zigbee service",
+      "rollback": "Going back to the previous configuration",
+      "verify": "Checking that it works"
+    },
+    "stepsTitle": "Installation steps",
+    "stop": "Stop the installation",
+    "successText": "{{name}} is working and the box is ready.",
+    "successTitle": "The key is installed",
+    "tab": "Zigbee key",
+    "tech": {
+      "deconz": "dresden elektronik (deCONZ)",
+      "ember": "Silicon Labs (Ember)",
+      "zboss": "Nordic (ZBOSS)",
+      "zigate": "ZiGate",
+      "zstack": "Texas Instruments (Z-Stack)"
+    },
+    "technicalDetails": "Technical details",
+    "technology": "Technology",
+    "testAddress": "Test the address",
+    "testing": "Testing…",
+    "title": "Zigbee key",
+    "toConfirm": "To confirm",
+    "unavailableText": "This box cannot yet manage the Zigbee key from the app. Update Élise OS, then try again.",
+    "unavailableTitle": "Key management unavailable",
+    "unknownExplain": "This key is not in the list of known models (USB id {{id}}). You can set it up by hand in the advanced mode.",
+    "unknownKey": "Unknown model",
+    "unknownModel": "Unlisted key",
+    "useKey": "Use this key",
+    "useKeyInstead": "Use this key instead",
+    "watching": "Detection is automatic while this screen is open: just plug the key in."
   }
 }

@@ -15,6 +15,8 @@ export * from './notifications.js';
 export * from './room-equipment.js';
 export * from './retire-furniture.js';
 export * from './zigbee.js';
+export * from './zigbee-demo.js';
+export * from './zigbee-view.js';
 
 export const capabilitySchema = z.enum([
   'motion',

@@ -80,3 +80,55 @@ test('a network address is checked before it reaches the agent', () => {
   assert.equal(zigbeeNetworkTestSchema.safeParse({ host: 'a b' }).success, false);
   assert.equal(zigbeeNetworkTestSchema.safeParse({ host: 'x', port: 70000 }).success, false);
 });
+
+test('the view helpers decide what the screens show', async () => {
+  const {
+    zigbeeErrorKey,
+    zigbeeHeadline,
+    zigbeeInstallRequest,
+    zigbeeIsInstallable,
+    zigbeeKnownNotes,
+    zigbeeNeedsChoice,
+    zigbeeRecentResult,
+    zigbeeServiceState,
+    zigbeeVisibleIssues,
+  } = await import('../dist/index.js');
+  const status = zigbeeStatusSchema.parse(fixture);
+  const [current, other] = status.candidates;
+  assert.equal(zigbeeErrorKey('NO_ANSWER'), 'NO_ANSWER');
+  assert.equal(zigbeeErrorKey('SOMETHING_NEW'), 'unknown');
+  assert.equal(zigbeeErrorKey(null), 'unknown');
+  assert.deepEqual(zigbeeKnownNotes(['usb3-extension', 'made-up']), ['usb3-extension']);
+  assert.deepEqual(zigbeeVisibleIssues(['multiple-keys', 'firmware-old']), ['firmware-old']);
+  assert.equal(zigbeeNeedsChoice(other), true);
+  assert.equal(zigbeeIsInstallable(other), false);
+  assert.equal(zigbeeIsInstallable(current), true);
+  assert.deepEqual(zigbeeInstallRequest(current, current.identity.options[0], 'keep'), {
+    candidateId: current.id,
+    adapter: 'ember',
+    baudrate: 115200,
+    rtscts: false,
+    networkMode: 'keep',
+    modelId: 'sonoff-zbdongle-e',
+  });
+  assert.equal(
+    zigbeeInstallRequest(current, current.identity.options[0], 'new').confirmNewNetwork,
+    true,
+  );
+  assert.equal(zigbeeHeadline(status).title, 'ready');
+  assert.equal(zigbeeHeadline({ ...status, state: 'NEW_KEY' }).tone, 'new');
+  assert.equal(zigbeeHeadline({ ...status, state: 'NO_KEY' }).hint, 'noKeyHint');
+  assert.equal(
+    zigbeeHeadline({ ...status, state: 'ATTENTION', issues: ['z2m-offline'] }).hint,
+    'attentionOffline',
+  );
+  assert.equal(zigbeeServiceState(status.current), 'running');
+  assert.equal(
+    zigbeeServiceState({ ...status.current, z2m: { container: 'stopped', bridge: 'offline' } }),
+    'stopped',
+  );
+  const finished = { ...status.install, state: 'SUCCEEDED', finishedAt: '2026-06-12T10:00:00.000Z' };
+  assert.ok(zigbeeRecentResult(finished, Date.parse('2026-06-12T10:10:00Z')));
+  assert.equal(zigbeeRecentResult(finished, Date.parse('2026-06-12T11:00:00Z')), null);
+  assert.equal(zigbeeRecentResult(status.install), null);
+});
