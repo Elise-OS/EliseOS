@@ -1,6 +1,7 @@
 import type { HomePlan, RoomSensorCategory, SensorProduct } from '@elise/contracts';
 import {
   ROOM_SENSOR_CATEGORIES,
+  SENSOR_CATEGORY_GROUPS,
   isBedOccupancySensorModel,
   roomSupportsCategory,
 } from '@elise/contracts';
@@ -30,7 +31,12 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { roomIcon } from './home-visuals';
 import { dateLocale, type Locale, t } from './i18n';
 import { productTexts, sensorCategoryDescription, sensorCategoryLabel } from './i18n/data';
-import { BedContactChoice, SensorInstalledPage, SensorPairingFlow } from './SensorOnboardingDialog';
+import {
+  BedContactChoice,
+  SensorInstalledPage,
+  SensorPairingFlow,
+  friendlyError,
+} from './SensorOnboardingDialog';
 import { ProductPhoto } from './SensorProductCard';
 import {
   SetupField,
@@ -71,19 +77,7 @@ const categoryIcons: Record<RoomSensorCategory, typeof Thermometer> = {
   camera: Camera,
 };
 
-/** Sensor kinds, gathered the way a family thinks about them. */
-const categoryGroups: Array<{
-  id: 'activity' | 'openings' | 'safety' | 'comfort';
-  categories: RoomSensorCategory[];
-}> = [
-  { id: 'activity', categories: ['presence', 'motion', 'fall_detection', 'bed'] },
-  { id: 'openings', categories: ['contact', 'button', 'camera'] },
-  { id: 'safety', categories: ['smoke', 'carbon_monoxide', 'water_leak'] },
-  {
-    id: 'comfort',
-    categories: ['temperature', 'humidity', 'shower', 'air_quality', 'illuminance'],
-  },
-];
+const categoryGroups = SENSOR_CATEGORY_GROUPS;
 
 type Step = 'ROOM' | 'CATEGORY' | 'CATALOG' | 'PRODUCT' | 'ASSIGN' | 'PAIR' | 'DONE';
 const TOTAL = 6;
@@ -234,7 +228,7 @@ function HomeSensorFlow({
       go('DONE');
       void onInstalled().catch(() => undefined);
     } catch (err) {
-      setError((err as Error).message);
+      setError(friendlyError(err));
     } finally {
       setBusy(false);
     }

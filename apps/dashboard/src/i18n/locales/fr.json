@@ -2586,7 +2586,21 @@
     "whereWillYouInstallIt": "Où souhaitez-vous l’installer ?",
     "whichRoom": "Dans quelle pièce ?",
     "wrongTarget": "Cet appareil ne convient pas à l’emplacement choisi. Choisissez un capteur adapté puis relancez la recherche.",
-    "yourSensorIsReady": "Votre capteur est prêt"
+    "yourSensorIsReady": "Votre capteur est prêt",
+    "errors": {
+      "noPairingModule": "La box ne trouve pas sa clé Zigbee pour le moment. Vérifiez qu’elle est bien branchée, puis réessayez.",
+      "adminRequired": "Seul un administrateur du foyer peut ajouter un capteur.",
+      "accessDenied": "Vous n’avez pas accès à cette installation.",
+      "noSensorToInstall": "Cette recherche est terminée. Relancez la recherche pour ajouter votre capteur.",
+      "alreadyCompleted": "Ce capteur est déjà installé."
+    },
+    "hubOfflineTitle": "La clé Zigbee ne répond plus",
+    "hubOfflineText": "Élise attend son retour. Si cela dure, vérifiez qu’elle est bien branchée à la box.",
+    "alreadyInstalledHere": "Ce capteur est déjà installé dans cette pièce. Vous pouvez simplement le renommer.",
+    "alreadyInstalledElsewhere": "Ce capteur est déjà installé dans « {{name}} ». Continuer le déplacera dans la pièce choisie.",
+    "unsupportedTitle": "Capteur vu, mais pas encore utilisable",
+    "unsupportedText": "Élise a vu un appareil se connecter, mais ne sait pas encore lire ses mesures. Vérifiez que c’est un modèle de la liste, ou réinitialisez-le et réessayez.",
+    "searchStatus": "État de la recherche"
   },
   "sensorUi": {
     "connectionFailed": "Connexion impossible ({{status}})."

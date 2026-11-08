@@ -327,4 +327,185 @@ describe('sensor installation confirmation', () => {
       vi.useRealTimers();
     }
   });
+
+  async function renderFlow(extra: Record<string, unknown> = {}) {
+    await act(async () => {
+      root.render(
+        <SensorOnboardingDialog
+          open
+          locale="fr"
+          rooms={[
+            { id: 'salon', name: 'Salon', kind: 'LIVING_ROOM' },
+            { id: 'cuisine', name: 'Cuisine', kind: 'KITCHEN' },
+          ]}
+          initialRoomId="salon"
+          onClose={() => undefined}
+          onInstalled={() => Promise.resolve()}
+          {...extra}
+        />,
+      );
+      for (let i = 0; i < 6; i += 1) await Promise.resolve();
+    });
+  }
+
+  it('warns that the hub lost its Zigbee key while searching', async () => {
+    const waiting = {
+      ...session,
+      status: 'WAITING_FOR_DEVICE',
+      detectedDevice: null,
+      connection: { online: false, pairingOpen: false, deviceDetected: false },
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(waiting) }),
+    );
+    await renderFlow();
+    expect(document.body.textContent).toContain('La clé Zigbee ne répond plus');
+  });
+
+  it('says a device was seen but cannot be used when the search ends', async () => {
+    vi.useFakeTimers();
+    try {
+      const waiting = {
+        ...session,
+        status: 'WAITING_FOR_DEVICE',
+        detectedDevice: null,
+        connection: { online: true, pairingOpen: true, deviceDetected: true },
+      };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockImplementation((url: string) =>
+          Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve(
+                url.endsWith('/current') ? waiting : { ...waiting, status: 'EXPIRED' },
+              ),
+          }),
+        ),
+      );
+      await renderFlow();
+      await act(async () => {
+        vi.advanceTimersByTime(1300);
+        for (let i = 0; i < 5; i += 1) await Promise.resolve();
+      });
+      expect(document.body.textContent).toContain('Capteur vu, mais pas encore utilisable');
+      expect(document.body.textContent).not.toContain('Aucun capteur trouvé');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('refuses to install a device that only reports its battery', async () => {
+    const batteryOnly = {
+      ...session,
+      detectedDevice: {
+        ...session.detectedDevice,
+        capabilities: [
+          { sensorId: 'b', capability: 'battery', label: 'Pile', primary: false },
+          { sensorId: 's', capability: 'signal_strength', label: 'Signal', primary: false },
+        ],
+      },
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(batteryOnly) }),
+    );
+    await openDialog(vi.fn(), vi.fn().mockResolvedValue(undefined));
+    expect(document.body.textContent).toContain('Capteur vu, mais pas encore utilisable');
+    const button = Array.from(document.body.querySelectorAll('button')).find((item) =>
+      item.textContent?.includes('Installer dans Salon'),
+    )!;
+    expect(button.disabled).toBe(true);
+  });
+
+  it('tells the person when a re-paired sensor already lives in another room', async () => {
+    const known = {
+      ...session,
+      detectedDevice: {
+        ...session.detectedDevice,
+        room: { id: 'cuisine', name: 'Cuisine', kind: 'KITCHEN' },
+      },
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(known) }),
+    );
+    await openDialog(vi.fn(), vi.fn().mockResolvedValue(undefined));
+    expect(document.body.textContent).toContain('déjà installé dans « Cuisine »');
+  });
+
+  it('shows a translated message for an API refusal instead of the raw French text', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+        if (init?.method === 'POST')
+          return Promise.resolve({
+            ok: false,
+            status: 403,
+            json: () =>
+              Promise.resolve({ message: 'Accès administrateur requis.', code: 'ADMIN_REQUIRED' }),
+          });
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(null) });
+      }),
+    );
+    await renderFlow();
+    const start = Array.from(document.body.querySelectorAll('button')).find((item) =>
+      item.textContent?.includes('Rechercher mon capteur'),
+    )!;
+    await act(async () => {
+      start.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain('Seul un administrateur du foyer');
+  });
+
+  it('stops a search it could not confirm when the person closes the screen', async () => {
+    const onClose = vi.fn();
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') return Promise.reject(new TypeError('Failed to fetch'));
+      if (init?.method === 'DELETE')
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      if (url.endsWith('/current') && fetchMock.mock.calls.some(([, i]) => i?.method === 'POST'))
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ ...session, status: 'WAITING_FOR_DEVICE', id: 'late' }),
+        });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(null) });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await act(async () => {
+      root.render(
+        <SensorOnboardingDialog
+          open
+          locale="fr"
+          rooms={[{ id: 'salon', name: 'Salon', kind: 'LIVING_ROOM' }]}
+          initialRoomId="salon"
+          onClose={onClose}
+          onInstalled={() => Promise.resolve()}
+        />,
+      );
+      for (let i = 0; i < 6; i += 1) await Promise.resolve();
+    });
+    const start = Array.from(document.body.querySelectorAll('button')).find((item) =>
+      item.textContent?.includes('Rechercher mon capteur'),
+    )!;
+    await act(async () => {
+      start.click();
+      for (let i = 0; i < 5; i += 1) await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain('Impossible de joindre Élise');
+    const close = document.body.querySelector('[aria-label="Fermer"]') as HTMLButtonElement | null;
+    expect(close).toBeTruthy();
+    await act(async () => {
+      close!.click();
+      for (let i = 0; i < 8; i += 1) await Promise.resolve();
+    });
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit | undefined]>;
+    expect(calls.some(([url, init]) => init?.method === 'DELETE' && url.endsWith('/late'))).toBe(
+      true,
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
 });
