@@ -319,6 +319,9 @@
   color: #607681;
   font-size: 0.88rem;
 }
+.zigbee-steps ol {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
 .zigbee-advanced {
   margin-top: 0;
 }
