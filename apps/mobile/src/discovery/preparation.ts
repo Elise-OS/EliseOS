@@ -20,3 +20,30 @@ export async function fetchPreparation(
     clearTimeout(timer);
   }
 }
+
+/**
+ * Tells the preparing box which language the app shows, so its TV and preparation page follow.
+ * Resolves true once the box answered, even with a refusal or an older box's 404: there is
+ * nothing to retry. False when it could not be reached: the caller tries again later.
+ */
+export async function sendPreparationLanguage(
+  url: string,
+  language: string,
+  timeoutMs = 4000,
+): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    await fetch(`${url}/language`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ language, source: 'app' }),
+      signal: controller.signal,
+    });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}

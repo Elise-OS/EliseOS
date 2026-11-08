@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import eliseLogo from '../../assets/logo.png';
-import { fetchPreparation } from '../discovery/preparation';
+import { fetchPreparation, sendPreparationLanguage } from '../discovery/preparation';
 import type { DiscoveryInfo, PreparationStatus } from '../discovery/types';
 import type { Locale } from './MobileSetup';
 import { colors } from '../theme';
@@ -24,6 +24,7 @@ export function MobilePreparation({
   url,
   instanceName,
   initial,
+  locale,
   onBack,
   onReady,
 }: {
@@ -38,6 +39,7 @@ export function MobilePreparation({
   const [switching, setSwitching] = useState(false);
   const progress = useRef(new Animated.Value(initial?.percent ?? 0)).current;
   const spin = useRef(new Animated.Value(0)).current;
+  const sentLocale = useRef<Locale | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -61,6 +63,16 @@ export function MobilePreparation({
       clearTimeout(timer);
     };
   }, [onReady, url]);
+
+  // The box's TV speaks the app's language from now on; an older box simply ignores it.
+  useEffect(() => {
+    if (!status || sentLocale.current === locale) return;
+    sentLocale.current = locale;
+    if (status.languageSource === 'app' && status.language === locale) return;
+    void sendPreparationLanguage(url, locale).then((answered) => {
+      if (!answered && sentLocale.current === locale) sentLocale.current = null;
+    });
+  }, [locale, status, url]);
 
   useEffect(() => {
     Animated.timing(progress, {
