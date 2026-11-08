@@ -10,7 +10,7 @@
 et relie le proche âgé à sa famille par la télévision du salon — sans jamais envoyer ses données dans le cloud.
 
 [![Licence : AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0--only-12385f)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.1.18-12385f)
+![Version](https://img.shields.io/badge/version-0.1.19-12385f)
 ![Raspberry Pi 4/5](https://img.shields.io/badge/Raspberry%20Pi-4%20%7C%205-c51a4a)
 ![Ubuntu 24.04](https://img.shields.io/badge/Ubuntu-24.04-e95420)
 ![iOS et Android](https://img.shields.io/badge/app-iPhone%20%C2%B7%20iPad%20%C2%B7%20Android-555)
