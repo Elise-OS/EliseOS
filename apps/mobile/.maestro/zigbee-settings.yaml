@@ -52,6 +52,11 @@ appId: org.michel.mobile
 - takeScreenshot: ${OUT}/mobile-${STORE_LANG}-cle-saine
 - tapOn: ${output.zigbee.search}
 - scrollUntilVisible:
+    element: ${output.zigbee.searching}
+    direction: DOWN
+    speed: 90
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-recherche
+- scrollUntilVisible:
     element: ${output.zigbee.identify}
     direction: DOWN
 - waitForAnimationToEnd
@@ -90,3 +95,23 @@ appId: org.michel.mobile
     timeout: 20000
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/mobile-${STORE_LANG}-succes
+- tapOn: ${output.zigbee.done}
+- scrollUntilVisible:
+    element: ${output.zigbee.advanced}
+    direction: DOWN
+- tapOn: ${output.zigbee.advanced}
+- scrollUntilVisible:
+    element: ${output.zigbee.testAddress}
+    direction: DOWN
+- tapOn: ${output.zigbee.address}
+- inputText: '192.168.1.50'
+- hideKeyboard
+- tapOn: ${output.zigbee.testAddress}
+- extendedWaitUntil:
+    visible: ${output.zigbee.addressOk}
+    timeout: 10000
+- scrollUntilVisible:
+    element: ${output.zigbee.addressOk}
+    direction: DOWN
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-mode-avance

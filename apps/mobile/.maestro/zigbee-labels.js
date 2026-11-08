@@ -16,9 +16,16 @@ var texts = {
   },
   install: { fr: '.*Installer la clé.*', en: '.*Install the key.*' },
   installing: {
-    fr: '.*Installation de la clé en cours.*',
-    en: '.*Installing the key.*',
+    fr: '.*Ne débranchez rien pendant l’installation.*',
+    en: '.*Do not unplug anything during the installation.*',
   },
+  searching: { fr: '.*Recherche des clés.*', en: '.*Looking for keys.*' },
+  empty: { fr: '.*Aucune autre clé trouvée.*', en: '.*No other key found.*' },
+  advanced: { fr: '.*Mode avancé.*', en: '.*Advanced mode.*' },
+  address: { fr: '.*Adresse de la clé.*', en: '.*Key address.*' },
+  testAddress: { fr: '.*Tester l’adresse.*', en: '.*Test the address.*' },
+  addressOk: { fr: '.*La clé réseau répond.*', en: '.*The network key answers.*' },
+  done: { fr: 'Terminé', en: 'Done' },
   success: { fr: '.*La clé est installée.*', en: '.*The key is installed.*' },
 };
 output.zigbee = {};

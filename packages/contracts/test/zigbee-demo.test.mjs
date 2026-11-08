@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createZigbeeDemo, zigbeeProbeResultSchema, zigbeeStatusSchema } from '../dist/index.js';
+import {
+  createZigbeeDemo,
+  isZigbeeDemoScenario,
+  zigbeeProbeResultSchema,
+  zigbeeStatusSchema,
+} from '../dist/index.js';
 
 function demo(scenario) {
   const clock = { time: Date.parse('2026-06-12T10:00:00Z') };
@@ -185,4 +190,19 @@ test('a typed network address reveals the demo key, any other address does not a
   const found = call('POST', '/zigbee/adapter/network/test', { host: '192.168.1.50', port: 6638 });
   assert.equal(found.status, 200);
   assert.ok(status().candidates.some((item) => item.kind === 'network'));
+});
+
+test('the empty scenario keeps the working key and finds nothing else', () => {
+  const { call, status } = demo('empty');
+  assert.equal(status().state, 'READY');
+  const searched = zigbeeStatusSchema.parse(
+    call('POST', '/zigbee/adapter/scan', { network: true }).body,
+  );
+  assert.deepEqual(
+    searched.candidates.map((candidate) => candidate.isCurrent),
+    [true],
+  );
+  assert.deepEqual(searched.scan, { usb: 'ok', network: 'ok' });
+  assert.ok(isZigbeeDemoScenario('empty'));
+  assert.equal(isZigbeeDemoScenario('elsewhere'), false);
 });

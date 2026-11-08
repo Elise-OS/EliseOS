@@ -1,0 +1,59 @@
+# "Nothing found" state of the Zigbee-key settings; needs a bundle built with
+# EXPO_PUBLIC_ZIGBEE_DEMO=empty (the demo key works and nothing else is around).
+# maestro test -e OUT=zigbee -e STORE_LANG=fr -e DEVICE=iphone .maestro/zigbee-settings-empty.yaml
+appId: org.michel.mobile
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+- runFlow:
+    when:
+      true: ${STORE_LANG == 'en'}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: 'language-menu'
+          timeout: 30000
+      - repeat:
+          while:
+            notVisible: 'Explore the demo'
+          times: 4
+          commands:
+            - tapOn:
+                id: 'language-menu'
+            - tapOn: 'English'
+            - waitForAnimationToEnd
+- runScript:
+    file: store-labels.js
+- runScript:
+    file: zigbee-labels.js
+- extendedWaitUntil:
+    visible: ${output.labels.demo}
+    timeout: 30000
+- repeat:
+    while:
+      visible: ${output.labels.demo}
+    times: 4
+    commands:
+      - tapOn: ${output.labels.demo}
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: ${output.labels.home}
+    timeout: 30000
+- tapOn: ${output.zigbee.settings}
+- extendedWaitUntil:
+    visible: ${output.zigbee.zigbee}
+    timeout: 10000
+- tapOn: ${output.zigbee.zigbee}
+- extendedWaitUntil:
+    visible: ${output.zigbee.healthy}
+    timeout: 10000
+- waitForAnimationToEnd
+- tapOn: ${output.zigbee.search}
+- scrollUntilVisible:
+    element: ${output.zigbee.empty}
+    direction: DOWN
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-rien-trouve
