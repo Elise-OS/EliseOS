@@ -34,6 +34,7 @@ import { assignSensorToPlan } from './sensor-assignment';
 
 const ADMIN_ROLES = rolesFor('configuration:manage');
 const SECONDARY_CAPABILITIES = new Set(['battery', 'signal_strength', 'voltage']);
+const UNUSABLE_ALONE = [...SECONDARY_CAPABILITIES, 'unknown'];
 const CAPABILITY_DISPLAY_ORDER = new Map([
   ['temperature', 0],
   ['humidity', 1],
@@ -44,6 +45,9 @@ const CAPABILITY_DISPLAY_ORDER = new Map([
   ['water_leak', 6],
   ['battery', 99],
 ]);
+
+/** Messages stay in French for the logs; `code` lets each app show its own translation. */
+const sensorError = (message: string, code: string) => ({ message, code });
 
 function isBridgeControlLabel(value: string | null | undefined) {
   return (value ?? '').toLowerCase().replaceAll('_', ' ').includes('permit join');
@@ -220,7 +224,10 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
       );
     if (!protocol || !available.find((item) => item.id === protocol)?.available) {
       throw new ForbiddenException(
-        'La box ne détecte actuellement aucun module permettant de rechercher un capteur.',
+        sensorError(
+          'La box ne détecte actuellement aucun module permettant de rechercher un capteur.',
+          'NO_PAIRING_MODULE',
+        ),
       );
     }
     const expiresAt = new Date(Date.now() + 4 * 60_000);
@@ -241,6 +248,16 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
         step: protocol === 'matter' ? 'SCAN_QR_ON_MOBILE' : 'PAIRING',
         expiresAt,
       },
+    });
+    // Two searches started at the same moment both pass the check above: the newest wins.
+    await this.prisma.sensorOnboardingSession.updateMany({
+      where: {
+        homeId: home.id,
+        id: { not: session.id },
+        createdAt: { lt: session.createdAt },
+        status: { in: ['PENDING', 'WAITING_FOR_DEVICE', 'DEVICE_FOUND'] },
+      },
+      data: { status: 'CANCELLED', errorCode: 'REPLACED_BY_NEW_SESSION' },
     });
     if (protocol === 'zigbee') {
       await this.prisma.equipmentSyncState.upsert({
@@ -320,9 +337,12 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
               ],
             },
           ],
+          // A sensor that only reports its battery or signal is not usable yet: wait for
+          // the interview to expose a real measurement before offering it.
           sensors: {
             some: {
               removedAt: null,
+              capability: { notIn: [...UNUSABLE_ALONE] },
               lastSeenAt: { gte: session.createdAt },
             },
           },
@@ -517,7 +537,9 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
       include: { device: { include: { sensors: { where: { removedAt: null } } } } },
     });
     if (!session?.device || session.status !== 'DEVICE_FOUND' || session.expiresAt <= new Date())
-      throw new UnprocessableEntityException('Aucun nouveau capteur ne peut être installé.');
+      throw new UnprocessableEntityException(
+        sensorError('Aucun nouveau capteur ne peut être installé.', 'NO_SENSOR_TO_INSTALL'),
+      );
     if (
       input.category &&
       !deviceSupportsCategory(
@@ -536,7 +558,9 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
         data: { status: 'COMPLETED', step: 'COMPLETE', errorCode: null, errorMessage: null },
       });
       if (claimed.count !== 1)
-        throw new ConflictException('Cette installation a déjà été terminée.');
+        throw new ConflictException(
+          sensorError('Cette installation a déjà été terminée.', 'ALREADY_COMPLETED'),
+        );
       await this.applyAssignment(
         tx,
         home.id,
@@ -950,7 +974,9 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
     });
     if (!home)
       throw new ForbiddenException(
-        administrator ? 'Accès administrateur requis.' : 'Accès refusé.',
+        administrator
+          ? sensorError('Accès administrateur requis.', 'ADMIN_REQUIRED')
+          : sensorError('Accès refusé.', 'ACCESS_DENIED'),
       );
     return home;
   }
@@ -1275,7 +1301,7 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
     const zigbee = session.protocol === 'zigbee' ? this.mqtt.zigbeeStatus() : null;
     const deviceDetected =
       session.protocol === 'zigbee' &&
-      ['PENDING', 'WAITING_FOR_DEVICE'].includes(session.status) &&
+      ['PENDING', 'WAITING_FOR_DEVICE', 'EXPIRED'].includes(session.status) &&
       this.mqtt.zigbeeDevicesJoinedSince(session.createdAt).length > 0;
     const detectedDevice = device
       ? {

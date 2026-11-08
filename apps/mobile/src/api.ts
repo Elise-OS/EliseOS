@@ -1,5 +1,7 @@
 import type {
   AlertRuleSettings,
+  ContactRole,
+  RoomSensorCategory,
   CreatePerson,
   CalendarCreate,
   CalendarPage,
@@ -226,6 +228,18 @@ export interface ScreenRadioStation {
   artworkUrl?: string;
 }
 
+/** Body accepted when a found sensor is installed (see the web dashboard's pairing flow). */
+export type SensorOnboardingCompletionRequest = {
+  name?: string;
+  roomId: string | null;
+  category?: RoomSensorCategory;
+  target?: { type: 'ROOM' | 'ITEM' | 'OPENING' | 'STAIR'; id: string } | null;
+  buttonRole?: 'ASSISTANCE' | 'CONFIRMATION' | 'LIGHT' | 'CUSTOM_ROUTINE';
+  contactRole?: ContactRole;
+  bedOccupiedWhen?: 'CLOSED' | 'OPEN';
+  placementNote?: string | null;
+};
+
 export type MobileApiErrorCode = 'NETWORK' | 'TIMEOUT' | 'HTTP';
 
 export class MobileApiError extends Error {
@@ -234,6 +248,8 @@ export class MobileApiError extends Error {
     readonly code: MobileApiErrorCode,
     readonly status?: number,
     readonly url?: string,
+    /** Machine-readable reason sent by the API, when it gives one (`ADMIN_REQUIRED`…). */
+    readonly apiCode?: string,
   ) {
     super(message);
     this.name = 'MobileApiError';
@@ -311,7 +327,20 @@ const request = async <T>(
       : new MobileApiError(t('api.eliseIsTemporarilyUnreachable'), 'NETWORK');
   }
   if (!response.ok) {
-    throw new MobileApiError(`HTTP ${response.status}`, 'HTTP', response.status);
+    const body: unknown = await Promise.resolve()
+      .then(() => response.json() as unknown)
+      .catch(() => null);
+    const apiCode =
+      body && typeof body === 'object' && 'code' in body && typeof body.code === 'string'
+        ? body.code
+        : undefined;
+    throw new MobileApiError(
+      `HTTP ${response.status}`,
+      'HTTP',
+      response.status,
+      undefined,
+      apiCode,
+    );
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
@@ -442,34 +471,62 @@ export const mobileApi = {
       '/sensor-devices/protocols',
       token,
     ),
-  startSensorOnboarding: (server: SavedServer, token: string, protocol?: string) =>
-    request<SensorOnboardingSession>(server, '/sensor-devices/onboarding-sessions', token, {
-      method: 'POST',
-      body: JSON.stringify(protocol ? { protocol } : {}),
-    }),
-  currentSensorOnboarding: (server: SavedServer, token: string) =>
+  startSensorOnboarding: (
+    server: SavedServer,
+    token: string,
+    protocol?: string,
+    init?: RequestInit,
+    /** Model the person chose: only the demo uses it, to "find" that very sensor. */
+    demoModel?: string,
+  ) =>
+    request<SensorOnboardingSession>(
+      server,
+      '/sensor-devices/onboarding-sessions',
+      token,
+      {
+        ...init,
+        method: 'POST',
+        body: JSON.stringify({
+          ...(protocol ? { protocol } : {}),
+          ...(demoModel && isDemoServer(server) ? { demoModel } : {}),
+        }),
+      },
+      15_000,
+    ),
+  currentSensorOnboarding: (server: SavedServer, token: string, init?: RequestInit) =>
     request<SensorOnboardingSession | null>(
       server,
       '/sensor-devices/onboarding-sessions/current',
       token,
+      init,
     ),
-  sensorOnboarding: (server: SavedServer, token: string, id: string) =>
-    request<SensorOnboardingSession>(server, `/sensor-devices/onboarding-sessions/${id}`, token),
+  sensorOnboarding: (server: SavedServer, token: string, id: string, init?: RequestInit) =>
+    request<SensorOnboardingSession>(
+      server,
+      `/sensor-devices/onboarding-sessions/${id}`,
+      token,
+      init,
+    ),
   cancelSensorOnboarding: (server: SavedServer, token: string, id: string) =>
-    request<SensorOnboardingSession>(server, `/sensor-devices/onboarding-sessions/${id}`, token, {
-      method: 'DELETE',
-    }),
+    request<SensorOnboardingSession>(
+      server,
+      `/sensor-devices/onboarding-sessions/${id}`,
+      token,
+      { method: 'DELETE' },
+      6_000,
+    ),
   completeSensorOnboarding: (
     server: SavedServer,
     token: string,
     id: string,
-    body: { name?: string; roomId: string | null; target?: null },
+    body: SensorOnboardingCompletionRequest,
   ) =>
     request<{ sessionId: string; device: SensorDevice }>(
       server,
       `/sensor-devices/onboarding-sessions/${id}/complete`,
       token,
       { method: 'POST', body: JSON.stringify(body) },
+      15_000,
     ),
   updateSensorDevice: (
     server: SavedServer,
@@ -480,6 +537,11 @@ export const mobileApi = {
       roomId?: string | null;
       enabled?: boolean;
       placementConfirmed?: boolean;
+      placementNote?: string | null;
+      target?: { type: 'ROOM' | 'ITEM' | 'OPENING' | 'STAIR'; id: string } | null;
+      buttonRole?: SensorOnboardingCompletionRequest['buttonRole'];
+      contactRole?: SensorOnboardingCompletionRequest['contactRole'];
+      bedOccupiedWhen?: 'CLOSED' | 'OPEN';
     },
   ) =>
     request<{ id: string }>(server, `/sensor-devices/${encodeURIComponent(id)}`, token, {

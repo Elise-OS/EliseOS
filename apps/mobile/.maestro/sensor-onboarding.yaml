@@ -1,0 +1,160 @@
+# Walks through the whole add-a-sensor flow in demo mode and captures each step.
+# maestro test -e OUT=sensors -e STORE_LANG=fr -e DEVICE=iphone .maestro/sensor-onboarding.yaml
+appId: org.michel.mobile
+# No env defaults here: Maestro lets them override the values given with -e.
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+- runFlow:
+    when:
+      true: ${STORE_LANG == 'en'}
+    commands:
+      # The app opens in the phone's language; switch only if it did not.
+      - extendedWaitUntil:
+          visible:
+            id: 'language-menu'
+          timeout: 30000
+      # Retried because a tap while the app is still starting can be lost.
+      - repeat:
+          while:
+            notVisible: 'Explore the demo'
+          times: 4
+          commands:
+            - tapOn:
+                id: 'language-menu'
+            - tapOn: 'English'
+            - waitForAnimationToEnd
+- runFlow:
+    when:
+      true: ${STORE_LANG == 'es'}
+    commands:
+      # The app opens in the phone's language; switch only if it did not.
+      - extendedWaitUntil:
+          visible:
+            id: 'language-menu'
+          timeout: 30000
+      # Retried because a tap while the app is still starting can be lost.
+      - repeat:
+          while:
+            notVisible: 'Descubrir la demostración'
+          times: 4
+          commands:
+            - tapOn:
+                id: 'language-menu'
+            - tapOn: 'Español'
+            - waitForAnimationToEnd
+- runFlow:
+    when:
+      true: ${STORE_LANG == 'it'}
+    commands:
+      # The app opens in the phone's language; switch only if it did not.
+      - extendedWaitUntil:
+          visible:
+            id: 'language-menu'
+          timeout: 30000
+      # Retried because a tap while the app is still starting can be lost.
+      - repeat:
+          while:
+            notVisible: 'Scopri la demo'
+          times: 4
+          commands:
+            - tapOn:
+                id: 'language-menu'
+            - tapOn: 'Italiano'
+            - waitForAnimationToEnd
+- runScript:
+    file: store-labels.js
+- runScript:
+    file: sensor-labels.js
+- extendedWaitUntil:
+    visible: ${output.labels.demo}
+    timeout: 30000
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      true: ${DEVICE == 'iphone'}
+    commands:
+      - takeScreenshot: ${OUT}/01-${output.labels.welcomeFile}
+# A tap during the welcome animation can be lost (seen on iPad): retry while the button stays.
+# Each page change below is retried the same way until a text of the target page shows.
+- repeat:
+    while:
+      visible: ${output.labels.demo}
+    times: 4
+    commands:
+      - tapOn: ${output.labels.demo}
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: ${output.labels.home}
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn: ${output.labels.house}
+- extendedWaitUntil:
+    visible: ${output.labels.housePage}
+    timeout: 5000
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-01-home
+- tapOn: ${output.sensor.addSensor}
+- extendedWaitUntil:
+    visible: ${output.sensor.roomTitle}
+    timeout: 8000
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-02-room
+- tapOn: ${output.labels.room}
+- extendedWaitUntil:
+    visible: ${output.sensor.categoryTitle}
+    timeout: 8000
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-03-usage
+- tapOn:
+    id: sensor-category-contact
+- extendedWaitUntil:
+    visible: ${output.sensor.catalogTitle}
+    timeout: 8000
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-04-catalog
+- tapOn:
+    id: sensor-product-thirdreality-door-window
+- extendedWaitUntil:
+    visible: ${output.sensor.install}
+    timeout: 8000
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-05-product
+- tapOn: ${output.sensor.install}
+- extendedWaitUntil:
+    visible: ${output.sensor.prepareTitle}
+    timeout: 8000
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-06-prepare
+- tapOn: ${output.sensor.find}
+- extendedWaitUntil:
+    visible: ${output.sensor.waiting}
+    timeout: 8000
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-07-search
+# The demo hub spots the sensor after about three seconds.
+- extendedWaitUntil:
+    visible: ${output.sensor.detected}
+    timeout: 12000
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-08-detected
+- extendedWaitUntil:
+    visible: ${output.sensor.ready}
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-09-found
+- tapOn: ${output.sensor.opening}
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element: '${output.sensor.installIn}.*'
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-10-details
+- tapOn: '${output.sensor.installIn}.*'
+- extendedWaitUntil:
+    visible: ${output.sensor.installedTitle}
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-11-done
+- tapOn:
+    id: sensor-finish
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-12-room-after

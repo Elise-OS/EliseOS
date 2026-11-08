@@ -1057,3 +1057,228 @@ describe('SensorsService physical device views', () => {
     );
   });
 });
+
+describe('SensorsService pairing safeguards', () => {
+  const zigbeeStatus = (online: boolean) => ({
+    online,
+    pairingOpen: false,
+    updatedAt: new Date(),
+    pairingResponseAt: null,
+    pairingError: null,
+  });
+  const waitingSession = (overrides: Record<string, unknown> = {}) => ({
+    id: 'onboarding-safe',
+    homeId: 'home-1',
+    deviceId: null,
+    requestedById: 'user-1',
+    protocol: 'zigbee',
+    status: 'WAITING_FOR_DEVICE',
+    step: 'PAIRING',
+    errorCode: null,
+    errorMessage: null,
+    expiresAt: new Date(Date.now() + 240_000),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  });
+
+  it('never opens pairing for someone who is not an administrator', async () => {
+    const prisma = { home: { findFirst: vi.fn().mockResolvedValue(null) } };
+    const mqtt = { setZigbeePairing: vi.fn(), zigbeeStatus: vi.fn() };
+    const service = new SensorsService(prisma as never, mqtt as never);
+
+    await expect(service.createOnboarding('caregiver', {})).rejects.toMatchObject({
+      response: { code: 'ADMIN_REQUIRED' },
+    });
+    expect(mqtt.setZigbeePairing).not.toHaveBeenCalled();
+    const query = prisma.home.findFirst.mock.calls[0]?.[0] as {
+      where: { organization: { memberships: { some: { systemRole: unknown; disabledAt: null } } } };
+    };
+    expect(query.where.organization.memberships.some.systemRole).toBeDefined();
+    expect(query.where.organization.memberships.some.disabledAt).toBeNull();
+  });
+
+  it('refuses to search when the Zigbee coordinator is offline and says why', async () => {
+    const prisma = { home: { findFirst: vi.fn().mockResolvedValue(membershipHome) } };
+    const mqtt = {
+      setZigbeePairing: vi.fn(),
+      zigbeeStatus: vi.fn().mockReturnValue(zigbeeStatus(false)),
+    };
+    const service = new SensorsService(prisma as never, mqtt as never);
+
+    await expect(service.createOnboarding('user-1', { protocol: 'zigbee' })).rejects.toMatchObject({
+      response: { code: 'NO_PAIRING_MODULE' },
+    });
+    expect(mqtt.setZigbeePairing).not.toHaveBeenCalled();
+  });
+
+  it('keeps only the newest search when two start at the same time', async () => {
+    const session = waitingSession();
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      sensorOnboardingSession: {
+        updateMany,
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn().mockResolvedValue(session),
+      },
+      equipmentSyncState: { upsert: vi.fn().mockResolvedValue(undefined) },
+    };
+    const mqtt = {
+      zigbeeStatus: vi.fn().mockReturnValue(zigbeeStatus(true)),
+      setZigbeePairing: vi.fn(),
+      zigbeeDevicesJoinedSince: vi.fn().mockReturnValue([]),
+    };
+
+    await new SensorsService(prisma as never, mqtt as never).createOnboarding('user-1', {});
+
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { not: session.id },
+          createdAt: { lt: session.createdAt },
+        }),
+        data: expect.objectContaining({ status: 'CANCELLED' }),
+      }),
+    );
+  });
+
+  it('does not offer a device that only reports its battery or signal', async () => {
+    const session = waitingSession();
+    const findFirst = vi.fn().mockResolvedValue(null);
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      device: { findFirst },
+      sensorOnboardingSession: { findFirst: vi.fn().mockResolvedValue(session) },
+    };
+    const mqtt = {
+      zigbeeStatus: vi.fn().mockReturnValue(zigbeeStatus(true)),
+      zigbeeDevicesJoinedSince: vi.fn().mockReturnValue(['0x00124b0023456789']),
+    };
+
+    const result = await new SensorsService(prisma as never, mqtt as never).onboarding(
+      'user-1',
+      session.id,
+    );
+
+    const query = findFirst.mock.calls[0]?.[0] as {
+      where: { sensors: { some: { capability: { notIn: string[] } } } };
+    };
+    expect(query.where.sensors.some.capability.notIn).toEqual(
+      expect.arrayContaining(['battery', 'signal_strength', 'unknown']),
+    );
+    // The hub saw something join, so the app can say "found, but not usable yet".
+    expect(result.status).toBe('WAITING_FOR_DEVICE');
+    expect(result.connection?.deviceDetected).toBe(true);
+  });
+
+  it('tells the app that a device was seen when the search ends without a usable sensor', async () => {
+    const session = waitingSession({
+      status: 'EXPIRED',
+      errorCode: 'SESSION_EXPIRED',
+      expiresAt: new Date(Date.now() - 1_000),
+    });
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      sensorOnboardingSession: { findFirst: vi.fn().mockResolvedValue(session) },
+    };
+    const mqtt = {
+      zigbeeStatus: vi.fn().mockReturnValue(zigbeeStatus(true)),
+      zigbeeDevicesJoinedSince: vi.fn().mockReturnValue(['0x00124b0023456789']),
+    };
+
+    const result = await new SensorsService(prisma as never, mqtt as never).onboarding(
+      'user-1',
+      session.id,
+    );
+
+    expect(result.status).toBe('EXPIRED');
+    expect(result.connection?.deviceDetected).toBe(true);
+  });
+
+  it('closes pairing when the search runs out of time', async () => {
+    const session = waitingSession({ expiresAt: new Date(Date.now() - 1_000) });
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      sensorOnboardingSession: {
+        findFirst: vi.fn().mockResolvedValue(session),
+        findMany: vi.fn().mockResolvedValue([]),
+        update: vi.fn().mockResolvedValue({ ...session, status: 'EXPIRED' }),
+      },
+      equipmentSyncState: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    };
+    const mqtt = {
+      setZigbeePairing: vi.fn(),
+      zigbeeStatus: vi.fn().mockReturnValue(zigbeeStatus(true)),
+      zigbeeDevicesJoinedSince: vi.fn().mockReturnValue([]),
+    };
+
+    const result = await new SensorsService(prisma as never, mqtt as never).onboarding(
+      'user-1',
+      session.id,
+    );
+
+    expect(result.status).toBe('EXPIRED');
+    expect(mqtt.setZigbeePairing).toHaveBeenCalledWith(false, 0);
+  });
+
+  it('closes pairing when the user cancels the search', async () => {
+    const session = waitingSession();
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      sensorOnboardingSession: {
+        findFirst: vi.fn().mockResolvedValue(session),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      equipmentSyncState: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    };
+    const mqtt = {
+      setZigbeePairing: vi.fn(),
+      zigbeeStatus: vi.fn().mockReturnValue(zigbeeStatus(true)),
+      zigbeeDevicesJoinedSince: vi.fn().mockReturnValue([]),
+    };
+
+    const result = await new SensorsService(prisma as never, mqtt as never).cancelOnboarding(
+      'user-1',
+      session.id,
+    );
+
+    expect(result.status).toBe('CANCELLED');
+    expect(mqtt.setZigbeePairing).toHaveBeenCalledWith(false, 0);
+  });
+
+  it('closes pairing and reports a clear failure when Zigbee2MQTT rejects permit join', async () => {
+    const session = waitingSession({ createdAt: new Date(Date.now() - 5_000) });
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      sensorOnboardingSession: {
+        findFirst: vi.fn().mockResolvedValue(session),
+        update: vi.fn().mockResolvedValue({
+          ...session,
+          status: 'FAILED',
+          errorCode: 'PAIRING_REJECTED',
+          errorMessage: 'refused',
+        }),
+      },
+      equipmentSyncState: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    };
+    const mqtt = {
+      setZigbeePairing: vi.fn(),
+      zigbeeStatus: vi.fn().mockReturnValue({
+        ...zigbeeStatus(true),
+        pairingResponseAt: new Date(),
+        pairingError: 'refused',
+      }),
+      zigbeeDevicesJoinedSince: vi.fn().mockReturnValue([]),
+    };
+
+    const result = await new SensorsService(prisma as never, mqtt as never).onboarding(
+      'user-1',
+      session.id,
+    );
+
+    expect(result.status).toBe('FAILED');
+    expect(mqtt.setZigbeePairing).toHaveBeenCalledWith(false, 0);
+  });
+});

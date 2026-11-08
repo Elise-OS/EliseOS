@@ -1493,3 +1493,5 @@ export type HomeSummary = z.infer<typeof homeSummarySchema>;
 
 export * from './liaison.js';
 export * from './update.js';
+export * from './sensor-products.js';
+export * from './sensor-onboarding.js';

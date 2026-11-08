@@ -5,6 +5,8 @@ import { MobileWelcomePanel } from './MobileWelcomePanel';
 import { MobilePeoplePanel } from './MobilePeoplePanel';
 import { MobileSettingsPanel } from './MobileSettingsPanel';
 import { MobileHomePlanPanel } from './MobileHomePlanPanel';
+import { AddSensorSheet } from '../sensors/AddSensorFlow';
+import { sensorFlowApiFor } from '../sensors/pairingApi';
 import { AppleLiquidGlassBackground } from './AppleLiquidGlassBackground';
 import { MobileCallOverlay } from '../screen/MobileCallOverlay';
 import { Ionicons } from '@expo/vector-icons';
@@ -700,6 +702,12 @@ export function DashboardApp({
               homePlanLoading={homePlan.isPending}
               homePlanError={homePlan.isError}
               protocols={sensorProtocols.data ?? []}
+              server={server}
+              token={token}
+              canAddSensor={
+                currentUser.data?.capabilities.includes('configuration:manage') ?? false
+              }
+              onSensorsChanged={invalidateAll}
               locale={locale}
               refreshing={
                 cameras.isRefetching ||
@@ -2252,10 +2260,18 @@ function HouseTab({
   homePlanLoading,
   homePlanError,
   protocols,
+  server,
+  token,
+  canAddSensor,
+  onSensorsChanged,
   locale,
   refreshing,
   onRefresh,
 }: {
+  server: SavedServer;
+  token: string;
+  canAddSensor: boolean;
+  onSensorsChanged: () => void;
   cameras: CameraItem[];
   sensorDevices: SensorDevice[] | undefined;
   homePlan: HomePlan | undefined;
@@ -2268,6 +2284,8 @@ function HouseTab({
   onRefresh: () => void;
 }) {
   const [roomDetailOpen, setRoomDetailOpen] = useState(false);
+  const [addingSensor, setAddingSensor] = useState<{ roomId?: string } | null>(null);
+  const sensorApi = useMemo(() => sensorFlowApiFor(server, token), [server, token]);
   const sensorCounts = sensorDevices?.reduce(
     (counts, device) => {
       counts[mobileSensorDeviceHealth(device)] += 1;
@@ -2291,7 +2309,25 @@ function HouseTab({
         locale={locale}
         onRefresh={onRefresh}
         onRoomDetailChange={setRoomDetailOpen}
+        onAddSensor={
+          canAddSensor && homePlan
+            ? (roomId) => setAddingSensor(roomId ? { roomId } : {})
+            : undefined
+        }
       />
+      {addingSensor && homePlan ? (
+        <AddSensorSheet
+          plan={homePlan}
+          devices={sensorDevices ?? []}
+          api={sensorApi}
+          initialRoomId={addingSensor.roomId}
+          onClose={() => setAddingSensor(null)}
+          onInstalled={onSensorsChanged}
+        />
+      ) : null}
+      {!roomDetailOpen && !canAddSensor && homePlan ? (
+        <Text style={styles.addSensorHint}>{t('mobileSensors.adminOnly')}</Text>
+      ) : null}
       {!roomDetailOpen && (
         <View style={styles.card}>
           <SectionTitle
@@ -4246,5 +4282,6 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: colors.paleBlue,
   },
+  addSensorHint: { color: colors.muted, fontSize: 13, lineHeight: 19, paddingHorizontal: 4 },
   protocolState: { marginLeft: 'auto', color: colors.accent, fontSize: 12, fontWeight: '800' },
 });

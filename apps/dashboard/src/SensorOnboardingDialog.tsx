@@ -18,7 +18,16 @@ import {
   type ContactRole,
   deviceSupportsCategory,
   isBedOccupancySensorModel,
+  ACTIVE_ONBOARDING_STATUSES,
+  SENSOR_SEARCH_SECONDS,
+  deviceLooksUnsupported,
+  formatSearchCountdown,
+  pairingNameSuggestions,
+  pairingProblems,
+  searchTimedOut,
+  secondsUntil,
   type RoomSensorCategory,
+  type SensorErrorCode,
   type SensorProduct,
 } from '@elise/contracts';
 import { type Locale, t, textBlock } from './i18n';
@@ -36,7 +45,13 @@ import {
   useSetupStep,
   useSheetControls,
 } from './SetupSheet';
-import { sensorJson, sensorRequest, type SensorRoom, type SensorUiDevice } from './sensor-ui';
+import {
+  SensorRequestError,
+  sensorJson,
+  sensorRequest,
+  type SensorRoom,
+  type SensorUiDevice,
+} from './sensor-ui';
 import { productMatchesDetectedModel, sensorDevicePhoto } from './sensor-products';
 import { contactTypeLabel, productTexts, sensorCategoryLabel } from './i18n/data';
 
@@ -48,20 +63,17 @@ type Session = {
   errorCode?: string | null;
   errorMessage?: string | null;
   detectedDevice?: (SensorUiDevice & { detectedType?: string }) | null;
-  connection?: { pairingOpen: boolean; deviceDetected?: boolean } | null;
+  connection?: { online?: boolean; pairingOpen: boolean; deviceDetected?: boolean } | null;
 };
 
 type Phase = 'LOADING' | 'PREPARE' | 'SEARCH' | 'FOUND' | 'DONE';
 type Failure = {
-  reason: 'TIMEOUT' | 'REJECTED' | 'CANCELLED';
+  reason: 'TIMEOUT' | 'REJECTED' | 'CANCELLED' | 'UNSUPPORTED';
   message?: string | null | undefined;
 };
 
-const ACTIVE = ['PENDING', 'WAITING_FOR_DEVICE', 'DEVICE_FOUND'];
+const ACTIVE: readonly string[] = ACTIVE_ONBOARDING_STATUSES;
 const SESSIONS = '/api/v1/sensor-devices/onboarding-sessions';
-/** After the countdown, the hub gets a few seconds to report a late sensor. */
-const EXPIRY_GRACE_SECONDS = 8;
-const SEARCH_SECONDS = 240;
 
 const contactIcons: Record<ContactRole, ReactNode> = {
   DOOR: <DoorClosed />,
@@ -118,6 +130,10 @@ export function SensorPairingFlow({
   const [failure, setFailure] = useState<Failure | null>(null);
   const [offline, setOffline] = useState(false);
   const [busy, setBusy] = useState(false);
+  // The hub saw a device join, whether or not it could be used.
+  const deviceSeen = useRef(false);
+  // A start request that got no answer may still have opened the search on the hub.
+  const startUnanswered = useRef(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [installed, setInstalled] = useState<{ name: string; room: string } | null>(null);
   const alive = useRef(true);
@@ -127,6 +143,7 @@ export function SensorPairingFlow({
   const adopt = useCallback(
     (next: Session) => {
       setSession(next);
+      if (next.connection?.deviceDetected) deviceSeen.current = true;
       if (next.status === 'DEVICE_FOUND' && next.detectedDevice) {
         setName(product ? productTexts(product).name : next.detectedDevice.name);
         if (category === 'bed' && isBedOccupancySensorModel(next.detectedDevice.model))
@@ -180,11 +197,13 @@ export function SensorPairingFlow({
         });
         if (controller.signal.aborted) return;
         setOffline(false);
+        if (next.connection?.deviceDetected) deviceSeen.current = true;
         if (next.status === 'DEVICE_FOUND' && next.detectedDevice) return adopt(next);
         setSession(next);
         if (next.status === 'FAILED')
           return setFailure({ reason: 'REJECTED', message: next.errorMessage });
-        if (next.status === 'EXPIRED') return setFailure({ reason: 'TIMEOUT' });
+        if (next.status === 'EXPIRED')
+          return setFailure({ reason: deviceSeen.current ? 'UNSUPPORTED' : 'TIMEOUT' });
         if (next.status === 'CANCELLED' || next.status === 'COMPLETED')
           return setFailure({ reason: 'CANCELLED' });
         timer = window.setTimeout(() => void poll(), 1500);
@@ -211,9 +230,9 @@ export function SensorPairingFlow({
   useEffect(() => {
     if (!searching || !session) return;
     const update = () => {
-      const left = Math.ceil((Date.parse(session.expiresAt) - Date.now()) / 1000);
+      const left = secondsUntil(session.expiresAt);
       setSecondsLeft(left);
-      if (left <= -EXPIRY_GRACE_SECONDS && !session.connection?.deviceDetected)
+      if (searchTimedOut(left, session.connection?.deviceDetected || deviceSeen.current))
         setFailure({ reason: 'TIMEOUT' });
     };
     update();
@@ -222,7 +241,16 @@ export function SensorPairingFlow({
   }, [searching, session]);
 
   const cancelSession = async (target: Session | null) => {
-    if (!target || !ACTIVE.includes(target.status)) return;
+    if (!target) {
+      // Our request to start got no answer, yet the hub may be listening: stop that search.
+      if (!startUnanswered.current) return;
+      startUnanswered.current = false;
+      const current = await sensorRequest<Session | null>(`${SESSIONS}/current`, {
+        signal: AbortSignal.timeout(6_000),
+      }).catch(() => null);
+      return cancelSession(current);
+    }
+    if (!ACTIVE.includes(target.status)) return;
     await sensorRequest(`${SESSIONS}/${target.id}`, {
       method: 'DELETE',
       signal: AbortSignal.timeout(6_000),
@@ -235,17 +263,22 @@ export function SensorPairingFlow({
     setError('');
     setFailure(null);
     setOffline(false);
+    deviceSeen.current = false;
     try {
       // Starting a search replaces any earlier one on the hub as well.
       await cancelSession(session);
+      startUnanswered.current = true;
       const next = await sensorRequest<Session>(SESSIONS, {
         ...sensorJson('POST', { protocol: product?.protocol ?? 'zigbee' }),
         signal: AbortSignal.timeout(15_000),
       });
+      startUnanswered.current = false;
       if (!alive.current) return;
       setSecondsLeft(Math.ceil((Date.parse(next.expiresAt) - Date.now()) / 1000));
       adopt(next);
     } catch (err) {
+      // An answer from the API (even a refusal) means nothing was started.
+      if (err instanceof SensorRequestError) startUnanswered.current = false;
       if (alive.current) setError(friendlyError(err));
     } finally {
       if (alive.current) setBusy(false);
@@ -278,16 +311,14 @@ export function SensorPairingFlow({
   const device = session?.detectedDevice;
   const room = rooms.find(({ id }) => id === roomId);
   const isContact = !!device && deviceSupportsCategory(device, 'contact') && category !== 'bed';
-  const mismatch = !!(category && device && !deviceSupportsCategory(device, category));
-  const wrongTarget =
-    !!device &&
-    ((initialTarget?.type === 'OPENING' && !deviceSupportsCategory(device, 'contact')) ||
-      (initialTarget?.type === 'STAIR' &&
-        !(['motion', 'presence'] as RoomSensorCategory[]).some((id) =>
-          deviceSupportsCategory(device, id),
-        )));
+  const problems = device
+    ? pairingProblems(device, { category, targetType: initialTarget?.type })
+    : { mismatch: false, wrongTarget: false };
+  const { mismatch, wrongTarget } = problems;
+  const unsupported = !!device && deviceLooksUnsupported(device);
   const canFinish =
     !!device &&
+    !unsupported &&
     !!name.trim() &&
     !!room &&
     !mismatch &&
@@ -369,11 +400,12 @@ export function SensorPairingFlow({
         primary && !['battery', 'signal_strength', 'unknown'].includes(capability),
     );
     const modelMatch = product ? productMatchesDetectedModel(product, device.model) : undefined;
-    const suggestions = [
+    const suggestions = pairingNameSuggestions({
       productName,
-      category && room ? `${sensorCategoryLabel(category)} ${room.name}` : undefined,
-      device.name,
-    ].filter((value, index, all): value is string => !!value && all.indexOf(value) === index);
+      categoryLabel: category ? sensorCategoryLabel(category) : undefined,
+      roomName: room?.name,
+      deviceName: device.name,
+    });
     return (
       <SetupPage
         pageKey="found"
@@ -435,6 +467,18 @@ export function SensorPairingFlow({
               </span>
             ))}
           </div>
+        )}
+        {unsupported && (
+          <SetupNotice tone="danger" title={t('sensorSetup.unsupportedTitle')}>
+            {t('sensorSetup.unsupportedText')}
+          </SetupNotice>
+        )}
+        {device.room && (
+          <SetupNotice tone="warning">
+            {device.room.id === roomId
+              ? t('sensorSetup.alreadyInstalledHere')
+              : t('sensorSetup.alreadyInstalledElsewhere', { name: device.room.name })}
+          </SetupNotice>
         )}
         {mismatch && (
           <SetupNotice tone="danger">
@@ -561,14 +605,18 @@ export function SensorPairingFlow({
               ? t('sensorSetup.pairingRejected')
               : failure.reason === 'CANCELLED'
                 ? t('sensorSetup.searchStopped')
-                : t('sensorSetup.noSensorFound')
+                : failure.reason === 'UNSUPPORTED'
+                  ? t('sensorSetup.unsupportedTitle')
+                  : t('sensorSetup.noSensorFound')
           }
           subtitle={
             failure.reason === 'REJECTED'
               ? (failure.message ?? t('sensorSetup.pairingRejectedText'))
               : failure.reason === 'CANCELLED'
                 ? t('sensorSetup.searchStoppedText')
-                : t('sensorSetup.noDeviceFoundYouCan')
+                : failure.reason === 'UNSUPPORTED'
+                  ? t('sensorSetup.unsupportedText')
+                  : t('sensorSetup.noDeviceFoundYouCan')
           }
           hero={
             <span className="ss-hero-icon is-warning">
@@ -605,7 +653,7 @@ export function SensorPairingFlow({
         </SetupPage>
       );
     // The hub listens for four minutes; a resumed search may have a little more left.
-    const total = Math.max(SEARCH_SECONDS, shown);
+    const total = Math.max(SENSOR_SEARCH_SECONDS, shown);
     return (
       <SetupPage
         pageKey="search"
@@ -657,9 +705,7 @@ export function SensorPairingFlow({
         }
       >
         <strong className="ss-countdown" role="timer" aria-live="off">
-          {t('sensorSetup.timeLeft', {
-            time: `${Math.floor(shown / 60)}:${String(shown % 60).padStart(2, '0')}`,
-          })}
+          {t('sensorSetup.timeLeft', { time: formatSearchCountdown(shown) })}
         </strong>
         <ol className="ss-checklist" aria-label={t('sensorSetup.searchProgress')}>
           <CheckItem state="done">{t('sensorSetup.check.started')}</CheckItem>
@@ -673,9 +719,17 @@ export function SensorPairingFlow({
             {t('sensorSetup.check.configuring')}
           </CheckItem>
         </ol>
+        <span className="sr-only" role="status" aria-label={t('sensorSetup.searchStatus')}>
+          {detected ? t('sensorSetup.sensorDetected') : t('sensorSetup.searchingAroundTheHub')}
+        </span>
         {offline && (
           <SetupNotice tone="warning" title={t('sensorSetup.offlineTitle')}>
             {t('sensorSetup.offlineText')}
+          </SetupNotice>
+        )}
+        {session?.connection?.online === false && (
+          <SetupNotice tone="warning" title={t('sensorSetup.hubOfflineTitle')}>
+            {t('sensorSetup.hubOfflineText')}
           </SetupNotice>
         )}
       </SetupPage>
@@ -849,8 +903,17 @@ function withTimeout(parent: AbortSignal, ms: number) {
   return controller.signal;
 }
 
-const friendlyError = (err: unknown) => {
+const errorTexts: Record<SensorErrorCode, () => string> = {
+  NO_PAIRING_MODULE: () => t('sensorSetup.errors.noPairingModule'),
+  ADMIN_REQUIRED: () => t('sensorSetup.errors.adminRequired'),
+  ACCESS_DENIED: () => t('sensorSetup.errors.accessDenied'),
+  NO_SENSOR_TO_INSTALL: () => t('sensorSetup.errors.noSensorToInstall'),
+  ALREADY_COMPLETED: () => t('sensorSetup.errors.alreadyCompleted'),
+};
+
+export const friendlyError = (err: unknown) => {
   const error = err as Error;
+  if (error instanceof SensorRequestError && error.code) return errorTexts[error.code]();
   if (error?.name === 'TimeoutError' || error?.name === 'AbortError')
     return t('sensorSetup.eliseDidNotAnswer');
   if (error instanceof TypeError) return t('sensorSetup.eliseUnreachable');

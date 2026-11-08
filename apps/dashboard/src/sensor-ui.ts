@@ -1,4 +1,9 @@
-import { deviceSupportsCategory, type RoomSensorCategory } from '@elise/contracts';
+import {
+  deviceSupportsCategory,
+  sensorErrorCode,
+  type RoomSensorCategory,
+  type SensorErrorCode,
+} from '@elise/contracts';
 import { t } from './i18n';
 
 export type SensorRoom = {
@@ -63,18 +68,31 @@ export function sensorDeviceHealthStatus(device: {
   return 'ONLINE';
 }
 
+/** An answer of the API that is not a success; `code` identifies the cases the app translates. */
+export class SensorRequestError extends Error {
+  public constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code: SensorErrorCode | null,
+  ) {
+    super(message);
+    this.name = 'SensorRequestError';
+  }
+}
+
 export async function sensorRequest<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: 'no-store', ...init });
   const result: unknown = await response.json().catch(() => null);
-  if (!response.ok)
-    throw new Error(
-      result &&
-        typeof result === 'object' &&
-        'message' in result &&
-        typeof result.message === 'string'
-        ? result.message
+  if (!response.ok) {
+    const body = result && typeof result === 'object' ? (result as Record<string, unknown>) : {};
+    throw new SensorRequestError(
+      typeof body.message === 'string'
+        ? body.message
         : t('sensorUi.connectionFailed', { status: response.status }),
+      response.status,
+      sensorErrorCode(body.code),
     );
+  }
   return result as T;
 }
 export const sensorJson = (method: string, body: unknown): RequestInit => ({

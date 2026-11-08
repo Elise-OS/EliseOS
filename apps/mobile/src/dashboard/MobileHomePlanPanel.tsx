@@ -25,6 +25,7 @@ import {
   Flame,
   Footprints,
   Home,
+  Plus,
   ShieldAlert,
   Sofa,
   Sun,
@@ -180,7 +181,7 @@ const ROOM_KINDS = [
 
 const sensorTone = { foreground: '#3d719f', background: '#edf3f9' };
 
-function roomIcon(room: Pick<PlanRoom, 'kind' | 'name'>): IconComponent {
+export function roomIcon(room: Pick<PlanRoom, 'kind' | 'name'>): IconComponent {
   if (room.kind !== 'OTHER' && roomIcons[room.kind]) return roomIcons[room.kind];
   const name = room.name
     .normalize('NFD')
@@ -199,6 +200,20 @@ function roomIcon(room: Pick<PlanRoom, 'kind' | 'name'>): IconComponent {
   if (/terrasse|balcon/.test(name)) return Sun;
   if (/cagibi|cellier|rangement|placard|reserve/.test(name)) return Boxes;
   return Home;
+}
+
+function AddSensorButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [styles.addSensor, pressed && styles.addSensorPressed]}
+    >
+      <Plus size={20} color="#fff" strokeWidth={2.6} />
+      <Text style={styles.addSensorText}>{label}</Text>
+    </Pressable>
+  );
 }
 
 function roomKindLabel(kind: string) {
@@ -413,6 +428,7 @@ export function MobileHomePlanPanel({
   locale,
   onRefresh,
   onRoomDetailChange,
+  onAddSensor,
 }: {
   plan?: HomePlan;
   sensorDevices?: SensorDevice[];
@@ -423,6 +439,8 @@ export function MobileHomePlanPanel({
   locale: Locale;
   onRefresh: () => void;
   onRoomDetailChange: (isOpen: boolean) => void;
+  /** Starts the guided add-a-sensor flow (for a room when given); absent when not allowed. */
+  onAddSensor?: ((roomId?: string) => void) | undefined;
 }) {
   const devices = sensorDevices ?? [];
   const sortedLevels = useMemo(
@@ -657,6 +675,12 @@ export function MobileHomePlanPanel({
             </Text>
           </View>
         </View>
+        {onAddSensor ? (
+          <AddSensorButton
+            label={t('mobileSensors.addToThisRoom')}
+            onPress={() => onAddSensor(selectedRoom.id)}
+          />
+        ) : null}
         <View style={styles.sectionHeading}>
           <View style={styles.flex}>
             <Text style={styles.subheading}>{t('mobileHomePlanPanel.roomSensors')}</Text>
@@ -732,6 +756,9 @@ export function MobileHomePlanPanel({
 
   return (
     <View style={styles.container}>
+      {onAddSensor ? (
+        <AddSensorButton label={t('mobileSensors.addASensor')} onPress={() => onAddSensor()} />
+      ) : null}
       <View style={styles.levelTabsHeading}>
         <Text style={styles.eyebrow}>{t('mobileHomePlanPanel.homeLevels')}</Text>
       </View>
@@ -970,6 +997,18 @@ function SensorCategoryCard({
 
 const styles = StyleSheet.create({
   container: { gap: 12 },
+  addSensor: {
+    minHeight: 52,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#17364f',
+  },
+  addSensorPressed: { opacity: 0.8 },
+  addSensorText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   loading: {
     minHeight: 86,
     alignItems: 'center',

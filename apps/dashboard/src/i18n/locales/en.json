@@ -2558,7 +2558,21 @@
     "whereWillYouInstallIt": "Where will you install it?",
     "whichRoom": "Which room?",
     "wrongTarget": "This device does not suit the chosen location. Choose a suitable sensor and search again.",
-    "yourSensorIsReady": "Your sensor is ready"
+    "yourSensorIsReady": "Your sensor is ready",
+    "errors": {
+      "noPairingModule": "The hub cannot find its Zigbee key right now. Check that it is plugged in, then try again.",
+      "adminRequired": "Only a household administrator can add a sensor.",
+      "accessDenied": "You do not have access to this installation.",
+      "noSensorToInstall": "This search has ended. Start the search again to add your sensor.",
+      "alreadyCompleted": "This sensor is already installed."
+    },
+    "hubOfflineTitle": "The Zigbee key is not responding",
+    "hubOfflineText": "Élise is waiting for it to come back. If this lasts, check that it is plugged into the hub.",
+    "alreadyInstalledHere": "This sensor is already installed in this room. You can simply rename it.",
+    "alreadyInstalledElsewhere": "This sensor is already installed in “{{name}}”. Continuing will move it to the room you chose.",
+    "unsupportedTitle": "Sensor seen, but not usable yet",
+    "unsupportedText": "Élise saw a device connect but cannot read its measurements yet. Check that it is a model from the list, or reset it and try again.",
+    "searchStatus": "Search status"
   },
   "sensorUi": {
     "connectionFailed": "Connection failed ({{status}})."

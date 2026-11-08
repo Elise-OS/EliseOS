@@ -1486,5 +1486,428 @@
       }
     },
     "exploreTheDemo": "Explore the demo"
+  },
+  "sensorSetup": {
+    "addAnother": "Add another sensor",
+    "allSet": "All set",
+    "alreadyConnected": "Already connected",
+    "alreadyConnectedToElise": "Already connected to Élise",
+    "alreadyInThisRoom": "Already in this room",
+    "assignTo": "Assign to {{name}}",
+    "back": "Back",
+    "battery": "Battery {{value}}%",
+    "cancel": "Cancel",
+    "check": {
+      "started": "Search started",
+      "listening": "Élise hub listening",
+      "spotted": "Sensor spotted",
+      "configuring": "Setting up its features"
+    },
+    "chooseARoom": "Choose a room",
+    "chooseRoomFor": "Choose a room for “{{category}}”; Élise will suggest the right uses and placement.",
+    "chooseYourDevice": "Choose your device",
+    "chooseYourDeviceText": "Models whose compatibility with Élise is documented.",
+    "choosingARoomLetsElise": "Choosing a room lets Élise suggest the right uses and placement.",
+    "close": "Close",
+    "connectADryContactPressure": "Connect a dry-contact pressure mat to the NodOn and place the mat under the mattress. Keep the NodOn module exposed to light or use its backup battery.",
+    "connectTheSdc41": "Connect the SDC-4-1-00 to a dry-contact pressure mat under the mattress. Keep the NodOn module exposed to light or fit its backup battery.",
+    "connectionSuccessful": "Connection successful",
+    "detectedFeatures": "Detected features",
+    "devices": "Devices",
+    "differentModelDetectedYouSelected": "Different model detected: you selected {{model}}, but Élise recognizes {{model2}}. You can continue if the displayed functions meet your needs.",
+    "documentedCompatibility": "Documented compatibility",
+    "documentedFeatures": "Documented features",
+    "documentedProducts": "Documented products",
+    "done": "Done",
+    "eliseCouldNotConfirmModel": "Élise could not confirm model {{model}}. Check the model printed on the sensor before continuing.",
+    "eliseDidNotAnswer": "Élise did not answer in time. Check its connection and try again.",
+    "eliseFindsTheRightConnection": "Élise finds the right connection around your hub.",
+    "eliseFoundYourSensorAnd": "Elise found your sensor and is finishing its setup. Keep it near the hub.",
+    "eliseUnreachable": "Élise cannot be reached. Check that the hub is on and connected.",
+    "everySensorTypeSupportedBy": "Choose what Élise should watch over in this room.",
+    "findMySensor": "Find my sensor",
+    "finish": "Done",
+    "finishInstallation": "Finish installation",
+    "forExampleByTheBed": "For example: by the bed",
+    "genericPreparation": [
+      "Move the sensor close to the hub.",
+      "Power it on and enable pairing according to its manual."
+    ],
+    "groups": {
+      "activity": "Presence and activity",
+      "openings": "Openings and alerts",
+      "safety": "Safety",
+      "comfort": "Comfort and air",
+      "other": "Other"
+    },
+    "installIn": "Install in {{name}}",
+    "installThisSensor": "Install this sensor",
+    "installed": "Installed",
+    "installing": "Installing…",
+    "keepTheSensorInPairing": "Keep the sensor in pairing mode near the hub.",
+    "locationOptional": "Location (optional)",
+    "manual": "Manufacturer manual",
+    "manualDetail": "Opens in a new tab",
+    "myModelIsNotListed": "My model is not listed",
+    "name": "Name",
+    "nameSuggestions": "Name suggestions",
+    "nextPlaceIt": "Put it in place",
+    "noDeviceFoundYouCan": "No device found. You can retry.",
+    "noDocumentedProduct": "No documented model for this use yet. Start automatic detection: Élise will recognise your device.",
+    "noRoomsAreDefinedClose": "No rooms are defined. Close this window and add a room in My home first.",
+    "noRoomsTitle": "No rooms yet",
+    "noSensorFound": "No sensor found",
+    "noSensorYet": "No sensor",
+    "offlineText": "The search goes on at the hub. Reconnecting…",
+    "offlineTitle": "Connection to Élise interrupted",
+    "pairingInProgress": "Pairing in progress",
+    "pairingRejected": "Pairing was refused",
+    "pairingRejectedText": "The hub could not open Zigbee pairing.",
+    "power": "Power",
+    "practical": "Practical",
+    "preparation": "Preparation",
+    "prepareYourSensor": "Prepare your sensor",
+    "preparing": "Preparing…",
+    "progress": "Progress",
+    "retrySearch": "Retry search",
+    "room": "Room",
+    "roomCount_one": "{{count}} room",
+    "roomCount_other": "{{count}} rooms",
+    "rooms": "Rooms",
+    "save": "Save",
+    "searchEnded": "Search ended",
+    "searchProgress": "Search progress",
+    "searchStopped": "Search interrupted",
+    "searchStoppedText": "Another search took over or this one was stopped.",
+    "searchingAroundTheHub": "Searching around the hub",
+    "sensor": "Sensor",
+    "sensorCount_one": "{{count}} sensor",
+    "sensorCount_other": "{{count}} sensors",
+    "sensorDetected": "Sensor detected",
+    "sensorInstalled": "Sensor installed",
+    "sensorInstalledText": "“{{name}}” is installed in {{room}}. Élise is now keeping watch.",
+    "sensorName": "Sensor name",
+    "startAutomaticDetection": "Start automatic detection",
+    "starting": "Starting…",
+    "stayClose": "Keep the sensor near the hub while pairing; you will put it in place right after.",
+    "stepOf": "Step {{value}} of {{total}}",
+    "stopSearch": "Stop searching",
+    "theContactIsClosed": "The contact is closed",
+    "theContactIsOpen": "The contact is open",
+    "theTuyaPressureStripDetects": "The Tuya pressure strip detects occupancy directly. Check for “Occupied” when lying down and “Unoccupied” when getting up.",
+    "theTuyaStripConnectsDirectly": "The Tuya strip connects directly over Zigbee. Its active state means “bed occupied”; check that it returns to “unoccupied” when the person gets up.",
+    "thisDeviceAndAllIts": "This device and all its readings will move from {{name}} to {{name2}}.",
+    "thisDeviceDoesNotProvide": "This device does not provide {{categoryLabel}}. Close this installation and choose the type matching its detected functions.",
+    "timeLeft": "{{time}} left",
+    "troubleshooting": [
+      "Bring the sensor within a metre of the hub.",
+      "Check its battery or power supply.",
+      "Reset it as described in its manual: it should blink to show pairing mode.",
+      "Search again, then turn pairing mode back on straight away."
+    ],
+    "troubleshootingTitle": "A few checks",
+    "unassigned": "Unassigned",
+    "usage": "Use",
+    "waitingForYourSensor": "Waiting for your sensor",
+    "whatDoYouWantTo": "What would you like to monitor?",
+    "whatDoesThisOpeningMonitor": "What does this opening monitor?",
+    "whenTheBedIsOccupied": "When the bed is occupied",
+    "whereWillYouInstallIt": "Where will you install it?",
+    "whichRoom": "Which room?",
+    "wrongTarget": "This device does not suit the chosen location. Choose a suitable sensor and search again.",
+    "yourSensorIsReady": "Your sensor is ready",
+    "errors": {
+      "noPairingModule": "The hub cannot find its Zigbee key right now. Check that it is plugged in, then try again.",
+      "adminRequired": "Only a household administrator can add a sensor.",
+      "accessDenied": "You do not have access to this installation.",
+      "noSensorToInstall": "This search has ended. Start the search again to add your sensor.",
+      "alreadyCompleted": "This sensor is already installed.",
+      "generic": "Élise could not complete this step. Please try again."
+    },
+    "hubOfflineTitle": "The Zigbee key is not responding",
+    "hubOfflineText": "Élise is waiting for it to come back. If this lasts, check that it is plugged into the hub.",
+    "alreadyInstalledHere": "This sensor is already installed in this room. You can simply rename it.",
+    "alreadyInstalledElsewhere": "This sensor is already installed in “{{name}}”. Continuing will move it to the room you chose.",
+    "unsupportedTitle": "Sensor seen, but not usable yet",
+    "unsupportedText": "Élise saw a device connect but cannot read its measurements yet. Check that it is a model from the list, or reset it and try again."
+  },
+  "contactTypes": {
+    "DOOR": "Door",
+    "FRIDGE": "Fridge",
+    "MAIN_ENTRANCE": "Main entrance",
+    "OTHER": "Other",
+    "VERANDA": "Veranda",
+    "WINDOW": "Window"
+  },
+  "sensorProducts": {
+    "heiman-fall-detection": {
+      "advice": "Install it indoors only and follow the height and orientation in the manual. Choose an unobstructed position covering the resident’s living area; the product sheet advertises 4 × 4 m on a wall and 4 × 5 m on the ceiling. Élise supports caregiver vigilance; fall detection does not replace telecare or a human check-in.",
+      "features": [
+        "Fall states reported over Zigbee: normal, fall warning or fall alarm",
+        "Wall or ceiling mounting, for indoor use only",
+        "Advertised range: 4 × 4 m on a wall or 4 × 5 m on the ceiling",
+        "No camera"
+      ],
+      "name": "Zigbee Fall Detection Sensor",
+      "placement": [
+        "Install it indoors only and follow the height and orientation in the manual.",
+        "Choose an unobstructed position covering the resident’s living area; the product sheet advertises 4 × 4 m on a wall and 4 × 5 m on the ceiling.",
+        "Élise supports caregiver vigilance; fall detection does not replace telecare or a human check-in."
+      ],
+      "power": "Continuous power · 5 V / 2 A",
+      "preparation": [
+        "The retailer lists HS2FD-E; Zigbee2MQTT documents variant HS2FD-EF1-3.0. Ask the seller to confirm the exact reference before buying.",
+        "Connect the sensor to a 5 V / 2 A power supply near the Élise hub.",
+        "In Élise OS, choose “Install this sensor” and then Zigbee. Put the sensor in pairing mode using its manual; no Heiman hub or account is required.",
+        "After installation, verify a fall alert using the manufacturer’s test mode. This model has not yet been physically tested with Élise."
+      ]
+    },
+    "heiman-smoke-detector": {
+      "advice": "Mount it in the location and orientation required by the manual and applicable housing rules. Keep the detector unobstructed and accessible for testing; do not paint or cover it.",
+      "features": [
+        "Photoelectric smoke detection and built-in siren ≥ 85 dB at 3 m",
+        "Zigbee2MQTT exposes smoke, test and battery (0–100%) states; Élise receives smoke and battery level",
+        "EN 14604 certification listed by the retailer"
+      ],
+      "name": "Smart Zigbee smoke detector",
+      "placement": [
+        "Mount it in the location and orientation required by the manual and applicable housing rules.",
+        "Keep the detector unobstructed and accessible for testing; do not paint or cover it."
+      ],
+      "power": "CR17335 / CR123A lithium battery · 3 V",
+      "preparation": [
+        "Check the HS1SA-E reference: standalone and Z-Wave Heiman variants are not compatible with Élise Zigbee setup.",
+        "Install a CR123A battery, then bring the detector near the Élise hub.",
+        "In Élise OS, choose “Install this sensor” and then Zigbee. Use a paper clip to hold the side button for more than 2 seconds until the LED flashes rapidly.",
+        "It joins Élise OS over Zigbee via Zigbee2MQTT; no Heiman account, app or hub is required.",
+        "Keep the detector awake by pressing its button every 2 seconds until pairing is complete.",
+        "After installation, test the siren as described in the manual and check the detector and battery status in Élise. Zigbee2MQTT reports that some firmware versions can send repeated false smoke states; monitor it after pairing.",
+        "The detector has its own local siren. Élise notifications provide additional awareness and have not yet been validated on physical hardware."
+      ]
+    },
+    "nodon-climate": {
+      "advice": "Place it in an area representative of the room. Aim its cell toward ambient light and avoid direct heat or moisture sources.",
+      "features": [
+        "Temperature",
+        "Relative humidity",
+        "Ambient-light power",
+        "Backup battery level"
+      ],
+      "name": "Zigbee Temperature and Humidity Sensor",
+      "placement": [
+        "Place it in an area representative of the room.",
+        "Aim its cell toward ambient light and avoid direct heat or moisture sources."
+      ],
+      "power": "Photovoltaic cell · optional CR2032 battery in dark areas",
+      "preparation": [
+        "Set the switch to ON and expose the photovoltaic cell to light.",
+        "Open the Élise Zigbee network, then press the button once: orange while pairing and green when successful."
+      ]
+    },
+    "nodon-dry-contact": {
+      "advice": "Install the enclosure near the wired contact to be monitored. Keep it accessible and protect the wires from being pulled out. For bed monitoring, place the connected pressure mat under the mattress and keep the enclosure in light or use its backup battery.",
+      "features": [
+        "Wired dry-contact state",
+        "Ambient-light power",
+        "Backup battery level",
+        "Over-the-air updates"
+      ],
+      "name": "Zigbee Dry Contact Sensor",
+      "placement": [
+        "Install the enclosure near the wired contact to be monitored.",
+        "Keep it accessible and protect the wires from being pulled out.",
+        "For bed monitoring, place the connected pressure mat under the mattress and keep the enclosure in light or use its backup battery."
+      ],
+      "power": "Photovoltaic cell · optional CR2032 battery in dark areas",
+      "preparation": [
+        "Connect only a potential-free contact, never a powered circuit.",
+        "Expose the cell to light, open the Élise Zigbee network and start pairing as described in the NodOn manual."
+      ]
+    },
+    "nodon-energy-monitor": {
+      "advice": "In an indoor electrical panel on a DIN rail. Follow the manual wiring diagram, protective devices and electrical requirements.",
+      "features": [
+        "Instantaneous power",
+        "Energy consumed and produced",
+        "Current",
+        "Voltage",
+        "Bidirectional metering"
+      ],
+      "name": "Zigbee Smart Energy Monitor",
+      "placement": [
+        "In an indoor electrical panel on a DIN rail.",
+        "Follow the manual wiring diagram, protective devices and electrical requirements."
+      ],
+      "power": "Electrical panel · 110–240 V AC · 50/60 Hz · 63 A maximum",
+      "preparation": [
+        "Have the module installed in the electrical panel with power off by a qualified electrician.",
+        "After power-up, open the Élise Zigbee network and start pairing with the module button."
+      ]
+    },
+    "nodon-opening": {
+      "advice": "Attach the sensor to the frame and the magnet to the moving panel. Follow the alignment and maximum-gap guidance in the manual.",
+      "features": ["Open and closed state", "Battery level", "Over-the-air updates"],
+      "name": "Zigbee Door and Window Sensor",
+      "placement": [
+        "Attach the sensor to the frame and the magnet to the moving panel.",
+        "Follow the alignment and maximum-gap guidance in the manual."
+      ],
+      "power": "CR2032 battery",
+      "preparation": [
+        "Place the detector near the hub and open the Élise Zigbee network.",
+        "Press the detector button as described in the NodOn manual."
+      ]
+    },
+    "sonoff-climate": {
+      "advice": "Place it in a representative, well-ventilated area of the room. Keep it away from sunlight, radiators, windows and steam.",
+      "features": ["Temperature", "Relative humidity", "Battery level"],
+      "name": "Temperature and humidity sensor",
+      "placement": [
+        "Place it in a representative, well-ventilated area of the room.",
+        "Keep it away from sunlight, radiators, windows and steam."
+      ],
+      "power": "CR2477 battery · 3 V",
+      "preparation": [
+        "Install the battery, then bring the sensor close to the Élise hub.",
+        "Hold the button for 5 seconds: the indicator flashes slowly during pairing."
+      ]
+    },
+    "thirdreality-climate-lite": {
+      "advice": "Choose a well-ventilated location representative of the room. Keep it away from sunlight, radiators, windows and steam.",
+      "features": ["Temperature", "Relative humidity", "Battery level"],
+      "name": "Temperature & Humidity Sensor Lite",
+      "placement": [
+        "Choose a well-ventilated location representative of the room.",
+        "Keep it away from sunlight, radiators, windows and steam."
+      ],
+      "power": "2 AAA batteries · 3 V",
+      "preparation": [
+        "Install the batteries.",
+        "Hold the button until the red light appears, then release it: the blue light flashes during pairing."
+      ]
+    },
+    "thirdreality-door-window": {
+      "advice": "Attach the sensor to the frame and the magnet to the moving panel. Align the marks, then verify both opening and closing in the test guide.",
+      "features": ["Open and closed state", "Battery level", "Configurable open delay"],
+      "name": "Door & Window Sensor",
+      "placement": [
+        "Attach the sensor to the frame and the magnet to the moving panel.",
+        "Align the marks, then verify both opening and closing in the test guide."
+      ],
+      "power": "2 AAA batteries",
+      "preparation": [
+        "Install the batteries, then bring the sensor close to the Élise hub.",
+        "Hold the reset button until it flashes to pair it."
+      ]
+    },
+    "thirdreality-motion": {
+      "advice": "Aim it at passage areas with nothing blocking the lens. Avoid direct sunlight, heaters, steam and heat sources.",
+      "features": ["PIR motion up to approximately 6 m", "Battery level"],
+      "name": "Motion Sensor",
+      "placement": [
+        "Aim it at passage areas with nothing blocking the lens.",
+        "Avoid direct sunlight, heaters, steam and heat sources."
+      ],
+      "power": "2 AAA batteries",
+      "preparation": [
+        "Install the batteries and place the sensor near the hub.",
+        "Hold the reset button until it flashes to pair it."
+      ]
+    },
+    "thirdreality-presence-r3": {
+      "advice": "Indoors, facing the living area with a clear view. Adjust its range after testing so it does not cover an adjacent room.",
+      "features": [
+        "Still presence via 60 GHz radar",
+        "Illuminance",
+        "Total volatile organic compounds (TVOC)",
+        "RGB night light",
+        "Zigbee repeater"
+      ],
+      "name": "Smart Presence Sensor R3",
+      "placement": [
+        "Indoors, facing the living area with a clear view.",
+        "Adjust its range after testing so it does not cover an adjacent room."
+      ],
+      "power": "USB-C · 5 V / 1 A · continuous power",
+      "preparation": [
+        "Plug the sensor in near the Élise hub.",
+        "Hold its button until it flashes blue to start Zigbee pairing."
+      ]
+    },
+    "thirdreality-smart-button": {
+      "advice": "Keep it within easy reach, for example near the bed or armchair. Use the magnetic or adhesive mount and check that the person can press it easily.",
+      "features": ["Single press", "Double press", "Long press", "Battery level"],
+      "name": "Zigbee Smart Button",
+      "placement": [
+        "Keep it within easy reach, for example near the bed or armchair.",
+        "Use the magnetic or adhesive mount and check that the person can press it easily."
+      ],
+      "power": "2 AAA batteries",
+      "preparation": [
+        "Install the batteries and bring the button close to the hub.",
+        "Hold the reset button until it flashes to pair it."
+      ]
+    },
+    "thirdreality-smart-plug-e2-eu": {
+      "advice": "Indoor use only. Do not exceed 16 A and do not daisy-chain power strips.",
+      "features": [
+        "On / off",
+        "Power",
+        "Energy",
+        "Current",
+        "Voltage",
+        "Frequency",
+        "Power factor",
+        "Zigbee repeater"
+      ],
+      "name": "Smart Plug E2 EU with Power Monitoring",
+      "placement": ["Indoor use only.", "Do not exceed 16 A and do not daisy-chain power strips."],
+      "power": "Mains 100–250 V · 50/60 Hz · 16 A maximum",
+      "preparation": [
+        "Plug it directly into a wall outlet near the hub.",
+        "Hold its button until it flashes to start pairing."
+      ]
+    },
+    "thirdreality-water-leak": {
+      "advice": "Lay it flat where water would appear first: under a sink, basin or water heater. Keep the enclosure accessible for testing and maintenance.",
+      "features": ["Water leak detection", "Built-in siren", "Battery level"],
+      "name": "Water Leak Sensor",
+      "placement": [
+        "Lay it flat where water would appear first: under a sink, basin or water heater.",
+        "Keep the enclosure accessible for testing and maintenance."
+      ],
+      "power": "2 AAA batteries",
+      "preparation": [
+        "Install the batteries, then bring the sensor close to the hub.",
+        "To reset it, open the case and hold the internal button until the red light appears; blue flashes in pairing mode."
+      ]
+    },
+    "tuya-bed-pressure-strip": {
+      "advice": "Slide the strip under the mattress, where the manual recommends and where it can detect a person lying down. Before relying on bedtime and wake-up times, check several times in Élise that the sensor changes to “Occupied” when someone lies down and “Unoccupied” when they get up. It reports detected occupancy, not sleep quality or sleep stages.",
+      "features": [
+        "Flexible pressure strip to place under the mattress",
+        "Binary bed occupancy state",
+        "Battery, illuminance, sensitivity and timing settings exposed by Zigbee2MQTT"
+      ],
+      "name": "Bed occupancy pressure strip",
+      "placement": [
+        "Slide the strip under the mattress, where the manual recommends and where it can detect a person lying down.",
+        "Before relying on bedtime and wake-up times, check several times in Élise that the sensor changes to “Occupied” when someone lies down and “Unoccupied” when they get up.",
+        "It reports detected occupancy, not sleep quality or sleep stages."
+      ],
+      "power": "Replaceable batteries · type and runtime to confirm for this seller reference",
+      "preparation": [
+        "Start Zigbee pairing from Élise OS, then enable pairing mode on the sensor as described in its manual. The Zigbee2MQTT-recognized model needs no Smart Life/Tuya account or Tuya hub.",
+        "When detected, verify the model is “TS0601_bed_presence_sensor” (Tuya) and an occupancy function appears. ManoMano does not state the Zigbee model code for this listing; if another model appears, do not assign it to a bed until checked."
+      ]
+    }
+  },
+  "sensorProductCard": {
+    "powerEnergy": "Power · Energy"
+  },
+  "mobileSensors": {
+    "addASensor": "Add a sensor",
+    "addToThisRoom": "Add a sensor to this room",
+    "adminOnly": "Only a household administrator can add a sensor."
   }
 }

@@ -8,10 +8,17 @@ import {
   type HomePlan,
   type HomeSummary,
   type LiaisonPage,
+  type DetectedSensorDevice,
+  type RoomSensorCategory,
   type ScreenSnapshot,
   type SensorDevice,
   type SensorOnboardingSession,
+  SENSOR_PRODUCTS,
+  isActiveOnboardingStatus,
+  isBedOccupancySensorModel,
 } from '@elise/contracts';
+import { MobileApiError } from '../api';
+import { productTexts } from '../sensors/texts';
 import type {
   ActivityItem,
   AlertDetail,
@@ -1490,6 +1497,8 @@ function createDemoSession() {
     calendar,
     screen,
     onboardingSession: null as SensorOnboardingSession | null,
+    onboardingStartedAt: 0,
+    onboardingModel: undefined as string | undefined,
   };
 }
 
@@ -1600,6 +1609,117 @@ function sensor(
         : []),
     ],
     action: 'NONE',
+  };
+}
+
+const isActiveStatus = (status: string) => isActiveOnboardingStatus(status);
+
+/** Demo timeline of a search: listening, then a sensor spotted, then ready to name and place. */
+function demoOnboardingSession(state: {
+  onboardingSession: SensorOnboardingSession | null;
+  onboardingStartedAt: number;
+  onboardingModel: string | undefined;
+}): SensorOnboardingSession | null {
+  const session = state.onboardingSession;
+  if (!session || session.status === 'DEVICE_FOUND' || !isActiveStatus(session.status))
+    return session;
+  const elapsed = Date.now() - state.onboardingStartedAt;
+  if (elapsed >= 5_000) {
+    session.status = 'DEVICE_FOUND';
+    session.step = 'CLASSIFICATION';
+    session.expiresAt = iso(15 * MINUTE);
+    session.detectedDevice = demoDetectedDevice(state.onboardingModel);
+    session.deviceId = session.detectedDevice.id;
+    session.connection = {
+      online: true,
+      pairingOpen: false,
+      deviceDetected: true,
+      updatedAt: iso(),
+    };
+  } else if (elapsed >= 3_000 && session.connection) {
+    session.connection = { ...session.connection, deviceDetected: true };
+  }
+  return session;
+}
+
+const DEMO_CAPABILITIES: Partial<Record<RoomSensorCategory, string>> = {
+  presence: 'person_presence',
+  motion: 'motion',
+  contact: 'contact',
+  temperature: 'temperature',
+  humidity: 'humidity',
+  water_leak: 'water_leak',
+  smoke: 'smoke',
+  carbon_monoxide: 'carbon_monoxide',
+  button: 'button',
+  fall_detection: 'fall_detection',
+  illuminance: 'illuminance',
+  air_quality: 'air_quality',
+};
+
+/** The sensor the demo hub "finds": the one chosen in the catalogue, else a motion detector. */
+function demoDetectedDevice(model: string | undefined): DetectedSensorDevice {
+  const product = model ? SENSOR_PRODUCTS.find((item) => item.model === model) : undefined;
+  if (!product) {
+    return {
+      ...sensor(
+        'sensor-new-demo',
+        t('mockApi.newDetector'),
+        t('mockApi.livingRoom'),
+        'motion',
+        'ONLINE',
+        100,
+        0,
+        'SNZB-03',
+      ),
+      room: null,
+      installationStatus: 'NEEDS_PLACEMENT',
+      placementConfirmedAt: null,
+      detectedType: 'MOTION',
+    };
+  }
+  const capabilities = product.categories.flatMap((category) => {
+    const capability =
+      category === 'bed'
+        ? isBedOccupancySensorModel(product.model)
+          ? 'occupancy'
+          : 'contact'
+        : DEMO_CAPABILITIES[category];
+    return capability ? [{ capability, label: t(`sensorCategories.${category}.label`) }] : [];
+  });
+  const [first, ...others] = capabilities.length
+    ? capabilities
+    : [{ capability: 'motion', label: t('mockApi.motion') }];
+  const base = sensor(
+    `sensor-new-${product.id}`,
+    productTexts(product).name,
+    t('mockApi.livingRoom'),
+    first.capability,
+    'ONLINE',
+    product.power.toLowerCase().includes('usb') ? 0 : 96,
+    0,
+    product.model,
+    product.brand,
+  );
+  const template = base.capabilities[0];
+  return {
+    ...base,
+    room: null,
+    installationStatus: 'NEEDS_PLACEMENT',
+    placementConfirmedAt: null,
+    placementNote: null,
+    batteryPercent: product.power.toLowerCase().includes('usb') ? null : 96,
+    capabilities: [
+      { ...template, label: first.label },
+      ...others.map((item, index) => ({
+        ...template,
+        sensorId: `${base.id}-capability-${index + 2}`,
+        entityId: `binary_sensor.${base.id}_${item.capability}`,
+        capability: item.capability,
+        label: item.label,
+      })),
+    ],
+    detectedType: product.categories.includes('contact') ? 'CONTACT' : 'UNKNOWN',
   };
 }
 
@@ -2297,32 +2417,25 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
   if (pathname === '/remote-access/status') return DEMO_REMOTE_STATUS as T;
   if (pathname.startsWith('/remote-access/')) return DEMO_REMOTE_STATUS as T;
 
-  if (pathname === '/sensor-devices/onboarding-sessions/current')
-    return state.onboardingSession as T;
+  if (pathname === '/sensor-devices/onboarding-sessions/current') {
+    const session = demoOnboardingSession(state);
+    return (session && isActiveStatus(session.status) ? session : null) as T;
+  }
   if (pathname === '/sensor-devices/onboarding-sessions' && method === 'POST') {
+    // The search starts empty, then "finds" the sensor a few seconds later, like a real hub.
+    state.onboardingStartedAt = Date.now();
+    state.onboardingModel = typeof body.demoModel === 'string' ? body.demoModel : undefined;
     state.onboardingSession = {
       id: 'demo-onboarding-session',
       protocol: 'zigbee',
-      status: 'DEVICE_FOUND',
-      step: 'DEVICE_FOUND',
-      deviceId: 'sensor-new-demo',
+      status: 'WAITING_FOR_DEVICE',
+      step: 'PAIRING',
+      deviceId: null,
       errorCode: null,
       errorMessage: null,
-      expiresAt: iso(5 * MINUTE),
-      connection: { online: true, pairingOpen: true, deviceDetected: true, updatedAt: iso() },
-      detectedDevice: {
-        ...sensor(
-          'sensor-new-demo',
-          t('mockApi.newDetector'),
-          t('mockApi.livingRoom'),
-          'motion',
-          'ONLINE',
-          100,
-          0,
-          'SNZB-03',
-        ),
-        detectedType: 'MOTION',
-      },
+      expiresAt: iso(4 * MINUTE),
+      connection: { online: true, pairingOpen: true, deviceDetected: false, updatedAt: iso() },
+      detectedDevice: null,
     };
     return state.onboardingSession as T;
   }
@@ -2330,25 +2443,35 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
     /^\/sensor-devices\/onboarding-sessions\/[^/]+\/complete$/.test(pathname) &&
     method === 'POST'
   ) {
-    const session = state.onboardingSession;
+    const session = demoOnboardingSession(state);
     const device = session?.detectedDevice;
-    if (!session || !device) return { sessionId: 'demo-onboarding-session', device: null } as T;
+    if (!session || !device || session.status !== 'DEVICE_FOUND')
+      throw new MobileApiError('HTTP 422', 'HTTP', 422, undefined, 'NO_SENSOR_TO_INSTALL');
     device.name = typeof body.name === 'string' ? body.name : device.name;
-    if (body.roomId === null) device.room = null;
-    else if (typeof body.roomId === 'string') {
+    if (typeof body.roomId === 'string') {
       const name =
         state.homeSummary.rooms.find((item) => item.id === body.roomId)?.name ??
         t('mockApi.livingRoom');
-      device.room = { id: body.roomId, name, kind: name.toUpperCase().replaceAll(' ', '_') };
+      const kind = state.homePlan.levels
+        .flatMap((level) => level.rooms)
+        .find((item) => item.id === body.roomId)?.kind;
+      device.room = {
+        id: body.roomId,
+        name,
+        kind: kind ?? name.toUpperCase().replaceAll(' ', '_'),
+      };
     }
-    state.sensorDevices.push(device);
+    state.sensorDevices = [
+      ...state.sensorDevices.filter((item) => item.id !== device.id),
+      { ...device, installationStatus: 'OPERATIONAL', placementConfirmedAt: iso() },
+    ];
     session.status = 'COMPLETED';
-    return { sessionId: 'demo-onboarding-session', device } as T;
+    return { sessionId: session.id, device } as T;
   }
   if (/^\/sensor-devices\/onboarding-sessions\/[^/]+$/.test(pathname)) {
     if (method === 'DELETE' && state.onboardingSession)
       state.onboardingSession.status = 'CANCELLED';
-    return state.onboardingSession as T;
+    return demoOnboardingSession(state) as T;
   }
   if (pathname.startsWith('/sensor-devices/') && pathname.includes('/placement-guide'))
     return {

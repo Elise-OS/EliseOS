@@ -2588,7 +2588,21 @@
     "whereWillYouInstallIt": "¿Dónde desea instalarlo?",
     "whichRoom": "¿En qué estancia?",
     "wrongTarget": "Este aparato no es adecuado para el lugar elegido. Elija un sensor adecuado y vuelva a buscar.",
-    "yourSensorIsReady": "Su sensor está listo"
+    "yourSensorIsReady": "Su sensor está listo",
+    "errors": {
+      "noPairingModule": "La caja no encuentra su llave Zigbee por ahora. Compruebe que está bien conectada y vuelva a intentarlo.",
+      "adminRequired": "Solo un administrador del hogar puede añadir un sensor.",
+      "accessDenied": "No tiene acceso a esta instalación.",
+      "noSensorToInstall": "Esta búsqueda ha terminado. Inicie la búsqueda de nuevo para añadir su sensor.",
+      "alreadyCompleted": "Este sensor ya está instalado."
+    },
+    "hubOfflineTitle": "La llave Zigbee no responde",
+    "hubOfflineText": "Élise espera a que vuelva. Si dura, compruebe que está bien conectada a la caja.",
+    "alreadyInstalledHere": "Este sensor ya está instalado en esta habitación. Puede simplemente cambiarle el nombre.",
+    "alreadyInstalledElsewhere": "Este sensor ya está instalado en «{{name}}». Si continúa, se moverá a la habitación elegida.",
+    "unsupportedTitle": "Sensor visto, pero aún no utilizable",
+    "unsupportedText": "Élise ha visto conectarse un dispositivo, pero aún no sabe leer sus mediciones. Compruebe que es un modelo de la lista, o restablézcalo y vuelva a intentarlo.",
+    "searchStatus": "Estado de la búsqueda"
   },
   "sensorUi": {
     "connectionFailed": "No se ha podido conectar ({{status}})."
