@@ -40,6 +40,16 @@ grep -q -- 'api dashboard' "$root/appliance/elise-screen-setup.sh"
 grep -q -- 'install -d -m 0750 -o 100 -g 102' "$root/scripts/install-jitsi.sh"
 grep -qF -- 'chown -R 100:102 "$state/config/prosody/config/data"' "$root/scripts/install-jitsi.sh"
 grep -q -- 'up -d --force-recreate jvb' "$root/scripts/install-jitsi.sh"
+# An update from the app runs the previous release's installer: it must hand over to the
+# new one, and the new release must refuse to finish while its host files are missing.
+grep -qF -- 'ELISE_INSTALLER_HANDOFF=true ELISE_UPDATE_LOCK_HELD=true' "$root/install/install-elise.sh"
+grep -qF -- 'until host_files_current; do' "$root/install/install-elise.sh"
+# Every host file the app relies on must be in the installer's list.
+for host_file in appliance/elise-zigbee-agent.py appliance/systemd/elise-zigbee-agent.service \
+  appliance/elise-zigbee-adapters.json appliance/elise-update-agent.py; do
+  grep -qF -- " $host_file " "$root/install/install-elise.sh" \
+    || { echo "$host_file manque dans la liste des fichiers système." >&2; exit 1; }
+done
 # cloud-final.service is ordered after multi-user.target: depending on it from the
 # first-boot unit creates an ordering cycle that systemd breaks by dropping a job.
 if grep -Eq '^(After|Wants|Requires)=.*cloud-final' "$root/appliance/systemd/elise-firstboot.service"; then

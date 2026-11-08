@@ -171,6 +171,8 @@ cleanup() {
   [[ -z "$docker_config_dir" ]] || rm -rf -- "$docker_config_dir"
 }
 trap cleanup EXIT
+# A handed-over installer runs from a private temporary copy: remove it on the way out.
+[[ "${ELISE_INSTALLER_HANDOFF:-false}" != true || "$0" != /tmp/* ]] || rm -f -- "$0"
 if [[ -n "$SOURCE_DIR" ]]; then
   VERSION="${ELISE_VERSION:-dev}"
   mkdir -p "$work_dir/runtime"
@@ -197,6 +199,19 @@ PY
     || fail "signature de l’archive Élise non valide"
   mkdir "$work_dir/runtime"
   tar -xzf "$work_dir/$asset" -C "$work_dir/runtime"
+  # An update started from the app runs the installer of the release already in place, whose
+  # list of host files predates this release (v0.1.17 never installed the Zigbee agent).
+  # Hand over to the installer that ships with the verified archive, once, keeping the lock.
+  new_installer="$work_dir/runtime/install/install-elise.sh"
+  if [[ "${ELISE_INSTALLER_HANDOFF:-false}" != true && -f "$new_installer" ]] \
+    && ! cmp -s "$new_installer" "${BASH_SOURCE[0]}"; then
+    handoff="$(mktemp)"
+    install -m 0700 "$new_installer" "$handoff"
+    rm -rf -- "$work_dir"
+    trap - EXIT
+    echo "→ Passage à l’installateur d’Élise OS ${VERSION}"
+    ELISE_INSTALLER_HANDOFF=true ELISE_UPDATE_LOCK_HELD=true ELISE_VERSION="$VERSION" exec "$handoff"
+  fi
 fi
 
 if [[ "$VERSION" != dev ]]; then
@@ -260,19 +275,8 @@ fi
 ln -sfn "$release_dir" "$ELISE_ROOT/current"
 [[ -z "$previous" ]] || restore_on_exit=true
 
-install_host_files() {
-  local source="$1" mode from to
-  # This installer copies another release's files: only what keeps updates working is required,
-  # so a release that drops or renames a component can still be installed (or rolled back to).
-  [[ -f "$source/appliance/elise-update-agent.py" && -f "$source/install/elise" ]] || return 1
-  install -d -m 0755 /usr/lib/elise
-  while read -r mode from to; do
-    if [[ -f "$source/$from" ]]; then
-      install -m "$mode" "$source/$from" "$to"
-    else
-      echo "Absent de $(basename "$source") : $from" >&2
-    fi
-  done <<'FILES'
+# Host files of this release: installed below and checked before the update is confirmed.
+HOST_FILES="$(cat <<'FILES'
 0755 appliance/elise-update-agent.py /usr/lib/elise/elise-update-agent.py
 0755 install/elise /usr/local/bin/elise
 0644 appliance/systemd/elise-update-agent.service /etc/systemd/system/
@@ -290,6 +294,21 @@ install_host_files() {
 0644 appliance/systemd/elise-zigbee-setup.service /etc/systemd/system/
 0644 appliance/udev/90-elise-zigbee.rules /etc/udev/rules.d/
 FILES
+)"
+
+install_host_files() {
+  local source="$1" mode from to
+  # This installer copies another release's files: only what keeps updates working is required,
+  # so a release that drops or renames a component can still be installed (or rolled back to).
+  [[ -f "$source/appliance/elise-update-agent.py" && -f "$source/install/elise" ]] || return 1
+  install -d -m 0755 /usr/lib/elise
+  while read -r mode from to; do
+    if [[ -f "$source/$from" ]]; then
+      install -m "$mode" "$source/$from" "$to"
+    else
+      echo "Absent de $(basename "$source") : $from" >&2
+    fi
+  done <<<"$HOST_FILES"
   udevadm control --reload-rules 2>/dev/null || true
 }
 
@@ -409,6 +428,18 @@ if ! "${compose[@]}" up -d; then
   fail "le démarrage a échoué ; la version précédente a été restaurée"
 fi
 
+host_files_current() {
+  local mode from to
+  while read -r mode from to; do
+    [[ -f "$release_dir/$from" ]] || continue
+    [[ "$to" == */ ]] && to="$to$(basename "$from")"
+    cmp -s "$release_dir/$from" "$to" || { echo "Fichier système non à jour : $to" >&2; return 1; }
+  done <<<"$HOST_FILES"
+  # The app manages the Zigbee key through this agent: a release that ships it needs it running.
+  [[ ! -f "$release_dir/appliance/systemd/elise-zigbee-agent.service" ]] \
+    || systemctl is-active --quiet elise-zigbee-agent.service \
+    || { echo "L’agent Zigbee ne fonctionne pas." >&2; return 1; }
+}
 release_healthy() {
   local health
   health="$(curl --fail --silent --max-time 10 "http://127.0.0.1:${http_port:-8080}/api/v1/system/health")" || return 1
@@ -423,6 +454,18 @@ until release_healthy; do
     "${compose[@]}" down || true
     restore_previous
     fail "les contrôles de santé ont échoué ; retour à la version précédente"
+  fi
+  sleep 3
+done
+
+# A release whose host files did not land (an older installer, a failed copy) is not installed.
+host_attempt=0
+until host_files_current; do
+  host_attempt=$((host_attempt + 1))
+  if (( host_attempt >= 10 )); then
+    "${compose[@]}" down || true
+    restore_previous
+    fail "les fichiers système de $VERSION ne sont pas installés ; retour à la version précédente"
   fi
   sleep 3
 done
