@@ -108,13 +108,15 @@ appId: org.michel.mobile
     timeout: 8000
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/mobile-${STORE_LANG}-03-usage
-- tapOn: ${output.sensor.category}.*
+- tapOn:
+    id: sensor-category-contact
 - extendedWaitUntil:
     visible: ${output.sensor.catalogTitle}
     timeout: 8000
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/mobile-${STORE_LANG}-04-catalog
-- tapOn: '.*${output.sensor.product}.*'
+- tapOn:
+    id: sensor-product-thirdreality-door-window
 - extendedWaitUntil:
     visible: ${output.sensor.install}
     timeout: 8000
@@ -152,6 +154,7 @@ appId: org.michel.mobile
     timeout: 15000
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/mobile-${STORE_LANG}-11-done
-- tapOn: ${output.sensor.finish}
+- tapOn:
+    id: sensor-finish
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/mobile-${STORE_LANG}-12-room-after

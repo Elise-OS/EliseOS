@@ -126,7 +126,7 @@ export function SensorInstalledPage({
       hero={<FoundHero>{photo}</FoundHero>}
       footer={
         <>
-          <PrimaryButton label={t('sensorSetup.finish')} onPress={onDone} />
+          <PrimaryButton label={t('sensorSetup.finish')} onPress={onDone} testID="sensor-finish" />
           {onAddAnother ? (
             <SecondaryButton label={t('sensorSetup.addAnother')} onPress={onAddAnother} />
           ) : null}

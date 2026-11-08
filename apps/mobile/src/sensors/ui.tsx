@@ -365,16 +365,19 @@ export function PrimaryButton({
   disabled,
   busy,
   icon,
+  testID,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean | undefined;
   busy?: boolean | undefined;
   icon?: ReactNode;
+  testID?: string | undefined;
 }) {
   const off = disabled || busy;
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!off, busy: !!busy }}
@@ -460,6 +463,7 @@ export function SetupTile({
   detail,
   badge,
   onSelect,
+  testID,
 }: {
   icon: ReactNode;
   tint?: string | undefined;
@@ -467,9 +471,11 @@ export function SetupTile({
   detail?: string | undefined;
   badge?: string | undefined;
   onSelect: () => void;
+  testID?: string | undefined;
 }) {
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={[title, badge, detail].filter(Boolean).join('. ')}
       onPress={onSelect}

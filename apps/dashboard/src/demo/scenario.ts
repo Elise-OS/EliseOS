@@ -2538,6 +2538,10 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
           0,
           'SNZB-03',
         ),
+        // A sensor that has just joined has no room yet.
+        room: null,
+        installationStatus: 'NEEDS_PLACEMENT',
+        placementConfirmedAt: null,
         detectedType: 'MOTION',
       },
     };

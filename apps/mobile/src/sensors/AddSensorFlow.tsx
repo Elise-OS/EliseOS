@@ -228,7 +228,7 @@ function HomeSensorFlow({
         product={product}
         progress={{ offset: 3, total: TOTAL }}
         onBack={() => back(product ? 'PRODUCT' : 'CATALOG')}
-        backLabel={product ? productTexts(product).name : t('sensorSetup.devices')}
+        backLabel={t('sensorSetup.back')}
         onClose={onClose}
         onInstalled={onInstalled}
         onAddAnother={() => {
@@ -474,6 +474,7 @@ function HomeSensorFlow({
             {products.map((item) => (
               <Pressable
                 key={item.id}
+                testID={`sensor-product-${item.id}`}
                 accessibilityRole="button"
                 accessibilityLabel={`${item.brand}. ${productTexts(item).name}`}
                 onPress={() => {
@@ -552,6 +553,7 @@ function HomeSensorFlow({
                   return (
                     <SetupTile
                       key={id}
+                      testID={`sensor-category-${id}`}
                       icon={<Icon size={22} color={ss.ink} />}
                       tint={ss.groups[group.id]}
                       title={sensorCategoryLabel(id)}
@@ -609,6 +611,7 @@ function HomeSensorFlow({
                 return (
                   <SetupTile
                     key={room.id}
+                    testID={`sensor-room-${room.id}`}
                     icon={<RoomIcon size={22} color={ss.ink} />}
                     tint={room.geometry.color}
                     title={room.name}
