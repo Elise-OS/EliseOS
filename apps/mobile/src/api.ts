@@ -302,8 +302,14 @@ const request = async <T>(
 ) => {
   if (isDemoServer(server)) {
     // A Zigbee key search listens to the home network for a moment, as on a real box.
+    // EXPO_PUBLIC_ZIGBEE_DEMO_SEARCH_MS lengthens it for the screenshots of the searching state.
     if (path.startsWith('/zigbee/adapter/scan'))
-      await new Promise((resolve) => setTimeout(resolve, ZIGBEE_DEMO_SEARCH_MS));
+      await new Promise((resolve) =>
+        setTimeout(
+          resolve,
+          Number(process.env.EXPO_PUBLIC_ZIGBEE_DEMO_SEARCH_MS) || ZIGBEE_DEMO_SEARCH_MS,
+        ),
+      );
     return mockDemoRequest<T>(path, init);
   }
 

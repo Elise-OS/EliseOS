@@ -398,7 +398,8 @@ function KeyHero({
         <Text style={s.body}>{t(`zigbeeKey.${headline.hint}`)}</Text>
       </View>
 
-      {current ? (
+      {/* While searching the details fold away, so that the search shows right under the title. */}
+      {current && !busy ? (
         <>
           <View style={s.facts}>
             <FactRow
@@ -526,9 +527,11 @@ function SearchProgress() {
       accessibilityLiveRegion="polite"
       accessibilityLabel={t('zigbeeKey.searchingTitle')}
     >
-      <Radar detected={false} ratio={0}>
-        <ScanSearch size={38} color={ss.accent} />
-      </Radar>
+      <View style={s.radar}>
+        <Radar detected={false} ratio={0}>
+          <ScanSearch size={38} color={ss.accent} />
+        </Radar>
+      </View>
       <Text style={s.cardTitle}>{t('zigbeeKey.searchingTitle')}</Text>
       <Text style={[s.body, s.textCenter]}>{t('zigbeeKey.searchingText')}</Text>
       <View style={s.checklist}>
@@ -575,9 +578,11 @@ function InstallProgress({ install, onStop }: { install: ZigbeeInstall; onStop: 
   const name = install.target?.modelName ?? install.target?.port ?? '';
   return (
     <View style={[s.card, s.centered]} accessibilityLabel={t('zigbeeKey.stepsTitle')}>
-      <Radar detected={false} ratio={progress / 100}>
-        <ZigbeeKeyArt kind={portKind(install.target?.port)} size={76} />
-      </Radar>
+      <View style={s.radar}>
+        <Radar detected={false} ratio={progress / 100}>
+          <ZigbeeKeyArt kind={portKind(install.target?.port)} size={76} />
+        </Radar>
+      </View>
       <Text style={[s.eyebrow, s.textCenter]}>
         {`${t('zigbeeKey.installingTitle')} · ${progress} %`.toUpperCase()}
       </Text>
@@ -919,6 +924,7 @@ function AdvancedNetwork({
           <Text style={s.small}>{t('zigbeeKey.networkSectionHint')}</Text>
           <Text style={s.fieldLabel}>{t('zigbeeKey.networkAddress')}</Text>
           <TextInput
+            testID="zigbee-address"
             style={s.input}
             value={address}
             onChangeText={setAddress}
@@ -973,6 +979,8 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
   },
   centered: { alignItems: 'center' },
+  // The sensor radar, a little smaller inside a card.
+  radar: { marginVertical: -34, transform: [{ scale: 0.72 }] },
   hero: { gap: 16 },
   heroWarn: { borderColor: '#f0dcbc', backgroundColor: '#fffdf9' },
   resultOk: { backgroundColor: '#fbfefc' },

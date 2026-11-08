@@ -1076,6 +1076,41 @@
     align-items: flex-start;
     flex-wrap: wrap;
   }
+  .zk-picture {
+    width: 76px;
+    height: 76px;
+  }
+  .zk-picture .ss-found-photo {
+    width: 70px;
+    height: 70px;
+    border-radius: 20px;
+  }
+  .zk-picture--small,
+  .zk-picture--small .ss-found-photo {
+    width: 52px;
+    height: 52px;
+    border-radius: 15px;
+  }
+  .zk-hero-copy {
+    flex-basis: calc(100% - 92px);
+  }
+  .zk-candidate {
+    gap: 6px 12px;
+  }
+  .zk-candidate > .zk-picture {
+    align-self: start;
+  }
+  .zk-origin {
+    flex-wrap: nowrap;
+  }
+  .zk-origin:has(.zk-origin-address) {
+    flex-wrap: wrap;
+  }
+  .zk-origin-address {
+    flex-basis: 100%;
+    width: fit-content;
+    flex-grow: 0;
+  }
 }
 
 /* Guided home creation */

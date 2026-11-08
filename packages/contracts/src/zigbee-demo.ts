@@ -32,7 +32,7 @@ export function isZigbeeDemoScenario(value: unknown): value is ZigbeeDemoScenari
 }
 
 /** A real search listens to the home network for a moment: the demos wait as long. */
-export const ZIGBEE_DEMO_SEARCH_MS = 2600;
+export const ZIGBEE_DEMO_SEARCH_MS = 3500;
 
 export interface ZigbeeDemoResponse {
   status: number;

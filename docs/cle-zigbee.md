@@ -103,6 +103,10 @@ Tout échec restaure les fichiers sauvegardés et redémarre l’ancien service.
 
 Le dashboard et l’app mobile utilisent les mêmes schémas, aides de présentation et simulateur de `packages/contracts`. La démo commence avec un Sonoff ZBDongle-E sain ; **Chercher une clé** fait apparaître en même temps une seconde clé USB ambiguë (« Branchée sur la box ») et un SMLIGHT SLZB-06M sur le réseau (« Sur le réseau de la maison », `192.168.1.50`), puis simule la sonde et toutes les étapes d’installation (de l’une ou l’autre clé). Une technologie volontairement incorrecte simule un échec et le rollback.
 
+La recherche de la démo dure 3,5 s, comme sur une vraie box, pour que l’état « recherche en cours » soit visible. D’autres situations s’ouvrent avec `?zigbee=empty` (la clé marche et rien d’autre n’est trouvé), `none` (aucune clé), `new` (nouvelle clé branchée) ou `missing` (clé débranchée) dans l’URL de la démo web ; côté mobile, avec `EXPO_PUBLIC_ZIGBEE_DEMO=<situation>` au moment du bundle (`EXPO_PUBLIC_ZIGBEE_DEMO_SEARCH_MS` allonge la recherche pour les captures). Les flux Maestro `apps/mobile/.maestro/zigbee-settings.yaml` et `zigbee-settings-empty.yaml` capturent chaque état.
+
+L’écran reprend les éléments de l’ajout de capteur (`sensor-setup.css` côté web via `.ss-scope`, `src/sensors/ui.tsx` côté mobile) : carte de la clé avec dessin et pastille d’état, détails techniques repliés, radar pendant la recherche, état vide avec les deux possibilités, cartes de résultats avec une action principale, liste d’étapes pendant l’installation et page « clé installée ».
+
 ## Vérifications et dépannage
 
 Les tests Python couvrent la base, la détection multi-signal, les ports occupés, les sondes, la génération de configuration, les sauvegardes et le rollback. Les tests TypeScript couvrent les contrats, le simulateur, l’API et les droits.

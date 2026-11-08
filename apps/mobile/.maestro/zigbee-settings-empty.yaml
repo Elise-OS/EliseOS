@@ -1,5 +1,6 @@
 # "Nothing found" state of the Zigbee-key settings; needs a bundle built with
-# EXPO_PUBLIC_ZIGBEE_DEMO=empty (the demo key works and nothing else is around).
+# EXPO_PUBLIC_ZIGBEE_DEMO=empty (the demo key works and nothing else is around) and a long search,
+# EXPO_PUBLIC_ZIGBEE_DEMO_SEARCH_MS=15000, so that the searching state can be captured too.
 # maestro test -e OUT=zigbee -e STORE_LANG=fr -e DEVICE=iphone .maestro/zigbee-settings-empty.yaml
 appId: org.michel.mobile
 ---
@@ -51,9 +52,10 @@ appId: org.michel.mobile
     timeout: 10000
 - waitForAnimationToEnd
 - tapOn: ${output.zigbee.search}
+- takeScreenshot: ${OUT}/mobile-${STORE_LANG}-recherche
 - scrollUntilVisible:
     element: ${output.zigbee.empty}
     direction: DOWN
-    timeout: 15000
+    timeout: 25000
 - waitForAnimationToEnd
 - takeScreenshot: ${OUT}/mobile-${STORE_LANG}-rien-trouve
