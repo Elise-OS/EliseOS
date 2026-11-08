@@ -38,6 +38,7 @@ grep -q -- '^ELISE_SCREEN_ENABLED=true$' "$root/.env.example"
 grep -q -- 'elise-screen-setup.timer' "$root/install/install-elise.sh"
 grep -q -- 'api dashboard' "$root/appliance/elise-screen-setup.sh"
 grep -q -- 'install -d -m 0750 -o 100 -g 102' "$root/scripts/install-jitsi.sh"
+grep -qF -- 'chown -R 100:102 "$state/config/prosody/config/data"' "$root/scripts/install-jitsi.sh"
 grep -q -- 'up -d --force-recreate jvb' "$root/scripts/install-jitsi.sh"
 # cloud-final.service is ordered after multi-user.target: depending on it from the
 # first-boot unit creates an ordering cycle that systemd breaks by dropping a job.

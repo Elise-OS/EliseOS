@@ -40,6 +40,12 @@ done
 # bind-mount root at uid 1000 prevents it from traversing /config and rejects
 # every conference participant after JWT authentication.
 "${as_root[@]}" install -d -m 0750 -o 100 -g 102 "$state/config/prosody/config"
+# Prosody writes its pidfile, socket and accounts under /config/data. When the
+# container's root init creates it first it stays root-owned and Prosody
+# restarts every second, so the web client gets "connection refused" on the
+# XMPP websocket and nobody can join a call. Also repair earlier installs.
+"${as_root[@]}" install -d -m 0750 -o 100 -g 102 "$state/config/prosody/config/data"
+"${as_root[@]}" chown -R 100:102 "$state/config/prosody/config/data"
 "${as_root[@]}" chmod 0755 "$state/config/web" "$state/config/prosody/prosody-plugins-custom"
 "${as_root[@]}" install -m 0644 docker/jitsi/mod_elise_guard.lua "$state/config/prosody/prosody-plugins-custom/mod_elise_guard.lua"
 # Keep Jitsi's authentication secret out of command output.
@@ -66,6 +72,7 @@ for attempt in $(seq 1 60); do
     && curl -fs http://127.0.0.1:18085/about/health >/dev/null \
     && [[ -n "$prosody_id" && -n "$jvb_id" ]] \
     && docker exec --user 100:102 "$prosody_id" test -r /config/prosody.cfg.lua \
+    && docker exec --user 100:102 "$prosody_id" test -w /config/data \
     && [[ "$(docker inspect -f '{{len .NetworkSettings.Networks}}' "$jvb_id")" -gt 0 ]]; then
     echo "Jitsi prêt : https://$dns:8444"
     exit 0
