@@ -30,7 +30,10 @@ test('the model database is valid for the apps and for JavaScript regular expres
       assert.match(rule.pid, /^[0-9a-f]{4}$/);
       if (rule.product) patterns.push(rule.product);
       for (const other of rule.ambiguousWith ?? [])
-        assert.ok(models.models.some((item) => item.id === other), `${model.id} -> ${other}`);
+        assert.ok(
+          models.models.some((item) => item.id === other),
+          `${model.id} -> ${other}`,
+        );
     }
     for (const pattern of patterns) new RegExp(pattern, 'i');
   }
@@ -128,7 +131,11 @@ test('the view helpers decide what the screens show', async () => {
     zigbeeServiceState({ ...status.current, z2m: { container: 'stopped', bridge: 'offline' } }),
     'stopped',
   );
-  const finished = { ...status.install, state: 'SUCCEEDED', finishedAt: '2026-06-12T10:00:00.000Z' };
+  const finished = {
+    ...status.install,
+    state: 'SUCCEEDED',
+    finishedAt: '2026-06-12T10:00:00.000Z',
+  };
   assert.ok(zigbeeRecentResult(finished, Date.parse('2026-06-12T10:10:00Z')));
   assert.equal(zigbeeRecentResult(finished, Date.parse('2026-06-12T11:00:00Z')), null);
   assert.equal(zigbeeRecentResult(status.install), null);

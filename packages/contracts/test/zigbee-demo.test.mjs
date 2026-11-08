@@ -6,7 +6,11 @@ function demo(scenario) {
   const clock = { time: Date.parse('2026-06-12T10:00:00Z') };
   const simulator = createZigbeeDemo({ scenario, now: () => clock.time });
   const call = (method, path, body) => {
-    const answer = simulator.handle(method, path, body === undefined ? undefined : JSON.stringify(body));
+    const answer = simulator.handle(
+      method,
+      path,
+      body === undefined ? undefined : JSON.stringify(body),
+    );
     assert.ok(answer, `${method} ${path} unanswered`);
     return answer;
   };
@@ -29,7 +33,10 @@ test('starts with a healthy ZBDongle-E and finds a second key at the first detec
   assert.deepEqual(scanned.issues.sort(), ['multiple-keys', 'other-key-plugged']);
   const other = scanned.candidates.find((item) => !item.isCurrent);
   assert.equal(other?.identity.confidence, 'ambiguous');
-  assert.deepEqual(other?.identity.options.map((option) => option.technology), ['zstack', 'ember']);
+  assert.deepEqual(
+    other?.identity.options.map((option) => option.technology),
+    ['zstack', 'ember'],
+  );
 });
 
 test('the probe settles the ambiguous key and the installation walks through its steps', () => {
@@ -62,7 +69,11 @@ test('the probe settles the ambiguous key and the installation walks through its
   assert.equal(after.state, 'READY');
   assert.equal(after.current?.model?.name, 'Sonoff ZBDongle-P');
   assert.equal(after.current?.coordinator?.type, 'zStack3x0');
-  assert.ok(after.candidates.some((item) => !item.isCurrent && item.identity.modelId === 'sonoff-zbdongle-e'));
+  assert.ok(
+    after.candidates.some(
+      (item) => !item.isCurrent && item.identity.modelId === 'sonoff-zbdongle-e',
+    ),
+  );
 });
 
 test('a technology that does not match the key fails and the old key is put back', () => {
@@ -103,7 +114,12 @@ test('the other scenarios start without a key, with a new key, or with a missing
 test('refuses to install a key that is not plugged', () => {
   const { call } = demo('ready');
   assert.equal(
-    call('POST', '/zigbee/adapter/install', { candidateId: 'ffffffffffff', adapter: 'ember', baudrate: 115200, rtscts: false }).status,
+    call('POST', '/zigbee/adapter/install', {
+      candidateId: 'ffffffffffff',
+      adapter: 'ember',
+      baudrate: 115200,
+      rtscts: false,
+    }).status,
     400,
   );
 });
