@@ -15,7 +15,10 @@ esac
 MOBILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_DIR="$MOBILE_DIR/fastlane/screenshots/$STORE_LOCALE"
 MAESTRO="${MAESTRO:-maestro}"
-DEVICES=("iPhone 17 Pro Max:iphone" "iPad Pro 13-inch (M5):ipad")
+DEVICES=(
+  "${IPHONE_DEVICE:-iPhone 17 Pro Max}:iphone"
+  "${IPAD_DEVICE:-iPad Pro 13-inch (M5)}:ipad"
+)
 
 export MAESTRO_CLI_NO_ANALYTICS=1
 export MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED=true
@@ -34,6 +37,9 @@ print(next(d["udid"] for runtime, items in devices.items() if "iOS" in runtime f
   echo "→ $name ($udid)"
   xcrun simctl boot "$udid" >/dev/null 2>&1 || true
   xcrun simctl bootstatus "$udid" -b >/dev/null
+  # Install while CoreSimulator is fully responsive. On macOS 26, installing
+  # immediately after the locale reboot can hang indefinitely.
+  xcrun simctl install "$udid" "$APP_PATH"
   xcrun simctl spawn "$udid" defaults write .GlobalPreferences AppleLanguages -array "$STORE_LOCALE"
   xcrun simctl spawn "$udid" defaults write .GlobalPreferences AppleLocale "$DEVICE_LOCALE"
   # The status bar (date on iPad) only picks up the new language after a reboot.
@@ -42,7 +48,6 @@ print(next(d["udid"] for runtime, items in devices.items() if "iOS" in runtime f
   xcrun simctl bootstatus "$udid" -b >/dev/null
   xcrun simctl status_bar "$udid" override --time "$(date +%H:%M)" --dataNetwork wifi --wifiMode active \
     --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
-  xcrun simctl install "$udid" "$APP_PATH"
 
   work_dir="$(mktemp -d)"
   "$MAESTRO" --device "$udid" test --test-output-dir "$work_dir" -e OUT=store -e STORE_LANG="$LANG_CODE" -e DEVICE="$prefix" "$MOBILE_DIR/.maestro/store-screenshots.yaml"
