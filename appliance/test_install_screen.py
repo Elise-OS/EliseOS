@@ -222,6 +222,8 @@ class LanguageTests(unittest.TestCase):
             "locale": "C.UTF-8", "layout": "it", "variant": "", "zone": "Europe/Rome", "keyboard_chosen": True,
         })
         self.assertEqual(elise_language.detect(self.root), "it")
+        self.write("boot/firmware/user-data", "#cloud-config\nkeyboard: {model: pc105, layout: 'ch', variant: fr}\n")
+        self.assertEqual(elise_language.detect(self.root), "fr")
 
     def test_reads_the_system_files_otherwise(self):
         self.write("etc/default/keyboard", 'XKBLAYOUT="ch"\nXKBVARIANT="fr"\n')

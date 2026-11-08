@@ -16,6 +16,7 @@ the API, the dashboard or the resident screen can read the family's language the
 """
 import json
 import os
+import re
 import threading
 import time
 from datetime import datetime, timezone
@@ -164,6 +165,11 @@ def _user_data(text: str) -> dict:
             block = key if key == "keyboard" and not value else None
             if key in ("locale", "timezone") and value:
                 found[key] = value
+            elif key == "keyboard" and value.startswith("{"):
+                for name in ("layout", "variant"):
+                    match = re.search(rf"\b{name}\s*:\s*['\"]?([\w-]+)", value)
+                    if match:
+                        found[name] = match.group(1)
         elif block == "keyboard" and key in ("layout", "variant") and value:
             found[key] = value
     return found
