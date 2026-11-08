@@ -8,6 +8,386 @@
   font-display: swap;
 }
 
+/* Zigbee key settings */
+.zigbee-key .update-card-body {
+  display: grid;
+  gap: 18px;
+}
+.zigbee-key-loading,
+.zigbee-key-watching {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #587080;
+}
+.zigbee-key-loading {
+  justify-content: center;
+  min-height: 180px;
+}
+.zigbee-key-watching {
+  margin: -4px 2px 0;
+  font-size: 0.88rem;
+}
+.zigbee-key-watching svg,
+.zigbee-key-loading svg {
+  width: 17px;
+  height: 17px;
+}
+.zigbee-key-error {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 120px;
+}
+.zigbee-key-error > div {
+  flex: 1;
+}
+.zigbee-key-error h3,
+.zigbee-key-error p {
+  margin: 0;
+}
+.zigbee-key-error p {
+  margin-top: 5px;
+  color: #60717b;
+}
+.zigbee-key-current,
+.zigbee-candidate,
+.zigbee-result,
+.zigbee-confirm,
+.zigbee-advanced-body {
+  border: 1px solid #dce7e9;
+  border-radius: 18px;
+  background: #fff;
+}
+.zigbee-key-current {
+  padding: 20px;
+}
+.zigbee-key-current > header,
+.zigbee-candidate > header,
+.zigbee-result,
+.zigbee-actions,
+.zigbee-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.zigbee-key-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 750;
+  background: #edf3f4;
+  color: #4c6874;
+}
+.zigbee-key-badge--ok,
+.zigbee-key-badge--recommended,
+.zigbee-key-badge--supported {
+  background: #e5f5ec;
+  color: #237148;
+}
+.zigbee-key-badge--new {
+  background: #e7f2fb;
+  color: #24658e;
+}
+.zigbee-key-badge--warn,
+.zigbee-key-badge--experimental,
+.zigbee-key-badge--discouraged {
+  background: #fff0d9;
+  color: #8a5918;
+}
+.zigbee-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 18px 0 0;
+  overflow: hidden;
+  border: 1px solid #e3eaec;
+  border-radius: 14px;
+  background: #e3eaec;
+}
+.zigbee-fact {
+  min-width: 0;
+  padding: 13px 15px;
+  background: #f8faf9;
+}
+.zigbee-fact dt {
+  color: #6a7d86;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.zigbee-fact dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  color: #173b4f;
+  font-weight: 750;
+}
+.zigbee-service {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.zigbee-service > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #a0aeb4;
+}
+.zigbee-service--running > span {
+  background: #35a568;
+  box-shadow: 0 0 0 3px #dff3e8;
+}
+.zigbee-service--starting > span {
+  background: #df9b2f;
+}
+.zigbee-technical {
+  margin-top: 14px;
+}
+.zigbee-technical > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  color: #416579;
+  font-weight: 700;
+}
+.zigbee-technical > summary svg {
+  width: 16px;
+  transition: transform 160ms ease;
+}
+.zigbee-technical[open] > summary svg {
+  transform: rotate(90deg);
+}
+.zigbee-technical code {
+  display: block;
+  margin-top: 10px;
+  padding: 12px;
+  overflow-wrap: anywhere;
+  border-radius: 10px;
+  background: #f3f6f7;
+  font-size: 0.78rem;
+}
+.zigbee-facts--technical {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.zigbee-key-found {
+  display: grid;
+  gap: 12px;
+}
+.zigbee-key-found > header h3,
+.zigbee-key-found > header p {
+  margin: 0;
+}
+.zigbee-key-found > header p {
+  margin-top: 4px;
+  color: #667b85;
+}
+.zigbee-candidate {
+  padding: 18px;
+  box-shadow: 0 6px 22px rgb(29 55 79 / 5%);
+}
+.zigbee-candidate > header > div {
+  flex: 1;
+  min-width: 0;
+}
+.zigbee-candidate h4,
+.zigbee-candidate p {
+  margin: 0;
+}
+.zigbee-candidate header p,
+.zigbee-candidate-meta {
+  margin-top: 3px;
+  color: #667b85;
+  font-size: 0.88rem;
+}
+.zigbee-candidate-icon,
+.zigbee-result-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 13px;
+  color: #24658e;
+  background: #e8f3f8;
+}
+.zigbee-notes {
+  margin: 14px 0 0;
+  padding-left: 20px;
+  color: #526e7b;
+  font-size: 0.9rem;
+}
+.zigbee-notes li + li {
+  margin-top: 5px;
+}
+.zigbee-ambiguous,
+.zigbee-confirm,
+.zigbee-advanced-body {
+  margin-top: 14px;
+  padding: 16px;
+  background: #f7fafb;
+}
+.zigbee-options,
+.zigbee-network-choice {
+  display: grid;
+  gap: 8px;
+  margin: 13px 0 0;
+  padding: 0;
+  border: 0;
+}
+.zigbee-options legend,
+.zigbee-network-choice legend {
+  margin-bottom: 7px;
+  color: #365a6c;
+  font-weight: 750;
+}
+.zigbee-options label,
+.zigbee-network-choice label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d8e3e6;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+.zigbee-options label.is-selected,
+.zigbee-network-choice label.is-selected {
+  border-color: #4c91b5;
+  box-shadow: 0 0 0 2px rgb(76 145 181 / 13%);
+}
+.zigbee-options span,
+.zigbee-network-choice span {
+  display: grid;
+  gap: 2px;
+}
+.zigbee-options small,
+.zigbee-network-choice small {
+  color: #6b7f88;
+}
+.zigbee-understood {
+  background: #fff8e8 !important;
+}
+.zigbee-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.zigbee-result {
+  align-items: flex-start;
+  padding: 18px;
+}
+.zigbee-result--ok {
+  border-color: #bce3cd;
+  background: #f2fbf6;
+}
+.zigbee-result--warn {
+  border-color: #efd1a5;
+  background: #fffaf1;
+}
+.zigbee-result-copy {
+  flex: 1;
+  min-width: 0;
+}
+.zigbee-result-copy h3,
+.zigbee-result-copy p {
+  margin: 0;
+}
+.zigbee-result-copy p {
+  margin-top: 5px;
+}
+.zigbee-result-reason {
+  color: #85501b;
+  font-weight: 650;
+}
+.zigbee-rollback-steps {
+  padding-left: 20px;
+}
+.zigbee-rollback-steps li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.zigbee-rollback-steps svg {
+  width: 17px;
+}
+.zigbee-steps-target {
+  margin: 10px 0 0;
+  text-align: center;
+  color: #607681;
+  font-size: 0.88rem;
+}
+.zigbee-advanced {
+  margin-top: 0;
+}
+.zigbee-advanced-body {
+  margin-top: 16px;
+}
+.zigbee-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.zigbee-fields label,
+.zigbee-checkbox {
+  display: grid;
+  gap: 6px;
+  color: #456374;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.zigbee-fields input,
+.zigbee-fields select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #cad9dd;
+  border-radius: 10px;
+  background: #fff;
+  color: #173b4f;
+}
+.zigbee-checkbox {
+  display: flex;
+  align-items: center;
+  margin-top: 14px;
+}
+.zigbee-network-address {
+  margin-top: 12px;
+}
+.zigbee-forget {
+  margin-top: 12px;
+  color: #6a7d86;
+  font-size: 0.84rem;
+}
+.zigbee-badges {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+@media (max-width: 760px) {
+  .zigbee-facts,
+  .zigbee-facts--technical,
+  .zigbee-fields {
+    grid-template-columns: 1fr;
+  }
+  .zigbee-candidate > header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .zigbee-badges {
+    width: 100%;
+    justify-content: flex-start;
+    padding-left: 52px;
+  }
+  .zigbee-key-error {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .zigbee-key-error .button-secondary {
+    width: 100%;
+  }
+}
+
 /* Guided home creation */
 .home-setup-page {
   min-height: calc(100vh - 48px);
