@@ -1,5 +1,6 @@
 import {
   TV_CHANNELS,
+  eliseCallConfig,
   toggleTvChannel,
   tvChannelById,
   tvChannelByUrl,
@@ -356,9 +357,7 @@ export function JitsiFrame({
           height: '100%',
           userInfo: { displayName: join.name },
           configOverwrite: {
-            prejoinConfig: { enabled: false },
-            disableDeepLinking: true,
-            p2p: { enabled: false },
+            ...eliseCallConfig,
             startWithAudioMuted: !devices.microphone,
             startWithVideoMuted: !devices.camera,
             toolbarButtons: [

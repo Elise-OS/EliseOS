@@ -355,7 +355,14 @@
     "unableToJoinTheCall": "Unable to join the call",
     "unableToSwitchCamera": "Unable to switch camera",
     "videoCall": "VIDEO CALL",
-    "turnOnTailscale": "This phone cannot reach the box’s video server. Turn on Tailscale on this phone, then start the call again."
+    "turnOnTailscale": "This phone cannot reach the box’s video server. Turn on Tailscale on this phone, then start the call again.",
+    "microphone": "Mic",
+    "camera": "Camera",
+    "flip": "Flip",
+    "muteMicrophone": "Mute the microphone",
+    "turnOnMicrophone": "Turn on the microphone",
+    "turnOffCamera": "Turn off the camera",
+    "turnOnCamera": "Turn on the camera"
   },
   "mobileDateTimePicker": {
     "chooseTheDate": "Choose the date",

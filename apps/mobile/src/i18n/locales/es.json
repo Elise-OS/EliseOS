@@ -360,7 +360,14 @@
     "unableToJoinTheCall": "No se puede unir a la llamada",
     "unableToSwitchCamera": "Cambio imposible",
     "videoCall": "VIDEOLLAMADA",
-    "turnOnTailscale": "Este teléfono no logra conectar con la videollamada de la caja. Active Tailscale en este teléfono y vuelva a llamar."
+    "turnOnTailscale": "Este teléfono no logra conectar con la videollamada de la caja. Active Tailscale en este teléfono y vuelva a llamar.",
+    "microphone": "Micro",
+    "camera": "Cámara",
+    "flip": "Girar",
+    "muteMicrophone": "Silenciar el micrófono",
+    "turnOnMicrophone": "Activar el micrófono",
+    "turnOffCamera": "Apagar la cámara",
+    "turnOnCamera": "Encender la cámara"
   },
   "mobileDateTimePicker": {
     "chooseTheDate": "Elegir la fecha",

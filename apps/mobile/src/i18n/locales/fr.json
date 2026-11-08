@@ -360,7 +360,14 @@
     "unableToJoinTheCall": "Impossible de rejoindre l’appel",
     "unableToSwitchCamera": "Changement impossible",
     "videoCall": "APPEL VIDÉO",
-    "turnOnTailscale": "Le téléphone n’arrive pas à joindre la visio de la box. Activez Tailscale sur ce téléphone, puis relancez l’appel."
+    "turnOnTailscale": "Le téléphone n’arrive pas à joindre la visio de la box. Activez Tailscale sur ce téléphone, puis relancez l’appel.",
+    "microphone": "Micro",
+    "camera": "Caméra",
+    "flip": "Retourner",
+    "muteMicrophone": "Couper le micro",
+    "turnOnMicrophone": "Activer le micro",
+    "turnOffCamera": "Couper la caméra",
+    "turnOnCamera": "Activer la caméra"
   },
   "mobileDateTimePicker": {
     "chooseTheDate": "Choisir la date",

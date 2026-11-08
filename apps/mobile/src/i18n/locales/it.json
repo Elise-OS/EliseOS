@@ -360,7 +360,14 @@
     "unableToJoinTheCall": "Impossibile partecipare alla chiamata",
     "unableToSwitchCamera": "Cambio non possibile",
     "videoCall": "VIDEOCHIAMATA",
-    "turnOnTailscale": "Questo telefono non riesce a raggiungere la videochiamata del box. Attivi Tailscale su questo telefono, poi richiami."
+    "turnOnTailscale": "Questo telefono non riesce a raggiungere la videochiamata del box. Attivi Tailscale su questo telefono, poi richiami.",
+    "microphone": "Micro",
+    "camera": "Fotocamera",
+    "flip": "Gira",
+    "muteMicrophone": "Disattiva il microfono",
+    "turnOnMicrophone": "Attiva il microfono",
+    "turnOffCamera": "Disattiva la fotocamera",
+    "turnOnCamera": "Attiva la fotocamera"
   },
   "mobileDateTimePicker": {
     "chooseTheDate": "Scelga la data",
