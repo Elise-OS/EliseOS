@@ -3061,8 +3061,6 @@
     "confirmTitle": "Installer {{name}} ?",
     "coordinatorType": "Type de coordinateur",
     "currentKey": "Clé utilisée",
-    "detect": "Détecter une clé",
-    "detecting": "Recherche…",
     "deviceCount_many": "{{count}} appareils",
     "deviceCount_one": "{{count}} appareil",
     "deviceCount_other": "{{count}} appareils",
@@ -3113,16 +3111,16 @@
     "managersOnly": "Seuls le propriétaire et les administrateurs peuvent gérer la clé Zigbee.",
     "model": "Modèle",
     "multipleHint": "Plusieurs clés sont branchées. Gardez uniquement celle que vous voulez utiliser.",
-    "networkAddress": "Adresse d’une clé réseau",
-    "networkKey": "Clé réseau · {{address}}",
-    "networkPlaceholder": "192.168.1.50",
+    "networkAddress": "Adresse d’une clé réseau (par exemple 192.168.1.50:6638)",
+    "networkKey": "Sur le réseau de la maison · {{address}}",
+    "networkPlaceholder": "192.168.1.50:6638",
     "newKeyHint": "Vérifiez le modèle puis installez-la : cela prend environ une minute.",
     "newKeyTitle_many": "{{count}} clés trouvées",
     "newKeyTitle_one": "Nouvelle clé trouvée",
     "newKeyTitle_other": "{{count}} clés trouvées",
     "newNetwork": "Repartir de zéro",
     "newNetworkHint": "Un nouveau réseau Zigbee est créé. Tous les capteurs devront être ré-appairés, un par un.",
-    "noKeyHint": "Branchez votre clé Zigbee sur la box Élise, de préférence au bout d’une rallonge USB. Cet écran la détecte tout seul.",
+    "noKeyHint": "Branchez votre clé Zigbee sur la box Élise, de préférence au bout d’une rallonge USB, ou allumez-la si elle est sur le réseau de la maison. Cet écran la trouve tout seul.",
     "noKeyTitle": "Aucune clé Zigbee détectée",
     "note": {
       "check-baudrate": "Le débit dépend du micrologiciel installé : vérifiez-le si la clé ne répond pas.",
@@ -3150,7 +3148,14 @@
     "retryNewNetwork": "Repartir de zéro avec cette clé",
     "rolledBackText": "Pas d’inquiétude : l’ancienne configuration a été remise en place automatiquement.",
     "rolledBackTitle": "L’installation n’a pas abouti",
-    "searchNetwork": "Chercher une clé réseau",
+    "search": "Chercher une clé",
+    "searchNotice": {
+      "bothFailed": "La recherche n’a pas abouti. Réessayez dans un instant.",
+      "networkFailed": "La recherche sur le réseau de la maison n’a pas abouti. Les clés branchées sur la box ont bien été cherchées ; réessayez dans un instant.",
+      "none": "Aucune autre clé trouvée. Vérifiez que la clé est bien branchée sur la box, ou qu’elle est allumée et reliée au réseau de la maison (câble Ethernet ou Wi-Fi), puis relancez la recherche.",
+      "usbFailed": "La recherche des clés branchées sur la box n’a pas abouti. Les clés du réseau de la maison ont bien été cherchées ; réessayez dans un instant."
+    },
+    "searching": "Recherche…",
     "sensorsTitle": "Vos capteurs",
     "service": "Service Zigbee",
     "serviceRunning": "Fonctionne",
@@ -3197,6 +3202,6 @@
     "unknownModel": "Clé non répertoriée",
     "useKey": "Utiliser cette clé",
     "useKeyInstead": "Utiliser cette clé à la place",
-    "watching": "La détection est automatique tant que cet écran est ouvert : branchez simplement la clé."
+    "watching": "Élise cherche toute seule tant que cet écran est ouvert : branchez la clé sur la box, ou allumez-la si elle est sur le réseau de la maison."
   }
 }

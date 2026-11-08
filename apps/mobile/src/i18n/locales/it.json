@@ -1965,8 +1965,6 @@
     "confirmTitle": "Installare {{name}}?",
     "coordinatorType": "Tipo di coordinatore",
     "currentKey": "Chiavetta in uso",
-    "detect": "Rileva una chiavetta",
-    "detecting": "Ricerca…",
     "deviceCount_many": "{{count}} dispositivi",
     "deviceCount_one": "{{count}} dispositivo",
     "deviceCount_other": "{{count}} dispositivi",
@@ -2017,16 +2015,16 @@
     "managersOnly": "Solo il proprietario e gli amministratori possono gestire la chiavetta Zigbee.",
     "model": "Modello",
     "multipleHint": "Sono collegate più chiavette. Tenga solo quella che vuole usare.",
-    "networkAddress": "Indirizzo di una chiavetta di rete",
-    "networkKey": "Chiavetta di rete · {{address}}",
-    "networkPlaceholder": "192.168.1.50",
+    "networkAddress": "Indirizzo di una chiavetta di rete (ad esempio 192.168.1.50:6638)",
+    "networkKey": "Sulla rete di casa · {{address}}",
+    "networkPlaceholder": "192.168.1.50:6638",
     "newKeyHint": "Verifichi il modello e poi la installi: ci vuole circa un minuto.",
     "newKeyTitle_many": "{{count}} chiavette trovate",
     "newKeyTitle_one": "Nuova chiavetta trovata",
     "newKeyTitle_other": "{{count}} chiavette trovate",
     "newNetwork": "Ricomincia da zero",
     "newNetworkHint": "Viene creata una nuova rete Zigbee. Tutti i sensori dovranno essere associati di nuovo, uno per uno.",
-    "noKeyHint": "Colleghi la Sua chiavetta Zigbee alla scatola Élise, meglio con una prolunga USB. Questa schermata la rileva da sola.",
+    "noKeyHint": "Colleghi la Sua chiavetta Zigbee alla scatola Élise, meglio con una prolunga USB, oppure l’accenda se è sulla rete di casa. Questa schermata la trova da sola.",
     "noKeyTitle": "Nessuna chiavetta Zigbee rilevata",
     "note": {
       "check-baudrate": "La velocità dipende dal firmware installato: la verifichi se la chiavetta non risponde.",
@@ -2054,7 +2052,14 @@
     "retryNewNetwork": "Ricomincia da zero con questa chiavetta",
     "rolledBackText": "Non si preoccupi: la configurazione precedente è stata ripristinata automaticamente.",
     "rolledBackTitle": "L’installazione non è riuscita",
-    "searchNetwork": "Cerca una chiavetta di rete",
+    "search": "Cerca una chiavetta",
+    "searchNotice": {
+      "bothFailed": "La ricerca non è riuscita. Riprovi tra un momento.",
+      "networkFailed": "La ricerca sulla rete di casa non è riuscita. Le chiavette collegate alla scatola sono state cercate; riprovi tra un momento.",
+      "none": "Nessun’altra chiavetta trovata. Controlli che la chiavetta sia collegata alla scatola, oppure che sia accesa e collegata alla rete di casa (cavo Ethernet o Wi-Fi), poi cerchi di nuovo.",
+      "usbFailed": "La ricerca delle chiavette collegate alla scatola non è riuscita. Le chiavette sulla rete di casa sono state cercate; riprovi tra un momento."
+    },
+    "searching": "Ricerca…",
     "sensorsTitle": "I Suoi sensori",
     "service": "Servizio Zigbee",
     "serviceRunning": "Funziona",
@@ -2101,6 +2106,6 @@
     "unknownModel": "Chiavetta non in elenco",
     "useKey": "Usa questa chiavetta",
     "useKeyInstead": "Usa questa chiavetta al suo posto",
-    "watching": "Il rilevamento è automatico finché questa schermata è aperta: basta collegare la chiavetta."
+    "watching": "Élise cerca da sola finché questa schermata è aperta: colleghi la chiavetta alla scatola, oppure l’accenda se è sulla rete di casa."
   }
 }

@@ -372,6 +372,11 @@ export const mobileApi = {
       method: 'POST',
       body: JSON.stringify({ candidateId }),
     }),
+  testZigbeeNetwork: (server: SavedServer, token: string, host: string, port: number) =>
+    request<ZigbeeProbeResult>(server, '/zigbee/adapter/network/test', token, {
+      method: 'POST',
+      body: JSON.stringify({ host, port }),
+    }),
   installZigbee: (server: SavedServer, token: string, input: ZigbeeInstallRequest) =>
     request<ZigbeeInstall>(server, '/zigbee/adapter/install', token, {
       method: 'POST',

@@ -32,7 +32,14 @@ export class ZigbeeAgentClient {
   }
 
   public scan(network: boolean): Promise<ZigbeeStatus> {
-    return this.request('POST', '/scan', zigbeeStatusSchema, { network });
+    // The home network search can take several seconds on top of the USB scan.
+    return this.request(
+      'POST',
+      '/scan',
+      zigbeeStatusSchema,
+      { network },
+      network ? 30_000 : 20_000,
+    );
   }
 
   public probe(candidateId: string): Promise<ZigbeeProbeResult> {

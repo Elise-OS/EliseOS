@@ -1,5 +1,6 @@
 import type {
   ZigbeeCandidate,
+  ZigbeeScanOutcome,
   ZigbeeCurrent,
   ZigbeeInstall,
   ZigbeeInstallRequest,
@@ -183,4 +184,62 @@ export function zigbeeHeadline(status: ZigbeeStatus): {
     default:
       return { title: 'noKey', hint: 'noKeyHint', tone: 'idle' };
   }
+}
+
+/** The network is searched this often while the screen is open (the box itself is checked every few seconds). */
+export const ZIGBEE_NETWORK_SEARCH_SECONDS = 30;
+
+/** Where a key is found: plugged on the box (USB or GPIO) or on the home network. */
+export function zigbeeCandidateOrigin(candidate: ZigbeeCandidate): 'box' | 'network' {
+  return candidate.kind === 'network' ? 'network' : 'box';
+}
+
+export type ZigbeeSearchNotice = 'none' | 'networkFailed' | 'usbFailed' | 'bothFailed' | null;
+
+/**
+ * What to tell after a search: nothing when it went well, a simple sentence when a channel failed
+ * (the other channel's results are still shown), and the help text when no key was found to choose
+ * from (`found`: the keys other than the one in use).
+ */
+export function zigbeeSearchNotice(
+  scan: ZigbeeScanOutcome | undefined,
+  found: readonly ZigbeeCandidate[],
+): ZigbeeSearchNotice {
+  const usbFailed = scan?.usb === 'failed';
+  // A missing avahi is not the family's concern: it counts as "no network key found".
+  const networkFailed = scan?.network === 'failed';
+  if (usbFailed && networkFailed) return 'bothFailed';
+  if (found.length === 0 && !usbFailed && !networkFailed) return 'none';
+  if (networkFailed) return 'networkFailed';
+  if (usbFailed) return 'usbFailed';
+  return null;
+}
+
+/**
+ * One search for everything: keys plugged on the box and keys on the home network. If the combined
+ * request breaks (timeout), the box alone is searched so that the plugged keys still show up, and the
+ * network is reported as failed. Only when both attempts break does the error go back to the caller.
+ */
+export async function zigbeeSearch(
+  scan: (network: boolean) => Promise<ZigbeeStatus>,
+): Promise<ZigbeeStatus> {
+  try {
+    const status = await scan(true);
+    return { ...status, scan: status.scan ?? { usb: 'ok', network: 'ok' } };
+  } catch {
+    const status = await scan(false);
+    return { ...status, scan: { usb: status.scan?.usb ?? 'ok', network: 'failed' } };
+  }
+}
+
+/** `192.168.1.50`, `192.168.1.50:6638` or `tcp://192.168.1.50:6638` → host and port (6638 by default). */
+export function parseZigbeeNetworkAddress(input: string): { host: string; port: number } | null {
+  const text = input
+    .trim()
+    .replace(/^tcp:\/\//i, '')
+    .replace(/\/+$/, '');
+  const match = /^([A-Za-z0-9][A-Za-z0-9.-]{0,252})(?::(\d{1,5}))?$/.exec(text);
+  if (!match?.[1]) return null;
+  const port = match[2] ? Number(match[2]) : 6638;
+  return port >= 1 && port <= 65535 ? { host: match[1], port } : null;
 }

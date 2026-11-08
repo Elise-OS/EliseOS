@@ -1,19 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
+  ZIGBEE_NETWORK_SEARCH_SECONDS,
+  parseZigbeeNetworkAddress,
   zigbeeCandidateTitle,
   zigbeeErrorKey,
   zigbeeHeadline,
   zigbeeInstallRequest,
   zigbeeNeedsChoice,
   zigbeeOtherKeys,
+  zigbeeSearch,
+  zigbeeSearchNotice,
   zigbeeServiceState,
   zigbeeStatusSchema,
   type ZigbeeCandidate,
   type ZigbeeOption,
+  type ZigbeeScanOutcome,
   type ZigbeeStatus,
 } from '@elise/contracts';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { mobileApi } from '../api';
 import type { SavedServer } from '../discovery/types';
 import { t } from '../i18n';
@@ -36,6 +41,9 @@ export function MobileZigbeeKeyPanel({ server, token }: { server: SavedServer; t
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [advanced, setAdvanced] = useState(false);
+  // What the last search found on each channel, and whether the family asked for it themselves.
+  const [lastScan, setLastScan] = useState<ZigbeeScanOutcome | undefined>(undefined);
+  const [searched, setSearched] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -52,17 +60,39 @@ export function MobileZigbeeKeyPanel({ server, token }: { server: SavedServer; t
     return () => clearInterval(timer);
   }, [refresh, status?.state]);
 
-  const scan = async (network = false) => {
+  const runSearch = useCallback(async () => {
+    const next = await zigbeeSearch(async (network) =>
+      zigbeeStatusSchema.parse(await mobileApi.scanZigbee(server, token, network)),
+    );
+    setStatus(next);
+    setLastScan(next.scan);
+    setError(false);
+  }, [server, token]);
+
+  // One button looks for everything: keys plugged on the box and keys on the home network.
+  const search = async () => {
     setBusy(true);
+    setSearched(true);
     try {
-      setStatus(zigbeeStatusSchema.parse(await mobileApi.scanZigbee(server, token, network)));
-      setError(false);
+      await runSearch();
     } catch {
       setError(true);
     } finally {
       setBusy(false);
     }
   };
+
+  // The box is watched every few seconds; the home network is slower, so it is searched quietly
+  // every half minute.
+  const idle = busy || status?.state === 'INSTALLING';
+  useEffect(() => {
+    if (idle) return;
+    const timer = setInterval(
+      () => void runSearch().catch(() => undefined),
+      ZIGBEE_NETWORK_SEARCH_SECONDS * 1000,
+    );
+    return () => clearInterval(timer);
+  }, [runSearch, idle]);
 
   if (!status) {
     return (
@@ -86,6 +116,7 @@ export function MobileZigbeeKeyPanel({ server, token }: { server: SavedServer; t
   const headline = zigbeeHeadline(status);
   const otherKeys = zigbeeOtherKeys(status);
   const installing = status.state === 'INSTALLING';
+  const searchNotice = lastScan ? zigbeeSearchNotice(lastScan, otherKeys) : null;
   const titleKey =
     headline.title === 'newKey'
       ? null
@@ -134,20 +165,25 @@ export function MobileZigbeeKeyPanel({ server, token }: { server: SavedServer; t
         </View>
         <View style={s.actions}>
           <Action
-            label={busy ? t('zigbeeKey.detecting') : t('zigbeeKey.detect')}
+            label={busy ? t('zigbeeKey.searching') : t('zigbeeKey.search')}
             icon="scan-outline"
             disabled={busy || installing}
-            onPress={() => void scan(false)}
-          />
-          <Action
-            label={t('zigbeeKey.searchNetwork')}
-            icon="wifi-outline"
-            outline
-            disabled={busy || installing}
-            onPress={() => void scan(true)}
+            onPress={() => void search()}
           />
         </View>
+        <Text style={s.body}>{t('zigbeeKey.watching')}</Text>
       </View>
+
+      {!installing && !busy && searchNotice && searchNotice !== 'none' ? (
+        <View style={[s.card, s.warningCard]}>
+          <Text style={s.warningText}>{t(`zigbeeKey.searchNotice.${searchNotice}`)}</Text>
+        </View>
+      ) : null}
+      {!installing && !busy && searched && otherKeys.length === 0 && searchNotice === 'none' ? (
+        <View style={s.card}>
+          <Text style={s.body}>{t('zigbeeKey.searchNotice.none')}</Text>
+        </View>
+      ) : null}
 
       {installing ? (
         <View style={s.card}>
@@ -220,6 +256,73 @@ export function MobileZigbeeKeyPanel({ server, token }: { server: SavedServer; t
             />
           ))
         : null}
+
+      {!installing ? <AdvancedNetwork server={server} token={token} refresh={refresh} /> : null}
+    </View>
+  );
+}
+
+function AdvancedNetwork({
+  server,
+  token,
+  refresh,
+}: {
+  server: SavedServer;
+  token: string;
+  refresh: () => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [address, setAddress] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<'ok' | 'fail' | null>(null);
+  const parsed = parseZigbeeNetworkAddress(address);
+  const test = async () => {
+    if (!parsed) return;
+    setTesting(true);
+    setResult(null);
+    try {
+      await mobileApi.testZigbeeNetwork(server, token, parsed.host, parsed.port);
+      setResult('ok');
+      await refresh();
+    } catch {
+      setResult('fail');
+    } finally {
+      setTesting(false);
+    }
+  };
+  return (
+    <View style={s.card}>
+      <Pressable style={s.detailsButton} onPress={() => setOpen(!open)}>
+        <Text style={s.detailsText}>{t('zigbeeKey.advanced')}</Text>
+        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={colors.blue} />
+      </Pressable>
+      {open ? (
+        <View style={s.technical}>
+          <Text style={s.factLabel}>{t('zigbeeKey.networkAddress')}</Text>
+          <TextInput
+            style={s.input}
+            value={address}
+            onChangeText={setAddress}
+            placeholder={t('zigbeeKey.networkPlaceholder')}
+            placeholderTextColor={colors.muted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+          <Action
+            label={testing ? t('zigbeeKey.testing') : t('zigbeeKey.testAddress')}
+            icon="wifi-outline"
+            outline
+            disabled={!parsed || testing}
+            onPress={() => void test()}
+          />
+          {result ? (
+            <Text style={result === 'ok' ? s.goodText : s.warningText}>
+              {result === 'ok' ? t('zigbeeKey.addressOk') : t('zigbeeKey.addressFail')}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -340,7 +443,13 @@ function Candidate({
           <Text style={s.title}>
             {zigbeeCandidateTitle(candidate) ?? t('zigbeeKey.unknownModel')}
           </Text>
-          <Text style={s.body}>{t('zigbeeKey.pluggedOn')}</Text>
+          <Text style={s.body}>
+            {candidate.network
+              ? t('zigbeeKey.networkKey', {
+                  address: `${candidate.network.host}:${candidate.network.port}`,
+                })
+              : t('zigbeeKey.pluggedOn')}
+          </Text>
         </View>
       </View>
       {needsChoice && !choice ? (
@@ -490,6 +599,17 @@ const s = StyleSheet.create({
   successCard: { borderColor: '#BCE3CD', backgroundColor: '#F2FBF6' },
   warningCard: { borderColor: '#EFD1A5', backgroundColor: '#FFFAF1' },
   warningText: { color: colors.amber, fontWeight: '600' },
+  goodText: { color: colors.green, fontWeight: '600' },
+  input: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    color: colors.navy,
+    fontSize: 16,
+  },
   rowBetween: {
     flexDirection: 'row',
     alignItems: 'center',

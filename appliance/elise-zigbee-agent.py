@@ -74,6 +74,12 @@ INSTALL_LOCK = threading.Lock()
 STATE_LOCK = threading.RLock()
 CANCEL = threading.Event()
 PROBE_CACHE: dict[str, dict[str, Any]] = {}
+# One mDNS browse may last this long; the whole network search stays below the API timeout.
+NETWORK_SEARCH_SECONDS = 8
+# Network keys found by the last search stay in the plain status for a while: the screens poll it
+# every few seconds and only search the network every half minute.
+NETWORK_MEMORY_SECONDS = 90
+NETWORK_MEMORY: dict[str, Any] = {"at": 0.0, "items": []}
 BRIDGE_CACHE: dict[str, Any] = {"at": 0.0, "value": None}
 
 
@@ -474,21 +480,54 @@ def network_candidate(host: str, port: int, name: str | None, service: str | Non
     }
 
 
-def scan_network() -> list[dict[str, Any]]:
+def browse_service(avahi: str, service: str) -> list[dict[str, Any]]:
+    """One mDNS service type; raises when avahi cannot run or runs out of time."""
+    output = subprocess.run(
+        [avahi, "-rpt", service], capture_output=True, text=True, timeout=NETWORK_SEARCH_SECONDS, check=False
+    ).stdout
+    return parse_avahi(output)
+
+
+def scan_network() -> tuple[list[dict[str, Any]], str]:
+    """Network keys announced on the home network, and how the search went.
+
+    The services are browsed side by side so that a slow one does not delay the others. The state is
+    `ok` (at least one service answered), `unavailable` (no avahi on this box) or `failed`.
+    """
     avahi = shutil.which("avahi-browse")
     if not avahi:
-        return []
-    results: list[dict[str, Any]] = []
-    for service in MDNS_SERVICES:
+        return [], "unavailable"
+    outcomes: dict[str, list[dict[str, Any]] | None] = {}
+
+    def browse(service: str) -> None:
         try:
-            output = subprocess.run(
-                [avahi, "-rpt", service], capture_output=True, text=True, timeout=8, check=False
-            ).stdout
+            outcomes[service] = browse_service(avahi, service)
         except (OSError, subprocess.SubprocessError):
+            outcomes[service] = None
+
+    threads = [threading.Thread(target=browse, args=(service,), daemon=True) for service in MDNS_SERVICES]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(NETWORK_SEARCH_SECONDS + 2)
+    results: list[dict[str, Any]] = []
+    answered = False
+    for service in MDNS_SERVICES:
+        items = outcomes.get(service)
+        if items is None:
             continue
-        for item in parse_avahi(output):
-            results.append(network_candidate(item["host"], item["port"], item["name"], item["service"]))
-    return results
+        answered = True
+        results += [network_candidate(i["host"], i["port"], i["name"], i["service"]) for i in items]
+    return results, "ok" if answered else "failed"
+
+
+def remembered_network(include_expired: bool = False) -> list[dict[str, Any]]:
+    """Network keys of the last successful search, kept briefly so that the cheap status shows them."""
+    if not NETWORK_MEMORY["at"]:
+        return []
+    if not include_expired and time.monotonic() - NETWORK_MEMORY["at"] > NETWORK_MEMORY_SECONDS:
+        return []
+    return list(NETWORK_MEMORY["items"])
 
 
 # ------------------------------------------------------------------------ probes
@@ -954,10 +993,37 @@ def build_current(models: dict[str, Any], candidates: list[dict[str, Any]]) -> d
 def build_status(include_network: bool = False) -> dict[str, Any]:
     models = load_models()
     config = current_config()
-    raw = scan_usb()
+    outcome = {"usb": "ok", "network": "skipped"}
+    network_found: list[dict[str, Any]] = []
+    network_done = threading.Event()
+
+    def search_network() -> None:
+        nonlocal network_found
+        try:
+            network_found, outcome["network"] = scan_network()
+        except Exception:  # a network problem must never hide the keys plugged on the box
+            outcome["network"] = "failed"
+        finally:
+            network_done.set()
+
     if include_network:
-        known = {item["port"] for item in raw}
-        raw += [item for item in scan_network() if item["port"] not in known]
+        threading.Thread(target=search_network, daemon=True).start()
+    try:
+        raw = scan_usb()
+    except Exception:  # and the other way round
+        raw = []
+        outcome["usb"] = "failed"
+    if include_network:
+        network_done.wait(NETWORK_SEARCH_SECONDS + 4)
+        if not network_done.is_set():
+            outcome["network"] = "failed"
+        elif outcome["network"] == "ok":
+            NETWORK_MEMORY.update(at=time.monotonic(), items=network_found)
+        network_items = network_found if outcome["network"] == "ok" else remembered_network()
+    else:
+        network_items = remembered_network()
+    known = {item["port"] for item in raw}
+    raw += [item for item in network_items if item["port"] not in known]
     saved = read_json(status_file("network-keys.json")) or []
     if isinstance(saved, list):
         for item in saved:
@@ -1013,6 +1079,7 @@ def build_status(include_network: bool = False) -> dict[str, Any]:
         "install": install,
         "issues": issues,
         "checkedAt": now(),
+        "scan": outcome,
     }
 
 

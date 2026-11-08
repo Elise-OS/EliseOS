@@ -1960,8 +1960,6 @@
     "confirmTitle": "¿Instalar {{name}}?",
     "coordinatorType": "Tipo de coordinador",
     "currentKey": "Llave en uso",
-    "detect": "Detectar una llave",
-    "detecting": "Buscando…",
     "deviceCount_many": "{{count}} dispositivos",
     "deviceCount_one": "{{count}} dispositivo",
     "deviceCount_other": "{{count}} dispositivos",
@@ -2012,16 +2010,16 @@
     "managersOnly": "Solo el propietario y los administradores pueden gestionar la llave Zigbee.",
     "model": "Modelo",
     "multipleHint": "Hay varias llaves conectadas. Deje solo la que quiera usar.",
-    "networkAddress": "Dirección de una llave de red",
-    "networkKey": "Llave de red · {{address}}",
-    "networkPlaceholder": "192.168.1.50",
+    "networkAddress": "Dirección de una llave de red (por ejemplo 192.168.1.50:6638)",
+    "networkKey": "En la red de casa · {{address}}",
+    "networkPlaceholder": "192.168.1.50:6638",
     "newKeyHint": "Compruebe el modelo y luego instálela: tarda aproximadamente un minuto.",
     "newKeyTitle_many": "{{count}} llaves encontradas",
     "newKeyTitle_one": "Nueva llave encontrada",
     "newKeyTitle_other": "{{count}} llaves encontradas",
     "newNetwork": "Empezar de cero",
     "newNetworkHint": "Se crea una nueva red Zigbee. Habrá que volver a emparejar todos los sensores, uno por uno.",
-    "noKeyHint": "Conecte su llave Zigbee a la caja Élise, preferiblemente con un cable alargador USB. Esta pantalla la detecta sola.",
+    "noKeyHint": "Conecte su llave Zigbee a la caja Élise, preferiblemente con un cable alargador USB, o enciéndala si está en la red de casa. Esta pantalla la encuentra sola.",
     "noKeyTitle": "No se ha detectado ninguna llave Zigbee",
     "note": {
       "check-baudrate": "La velocidad depende del firmware instalado: compruébela si la llave no responde.",
@@ -2049,7 +2047,14 @@
     "retryNewNetwork": "Empezar de cero con esta llave",
     "rolledBackText": "No se preocupe: la configuración anterior se ha restablecido automáticamente.",
     "rolledBackTitle": "La instalación no se ha completado",
-    "searchNetwork": "Buscar una llave de red",
+    "search": "Buscar una llave",
+    "searchNotice": {
+      "bothFailed": "La búsqueda no ha funcionado. Inténtelo de nuevo en un momento.",
+      "networkFailed": "La búsqueda en la red de casa no ha funcionado. Se han buscado las llaves conectadas a la caja; inténtelo de nuevo en un momento.",
+      "none": "No se ha encontrado ninguna otra llave. Compruebe que la llave está conectada a la caja, o que está encendida y conectada a la red de casa (cable Ethernet o Wi-Fi), y vuelva a buscar.",
+      "usbFailed": "La búsqueda de las llaves conectadas a la caja no ha funcionado. Se han buscado las llaves de la red de casa; inténtelo de nuevo en un momento."
+    },
+    "searching": "Buscando…",
     "sensorsTitle": "Sus sensores",
     "service": "Servicio Zigbee",
     "serviceRunning": "Funciona",
@@ -2096,6 +2101,6 @@
     "unknownModel": "Llave no catalogada",
     "useKey": "Usar esta llave",
     "useKeyInstead": "Usar esta llave en su lugar",
-    "watching": "La detección es automática mientras esta pantalla está abierta: basta con conectar la llave."
+    "watching": "Élise busca sola mientras esta pantalla está abierta: conecte la llave a la caja o enciéndala si está en la red de casa."
   }
 }

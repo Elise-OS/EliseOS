@@ -1,5 +1,6 @@
 import {
   ZIGBEE_GUIDE_URL,
+  ZIGBEE_NETWORK_SEARCH_SECONDS,
   ZIGBEE_TECHNOLOGY_DEFAULTS,
   zigbeeCandidateTitle,
   zigbeeErrorKey,
@@ -11,8 +12,11 @@ import {
   zigbeeNeedsChoice,
   zigbeeOptionKey,
   zigbeeOtherKeys,
+  parseZigbeeNetworkAddress,
   zigbeeProbeResultSchema,
   zigbeeRecentResult,
+  zigbeeSearch,
+  zigbeeSearchNotice,
   zigbeeServiceState,
   zigbeeStatusSchema,
   zigbeeUsbId,
@@ -22,6 +26,7 @@ import {
   type ZigbeeInstall,
   type ZigbeeInstallRequest,
   type ZigbeeOption,
+  type ZigbeeScanOutcome,
   type ZigbeeStatus,
   type ZigbeeTechnology,
 } from '@elise/contracts';
@@ -32,6 +37,7 @@ import {
   CircleAlert,
   Cpu,
   ExternalLink,
+  Info,
   KeyRound,
   LoaderCircle,
   Network,
@@ -101,6 +107,9 @@ export function ZigbeeKeyPanel() {
   const [status, setStatus] = useState<ZigbeeStatus | null>(null);
   const [loadError, setLoadError] = useState<LoadError | null>(null);
   const [scanning, setScanning] = useState(false);
+  // What the last search found on each channel, and whether the family asked for it themselves.
+  const [lastScan, setLastScan] = useState<ZigbeeScanOutcome | undefined>(undefined);
+  const [searched, setSearched] = useState(false);
   const [message, setMessage] = useState('');
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [dismissedAt, setDismissedAt] = useState<string | null>(null);
@@ -141,18 +150,40 @@ export function ZigbeeKeyPanel() {
     return () => window.clearInterval(timer);
   }, [refresh, installing, loadError]);
 
-  const scan = async (network: boolean) => {
+  const runSearch = useCallback(async () => {
+    const next = await zigbeeSearch(async (network) =>
+      zigbeeStatusSchema.parse(await zigbeeRequest('/scan', 'POST', { network })),
+    );
+    if (!alive.current) return;
+    setStatus(next);
+    setLastScan(next.scan);
+    setLoadError(null);
+  }, []);
+
+  // One button looks for everything: keys plugged on the box and keys on the home network.
+  const search = async () => {
     setScanning(true);
+    setSearched(true);
     setMessage('');
     try {
-      setStatus(zigbeeStatusSchema.parse(await zigbeeRequest('/scan', 'POST', { network })));
-      setLoadError(null);
+      await runSearch();
     } catch (error) {
       if (error instanceof RequestFailure && error.kind !== 'refused') setLoadError(error.kind);
     } finally {
       setScanning(false);
     }
   };
+
+  // The box is watched every few seconds; the home network is slower to answer, so it is only
+  // searched every half minute, quietly.
+  const idle = scanning || installing;
+  useEffect(() => {
+    if (loadError === 'forbidden' || idle) return;
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void runSearch().catch(() => undefined);
+    }, ZIGBEE_NETWORK_SEARCH_SECONDS * 1000);
+    return () => window.clearInterval(timer);
+  }, [runSearch, idle, loadError]);
 
   const startInstall = async (request: ZigbeeInstallRequest): Promise<boolean> => {
     setMessage('');
@@ -196,6 +227,7 @@ export function ZigbeeKeyPanel() {
   const others = zigbeeOtherKeys(status);
   const tone = installing ? 'busy' : headline.tone;
   const issues = zigbeeVisibleIssues(status.issues);
+  const searchNotice = lastScan ? zigbeeSearchNotice(lastScan, others) : null;
   const newKeys = status.state === 'NEW_KEY' ? others : [];
   const HeroIcon: LucideIcon = installing
     ? LoaderCircle
@@ -290,18 +322,11 @@ export function ZigbeeKeyPanel() {
               className={
                 status.state === 'NEW_KEY' || status.state === 'NO_KEY' ? '' : 'button-secondary'
               }
-              onClick={() => void scan(false)}
+              onClick={() => void search()}
               disabled={scanning || installing}
             >
               {scanning ? <LoaderCircle className="spin" /> : <ScanSearch />}{' '}
-              {scanning ? t('zigbeeKey.detecting') : t('zigbeeKey.detect')}
-            </Button>
-            <Button
-              className="button-secondary"
-              onClick={() => void scan(true)}
-              disabled={scanning || installing}
-            >
-              <Wifi /> {t('zigbeeKey.searchNetwork')}
+              {scanning ? t('zigbeeKey.searching') : t('zigbeeKey.search')}
             </Button>
           </div>
         </section>
@@ -309,6 +334,17 @@ export function ZigbeeKeyPanel() {
         {!installing && !shownResult && (
           <p className="zigbee-key-watching">
             <RefreshCw /> {t('zigbeeKey.watching')}
+          </p>
+        )}
+
+        {!installing && !scanning && searchNotice && searchNotice !== 'none' && (
+          <p className="update-card-notice update-card-notice--warn" role="status">
+            <CircleAlert /> {t(`zigbeeKey.searchNotice.${searchNotice}`)}
+          </p>
+        )}
+        {!installing && !scanning && searched && others.length === 0 && searchNotice === 'none' && (
+          <p className="update-card-notice update-card-notice--info" role="status">
+            <Info /> {t('zigbeeKey.searchNotice.none')}
           </p>
         )}
 
@@ -996,13 +1032,14 @@ function AdvancedMode({
   );
   const canInstall = portChoice === CUSTOM_PORT ? customValid : Boolean(selected);
 
+  const parsedAddress = parseZigbeeNetworkAddress(address);
+
   const test = async () => {
+    if (!parsedAddress) return;
     setTesting(true);
     setAddressResult(null);
     try {
-      zigbeeProbeResultSchema.parse(
-        await zigbeeRequest('/network/test', 'POST', { host: address.trim(), port: 6638 }),
-      );
+      zigbeeProbeResultSchema.parse(await zigbeeRequest('/network/test', 'POST', parsedAddress));
       setAddressResult('ok');
       await onChanged();
     } catch {
@@ -1140,7 +1177,7 @@ function AdvancedMode({
           </label>
           <Button
             className="button-secondary"
-            disabled={!address.trim() || testing}
+            disabled={!parsedAddress || testing}
             onClick={() => void test()}
           >
             {testing ? <LoaderCircle className="spin" /> : <Wifi />}{' '}

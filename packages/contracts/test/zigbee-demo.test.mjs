@@ -123,3 +123,66 @@ test('refuses to install a key that is not plugged', () => {
     400,
   );
 });
+
+test('one search with the network finds the USB key and the network key together', () => {
+  const { call, status } = demo('ready');
+  assert.deepEqual(
+    status().candidates.map((item) => item.kind),
+    ['usb'],
+  );
+  const scanned = zigbeeStatusSchema.parse(
+    call('POST', '/zigbee/adapter/scan', { network: true }).body,
+  );
+  assert.deepEqual(scanned.scan, { usb: 'ok', network: 'ok' });
+  assert.deepEqual(
+    scanned.candidates.map((item) => item.kind),
+    ['usb', 'usb', 'network'],
+  );
+  const network = scanned.candidates.find((item) => item.kind === 'network');
+  assert.equal(network?.identity.name, 'SMLIGHT SLZB-06M');
+  assert.equal(network?.network?.host, '192.168.1.50');
+  assert.equal(network?.port, 'tcp://192.168.1.50:6638');
+  assert.deepEqual(scanned.issues.sort(), ['multiple-keys', 'other-key-plugged']);
+  // The cheap status polled afterwards keeps both.
+  assert.equal(status().candidates.length, 3);
+});
+
+test('a search without the network leaves the network key unnoticed', () => {
+  const { call } = demo('ready');
+  const scanned = zigbeeStatusSchema.parse(call('POST', '/zigbee/adapter/scan', {}).body);
+  assert.deepEqual(scanned.scan, { usb: 'ok', network: 'skipped' });
+  assert.deepEqual(
+    scanned.candidates.map((item) => item.kind),
+    ['usb', 'usb'],
+  );
+});
+
+test('the network key found by the search can be installed', () => {
+  const { call, status, advance } = demo('ready');
+  call('POST', '/zigbee/adapter/scan', { network: true });
+  const network = status().candidates.find((item) => item.kind === 'network');
+  const started = call('POST', '/zigbee/adapter/install', {
+    candidateId: network?.id,
+    adapter: 'ember',
+    baudrate: 115200,
+    rtscts: false,
+    networkMode: 'keep',
+  });
+  assert.equal(started.status, 202);
+  advance(30);
+  const done = status();
+  assert.equal(done.install.state, 'SUCCEEDED');
+  assert.equal(done.current?.model?.name, 'SMLIGHT SLZB-06M');
+  assert.equal(done.current?.usb, null);
+});
+
+test('a typed network address reveals the demo key, any other address does not answer', () => {
+  const { call, status } = demo('ready');
+  assert.equal(
+    call('POST', '/zigbee/adapter/network/test', { host: '10.0.0.9', port: 6638 }).status,
+    400,
+  );
+  const found = call('POST', '/zigbee/adapter/network/test', { host: '192.168.1.50', port: 6638 });
+  assert.equal(found.status, 200);
+  assert.ok(status().candidates.some((item) => item.kind === 'network'));
+});
