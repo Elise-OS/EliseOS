@@ -966,14 +966,7 @@
       "routineUntil": "Hasta",
       "secure": "Sus datos se quedan almacenados localmente en esta instalación de Élise OS.",
       "start": "Empezar la instalación",
-      "steps": [
-        "Bienvenida",
-        "Usted",
-        "Residente",
-        "Aprendizaje",
-        "Acceso remoto",
-        "Resumen"
-      ],
+      "steps": ["Bienvenida", "Usted", "Residente", "Aprendizaje", "Acceso remoto", "Resumen"],
       "titles": [
         "Preparemos Élise para una persona importante.",
         "Creemos su acceso",
@@ -1316,18 +1309,9 @@
       "ready": "Acceso remoto activado",
       "readyHint": "Instale Tailscale en este teléfono con la misma cuenta para acceder a Élise fuera de casa.",
       "steps": [
-        [
-          "Vincular Élise a Tailscale",
-          "Élise prepara una solicitud de conexión."
-        ],
-        [
-          "Aprobar en Tailscale",
-          "Inicie sesión o cree una cuenta gratuita y vuelva aquí."
-        ],
-        [
-          "Activar la dirección privada",
-          "Élise obtiene su dirección segura."
-        ]
+        ["Vincular Élise a Tailscale", "Élise prepara una solicitud de conexión."],
+        ["Aprobar en Tailscale", "Inicie sesión o cree una cuenta gratuita y vuelva aquí."],
+        ["Activar la dirección privada", "Élise obtiene su dirección segura."]
       ],
       "unavailable": "El acceso remoto no está disponible en este equipo por el momento. Podrá activarlo más tarde en los ajustes.",
       "waiting": "Esperando su aprobación…"
@@ -1777,11 +1761,7 @@
     },
     "nodon-opening": {
       "advice": "Fije el sensor en el marco y el imán en la hoja móvil. Respete la alineación y la separación máxima que indica el manual.",
-      "features": [
-        "Apertura y cierre",
-        "Nivel de batería",
-        "Actualizaciones a distancia"
-      ],
+      "features": ["Apertura y cierre", "Nivel de batería", "Actualizaciones a distancia"],
       "name": "Sensor de apertura Zigbee",
       "placement": [
         "Fije el sensor en el marco y el imán en la hoja móvil.",
@@ -1795,11 +1775,7 @@
     },
     "sonoff-climate": {
       "advice": "Colóquelo en una zona representativa y bien ventilada de la estancia. Manténgalo alejado del sol, los radiadores, las ventanas y el vapor.",
-      "features": [
-        "Temperatura",
-        "Humedad relativa",
-        "Nivel de batería"
-      ],
+      "features": ["Temperatura", "Humedad relativa", "Nivel de batería"],
       "name": "Sensor de temperatura y humedad",
       "placement": [
         "Colóquelo en una zona representativa y bien ventilada de la estancia.",
@@ -1813,11 +1789,7 @@
     },
     "thirdreality-climate-lite": {
       "advice": "Elija una zona representativa de la estancia y bien ventilada. Manténgalo alejado del sol, los radiadores, las ventanas y el vapor.",
-      "features": [
-        "Temperatura",
-        "Humedad relativa",
-        "Nivel de batería"
-      ],
+      "features": ["Temperatura", "Humedad relativa", "Nivel de batería"],
       "name": "Temperature & Humidity Sensor Lite",
       "placement": [
         "Elija una zona representativa de la estancia y bien ventilada.",
@@ -1849,10 +1821,7 @@
     },
     "thirdreality-motion": {
       "advice": "Oriéntelo hacia las zonas de paso, sin obstáculos delante de la lente. Evite el sol directo, la calefacción, el vapor y las fuentes de calor.",
-      "features": [
-        "Movimiento PIR hasta unos 6 m",
-        "Nivel de batería"
-      ],
+      "features": ["Movimiento PIR hasta unos 6 m", "Nivel de batería"],
       "name": "Motion Sensor",
       "placement": [
         "Oriéntelo hacia las zonas de paso, sin obstáculos delante de la lente.",
@@ -1886,12 +1855,7 @@
     },
     "thirdreality-smart-button": {
       "advice": "Colóquelo al alcance de la mano, por ejemplo cerca de la cama o del sillón. Utilice el soporte magnético o adhesivo y compruebe que la persona puede pulsarlo con facilidad.",
-      "features": [
-        "Pulsación simple",
-        "Doble pulsación",
-        "Pulsación larga",
-        "Nivel de batería"
-      ],
+      "features": ["Pulsación simple", "Doble pulsación", "Pulsación larga", "Nivel de batería"],
       "name": "Zigbee Smart Button",
       "placement": [
         "Colóquelo al alcance de la mano, por ejemplo cerca de la cama o del sillón.",
@@ -1928,11 +1892,7 @@
     },
     "thirdreality-water-leak": {
       "advice": "Colóquelo en horizontal donde aparecería primero el agua: bajo el fregadero, el lavabo o el calentador de agua. Mantenga el sensor accesible para la prueba y el mantenimiento.",
-      "features": [
-        "Detección de fugas de agua",
-        "Sirena integrada",
-        "Nivel de batería"
-      ],
+      "features": ["Detección de fugas de agua", "Sirena integrada", "Nivel de batería"],
       "name": "Water Leak Sensor",
       "placement": [
         "Colóquelo en horizontal donde aparecería primero el agua: bajo el fregadero, el lavabo o el calentador de agua.",

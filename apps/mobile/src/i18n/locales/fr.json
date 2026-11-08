@@ -1316,18 +1316,9 @@
       "ready": "Accès à distance activé",
       "readyHint": "Installez Tailscale sur ce téléphone avec le même compte pour joindre Élise hors de la maison.",
       "steps": [
-        [
-          "Relier Élise à Tailscale",
-          "Élise prépare une demande de connexion."
-        ],
-        [
-          "Valider dans Tailscale",
-          "Connectez-vous ou créez un compte gratuit, puis revenez ici."
-        ],
-        [
-          "Activer l’adresse privée",
-          "Élise obtient son adresse sécurisée."
-        ]
+        ["Relier Élise à Tailscale", "Élise prépare une demande de connexion."],
+        ["Valider dans Tailscale", "Connectez-vous ou créez un compte gratuit, puis revenez ici."],
+        ["Activer l’adresse privée", "Élise obtient son adresse sécurisée."]
       ],
       "unavailable": "L’accès à distance n’est pas disponible sur ce boîtier pour le moment. Vous pourrez l’activer plus tard dans les réglages.",
       "waiting": "En attente de votre validation…"
@@ -1775,11 +1766,7 @@
     },
     "nodon-opening": {
       "advice": "Fixez le capteur sur le dormant et l’aimant sur l’ouvrant. Respectez l’alignement et l’écart maximal indiqués dans la notice.",
-      "features": [
-        "Ouverture et fermeture",
-        "Niveau de batterie",
-        "Mises à jour à distance"
-      ],
+      "features": ["Ouverture et fermeture", "Niveau de batterie", "Mises à jour à distance"],
       "name": "Détecteur d’ouverture Zigbee",
       "placement": [
         "Fixez le capteur sur le dormant et l’aimant sur l’ouvrant.",
@@ -1793,11 +1780,7 @@
     },
     "sonoff-climate": {
       "advice": "Placez-le dans une zone représentative et bien ventilée de la pièce. Éloignez-le du soleil, des radiateurs, des fenêtres et de la vapeur.",
-      "features": [
-        "Température",
-        "Humidité relative",
-        "Niveau de batterie"
-      ],
+      "features": ["Température", "Humidité relative", "Niveau de batterie"],
       "name": "Capteur de température et d’humidité",
       "placement": [
         "Placez-le dans une zone représentative et bien ventilée de la pièce.",
@@ -1811,11 +1794,7 @@
     },
     "thirdreality-climate-lite": {
       "advice": "Choisissez une zone représentative de la pièce, bien ventilée. Éloignez-le du soleil, des radiateurs, des fenêtres et de la vapeur.",
-      "features": [
-        "Température",
-        "Humidité relative",
-        "Niveau de batterie"
-      ],
+      "features": ["Température", "Humidité relative", "Niveau de batterie"],
       "name": "Temperature & Humidity Sensor Lite",
       "placement": [
         "Choisissez une zone représentative de la pièce, bien ventilée.",
@@ -1847,10 +1826,7 @@
     },
     "thirdreality-motion": {
       "advice": "Orientez-le vers les passages, sans obstacle devant la lentille. Évitez soleil direct, chauffage, vapeur et sources de chaleur.",
-      "features": [
-        "Mouvement PIR jusqu’à environ 6 m",
-        "Niveau de batterie"
-      ],
+      "features": ["Mouvement PIR jusqu’à environ 6 m", "Niveau de batterie"],
       "name": "Motion Sensor",
       "placement": [
         "Orientez-le vers les passages, sans obstacle devant la lentille.",
@@ -1884,12 +1860,7 @@
     },
     "thirdreality-smart-button": {
       "advice": "Placez-le à portée de main, par exemple près du lit ou du fauteuil. Utilisez le support magnétique ou adhésif et vérifiez que la personne peut facilement l’actionner.",
-      "features": [
-        "Appui simple",
-        "Double appui",
-        "Appui long",
-        "Niveau de batterie"
-      ],
+      "features": ["Appui simple", "Double appui", "Appui long", "Niveau de batterie"],
       "name": "Zigbee Smart Button",
       "placement": [
         "Placez-le à portée de main, par exemple près du lit ou du fauteuil.",
@@ -1926,11 +1897,7 @@
     },
     "thirdreality-water-leak": {
       "advice": "Posez-le à plat là où l’eau apparaîtrait en premier : sous évier, lavabo ou chauffe-eau. Gardez le boîtier accessible pour le test et l’entretien.",
-      "features": [
-        "Détection de fuite",
-        "Sirène intégrée",
-        "Niveau de batterie"
-      ],
+      "features": ["Détection de fuite", "Sirène intégrée", "Niveau de batterie"],
       "name": "Water Leak Sensor",
       "placement": [
         "Posez-le à plat là où l’eau apparaîtrait en premier : sous évier, lavabo ou chauffe-eau.",

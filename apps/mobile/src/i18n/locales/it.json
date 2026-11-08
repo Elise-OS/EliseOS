@@ -966,14 +966,7 @@
       "routineUntil": "Fino alle",
       "secure": "I Suoi dati restano archiviati localmente su questa installazione di Élise OS.",
       "start": "Inizia l’installazione",
-      "steps": [
-        "Benvenuto",
-        "Lei",
-        "Residente",
-        "Apprendimento",
-        "Accesso da remoto",
-        "Riepilogo"
-      ],
+      "steps": ["Benvenuto", "Lei", "Residente", "Apprendimento", "Accesso da remoto", "Riepilogo"],
       "titles": [
         "Prepariamo Élise per una persona che conta.",
         "Creiamo il Suo accesso",
@@ -1316,18 +1309,9 @@
       "ready": "Accesso da remoto attivato",
       "readyHint": "Installi Tailscale su questo telefono con lo stesso account per raggiungere Élise fuori casa.",
       "steps": [
-        [
-          "Collega Élise a Tailscale",
-          "Élise prepara una richiesta di connessione."
-        ],
-        [
-          "Conferma in Tailscale",
-          "Acceda o crei un account gratuito, poi torni qui."
-        ],
-        [
-          "Attiva l’indirizzo privato",
-          "Élise ottiene il suo indirizzo sicuro."
-        ]
+        ["Collega Élise a Tailscale", "Élise prepara una richiesta di connessione."],
+        ["Conferma in Tailscale", "Acceda o crei un account gratuito, poi torni qui."],
+        ["Attiva l’indirizzo privato", "Élise ottiene il suo indirizzo sicuro."]
       ],
       "unavailable": "L’accesso da remoto non è disponibile su questa box al momento. Potrà attivarlo più tardi dalle impostazioni.",
       "waiting": "In attesa della Sua conferma…"
@@ -1777,11 +1761,7 @@
     },
     "nodon-opening": {
       "advice": "Fissi il sensore sul telaio e il magnete sull’anta. Rispetti l’allineamento e la distanza massima indicati nel manuale.",
-      "features": [
-        "Apertura e chiusura",
-        "Livello della batteria",
-        "Aggiornamenti da remoto"
-      ],
+      "features": ["Apertura e chiusura", "Livello della batteria", "Aggiornamenti da remoto"],
       "name": "Rilevatore di apertura Zigbee",
       "placement": [
         "Fissi il sensore sul telaio e il magnete sull’anta.",
@@ -1795,11 +1775,7 @@
     },
     "sonoff-climate": {
       "advice": "Lo posizioni in una zona rappresentativa e ben ventilata della stanza. Lo tenga lontano da sole, radiatori, finestre e vapore.",
-      "features": [
-        "Temperatura",
-        "Umidità relativa",
-        "Livello della batteria"
-      ],
+      "features": ["Temperatura", "Umidità relativa", "Livello della batteria"],
       "name": "Sensore di temperatura e umidità",
       "placement": [
         "Lo posizioni in una zona rappresentativa e ben ventilata della stanza.",
@@ -1813,11 +1789,7 @@
     },
     "thirdreality-climate-lite": {
       "advice": "Scelga una zona rappresentativa della stanza e ben ventilata. Lo tenga lontano da sole, radiatori, finestre e vapore.",
-      "features": [
-        "Temperatura",
-        "Umidità relativa",
-        "Livello della batteria"
-      ],
+      "features": ["Temperatura", "Umidità relativa", "Livello della batteria"],
       "name": "Temperature & Humidity Sensor Lite",
       "placement": [
         "Scelga una zona rappresentativa della stanza e ben ventilata.",
@@ -1849,10 +1821,7 @@
     },
     "thirdreality-motion": {
       "advice": "Lo orienti verso le zone di passaggio, senza ostacoli davanti alla lente. Eviti sole diretto, riscaldamento, vapore e fonti di calore.",
-      "features": [
-        "Movimento PIR fino a circa 6 m",
-        "Livello della batteria"
-      ],
+      "features": ["Movimento PIR fino a circa 6 m", "Livello della batteria"],
       "name": "Motion Sensor",
       "placement": [
         "Lo orienti verso le zone di passaggio, senza ostacoli davanti alla lente.",
@@ -1928,11 +1897,7 @@
     },
     "thirdreality-water-leak": {
       "advice": "Lo appoggi in piano dove l’acqua comparirebbe per prima: sotto il lavello, il lavabo o lo scaldabagno. Tenga il modulo accessibile per il test e la manutenzione.",
-      "features": [
-        "Rilevamento di perdite",
-        "Sirena integrata",
-        "Livello della batteria"
-      ],
+      "features": ["Rilevamento di perdite", "Sirena integrata", "Livello della batteria"],
       "name": "Water Leak Sensor",
       "placement": [
         "Lo appoggi in piano dove l’acqua comparirebbe per prima: sotto il lavello, il lavabo o lo scaldabagno.",
