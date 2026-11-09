@@ -87,10 +87,10 @@ export class DiscoveryService {
     this.zeroconf = null;
   }
 
-  async manual(input: string): Promise<DiscoveredServer> {
+  async manual(input: string, timeoutMs = 5000): Promise<DiscoveredServer> {
     const url = normalizeUrl(input);
     if (!url) throw new Error('Adresse manquante');
-    return this.probe(url, 'manual', 5000);
+    return this.probe(url, 'manual', timeoutMs);
   }
 
   async refreshServer(server: DiscoveredServer): Promise<DiscoveredServer> {
