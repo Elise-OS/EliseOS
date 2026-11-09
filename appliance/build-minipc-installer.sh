@@ -87,6 +87,7 @@ install -m 0755 "$ROOT_DIR/appliance/minipc-installer/install-target.sh" "$paylo
 echo "→ Adding automatic NoCloud boot parameters"
 for config in grub.cfg loopback.cfg; do
   xorriso -osirrox on -indev "$ISO_CACHE" -extract "/boot/grub/$config" "$work_dir/$config" >/dev/null 2>&1
+  chmod u+w "$work_dir/$config"
   python3 - "$work_dir/$config" <<'PY'
 import pathlib, re, sys
 path = pathlib.Path(sys.argv[1])
