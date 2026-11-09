@@ -48,7 +48,8 @@ grep -qF -- 'until host_files_current; do' "$root/install/install-elise.sh"
 # Every host file the app relies on must be in the installer's list.
 for host_file in appliance/elise-zigbee-agent.py appliance/systemd/elise-zigbee-agent.service \
   appliance/elise-zigbee-adapters.json appliance/elise-update-agent.py appliance/elise_install_state.py \
-  appliance/elise_install_texts.py appliance/elise_language.py; do
+  appliance/elise_install_texts.py appliance/elise_language.py appliance/elise-preparation.py \
+  appliance/systemd/elise-preparation.service; do
   grep -qF -- " $host_file " "$root/install/install-elise.sh" \
     || { echo "$host_file manque dans la liste des fichiers système." >&2; exit 1; }
 done
@@ -62,6 +63,10 @@ grep -q -- '^Type=simple$' "$root/appliance/systemd/elise-firstboot.service"
 grep -q -- 'stub-resolv.conf' "$root/appliance/build-raspberry-image.sh"
 # The TV installation screen: in the image from the first boot, never in the resident screen's way.
 grep -q -- 'python3-pil python3-qrcode' "$root/appliance/build-raspberry-image.sh"
+grep -q -- 'python3-pil python3-qrcode fonts-dejavu-core' "$root/install/install-elise.sh"
+grep -q -- 'ELISE_FRESH_INSTALL' "$root/install/install-elise.sh"
+grep -q -- 'elise-install-screen.py --detect-display' "$root/install/install-elise.sh"
+grep -q -- 'disable --now elise-install-screen.service elise-preparation.service' "$root/install/install-elise.sh"
 for host_file in appliance/elise-install-screen.py appliance/elise_install_state.py appliance/elise_install_texts.py \
   appliance/elise_language.py appliance/systemd/elise-install-screen.service; do
   grep -qF -- "$host_file" "$root/appliance/build-raspberry-image.sh" \

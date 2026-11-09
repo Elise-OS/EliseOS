@@ -13,6 +13,9 @@ GITHUB_USERNAME=""
 GITHUB_TOKEN=""
 docker_config_dir=""
 UPDATE_LOCK_FILE="${ELISE_UPDATE_LOCK_FILE:-/run/elise-update/update.lock}"
+ELISE_FRESH_INSTALL=false
+[[ -e "$ELISE_ROOT/current" || -L "$ELISE_ROOT/current" ]] || ELISE_FRESH_INSTALL=true
+installation_tv_started=false
 
 preparation_status() {
   [[ -d /run/elise-preparation ]] || return 0
@@ -97,6 +100,16 @@ else
 fi
 getent hosts github.com >/dev/null || fail "connexion Internet indisponible"
 
+# The preparation page is the QR fallback during a fresh installation. The final dashboard uses
+# ELISE_HTTP_PORT (8080 by default), so reserving port 80 here does not conflict with it.
+if [[ "$ELISE_FRESH_INSTALL" == true ]] && ss -H -ltn "sport = :80" 2>/dev/null | grep -q .; then
+  fail "le port 80 est déjà utilisé"
+fi
+
+if [[ "$ELISE_FRESH_INSTALL" == true ]]; then
+  install -d -m 0755 /run/elise-preparation
+fi
+
 http_port_preflight=8080
 [[ -f "$ELISE_CONFIG/elise.env" ]] && http_port_preflight="$(sed -n 's/^ELISE_HTTP_PORT=//p' "$ELISE_CONFIG/elise.env" | tail -1)"
 for port in "${http_port_preflight:-8080}" 18080 8555; do
@@ -115,7 +128,11 @@ if [[ "${ELISE_SKIP_SYSTEM_PACKAGES:-false}" != true ]]; then
   # A fresh Ubuntu runs unattended-upgrades right after boot: wait for its dpkg lock.
   apt=(apt-get -o DPkg::Lock::Timeout=900)
   "${apt[@]}" update -qq
-  "${apt[@]}" install -y -qq age ca-certificates curl gnupg avahi-daemon docker.io docker-compose-v2 nftables python3 xz-utils
+  system_packages=(age ca-certificates curl gnupg avahi-daemon docker.io docker-compose-v2 nftables python3 xz-utils)
+  if [[ "$ELISE_FRESH_INSTALL" == true ]]; then
+    system_packages+=(python3-pil python3-qrcode fonts-dejavu-core)
+  fi
+  "${apt[@]}" install -y -qq "${system_packages[@]}"
   install -d -m 0755 /usr/share/keyrings
   if [[ ! -f /usr/share/keyrings/tailscale-archive-keyring.gpg ]]; then
     curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg
@@ -298,6 +315,8 @@ HOST_FILES="$(cat <<'FILES'
 0644 appliance/elise_language.py /usr/lib/elise/elise_language.py
 0755 appliance/elise-install-screen.py /usr/lib/elise/elise-install-screen.py
 0644 appliance/systemd/elise-install-screen.service /etc/systemd/system/
+0755 appliance/elise-preparation.py /usr/lib/elise/elise-preparation.py
+0644 appliance/systemd/elise-preparation.service /etc/systemd/system/
 FILES
 )"
 
@@ -373,6 +392,18 @@ PY
 fi
 
 systemctl daemon-reload
+if [[ "$ELISE_FRESH_INSTALL" == true ]]; then
+  # Do not enable either temporary service at boot on a generic Ubuntu host. The installer owns
+  # their complete lifetime; the resident LightDM screen can be installed independently later.
+  systemctl disable elise-preparation.service elise-install-screen.service 2>/dev/null || true
+  systemctl start elise-preparation.service
+  if /usr/lib/elise/elise-install-screen.py --detect-display; then
+    systemctl start elise-install-screen.service
+    installation_tv_started=true
+  else
+    echo "→ Aucun écran détecté ; installation sans affichage TV"
+  fi
+fi
 systemctl enable --now elise-remote-access-agent.service elise-update-agent.service elise-tailscale-firewall.service
 # A oneshot unit already active is not run again by `enable --now`: apply this release's rules.
 systemctl restart elise-tailscale-firewall.service
@@ -420,7 +451,9 @@ until "${compose[@]}" "${pull_or_build[@]}"; do
   pull_attempt=$((pull_attempt + 1))
 done
 progress "Démarrage et vérification d’Élise"
-if [[ "${ELISE_FIRST_BOOT:-false}" == true ]]; then systemctl stop elise-preparation.service || true; fi
+if [[ "${ELISE_FIRST_BOOT:-false}" == true || "$ELISE_FRESH_INSTALL" == true ]]; then
+  systemctl stop elise-preparation.service || true
+fi
 # Compose renames a container to <id>_<name> while recreating it; an interrupted
 # run leaves that copy behind and the next `up` fails on a name conflict.
 docker ps -a --format '{{.Names}}' \
@@ -524,3 +557,9 @@ fi
 progress "Élise est prête"
 echo "✓ Ouvrez http://${hostname_value:-elise}.local${local_suffix}"
 echo "  L’accès privé Tailscale se configure dans l’assistant ou dans Réglages."
+if [[ "$ELISE_FRESH_INSTALL" == true ]]; then
+  # Leave the success screen visible briefly, then restore the text console. install-screen.sh
+  # also stops it before LightDM when resident-screen setup wins this race.
+  [[ "$installation_tv_started" != true ]] || sleep "${ELISE_INSTALL_SCREEN_READY_SECONDS:-5}"
+  systemctl disable --now elise-install-screen.service elise-preparation.service 2>/dev/null || true
+fi

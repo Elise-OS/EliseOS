@@ -39,6 +39,7 @@ except ImportError:
 
 KINDS = ["welcome", "progress", "action", "problem", "ready", "pair", "installing"]
 SIZES = [(1920, 1080), (1280, 720)]
+MINIPC_SIZES = [(1366, 768), (1440, 900), (3840, 2160)]
 BOX = "6f1c2a4e-8b3d-5e7f-9a0b-1c2d3e4f5a6b"
 LINK = "https://eliseos.paulbreton.dev/setup/"
 
@@ -479,6 +480,13 @@ def assert_inside(test, paint, size):
 
 
 class RenderTests(unittest.TestCase):
+    def test_every_screen_fits_common_minipc_displays(self):
+        for kind, lang, size in itertools.product(KINDS, screen.TEXT, MINIPC_SIZES):
+            with self.subTest(kind=kind, lang=lang, size=size):
+                paint = screen.render(sample(kind, lang), size)
+                self.assertEqual(paint.image.size, size)
+                assert_inside(self, paint, size)
+
     def test_every_screen_renders_inside_the_tv_without_overlapping_text(self):
         for kind, lang, size in itertools.product(KINDS, screen.TEXT, SIZES):
             for remote in (None, "100.101.42.7"):
@@ -650,6 +658,23 @@ class SetupLinkTests(unittest.TestCase):
 
 
 class FramebufferTests(unittest.TestCase):
+    def test_detects_connected_drm_or_framebuffer_fallback(self):
+        with tempfile.TemporaryDirectory() as folder:
+            drm = pathlib.Path(folder, "drm")
+            drm.mkdir()
+            framebuffer = pathlib.Path(folder, "fb0")
+            self.assertFalse(screen.display_available(str(drm), str(framebuffer)))
+            framebuffer.touch()
+            self.assertTrue(screen.display_available(str(drm), str(framebuffer)))
+            connector = drm / "card0-HDMI-A-1"
+            connector.mkdir()
+            (connector / "status").write_text("disconnected\n", encoding="ascii")
+            self.assertTrue(screen.display_available(str(drm), str(framebuffer)))
+            framebuffer.unlink()
+            self.assertFalse(screen.display_available(str(drm), str(framebuffer)))
+            (connector / "status").write_text("connected\n", encoding="ascii")
+            self.assertTrue(screen.display_available(str(drm), str(framebuffer)))
+
     def test_rgb565_matches_the_reference_packing(self):
         rng = random.Random(4)
         image = Image.new("RGB", (17, 5))

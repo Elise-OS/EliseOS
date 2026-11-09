@@ -15,6 +15,8 @@ from elise_install_texts import TEXT, page_texts
 
 AUTH_FILE = os.environ.get("ELISE_GITHUB_AUTH_FILE", "/etc/elise/github-auth")
 LOGO_FILE = os.environ.get("ELISE_PREPARATION_LOGO", "/usr/share/elise/runtime/appliance/elise-logo.png")
+if not os.path.exists(LOGO_FILE):
+    LOGO_FILE = "/opt/elise/current/appliance/elise-logo.png"
 REPOSITORY = os.environ.get("ELISE_REPOSITORY", "Elise-OS/EliseOS")
 GITHUB_API = os.environ.get("ELISE_GITHUB_API", "https://api.github.com").rstrip("/")
 USERNAME = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})")

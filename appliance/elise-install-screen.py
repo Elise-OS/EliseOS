@@ -1041,17 +1041,27 @@ class Framebuffer:
         os.close(self.fd)
 
 
-def screen_connected() -> bool | None:
+def screen_connected(drm_root: str = "/sys/class/drm") -> bool | None:
     """True/False from the DRM connectors, None when the kernel does not say."""
     try:
         statuses = [
-            read_sysfs(os.path.join("/sys/class/drm", name, "status"))
-            for name in os.listdir("/sys/class/drm")
-            if os.path.exists(os.path.join("/sys/class/drm", name, "status"))
+            read_sysfs(os.path.join(drm_root, name, "status"))
+            for name in os.listdir(drm_root)
+            if os.path.exists(os.path.join(drm_root, name, "status"))
         ]
     except OSError:
         return None
     return any(status == "connected" for status in statuses) if statuses else None
+
+
+def display_available(drm_root: str = "/sys/class/drm", framebuffer: str = FRAMEBUFFER) -> bool:
+    """Whether starting the TV service can display anything now.
+
+    A framebuffer remains a useful fallback on efifb/simpledrm and ARM64 systems even when a DRM
+    connector reports stale information while the KMS driver is taking over.
+    """
+    connected = screen_connected(drm_root)
+    return connected is True or os.path.exists(framebuffer)
 
 
 # Console --------------------------------------------------------------------------------------
@@ -1140,7 +1150,7 @@ def run() -> int:
         while not stopping["now"] and not should_leave(started_done):
             if display is None:
                 try:
-                    if screen_connected() is False:
+                    if not display_available():
                         raise OSError("aucun écran branché")
                     display = Framebuffer()
                 except (OSError, ValueError) as error:
@@ -1187,7 +1197,7 @@ def run() -> int:
                         region, box = pulse_frame(shown, pulse, (time.monotonic() % 2.2) / 2.2)
                         display.show(region, box[:2])
                     time.sleep(1 / 7)
-                if display.replaced() or screen_connected() is False:
+                if display.replaced() or not display_available():
                     raise OSError("écran débranché ou framebuffer remplacé")
             except (OSError, ValueError, IndexError) as error:
                 print(f"Écran d’installation interrompu : {error}", file=sys.stderr)
@@ -1202,4 +1212,6 @@ def run() -> int:
 
 
 if __name__ == "__main__":
+    if "--detect-display" in sys.argv[1:]:
+        sys.exit(0 if display_available() else 1)
     sys.exit(run())

@@ -27,6 +27,8 @@ curl -fsSL https://github.com/Elise-OS/EliseOS/releases/latest/download/install-
 
 L’installateur vérifie la machine, installe Docker, Tailscale et Avahi, vérifie le manifeste de version, télécharge les images adaptées à l’architecture et attend que les services soient sains. Il conserve une installation déjà présente, ses secrets, volumes, sauvegardes et son identité Tailscale.
 
+Si un écran est branché au mini-PC, il affiche le suivi de l’installation, les adresses d’accès et le QR code pour continuer sur un téléphone.
+
 Cette commande installe également tout le paquet TV et appels vidéo. Si Tailscale n’est pas encore associé, un service local reprend automatiquement la préparation chaque minute et la termine dès que l’accès privé est prêt.
 
 Depuis une copie locale du dépôt, la commande complète équivalente est :
