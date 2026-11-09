@@ -17,7 +17,7 @@ import urllib.error
 import urllib.request
 from unittest.mock import patch
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 import elise_install_state as install  # noqa: E402
@@ -39,13 +39,15 @@ except ImportError:
 
 KINDS = ["welcome", "progress", "action", "problem", "ready", "pair", "installing"]
 SIZES = [(1920, 1080), (1280, 720)]
+BOX = "6f1c2a4e-8b3d-5e7f-9a0b-1c2d3e4f5a6b"
+LINK = "https://eliseos.paulbreton.dev/setup/"
 
 
 def sample(kind, lang="fr", **values):
     defaults = dict(
         step={"welcome": 0, "action": 3, "problem": 1}.get(kind, 4 if kind == "progress" else 5),
         percent=41, images=(3, 12) if kind == "progress" else None, ip="192.168.1.42", minutes=14,
-        version="v0.1.22", remote=None,
+        version="v0.1.22", remote=None, box=BOX,
         problem={"step": 1, "category": "network", "message": "Internet est indisponible."} if kind == "problem" else None,
     )
     return screen.model(kind, lang=lang, **{**defaults, **values})
@@ -398,7 +400,7 @@ class RotationTests(unittest.TestCase):
                 if kind == "progress":
                     fixed.append(bare.box((120, 820, 980, 838)))  # progress bar
                 if kind not in ("progress", "problem"):
-                    fixed.append(bare.box((1320, 308, 1720, 708)))  # QR code
+                    fixed.append(bare.box(screen.QR_BOX))  # QR code
                 self.assertGreater(len(fixed), 3)
                 for lang in elise_language.LANGUAGES:
                     frame = screen.render(m, lang=lang).image
@@ -439,7 +441,7 @@ class RotationTests(unittest.TestCase):
         base = rotation.base
         first, bare = rotation.frame().image, base.image
         fade = screen.Fade(first, rotation.frame(2).image, bare)
-        still = [box for _, box in base.boxes] + [base.box((1320, 308, 1720, 708)), base.box((120, 70, 204, 154))]
+        still = [box for _, box in base.boxes] + [base.box(screen.QR_BOX), base.box((120, 70, 204, 154))]
         picture = first.copy()
         while not fade.prepare():
             pass
@@ -545,12 +547,106 @@ class RenderTests(unittest.TestCase):
             region, box = screen.pulse_frame(paint.image, paint.pulse, phase)
             self.assertEqual(region.size, (box[2] - box[0], box[3] - box[1]))
 
+    @unittest.skipIf(screen.qrcode is None, "qrcode unavailable")
+    def test_qr_code_modules_stay_large_and_sharp(self):
+        for size, pixels in (((1920, 1080), 10), ((1280, 720), 7)):
+            for kind in ("welcome", "action", "pair"):
+                with self.subTest(size=size, kind=kind):
+                    m = sample(kind, ip="192.168.255.255")
+                    paint = screen.render(m, size)
+                    code = screen.qrcode.QRCode(error_correction=screen.qrcode.constants.ERROR_CORRECT_M)
+                    code.add_data(m["link"])
+                    code.make(fit=True)
+                    modules = len(code.get_matrix()) - 2 * code.border
+                    self.assertLessEqual(code.version, 6, m["link"])
+                    area = paint.box(screen.QR_BOX)
+                    navy = Image.new("RGB", (area[2] - area[0], area[3] - area[1]), screen.NAVY)
+                    dark = ImageChops.difference(paint.image.crop(area), navy).convert("L").point(lambda v: 255 * (v == 0))
+                    left, top, right, bottom = dark.getbbox()
+                    self.assertEqual((right - left, bottom - top), (modules * pixels,) * 2)
+                    # A quiet zone of at least four modules of cream all around.
+                    card = paint.box(screen.QR_CARD)
+                    for gap in (area[0] + left - card[0], area[1] + top - card[1], card[2] - area[0] - right):
+                        self.assertGreaterEqual(gap, 4 * pixels)
+
     @unittest.skipIf(zxingcpp is None or screen.qrcode is None, "QR decoder unavailable")
-    def test_qr_code_opens_the_preparation_page(self):
+    def test_qr_code_opens_the_app_from_across_the_room(self):
         for size in SIZES:
-            for image in (screen.render(sample("welcome"), size).image,
-                          screen.render(sample("welcome", None), size, lang="it").image):
-                self.assertEqual([code.text for code in zxingcpp.read_barcodes(image)], ["http://192.168.1.42"])
+            for m, lang in ((sample("welcome"), None), (sample("action", "es"), None), (sample("pair", "en"), None),
+                            (sample("welcome", None), "it")):
+                image = screen.render(m, size, lang=lang).image
+                # A quarter of the size: about what a phone sees of the TV from the sofa.
+                for scale in (1, 0.25):
+                    seen = image.resize((round(image.width * scale), round(image.height * scale)), Image.BILINEAR)
+                    with self.subTest(size=size, kind=m["kind"], lang=m["lang"], scale=scale):
+                        self.assertEqual([code.text for code in zxingcpp.read_barcodes(seen)], [m["link"]])
+                        self.assertTrue(m["link"].startswith(f"{LINK}?box={BOX}&ip=192.168.1.42"))
+
+
+class SetupLinkTests(unittest.TestCase):
+    def test_the_qr_code_opens_the_app_on_this_box_in_the_tv_language(self):
+        self.assertEqual(install.setup_link(BOX, "192.168.1.42", "es"), f"{LINK}?box={BOX}&ip=192.168.1.42&lang=es")
+        self.assertEqual(sample("action", "it")["link"], f"{LINK}?box={BOX}&ip=192.168.1.42&lang=it")
+        # While the languages take turns, none is known: the link leaves it out and never changes.
+        self.assertEqual(sample("welcome", None)["link"], f"{LINK}?box={BOX}&ip=192.168.1.42")
+        self.assertEqual(install.setup_link(BOX, "10.0.0.5"), f"{LINK}?box={BOX}&ip=10.0.0.5")
+        # The address stays readable for whoever cannot scan.
+        self.assertEqual(sample("welcome")["url"], "http://192.168.1.42")
+        for kind in ("welcome", "action", "pair", "ready", "installing"):
+            for lang in screen.TEXT:
+                texts = [text for text, _ in screen.render(sample(kind, lang)).boxes]
+                self.assertIn("http://192.168.1.42", texts, (kind, lang))
+                self.assertTrue(any(line in screen.TEXT[lang]["scan"] for line in texts), (kind, lang))
+
+    def test_only_a_home_network_address_goes_to_the_phone(self):
+        for ip in ("10.1.2.3", "172.16.0.1", "172.31.255.254", "192.168.0.10"):
+            self.assertEqual(install.setup_link(BOX, ip, "fr"), f"{LINK}?box={BOX}&ip={ip}&lang=fr")
+        # Tailscale, link-local, loopback, public or odd: the box's own page, as before.
+        for ip in ("100.101.42.7", "172.32.0.1", "169.254.1.2", "127.0.0.1", "8.8.8.8", "fd00::1", "elise.local"):
+            self.assertFalse(install.setup_link(BOX, ip, "fr").startswith("https://"), ip)
+        self.assertEqual(install.setup_link(BOX, "100.101.42.7", "fr"), "http://100.101.42.7")
+
+    def test_without_an_identity_or_an_address_the_code_keeps_the_local_page(self):
+        self.assertEqual(install.setup_link("", "192.168.1.42", "fr"), "http://192.168.1.42")
+        self.assertEqual(install.setup_link(None, "192.168.1.42", "fr"), "http://192.168.1.42")
+        self.assertEqual(install.setup_link("x" * 65, "192.168.1.42", "fr"), "http://192.168.1.42")
+        # The page offering http://<ip> knows nothing of another port.
+        self.assertEqual(install.setup_link(BOX, "192.168.1.42", "fr", port=8080), "http://192.168.1.42:8080")
+        self.assertIsNone(install.setup_link(BOX, None, "fr"))
+        self.assertIsNone(sample("welcome", ip=None)["link"])
+        self.assertEqual(sample("welcome", box=None)["link"], "http://192.168.1.42")
+
+    def test_the_tv_and_the_discovery_api_announce_the_same_box(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        env, machine_id = (os.path.join(folder.name, name) for name in ("elise.env", "machine-id"))
+        pathlib.Path(env).write_text("ELISE_SCREEN_ENABLED=true\n")
+        pathlib.Path(machine_id).write_text("0123456789abcdef0123456789abcdef\n")
+        for patcher in (
+            patch.object(install, "CONFIG_FILE", env), patch.object(install, "MACHINE_ID", machine_id),
+            patch.object(install, "FIRSTBOOT_MARKER", os.path.join(folder.name, "missing")),
+            patch.object(screen, "AUTH_FILE", os.path.join(folder.name, "missing")),
+            patch.object(install, "images_progress", return_value=None),
+            patch.object(install, "local_address", return_value="192.168.1.42"),
+            patch.object(install, "tailscale", return_value={"running": False, "ip": None, "name": None}),
+            patch.object(elise_language, "current", return_value={"language": None, "source": None}),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        # elise-firstboot.sh pins the id with its own one-liner: the same as before the pin.
+        script = (pathlib.Path(__file__).parent / "elise-firstboot.sh").read_text()
+        one_liner = re.search(r"python3 -c '([^']+)' \"\$\(cat /etc/machine-id\)\"", script).group(1)
+        pinned = subprocess.run([sys.executable, "-c", one_liner, "0123456789abcdef0123456789abcdef"],
+                                capture_output=True, text=True, check=True).stdout.strip()
+        for configured in ("", f"ELISE_INSTANCE_ID={pinned}\n", "ELISE_INSTANCE_ID=chosen-by-hand\n"):
+            with self.subTest(configured=configured):
+                with open(env, "a", encoding="utf-8") as handle:
+                    handle.write(configured)
+                announced = preparation.discovery()["instanceId"]
+                self.assertEqual(announced, pinned if "chosen" not in configured else "chosen-by-hand")
+                self.assertEqual(install.instance_id(), announced)
+                shown = screen.snapshot(screen.Tracker(), 0.0)
+                self.assertEqual(shown["link"], f"{LINK}?box={announced}&ip=192.168.1.42")
 
 
 class FramebufferTests(unittest.TestCase):

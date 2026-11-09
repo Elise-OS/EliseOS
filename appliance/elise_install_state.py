@@ -1,4 +1,5 @@
 """First boot progress shared by the preparation page and the TV installation screen."""
+import ipaddress
 import json
 import os
 import re
@@ -6,6 +7,8 @@ import socket
 import subprocess
 import threading
 import time
+import urllib.parse
+import uuid
 
 STATUS = os.environ.get("ELISE_PREPARATION_STATUS", "/run/elise-preparation/status.json")
 CONFIG_FILE = os.environ.get("ELISE_CONFIG_FILE", "/etc/elise/elise.env")
@@ -14,6 +17,11 @@ STATE_DIR = os.environ.get("ELISE_STATE_DIR", "/var/lib/elise")
 FIRSTBOOT_MARKER = os.path.join(STATE_DIR, ".firstboot-complete")
 SCREEN_MARKER = os.path.join(STATE_DIR, ".screen-setup-complete")
 PREPARATION_PORT = int(os.environ.get("ELISE_PREPARATION_PORT", "80"))
+MACHINE_ID = os.environ.get("ELISE_MACHINE_ID_FILE", "/etc/machine-id")
+# Opens the Élise app on this box's preparation (universal link / app link); without the app,
+# the page offers the stores or to continue on http://<ip>. The app and the site read box, ip, lang.
+SETUP_LINK = "https://eliseos.paulbreton.dev/setup/"
+HOME_NETWORKS = tuple(ipaddress.ip_network(net) for net in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
 
 # Each step is recognised from the messages written by elise-firstboot.sh and install-elise.sh.
 STEPS = [
@@ -79,6 +87,43 @@ def local_address() -> str:
 
 def web_url(host: str, port: int) -> str:
     return f"http://{host}" if port == 80 else f"http://{host}:{port}"
+
+
+def instance_id() -> str:
+    """The identity /api/v1/discovery announces, and the TV's QR code with it.
+
+    elise-firstboot.sh pins the same value in elise.env before anything else, so the final API
+    keeps the identity the app saw during the preparation."""
+    configured = read_env("ELISE_INSTANCE_ID")
+    if configured:
+        return configured
+    try:
+        with open(MACHINE_ID, encoding="utf-8") as machine_id:
+            machine = machine_id.read().strip()
+    except OSError:
+        machine = socket.gethostname()
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"elise-os:{machine}"))
+
+
+def home_network(address: str | None) -> bool:
+    """An RFC 1918 IPv4 address: the only kind worth handing to a phone on the same Wi-Fi."""
+    try:
+        ip = ipaddress.ip_address(address or "")
+    except ValueError:
+        return False
+    return ip.version == 4 and any(ip in network for network in HOME_NETWORKS)
+
+
+def setup_link(box: str | None, ip: str | None, lang: str | None = None, port: int = 80) -> str | None:
+    """What the TV's QR code opens: the Élise app on this box (`lang` the TV's language, left
+    out while languages take turns), else the box's own page when nothing says which box or where.
+    The instance id is public already (discovery answers it on the home network): no secret here."""
+    if not ip:
+        return None
+    if box and len(box) <= 64 and port == 80 and home_network(ip):
+        query = {"box": box, "ip": ip, **({"lang": lang} if lang else {})}
+        return f"{SETUP_LINK}?{urllib.parse.urlencode(query)}"
+    return web_url(ip, port)
 
 
 def tailscale() -> dict:

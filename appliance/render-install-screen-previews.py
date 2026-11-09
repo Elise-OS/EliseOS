@@ -20,7 +20,9 @@ spec = importlib.util.spec_from_file_location("install_screen", here / "elise-in
 screen = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(screen)
 
-COMMON = {"host": "elise.local", "ip": "192.168.1.42", "version": "v0.1.22"}
+# A box's instance id as /api/v1/discovery would announce it (uuid5 of a machine-id).
+COMMON = {"host": "elise.local", "ip": "192.168.1.42", "version": "v0.1.22",
+          "box": "6f1c2a4e-8b3d-5e7f-9a0b-1c2d3e4f5a6b"}
 PREVIEWS = {
     "1-accueil": dict(kind="welcome", step=0, percent=2, minutes=1),
     "2-accueil-tailscale": dict(kind="welcome", step=0, percent=2, minutes=1, remote="100.101.42.7"),

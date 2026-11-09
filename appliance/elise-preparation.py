@@ -3,16 +3,14 @@ import ipaddress
 import json
 import os
 import re
-import socket
 import subprocess
 import urllib.error
 import urllib.request
-import uuid
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import elise_language
-from elise_install_state import STATUS, hostname, read_env, read_status as install_status, version
+from elise_install_state import STATUS, hostname, instance_id, read_env, read_status as install_status, version
 from elise_install_texts import TEXT, page_texts
 
 AUTH_FILE = os.environ.get("ELISE_GITHUB_AUTH_FILE", "/etc/elise/github-auth")
@@ -185,18 +183,6 @@ $('auth').onsubmit=async ev=>{
 </script>
 </body>
 </html>"""
-
-
-def instance_id() -> str:
-    # elise-firstboot.sh pins the id so the final API keeps the identity the app saw here.
-    configured = read_env("ELISE_INSTANCE_ID")
-    if configured:
-        return configured
-    try:
-        machine = open("/etc/machine-id", encoding="utf-8").read().strip()
-    except OSError:
-        machine = socket.gethostname()
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"elise-os:{machine}"))
 
 
 def read_status() -> dict:

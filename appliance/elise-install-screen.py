@@ -120,6 +120,8 @@ def snapshot(tracker: Tracker, started: float) -> dict:
     if firstboot_done:
         port = int(install.read_env("ELISE_HTTP_PORT") or 80)
     return model(
+        # The id /api/v1/discovery announces: the QR code opens the app on this very box.
+        box=install.instance_id(),
         kind=choose_screen(view, screen_enabled, remote["running"]),
         # None while nothing tells the family's language: the screen takes turns.
         lang=elise_language.current()["language"],
@@ -137,12 +139,14 @@ def snapshot(tracker: Tracker, started: float) -> dict:
 
 
 def model(kind, lang="fr", step=0, percent=0, images=None, problem=None, host="elise.local",
-          ip=None, remote=None, port=80, minutes=0, version="dev") -> dict:
+          ip=None, remote=None, port=80, minutes=0, version="dev", box=None) -> dict:
     """Everything a screen shows; two equal models draw the same picture."""
     return {
         "kind": kind, "lang": lang, "step": step, "percent": max(0, min(100, int(percent))),
         "images": tuple(images) if images else None, "problem": problem, "host": host, "ip": ip,
         "remote": remote, "url": install.web_url(ip, port) if ip else None,
+        # Without a language (they take turns), the link leaves it out and stays the same.
+        "link": install.setup_link(box, ip, lang, port),
         "home": install.web_url(host, port), "minutes": minutes, "version": version,
     }
 
@@ -475,19 +479,56 @@ def eyebrow(paint: Painter, y, label, accent, icon=None):
     paint.text(x, y, label, "bold", 24, accent, anchor="lm", tracking=3.5, width=960)
 
 
-def qr_card(paint: Painter, m: dict, t: dict, url: str | None, title: str, accent):
-    left, top, right, bottom = 1240, 232, 1800, 912
-    paint.rounded((left, top, right, bottom), 40, CREAM)
+QR_CARD = (1240, 232, 1800, 912)
+# The setup link (about a hundred characters) is a version 6 code at level M: 41 modules, drawn
+# 10 pixels each at 1080p, 7 at 720p, with at least 4 modules of cream around them.
+QR_BOX = (1300, 272, 1740, 712)
+
+
+def caption(paint: Painter, text, kind, size, width, max_lines=2, minimum=22) -> tuple[list[str], float]:
+    """Centred lines of similar length (never a lone word under a long line), and their size."""
+    lines = paint.wrap(text, kind, size, width)
+    while len(lines) > max_lines and size > minimum:
+        size -= 1
+        lines = paint.wrap(text, kind, size, width)
+    if len(lines) == 2:
+        words = " ".join(lines).split(" ")
+        splits = [(" ".join(words[:i]), " ".join(words[i:])) for i in range(1, len(words))]
+        fitting = [pair for pair in splits if max(paint.measure(line, kind, size) for line in pair) <= width]
+        if fitting:
+            lines = list(min(fitting, key=lambda pair: max(paint.measure(line, kind, size) for line in pair)))
+    return lines[:max_lines], size
+
+
+def centred(paint: Painter, x, top, bottom, lines, kind, size, color, width, leading=1.25):
+    """`lines` centred on `x`, their capitals centred between `top` and `bottom`."""
+    if not lines:
+        return
+    ascent, _, above = paint.metrics(kind, size)
+    block = (len(lines) - 1) * size * leading + ascent - above
+    y = top + (bottom - top - block) / 2 - above
+    for index, line in enumerate(lines):
+        paint.text(x, y + index * size * leading, line, kind, size, color, anchor="ma", width=width)
+
+
+def qr_card(paint: Painter, m: dict, t: dict):
+    left, top, right, bottom = QR_CARD
+    paint.rounded(QR_CARD, 40, CREAM)
     center = (left + right) / 2
-    if paint.qr(center - 200, top + 76, 400, url):
-        caption_top = top + 530
-    else:
-        caption_top = top + 260
-        paint.text(center, top + 180, (url or m["home"]).removeprefix("http://"), "bold", 52, NAVY, anchor="mm", width=460)
-    paint.text(center, caption_top, title, "bold", 32, NAVY, anchor="ma", width=470)
-    lines = paint.wrap(t["scan"], "sans", 26, 450)
-    for index, line in enumerate(lines[:2]):
-        paint.text(center, caption_top + 48 + index * 34, line, "sans", 26, BLUE, anchor="ma", width=470)
+    address = m["url"] or m["home"]
+    if paint.qr(QR_BOX[0], QR_BOX[1], QR_BOX[2] - QR_BOX[0], m["link"]):
+        # For whoever cannot scan, the address to type; it keeps its place in every language.
+        paint.text(center, bottom - 46, address, "bold", 30, BLUE, anchor="ms", width=480)
+        ascent, _, above = paint.metrics("bold", 30)
+        lines, size = caption(paint, t["scan"], "bold", 30, 470)
+        centred(paint, center, QR_BOX[3], bottom - 46 - (ascent - above), lines, "bold", size, NAVY, 480)
+        return
+    lines, size = caption(paint, t["open_address"], "sans", 30, 460)
+    centred(paint, center, top + 150, top + 270, lines, "sans", size, BLUE, 470)
+    paint.text(center, top + 340, address, "bold", 52, NAVY, anchor="mm", width=460)
+    if not m["ip"]:
+        lines, size = caption(paint, t["no_network"], "sans", 26, 460)
+        centred(paint, center, top + 390, top + 450, lines, "sans", size, DIM, 470)
 
 
 def address_rows(paint: Painter, m: dict, t: dict, x, baseline, width):
@@ -566,7 +607,7 @@ def draw_welcome(paint, m, t):
     paint.text(164, top + 108, t["continue_body"], "sans", 28, MUTED, anchor="ls", width=950)
     paint.text(164, top + 172, m["home"], "bold", 50, SKY, anchor="ls", width=950)
     address_rows(paint, m, t, 164, top + 222, 950)
-    qr_card(paint, m, t, m["url"], t["follow"], SKY)
+    qr_card(paint, m, t)
     where = t["step_of"].format(n=m["step"] + 1, total=len(STEP_IDS))
     footer(paint, m, t, left=f"{where}  ·  {t['steps'][STEP_IDS[m['step']]]}" if where else "")
 
@@ -596,7 +637,7 @@ def draw_action(paint, m, t):
     paint.rounded((120, top, 1160, 852), 28, AMBER, alpha=0.12)
     paint.paragraph(160, paint.under(top, 32, "bold", 30), t["action_note"], "bold", 30, CREAM, 960, max_lines=2, minimum=22)
     paint.text(120, 904, t["paused"].format(n=m["step"] + 1, total=len(STEP_IDS)), "sans", 26, DIM, anchor="ls", width=1040)
-    qr_card(paint, m, t, m["url"], t["action_scan"], AMBER)
+    qr_card(paint, m, t)
     footer(paint, m, t)
 
 
@@ -667,7 +708,7 @@ def draw_done(paint, m, t):
             paint.paragraph(238, y + 4, item(t["pair_steps"], number - 1), "sans", 32,
                             CREAM if number == 2 else MUTED, 880, max_lines=2, minimum=24)
             y = max(y + 100, reach + 32)
-    qr_card(paint, m, t, m["url"], t["open"], GREEN)
+    qr_card(paint, m, t)
     footer(paint, m, t)
 
 

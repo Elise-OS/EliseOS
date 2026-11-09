@@ -27,10 +27,10 @@ TEXT = {
         "remote": "Accès à distance",
         "remote_later": "à configurer depuis l’application",
         "remote_value": "Accès à distance : {value}",
-        "follow": "Suivre sur votre téléphone",
         "no_network": "en attente du réseau",
         "version": "Version {version}",
-        "scan": "Avec l’appareil photo du téléphone",
+        "scan": "Scannez avec l’appareil photo de votre téléphone",
+        "open_address": "Ouvrez cette adresse dans un navigateur",
         "welcome_eyebrow": "PREMIÈRE INSTALLATION",
         "welcome_title": "Élise OS est en cours d’installation",
         "welcome_lead": "Tout se fait automatiquement. Laissez le boîtier allumé et relié à Internet.",
@@ -43,7 +43,6 @@ TEXT = {
         "action_body": "Pour télécharger ses composants, Élise a besoin du compte bot GitHub. "
         "Indiquez-le dans l’application Élise ou sur la page de préparation.",
         "action_note": "Rien à saisir sur la télévision. L’installation reprendra toute seule.",
-        "action_scan": "Scannez pour continuer",
         "paused": "Installation en pause · étape {n} sur {total}",
         "problem_eyebrow": "INSTALLATION EN PAUSE",
         "problem_network": "Élise n’arrive pas à joindre Internet",
@@ -73,7 +72,6 @@ TEXT = {
         "installing_title": "L’écran du salon se prépare",
         "installing_body": "L’accès privé est actif. Élise installe l’affichage de la télévision : "
         "cela peut prendre une vingtaine de minutes. Cet écran sera remplacé automatiquement.",
-        "open": "Ouvrir Élise",
     },
     "en": {
         "elapsed": "Started {duration} ago",
@@ -96,10 +94,10 @@ TEXT = {
         "remote": "Remote access",
         "remote_later": "to set up from the app",
         "remote_value": "Remote access: {value}",
-        "follow": "Follow on your phone",
         "no_network": "waiting for the network",
         "version": "Version {version}",
-        "scan": "With your phone’s camera",
+        "scan": "Scan with your phone’s camera",
+        "open_address": "Open this address in a browser",
         "welcome_eyebrow": "FIRST INSTALLATION",
         "welcome_title": "Élise OS is being installed",
         "welcome_lead": "Everything happens automatically. Keep the box switched on and connected to the Internet.",
@@ -112,7 +110,6 @@ TEXT = {
         "action_body": "To download its components, Élise needs the GitHub bot account. "
         "Enter it in the Élise app or on the preparation page.",
         "action_note": "Nothing to type on the TV. The installation will resume by itself.",
-        "action_scan": "Scan to continue",
         "paused": "Installation paused · step {n} of {total}",
         "problem_eyebrow": "INSTALLATION PAUSED",
         "problem_network": "Élise cannot reach the Internet",
@@ -142,7 +139,6 @@ TEXT = {
         "installing_title": "Preparing the living room screen",
         "installing_body": "Private access is on. Élise is installing the TV display, which can take about "
         "twenty minutes. This screen will be replaced automatically.",
-        "open": "Open Élise",
     },
     "es": {
         "elapsed": "Iniciada hace {duration}",
@@ -165,10 +161,10 @@ TEXT = {
         "remote": "Acceso remoto",
         "remote_later": "se configura desde la aplicación",
         "remote_value": "Acceso remoto: {value}",
-        "follow": "Siga en su teléfono",
         "no_network": "esperando la red",
         "version": "Versión {version}",
-        "scan": "Con la cámara del teléfono",
+        "scan": "Escanee con la cámara de su teléfono",
+        "open_address": "Abra esta dirección en un navegador",
         "welcome_eyebrow": "PRIMERA INSTALACIÓN",
         "welcome_title": "Élise OS se está instalando",
         "welcome_lead": "Todo se hace automáticamente. Deje el equipo encendido y conectado a Internet.",
@@ -181,7 +177,6 @@ TEXT = {
         "action_body": "Para descargar sus componentes, Élise necesita la cuenta bot de GitHub. "
         "Indíquela en la aplicación Élise o en la página de preparación.",
         "action_note": "No hay nada que escribir en el televisor. La instalación continuará sola.",
-        "action_scan": "Escanee para continuar",
         "paused": "Instalación en pausa · paso {n} de {total}",
         "problem_eyebrow": "INSTALACIÓN EN PAUSA",
         "problem_network": "Élise no consigue conectarse a Internet",
@@ -211,7 +206,6 @@ TEXT = {
         "installing_title": "Preparando la pantalla del salón",
         "installing_body": "El acceso privado está activo. Élise instala la pantalla del televisor: "
         "puede tardar unos veinte minutos. Esta pantalla se sustituirá automáticamente.",
-        "open": "Abrir Élise",
     },
     "it": {
         "elapsed": "Avviata {duration} fa",
@@ -235,10 +229,10 @@ TEXT = {
         "remote": "Accesso remoto",
         "remote_later": "da configurare dall’app",
         "remote_value": "Accesso remoto: {value}",
-        "follow": "Segua dal telefono",
         "no_network": "in attesa della rete",
         "version": "Versione {version}",
-        "scan": "Con la fotocamera del telefono",
+        "scan": "Inquadri il codice con la fotocamera del telefono",
+        "open_address": "Apra questo indirizzo in un browser",
         "welcome_eyebrow": "PRIMA INSTALLAZIONE",
         "welcome_title": "Élise OS è in fase di installazione",
         "welcome_lead": "Tutto avviene automaticamente. Lasci il dispositivo acceso e collegato a Internet.",
@@ -251,7 +245,6 @@ TEXT = {
         "action_body": "Per scaricare i suoi componenti, Élise ha bisogno dell’account bot GitHub. "
         "Lo indichi nell’app Élise o nella pagina di preparazione.",
         "action_note": "Non c’è nulla da digitare sul televisore. L’installazione riprenderà da sola.",
-        "action_scan": "Inquadri per continuare",
         "paused": "Installazione in pausa · passaggio {n} di {total}",
         "problem_eyebrow": "INSTALLAZIONE IN PAUSA",
         "problem_network": "Élise non riesce a raggiungere Internet",
@@ -281,7 +274,6 @@ TEXT = {
         "installing_title": "Lo schermo del soggiorno si sta preparando",
         "installing_body": "L’accesso privato è attivo. Élise installa la visualizzazione sul televisore: "
         "può richiedere una ventina di minuti. Questa schermata verrà sostituita automaticamente.",
-        "open": "Aprire Élise",
     },
 }
 
