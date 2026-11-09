@@ -8,6 +8,7 @@ on:
     # Trigger it manually (workflow_dispatch) for anything else, such as a shared contracts change.
     paths:
       - 'apps/mobile/**'
+      - '.github/workflows/mobile-android-build.yml'
   workflow_dispatch:
 
 permissions:
@@ -117,7 +118,26 @@ jobs:
             echo "::error::Missing repository secret ANDROID_UPLOAD_KEY_PASSWORD"
             exit 1
           fi
-          ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease
+          # Gradle fetches the Kotlin compiler through Maven Central redirects to GitHub release
+          # downloads, which sometimes answer 504 for a while: retry with more patience instead
+          # of failing the whole signed build. Files already downloaded stay in the Gradle cache.
+          gradle_flags=(
+            --no-daemon
+            -Dorg.gradle.internal.http.connectionTimeout=60000
+            -Dorg.gradle.internal.http.socketTimeout=120000
+            -Dorg.gradle.internal.repository.max.tentatives=6
+            -Dorg.gradle.internal.repository.initial.backoff=2000
+          )
+          for attempt in 1 2 3; do
+            if ./gradlew "${gradle_flags[@]}" :app:assembleRelease :app:bundleRelease; then
+              exit 0
+            fi
+            if [[ "$attempt" -lt 3 ]]; then
+              echo "::warning::Gradle build attempt $attempt failed; retrying in $((attempt * 90)) s."
+              sleep $((attempt * 90))
+            fi
+          done
+          exit 1
 
       # Google Play publishing must not depend on the Actions artifact storage quota.
       - name: Upload signed Android builds
@@ -146,6 +166,11 @@ jobs:
           mkdir -p "$release_dir"
           cp "$outputs/apk/release/app-release.apk" "$release_dir/elise-companion-${VERSION_NAME}-${VERSION_CODE}.apk"
           cp "$outputs/bundle/release/app-release.aab" "$release_dir/elise-companion-${VERSION_NAME}-${VERSION_CODE}.aab"
+          # A re-run keeps the same run number, hence the same tag: refresh its files instead.
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" "$release_dir"/* --repo "$GITHUB_REPOSITORY" --clobber
+            exit 0
+          fi
           gh release create "$tag" "$release_dir"/* \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
