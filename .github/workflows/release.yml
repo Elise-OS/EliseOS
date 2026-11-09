@@ -163,8 +163,52 @@ jobs:
         run: .github/scripts/install-cosign.sh
       - run: cosign sign --yes "ghcr.io/elise-os/eliseos-${{ matrix.name }}@${{ steps.build.outputs.digest }}"
 
+  minipc_installer:
+    needs: [version, sync_version, validate]
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_version.outputs.sha }}
+          submodules: false
+      - name: Install ISO builder dependencies
+        run: sudo apt-get update && sudo apt-get install -y curl gpgv rsync ubuntu-keyring xorriso
+      - name: Build AMD64 mini PC USB installer
+        env:
+          ELISE_BUILD_WORKDIR: ${{ runner.temp }}/elise-minipc
+          UBUNTU_ISO_CACHE: ${{ runner.temp }}/elise-minipc/ubuntu-24.04.5-live-server-amd64.iso
+        run: |
+          mkdir -p dist "$ELISE_BUILD_WORKDIR"
+          appliance/build-minipc-installer.sh \
+            "$RELEASE_VERSION" \
+            "dist/elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso"
+          (cd dist && sha256sum "elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso" \
+            > "elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso.sha256")
+      - name: Sign and verify AMD64 mini PC installer
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          .github/scripts/install-cosign.sh
+          file="dist/elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso"
+          cosign sign-blob --yes --bundle "$file.sigstore.json" "$file"
+          (cd dist && sha256sum -c "elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso.sha256")
+          cosign verify-blob "$file" --bundle "$file.sigstore.json" \
+            --certificate-identity-regexp "^https://github.com/${REPOSITORY}/.github/workflows/release.yml@refs/heads/main$" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: minipc-amd64-installer
+          path: |
+            dist/elise-os-${{ env.RELEASE_VERSION }}-minipc-amd64-installer.iso
+            dist/elise-os-${{ env.RELEASE_VERSION }}-minipc-amd64-installer.iso.sha256
+            dist/elise-os-${{ env.RELEASE_VERSION }}-minipc-amd64-installer.iso.sigstore.json
+          compression-level: 0
+          retention-days: 1
+
   artifacts:
-    needs: [version, sync_version, containers]
+    needs: [version, sync_version, containers, minipc_installer]
     runs-on: ubuntu-24.04
     env:
       RELEASE_VERSION: ${{ needs.version.outputs.version }}
@@ -229,12 +273,17 @@ jobs:
           for file in dist/*.tar.gz dist/*.img.xz dist/release-manifest.json dist/install-elise.sh dist/os_list.json; do
             cosign sign-blob --yes --bundle "$file.sigstore.json" "$file"
           done
+      - name: Download AMD64 mini PC installer
+        uses: actions/download-artifact@v4
+        with:
+          name: minipc-amd64-installer
+          path: dist
       - name: Verify release files
         env:
           REPOSITORY: ${{ github.repository }}
         run: |
-          (cd dist && sha256sum -c "elise-runtime-${RELEASE_VERSION}.tar.gz.sha256" && sha256sum -c release-manifest.json.sha256)
-          for file in dist/*.tar.gz dist/*.img.xz dist/release-manifest.json dist/install-elise.sh dist/os_list.json; do
+          (cd dist && sha256sum -c "elise-runtime-${RELEASE_VERSION}.tar.gz.sha256" && sha256sum -c release-manifest.json.sha256 && sha256sum -c "elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso.sha256")
+          for file in dist/*.tar.gz dist/*.img.xz dist/*.iso dist/release-manifest.json dist/install-elise.sh dist/os_list.json; do
             cosign verify-blob "$file" --bundle "$file.sigstore.json" \
               --certificate-identity-regexp "^https://github.com/${REPOSITORY}/.github/workflows/release.yml@refs/heads/main$" \
               --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null

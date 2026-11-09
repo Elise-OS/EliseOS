@@ -1,0 +1,42 @@
+#cloud-config
+autoinstall:
+  version: 1
+  refresh-installer:
+    update: false
+  locale: fr_FR.UTF-8
+  keyboard:
+    layout: fr
+    variant: ""
+  timezone: Europe/Paris
+  identity:
+    hostname: elise
+    username: elise
+    realname: Élise OS
+    password: "!"
+  ssh:
+    install-server: false
+    authorized-keys: []
+    allow-pw: false
+  network:
+    version: 2
+    ethernets:
+      all-ethernet:
+        match:
+          name: "en*"
+        dhcp4: true
+        optional: true
+  storage:
+    layout:
+      name: direct
+      match:
+        path: __ELISE_TARGET_DISK__
+  early-commands:
+    - python3 /cdrom/nocloud/select-target.py
+  late-commands:
+    - bash /cdrom/nocloud/install-target.sh /target
+  updates: security
+  shutdown: reboot
+  error-commands:
+    - >-
+      sh -c 'echo "ELISE_INSTALLER: ERROR — installation stopped; no automatic retry" |
+      tee /dev/console /dev/ttyS0 >/dev/null 2>&1 || true'

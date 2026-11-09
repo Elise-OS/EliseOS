@@ -1,0 +1,17 @@
+[Unit]
+Description=Élise OS mini PC first boot installation
+ConditionPathExists=!/var/lib/elise/.firstboot-complete
+After=network-online.target elise-preparation.service
+Wants=network-online.target elise-preparation.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/elise/elise-minipc-firstboot.sh
+Restart=on-failure
+RestartSec=60
+TimeoutStartSec=infinity
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target

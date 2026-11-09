@@ -4,6 +4,8 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 bash -n "$root/install/install-elise.sh" "$root/install/elise" \
   "$root/appliance/elise-firstboot.sh" "$root/appliance/build-raspberry-image.sh" \
+  "$root/appliance/elise-minipc-firstboot.sh" "$root/appliance/build-minipc-installer.sh" \
+  "$root/appliance/minipc-installer/install-target.sh" \
   "$root/appliance/elise-tailscale-firewall.sh" "$root/appliance/elise-screen-setup.sh" \
   "$root/scripts/install-complete.sh" "$root/scripts/install-screen.sh" \
   "$root/scripts/install-jitsi.sh" "$root/appliance/elise-screen-session.sh" \
@@ -18,6 +20,7 @@ python3 "$root/appliance/test_update_agent.py"
 python3 "$root/appliance/test_zigbee_agent.py"
 python3 "$root/appliance/test_screen_agent.py"
 python3 "$root/appliance/test_install_screen.py"
+python3 "$root/appliance/test_minipc_installer.py"
 docker compose --env-file "$root/.env.example" -f "$root/compose.yaml" -f "$root/compose.release.yaml" config --quiet
 docker compose --env-file "$root/.env.example" -f "$root/compose.yaml" -f "$root/compose.release.yaml" -f "$root/compose.raspberry.yaml" -f "$root/compose.raspberry.release.yaml" config --quiet
 if grep -R -nE --exclude-dir=node_modules --exclude-dir=dist \
@@ -98,6 +101,16 @@ grep -q -- 'disable --now elise-install-screen.service' "$root/scripts/install-s
 grep -q -- '-L "$ELISE_ROOT/current"' "$root/install/install-elise.sh"
 # GitHub honours only the first Accept header; assets need octet-stream alone.
 grep -q -- 'GITHUB_ACCEPT=application/octet-stream' "$root/install/install-elise.sh"
+# The mini-PC installer must retain Ubuntu's boot images and gate every destructive install.
+grep -q -- 'gpgv --keyring' "$root/appliance/build-minipc-installer.sh"
+grep -q -- '-boot_image any replay' "$root/appliance/build-minipc-installer.sh"
+grep -q -- '-volume_date uuid' "$root/appliance/build-minipc-installer.sh"
+grep -q -- 'ds=nocloud' "$root/appliance/build-minipc-installer.sh"
+grep -q -- 'MINIMUM_BYTES = 32_000_000_000' "$root/appliance/minipc-installer/select-target.py"
+grep -q -- 'transport.*usb\|tran.*usb' "$root/appliance/minipc-installer/select-target.py"
+grep -q -- 'allow-pw: false' "$root/appliance/minipc-installer/user-data"
+grep -q -- 'password: "!"' "$root/appliance/minipc-installer/user-data"
+grep -q -- 'install-elise.sha256' "$root/appliance/elise-minipc-firstboot.sh"
 grep -q -- '/api/v1/auth/bootstrap' "$root/docker/dashboard/Caddyfile"
 grep -q -- '/api/docs\*' "$root/docker/dashboard/Caddyfile"
 if grep -Eq -- '/api/v1/(equipment|sensor-devices)/' "$root/docker/dashboard/Caddyfile"; then

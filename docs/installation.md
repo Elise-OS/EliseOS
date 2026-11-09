@@ -17,6 +17,20 @@ Branchez la clé Zigbee quand vous voulez, avant ou après l’installation. Él
 
 Une coupure d’Internet n’empêche pas le Raspberry Pi de démarrer. La page locale indique le problème et l’installation reprend automatiquement quand Internet revient.
 
+## Mini PC AMD64 : clé USB d’installation
+
+Cette méthode installe Ubuntu Server 24.04 et Élise OS sans commande. Elle nécessite un mini PC AMD64, un disque interne d’au moins 32 Go et une connexion Ethernet avec DHCP. Le Wi-Fi n’est pas pris en charge par cette première version.
+
+> **Attention : le plus grand disque interne du mini PC sera entièrement effacé.** Débranchez tout autre disque interne que vous souhaitez conserver.
+
+1. Téléchargez `elise-os-<version>-minipc-amd64-installer.iso` depuis la dernière release GitHub.
+2. Écrivez l’ISO sur une clé USB avec Raspberry Pi Imager (« Utiliser une image personnalisée ») ou balenaEtcher.
+3. Branchez l’Ethernet et un écran, puis démarrez le mini PC sur la clé USB.
+4. Avant tout effacement, l’écran indique le modèle et la taille du disque choisi. Vous avez 30 secondes pour retirer la clé ou appuyer sur une touche et annuler. Sans action, l’installation démarre automatiquement.
+5. Quand le mini PC redémarre, retirez la clé USB. L’écran TV affiche la préparation, le QR code et enfin « Élise est prête », comme sur Raspberry Pi.
+
+Le programme refuse de continuer si aucun disque interne admissible d’au moins 32 Go n’est présent. Il exclut toujours la clé d’installation, les supports amovibles et les disques USB ; s’il reste plusieurs disques internes, il choisit le plus grand et l’affiche avant le compte à rebours.
+
 ## Ubuntu Server 24.04
 
 Sur un serveur AMD64 ou ARM64 avec 8 Go de mémoire conseillés (4 Go au minimum) et 32 Go de stockage :
