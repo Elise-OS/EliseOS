@@ -61,6 +61,25 @@ if grep -Eq '^(After|Wants|Requires)=.*cloud-final' "$root/appliance/systemd/eli
 fi
 grep -q -- '^Type=simple$' "$root/appliance/systemd/elise-firstboot.service"
 grep -q -- 'stub-resolv.conf' "$root/appliance/build-raspberry-image.sh"
+# A stock image must have no known or expired password. Imager replaces
+# user-data and merges its singular `user:` entry over the locked default.
+grep -q -- '^ssh_pwauth: false$' "$root/appliance/user-data"
+grep -A1 -q -- '^chpasswd:$' "$root/appliance/user-data"
+grep -q -- '^    lock_passwd: true$' "$root/appliance/cloud-init.cfg"
+if grep -Eq -- '(^|[[:space:]])(password|passwd):[[:space:]]*ubuntu([[:space:]]|$)' \
+  "$root/appliance/user-data" "$root/appliance/cloud-init.cfg"; then
+  echo "The Raspberry Pi image must not contain the ubuntu/ubuntu password." >&2
+  exit 1
+fi
+grep -qF -- 'install -m 0644 "$ROOT_DIR/appliance/user-data" "$work_dir/root/boot/firmware/user-data"' \
+  "$root/appliance/build-raspberry-image.sh"
+# Package installation gets temporary room, then the distributed image keeps a
+# measured 700 MiB available margin until cloud-init growpart/resize_rootfs runs.
+grep -q -- 'ELISE_IMAGE_FINAL_FREE_MIB:-700' "$root/appliance/build-raspberry-image.sh"
+grep -q -- 'resize2fs -M' "$root/appliance/build-raspberry-image.sh"
+grep -q -- 'zerofree' "$root/appliance/build-raspberry-image.sh"
+grep -q -- '^growpart:$' "$root/appliance/cloud-init.cfg"
+grep -q -- '^resize_rootfs: true$' "$root/appliance/cloud-init.cfg"
 # The TV installation screen: in the image from the first boot, never in the resident screen's way.
 grep -q -- 'python3-pil python3-qrcode' "$root/appliance/build-raspberry-image.sh"
 grep -q -- 'python3-pil python3-qrcode fonts-dejavu-core' "$root/install/install-elise.sh"

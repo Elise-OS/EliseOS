@@ -82,6 +82,12 @@ class StatusTests(unittest.TestCase):
             self.assertIn(key, status)
         self.assertEqual([step["id"] for step in status["steps"]], screen.STEP_IDS)
 
+    def test_started_at_rebases_when_ntp_moves_the_wall_clock(self):
+        before_sync = preparation.started_at(wall_seconds=1_000, boot_seconds=100)
+        after_sync = preparation.started_at(wall_seconds=1_000 + 4 * 3600 + 60, boot_seconds=160)
+        self.assertEqual(before_sync, "1970-01-01T00:15:00Z")
+        self.assertEqual(after_sync, "1970-01-01T04:15:00Z")
+
     def test_first_screen_is_the_welcome_even_without_status(self):
         self.assertEqual(self.follow(None)["kind"], "welcome")
         self.assertEqual(self.follow("Application des réglages du Raspberry Pi…")["kind"], "welcome")

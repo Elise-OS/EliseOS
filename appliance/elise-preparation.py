@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -21,8 +22,6 @@ REPOSITORY = os.environ.get("ELISE_REPOSITORY", "Elise-OS/EliseOS")
 GITHUB_API = os.environ.get("ELISE_GITHUB_API", "https://api.github.com").rstrip("/")
 USERNAME = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})")
 TOKEN = re.compile(r"[A-Za-z0-9_]{20,255}")
-STARTED_AT = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
 HTML = r"""<!doctype html>
 <html lang="fr">
 <head>
@@ -187,11 +186,18 @@ $('auth').onsubmit=async ev=>{
 </html>"""
 
 
+def started_at(wall_seconds: float | None = None, boot_seconds: float | None = None) -> str:
+    """Express boot time on the current wall clock, so an NTP jump corrects it."""
+    wall_seconds = time.time() if wall_seconds is None else wall_seconds
+    boot_seconds = time.clock_gettime(time.CLOCK_BOOTTIME) if boot_seconds is None else boot_seconds
+    return datetime.fromtimestamp(wall_seconds - boot_seconds, timezone.utc).isoformat().replace("+00:00", "Z")
+
+
 def read_status() -> dict:
     language = elise_language.current()
     return {
         **install_status(),
-        "startedAt": STARTED_AT,
+        "startedAt": started_at(),
         # None while nothing tells the family's language (the TV takes turns in every language).
         "language": language["language"],
         "languageSource": language["source"],

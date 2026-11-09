@@ -232,7 +232,7 @@ Une liste d’achat indicative est disponible dans [docs/liste-achat-domadoo.md]
 
 1. Installez [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
 2. Choisissez **Utiliser une image personnalisée** et l’image `elise-os-…img.xz` de la [dernière version](https://github.com/Elise-OS/EliseOS/releases/latest).
-3. Dans les réglages d’Imager, indiquez le nom `elise`, votre Wi-Fi, le pays et le fuseau horaire.
+3. Dans les réglages d’Imager, indiquez le nom `elise`, votre Wi-Fi, le pays et le fuseau horaire. Pour SSH, choisissez une clé publique : l’image n’a aucun mot de passe par défaut.
 4. Écrivez l’image, insérez le stockage et démarrez le Raspberry Pi.
 5. Ouvrez **http://elise.local** (ou l’app Élise sur le même Wi-Fi) : la page « Préparation d’Élise » suit l’installation puis ouvre l’assistant de création du compte administrateur.
 6. Associez Tailscale depuis l’assistant : la TV, Chromium, Jitsi et les permissions caméra/micro se configurent automatiquement.

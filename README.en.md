@@ -228,7 +228,7 @@ Details: [docs/privacy.md](docs/privacy.md). This engineering policy supports pr
 
 1. Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
 2. Choose **Use custom** and the `elise-os-…img.xz` image from the [latest release](https://github.com/Elise-OS/EliseOS/releases/latest).
-3. In Imager’s settings, set the hostname `elise`, your Wi-Fi, country and time zone.
+3. In Imager’s settings, set the hostname `elise`, your Wi-Fi, country and time zone. For SSH, choose public-key authentication: the image has no default password.
 4. Write the image, insert the storage and boot the Pi.
 5. Open **http://elise.local** (or the Élise app on the same Wi-Fi): the “Preparing Élise” page tracks the setup, then opens the assistant that creates the administrator account.
 6. Pair Tailscale from the assistant: the TV, Chromium, Jitsi and camera/microphone permissions are configured automatically.

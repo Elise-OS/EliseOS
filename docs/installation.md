@@ -8,7 +8,7 @@ Prévoyez de préférence un Raspberry Pi 4 avec 8 Go de mémoire (un Pi 5 8 Go 
 
 1. Installez Raspberry Pi Imager sur votre ordinateur.
 2. Dans « Système d’exploitation », choisissez « Utiliser une image personnalisée » puis l’image `elise-os-…img.xz` de la dernière version GitHub. Le fichier `os_list.json` publié avec chaque version peut aussi servir de dépôt personnalisé.
-3. Dans les réglages d’Imager, indiquez le nom `elise`, votre Wi-Fi, le pays, le fuseau horaire et, si nécessaire, votre clé SSH.
+3. Dans les réglages d’Imager, indiquez le nom `elise`, votre Wi-Fi, le pays et le fuseau horaire. Pour l’accès SSH, choisissez l’authentification par clé publique et ajoutez votre clé : l’image ne contient aucun mot de passe par défaut.
 4. Écrivez l’image, placez le stockage dans le Raspberry Pi et démarrez-le.
 5. Ouvrez [http://elise.local](http://elise.local), ou l’app Élise sur un téléphone connecté au même Wi-Fi : le boîtier s’annonce sur le réseau dès la préparation. La page « Préparation d’Élise » suit chaque étape et le nombre de composants téléchargés, puis laisse automatiquement place à l’assistant. Une télévision branchée en HDMI affiche aussi l’installation dès le démarrage : les adresses du boîtier, un QR code vers cette page, l’étape en cours et, à la fin, comment activer l’écran du salon.
 6. Associez Tailscale depuis l’assistant. Jitsi, Chromium plein écran, la sortie HDMI/DisplayPort et les permissions caméra/micro se terminent alors automatiquement, sans seconde commande.
