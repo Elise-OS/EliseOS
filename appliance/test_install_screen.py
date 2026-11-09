@@ -17,7 +17,7 @@ import urllib.error
 import urllib.request
 from unittest.mock import patch
 
-from PIL import Image, ImageChops
+from PIL import Image
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 import elise_install_state as install  # noqa: E402
@@ -365,57 +365,103 @@ class PreparationServerTests(unittest.TestCase):
 
 
 class RotationTests(unittest.TestCase):
-    LEFT = (100, 200, 1190, 950)
+    def tearDown(self):
+        screen.Fade.steps = screen.Fade.STEPS
 
     def test_every_language_takes_turns_without_overflow(self):
         for kind, size in itertools.product(KINDS, SIZES):
-            for hero in (None, *elise_language.LANGUAGES):
-                with self.subTest(kind=kind, size=size, hero=hero):
-                    assert_inside(self, screen.render(sample(kind, None), size, hero=hero), size)
+            for lang in ("", *elise_language.LANGUAGES):
+                with self.subTest(kind=kind, size=size, lang=lang):
+                    assert_inside(self, screen.render(sample(kind, None), size, lang=lang), size)
 
-    def test_only_the_message_changes_between_languages(self):
+    def test_the_whole_screen_speaks_one_language_at_a_time(self):
+        for lang in elise_language.LANGUAGES:
+            others = [code for code in elise_language.LANGUAGES if code != lang]
+            texts = [text for text, _ in screen.render(sample("progress", None), lang=lang).boxes]
+            t = screen.TEXT[lang]
+            for words in (t["steps"]["download"], t["steps"]["start"], t["progress_eyebrow"],
+                          t["version"].format(version="v0.1.22"),
+                          t["remote_value"].format(value=t["remote_later"])):
+                self.assertIn(words, texts, lang)
+            for other in others:
+                for words in (screen.TEXT[other]["steps"]["start"], screen.TEXT[other]["reassure"]):
+                    if words not in screen.TEXT[lang].values() and words != t["steps"]["start"]:
+                        self.assertNotIn(words, texts, f"{other} words on the {lang} screen")
+
+    def test_what_has_no_words_never_moves(self):
         for kind in KINDS:
             with self.subTest(kind=kind):
                 m = sample(kind, None, remote="100.101.42.7")
-                base = screen.render(m)
-                left = base.box(self.LEFT)
-                for hero in elise_language.LANGUAGES:
-                    frame = screen.render(m, hero=hero)
-                    box = ImageChops.difference(base.image, frame.image).getbbox()
-                    self.assertIsNotNone(box, hero)
-                    self.assertTrue(left[0] <= box[0] and left[1] <= box[1] and box[2] <= left[2] and box[3] <= left[3],
-                                    f"{hero}: {box} outside the message column")
-
-    def test_fixed_parts_are_in_english(self):
-        paint = screen.render(sample("progress", None), hero="it")
-        texts = [text for text, _ in paint.boxes]
-        self.assertIn(screen.TEXT["en"]["steps"]["download"], texts)  # the list of steps
-        self.assertIn("41%", texts)
-        self.assertIn(screen.TEXT["it"]["progress_eyebrow"], texts)  # the message
-        self.assertTrue(any(text.startswith("Élise scarica") for text in texts))
+                bare = screen.render(m, lang="")
+                fixed = [box for text, box in bare.boxes]  # addresses, percentage, brand, counters
+                fixed.append(bare.box((120, 70, 204, 154)))  # logo
+                if kind == "progress":
+                    fixed.append(bare.box((120, 820, 980, 838)))  # progress bar
+                if kind not in ("progress", "problem"):
+                    fixed.append(bare.box((1320, 308, 1720, 708)))  # QR code
+                self.assertGreater(len(fixed), 3)
+                for lang in elise_language.LANGUAGES:
+                    frame = screen.render(m, lang=lang).image
+                    for box in fixed:
+                        self.assertEqual(frame.crop(box).tobytes(), bare.image.crop(box).tobytes(), f"{lang} {box}")
 
     def test_fades_through_the_bare_screen_to_the_next_language(self):
-        rotation = screen.Rotation(sample("welcome", None), (640, 360), now=0)
+        rotation = screen.Rotation(sample("progress", None), (640, 360), since=0)
         self.assertEqual(rotation.language, "fr")
-        self.assertFalse(rotation.due(2.5))
-        self.assertTrue(rotation.due(3.0))
-        self.assertGreater(screen.Rotation.DEFAULT_HOLD, screen.Rotation.HOLD["welcome"])
-        first, base = rotation.frame().image, rotation.base.image
-        split = rotation.FADE_OUT / (rotation.FADE_OUT + rotation.FADE_IN)
-        second = rotation.frame(1).image
-        self.assertEqual(rotation.between(first, base, second, 0).tobytes(), first.tobytes())
-        self.assertEqual(rotation.between(first, base, second, split).tobytes(), base.tobytes())
-        self.assertEqual(rotation.between(first, base, second, 1).tobytes(), second.tobytes())
-        shown = []
-        frame = rotation.advance(lambda image, origin: shown.append((image, origin)), sleep=lambda _: None)
+        self.assertFalse(rotation.due(4.5))
+        self.assertTrue(rotation.due(5.0))
+        self.assertEqual(screen.Rotation.HOLD["welcome"], 3.0)
+        while not rotation.prepare():
+            pass
+        first, second = rotation.frame().image, rotation.frame(1).image
+        fade = rotation.fade
+        self.assertEqual(len(fade.frames), screen.Fade.STEPS)
+        for box, a, middle, b in fade.parts:
+            self.assertEqual(fade.picture(a, middle, b, 0).tobytes(), a.tobytes())
+            self.assertEqual(fade.picture(a, middle, b, fade.OUT).tobytes(), middle.tobytes())
+            self.assertEqual(fade.picture(a, middle, b, 1).tobytes(), b.tobytes())
+        # Copying only the prepared steps: no drawing while the words fade.
+        shown, waits = first.copy(), []
+        with patch.object(screen, "render", side_effect=AssertionError("drawn during the fade")):
+            rotation.advance(lambda packed: shown.paste(*packed), sleep=waits.append)
         self.assertEqual(rotation.language, "en")
-        self.assertEqual(len(shown), round((rotation.FADE_OUT + rotation.FADE_IN) * rotation.FPS))
-        box = rotation.region(first, frame.image)
-        self.assertEqual({origin for _, origin in shown}, {box[:2]})
-        self.assertEqual(shown[-1][0].tobytes(), frame.image.crop(box).tobytes())
+        self.assertEqual(len(waits), screen.Fade.STEPS)
+        self.assertEqual(shown.tobytes(), second.tobytes())
+        area = sum((box[2] - box[0]) * (box[3] - box[1]) for box, *_ in fade.parts)
+        self.assertLess(area, 0.6 * 640 * 360)  # the fade leaves the still parts alone
         for _ in range(3):
             rotation.advance()
         self.assertEqual(rotation.language, "fr")
+
+    def test_every_step_of_a_fade_keeps_the_still_parts(self):
+        m = sample("welcome", None)
+        rotation = screen.Rotation(m, (960, 540))
+        base = rotation.base
+        first, bare = rotation.frame().image, base.image
+        fade = screen.Fade(first, rotation.frame(2).image, bare)
+        still = [box for _, box in base.boxes] + [base.box((1320, 308, 1720, 708)), base.box((120, 70, 204, 154))]
+        picture = first.copy()
+        while not fade.prepare():
+            pass
+        for frame in fade.frames:
+            for image, origin in frame:
+                picture.paste(image, origin)
+            for box in still:
+                self.assertEqual(picture.crop(box).tobytes(), first.crop(box).tobytes(), box)
+
+    def test_a_slow_board_gets_fewer_steps_rather_than_a_jerky_fade(self):
+        m = sample("progress", None)
+        first, second, bare = (screen.render(m, (640, 360), lang=lang).image for lang in ("fr", "en", ""))
+        ticks = itertools.count(step=0.4)  # 0.4 s for each step: four times a Raspberry Pi 4
+        with patch.object(screen.time, "perf_counter", side_effect=lambda: next(ticks)):
+            fade = screen.Fade(first, second, bare)
+            while not fade.prepare():
+                pass
+        self.assertEqual(screen.Fade.steps, screen.Fade.MIN_STEPS)
+        self.assertEqual(screen.Fade(first, second, bare).count, screen.Fade.MIN_STEPS)
+        waits = []
+        screen.Fade(first, second, bare).play(lambda packed: None, sleep=waits.append)
+        self.assertAlmostEqual(sum(waits), screen.Fade.DURATION, delta=0.3)
 
 
 def assert_inside(test, paint, size):
@@ -447,6 +493,41 @@ class RenderTests(unittest.TestCase):
                         overlap = min(a[2], b[2]) - max(a[0], b[0]), min(a[3], b[3]) - max(a[1], b[1])
                         self.assertFalse(overlap[0] > 1 and overlap[1] > 1, f"{first!r} overlaps {second!r}")
 
+    def test_serif_is_for_titles_only(self):
+        titles = {"welcome_title", "action_title", "problem_network", "problem_other", "done_title"}
+        for kind, lang in itertools.product(KINDS, screen.TEXT):
+            t = screen.TEXT[lang]
+            allowed = {t[key] for key in titles} | set(t["steps"].values())  # the step is the title
+            paint = screen.render(sample(kind, lang), (1920, 1080))
+            for text, typeface, _ in paint.typefaces:
+                if typeface == "serif" and not text.rstrip("%").strip().isdigit():
+                    self.assertTrue(any(text in title for title in allowed), f"{kind}/{lang}: {text!r} in serif")
+
+    def test_the_lead_keeps_its_distance_from_a_title_on_two_lines(self):
+        for size, lang in itertools.product(SIZES, screen.TEXT):
+            paint = screen.render(sample("welcome", lang), size)
+            t = screen.TEXT[lang]
+            drawn = [(text, box, typeface) for (text, box), (_, typeface, _) in zip(paint.boxes, paint.typefaces)]
+            title = [box for text, box, typeface in drawn if typeface == "serif"]
+            lead = [box for text, box, typeface in drawn if typeface == "sans" and text in t["welcome_lead"]]
+            gap = min(box[1] for box in lead) - max(box[3] for box in title)
+            # From the lowest letter of the title to the top of the lead: a third of the title's size.
+            self.assertGreaterEqual(gap, 80 * 0.3 * paint.k, (size, lang, len(title)))
+        lines = [text for text, typeface, _ in screen.render(sample("welcome", "it")).typefaces if typeface == "serif"]
+        self.assertEqual(len(lines), 2)  # the title once seen too close to its lead
+
+    def test_the_detail_of_a_problem_reads_from_the_sofa(self):
+        message = "Erreur : le téléchargement a été interrompu ; relancez la même commande. " * 3
+        for size in SIZES:
+            paint = screen.render(sample("problem", problem={"step": 4, "category": "other", "message": message}, step=4), size)
+            lines = [(text, pixels) for text, typeface, pixels in paint.typefaces
+                     if any(word in text for word in ("Erreur", "relancez", "commande", "interrompu"))]
+            self.assertTrue(lines[0][0].startswith("Détail : Erreur"))
+            self.assertEqual(len(lines), 2, lines)  # two lines at most, cut on a word
+            self.assertTrue(lines[-1][0].endswith("…") and not lines[-1][0].endswith((" …", ";…")), lines[-1][0])
+            for _, pixels in lines:
+                self.assertGreaterEqual(pixels, round(28 * paint.k))
+
     def test_screen_without_network_or_qr_library_still_renders(self):
         with patch.object(screen, "qrcode", None):
             paint = screen.render(sample("welcome", ip=None))
@@ -468,7 +549,7 @@ class RenderTests(unittest.TestCase):
     def test_qr_code_opens_the_preparation_page(self):
         for size in SIZES:
             for image in (screen.render(sample("welcome"), size).image,
-                          screen.render(sample("welcome", None), size, hero="it").image):
+                          screen.render(sample("welcome", None), size, lang="it").image):
                 self.assertEqual([code.text for code in zxingcpp.read_barcodes(image)], ["http://192.168.1.42"])
 
 

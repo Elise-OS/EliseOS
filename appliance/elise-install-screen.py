@@ -205,6 +205,7 @@ class Painter:
         self.image = background(size, accent)
         self.draw = ImageDraw.Draw(self.image)
         self.boxes: list[tuple[str, tuple[int, int, int, int]]] = []
+        self.typefaces: list[tuple[str, str, int]] = []  # text, typeface and pixel size
         self.pulse = None
 
     def x(self, value: float) -> float:
@@ -245,11 +246,21 @@ class Painter:
         left, top, right, bottom = self.draw.textbbox(position, text, font=typeface, anchor=vertical)
         right = max(right, round(left + self.measure(text, kind, size, tracking) * self.k))
         self.boxes.append((text, (left, top, right, bottom)))
+        self.typefaces.append((text, kind, typeface.size))
         return size
 
     def wrap(self, text, kind, size, width):
         lines, line = [], ""
+        words = []
         for word in text.split():
+            # French spaces before ; : ! ? never start a line with the sign.
+            if words and word in (";", ":", "!", "?", "»"):
+                words[-1] += " " + word
+            elif words and words[-1] == "«":
+                words[-1] += " " + word
+            else:
+                words.append(word)
+        for word in words:
             candidate = f"{line} {word}".strip()
             if line and self.measure(candidate, kind, size) > width:
                 lines.append(line)
@@ -258,20 +269,35 @@ class Painter:
                 line = candidate
         return lines + ([line] if line else [])
 
+    def metrics(self, kind: str, size: float) -> tuple[float, float, float]:
+        """Ascender, descender and the room above a capital, in design units."""
+        typeface = self.font(kind, size)
+        ascent, descent = typeface.getmetrics()
+        return ascent / self.k, descent / self.k, typeface.getbbox("H")[1] / self.k
+
+    def under(self, bottom: float, gap: float, kind: str, size: float) -> float:
+        """The top to give a line so its capitals start `gap` below `bottom`."""
+        return bottom + gap - self.metrics(kind, size)[2]
+
     def paragraph(self, x, y, text, kind, size, fill, width, leading=1.3, max_lines=3, minimum=20, dry=False):
-        """Wraps from the top `y`; returns the bottom of the last line (`dry` only measures)."""
+        """Wraps from the top `y`; returns the real bottom of the block, descenders included,
+        so the next block keeps the same distance whatever the language (`dry` only measures)."""
         lines = self.wrap(text, kind, size, width)
+        if not lines:
+            return y
         while (len(lines) > max_lines or any(self.measure(line, kind, size) > width for line in lines)) and size > minimum:
             size -= 2
             lines = self.wrap(text, kind, size, width)
         step = size * leading
         for index, line in enumerate([] if dry else lines[:max_lines]):
             if index == max_lines - 1 and len(lines) > max_lines:
-                while line and self.measure(line + "…", kind, size) > width:
-                    line = line[:-1]
-                line = line.rstrip() + "…"
+                # Whole words only, without a comma or a semicolon left before the ellipsis.
+                while " " in line and self.measure(line + "…", kind, size) > width:
+                    line = line.rsplit(" ", 1)[0]
+                line = line.rstrip(" ,;:.") + "…"
             self.text(x, y + index * step, line, kind, size, fill, width=width)
-        return y + (min(len(lines), max_lines) - 1) * step + size * 1.05
+        ascent, descent, _ = self.metrics(kind, size)
+        return y + (min(len(lines), max_lines) - 1) * step + ascent + descent
 
     def mask(self, box, draw_shape):
         """Anti-aliased coverage: the shape is drawn four times larger, then reduced."""
@@ -371,6 +397,39 @@ def blank(value):
 
 BLANK = blank(TEXT["fr"])
 
+# Vertical rhythm, the same on every screen and in every language: distances run from the real
+# bottom of a block (descenders included) to the capitals of the next one.
+EYEBROW_TO_TITLE = 60  # from the middle of the eyebrow
+TITLE_TO_LEAD = 0.34  # of the title's size, so a larger title breathes more
+
+
+def catalogs(m: dict, t: dict) -> list[dict]:
+    """The words a box must hold: its own, or every language's while they take turns."""
+    return [TEXT[code] for code in elise_language.LANGUAGES] if m["lang"] is None else [t]
+
+
+def item(values: list, index: int) -> str:
+    return values[index] if index < len(values) else ""
+
+
+def percent(m: dict, t: dict) -> str:
+    # While languages take turns, the number keeps one shape: a thin space reads well in all.
+    if m["lang"] is None:
+        return f"{m['percent']} %"
+    return t["percent"].format(percent=m["percent"])
+
+
+def heading(paint: Painter, y, title, lead, size, width, minimum, lead_width=None, lead_lines=2, dry=False):
+    """A serif title under the eyebrow centred on `y`, then its lead; returns the bottom."""
+    top = paint.under(y, EYEBROW_TO_TITLE, "serif", size)
+    bottom = paint.paragraph(120, top, title, "serif", size, CREAM, width, leading=1.1, max_lines=2,
+                             minimum=minimum, dry=dry)
+    if not lead:
+        return bottom
+    top = paint.under(bottom, size * TITLE_TO_LEAD, "sans", 34)
+    return paint.paragraph(120, top, lead, "sans", 34, MUTED, lead_width or width, max_lines=lead_lines,
+                           minimum=26, dry=dry)
+
 
 def header(paint: Painter, m: dict, t: dict, elapsed: bool = True):
     paint.logo(120, 70, 84)
@@ -381,11 +440,26 @@ def header(paint: Painter, m: dict, t: dict, elapsed: bool = True):
 
 def footer(paint: Painter, m: dict, t: dict, left: str | None = None):
     paint.rounded((120, 966, 1800, 968), 1, CREAM, alpha=0.14)
-    if left is None:
-        remote = t["remote_value"].format(value=m["remote"] or t["remote_later"])
-        left = "   ·   ".join([m["host"], m["ip"] or t["no_network"], remote])
-    paint.text(120, 1014, left, "sans", 28, MUTED, anchor="lm", width=1380)
     paint.text(1800, 1014, t["version"].format(version=m["version"]), "sans", 24, DIM, anchor="rm")
+    if left is not None:
+        paint.text(120, 1014, left, "sans", 28, MUTED, anchor="lm", width=1380)
+        return
+
+    def pieces(texts):
+        remote = texts["remote_value"].format(value=m["remote"] or texts["remote_later"])
+        return [m["host"], m["ip"] or texts["no_network"], remote]
+
+    # The addresses keep their place and size while the words after them change language.
+    gap, size = "   ·   ", 28
+    while size > 20 and max(paint.measure(gap.join(pieces(texts)), "sans", size) for texts in catalogs(m, t)) > 1380:
+        size -= 1
+    x = 120
+    for index, piece in enumerate(pieces(t)):
+        if index:
+            paint.text(x + paint.measure(gap, "sans", size) / 2, 1014, "·", "sans", size, MUTED, anchor="mm")
+            x += paint.measure(gap, "sans", size)
+        paint.text(x, 1014, piece, "sans", size, MUTED, anchor="lm")
+        x += paint.measure(piece, "sans", size)
 
 
 def eyebrow(paint: Painter, y, label, accent, icon=None):
@@ -416,15 +490,17 @@ def qr_card(paint: Painter, m: dict, t: dict, url: str | None, title: str, accen
         paint.text(center, caption_top + 48 + index * 34, line, "sans", 26, BLUE, anchor="ma", width=470)
 
 
-def address_rows(paint: Painter, m: dict, t: dict, x, y, width):
+def address_rows(paint: Painter, m: dict, t: dict, x, baseline, width):
+    """Labels on `baseline`, the addresses one line below; words in the interface's sans serif."""
     column = width * 0.42
-    paint.text(x, y, t["local"].upper(), "bold", 20, DIM, tracking=2, width=column - 24)
-    paint.text(x, y + 34, m["ip"] or t["no_network"], "bold", 34, CREAM, width=column - 24)
-    paint.text(x + column, y, t["remote"].upper(), "bold", 20, DIM, tracking=2, width=width - column)
+    values = baseline + 44
+    paint.text(x, baseline, t["local"].upper(), "bold", 20, DIM, anchor="ls", tracking=2, width=column - 24)
+    paint.text(x, values, m["ip"] or t["no_network"], "bold", 34, CREAM, anchor="ls", width=column - 24)
+    paint.text(x + column, baseline, t["remote"].upper(), "bold", 20, DIM, anchor="ls", tracking=2, width=width - column)
     if m["remote"]:
-        paint.text(x + column, y + 34, m["remote"], "bold", 34, CREAM, width=width - column)
+        paint.text(x + column, values, m["remote"], "bold", 34, CREAM, anchor="ls", width=width - column)
     else:
-        paint.text(x + column, y + 38, t["remote_later"], "serif", 32, MUTED, width=width - column)
+        paint.text(x + column, values, t["remote_later"], "sans", 30, MUTED, anchor="ls", width=width - column)
 
 
 def steps_card(paint: Painter, m: dict, t: dict, failed: bool):
@@ -457,7 +533,7 @@ def steps_card(paint: Painter, m: dict, t: dict, failed: bool):
         label_width = right - 52 - (left + 124) - (110 if detail else 0)
         color = {"done": CREAM, "current": CREAM, "failed": CORAL}.get(state, DIM)
         kind = "bold" if state in ("current", "failed") else "sans"
-        paint.text(left + 124, y, t["steps"][key], kind, 31, color, anchor="lm", width=label_width)
+        paint.text(left + 124, y, t["steps"].get(key, ""), kind, 31, color, anchor="lm", width=label_width)
 
 
 def progress_bar(paint: Painter, x, y, width, percent, accent):
@@ -474,108 +550,123 @@ def progress_bar(paint: Painter, x, y, width, percent, accent):
 
 def tallest(paint, m, t, key, x, y, kind, size, width, **options) -> float:
     """Bottom of a paragraph in its longest language: a box taking turns must fit them all."""
-    catalogs = [t] if m["lang"] else [TEXT[code] for code in elise_language.LANGUAGES]
-    return max(paint.paragraph(x, y, texts[key], kind, size, CREAM, width, dry=True, **options) for texts in catalogs)
+    return max(paint.paragraph(x, y, texts[key], kind, size, CREAM, width, dry=True, **options) for texts in catalogs(m, t))
 
 
-def welcome_height(paint, texts) -> float:
-    title = paint.paragraph(120, 0, texts["welcome_title"], "serif", 80, CREAM, 1040, leading=1.12, max_lines=2, minimum=60, dry=True)
-    return 52 + paint.paragraph(120, title + 28, texts["welcome_lead"], "sans", 34, MUTED, 1000, max_lines=2, minimum=26, dry=True)
-
-
-def draw_welcome(paint, m, t, h):
-    # Centred above the card; while languages take turns, on the longest so nothing jumps.
-    catalogs = [h] if m["lang"] else [TEXT[code] for code in elise_language.LANGUAGES]
-    top = 200 + (400 - max(welcome_height(paint, texts) for texts in catalogs)) / 2 + 12
-    eyebrow(paint, top, h["welcome_eyebrow"], SKY, icon="dot")
-    bottom = paint.paragraph(120, top + 40, h["welcome_title"], "serif", 80, CREAM, 1040, leading=1.12, max_lines=2, minimum=60)
-    paint.paragraph(120, bottom + 28, h["welcome_lead"], "sans", 34, MUTED, 1000, max_lines=2, minimum=26)
-    paint.rounded((120, 624, 1160, 912), 32, CREAM, alpha=0.06, outline=CREAM, outline_alpha=0.10)
-    paint.text(164, 670, h["continue"], "bold", 32, CREAM, anchor="lm", width=950)
-    paint.text(164, 716, h["continue_body"], "sans", 28, MUTED, anchor="lm", width=950)
-    paint.text(164, 768, m["home"], "bold", 50, SKY, anchor="lm", width=950)
-    address_rows(paint, m, h, 164, 822, 950)
+def draw_welcome(paint, m, t):
+    # Centred above the card; while languages take turns, on the longest so nothing else moves.
+    height = 12 + max(heading(paint, 0, texts["welcome_title"], texts["welcome_lead"], 80, 1040, 60,
+                              lead_width=1000, dry=True) for texts in catalogs(m, t))
+    y = 208 + (372 - height) / 2
+    eyebrow(paint, y, t["welcome_eyebrow"], SKY, icon="dot")
+    heading(paint, y, t["welcome_title"], t["welcome_lead"], 80, 1040, 60, lead_width=1000)
+    top = 612
+    paint.rounded((120, top, 1160, 912), 32, CREAM, alpha=0.06, outline=CREAM, outline_alpha=0.10)
+    paint.text(164, top + 64, t["continue"], "bold", 32, CREAM, anchor="ls", width=950)
+    paint.text(164, top + 108, t["continue_body"], "sans", 28, MUTED, anchor="ls", width=950)
+    paint.text(164, top + 172, m["home"], "bold", 50, SKY, anchor="ls", width=950)
+    address_rows(paint, m, t, 164, top + 222, 950)
     qr_card(paint, m, t, m["url"], t["follow"], SKY)
-    footer(paint, m, t, left=f"{t['step_of'].format(n=m['step'] + 1, total=len(STEP_IDS))}  ·  {t['steps'][STEP_IDS[m['step']]]}")
+    where = t["step_of"].format(n=m["step"] + 1, total=len(STEP_IDS))
+    footer(paint, m, t, left=f"{where}  ·  {t['steps'][STEP_IDS[m['step']]]}" if where else "")
 
 
-def draw_progress(paint, m, t, h):
+def draw_progress(paint, m, t):
     key = STEP_IDS[m["step"]]
-    eyebrow(paint, 246, h["progress_eyebrow"], SKY, icon="dot")
-    bottom = paint.paragraph(120, 286, h["steps"].get(key, ""), "serif", 76, CREAM, 860, leading=1.1, max_lines=2, minimum=56)
-    paint.paragraph(120, bottom + 26, h["leads"].get(key, ""), "sans", 34, MUTED, 860, max_lines=3, minimum=26)
-    # The number stays put while the words around it take turns.
-    paint.text(116, 790, t["percent"].format(percent=m["percent"]), "serif", 150, CREAM, anchor="ls")
+    eyebrow(paint, 246, t["progress_eyebrow"], SKY, icon="dot")
+    heading(paint, 246, t["steps"].get(key, ""), t["leads"].get(key, ""), 76, 860, 56, lead_lines=3)
+    # The number stays put while the words around it change.
+    paint.text(116, 790, percent(m, t), "serif", 150, CREAM, anchor="ls")
     progress_bar(paint, 120, 820, 860, m["percent"], SKY)
     if m["images"]:
-        below = h["components"].format(done=m["images"][0], total=m["images"][1])
+        below = t["components"].format(done=m["images"][0], total=m["images"][1])
     else:
-        below = h["step_of"].format(n=m["step"] + 1, total=len(STEP_IDS))
-    paint.text(120, 872, below, "bold", 28, CREAM, anchor="lm", width=420)
-    paint.paragraph(120, 908, h["reassure"], "sans", 26, MUTED, 860, max_lines=1, minimum=20)
+        below = t["step_of"].format(n=m["step"] + 1, total=len(STEP_IDS))
+    paint.text(120, 880, below, "bold", 28, CREAM, anchor="ls", width=860)
+    paint.text(120, 924, t["reassure"], "sans", 26, MUTED, anchor="ls", width=860)
     steps_card(paint, m, t, failed=False)
     footer(paint, m, t)
 
 
-def draw_action(paint, m, t, h):
-    eyebrow(paint, 246, h["action_eyebrow"], AMBER, icon="dot")
-    bottom = paint.paragraph(120, 286, h["action_title"], "serif", 78, CREAM, 1040, leading=1.1, max_lines=2, minimum=56)
-    bottom = paint.paragraph(120, bottom + 30, h["action_body"], "sans", 34, MUTED, 1000, max_lines=4, minimum=26)
+def draw_action(paint, m, t):
+    eyebrow(paint, 246, t["action_eyebrow"], AMBER, icon="dot")
+    heading(paint, 246, t["action_title"], t["action_body"], 78, 1040, 56, lead_width=1000, lead_lines=4)
     note = tallest(paint, m, t, "action_note", 160, 0, "bold", 30, 960, max_lines=2, minimum=22)
-    top = 852 - note - 60
+    top = 852 - note - 56
     paint.rounded((120, top, 1160, 852), 28, AMBER, alpha=0.12)
-    paint.paragraph(160, top + 30, h["action_note"], "bold", 30, CREAM, 960, max_lines=2, minimum=22)
-    paint.text(120, 896, h["paused"].format(n=m["step"] + 1, total=len(STEP_IDS)), "sans", 26, DIM, anchor="lm", width=1040)
+    paint.paragraph(160, paint.under(top, 32, "bold", 30), t["action_note"], "bold", 30, CREAM, 960, max_lines=2, minimum=22)
+    paint.text(120, 904, t["paused"].format(n=m["step"] + 1, total=len(STEP_IDS)), "sans", 26, DIM, anchor="ls", width=1040)
     qr_card(paint, m, t, m["url"], t["action_scan"], AMBER)
     footer(paint, m, t)
 
 
-def draw_problem(paint, m, t, h):
+DETAIL_SIZE = 28  # read from three metres away
+
+
+def draw_problem(paint, m, t):
     network = (m["problem"] or {}).get("category") == "network"
-    eyebrow(paint, 246, h["problem_eyebrow"], CORAL, icon="dot")
-    title = h["problem_network"] if network else h["problem_other"]
-    bottom = paint.paragraph(120, 286, title, "serif", 72, CREAM, 880, leading=1.1, max_lines=2, minimum=52)
-    y = bottom + 40
-    paint.text(120, y, h["auto_title"], "bold", 30, CREAM, width=880)
-    y = paint.paragraph(120, y + 46, h["auto_body"], "sans", 30, MUTED, 880, max_lines=2, minimum=24) + 34
-    paint.text(120, y, h["check_title"], "bold", 30, CREAM, width=880)
-    y += 50
-    for item in h["checks_network" if network else "checks_other"]:
-        paint.circle(130, y + 17, 6, CORAL)
-        y = paint.paragraph(156, y, item, "sans", 28, MUTED, 840, max_lines=2, minimum=22) + 14
-    # The installer writes French: elsewhere the app gives the details.
-    message = (m["problem"] or {}).get("message") if m["lang"] == "fr" else None
-    if message and y < 900:
-        paint.paragraph(120, max(y + 8, 900), t["detail"].format(message=message), "sans", 22, DIM, 880, max_lines=1, minimum=18)
+    eyebrow(paint, 246, t["problem_eyebrow"], CORAL, icon="dot")
+    bottom = heading(paint, 246, t["problem_network"] if network else t["problem_other"], None, 72, 880, 52)
+    bottom = paint.paragraph(120, paint.under(bottom, 36, "bold", 30), t["auto_title"], "bold", 30,
+                             CREAM, 880, max_lines=1, minimum=24)
+    bottom = paint.paragraph(120, paint.under(bottom, 10, "sans", 30), t["auto_body"], "sans", 30, MUTED, 880,
+                             max_lines=2, minimum=24)
+    bottom = paint.paragraph(120, paint.under(bottom, 30, "bold", 30), t["check_title"], "bold", 30, CREAM, 880,
+                             max_lines=1, minimum=24)
+    for index, line in enumerate(t["checks_network" if network else "checks_other"]):
+        top = paint.under(bottom, 14 if index == 0 else 10, "sans", 28)
+        paint.circle(130, top + paint.metrics("sans", 28)[2] + 10, 6, CORAL)
+        bottom = paint.paragraph(156, top, line, "sans", 28, MUTED, 844, max_lines=2, minimum=22)
+    # The installer writes in French: in another language, the app gives the details.
+    message = (m["problem"] or {}).get("message") if t is TEXT["fr"] else None
+    if message:
+        detail = t["detail"].format(message=message)
+        height = paint.paragraph(120, 0, detail, "sans", DETAIL_SIZE, MUTED, 880, max_lines=2, minimum=DETAIL_SIZE, dry=True)
+        # Along the bottom of the steps, under a rule when there is room; or right after the list.
+        top = 916 - height
+        if top >= paint.under(bottom, 52, "sans", DETAIL_SIZE):
+            paint.rounded((120, top - 20, 1000, top - 18), 1, CREAM, alpha=0.14)
+        else:
+            top = paint.under(bottom, 26, "sans", DETAIL_SIZE)
+        if top + height <= 936:
+            paint.paragraph(120, top, detail, "sans", DETAIL_SIZE, MUTED, 880, max_lines=2, minimum=DETAIL_SIZE)
     steps_card(paint, m, t, failed=True)
     footer(paint, m, t)
 
 
-def draw_done(paint, m, t, h):
-    eyebrow(paint, 246, h["done_eyebrow"], GREEN, icon="check")
-    paint.paragraph(120, 286, h["done_title"], "serif", 104, CREAM, 1040, leading=1.08, max_lines=1, minimum=64)
+def draw_done(paint, m, t):
+    eyebrow(paint, 246, t["done_eyebrow"], GREEN, icon="check")
+    title = paint.paragraph(120, paint.under(246, EYEBROW_TO_TITLE, "serif", 104), t["done_title"], "serif", 104,
+                            CREAM, 1040, max_lines=1, minimum=64)
+    title = max(title, paint.under(246, EYEBROW_TO_TITLE, "serif", 104) + sum(paint.metrics("serif", 104)[:2]))
     if m["kind"] == "ready":
-        bottom = tallest(paint, m, t, "ready_body", 120, 450, "sans", 36, 1000, max_lines=3, minimum=26)
-        paint.paragraph(120, 450, h["ready_body"], "sans", 36, MUTED, 1000, max_lines=3, minimum=26)
-        paint.text(120, bottom + 64, m["home"], "bold", 56, GREEN, anchor="lm", width=1040)
-        address_rows(paint, m, h, 120, bottom + 136, 1040)
+        top = paint.under(title, 104 * TITLE_TO_LEAD, "sans", 36)
+        bottom = tallest(paint, m, t, "ready_body", 120, top, "sans", 36, 1000, max_lines=3, minimum=26)
+        paint.paragraph(120, top, t["ready_body"], "sans", 36, MUTED, 1000, max_lines=3, minimum=26)
+        paint.text(120, bottom + 92, m["home"], "bold", 56, GREEN, anchor="ls", width=1040)
+        address_rows(paint, m, t, 120, bottom + 158, 1040)
     elif m["kind"] == "installing":
         bottom = tallest(paint, m, t, "installing_body", 164, 584, "sans", 32, 950, max_lines=4, minimum=24)
-        paint.rounded((120, 470, 1160, bottom + 52), 32, CREAM, alpha=0.06, outline=CREAM, outline_alpha=0.10)
+        paint.rounded((120, 470, 1160, bottom + 44), 32, CREAM, alpha=0.06, outline=CREAM, outline_alpha=0.10)
         paint.circle(178, 532, 12, GREEN)
         paint.mark_pulse(178, 532, 12, GREEN)
-        paint.text(206, 532, h["installing_title"], "bold", 36, CREAM, anchor="lm", width=920)
-        paint.paragraph(164, 584, h["installing_body"], "sans", 32, MUTED, 950, max_lines=4, minimum=24)
+        paint.text(206, 532, t["installing_title"], "bold", 36, CREAM, anchor="lm", width=920)
+        paint.paragraph(164, 584, t["installing_body"], "sans", 32, MUTED, 950, max_lines=4, minimum=24)
     else:
         paint.rounded((120, 470, 1160, 912), 32, CREAM, alpha=0.06, outline=CREAM, outline_alpha=0.10)
-        paint.text(164, 530, h["pair_title"], "bold", 38, CREAM, anchor="lm", width=950)
+        paint.text(164, 530, t["pair_title"], "bold", 38, CREAM, anchor="lm", width=950)
         y = 600
-        for number, line in enumerate(h["pair_steps"], 1):
+        for number in (1, 2, 3):
+            # The numbers stay in place whichever language is shown.
+            reach = max(paint.paragraph(238, y + 4, item(texts["pair_steps"], number - 1), "sans", 32, CREAM, 880,
+                                        max_lines=2, minimum=24, dry=True) for texts in catalogs(m, t))
             paint.circle(190, y + 24, 26, GREEN, alpha=0.18)
             paint.text(190, y + 24, str(number), "bold", 28, GREEN, anchor="mm")
             if number == 2:
                 paint.mark_pulse(190, y + 24, 26, GREEN)
-            y = max(y + 100, paint.paragraph(238, y + 4, line, "sans", 32, CREAM if number == 2 else MUTED, 880, max_lines=2, minimum=24) + 40)
+            paint.paragraph(238, y + 4, item(t["pair_steps"], number - 1), "sans", 32,
+                            CREAM if number == 2 else MUTED, 880, max_lines=2, minimum=24)
+            y = max(y + 100, reach + 32)
     qr_card(paint, m, t, m["url"], t["open"], GREEN)
     footer(paint, m, t)
 
@@ -586,14 +677,18 @@ SCREENS = {
 }
 
 
-def render(m: dict, size=(1920, 1080), hero: str | None = None) -> Painter:
-    """Draws a screen. Without a language (`m["lang"]` None), the message on the left is in
-    `hero`, or left out when `hero` is None, and the rest is in English: see Rotation."""
+def render(m: dict, size=(1920, 1080), lang: str | None = None) -> Painter:
+    """Draws a screen, every word in `lang` (the model's language by default).
+
+    `lang=""` draws only what has no words: the bare screen two languages fade through. A
+    model without a language lays its boxes out for the longest language, so they stay put
+    while the languages take turns: see Rotation.
+    """
+    lang = m["lang"] if lang is None else lang
+    t = text_for(lang) if lang else BLANK
     paint = Painter(size, ACCENTS[m["kind"]])
-    t = text_for(m["lang"])
-    h = t if m["lang"] else (text_for(hero) if hero else BLANK)
     header(paint, m, t, elapsed=m["kind"] not in ("ready", "pair", "installing"))
-    SCREENS[m["kind"]](paint, m, t, h)
+    SCREENS[m["kind"]](paint, m, t)
     return paint
 
 
@@ -617,33 +712,143 @@ def pulse_frame(base: Image.Image, pulse, phase: float):
     return region, box
 
 
-# Languages taking turns ------------------------------------------------------------------------
+# Fades ----------------------------------------------------------------------------------------
 
 def ease(value: float) -> float:
     return (1 - math.cos(math.pi * max(0.0, min(1.0, value)))) / 2
 
 
+def union(first, second):
+    return (min(first[0], second[0]), min(first[1], second[1]), max(first[2], second[2]), max(first[3], second[3]))
+
+
+def touching(first, second, margin=0) -> bool:
+    return (first[0] <= second[2] + margin and second[0] <= first[2] + margin
+            and first[1] <= second[3] + margin and second[1] <= first[3] + margin)
+
+
+def changed(first: Image.Image, second: Image.Image, bare: Image.Image | None = None,
+            columns: int = 16, rows: int = 18) -> list[tuple]:
+    """The boxes where two pictures differ (or differ from the bare screen: a word the same in
+    both languages fades too), found tile by tile. The words of a screen sit in a few columns:
+    a fade that leaves the rest alone costs a fraction of the whole picture."""
+    if bare is None:
+        difference = ImageChops.difference(first, second)
+    else:
+        difference = ImageChops.lighter(ImageChops.difference(first, bare), ImageChops.difference(second, bare))
+    xs = [round(first.width * i / columns) for i in range(columns + 1)]
+    ys = [round(first.height * j / rows) for j in range(rows + 1)]
+    boxes: list[tuple] = []
+    for j in range(rows):
+        run = None
+        for i in range(columns):
+            inside = difference.crop((xs[i], ys[j], xs[i + 1], ys[j + 1])).getbbox()
+            if inside:
+                tile = (xs[i] + inside[0], ys[j] + inside[1], xs[i] + inside[2], ys[j] + inside[3])
+                run = tile if run is None else union(run, tile)
+            elif run:
+                boxes.append(run)
+                run = None
+        if run:
+            boxes.append(run)
+    merged = True
+    while merged:
+        merged = False
+        for a in range(len(boxes)):
+            for b in range(a + 1, len(boxes)):
+                if touching(boxes[a], boxes[b], margin=2):
+                    boxes[a] = union(boxes[a], boxes.pop(b))
+                    merged = True
+                    break
+            if merged:
+                break
+    return boxes
+
+
+class Fade:
+    """From one picture to the next, prepared a step at a time, then only copied to the TV.
+
+    With a `bare` picture (a new language), the old words fade out to it and the new ones fade
+    in: never two languages over each other. The bare screen keeps everything without words
+    (the logo, the QR code, the addresses, the percentage, the progress bar): they do not
+    blink. Without one (the same language, a number moving on), the pictures dissolve.
+
+    The steps are blended and encoded ahead of time, on the changed boxes only; showing one is
+    a copy. A Raspberry Pi 4, four to six times slower than a desktop computer, needs a few
+    hundredths of a second a step (see render-install-screen-previews.py --bench); a board too
+    slow for the budget gets fewer steps, so a fade never takes longer nor stutters.
+    """
+
+    DURATION = 1.1
+    OUT = 0.4  # share of the time spent fading out
+    STEPS, MIN_STEPS = 10, 6
+    BUDGET = 1.0  # processor seconds a fade may cost
+    steps = STEPS
+
+    def __init__(self, first: Image.Image, second: Image.Image, bare: Image.Image | None = None,
+                 pack=None, steps: int | None = None):
+        self.pack = pack or (lambda image, origin: (image, origin))
+        self.count = steps or Fade.steps
+        self.adaptive = steps is None
+        self.parts = []
+        for box in changed(first, second, bare):
+            self.parts.append((box, first.crop(box), bare.crop(box) if bare else None, second.crop(box)))
+        self.frames: list[list] = []
+        self.cost = 0.0
+
+    def ready(self) -> bool:
+        return len(self.frames) >= self.count or not self.parts
+
+    def picture(self, a, middle, b, progress: float) -> Image.Image:
+        if middle is None:
+            return Image.blend(a, b, ease(progress))
+        if progress < self.OUT:
+            return Image.blend(a, middle, ease(progress / self.OUT))
+        return Image.blend(middle, b, ease((progress - self.OUT) / (1 - self.OUT)))
+
+    def prepare(self) -> bool:
+        """Prepares one more step; True once all are."""
+        if self.ready():
+            return True
+        started = time.perf_counter()
+        progress = (len(self.frames) + 1) / self.count
+        self.frames.append([self.pack(self.picture(a, middle, b, progress), box[:2]) for box, a, middle, b in self.parts])
+        self.cost += time.perf_counter() - started
+        if self.ready() and self.adaptive:
+            Fade.steps = max(self.MIN_STEPS, min(self.STEPS, int(self.BUDGET * self.count / max(self.cost, 1e-6))))
+        return self.ready()
+
+    def play(self, write, sleep=time.sleep):
+        while not self.prepare():
+            pass
+        interval = self.DURATION / max(1, len(self.frames))
+        for frame in self.frames:
+            started = time.monotonic()
+            for packed in frame:
+                write(packed)
+            sleep(max(0.0, interval - (time.monotonic() - started)))
+
+
 class Rotation:
     """Bonjour · Hello · Hola · Ciao, while no language is known.
 
-    The message on the left takes turns in every language; the QR code, the addresses, the
-    steps, the header and the footer stay still, in English, the language most families can
-    read. Between two languages the words fade out to the bare screen and the next ones fade
-    in: no flash, no two languages over each other. The welcome changes every four seconds;
-    the following screens hold each language longer, their message is longer to read.
+    The whole screen speaks one language at a time: title, steps, labels and footer change
+    together, through the bare screen (see Fade). The welcome changes about every four seconds,
+    the following screens, longer to read, about every six. While the progress moves on, the
+    language keeps its turn and its time.
     """
 
     HOLD = {"welcome": 3.0}
     DEFAULT_HOLD = 5.0
-    FADE_OUT, FADE_IN, FPS = 0.45, 0.65, 14
 
-    def __init__(self, m: dict, size, index: int = 0, now: float | None = None):
-        self.model, self.size = m, size
+    def __init__(self, m: dict, size, index: int = 0, since: float | None = None, pack=None):
+        self.model, self.size, self.pack = m, size, pack
         self.order = elise_language.LANGUAGES
         self.index = index % len(self.order)
-        self.base = render(m, size)
+        self.base = render(m, size, lang="")
         self.frames: dict[int, Painter] = {}
-        self.since = time.monotonic() if now is None else now
+        self.since = time.monotonic() if since is None else since
+        self.fade = None
 
     @property
     def language(self) -> str:
@@ -652,43 +857,35 @@ class Rotation:
     def frame(self, index: int | None = None) -> Painter:
         index = self.index if index is None else index % len(self.order)
         if index not in self.frames:
-            self.frames[index] = render(self.model, self.size, hero=self.order[index])
+            self.frames[index] = render(self.model, self.size, lang=self.order[index])
         return self.frames[index]
 
-    def prepared(self) -> bool:
-        return (self.index + 1) % len(self.order) in self.frames
+    def prepare(self) -> bool:
+        """One slice of the work towards the next language, short enough to keep the live marker
+        breathing; True once the fade is ready."""
+        following = (self.index + 1) % len(self.order)
+        if following not in self.frames:
+            self.frame(following)
+            return False
+        if self.fade is None:
+            self.fade = Fade(self.frame().image, self.frames[following].image, self.base.image, self.pack)
+            return self.fade.ready()
+        return self.fade.prepare()
 
     def due(self, now: float) -> bool:
         return now - self.since >= self.HOLD.get(self.model["kind"], self.DEFAULT_HOLD)
 
-    def region(self, first: Image.Image, second: Image.Image) -> tuple[int, int, int, int]:
-        boxes = [ImageChops.difference(self.base.image, image).getbbox() for image in (first, second)]
-        boxes = [box for box in boxes if box]
-        if not boxes:
-            return (0, 0, 0, 0)
-        return (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
-
-    @classmethod
-    def between(cls, first: Image.Image, base: Image.Image, second: Image.Image, progress: float) -> Image.Image:
-        """The picture `progress` (0 to 1) of the way from one language to the next."""
-        split = cls.FADE_OUT / (cls.FADE_OUT + cls.FADE_IN)
-        if progress < split:
-            return Image.blend(first, base, ease(progress / split))
-        return Image.blend(base, second, ease((progress - split) / (1 - split)))
-
-    def advance(self, show=None, sleep=time.sleep) -> Painter:
-        """Fades to the next language through `show(image, origin)` and returns its frame."""
-        current, following = self.frame(), self.frame(self.index + 1)
-        box = self.region(current.image, following.image)
-        if show and box[2] > box[0] and box[3] > box[1]:
-            first, base, second = (image.crop(box) for image in (current.image, self.base.image, following.image))
-            count = round((self.FADE_OUT + self.FADE_IN) * self.FPS)
-            for step in range(1, count + 1):
-                show(self.between(first, base, second, step / count), box[:2])
-                sleep(1 / self.FPS)
+    def advance(self, write=None, sleep=time.sleep) -> Painter:
+        """Fades to the next language through `write(packed)` and returns its picture."""
+        while not self.prepare():
+            pass
+        if write:
+            self.fade.play(write, sleep)
         self.index = (self.index + 1) % len(self.order)
         self.since = time.monotonic()
-        return following
+        self.fade = None
+        return self.frame()
+
 
 
 # Framebuffer ----------------------------------------------------------------------------------
@@ -766,15 +963,25 @@ class Framebuffer:
             os.close(self.fd)
             raise
 
-    def show(self, image: Image.Image, origin=(0, 0)):
+    def pack(self, image: Image.Image, origin=(0, 0)):
+        """The framebuffer's bytes for `image` at `origin`, clipped to the screen: encoding is
+        the costly part, done ahead of time for a fade."""
         x, y = origin
         width = min(image.width, self.size[0] - x)
         height = min(image.height, self.size[1] - y)
         if width <= 0 or height <= 0:
-            return
+            return None
         if (width, height) != image.size:
             image = image.crop((0, 0, width, height))
-        data = encode(image, self.format)
+        return encode(image, self.format), (x, y), width, height
+
+    def show(self, image: Image.Image, origin=(0, 0)):
+        self.write(self.pack(image, origin))
+
+    def write(self, packed):
+        if packed is None:
+            return
+        data, (x, y), width, height = packed
         row = width * self.bytes_per_pixel
         if x == 0 and row == self.stride:
             start = (self.yoffset + y) * self.stride
@@ -886,7 +1093,7 @@ def run() -> int:
         print("Écran d’installation inutile : il laisse la place.")
         return 0
     tracker = Tracker()
-    display = console = current = shown = pulse = rotation = None
+    display = console = current = shown = spoken = pulse = rotation = None
     waiting_logged = False
     try:
         while not stopping["now"] and not should_leave(started_done):
@@ -902,34 +1109,39 @@ def run() -> int:
                     pause(2)
                     continue
                 console = console or Console()
-                current = shown = rotation = None
+                current = shown = spoken = rotation = None
                 waiting_logged = False
                 print(f"Écran d’installation affiché en {display.size[0]}×{display.size[1]} ({display.format}).")
             try:
                 state = snapshot(tracker, started)
                 if state != current or shown is None:
                     if state["lang"] is None:
-                        # The same language keeps its turn when the progress moves on.
-                        rotation = Rotation(state, display.size, rotation.index if rotation else 0)
-                        frame = rotation.frame()
+                        # The language keeps its turn and its time while the progress moves on.
+                        keep = (rotation.index, rotation.since) if rotation else ()
+                        rotation = Rotation(state, display.size, *keep, pack=display.pack)
+                        frame, words = rotation.frame(), rotation.language
                     else:
                         rotation = None
-                        frame = render(state, display.size)
-                    if shown is not None and display.size[0] * display.size[1] <= 1920 * 1080:
-                        for step in range(1, 9):
-                            display.show(Image.blend(shown, frame.image, step / 8))
-                            time.sleep(0.04)
-                    display.show(frame.image)
-                    shown, current, pulse = frame.image, state, frame.pulse
-                # Seven calm frames a second for the live marker, then a fresh look at the progress.
+                        frame, words = render(state, display.size), state["lang"]
+                    if shown is None:
+                        display.show(frame.image)
+                    elif display.size[0] * display.size[1] <= 1920 * 1080:
+                        bare = None
+                        if words != spoken:
+                            # Another language: through the bare screen, never two at once.
+                            bare = (rotation.base if rotation else render({**state, "lang": None}, display.size, lang="")).image
+                        Fade(shown, frame.image, bare, display.pack, steps=None if bare else Fade.MIN_STEPS).play(display.write)
+                    else:
+                        display.show(frame.image)
+                    shown, current, spoken, pulse = frame.image, state, words, frame.pulse
+                # Seven calm frames a second for the live marker, then a fresh look at the progress;
+                # in between, the next language gets ready a slice at a time.
                 for _ in range(14):
                     if stopping["now"]:
                         break
-                    if rotation and not rotation.prepared():
-                        rotation.frame(rotation.index + 1)
-                    elif rotation and rotation.due(time.monotonic()):
-                        frame = rotation.advance(display.show)
-                        shown, pulse = frame.image, frame.pulse
+                    if rotation and rotation.prepare() and rotation.due(time.monotonic()):
+                        frame = rotation.advance(display.write)
+                        shown, spoken, pulse = frame.image, rotation.language, frame.pulse
                     if pulse:
                         region, box = pulse_frame(shown, pulse, (time.monotonic() % 2.2) / 2.2)
                         display.show(region, box[:2])
