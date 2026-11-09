@@ -111,6 +111,7 @@ grep -q -- 'transport.*usb\|tran.*usb' "$root/appliance/minipc-installer/select-
 grep -q -- 'allow-pw: false' "$root/appliance/minipc-installer/user-data"
 grep -q -- 'password: "!"' "$root/appliance/minipc-installer/user-data"
 grep -q -- 'install-elise.sha256' "$root/appliance/elise-minipc-firstboot.sh"
+grep -q -- 'ELISE_TEST_INSTALLER_URL' "$root/appliance/build-minipc-installer.sh"
 grep -q -- '/api/v1/auth/bootstrap' "$root/docker/dashboard/Caddyfile"
 grep -q -- '/api/docs\*' "$root/docker/dashboard/Caddyfile"
 if grep -Eq -- '/api/v1/(equipment|sensor-devices)/' "$root/docker/dashboard/Caddyfile"; then

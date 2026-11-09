@@ -10,6 +10,7 @@ ISO_URL="${UBUNTU_ISO_URL:-$ISO_BASE_URL/$ISO_NAME}"
 BUILD_ROOT="${ELISE_BUILD_WORKDIR:-${TMPDIR:-/tmp}}"
 ISO_CACHE="${UBUNTU_ISO_CACHE:-$BUILD_ROOT/$ISO_NAME}"
 UBUNTU_KEYRING="${UBUNTU_KEYRING:-/usr/share/keyrings/ubuntu-archive-keyring.gpg}"
+TEST_INSTALLER_URL="${ELISE_TEST_INSTALLER_URL:-}"
 
 for command in curl gpgv sha256sum xorriso rsync tar python3; do
   command -v "$command" >/dev/null || { echo "Missing build dependency: $command" >&2; exit 1; }
@@ -17,6 +18,8 @@ done
 [[ -r "$UBUNTU_KEYRING" ]] || { echo "Ubuntu archive keyring not found: $UBUNTU_KEYRING" >&2; exit 1; }
 [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version must look like v0.1.27" >&2; exit 1; }
 [[ "$OUTPUT" == *.iso ]] || { echo "Output must end in .iso" >&2; exit 1; }
+[[ -z "$TEST_INSTALLER_URL" || "$TEST_INSTALLER_URL" == https://* ]] \
+  || { echo "ELISE_TEST_INSTALLER_URL must use HTTPS" >&2; exit 1; }
 
 mkdir -p "$BUILD_ROOT" "$(dirname "$OUTPUT")" "$(dirname "$ISO_CACHE")"
 work_dir="$(mktemp -d "$BUILD_ROOT/elise-minipc-iso-XXXXXXXX")"
@@ -56,7 +59,12 @@ install -m 0600 "$ROOT_DIR/.env.example" "$bootstrap/etc/elise/elise.env"
 sed -i 's/^ELISE_HTTP_PORT=.*/ELISE_HTTP_PORT=80/' "$bootstrap/etc/elise/elise.env"
 sed -i 's|^ELISE_LOCAL_URL=.*|ELISE_LOCAL_URL=http://elise.local|' "$bootstrap/etc/elise/elise.env"
 printf '%s\n' "$VERSION" > "$bootstrap/usr/share/elise/version"
-sed "s/__ELISE_VERSION__/${VERSION}/g" "$ROOT_DIR/install/install-elise.sh" > "$work_dir/install-elise.sh"
+if [[ -n "$TEST_INSTALLER_URL" ]]; then
+  echo "→ Pinning first boot to the released test installer"
+  curl -fL --retry 3 "$TEST_INSTALLER_URL" -o "$work_dir/install-elise.sh"
+else
+  sed "s/__ELISE_VERSION__/${VERSION}/g" "$ROOT_DIR/install/install-elise.sh" > "$work_dir/install-elise.sh"
+fi
 sha256sum "$work_dir/install-elise.sh" | cut -d' ' -f1 > "$bootstrap/usr/share/elise/install-elise.sha256"
 
 install -m 0755 "$ROOT_DIR/appliance/elise-minipc-firstboot.sh" "$bootstrap/usr/lib/elise/"
