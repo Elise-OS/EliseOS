@@ -21,6 +21,32 @@ interface RemoteAccessCardProps {
   compact?: boolean;
 }
 
+async function copyText(value: string): Promise<boolean> {
+  try {
+    if (typeof navigator.clipboard?.writeText === 'function') {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch {
+    // The Clipboard API may exist but reject calls from an HTTP local-network origin.
+  }
+
+  const field = document.createElement('textarea');
+  field.value = value;
+  field.setAttribute('readonly', '');
+  field.style.position = 'fixed';
+  field.style.opacity = '0';
+  document.body.append(field);
+  field.select();
+  try {
+    return typeof document.execCommand === 'function' && document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    field.remove();
+  }
+}
+
 export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardProps) {
   const [status, setStatus] = useState<RemoteAccessStatus | null>(null);
   const [busy, setBusy] = useState(false);
@@ -94,8 +120,7 @@ export function RemoteAccessCard({ locale, compact = false }: RemoteAccessCardPr
   };
 
   const copyValue = async (value: string, label: string) => {
-    await navigator.clipboard.writeText(value);
-    setNotice(label);
+    setNotice((await copyText(value)) ? label : t('remoteAccessCard.copyUnavailable'));
   };
 
   const stateLabel = !status

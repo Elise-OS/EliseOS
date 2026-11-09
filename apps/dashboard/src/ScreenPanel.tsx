@@ -19,6 +19,7 @@ import { TvChannelLogo } from './TvChannelLogo';
 import { isLocale, type Locale, t, textBlock } from './i18n';
 import { dateLocale } from './screen-locale';
 import { DEMO_SHOW_TV_EVENT, residentScreenHref } from './resident-screen-link';
+import { createId } from './lib/createId';
 import type {
   ScreenPodcastEpisode,
   ScreenPodcastSearchResult,
@@ -673,7 +674,7 @@ export function ScreenPanel({
       const existing = snapshot?.state.media.find(
         (media) => media.kind === 'stream' && media.url === station.url,
       );
-      const mediaId = existing?.id ?? crypto.randomUUID();
+      const mediaId = existing?.id ?? createId();
       if (!existing || (station.artworkUrl && existing.artworkUrl !== station.artworkUrl))
         await screenRequest('screen/media', {
           id: mediaId,
@@ -1872,7 +1873,7 @@ export function ScreenPanel({
                                 const existing = state.media.find(
                                   (media) => media.kind === 'tv' && media.url === channel.url,
                                 );
-                                const mediaId = existing?.id ?? crypto.randomUUID();
+                                const mediaId = existing?.id ?? createId();
                                 if (!existing)
                                   await screenRequest('screen/media', {
                                     id: mediaId,
@@ -2094,7 +2095,7 @@ export function ScreenPanel({
                         }
                         void run(async () => {
                           await screenRequest('screen/media', {
-                            id: crypto.randomUUID(),
+                            id: createId(),
                             title: playlistTitle.trim(),
                             kind: 'youtube',
                             url: links[0],

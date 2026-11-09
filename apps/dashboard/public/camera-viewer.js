@@ -89,6 +89,8 @@ const waitForIce = (peer) =>
 
 async function connect() {
   if (!source || !ticket) return fail(text.invalid);
+  if (talk && typeof navigator.mediaDevices?.getUserMedia !== 'function')
+    return fail(text.noMicrophone);
   const peer = new RTCPeerConnection();
   const remote = new MediaStream();
   video.srcObject = remote;

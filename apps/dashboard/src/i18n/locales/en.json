@@ -1371,6 +1371,7 @@
     "connecting": "Connecting",
     "copyAppLink": "Copy app link",
     "copyLink": "Copy link",
+    "copyUnavailable": "Automatic copy is unavailable. Select the link to copy it.",
     "createTheirAccountAndChoose": "Create their account and choose their role in Élise.",
     "disableEliseAccess": "Disable Élise access",
     "eliseConnectionQrCode": "Élise connection QR code",

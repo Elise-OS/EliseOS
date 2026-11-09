@@ -1388,6 +1388,7 @@
     "connecting": "Conectando",
     "copyAppLink": "Copiar el enlace para la app",
     "copyLink": "Copiar el enlace",
+    "copyUnavailable": "La copia automática no está disponible. Selecciona el enlace para copiarlo.",
     "createTheirAccountAndChoose": "Cree su cuenta y elija su rol en Élise.",
     "disableEliseAccess": "Desactivar el acceso a Élise",
     "eliseConnectionQrCode": "Código QR de conexión a Élise",

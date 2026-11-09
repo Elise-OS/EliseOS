@@ -213,6 +213,33 @@ describe('TV message editor and display controls', () => {
     expect(host.querySelector('.screen-playback-now')?.textContent).toContain('Concerts');
   });
 
+  it('launches a TV channel when crypto.randomUUID is unavailable', async () => {
+    vi.stubGlobal('crypto', {
+      getRandomValues: (bytes: Uint8Array) => bytes.fill(0),
+    });
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('#screen-main-tab-medias')!.click();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      host
+        .querySelector<HTMLButtonElement>('.screen-tv-channel .screen-media-playback-button')!
+        .click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(requests.find((row) => row.url.endsWith('/screen/media'))?.body).toMatchObject({
+      id: '00000000-0000-4000-8000-000000000000',
+      kind: 'tv',
+    });
+    expect(requests.find((row) => row.url.endsWith('/screen/commands'))?.body).toEqual({
+      action: 'play',
+      mediaId: '00000000-0000-4000-8000-000000000000',
+    });
+    expect(host.textContent).not.toContain('crypto.randomUUID');
+  });
+
   it('adds an album photo when its optional comment is left blank', async () => {
     await act(async () => {
       host.querySelector<HTMLButtonElement>('#screen-main-tab-album')!.click();
