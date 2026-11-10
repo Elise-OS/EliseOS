@@ -17,24 +17,24 @@
     "@elise/i18n": "workspace:*",
     "@elise/ui": "workspace:*",
     "@fontsource-variable/inter": "^5.3.0",
-    "@fontsource-variable/source-serif-4": "^5.3.0",
-    "@radix-ui/react-progress": "^1.1.7",
-    "hls.js": "^1.7.3",
-    "i18next": "^25.10.10",
-    "lucide-react": "^0.536.0",
+    "@fontsource-variable/source-serif-4": "^5.3.1",
+    "@radix-ui/react-progress": "^1.2.1",
+    "hls.js": "^1.7.4",
+    "i18next": "^26.7.2",
+    "lucide-react": "^1.70.0",
     "qrcode": "^1.5.4",
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.11",
+    "@tailwindcss/vite": "^4.3.5",
     "@types/qrcode": "^1.5.5",
-    "@types/react": "~19.1.17",
-    "@types/react-dom": "19.1.7",
-    "@vitejs/plugin-react": "^4.7.0",
-    "jsdom": "^26.1.0",
-    "tailwindcss": "^4.1.11",
-    "vite": "^7.0.6",
-    "vitest": "^3.2.4"
+    "@types/react": "~19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "jsdom": "^31.0.0",
+    "tailwindcss": "^4.3.5",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
   }
 }
