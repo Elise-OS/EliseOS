@@ -21,6 +21,6 @@
     "test": "node --test"
   },
   "dependencies": {
-    "i18next": "^25.10.10"
+    "i18next": "^27.0.1"
   }
 }
