@@ -5,7 +5,7 @@ x-node-common: &node-common
   volumes:
     - elise_secrets:/run/elise-secrets:ro
   environment:
-    ELISE_VERSION: ${ELISE_VERSION:-0.1.26}
+    ELISE_VERSION: ${ELISE_VERSION:-0.1.27}
     ELISE_SECRETS_DIR: /run/elise-secrets
     POSTGRES_HOST: postgres
     POSTGRES_DB: elise
@@ -176,7 +176,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.ai
-    image: elise-os/ai:${ELISE_VERSION:-0.1.26}
+    image: elise-os/ai:${ELISE_VERSION:-0.1.27}
     restart: unless-stopped
     depends_on:
       bootstrap:
@@ -205,7 +205,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.node
       target: api
-    image: elise-os/api:${ELISE_VERSION:-0.1.26}
+    image: elise-os/api:${ELISE_VERSION:-0.1.27}
     depends_on:
       screen-bootstrap:
         condition: service_completed_successfully
@@ -218,7 +218,7 @@ services:
       go2rtc:
         condition: service_healthy
     environment:
-      ELISE_VERSION: ${ELISE_VERSION:-0.1.26}
+      ELISE_VERSION: ${ELISE_VERSION:-0.1.27}
       ELISE_WEB_CORS_ORIGINS: ${ELISE_WEB_CORS_ORIGINS:-}
       ELISE_SECRETS_DIR: /run/elise-secrets
       POSTGRES_HOST: postgres
@@ -290,7 +290,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.node
       target: worker
-    image: elise-os/worker:${ELISE_VERSION:-0.1.26}
+    image: elise-os/worker:${ELISE_VERSION:-0.1.27}
     depends_on:
       api:
         condition: service_healthy
@@ -315,7 +315,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.node
       target: dashboard
-    image: elise-os/dashboard:${ELISE_VERSION:-0.1.26}
+    image: elise-os/dashboard:${ELISE_VERSION:-0.1.27}
     environment:
       ELISE_JITSI_URL: ${ELISE_JITSI_URL:-https://jitsi.invalid}
     restart: unless-stopped
