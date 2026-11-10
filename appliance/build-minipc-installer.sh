@@ -11,6 +11,12 @@ BUILD_ROOT="${ELISE_BUILD_WORKDIR:-${TMPDIR:-/tmp}}"
 ISO_CACHE="${UBUNTU_ISO_CACHE:-$BUILD_ROOT/$ISO_NAME}"
 UBUNTU_KEYRING="${UBUNTU_KEYRING:-/usr/share/keyrings/ubuntu-archive-keyring.gpg}"
 TEST_INSTALLER_URL="${ELISE_TEST_INSTALLER_URL:-}"
+# Ubuntu's live server has Python 3.12 but no python3-pil: the installer screens bring their own
+# Pillow, the same release as Ubuntu 24.04 and the CI, as the official self-contained wheel.
+PILLOW_WHEEL="pillow-10.2.0-cp312-cp312-manylinux_2_28_x86_64.whl"
+PILLOW_URL="https://files.pythonhosted.org/packages/5c/c6/5b6b1f7362267494a423b45af684d604491565e81436e3ebeefee68f78fd/$PILLOW_WHEEL"
+PILLOW_SHA256="127cee571038f252a552760076407f9cff79761c3d436a12af6000cd182a9d04"
+PILLOW_CACHE="${ELISE_PILLOW_WHEEL_CACHE:-$BUILD_ROOT/$PILLOW_WHEEL}"
 
 for command in curl gpgv sha256sum xorriso rsync tar python3; do
   command -v "$command" >/dev/null || { echo "Missing build dependency: $command" >&2; exit 1; }
@@ -84,8 +90,24 @@ install -m 0644 "$ROOT_DIR/appliance/minipc-installer/meta-data" "$payload/noclo
 install -m 0755 "$ROOT_DIR/appliance/minipc-installer/select-target.py" "$payload/nocloud/select-target.py"
 install -m 0755 "$ROOT_DIR/appliance/minipc-installer/install-target.sh" "$payload/nocloud/install-target.sh"
 rsync -a --exclude='__pycache__' --exclude='*.pyc' "$ROOT_DIR/appliance/installer_ui" "$payload/nocloud/"
-# The design backend will be able to use the same licensed fonts as the installed TV screen.
-rsync -a "$ROOT_DIR/appliance/fonts/" "$payload/nocloud/installer_ui/fonts/"
+printf '%s\n' "$VERSION" > "$payload/nocloud/installer_ui/VERSION"
+
+echo "→ Adding the installer screens' drawing engine (the TV screen's) and Pillow"
+engine="$payload/nocloud/installer_ui/engine"
+mkdir -p "$engine/fonts"
+for file in elise-install-screen.py elise_install_state.py elise_install_texts.py elise_language.py elise-logo.png; do
+  install -m 0644 "$ROOT_DIR/appliance/$file" "$engine/"
+done
+rsync -a "$ROOT_DIR/appliance/fonts/" "$engine/fonts/"
+if [[ ! -f "$PILLOW_CACHE" ]] || ! echo "$PILLOW_SHA256  $PILLOW_CACHE" | sha256sum -c - >/dev/null 2>&1; then
+  rm -f -- "$PILLOW_CACHE.part"
+  curl -fL --retry 3 "$PILLOW_URL" -o "$PILLOW_CACHE.part"
+  echo "$PILLOW_SHA256  $PILLOW_CACHE.part" | sha256sum -c -
+  mv "$PILLOW_CACHE.part" "$PILLOW_CACHE"
+fi
+echo "$PILLOW_SHA256  $PILLOW_CACHE" | sha256sum -c -
+mkdir -p "$payload/nocloud/vendor"
+python3 -m zipfile -e "$PILLOW_CACHE" "$payload/nocloud/vendor/"
 
 echo "→ Adding automatic NoCloud boot parameters"
 for config in grub.cfg loopback.cfg; do

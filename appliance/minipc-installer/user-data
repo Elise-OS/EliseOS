@@ -32,6 +32,8 @@ autoinstall:
   updates: security
   shutdown: reboot
   error-commands:
+    # The progress screen (installer_ui.monitor) turns into the error screen on this mark.
+    - sh -c 'mkdir -p /run/elise-installer && touch /run/elise-installer/failed || true'
     - >-
       sh -c 'echo "ELISE_INSTALLER: ERROR — installation stopped; no automatic retry" |
       tee /dev/console /dev/ttyS0 >/dev/null 2>&1 || true'
