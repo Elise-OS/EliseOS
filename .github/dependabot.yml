@@ -14,7 +14,8 @@ updates:
     schedule: { interval: monthly }
   - package-ecosystem: github-actions
     directory: /
-    schedule: { interval: monthly }
+    # Temporary cadence to regenerate the reviewed v5 PR; #33 restores monthly.
+    schedule: { interval: daily }
     ignore:
       # Keep the reviewed v5 upgrade eligible; v6 is deliberately deferred.
       - dependency-name: pnpm/action-setup
