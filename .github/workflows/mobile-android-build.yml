@@ -68,7 +68,7 @@ jobs:
         run: pnpm --filter @elise/mobile exec expo prebuild --platform android --no-install
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
