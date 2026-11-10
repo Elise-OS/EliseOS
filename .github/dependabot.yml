@@ -15,3 +15,7 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: monthly }
+    ignore:
+      # Adopt v5 first; v6 is outside the reviewed upgrade requested here.
+      - dependency-name: pnpm/action-setup
+        versions: ['6.x']
