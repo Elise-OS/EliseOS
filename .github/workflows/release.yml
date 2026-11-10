@@ -356,7 +356,7 @@ jobs:
           done
       - name: Download AMD64 mini PC installer
         if: needs.minipc_installer.outputs.available == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: minipc-amd64-installer-metadata
           path: dist
