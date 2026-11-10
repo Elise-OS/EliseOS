@@ -284,6 +284,47 @@ def left_block_height(paint, catalogs, title_key, lead_key, size, minimum, lead_
 
 # Screens --------------------------------------------------------------------------------------
 
+FLAG_W, FLAG_H = 72, 48
+
+
+def flag_image(code: str, width: int, height: int):
+    """The four flags as plain shapes (no bitmap asset), drawn 4× larger then reduced."""
+    from PIL import Image, ImageDraw
+
+    s = 4
+    w, h = width * s, height * s
+    image = Image.new("RGB", (w, h), (255, 255, 255))
+    draw = ImageDraw.Draw(image)
+    if code in ("fr", "it"):
+        left, right = ((0, 85, 164), (239, 65, 53)) if code == "fr" else ((0, 146, 70), (206, 43, 55))
+        draw.rectangle((0, 0, w / 3, h), fill=left)
+        draw.rectangle((w * 2 / 3, 0, w, h), fill=right)
+    elif code == "es":
+        draw.rectangle((0, 0, w, h), fill=(170, 21, 27))
+        draw.rectangle((0, h / 4, w, h * 3 / 4), fill=(241, 191, 0))
+    elif code == "en":
+        blue, red, white = (1, 33, 105), (200, 16, 46), (255, 255, 255)
+        draw.rectangle((0, 0, w, h), fill=blue)
+        draw.line((0, 0, w, h), fill=white, width=round(h * 0.2))
+        draw.line((0, h, w, 0), fill=white, width=round(h * 0.2))
+        draw.line((0, 0, w, h), fill=red, width=round(h * 0.07))
+        draw.line((0, h, w, 0), fill=red, width=round(h * 0.07))
+        draw.rectangle((w / 2 - h * 0.17, 0, w / 2 + h * 0.17, h), fill=white)
+        draw.rectangle((0, h / 2 - h * 0.17, w, h / 2 + h * 0.17), fill=white)
+        draw.rectangle((w / 2 - h * 0.1, 0, w / 2 + h * 0.1, h), fill=red)
+        draw.rectangle((0, h / 2 - h * 0.1, w, h / 2 + h * 0.1), fill=red)
+    mask = Image.new("L", (w, h))
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), round(h * 0.16), fill=255)
+    return image.reduce(s), mask.reduce(s)
+
+
+def flag(paint, x, y, code):
+    width, height = max(1, round(FLAG_W * paint.k)), max(1, round(FLAG_H * paint.k))
+    image, mask = flag_image(code, width, height)
+    paint.image.paste(image, (round(paint.x(x)), round(paint.y(y))), mask)
+    outline(paint, (x, y, x + FLAG_W, y + FLAG_H), FLAG_H * 0.16, NAVY, width=1.5, alpha=0.18)
+
+
 def draw_language(paint, t, data):
     selected = data.get("selected", 0)
     catalogs = list(TEXT.values())
@@ -294,7 +335,7 @@ def draw_language(paint, t, data):
               lead_width=COLUMN - 40, lead_lines=3)
     card, gap = 124, 22
     top = MIDDLE - (len(LANGUAGES) * card + (len(LANGUAGES) - 1) * gap) / 2
-    for index, info in enumerate(LANGUAGES.values()):
+    for index, (code, info) in enumerate(LANGUAGES.items()):
         box = (CARD_LEFT, top, RIGHT, top + card)
         chosen = index == selected
         if chosen:
@@ -303,7 +344,9 @@ def draw_language(paint, t, data):
         else:
             paint.rounded(box, 30, CREAM, alpha=0.06, outline=CREAM, outline_alpha=0.14)
         middle = top + card / 2
-        paint.text(CARD_LEFT + 56, middle, info["name"], "bold", 44, NAVY if chosen else CREAM, anchor="lm", width=520)
+        flag(paint, CARD_LEFT + 52, middle - FLAG_H / 2, code)
+        paint.text(CARD_LEFT + 52 + FLAG_W + 30, middle, info["name"], "bold", 44, NAVY if chosen else CREAM,
+                   anchor="lm", width=440)
         mark = RIGHT - 70
         if chosen:
             paint.circle(mark, middle, 22, NAVY)

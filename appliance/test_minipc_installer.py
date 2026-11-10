@@ -349,9 +349,39 @@ class ProgressMonitorTest(unittest.TestCase):
         self.assertEqual(progress.key, "restart")
         self.assertLessEqual(progress.percent(10**9), 100)
 
+    def test_reloading_the_configuration_does_not_jump_to_the_restart(self):
+        """Seen on the real ISO: these events come before the disk is even touched."""
+        progress = Progress(0)
+        for line in (
+            "start: subiquity/Late/load_autoinstall_data: ",
+            "start: subiquity/Shutdown/load_autoinstall_data: ",
+            "finish: subiquity/Shutdown/apply_autoinstall_config: ",
+        ):
+            progress.feed(line, 1)
+        self.assertEqual(progress.key, "disk")
+        progress.feed("start: subiquity/Late/run: ", 2)
+        self.assertEqual(progress.key, "elise")
+        progress.feed("start: subiquity/Shutdown/copy_logs_to_target: ", 3)
+        self.assertEqual(progress.key, "restart")
+
+    def test_language_cards_carry_their_flags(self):
+        if graphics is None:
+            self.skipTest("Pillow absent")
+        for code in LANGUAGES:
+            image, mask = graphics.flag_image(code, 72, 48)
+            self.assertEqual(image.size, (72, 48))
+            self.assertGreater(len(set(image.getdata())), 1, code)
+
     def test_failed_install_mark_is_written_by_error_commands(self):
         user_data = (MODULE_PATH.parent / "user-data").read_text(encoding="utf-8")
         self.assertIn("/run/elise-installer/failed", user_data)
+
+    def test_early_command_uses_the_live_python_not_subiquitys_snap(self):
+        """The snap's python3 is 3.10 and cannot load the vendored cp312 Pillow."""
+        user_data = (MODULE_PATH.parent / "user-data").read_text(encoding="utf-8")
+        command = next(line for line in user_data.splitlines() if "select-target.py" in line and line.strip().startswith("-"))
+        self.assertIn("env -i ", command)
+        self.assertIn("/usr/bin/python3 -E ", command)
 
 
 class InstallerBuildTest(unittest.TestCase):

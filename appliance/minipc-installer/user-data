@@ -26,7 +26,10 @@ autoinstall:
       match:
         path: __ELISE_TARGET_DISK__
   early-commands:
-    - python3 /cdrom/nocloud/select-target.py
+    # Subiquity runs commands inside its snap: there `python3` is the snap's Python 3.10 with the
+    # snap's PYTHONPATH/LD_LIBRARY_PATH, and the vendored Pillow (cp312) cannot load, which drops
+    # the screens to plain text. Run the live system's own Python 3.12 in a clean environment.
+    - env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 /usr/bin/python3 -E /cdrom/nocloud/select-target.py
   late-commands:
     - bash /cdrom/nocloud/install-target.sh /target
   updates: security

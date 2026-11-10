@@ -26,7 +26,9 @@ MARKERS = (
     ("curthooks", "configure"),
     ("run_unattended_upgrades", "updates"), ("security updates", "updates"),
     ("subiquity/Late/run", "elise"),
-    ("subiquity/Shutdown", "restart"),
+    # Not the bare "subiquity/Shutdown": Subiquity logs subiquity/Shutdown/load_autoinstall_data
+    # (and apply_autoinstall_config) right after reloading the configuration, before installing.
+    ("subiquity/Shutdown/copy_logs_to_target", "restart"), ("subiquity/Shutdown/shutdown", "restart"),
 )
 # Share of the bar and typical duration (seconds) of each step.
 SPANS = {

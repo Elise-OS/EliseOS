@@ -258,7 +258,7 @@ def follow_installation(ui: TextUI, log_dir: Path) -> bool:
         log = subprocess.DEVNULL
     try:
         subprocess.Popen(
-            [sys.executable, "-m", "installer_ui.monitor", "--language", ui.language],
+            [sys.executable, "-E", "-m", "installer_ui.monitor", "--language", ui.language],
             cwd=Path(__file__).resolve().parent.parent,
             stdin=subprocess.DEVNULL, stdout=log, stderr=log, close_fds=True, start_new_session=True,
         )
