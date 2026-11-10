@@ -198,7 +198,7 @@ jobs:
       # repository variable PLAY_RELEASE_STATUS to "completed" once the app is live.
       - name: Upload AAB to Google Play internal testing
         if: steps.play-publishing.outputs.enabled == 'true'
-        uses: r0adkll/upload-google-play@v1.1.3
+        uses: r0adkll/upload-google-play@v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: org.michel.mobile
