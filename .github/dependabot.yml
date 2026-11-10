@@ -6,16 +6,39 @@ updates:
     groups:
       elise-javascript:
         patterns: ['*']
+        update-types: [minor, patch]
+    # Major upgrades are reviewed and migrated deliberately in dedicated PRs.
+    # Dependabot security updates are configured separately and remain active.
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: pip
     directory: /apps/ai
     schedule: { interval: weekly }
+    groups:
+      elise-python:
+        patterns: ['*']
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: docker
     directory: /
     schedule: { interval: monthly }
+    groups:
+      elise-docker:
+        patterns: ['*']
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: monthly }
+    groups:
+      elise-github-actions:
+        patterns: ['*']
+        update-types: [minor, patch]
     ignore:
-      # Keep the reviewed v5 upgrade eligible; v6 is deliberately deferred.
-      - dependency-name: pnpm/action-setup
-        versions: ['6.x']
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
