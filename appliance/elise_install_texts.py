@@ -4,6 +4,8 @@ One entry per language of elise_language.LANGUAGES, written in French first. Ton
 docs/traductions-agents.md. Keys starting with "page_" are only used by the web page.
 """
 
+import os
+
 TEXT = {
     "fr": {
         "elapsed": "Commencé il y a {duration}",
@@ -362,6 +364,33 @@ PAGE = {
 }
 for _code, _texts in PAGE.items():
     TEXT[_code].update(_texts)
+
+# A mini PC has no Raspberry Pi settings nor a card: its first step names the device.
+DEVICE_SETTINGS = {
+    "fr": ("Réglages de l’appareil", "Élise applique les réglages choisis pendant l’installation."),
+    "en": ("Device settings", "Élise is applying the settings chosen during installation."),
+    "es": ("Ajustes del dispositivo", "Élise aplica los ajustes elegidos durante la instalación."),
+    "it": ("Impostazioni del dispositivo", "Élise applica le impostazioni scelte durante l’installazione."),
+}
+
+
+def raspberry_pi(model_file: str = "/proc/device-tree/model") -> bool:
+    """A Raspberry Pi names itself in its device tree; ELISE_PLATFORM=raspberry-pi|minipc decides
+    for previews and tests."""
+    forced = os.environ.get("ELISE_PLATFORM")
+    if forced:
+        return forced == "raspberry-pi"
+    try:
+        with open(model_file, "rb") as model:
+            return b"Raspberry Pi" in model.read()
+    except OSError:
+        return False
+
+
+if not raspberry_pi():
+    for _code, (_label, _lead) in DEVICE_SETTINGS.items():
+        TEXT[_code]["steps"]["settings"] = _label
+        TEXT[_code]["leads"]["settings"] = _lead
 
 # Texts the page needs, sent to the browser with it.
 PAGE_KEYS = (*PAGE["fr"], "steps", "leads", "percent", "remote_value", "remote_later", "version",

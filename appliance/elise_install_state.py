@@ -10,6 +10,8 @@ import time
 import urllib.parse
 import uuid
 
+import elise_install_texts as texts
+
 STATUS = os.environ.get("ELISE_PREPARATION_STATUS", "/run/elise-preparation/status.json")
 CONFIG_FILE = os.environ.get("ELISE_CONFIG_FILE", "/etc/elise/elise.env")
 VERSION_FILE = os.environ.get("ELISE_VERSION_FILE", "/usr/share/elise/version")
@@ -25,7 +27,7 @@ HOME_NETWORKS = tuple(ipaddress.ip_network(net) for net in ("10.0.0.0/8", "172.1
 
 # Each step is recognised from the messages written by elise-firstboot.sh and install-elise.sh.
 STEPS = [
-    ("settings", "Réglages du Raspberry Pi", 5, ("Application des réglages",)),
+    ("settings", texts.TEXT["fr"]["steps"]["settings"], 5, ("Application des réglages",)),
     ("network", "Connexion à Internet", 5, ("Connexion au réseau", "Internet est indisponible")),
     ("clock", "Mise à l’heure", 5, ("Synchronisation de l’horloge",)),
     (
