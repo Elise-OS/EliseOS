@@ -73,6 +73,7 @@ import { ActivityPage } from './ActivityPage';
 import { UpdateCard } from './UpdateCard';
 import { ZigbeeKeyPanel } from './ZigbeeKeyPanel';
 import type { UpdateStatus } from '@elise/contracts';
+import { createId } from './lib/createId';
 
 interface Overview {
   onboardingRequired: boolean;
@@ -2269,8 +2270,7 @@ export function App() {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        runId:
-          typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `manual-${Date.now()}`,
+        runId: createId(),
       }),
     });
     if (response.ok) {

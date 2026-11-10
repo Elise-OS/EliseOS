@@ -62,6 +62,7 @@ import { DataLoadingScreen } from './DataLoadingScreen';
 import { connectionBoundary, connectionCurve } from './plan-connections';
 import './plan-connections.css';
 import { type Locale, t } from './i18n';
+import { createId } from './lib/createId';
 
 type Sensor = {
   id: string;
@@ -318,8 +319,7 @@ const levelName = (floor: number) =>
 
 const colors = ['#E8F0F3', '#F5EAD8', '#E6EFE7', '#EEE8F3', '#F3E5E5', '#E8EAF2'];
 
-const uid = (prefix: string) =>
-  `${prefix}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
+const uid = (prefix: string) => `${prefix}-${createId()}`;
 const snap = (value: number) => Math.round(value / 10) * 10;
 const clone = <T,>(value: T): T => structuredClone(value);
 const polygon = (room: PlanRoom) => room.geometry.points.map(({ x, y }) => `${x},${y}`).join(' ');

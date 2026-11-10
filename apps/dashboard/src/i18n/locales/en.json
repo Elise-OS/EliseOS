@@ -1371,6 +1371,7 @@
     "connecting": "Connecting",
     "copyAppLink": "Copy app link",
     "copyLink": "Copy link",
+    "copyUnavailable": "Automatic copy is unavailable. Select the link to copy it.",
     "createTheirAccountAndChoose": "Create their account and choose their role in Élise.",
     "disableEliseAccess": "Disable Élise access",
     "eliseConnectionQrCode": "Élise connection QR code",
@@ -2045,7 +2046,15 @@
     "chooseTvChannels": "Choose the channels",
     "tvChannelsFollowTheScreenLanguage": "The channels offered follow the screen language ({{language}}). You can add channels in other languages.",
     "screenLanguage": "Screen language",
-    "noTvGuideForTheseChannels": "No TV guide is available for these channels."
+    "noTvGuideForTheseChannels": "No TV guide is available for these channels.",
+    "allowVideoCalls": "Allow video calls",
+    "videoCallsAllowedHint": "You and authorized family members can call {{residentFirstName}} on the TV.",
+    "videoCallsBlockedHint": "Calls to {{residentFirstName}} are blocked while this setting is off.",
+    "aCallIsInProgress": "A call is in progress",
+    "yourCallIsStillOpen": "Your call with {{resident}}, started at {{time}}, has not ended.",
+    "someoneIsCalling": "{{name}} has been on a call with {{resident}} since {{time}}.",
+    "theCallHasEnded": "The call has ended.",
+    "close": "Close"
   },
   "sensorCategories": {
     "air_quality": {

@@ -13,6 +13,9 @@ GITHUB_USERNAME=""
 GITHUB_TOKEN=""
 docker_config_dir=""
 UPDATE_LOCK_FILE="${ELISE_UPDATE_LOCK_FILE:-/run/elise-update/update.lock}"
+ELISE_FRESH_INSTALL=false
+[[ -e "$ELISE_ROOT/current" || -L "$ELISE_ROOT/current" ]] || ELISE_FRESH_INSTALL=true
+installation_tv_started=false
 
 preparation_status() {
   [[ -d /run/elise-preparation ]] || return 0
@@ -97,11 +100,27 @@ else
 fi
 getent hosts github.com >/dev/null || fail "connexion Internet indisponible"
 
+# The preparation page is the QR fallback during a fresh installation. Appliance images start
+# that very page before this script so the family sees progress immediately; it is the only
+# existing listener that may legitimately own port 80.
+preparation_owns_port() {
+  [[ "${ELISE_FIRST_BOOT:-false}" == true ]] \
+    && systemctl is-active --quiet elise-preparation.service
+}
+if [[ "$ELISE_FRESH_INSTALL" == true ]] \
+  && ss -H -ltn "sport = :80" 2>/dev/null | grep -q . \
+  && ! preparation_owns_port; then
+  fail "le port 80 est déjà utilisé"
+fi
+
+if [[ "$ELISE_FRESH_INSTALL" == true ]]; then
+  install -d -m 0755 /run/elise-preparation
+fi
+
 http_port_preflight=8080
 [[ -f "$ELISE_CONFIG/elise.env" ]] && http_port_preflight="$(sed -n 's/^ELISE_HTTP_PORT=//p' "$ELISE_CONFIG/elise.env" | tail -1)"
 for port in "${http_port_preflight:-8080}" 18080 8555; do
-  if [[ "${ELISE_FIRST_BOOT:-false}" == true && "$port" == "${http_port_preflight:-8080}" ]] \
-    && systemctl is-active --quiet elise-preparation.service; then
+  if [[ "$port" == "${http_port_preflight:-8080}" ]] && preparation_owns_port; then
     continue
   fi
   if ss -H -ltn "sport = :$port" 2>/dev/null | grep -q . && [[ ! -L "$ELISE_ROOT/current" ]]; then
@@ -115,7 +134,11 @@ if [[ "${ELISE_SKIP_SYSTEM_PACKAGES:-false}" != true ]]; then
   # A fresh Ubuntu runs unattended-upgrades right after boot: wait for its dpkg lock.
   apt=(apt-get -o DPkg::Lock::Timeout=900)
   "${apt[@]}" update -qq
-  "${apt[@]}" install -y -qq age ca-certificates curl gnupg avahi-daemon docker.io docker-compose-v2 nftables python3 xz-utils
+  system_packages=(age ca-certificates curl gnupg avahi-daemon docker.io docker-compose-v2 nftables python3 xz-utils)
+  if [[ "$ELISE_FRESH_INSTALL" == true ]]; then
+    system_packages+=(python3-pil python3-qrcode fonts-dejavu-core)
+  fi
+  "${apt[@]}" install -y -qq "${system_packages[@]}"
   install -d -m 0755 /usr/share/keyrings
   if [[ ! -f /usr/share/keyrings/tailscale-archive-keyring.gpg ]]; then
     curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg
@@ -171,6 +194,8 @@ cleanup() {
   [[ -z "$docker_config_dir" ]] || rm -rf -- "$docker_config_dir"
 }
 trap cleanup EXIT
+# A handed-over installer runs from a private temporary copy: remove it on the way out.
+[[ "${ELISE_INSTALLER_HANDOFF:-false}" != true || "$0" != /tmp/* ]] || rm -f -- "$0"
 if [[ -n "$SOURCE_DIR" ]]; then
   VERSION="${ELISE_VERSION:-dev}"
   mkdir -p "$work_dir/runtime"
@@ -197,6 +222,19 @@ PY
     || fail "signature de l’archive Élise non valide"
   mkdir "$work_dir/runtime"
   tar -xzf "$work_dir/$asset" -C "$work_dir/runtime"
+  # An update started from the app runs the installer of the release already in place, whose
+  # list of host files predates this release (v0.1.17 never installed the Zigbee agent).
+  # Hand over to the installer that ships with the verified archive, once, keeping the lock.
+  new_installer="$work_dir/runtime/install/install-elise.sh"
+  if [[ "${ELISE_INSTALLER_HANDOFF:-false}" != true && -f "$new_installer" ]] \
+    && ! cmp -s "$new_installer" "${BASH_SOURCE[0]}"; then
+    handoff="$(mktemp)"
+    install -m 0700 "$new_installer" "$handoff"
+    rm -rf -- "$work_dir"
+    trap - EXIT
+    echo "→ Passage à l’installateur d’Élise OS ${VERSION}"
+    ELISE_INSTALLER_HANDOFF=true ELISE_UPDATE_LOCK_HELD=true ELISE_VERSION="$VERSION" exec "$handoff"
+  fi
 fi
 
 if [[ "$VERSION" != dev ]]; then
@@ -260,19 +298,8 @@ fi
 ln -sfn "$release_dir" "$ELISE_ROOT/current"
 [[ -z "$previous" ]] || restore_on_exit=true
 
-install_host_files() {
-  local source="$1" mode from to
-  # This installer copies another release's files: only what keeps updates working is required,
-  # so a release that drops or renames a component can still be installed (or rolled back to).
-  [[ -f "$source/appliance/elise-update-agent.py" && -f "$source/install/elise" ]] || return 1
-  install -d -m 0755 /usr/lib/elise
-  while read -r mode from to; do
-    if [[ -f "$source/$from" ]]; then
-      install -m "$mode" "$source/$from" "$to"
-    else
-      echo "Absent de $(basename "$source") : $from" >&2
-    fi
-  done <<'FILES'
+# Host files of this release: installed below and checked before the update is confirmed.
+HOST_FILES="$(cat <<'FILES'
 0755 appliance/elise-update-agent.py /usr/lib/elise/elise-update-agent.py
 0755 install/elise /usr/local/bin/elise
 0644 appliance/systemd/elise-update-agent.service /etc/systemd/system/
@@ -289,7 +316,29 @@ install_host_files() {
 0644 appliance/systemd/elise-zigbee-agent.service /etc/systemd/system/
 0644 appliance/systemd/elise-zigbee-setup.service /etc/systemd/system/
 0644 appliance/udev/90-elise-zigbee.rules /etc/udev/rules.d/
+0644 appliance/elise_install_state.py /usr/lib/elise/elise_install_state.py
+0644 appliance/elise_install_texts.py /usr/lib/elise/elise_install_texts.py
+0644 appliance/elise_language.py /usr/lib/elise/elise_language.py
+0755 appliance/elise-install-screen.py /usr/lib/elise/elise-install-screen.py
+0644 appliance/systemd/elise-install-screen.service /etc/systemd/system/
+0755 appliance/elise-preparation.py /usr/lib/elise/elise-preparation.py
+0644 appliance/systemd/elise-preparation.service /etc/systemd/system/
 FILES
+)"
+
+install_host_files() {
+  local source="$1" mode from to
+  # This installer copies another release's files: only what keeps updates working is required,
+  # so a release that drops or renames a component can still be installed (or rolled back to).
+  [[ -f "$source/appliance/elise-update-agent.py" && -f "$source/install/elise" ]] || return 1
+  install -d -m 0755 /usr/lib/elise
+  while read -r mode from to; do
+    if [[ -f "$source/$from" ]]; then
+      install -m "$mode" "$source/$from" "$to"
+    else
+      echo "Absent de $(basename "$source") : $from" >&2
+    fi
+  done <<<"$HOST_FILES"
   udevadm control --reload-rules 2>/dev/null || true
 }
 
@@ -349,6 +398,18 @@ PY
 fi
 
 systemctl daemon-reload
+if [[ "$ELISE_FRESH_INSTALL" == true ]]; then
+  # Do not enable either temporary service at boot on a generic Ubuntu host. The installer owns
+  # their complete lifetime; the resident LightDM screen can be installed independently later.
+  systemctl disable elise-preparation.service elise-install-screen.service 2>/dev/null || true
+  systemctl start elise-preparation.service
+  if /usr/lib/elise/elise-install-screen.py --detect-display; then
+    systemctl start elise-install-screen.service
+    installation_tv_started=true
+  else
+    echo "→ Aucun écran détecté ; installation sans affichage TV"
+  fi
+fi
 systemctl enable --now elise-remote-access-agent.service elise-update-agent.service elise-tailscale-firewall.service
 # A oneshot unit already active is not run again by `enable --now`: apply this release's rules.
 systemctl restart elise-tailscale-firewall.service
@@ -396,7 +457,9 @@ until "${compose[@]}" "${pull_or_build[@]}"; do
   pull_attempt=$((pull_attempt + 1))
 done
 progress "Démarrage et vérification d’Élise"
-if [[ "${ELISE_FIRST_BOOT:-false}" == true ]]; then systemctl stop elise-preparation.service || true; fi
+if [[ "${ELISE_FIRST_BOOT:-false}" == true || "$ELISE_FRESH_INSTALL" == true ]]; then
+  systemctl stop elise-preparation.service || true
+fi
 # Compose renames a container to <id>_<name> while recreating it; an interrupted
 # run leaves that copy behind and the next `up` fails on a name conflict.
 docker ps -a --format '{{.Names}}' \
@@ -409,6 +472,18 @@ if ! "${compose[@]}" up -d; then
   fail "le démarrage a échoué ; la version précédente a été restaurée"
 fi
 
+host_files_current() {
+  local mode from to
+  while read -r mode from to; do
+    [[ -f "$release_dir/$from" ]] || continue
+    [[ "$to" == */ ]] && to="$to$(basename "$from")"
+    cmp -s "$release_dir/$from" "$to" || { echo "Fichier système non à jour : $to" >&2; return 1; }
+  done <<<"$HOST_FILES"
+  # The app manages the Zigbee key through this agent: a release that ships it needs it running.
+  [[ ! -f "$release_dir/appliance/systemd/elise-zigbee-agent.service" ]] \
+    || systemctl is-active --quiet elise-zigbee-agent.service \
+    || { echo "L’agent Zigbee ne fonctionne pas." >&2; return 1; }
+}
 release_healthy() {
   local health
   health="$(curl --fail --silent --max-time 10 "http://127.0.0.1:${http_port:-8080}/api/v1/system/health")" || return 1
@@ -423,6 +498,18 @@ until release_healthy; do
     "${compose[@]}" down || true
     restore_previous
     fail "les contrôles de santé ont échoué ; retour à la version précédente"
+  fi
+  sleep 3
+done
+
+# A release whose host files did not land (an older installer, a failed copy) is not installed.
+host_attempt=0
+until host_files_current; do
+  host_attempt=$((host_attempt + 1))
+  if (( host_attempt >= 10 )); then
+    "${compose[@]}" down || true
+    restore_previous
+    fail "les fichiers système de $VERSION ne sont pas installés ; retour à la version précédente"
   fi
   sleep 3
 done
@@ -476,3 +563,9 @@ fi
 progress "Élise est prête"
 echo "✓ Ouvrez http://${hostname_value:-elise}.local${local_suffix}"
 echo "  L’accès privé Tailscale se configure dans l’assistant ou dans Réglages."
+if [[ "$ELISE_FRESH_INSTALL" == true ]]; then
+  # Leave the success screen visible briefly, then restore the text console. install-screen.sh
+  # also stops it before LightDM when resident-screen setup wins this race.
+  [[ "$installation_tv_started" != true ]] || sleep "${ELISE_INSTALL_SCREEN_READY_SECONDS:-5}"
+  systemctl disable --now elise-install-screen.service elise-preparation.service 2>/dev/null || true
+fi

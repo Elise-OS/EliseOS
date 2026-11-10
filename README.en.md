@@ -10,7 +10,7 @@
 and connects an older relative to their family through the living-room TV — without ever sending their data to the cloud.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0--only-12385f)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.1.20-12385f)
+![Version](https://img.shields.io/badge/version-0.1.28-12385f)
 ![Raspberry Pi 4/5](https://img.shields.io/badge/Raspberry%20Pi-4%20%7C%205-c51a4a)
 ![Ubuntu 24.04](https://img.shields.io/badge/Ubuntu-24.04-e95420)
 ![iOS and Android](https://img.shields.io/badge/app-iPhone%20%C2%B7%20iPad%20%C2%B7%20Android-555)
@@ -228,7 +228,7 @@ Details: [docs/privacy.md](docs/privacy.md). This engineering policy supports pr
 
 1. Install [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
 2. Choose **Use custom** and the `elise-os-…img.xz` image from the [latest release](https://github.com/Elise-OS/EliseOS/releases/latest).
-3. In Imager’s settings, set the hostname `elise`, your Wi-Fi, country and time zone.
+3. In Imager’s settings, set the hostname `elise`, your Wi-Fi, country and time zone. For SSH, choose public-key authentication: the image has no default password.
 4. Write the image, insert the storage and boot the Pi.
 5. Open **http://elise.local** (or the Élise app on the same Wi-Fi): the “Preparing Élise” page tracks the setup, then opens the assistant that creates the administrator account.
 6. Pair Tailscale from the assistant: the TV, Chromium, Jitsi and camera/microphone permissions are configured automatically.

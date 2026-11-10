@@ -1,0 +1,10 @@
+#cloud-config
+hostname: elise
+manage_etc_hosts: true
+users:
+  - default
+# No password is embedded in the image. A public key added here or by Imager
+# can log in without a TTY while the password itself remains locked.
+ssh_pwauth: false
+chpasswd:
+  expire: false

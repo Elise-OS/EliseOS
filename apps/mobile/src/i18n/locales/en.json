@@ -8,6 +8,7 @@
     "addressNotFoundCheckThe": "Address not found. Check the local network or make sure Tailscale is active.",
     "alerts": "ALERTS",
     "alertsCannotBeRefreshed": "Alerts cannot be refreshed.",
+    "anotherEliseBoxAnswersAt": "Another Élise box answers at the address shown on the TV. Choose yours from the list.",
     "atHome": "At home",
     "automaticDiscovery": "Automatic discovery",
     "basedOnLocalActivity": "Based on local activity",
@@ -74,6 +75,7 @@
     "someSensorsAreNotResponding": "Some sensors are not responding correctly.",
     "statusNotRefreshed": "Status not refreshed",
     "theEliseLinkIsValid": "The Élise link is valid, but Tailscale is not responding yet.",
+    "theTvBoxIsNotFound": "The box on the TV is not answering yet. Make sure the phone is on the same Wi-Fi: the search goes on.",
     "thisMayTakeAFew": "This may take a few seconds.",
     "unavailable": "Unavailable",
     "useYourServerSLocal": "Use your server’s local or Tailscale address.",
@@ -354,7 +356,15 @@
     "theVideoCallIsTemporarily": "The video call is temporarily unavailable.",
     "unableToJoinTheCall": "Unable to join the call",
     "unableToSwitchCamera": "Unable to switch camera",
-    "videoCall": "VIDEO CALL"
+    "videoCall": "VIDEO CALL",
+    "turnOnTailscale": "This phone cannot reach the box’s video server. Turn on Tailscale on this phone, then start the call again.",
+    "microphone": "Mic",
+    "camera": "Camera",
+    "flip": "Flip",
+    "muteMicrophone": "Mute the microphone",
+    "turnOnMicrophone": "Turn on the microphone",
+    "turnOffCamera": "Turn off the camera",
+    "turnOnCamera": "Turn on the camera"
   },
   "mobileDateTimePicker": {
     "chooseTheDate": "Choose the date",
@@ -630,7 +640,10 @@
     "volume": "Volume",
     "volumeDown": "Volume down",
     "volumeUp": "Volume up",
-    "waiting": "Waiting"
+    "waiting": "Waiting",
+    "allowVideoCalls": "Allow video calls",
+    "videoCallsAllowedHint": "Authorized family members can call on the TV.",
+    "videoCallsBlockedHint": "Calls are blocked while this setting is off."
   },
   "mobileScreenTabs": {
     "add": "Add",
@@ -1111,7 +1124,16 @@
     "visitsToday_other": "{{count}} visits today",
     "wakeUp": "{{resident}} woke up around {{wakeUp}} this morning.",
     "wakeUpObservedToday": "Wake-up observed today",
-    "yesterdaySBedtime": "Yesterday’s bedtime"
+    "yesterdaySBedtime": "Yesterday’s bedtime",
+    "aCallIsInProgress": "A call is in progress",
+    "yourCallIsStillOpen": "Your call with {{resident}}, started at {{time}}, has not ended.",
+    "someoneIsCalling": "{{name}} has been on a call with {{resident}} since {{time}}.",
+    "theCallHasEnded": "The call has ended.",
+    "endTheCall": "End the call",
+    "endingTheCall": "Ending the call…",
+    "rejoin": "Rejoin",
+    "close": "Close",
+    "theCallCouldNotBeEnded": "The call could not be ended."
   },
   "mockApi": {
     "aFewMovementsInThe": "A few movements in the kitchen, living room and bathroom.",

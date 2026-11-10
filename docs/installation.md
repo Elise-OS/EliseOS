@@ -8,14 +8,42 @@ Prévoyez de préférence un Raspberry Pi 4 avec 8 Go de mémoire (un Pi 5 8 Go 
 
 1. Installez Raspberry Pi Imager sur votre ordinateur.
 2. Dans « Système d’exploitation », choisissez « Utiliser une image personnalisée » puis l’image `elise-os-…img.xz` de la dernière version GitHub. Le fichier `os_list.json` publié avec chaque version peut aussi servir de dépôt personnalisé.
-3. Dans les réglages d’Imager, indiquez le nom `elise`, votre Wi-Fi, le pays, le fuseau horaire et, si nécessaire, votre clé SSH.
+3. Dans les réglages d’Imager, indiquez le nom `elise`, votre Wi-Fi, le pays et le fuseau horaire. Pour l’accès SSH, choisissez l’authentification par clé publique et ajoutez votre clé : l’image ne contient aucun mot de passe par défaut.
 4. Écrivez l’image, placez le stockage dans le Raspberry Pi et démarrez-le.
-5. Ouvrez [http://elise.local](http://elise.local), ou l’app Élise sur un téléphone connecté au même Wi-Fi : le boîtier s’annonce sur le réseau dès la préparation. La page « Préparation d’Élise » suit chaque étape et le nombre de composants téléchargés, puis laisse automatiquement place à l’assistant.
+5. Ouvrez [http://elise.local](http://elise.local), ou l’app Élise sur un téléphone connecté au même Wi-Fi : le boîtier s’annonce sur le réseau dès la préparation. La page « Préparation d’Élise » suit chaque étape et le nombre de composants téléchargés, puis laisse automatiquement place à l’assistant. Une télévision branchée en HDMI affiche aussi l’installation dès le démarrage : les adresses du boîtier, un QR code vers cette page, l’étape en cours et, à la fin, comment activer l’écran du salon.
 6. Associez Tailscale depuis l’assistant. Jitsi, Chromium plein écran, la sortie HDMI/DisplayPort et les permissions caméra/micro se terminent alors automatiquement, sans seconde commande.
 
 Branchez la clé Zigbee quand vous voulez, avant ou après l’installation. Élise la reconnaît à son nom quand c’est possible ; sinon elle essaie chaque famille de pilotes Zigbee2MQTT (Silicon Labs, Texas Instruments, ZiGate, deCONZ, ZBOSS), retient celui qui répond et relance Zigbee2MQTT. Débrancher la clé arrête proprement Zigbee2MQTT. L’état est consultable dans `/var/lib/elise/zigbee/status.json`.
 
 Une coupure d’Internet n’empêche pas le Raspberry Pi de démarrer. La page locale indique le problème et l’installation reprend automatiquement quand Internet revient.
+
+## Mini PC AMD64 : clé USB d’installation
+
+Cette méthode installe Ubuntu Server 24.04 et Élise OS sans commande. Elle nécessite un mini PC AMD64, un disque interne d’au moins 32 Go et une connexion Ethernet avec DHCP. Le Wi-Fi n’est pas pris en charge par cette première version.
+
+> **Attention : le disque interne que vous confirmez sera entièrement effacé.** L’installateur n’efface rien tant que vous n’avez pas choisi « Effacer et installer ».
+
+1. Téléchargez la [dernière clé d’installation mini-PC](https://sourceforge.net/projects/elise-os/files/latest/download). Le fichier ISO complet est hébergé sur SourceForge ; son [adresse exacte, sa taille et son SHA-256](https://github.com/Elise-OS/EliseOS/releases/latest/download/minipc-installer.json) restent publiés avec chaque version GitHub.
+2. Écrivez l’ISO sur une clé USB avec Raspberry Pi Imager (« Utiliser une image personnalisée ») ou balenaEtcher.
+3. Branchez l’Ethernet et un écran, puis démarrez le mini PC sur la clé USB.
+4. Choisissez Français, English, Español ou Italiano avec les flèches et Entrée. Cette langue est aussi utilisée par l’écran TV et l’app Élise.
+5. Si le câble ou Internet manque, l’écran demande de brancher l’Ethernet et reprend tout seul dès que la connexion fonctionne.
+6. Choisissez le disque interne. L’écran montre son modèle, sa taille et, quand c’est détectable, s’il contient déjà un système ou des données. Le plus grand est présélectionné ; les disques USB et la clé d’installation ne sont jamais proposés.
+7. Vérifiez une dernière fois le disque, choisissez explicitement « Effacer et installer », puis laissez l’installation se terminer. « Annuler » est présélectionné par sécurité.
+8. Quand le mini PC redémarre, retirez la clé USB. L’écran TV affiche la préparation, le QR code et enfin « Élise est prête », comme sur Raspberry Pi.
+
+Le programme refuse de continuer si aucun disque interne admissible d’au moins 32 Go n’est présent. Ubuntu est inclus dans l’ISO et s’installe hors ligne ; Ethernet reste obligatoire pour vérifier et installer Élise OS de la même version exacte que la clé.
+
+Pour contrôler le téléchargement, comparez le résultat de `sha256sum elise-os-…iso` avec la valeur `sha256` de `minipc-installer.json`. La release GitHub fournit aussi le fichier `.sha256` et le bundle `.sigstore.json`. La signature se vérifie ainsi :
+
+```bash
+cosign verify-blob elise-os-<version>-minipc-amd64-installer.iso \
+  --bundle elise-os-<version>-minipc-amd64-installer.iso.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/Elise-OS/EliseOS/.github/workflows/release.yml@refs/heads/main$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Le build vérifie la liste `SHA256SUMS` officielle d’Ubuntu avec sa signature GPG, conserve les binaires shim/GRUB signés d’Ubuntu et remasterise leurs entrées sans les reconstruire. Il conserve donc le démarrage BIOS/UEFI et la chaîne Secure Boot de l’ISO officielle ; un test Secure Boot sur un vrai mini PC reste toutefois nécessaire.
 
 ## Ubuntu Server 24.04
 
@@ -26,6 +54,8 @@ curl -fsSL https://github.com/Elise-OS/EliseOS/releases/latest/download/install-
 ```
 
 L’installateur vérifie la machine, installe Docker, Tailscale et Avahi, vérifie le manifeste de version, télécharge les images adaptées à l’architecture et attend que les services soient sains. Il conserve une installation déjà présente, ses secrets, volumes, sauvegardes et son identité Tailscale.
+
+Si un écran est branché au mini-PC, il affiche le suivi de l’installation, les adresses d’accès et le QR code pour continuer sur un téléphone.
 
 Cette commande installe également tout le paquet TV et appels vidéo. Si Tailscale n’est pas encore associé, un service local reprend automatiquement la préparation chaque minute et la termine dès que l’accès privé est prêt.
 

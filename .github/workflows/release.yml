@@ -122,6 +122,8 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: python -m pip install -e './apps/ai[dev]' && ruff check apps/ai && pytest apps/ai
+      # The TV installation screen's tests draw with Pillow and qrcode, as the appliance does.
+      - run: python -m pip install 'pillow==10.2.0' 'qrcode==7.4.2'
       - run: bash scripts/test-distribution.sh
       - run: docker compose config --quiet
 
@@ -161,8 +163,133 @@ jobs:
         run: .github/scripts/install-cosign.sh
       - run: cosign sign --yes "ghcr.io/elise-os/eliseos-${{ matrix.name }}@${{ steps.build.outputs.digest }}"
 
+  minipc_installer:
+    needs: [version, sync_version, validate]
+    runs-on: ubuntu-24.04
+    outputs:
+      available: ${{ steps.sourceforge.outputs.enabled }}
+    env:
+      RELEASE_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Check SourceForge publication configuration
+        id: sourceforge
+        env:
+          SOURCEFORGE_USER: ${{ secrets.SOURCEFORGE_USER }}
+          SOURCEFORGE_PROJECT: ${{ secrets.SOURCEFORGE_PROJECT }}
+          SOURCEFORGE_SSH_PRIVATE_KEY: ${{ secrets.SOURCEFORGE_SSH_PRIVATE_KEY }}
+        run: |
+          if [[ -n "$SOURCEFORGE_USER" && -n "$SOURCEFORGE_PROJECT" && -n "$SOURCEFORGE_SSH_PRIVATE_KEY" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo '::warning::Mini-PC ISO skipped: SOURCEFORGE_USER, SOURCEFORGE_PROJECT and SOURCEFORGE_SSH_PRIVATE_KEY are not all configured.'
+            {
+              echo '## Mini-PC installer ISO'
+              echo ''
+              echo '⚠️ Build and upload skipped because the three SourceForge secrets are not all configured.'
+              echo 'The rest of the Élise OS release continues normally.'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - if: steps.sourceforge.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_version.outputs.sha }}
+          submodules: false
+      - name: Install ISO builder dependencies
+        if: steps.sourceforge.outputs.enabled == 'true'
+        run: sudo apt-get update && sudo apt-get install -y curl gpgv rsync ubuntu-keyring xorriso
+      - name: Build AMD64 mini PC USB installer
+        if: steps.sourceforge.outputs.enabled == 'true'
+        env:
+          ELISE_BUILD_WORKDIR: ${{ runner.temp }}/elise-minipc
+          UBUNTU_ISO_CACHE: ${{ runner.temp }}/elise-minipc/ubuntu-24.04.5-live-server-amd64.iso
+        run: |
+          mkdir -p dist "$ELISE_BUILD_WORKDIR"
+          appliance/build-minipc-installer.sh \
+            "$RELEASE_VERSION" \
+            "dist/elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso"
+          (cd dist && sha256sum "elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso" \
+            > "elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso.sha256")
+      - name: Sign and verify AMD64 mini PC installer
+        if: steps.sourceforge.outputs.enabled == 'true'
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          .github/scripts/install-cosign.sh
+          file="dist/elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso"
+          cosign sign-blob --yes --bundle "$file.sigstore.json" "$file"
+          (cd dist && sha256sum -c "elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso.sha256")
+          cosign verify-blob "$file" --bundle "$file.sigstore.json" \
+            --certificate-identity-regexp "^https://github.com/${REPOSITORY}/.github/workflows/release.yml@refs/heads/main$" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null
+      - name: Upload the ISO to SourceForge FRS
+        if: steps.sourceforge.outputs.enabled == 'true'
+        env:
+          SOURCEFORGE_USER: ${{ secrets.SOURCEFORGE_USER }}
+          SOURCEFORGE_PROJECT: ${{ secrets.SOURCEFORGE_PROJECT }}
+          SOURCEFORGE_SSH_PRIVATE_KEY: ${{ secrets.SOURCEFORGE_SSH_PRIVATE_KEY }}
+        run: |
+          [[ "$SOURCEFORGE_USER" =~ ^[A-Za-z0-9._-]+$ ]] || { echo 'Invalid SourceForge user.' >&2; exit 1; }
+          [[ "$SOURCEFORGE_PROJECT" =~ ^[a-z0-9][a-z0-9-]+$ ]] || { echo 'Invalid SourceForge project URL name.' >&2; exit 1; }
+          key="$RUNNER_TEMP/sourceforge-ci-key"
+          known_hosts="$RUNNER_TEMP/sourceforge-known-hosts"
+          install -m 0600 /dev/null "$key"
+          printf '%s\n' "$SOURCEFORGE_SSH_PRIVATE_KEY" > "$key"
+          ssh-keyscan -T 20 -t ed25519 frs.sourceforge.net > "$known_hosts.scanned" 2>/dev/null
+          fingerprint="$(ssh-keygen -lf "$known_hosts.scanned" -E sha256 | awk '{print $2}')"
+          expected='SHA256:209BDmH3jsRyO9UeGPPgLWPSegKmYCBIya0nR/AWWCY'
+          [[ "$fingerprint" == "$expected" ]] || { echo "SourceForge host key mismatch: $fingerprint" >&2; exit 1; }
+          install -m 0600 "$known_hosts.scanned" "$known_hosts"
+          file="dist/elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso"
+          rsync --archive --partial --progress \
+            -e "ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$known_hosts -o StrictHostKeyChecking=yes" \
+            "$file" \
+            "${SOURCEFORGE_USER}@frs.sourceforge.net:/home/frs/project/${SOURCEFORGE_PROJECT}/${RELEASE_VERSION}/"
+          rm -f "$key"
+      - name: Describe and check the public SourceForge download
+        if: steps.sourceforge.outputs.enabled == 'true'
+        env:
+          SOURCEFORGE_PROJECT: ${{ secrets.SOURCEFORGE_PROJECT }}
+        run: |
+          file="dist/elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso"
+          name="${file##*/}"
+          size="$(stat -c %s "$file")"
+          sha256="$(sha256sum "$file" | cut -d' ' -f1)"
+          url="https://sourceforge.net/projects/${SOURCEFORGE_PROJECT}/files/${RELEASE_VERSION}/${name}/download"
+          python3 - "$RELEASE_VERSION" "$url" "$size" "$sha256" > dist/minipc-installer.json <<'PY'
+          import json, sys
+          json.dump({"version": sys.argv[1], "url": sys.argv[2], "size": int(sys.argv[3]), "sha256": sys.argv[4]}, sys.stdout, indent=2)
+          print()
+          PY
+          cosign sign-blob --yes --bundle dist/minipc-installer.json.sigstore.json dist/minipc-installer.json
+          public_size=''
+          for _ in $(seq 1 60); do
+            if curl -fsSLI --connect-timeout 15 --max-time 90 "$url" -o "$RUNNER_TEMP/sourceforge-headers"; then
+              public_size="$(awk 'BEGIN{IGNORECASE=1} /^HTTP\//{size=""} /^content-length:/{gsub("\r", "", $2); size=$2} END{print size}' "$RUNNER_TEMP/sourceforge-headers")"
+              [[ "$public_size" == "$size" ]] && break
+            fi
+            sleep 30
+          done
+          if [[ "$public_size" == "$size" ]]; then
+            echo "✓ SourceForge public download reports $size bytes" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::SourceForge mirrors did not report the expected size within 30 minutes (expected $size, got ${public_size:-unknown})."
+            echo "⚠️ SourceForge mirror propagation was not confirmed within 30 minutes; expected $size bytes." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - if: steps.sourceforge.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: minipc-amd64-installer-metadata
+          path: |
+            dist/elise-os-${{ env.RELEASE_VERSION }}-minipc-amd64-installer.iso.sha256
+            dist/elise-os-${{ env.RELEASE_VERSION }}-minipc-amd64-installer.iso.sigstore.json
+            dist/minipc-installer.json
+            dist/minipc-installer.json.sigstore.json
+          compression-level: 0
+          retention-days: 1
+
   artifacts:
-    needs: [version, sync_version, containers]
+    needs: [version, sync_version, containers, minipc_installer]
     runs-on: ubuntu-24.04
     env:
       RELEASE_VERSION: ${{ needs.version.outputs.version }}
@@ -208,7 +335,7 @@ jobs:
           sed "s/__ELISE_VERSION__/${RELEASE_VERSION}/g" install/install-elise.sh > dist/install-elise.sh
           chmod +x dist/install-elise.sh
       - name: Install image builder dependencies
-        run: sudo apt-get update && sudo apt-get install -y qemu-user-static parted rsync
+        run: sudo apt-get update && sudo apt-get install -y qemu-user-static parted rsync zerofree
       - name: Build Raspberry Pi image
         run: sudo appliance/build-raspberry-image.sh "$RELEASE_VERSION" "$PWD/dist/elise-os-${RELEASE_VERSION}-raspberry-pi-arm64.img.xz"
       - name: Describe Raspberry Pi image
@@ -227,12 +354,20 @@ jobs:
           for file in dist/*.tar.gz dist/*.img.xz dist/release-manifest.json dist/install-elise.sh dist/os_list.json; do
             cosign sign-blob --yes --bundle "$file.sigstore.json" "$file"
           done
+      - name: Download AMD64 mini PC installer
+        if: needs.minipc_installer.outputs.available == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: minipc-amd64-installer-metadata
+          path: dist
       - name: Verify release files
         env:
           REPOSITORY: ${{ github.repository }}
         run: |
           (cd dist && sha256sum -c "elise-runtime-${RELEASE_VERSION}.tar.gz.sha256" && sha256sum -c release-manifest.json.sha256)
-          for file in dist/*.tar.gz dist/*.img.xz dist/release-manifest.json dist/install-elise.sh dist/os_list.json; do
+          files=(dist/*.tar.gz dist/*.img.xz dist/release-manifest.json dist/install-elise.sh dist/os_list.json)
+          if [[ -f dist/minipc-installer.json ]]; then files+=(dist/minipc-installer.json); fi
+          for file in "${files[@]}"; do
             cosign verify-blob "$file" --bundle "$file.sigstore.json" \
               --certificate-identity-regexp "^https://github.com/${REPOSITORY}/.github/workflows/release.yml@refs/heads/main$" \
               --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null

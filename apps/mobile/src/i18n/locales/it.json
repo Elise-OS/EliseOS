@@ -8,6 +8,7 @@
     "addressNotFoundCheckThe": "Indirizzo non trovato. Controlli la rete locale o che Tailscale sia attivo.",
     "alerts": "AVVISI",
     "alertsCannotBeRefreshed": "Non è possibile aggiornare gli avvisi.",
+    "anotherEliseBoxAnswersAt": "Un altro box Élise risponde all’indirizzo mostrato sulla TV. Scelga il suo dall’elenco.",
     "atHome": "In casa",
     "automaticDiscovery": "Rilevamento automatico",
     "basedOnLocalActivity": "In base all’attività locale",
@@ -74,6 +75,7 @@
     "someSensorsAreNotResponding": "Alcuni sensori non rispondono correttamente.",
     "statusNotRefreshed": "Stato non aggiornato",
     "theEliseLinkIsValid": "Il collegamento a Élise è valido, ma Tailscale non risponde ancora.",
+    "theTvBoxIsNotFound": "Il box della TV non risponde ancora. Controlli che il telefono sia sulla stessa rete Wi-Fi: la ricerca continua.",
     "thisMayTakeAFew": "Può richiedere alcuni secondi.",
     "unavailable": "Non disponibile",
     "useYourServerSLocal": "Utilizzi l’indirizzo locale o Tailscale del Suo server.",
@@ -359,7 +361,15 @@
     "theVideoCallIsTemporarily": "La videochiamata è momentaneamente non disponibile.",
     "unableToJoinTheCall": "Impossibile partecipare alla chiamata",
     "unableToSwitchCamera": "Cambio non possibile",
-    "videoCall": "VIDEOCHIAMATA"
+    "videoCall": "VIDEOCHIAMATA",
+    "turnOnTailscale": "Questo telefono non riesce a raggiungere la videochiamata del box. Attivi Tailscale su questo telefono, poi richiami.",
+    "microphone": "Micro",
+    "camera": "Fotocamera",
+    "flip": "Gira",
+    "muteMicrophone": "Disattiva il microfono",
+    "turnOnMicrophone": "Attiva il microfono",
+    "turnOffCamera": "Disattiva la fotocamera",
+    "turnOnCamera": "Attiva la fotocamera"
   },
   "mobileDateTimePicker": {
     "chooseTheDate": "Scelga la data",
@@ -640,7 +650,10 @@
     "volume": "Volume",
     "volumeDown": "Abbassa il volume",
     "volumeUp": "Alza il volume",
-    "waiting": "In attesa"
+    "waiting": "In attesa",
+    "allowVideoCalls": "Consenti le videochiamate",
+    "videoCallsAllowedHint": "I familiari autorizzati possono chiamare sulla televisione.",
+    "videoCallsBlockedHint": "Le chiamate sono bloccate finché questa impostazione è disattivata."
   },
   "mobileScreenTabs": {
     "add": "Aggiungi",
@@ -1124,7 +1137,16 @@
     "visitsToday_other": "{{count}} passaggi oggi",
     "wakeUp": "Risveglio questa mattina verso le {{wakeUp}}.",
     "wakeUpObservedToday": "Risveglio rilevato oggi",
-    "yesterdaySBedtime": "Coricamento di ieri sera"
+    "yesterdaySBedtime": "Coricamento di ieri sera",
+    "aCallIsInProgress": "È in corso una chiamata",
+    "yourCallIsStillOpen": "La sua chiamata con {{resident}}, iniziata alle {{time}}, non è terminata.",
+    "someoneIsCalling": "{{name}} è in chiamata con {{resident}} dalle {{time}}.",
+    "theCallHasEnded": "La chiamata è terminata.",
+    "endTheCall": "Termina la chiamata",
+    "endingTheCall": "Chiusura della chiamata…",
+    "rejoin": "Rientra",
+    "close": "Chiudi",
+    "theCallCouldNotBeEnded": "Non è stato possibile terminare la chiamata."
   },
   "mockApi": {
     "aFewMovementsInThe": "Alcuni passaggi in cucina, in soggiorno e in bagno.",

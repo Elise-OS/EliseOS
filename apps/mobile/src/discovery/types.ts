@@ -16,6 +16,10 @@ export interface PreparationStatus {
   address?: string | null;
   ipAddress?: string | null;
   version?: string | null;
+  /** Language the box and its TV show; null while they take turns in every language. */
+  language?: string | null;
+  /** Who chose it: older boxes leave both fields out. */
+  languageSource?: 'app' | 'config' | 'browser' | 'detected' | null;
 }
 
 export interface DiscoveryInfo {

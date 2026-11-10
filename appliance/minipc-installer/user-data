@@ -1,0 +1,39 @@
+#cloud-config
+autoinstall:
+  version: 1
+  refresh-installer:
+    update: false
+  # The early command replaces these four exact tokens, then Subiquity reloads this file.
+  locale: __ELISE_LOCALE__
+  keyboard:
+    layout: __ELISE_KEYBOARD__
+    variant: ""
+  timezone: __ELISE_TIMEZONE__
+  identity:
+    hostname: elise
+    username: elise
+    realname: Élise OS
+    password: "!"
+  ssh:
+    install-server: false
+    authorized-keys: []
+    allow-pw: false
+  # Keep Subiquity's documented default: DHCP on eth*/en* during installation. The late
+  # command writes the same wildcard policy into the target so a PCI name change is harmless.
+  storage:
+    layout:
+      name: direct
+      match:
+        path: __ELISE_TARGET_DISK__
+  early-commands:
+    - python3 /cdrom/nocloud/select-target.py
+  late-commands:
+    - bash /cdrom/nocloud/install-target.sh /target
+  updates: security
+  shutdown: reboot
+  error-commands:
+    # The progress screen (installer_ui.monitor) turns into the error screen on this mark.
+    - sh -c 'mkdir -p /run/elise-installer && touch /run/elise-installer/failed || true'
+    - >-
+      sh -c 'echo "ELISE_INSTALLER: ERROR — installation stopped; no automatic retry" |
+      tee /dev/console /dev/ttyS0 >/dev/null 2>&1 || true'

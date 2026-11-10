@@ -10,7 +10,7 @@
 y conecta al familiar mayor con su familia a través del televisor del salón — sin enviar nunca sus datos a la nube.
 
 [![Licencia: AGPL-3.0](https://img.shields.io/badge/licencia-AGPL--3.0--only-12385f)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.1.20-12385f)
+![Version](https://img.shields.io/badge/version-0.1.28-12385f)
 ![Raspberry Pi 4/5](https://img.shields.io/badge/Raspberry%20Pi-4%20%7C%205-c51a4a)
 ![Ubuntu 24.04](https://img.shields.io/badge/Ubuntu-24.04-e95420)
 ![iOS y Android](https://img.shields.io/badge/app-iPhone%20%C2%B7%20iPad%20%C2%B7%20Android-555)
@@ -232,7 +232,7 @@ Hay una lista de compra orientativa en [docs/liste-achat-domadoo.md](docs/liste-
 
 1. Instale [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
 2. Elija **Usar personalizado** y la imagen `elise-os-…img.xz` de la [última versión](https://github.com/Elise-OS/EliseOS/releases/latest).
-3. En los ajustes de Imager, indique el nombre `elise`, su red Wi-Fi, el país y la zona horaria.
+3. En los ajustes de Imager, indique el nombre `elise`, su red Wi-Fi, el país y la zona horaria. Para SSH, elija la autenticación con clave pública: la imagen no tiene contraseña predeterminada.
 4. Escriba la imagen, inserte el almacenamiento y encienda la Raspberry Pi.
 5. Abra **http://elise.local** (o la app Élise en la misma red Wi-Fi): la página «Preparación de Élise» sigue la instalación y después abre el asistente de creación de la cuenta de administrador.
 6. Vincule Tailscale desde el asistente: el televisor, Chromium, Jitsi y los permisos de cámara y micrófono se configuran automáticamente.

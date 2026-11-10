@@ -51,6 +51,8 @@ install -m 0644 "$root/appliance/systemd/elise-screen-agent.service" /etc/system
 systemctl daemon-reload
 systemctl enable elise-screen-agent
 systemctl restart elise-screen-agent
+# The installation screen draws on the console framebuffer: hand the TV over for good.
+systemctl disable --now elise-install-screen.service 2>/dev/null || true
 systemctl enable lightdm
 # Starting the manager does not terminate another active graphical session.
 systemctl start lightdm

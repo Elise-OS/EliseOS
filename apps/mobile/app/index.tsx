@@ -27,6 +27,7 @@ import { isMobileApiAuthError, mobileApi, type AlertItem, type Overview } from '
 import { ServerRegistry } from '../src/discovery/registry';
 import { discoveryService } from '../src/discovery/service';
 import { isTailscaleUrl, remoteUrlFromDeepLink } from '../src/discovery/helpers';
+import { parseSetupLink, resolveSetupLinkTarget, type SetupLink } from '../src/discovery/setupLink';
 import type { DiscoveredServer, SavedServer } from '../src/discovery/types';
 import { DashboardApp } from '../src/dashboard/DashboardApp';
 import { prefetchHomeData } from '../src/dashboard/prefetchHomeData';
@@ -59,6 +60,8 @@ type Stage =
 type LoginOption = { id: string; displayName: string; identifier: string };
 
 const LOCALE_KEY = '@elise:locale';
+// A box on the home network answers at once: the TV's address is tried briefly, a few times.
+const SETUP_LINK_PROBE_TIMEOUT = 2500;
 const SETUP_PREVIEW_ID = 'elise-setup-preview';
 const setupPreviewServer: DiscoveredServer = {
   id: SETUP_PREVIEW_ID,
@@ -127,6 +130,20 @@ export default function HomeScreen() {
   const bootMotion = useRef(new Animated.Value(0)).current;
   const bootPulse = useRef(new Animated.Value(0)).current;
   const handledDeepLink = useRef<string | null>(null);
+  // Set once a setup link (the TV's QR code) decides the screen: the start-up stops choosing one.
+  const setupLinkTookOver = useRef(false);
+  // Box of a setup link that has not answered yet: opened as soon as the scan finds it.
+  const pendingLinkBox = useRef<string | null>(null);
+  // The saved box and language, read once at start-up and shared with a setup link.
+  const initialState = useRef<Promise<{
+    last: SavedServer | null;
+    savedLocale: string | null;
+  }> | null>(null);
+  const readInitialState = () =>
+    (initialState.current ??= Promise.all([
+      ServerRegistry.last(),
+      AsyncStorage.getItem(LOCALE_KEY),
+    ]).then(([last, savedLocale]) => ({ last, savedLocale })));
   const discoverRememberedRemoteServers = useCallback(async () => {
     const savedServers = await ServerRegistry.list();
     setKnownServers(savedServers);
@@ -135,22 +152,45 @@ export default function HomeScreen() {
     );
   }, []);
 
+  /** Opens the dashboard of a box the user is signed in to (or its sign-in if the session ended). */
+  const openSignedIn = async (saved: SavedServer, savedToken: string, active: () => boolean) => {
+    setServer(saved);
+    try {
+      const user = await mobileApi.me(saved, savedToken);
+      if (!active()) return;
+      setToken(savedToken);
+      setUserName(user.displayName);
+      await prefetchHomeData(queryClient, saved, savedToken);
+      if (!active()) return;
+      setStage('dashboard');
+    } catch (error) {
+      if (isMobileApiAuthError(error)) {
+        await ServerRegistry.clearToken(saved.id);
+        if (active()) setStage('login');
+        return;
+      }
+      if (!active()) return;
+      setToken(savedToken);
+      setOffline(true);
+      setStage('dashboard');
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     const bootstrap = async () => {
-      const [last, savedLocale] = await Promise.all([
-        ServerRegistry.last(),
-        AsyncStorage.getItem(LOCALE_KEY),
-      ]);
+      const { last, savedLocale } = await readInitialState();
       if (!mounted) return;
       if (isLanguage(savedLocale)) setLocale(savedLocale);
+      const active = () => mounted && !setupLinkTookOver.current;
+      if (!active()) return;
       if (!last) {
         setStage('welcome');
         return;
       }
       setServer(last);
       const savedToken = await ServerRegistry.token(last.id);
-      if (!mounted) return;
+      if (!active()) return;
       if (!savedToken) {
         void mobileApi
           .loginOptions(last)
@@ -159,25 +199,7 @@ export default function HomeScreen() {
         setStage('login');
         return;
       }
-      try {
-        const user = await mobileApi.me(last, savedToken);
-        if (!mounted) return;
-        setToken(savedToken);
-        setUserName(user.displayName);
-        await prefetchHomeData(queryClient, last, savedToken);
-        if (!mounted) return;
-        setStage('dashboard');
-      } catch (error) {
-        if (isMobileApiAuthError(error)) {
-          await ServerRegistry.clearToken(last.id);
-          if (mounted) setStage('login');
-          return;
-        }
-        if (!mounted) return;
-        setToken(savedToken);
-        setOffline(true);
-        setStage('dashboard');
-      }
+      await openSignedIn(last, savedToken, active);
     };
     void bootstrap();
     return () => {
@@ -261,6 +283,8 @@ export default function HomeScreen() {
     return () => {
       animation.stop();
       radar.setValue(0);
+      // Leaving the search ends the wait for the box of a setup link.
+      pendingLinkBox.current = null;
       appState.remove();
       keyboard.remove();
       unsubscribe();
@@ -307,7 +331,8 @@ export default function HomeScreen() {
     };
   }, [knownServers, servers]);
 
-  const chooseServer = async (candidate: DiscoveredServer) => {
+  /** Opens a box the usual way; false when it no longer answers (the error is shown). */
+  const chooseServer = async (candidate: DiscoveredServer): Promise<boolean> => {
     setBusy(true);
     setError('');
     try {
@@ -319,7 +344,7 @@ export default function HomeScreen() {
           lastConnectedAt: candidate.lastSeenAt,
         });
         setStage('setup');
-        return;
+        return true;
       }
       setSetupPreview(false);
       const current = await discoveryService.refreshServer(candidate);
@@ -330,17 +355,19 @@ export default function HomeScreen() {
       setLoginOptions([]);
       if (current.preparing) {
         setStage('preparing');
-        return;
+        return true;
       }
       if (current.setupRequired) {
         setStage('setup');
-        return;
+        return true;
       }
       const options = await mobileApi.loginOptions(saved).catch(() => []);
       setLoginOptions(options);
       setStage('login');
+      return true;
     } catch {
       setError(t('app.eliseIsNoLongerResponding'));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -349,9 +376,14 @@ export default function HomeScreen() {
   // The preparation screen polls with a stable callback; it reads the latest state here.
   const chooseServerRef = useRef(chooseServer);
   const serverRef = useRef(server);
+  // A setup link is handled across several awaits: it reads the latest screen and scan here.
+  const stageRef = useRef(stage);
+  const serversRef = useRef(servers);
   useEffect(() => {
     chooseServerRef.current = chooseServer;
     serverRef.current = server;
+    stageRef.current = stage;
+    serversRef.current = servers;
   });
   const onPreparationReady = useCallback(() => {
     if (serverRef.current) void chooseServerRef.current(asDiscovered(serverRef.current));
@@ -381,6 +413,103 @@ export default function HomeScreen() {
       .then(chooseServer)
       .catch(() => setError(t('app.theEliseLinkIsValid')));
   }, [incomingUrl]);
+
+  /**
+   * Opens the box whose TV shows the QR code. A saved box opens the usual way and nothing is
+   * overwritten; a new one is looked for on the network, then at the TV's address, and opens on
+   * its preparation screen. The app language stays the user's (or the phone's): the preparation
+   * screen sends it to the box, the TV's language never changes it.
+   */
+  const openSetupLink = async (url: string, link: SetupLink) => {
+    const current = () => handledDeepLink.current === url;
+    const [{ last }, saved] = await Promise.all([readInitialState(), ServerRegistry.list()]);
+    if (!current()) return;
+    const known = link.box ? saved.find((item) => item.instanceId === link.box) : undefined;
+    const savedToken = known ? await ServerRegistry.token(known.id) : null;
+    if (!current()) return;
+
+    // Already on that box: its dashboard (or the start-up opening it), setup or preparation.
+    const shownId = (serverRef.current ?? last)?.instanceId;
+    const shownStage = stageRef.current;
+    if (
+      known &&
+      shownId === known.instanceId &&
+      (['preparing', 'setup'].includes(shownStage) ||
+        (savedToken && ['boot', 'dashboard'].includes(shownStage)))
+    )
+      return;
+
+    setupLinkTookOver.current = true;
+    setError('');
+    setSetupPreview(false);
+
+    const openKnown = async (box: SavedServer, boxToken: string | null) => {
+      if (boxToken) {
+        await ServerRegistry.remember(box);
+        setOverview(null);
+        setAlerts([]);
+        setOffline(false);
+        setStage('boot');
+        await openSignedIn(box, boxToken, current);
+        return;
+      }
+      // Still preparing, to set up or to sign in to: asking the box tells which.
+      setStage('boot');
+      if (await chooseServer(asDiscovered(box))) return;
+      if (!current()) return;
+      pendingLinkBox.current = box.instanceId;
+      setStage('discovery');
+    };
+
+    if (known) {
+      await openKnown(known, savedToken);
+      return;
+    }
+
+    // The search screen scans the network while the TV's address is tried.
+    pendingLinkBox.current = link.box;
+    setStage('discovery');
+    stageRef.current = 'discovery';
+    const target = await resolveSetupLinkTarget({
+      link,
+      saved,
+      discovered: () => serversRef.current,
+      probe: (ip) => discoveryService.manual(ip, SETUP_LINK_PROBE_TIMEOUT),
+      // Stops once another link arrived or the scan already opened the box.
+      cancelled: () => !current() || pendingLinkBox.current !== link.box,
+    });
+    // The user left the search, or the scan found the box first and is opening it.
+    if (!current() || stageRef.current !== 'discovery' || pendingLinkBox.current !== link.box)
+      return;
+    if (target.kind === 'saved') {
+      await openKnown(target.server, await ServerRegistry.token(target.server.id));
+    } else if (target.kind === 'found') {
+      pendingLinkBox.current = null;
+      await chooseServer(target.server);
+    } else if (target.kind === 'mismatch') {
+      setError(t('app.anotherEliseBoxAnswersAt'));
+    } else {
+      setError(t('app.theTvBoxIsNotFound'));
+    }
+  };
+
+  useEffect(() => {
+    if (!incomingUrl || handledDeepLink.current === incomingUrl) return;
+    const link = parseSetupLink(incomingUrl);
+    if (!link) return;
+    handledDeepLink.current = incomingUrl;
+    void openSetupLink(incomingUrl, link);
+  }, [incomingUrl]);
+
+  // The box of a setup link that did not answer at once: opened as soon as the scan finds it.
+  useEffect(() => {
+    const box = pendingLinkBox.current;
+    if (stage !== 'discovery' || !box) return;
+    const found = servers.find((item) => item.instanceId === box);
+    if (!found) return;
+    pendingLinkBox.current = null;
+    void chooseServer(found);
+  }, [servers, stage]);
 
   const login = async () => {
     if (!server) return;

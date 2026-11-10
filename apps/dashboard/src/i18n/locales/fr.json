@@ -1388,6 +1388,7 @@
     "connecting": "Connexion en cours",
     "copyAppLink": "Copier le lien pour l’app",
     "copyLink": "Copier le lien",
+    "copyUnavailable": "Copie automatique indisponible. Sélectionnez le lien pour le copier.",
     "createTheirAccountAndChoose": "Créez son compte et choisissez son rôle dans Élise.",
     "disableEliseAccess": "Désactiver l’accès Élise",
     "eliseConnectionQrCode": "QR code de connexion à Élise",
@@ -2065,7 +2066,15 @@
     "chooseTvChannels": "Choisir les chaînes",
     "tvChannelsFollowTheScreenLanguage": "Les chaînes proposées suivent la langue de l’écran ({{language}}). Vous pouvez en ajouter d’autres langues.",
     "screenLanguage": "Langue de l’écran",
-    "noTvGuideForTheseChannels": "Pas de programme disponible pour ces chaînes."
+    "noTvGuideForTheseChannels": "Pas de programme disponible pour ces chaînes.",
+    "allowVideoCalls": "Autoriser les appels vidéo",
+    "videoCallsAllowedHint": "Vous et les proches autorisés pouvez appeler {{residentFirstName}} sur la télévision.",
+    "videoCallsBlockedHint": "Les appels vers {{residentFirstName}} sont bloqués tant que ce réglage est désactivé.",
+    "aCallIsInProgress": "Un appel est en cours",
+    "yourCallIsStillOpen": "Votre appel avec {{resident}}, lancé à {{time}}, n’est pas terminé.",
+    "someoneIsCalling": "{{name}} est en appel avec {{resident}} depuis {{time}}.",
+    "theCallHasEnded": "L’appel est terminé.",
+    "close": "Fermer"
   },
   "sensorCategories": {
     "air_quality": {

@@ -1,5 +1,6 @@
 import {
   TV_CHANNELS,
+  eliseCallConfig,
   toggleTvChannel,
   tvChannelById,
   tvChannelByUrl,
@@ -18,6 +19,7 @@ import { TvChannelLogo } from './TvChannelLogo';
 import { isLocale, type Locale, t, textBlock } from './i18n';
 import { dateLocale } from './screen-locale';
 import { DEMO_SHOW_TV_EVENT, residentScreenHref } from './resident-screen-link';
+import { createId } from './lib/createId';
 import type {
   ScreenPodcastEpisode,
   ScreenPodcastSearchResult,
@@ -356,9 +358,7 @@ export function JitsiFrame({
           height: '100%',
           userInfo: { displayName: join.name },
           configOverwrite: {
-            prejoinConfig: { enabled: false },
-            disableDeepLinking: true,
-            p2p: { enabled: false },
+            ...eliseCallConfig,
             startWithAudioMuted: !devices.microphone,
             startWithVideoMuted: !devices.camera,
             toolbarButtons: [
@@ -478,6 +478,7 @@ export function ScreenPanel({
   const [photoCaption, setPhotoCaption] = useState('');
   const [photoScheduleAt, setPhotoScheduleAt] = useState('');
   const [busy, setBusy] = useState(false);
+  const [callBusyOpen, setCallBusyOpen] = useState(false);
   const [host, setHost] = useState<Record<string, unknown>>();
   const [tvHost, setTvHost] = useState<TvHostStatus>();
   const [tvGuide, setTvGuide] = useState<TvGuideData>();
@@ -673,7 +674,7 @@ export function ScreenPanel({
       const existing = snapshot?.state.media.find(
         (media) => media.kind === 'stream' && media.url === station.url,
       );
-      const mediaId = existing?.id ?? crypto.randomUUID();
+      const mediaId = existing?.id ?? createId();
       if (!existing || (station.artworkUrl && existing.artworkUrl !== station.artworkUrl))
         await screenRequest('screen/media', {
           id: mediaId,
@@ -1006,11 +1007,16 @@ export function ScreenPanel({
             )}
             {grant.call && (
               <button
-                className="screen-button screen-button--call"
-                disabled={busy || !snapshot.online || !!call || !state.settings.consent}
-                onClick={() => void run(() => screenRequest('screen/calls'))}
+                className={`screen-button screen-button--call${call ? ' is-busy' : ''}`}
+                disabled={busy || !snapshot.online || (!call && !state.settings.consent)}
+                onClick={() =>
+                  call ? setCallBusyOpen(true) : void run(() => screenRequest('screen/calls'))
+                }
               >
-                <Phone aria-hidden="true" /> {t('screenPanel.call', { residentFirstName })}
+                <Phone aria-hidden="true" />{' '}
+                {call
+                  ? t('screenPanel.callInProgress')
+                  : t('screenPanel.call', { residentFirstName })}
               </button>
             )}
           </div>
@@ -1057,6 +1063,30 @@ export function ScreenPanel({
                 {networkControlLabel}
               </span>
             </div>
+          )}
+          {grant.administer && (
+            <label className={`screen-call-consent${state.settings.consent ? ' is-on' : ''}`}>
+              <input
+                type="checkbox"
+                checked={state.settings.consent}
+                disabled={busy}
+                onChange={(event) => {
+                  const next = { ...state.settings, consent: event.target.checked };
+                  setSettings((current) =>
+                    current ? { ...current, consent: next.consent } : next,
+                  );
+                  void run(() => screenRequest('screen/settings', next, 'PATCH'));
+                }}
+              />
+              <span>
+                <strong>{t('screenPanel.allowVideoCalls')}</strong>
+                <small>
+                  {state.settings.consent
+                    ? t('screenPanel.videoCallsAllowedHint', { residentFirstName })
+                    : t('screenPanel.videoCallsBlockedHint', { residentFirstName })}
+                </small>
+              </span>
+            </label>
           )}
         </div>
       </header>
@@ -1352,6 +1382,68 @@ export function ScreenPanel({
           </div>
         )
       )}
+      {callBusyOpen &&
+        createPortal(
+          <div className="screen-call-busy" onClick={() => setCallBusyOpen(false)}>
+            <section
+              className="screen-call-busy__card"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="screen-call-busy-title"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <span className="screen-call-busy__icon" aria-hidden="true">
+                <Phone />
+              </span>
+              <h2 id="screen-call-busy-title">{t('screenPanel.aCallIsInProgress')}</h2>
+              <p>
+                {call
+                  ? call.userId === snapshot.userId
+                    ? t('screenPanel.yourCallIsStillOpen', {
+                        resident: residentFirstName,
+                        time: new Date(call.createdAt).toLocaleTimeString(dateLocale(), {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }),
+                      })
+                    : t('screenPanel.someoneIsCalling', {
+                        name: call.name,
+                        resident: residentFirstName,
+                        time: new Date(call.createdAt).toLocaleTimeString(dateLocale(), {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }),
+                      })
+                  : t('screenPanel.theCallHasEnded')}
+              </p>
+              <div className="screen-call-busy__actions">
+                {call && call.userId === snapshot.userId && (
+                  <button
+                    type="button"
+                    className="screen-button screen-button--secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(async () => {
+                        await screenRequest(`screen/calls/${call.id}`, undefined, 'DELETE');
+                        setCallBusyOpen(false);
+                      })
+                    }
+                  >
+                    {t('screenPanel.cancelTheCall')}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="screen-button screen-button--call"
+                  onClick={() => setCallBusyOpen(false)}
+                >
+                  {t('screenPanel.close')}
+                </button>
+              </div>
+            </section>
+          </div>,
+          document.body,
+        )}
       {mainTabs.length > 0 && (
         <div
           className="screen-main-tabs"
@@ -1781,7 +1873,7 @@ export function ScreenPanel({
                                 const existing = state.media.find(
                                   (media) => media.kind === 'tv' && media.url === channel.url,
                                 );
-                                const mediaId = existing?.id ?? crypto.randomUUID();
+                                const mediaId = existing?.id ?? createId();
                                 if (!existing)
                                   await screenRequest('screen/media', {
                                     id: mediaId,
@@ -2003,7 +2095,7 @@ export function ScreenPanel({
                         }
                         void run(async () => {
                           await screenRequest('screen/media', {
-                            id: crypto.randomUUID(),
+                            id: createId(),
                             title: playlistTitle.trim(),
                             kind: 'youtube',
                             url: links[0],

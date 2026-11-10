@@ -1,12 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { ScreenJoin } from '@elise/contracts';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  eliseMobileCallConfig,
+  eliseMobileCallInterfaceConfig,
+  type ScreenJoin,
+} from '@elise/contracts';
+import { type ComponentProps, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { type WebViewMessageEvent } from 'react-native-webview';
 import { type Language, t } from '../i18n';
 
-const inlineJson = (value: string) => JSON.stringify(value).replace(/</g, '\\u003c');
+const inlineJson = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c');
 
 const callPage = (join: ScreenJoin) => {
   const jitsi = new URL(join.url);
@@ -17,14 +21,12 @@ const callPage = (join: ScreenJoin) => {
     width: '100%',
     height: '100%',
     userInfo: { displayName: ${inlineJson(join.name)} },
-    configOverwrite: {
-      prejoinConfig: { enabled: false },
-      disableDeepLinking: true,
-      p2p: { enabled: false },
+    configOverwrite: ${inlineJson({
+      ...eliseMobileCallConfig,
       startWithAudioMuted: false,
       startWithVideoMuted: false,
-      toolbarButtons: ['microphone', 'camera', 'hangup']
-    }
+    })},
+    interfaceConfigOverwrite: ${inlineJson(eliseMobileCallInterfaceConfig)}
   }`;
 
   return {
@@ -40,7 +42,12 @@ const callPage = (join: ScreenJoin) => {
             function send(value){ if(window.ReactNativeWebView) window.ReactNativeWebView.postMessage(value); }
             var script=document.createElement('script');
             script.src=${inlineJson(`${jitsi.origin}/external_api.js`)};
+            // A phone outside the box's private network never loads the Jitsi script.
+            var loaded=false;
+            script.onerror=function(){send('unreachable');};
+            setTimeout(function(){ if(!loaded) send('unreachable'); }, 15000);
             script.onload=function(){
+              loaded=true;
               if(!window.JitsiMeetExternalAPI){send('error');return;}
               var api=new window.JitsiMeetExternalAPI(${inlineJson(jitsi.host)}, ${options});
               var switchingCamera=false;
@@ -72,14 +79,27 @@ const callPage = (join: ScreenJoin) => {
                   switchingCamera=false;
                 });
               };
-              api.addEventListener('videoConferenceJoined',refreshCameraAvailability);
+              // The app draws the call controls itself and drives Jitsi through these commands.
+              window.__eliseCall={
+                toggleAudio:function(){api.executeCommand('toggleAudio');},
+                toggleVideo:function(){api.executeCommand('toggleVideo');}
+              };
+              api.addEventListener('audioMuteStatusChanged',function(event){
+                send(event && event.muted ? 'audio-muted' : 'audio-on');
+              });
+              api.addEventListener('videoMuteStatusChanged',function(event){
+                send(event && event.muted ? 'video-muted' : 'video-on');
+              });
+              api.addEventListener('videoConferenceJoined',function(){
+                send('joined');
+                refreshCameraAvailability();
+              });
               api.addEventListener('deviceListChanged',function(event){
                 reportCameraAvailability(event && event.devices);
               });
               api.addEventListener('readyToClose',function(){send('hangup');});
               api.addEventListener('videoConferenceLeft',function(){send('hangup');});
             };
-            script.onerror=function(){send('error');};
             document.head.appendChild(script);
           })();
         </script>
@@ -105,8 +125,12 @@ export function MobileCallOverlay({
   error,
   onEnd,
 }: MobileCallOverlayProps) {
-  const [webError, setWebError] = useState(false);
+  const [webError, setWebError] = useState<false | 'error' | 'unreachable'>(false);
   const [cameraSwitchAvailable, setCameraSwitchAvailable] = useState(false);
+  const [audioMuted, setAudioMuted] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(false);
+  const [joinedAt, setJoinedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const ended = useRef(false);
   const webViewRef = useRef<WebView>(null);
   const source = useMemo(() => (join ? callPage(join) : null), [join]);
@@ -114,8 +138,24 @@ export function MobileCallOverlay({
   useEffect(() => {
     setWebError(false);
     setCameraSwitchAvailable(false);
+    setAudioMuted(false);
+    setVideoMuted(false);
+    setJoinedAt(null);
     ended.current = false;
   }, [join?.jwt, visible]);
+
+  useEffect(() => {
+    if (!joinedAt) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [joinedAt]);
+
+  const command = (name: 'toggleAudio' | 'toggleVideo') =>
+    webViewRef.current?.injectJavaScript(
+      `window.__eliseCall && window.__eliseCall.${name}(); true;`,
+    );
+  const elapsed = joinedAt ? Math.max(0, Math.floor((now - joinedAt) / 1000)) : 0;
+  const duration = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`;
 
   const finish = () => {
     if (ended.current) return;
@@ -125,7 +165,16 @@ export function MobileCallOverlay({
 
   const onMessage = ({ nativeEvent }: WebViewMessageEvent) => {
     if (nativeEvent.data === 'hangup') finish();
-    if (nativeEvent.data === 'error') setWebError(true);
+    if (nativeEvent.data === 'joined') {
+      setJoinedAt(Date.now());
+      setNow(Date.now());
+    }
+    if (nativeEvent.data === 'audio-muted') setAudioMuted(true);
+    if (nativeEvent.data === 'audio-on') setAudioMuted(false);
+    if (nativeEvent.data === 'video-muted') setVideoMuted(true);
+    if (nativeEvent.data === 'video-on') setVideoMuted(false);
+    if (nativeEvent.data === 'error') setWebError('error');
+    if (nativeEvent.data === 'unreachable') setWebError('unreachable');
     if (nativeEvent.data === 'camera-switch-available') setCameraSwitchAvailable(true);
     if (nativeEvent.data === 'camera-switch-unavailable') setCameraSwitchAvailable(false);
     if (nativeEvent.data === 'camera-switch-error') {
@@ -136,9 +185,18 @@ export function MobileCallOverlay({
     }
   };
 
-  const onWebError = () => setWebError(true);
+  const onWebError = () => setWebError('unreachable');
 
-  const callError = error || (webError ? t('mobileCallOverlay.theVideoCallIsTemporarily') : '');
+  // The video server is published on the box's private Tailscale address: off Tailscale,
+  // the phone cannot reach it, which is the usual reason a call cannot be joined.
+  const privateVideoServer = join ? new URL(join.url).hostname.endsWith('.ts.net') : false;
+  const callError =
+    error ||
+    (webError === 'unreachable' && privateVideoServer
+      ? t('mobileCallOverlay.turnOnTailscale')
+      : webError
+        ? t('mobileCallOverlay.theVideoCallIsTemporarily')
+        : '');
 
   return (
     <Modal
@@ -152,44 +210,75 @@ export function MobileCallOverlay({
           <>
             <View style={styles.header}>
               <View style={styles.headerCopy}>
-                <Text style={styles.eyebrow}>{t('mobileCallOverlay.videoCall')}</Text>
                 <Text style={styles.headerTitle} numberOfLines={1}>
                   {residentName}
                 </Text>
+                <Text style={styles.eyebrow}>
+                  {joinedAt ? duration : t('mobileCallOverlay.connectingToTheVideoCall')}
+                </Text>
               </View>
+              <View style={[styles.liveDot, joinedAt ? styles.liveDotOn : null]} />
             </View>
-            <WebView
-              ref={webViewRef}
-              originWhitelist={['*']}
-              source={source}
-              style={styles.webView}
-              javaScriptEnabled
-              domStorageEnabled
-              allowsInlineMediaPlayback
-              mediaPlaybackRequiresUserAction={false}
-              mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
-              onMessage={onMessage}
-              onError={onWebError}
-              onHttpError={onWebError}
-            />
-            <View style={styles.cameraControls}>
-              <Pressable
-                accessibilityRole="button"
+            <View style={styles.stage}>
+              <WebView
+                ref={webViewRef}
+                originWhitelist={['*']}
+                source={source}
+                style={styles.webView}
+                javaScriptEnabled
+                domStorageEnabled
+                allowsInlineMediaPlayback
+                mediaPlaybackRequiresUserAction={false}
+                mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
+                scrollEnabled={false}
+                bounces={false}
+                onMessage={onMessage}
+                onError={onWebError}
+                onHttpError={onWebError}
+              />
+            </View>
+            <View style={styles.controls}>
+              <CallControl
+                icon={audioMuted ? 'mic-off' : 'mic'}
+                label={t('mobileCallOverlay.microphone')}
+                accessibilityLabel={
+                  audioMuted
+                    ? t('mobileCallOverlay.turnOnMicrophone')
+                    : t('mobileCallOverlay.muteMicrophone')
+                }
+                active={!audioMuted}
+                onPress={() => command('toggleAudio')}
+              />
+              <CallControl
+                icon={videoMuted ? 'videocam-off' : 'videocam'}
+                label={t('mobileCallOverlay.camera')}
+                accessibilityLabel={
+                  videoMuted
+                    ? t('mobileCallOverlay.turnOnCamera')
+                    : t('mobileCallOverlay.turnOffCamera')
+                }
+                active={!videoMuted}
+                onPress={() => command('toggleVideo')}
+              />
+              <CallControl
+                icon="camera-reverse"
+                label={t('mobileCallOverlay.flip')}
                 accessibilityLabel={t('mobileCallOverlay.switchCamera')}
-                accessibilityHint={t('mobileCallOverlay.switchesBetweenTheFrontAnd')}
-                disabled={!cameraSwitchAvailable}
+                active
+                disabled={!cameraSwitchAvailable || videoMuted}
                 onPress={() =>
                   webViewRef.current?.injectJavaScript(
                     'window.__eliseToggleCamera && window.__eliseToggleCamera(); true;',
                   )
                 }
-                style={[
-                  styles.cameraSwitchButton,
-                  !cameraSwitchAvailable && styles.cameraSwitchButtonDisabled,
-                ]}
-              >
-                <Ionicons name="camera-reverse-outline" size={21} color="#fff" />
-              </Pressable>
+              />
+              <CallControl
+                icon="call"
+                label={t('mobileCallOverlay.hangUp')}
+                accessibilityLabel={t('mobileCallOverlay.hangUp')}
+                danger
+                onPress={finish}
+              />
             </View>
           </>
         ) : (
@@ -233,32 +322,99 @@ export function MobileCallOverlay({
   );
 }
 
+function CallControl({
+  icon,
+  label,
+  accessibilityLabel,
+  active = false,
+  danger = false,
+  disabled = false,
+  onPress,
+}: {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  accessibilityLabel: string;
+  active?: boolean;
+  danger?: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled, selected: active }}
+      disabled={disabled}
+      onPress={onPress}
+      style={[styles.control, disabled && styles.controlDisabled]}
+    >
+      <View
+        style={[
+          styles.controlCircle,
+          danger ? styles.controlDanger : active ? styles.controlOn : styles.controlOff,
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={26}
+          color={danger || active ? '#fff' : '#0B2948'}
+          style={danger ? styles.hangupIcon : undefined}
+        />
+      </View>
+      <Text style={styles.controlLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   shell: { flex: 1, backgroundColor: '#0B2948' },
   header: {
-    minHeight: 66,
-    paddingHorizontal: 18,
+    minHeight: 60,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
     backgroundColor: '#0B2948',
   },
-  headerCopy: { flex: 1, gap: 3 },
-  cameraControls: { alignItems: 'flex-end', paddingHorizontal: 18, paddingVertical: 12 },
-  eyebrow: { color: '#AFCDD1', fontSize: 12, fontWeight: '900', letterSpacing: 0.6 },
-  headerTitle: { color: '#fff', fontSize: 19, fontWeight: '800' },
-  cameraSwitchButton: {
-    width: 44,
-    height: 44,
+  headerCopy: { flex: 1, gap: 2 },
+  eyebrow: { color: '#AFCDD1', fontSize: 14, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  headerTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
+  liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#4E7188' },
+  liveDotOn: { backgroundColor: '#5FB98A' },
+  stage: {
+    flex: 1,
+    marginHorizontal: 10,
     borderRadius: 22,
+    overflow: 'hidden',
+    backgroundColor: '#06192D',
+  },
+  webView: { flex: 1, backgroundColor: '#06192D' },
+  controls: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-start',
+    paddingHorizontal: 12,
+    paddingTop: 16,
+    paddingBottom: 10,
+    backgroundColor: '#0B2948',
+  },
+  control: { width: 76, alignItems: 'center', gap: 7 },
+  controlDisabled: { opacity: 0.4 },
+  controlCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#4E7188',
-    backgroundColor: '#174364',
   },
-  cameraSwitchButtonDisabled: { opacity: 0.45 },
-  webView: { flex: 1, backgroundColor: '#0B2948' },
+  controlOn: { backgroundColor: '#24527A' },
+  controlOff: { backgroundColor: '#F5F0E8' },
+  controlDanger: { backgroundColor: '#C8443F' },
+  hangupIcon: { transform: [{ rotate: '135deg' }] },
+  controlLabel: { color: '#D0E0E3', fontSize: 12, fontWeight: '700' },
   waiting: {
     flex: 1,
     alignItems: 'center',

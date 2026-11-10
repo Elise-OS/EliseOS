@@ -32,6 +32,7 @@ import {
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type Locale, t, textBlock } from './i18n';
+import { createId } from './lib/createId';
 
 export type HomeSetupDetails = {
   name: string;
@@ -80,8 +81,7 @@ const roomToneStyle = (kind: string) => {
   return { '--room-tone': tone, '--room-tint': tint } as React.CSSProperties;
 };
 
-const draftId = () =>
-  `requested-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
+const draftId = () => `requested-${createId()}`;
 
 // Rooms almost every home has: preselected while the list is still empty,
 // so the person only adds the rest or removes what does not apply.

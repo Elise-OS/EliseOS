@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { tvChannelByUrl, type ScreenCommand, type ScreenSnapshot } from '@elise/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { mobileApi, type ScreenTvStatus } from '../api';
 import type { SavedServer } from '../discovery/types';
 import { MobileScreenTabs } from './MobileScreenTabs';
@@ -150,6 +150,22 @@ export function MobileScreenPanel({
     setError('');
     try {
       await mobileApi.screenCommand(server, token, command);
+      onChanged();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : t('mobileScreenPanel.theCommandWasNotSent'),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const setCallConsent = async (consent: boolean) => {
+    if (!snapshot?.grant.administer || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await mobileApi.updateScreenSettings(server, token, { ...snapshot.state.settings, consent });
       onChanged();
     } catch (cause) {
       setError(
@@ -436,6 +452,25 @@ export function MobileScreenPanel({
                 ready={networkControlReady}
               />
             </View>
+            {snapshot?.grant.administer ? (
+              <View style={[s.consentRow, snapshot.state.settings.consent && s.consentRowOn]}>
+                <View style={s.consentText}>
+                  <Text style={s.consentTitle}>{t('mobileScreenPanel.allowVideoCalls')}</Text>
+                  <Text style={s.consentHint}>
+                    {snapshot.state.settings.consent
+                      ? t('mobileScreenPanel.videoCallsAllowedHint')
+                      : t('mobileScreenPanel.videoCallsBlockedHint')}
+                  </Text>
+                </View>
+                <Switch
+                  accessibilityLabel={t('mobileScreenPanel.allowVideoCalls')}
+                  value={snapshot.state.settings.consent}
+                  disabled={busy}
+                  trackColor={{ true: c.green, false: c.line }}
+                  onValueChange={(value) => void setCallConsent(value)}
+                />
+              </View>
+            ) : null}
             {error ? (
               <Text accessibilityRole="alert" style={s.statusError}>
                 {error}
@@ -628,6 +663,18 @@ const s = StyleSheet.create({
   statusModalTitle: { color: c.navy, fontFamily: 'Georgia', fontSize: 21 },
   statusList: { gap: 2 },
   statusError: { color: c.red, fontSize: 13 },
+  consentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: c.paleAmber,
+  },
+  consentRowOn: { backgroundColor: c.paleGreen },
+  consentText: { flex: 1, gap: 2 },
+  consentTitle: { color: c.navy, fontSize: 15, fontWeight: '700' },
+  consentHint: { color: c.muted, fontSize: 13 },
   reclaimButton: {
     minHeight: 44,
     paddingHorizontal: 12,

@@ -394,6 +394,26 @@ export function DashboardApp({
     }
   };
 
+  // Reopens the call screen for a call this user started and left (app closed, failed join).
+  const rejoinMobileCall = () => {
+    const call = screen.data?.state.call;
+    if (!call || call.userId !== currentUser.data?.id) return;
+    mobileCallJoinRequested.current = null;
+    setMobileCallJoin(null);
+    setMobileCallJoinError('');
+    setMobileCallId(call.id);
+  };
+
+  const endOngoingCall = async () => {
+    const call = screen.data?.state.call;
+    if (!call || demoMode) return;
+    try {
+      await mobileApi.screenEndCall(server, token, call.id);
+    } finally {
+      void queryClient.invalidateQueries({ queryKey: [...rootKey, 'screen'] });
+    }
+  };
+
   const invalidateAll = () => queryClient.invalidateQueries({ queryKey: rootKey });
 
   useEffect(() => {
@@ -653,6 +673,9 @@ export function DashboardApp({
               refreshing={overview.isRefetching || homeSummary.isRefetching}
               connectionAvailable={!offline}
               onStartCall={startMobileCall}
+              currentUserId={currentUser.data?.id}
+              onRejoinCall={rejoinMobileCall}
+              onEndOngoingCall={endOngoingCall}
               onRefresh={invalidateAll}
               onNavigate={setTab}
             />
