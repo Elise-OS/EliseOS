@@ -16,6 +16,6 @@ updates:
     directory: /
     schedule: { interval: monthly }
     ignore:
-      # Adopt v5 first; v6 is outside the reviewed upgrade requested here.
+      # Keep the reviewed v5 upgrade eligible; v6 is deliberately deferred.
       - dependency-name: pnpm/action-setup
         versions: ['6.x']
