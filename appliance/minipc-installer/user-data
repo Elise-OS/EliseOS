@@ -3,11 +3,12 @@ autoinstall:
   version: 1
   refresh-installer:
     update: false
-  locale: fr_FR.UTF-8
+  # The early command replaces these four exact tokens, then Subiquity reloads this file.
+  locale: __ELISE_LOCALE__
   keyboard:
-    layout: fr
+    layout: __ELISE_KEYBOARD__
     variant: ""
-  timezone: Europe/Paris
+  timezone: __ELISE_TIMEZONE__
   identity:
     hostname: elise
     username: elise
@@ -17,14 +18,8 @@ autoinstall:
     install-server: false
     authorized-keys: []
     allow-pw: false
-  network:
-    version: 2
-    ethernets:
-      all-ethernet:
-        match:
-          name: "en*"
-        dhcp4: true
-        optional: true
+  # Keep Subiquity's documented default: DHCP on eth*/en* during installation. The late
+  # command writes the same wildcard policy into the target so a PCI name change is harmless.
   storage:
     layout:
       name: direct

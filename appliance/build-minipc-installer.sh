@@ -83,6 +83,9 @@ install -m 0644 "$ROOT_DIR/appliance/minipc-installer/user-data" "$payload/noclo
 install -m 0644 "$ROOT_DIR/appliance/minipc-installer/meta-data" "$payload/nocloud/meta-data"
 install -m 0755 "$ROOT_DIR/appliance/minipc-installer/select-target.py" "$payload/nocloud/select-target.py"
 install -m 0755 "$ROOT_DIR/appliance/minipc-installer/install-target.sh" "$payload/nocloud/install-target.sh"
+rsync -a --exclude='__pycache__' --exclude='*.pyc' "$ROOT_DIR/appliance/installer_ui" "$payload/nocloud/"
+# The design backend will be able to use the same licensed fonts as the installed TV screen.
+rsync -a "$ROOT_DIR/appliance/fonts/" "$payload/nocloud/installer_ui/fonts/"
 
 echo "→ Adding automatic NoCloud boot parameters"
 for config in grub.cfg loopback.cfg; do

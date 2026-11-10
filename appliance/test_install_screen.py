@@ -266,6 +266,13 @@ class LanguageTests(unittest.TestCase):
         self.assertEqual(json.loads(pathlib.Path(self.choice).read_text())["language"], "it")
         self.assertEqual(elise_language.save("es", "app"), ({"language": "es", "source": "app"}, True))
 
+    def test_installer_choice_beats_detection_and_browser_but_app_can_replace_it(self):
+        self.write("etc/default/keyboard", 'XKBLAYOUT="fr"\n')
+        self.assertEqual(elise_language.save("it", "installer"), ({"language": "it", "source": "installer"}, True))
+        self.assertEqual(elise_language.current(self.root), {"language": "it", "source": "installer"})
+        self.assertEqual(elise_language.save("es", "browser"), ({"language": "it", "source": "installer"}, False))
+        self.assertEqual(elise_language.save("en", "app"), ({"language": "en", "source": "app"}, True))
+
     def test_only_offered_languages_are_kept(self):
         for language, source in (("de", "app"), ("es-ES", "app"), ("", "app"), ("fr", "tv")):
             with self.subTest(language=language, source=source), self.assertRaises(ValueError):

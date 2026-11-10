@@ -21,15 +21,29 @@ Une coupure d’Internet n’empêche pas le Raspberry Pi de démarrer. La page 
 
 Cette méthode installe Ubuntu Server 24.04 et Élise OS sans commande. Elle nécessite un mini PC AMD64, un disque interne d’au moins 32 Go et une connexion Ethernet avec DHCP. Le Wi-Fi n’est pas pris en charge par cette première version.
 
-> **Attention : le plus grand disque interne du mini PC sera entièrement effacé.** Débranchez tout autre disque interne que vous souhaitez conserver.
+> **Attention : le disque interne que vous confirmez sera entièrement effacé.** L’installateur n’efface rien tant que vous n’avez pas choisi « Effacer et installer ».
 
-1. Téléchargez `elise-os-<version>-minipc-amd64-installer.iso` depuis la dernière release GitHub.
+1. Téléchargez la [dernière clé d’installation mini-PC](https://sourceforge.net/projects/elise-os/files/latest/download). Le fichier ISO complet est hébergé sur SourceForge ; son [adresse exacte, sa taille et son SHA-256](https://github.com/Elise-OS/EliseOS/releases/latest/download/minipc-installer.json) restent publiés avec chaque version GitHub.
 2. Écrivez l’ISO sur une clé USB avec Raspberry Pi Imager (« Utiliser une image personnalisée ») ou balenaEtcher.
 3. Branchez l’Ethernet et un écran, puis démarrez le mini PC sur la clé USB.
-4. Avant tout effacement, l’écran indique le modèle et la taille du disque choisi. Vous avez 30 secondes pour retirer la clé ou appuyer sur une touche et annuler. Sans action, l’installation démarre automatiquement.
-5. Quand le mini PC redémarre, retirez la clé USB. L’écran TV affiche la préparation, le QR code et enfin « Élise est prête », comme sur Raspberry Pi.
+4. Choisissez Français, English, Español ou Italiano avec les flèches et Entrée. Cette langue est aussi utilisée par l’écran TV et l’app Élise.
+5. Si le câble ou Internet manque, l’écran demande de brancher l’Ethernet et reprend tout seul dès que la connexion fonctionne.
+6. Choisissez le disque interne. L’écran montre son modèle, sa taille et, quand c’est détectable, s’il contient déjà un système ou des données. Le plus grand est présélectionné ; les disques USB et la clé d’installation ne sont jamais proposés.
+7. Vérifiez une dernière fois le disque, choisissez explicitement « Effacer et installer », puis laissez l’installation se terminer. « Annuler » est présélectionné par sécurité.
+8. Quand le mini PC redémarre, retirez la clé USB. L’écran TV affiche la préparation, le QR code et enfin « Élise est prête », comme sur Raspberry Pi.
 
-Le programme refuse de continuer si aucun disque interne admissible d’au moins 32 Go n’est présent. Il exclut toujours la clé d’installation, les supports amovibles et les disques USB ; s’il reste plusieurs disques internes, il choisit le plus grand et l’affiche avant le compte à rebours.
+Le programme refuse de continuer si aucun disque interne admissible d’au moins 32 Go n’est présent. Ubuntu est inclus dans l’ISO et s’installe hors ligne ; Ethernet reste obligatoire pour vérifier et installer Élise OS de la même version exacte que la clé.
+
+Pour contrôler le téléchargement, comparez le résultat de `sha256sum elise-os-…iso` avec la valeur `sha256` de `minipc-installer.json`. La release GitHub fournit aussi le fichier `.sha256` et le bundle `.sigstore.json`. La signature se vérifie ainsi :
+
+```bash
+cosign verify-blob elise-os-<version>-minipc-amd64-installer.iso \
+  --bundle elise-os-<version>-minipc-amd64-installer.iso.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/Elise-OS/EliseOS/.github/workflows/release.yml@refs/heads/main$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Le build vérifie la liste `SHA256SUMS` officielle d’Ubuntu avec sa signature GPG, conserve les binaires shim/GRUB signés d’Ubuntu et remasterise leurs entrées sans les reconstruire. Il conserve donc le démarrage BIOS/UEFI et la chaîne Secure Boot de l’ISO officielle ; un test Secure Boot sur un vrai mini PC reste toutefois nécessaire.
 
 ## Ubuntu Server 24.04
 

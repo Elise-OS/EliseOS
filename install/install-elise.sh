@@ -100,9 +100,16 @@ else
 fi
 getent hosts github.com >/dev/null || fail "connexion Internet indisponible"
 
-# The preparation page is the QR fallback during a fresh installation. The final dashboard uses
-# ELISE_HTTP_PORT (8080 by default), so reserving port 80 here does not conflict with it.
-if [[ "$ELISE_FRESH_INSTALL" == true ]] && ss -H -ltn "sport = :80" 2>/dev/null | grep -q .; then
+# The preparation page is the QR fallback during a fresh installation. Appliance images start
+# that very page before this script so the family sees progress immediately; it is the only
+# existing listener that may legitimately own port 80.
+preparation_owns_port() {
+  [[ "${ELISE_FIRST_BOOT:-false}" == true ]] \
+    && systemctl is-active --quiet elise-preparation.service
+}
+if [[ "$ELISE_FRESH_INSTALL" == true ]] \
+  && ss -H -ltn "sport = :80" 2>/dev/null | grep -q . \
+  && ! preparation_owns_port; then
   fail "le port 80 est déjà utilisé"
 fi
 
@@ -113,8 +120,7 @@ fi
 http_port_preflight=8080
 [[ -f "$ELISE_CONFIG/elise.env" ]] && http_port_preflight="$(sed -n 's/^ELISE_HTTP_PORT=//p' "$ELISE_CONFIG/elise.env" | tail -1)"
 for port in "${http_port_preflight:-8080}" 18080 8555; do
-  if [[ "${ELISE_FIRST_BOOT:-false}" == true && "$port" == "${http_port_preflight:-8080}" ]] \
-    && systemctl is-active --quiet elise-preparation.service; then
+  if [[ "$port" == "${http_port_preflight:-8080}" ]] && preparation_owns_port; then
     continue
   fi
   if ss -H -ltn "sport = :$port" 2>/dev/null | grep -q . && [[ ! -L "$ELISE_ROOT/current" ]]; then

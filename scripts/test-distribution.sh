@@ -12,7 +12,7 @@ bash -n "$root/install/install-elise.sh" "$root/install/elise" \
   "$root/appliance/elise-zigbee-setup.sh"
 bash "$root/scripts/detect-zigbee-adapter.test.sh"
 python3 - <<PY
-for path in ("$root/appliance/remote-access-agent.py", "$root/appliance/elise-update-agent.py", "$root/appliance/elise-zigbee-agent.py", "$root/appliance/elise-preparation.py", "$root/appliance/elise_install_state.py", "$root/appliance/elise_install_texts.py", "$root/appliance/elise_language.py", "$root/appliance/elise-install-screen.py"):
+for path in ("$root/appliance/remote-access-agent.py", "$root/appliance/elise-update-agent.py", "$root/appliance/elise-zigbee-agent.py", "$root/appliance/elise-preparation.py", "$root/appliance/elise_install_state.py", "$root/appliance/elise_install_texts.py", "$root/appliance/elise_language.py", "$root/appliance/elise-install-screen.py", "$root/appliance/installer_ui/__init__.py", "$root/appliance/installer_ui/preview.py", "$root/appliance/minipc-installer/select-target.py"):
     compile(open(path, encoding="utf-8").read(), path, "exec")
 PY
 python3 "$root/appliance/test_remote_access_agent.py"
@@ -87,6 +87,8 @@ grep -q -- '^resize_rootfs: true$' "$root/appliance/cloud-init.cfg"
 grep -q -- 'python3-pil python3-qrcode' "$root/appliance/build-raspberry-image.sh"
 grep -q -- 'python3-pil python3-qrcode fonts-dejavu-core' "$root/install/install-elise.sh"
 grep -q -- 'ELISE_FRESH_INSTALL' "$root/install/install-elise.sh"
+grep -q -- '^preparation_owns_port()' "$root/install/install-elise.sh"
+[[ "$(grep -c -- 'preparation_owns_port' "$root/install/install-elise.sh")" -eq 3 ]]
 grep -q -- 'elise-install-screen.py --detect-display' "$root/install/install-elise.sh"
 grep -q -- 'disable --now elise-install-screen.service elise-preparation.service' "$root/install/install-elise.sh"
 for host_file in appliance/elise-install-screen.py appliance/elise_install_state.py appliance/elise_install_texts.py \
@@ -112,6 +114,19 @@ grep -q -- 'allow-pw: false' "$root/appliance/minipc-installer/user-data"
 grep -q -- 'password: "!"' "$root/appliance/minipc-installer/user-data"
 grep -q -- 'install-elise.sha256' "$root/appliance/elise-minipc-firstboot.sh"
 grep -q -- 'ELISE_TEST_INSTALLER_URL' "$root/appliance/build-minipc-installer.sh"
+grep -q -- 'choose_language' "$root/appliance/minipc-installer/select-target.py"
+grep -q -- 'wait_for_ethernet' "$root/appliance/minipc-installer/select-target.py"
+grep -q -- 'confirm_erase' "$root/appliance/minipc-installer/select-target.py"
+grep -q -- 'source.*installer' "$root/appliance/minipc-installer/select-target.py"
+grep -q -- '/run/elise-installer/language.json' "$root/appliance/minipc-installer/install-target.sh"
+grep -q -- 'name: "en\*"' "$root/appliance/minipc-installer/install-target.sh"
+grep -q -- 'SOURCEFORGE_SSH_PRIVATE_KEY' "$root/.github/workflows/release.yml"
+grep -q -- 'StrictHostKeyChecking=yes' "$root/.github/workflows/release.yml"
+grep -q -- 'SHA256:209BDmH3jsRyO9UeGPPgLWPSegKmYCBIya0nR/AWWCY' "$root/.github/workflows/release.yml"
+if grep -q -- 'dist/elise-os-.*minipc-amd64-installer.iso$' "$root/.github/workflows/release.yml"; then
+  echo "The full mini-PC ISO must not be uploaded as a GitHub artifact." >&2
+  exit 1
+fi
 grep -q -- '/api/v1/auth/bootstrap' "$root/docker/dashboard/Caddyfile"
 grep -q -- '/api/docs\*' "$root/docker/dashboard/Caddyfile"
 if grep -Eq -- '/api/v1/(equipment|sensor-devices)/' "$root/docker/dashboard/Caddyfile"; then

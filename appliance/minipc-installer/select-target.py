@@ -1,20 +1,36 @@
 #!/usr/bin/env python3
-"""Select and confirm the internal disk used by the Élise OS installer."""
+"""Run the safe, interactive pre-install checks for the Élise OS installer."""
 
 from __future__ import annotations
 
 import json
 import os
-import select
+import socket
 import subprocess
 import sys
-import termios
-import time
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
+
+from installer_ui import (
+    LANGUAGES,
+    Disk,
+    TextUI,
+    choose_disk,
+    choose_language,
+    confirm_erase,
+    show_error,
+    show_progress,
+    wait_for_ethernet,
+)
 
 MINIMUM_BYTES = 32_000_000_000
 TARGET_TOKEN = "__ELISE_TARGET_DISK__"
+LOCALE_TOKEN = "__ELISE_LOCALE__"
+KEYBOARD_TOKEN = "__ELISE_KEYBOARD__"
+TIMEZONE_TOKEN = "__ELISE_TIMEZONE__"
 SERIAL_MARKER = "ELISE_INSTALLER"
+STATE_DIR = Path(os.environ.get("ELISE_INSTALLER_STATE_DIR", "/run/elise-installer"))
 
 
 def flatten(devices: list[dict]) -> list[dict]:
@@ -26,7 +42,7 @@ def flatten(devices: list[dict]) -> list[dict]:
 
 
 def installation_device(devices: list[dict], source: str) -> str | None:
-    """Return the top-level device which contains the installation medium."""
+    """Return the top-level block device which contains the installation medium."""
     source = source.split("[", 1)[0]
     all_devices = flatten(devices)
     parents = {str(device.get("name")): str(device.get("pkname") or "") for device in all_devices}
@@ -41,10 +57,23 @@ def installation_device(devices: list[dict], source: str) -> str | None:
     return source or None
 
 
-def select_target(devices: list[dict], source: str) -> tuple[dict | None, list[tuple[dict, str]]]:
+def contains_data(device: dict) -> bool:
+    """Best-effort indication that a disk already has partitions, a filesystem or a label."""
+    for item in flatten([device]):
+        if item is not device and item.get("type") in ("part", "crypt", "lvm"):
+            return True
+        if any(item.get(field) for field in ("fstype", "label", "pttype", "parttype")):
+            return True
+        if any(item.get("mountpoints") or []):
+            return True
+    return False
+
+
+def eligible_disks(devices: list[dict], source: str) -> tuple[list[Disk], list[tuple[dict, str]]]:
+    """Return safe internal targets, largest first, and every rejected disk with its reason."""
     install_device = installation_device(devices, source)
     rejected: list[tuple[dict, str]] = []
-    candidates: list[dict] = []
+    candidates: list[Disk] = []
     for device in devices:
         path = str(device.get("path") or device.get("name") or "")
         size = int(device.get("size") or 0)
@@ -58,14 +87,19 @@ def select_target(devices: list[dict], source: str) -> tuple[dict | None, list[t
             rejected.append((device, "usb"))
         elif size < MINIMUM_BYTES:
             rejected.append((device, "too-small"))
+        elif not path.startswith("/dev/"):
+            rejected.append((device, "invalid-path"))
         else:
-            candidates.append(device)
-    candidates.sort(key=lambda item: (int(item.get("size") or 0), str(item.get("path") or "")), reverse=True)
-    return (candidates[0] if candidates else None), rejected
-
-
-def size_text(size: int) -> str:
-    return f"{size / 1_000_000_000:.1f} Go / GB"
+            candidates.append(
+                Disk(
+                    path=path,
+                    model=str(device.get("model") or "Internal disk").strip(),
+                    size=size,
+                    has_data=contains_data(device),
+                )
+            )
+    candidates.sort(key=lambda item: (item.size, item.path), reverse=True)
+    return candidates, rejected
 
 
 def serial(message: str) -> None:
@@ -90,59 +124,6 @@ def console_path() -> str:
     return "/dev/console"
 
 
-def write_screen(console, lines: list[str]) -> None:
-    content = "\033[2J\033[H\n\n"
-    for line in lines:
-        content += f"  {line}\n"
-    console.write(content.encode("utf-8"))
-    console.flush()
-
-
-def wait_for_key(console, seconds: int, target: dict) -> bool:
-    model = str(target.get("model") or "Disque interne / Internal disk").strip()
-    size = size_text(int(target.get("size") or 0))
-    path = str(target.get("path") or target.get("name"))
-    old_settings = None
-    try:
-        old_settings = termios.tcgetattr(console.fileno())
-        settings = termios.tcgetattr(console.fileno())
-        settings[3] &= ~(termios.ICANON | termios.ECHO)
-        settings[6][termios.VMIN] = 0
-        settings[6][termios.VTIME] = 0
-        termios.tcsetattr(console.fileno(), termios.TCSANOW, settings)
-    except (termios.error, OSError):
-        pass
-    try:
-        deadline = time.monotonic() + seconds
-        while True:
-            remaining = max(0, int(deadline - time.monotonic() + 0.999))
-            write_screen(
-                console,
-                [
-                    "ÉLISE OS — ATTENTION : EFFACEMENT DU DISQUE",
-                    "ÉLISE OS — WARNING: DISK WILL BE ERASED",
-                    "",
-                    f"Élise OS va effacer le disque : {model}",
-                    f"Élise OS will erase this disk: {model}",
-                    f"{path} — {size}",
-                    "",
-                    f"Installation dans {remaining} s. Retirez la clé USB ou appuyez sur une touche pour annuler.",
-                    f"Installation starts in {remaining} s. Remove the USB drive or press any key to cancel.",
-                ],
-            )
-            if remaining <= 0:
-                return False
-            readable, _, _ = select.select([console], [], [], min(1.0, deadline - time.monotonic()))
-            if readable and console.read(1):
-                return True
-    finally:
-        if old_settings is not None:
-            try:
-                termios.tcsetattr(console.fileno(), termios.TCSANOW, old_settings)
-            except (termios.error, OSError):
-                pass
-
-
 def load_devices() -> list[dict]:
     fixture = os.environ.get("ELISE_INSTALLER_LSBLK_JSON")
     if fixture:
@@ -152,7 +133,7 @@ def load_devices() -> list[dict]:
         output = subprocess.check_output(
             [
                 "lsblk", "--json", "--bytes", "--paths",
-                "--output", "NAME,KNAME,PKNAME,PATH,SIZE,MODEL,TYPE,RM,TRAN,MOUNTPOINTS",
+                "--output", "NAME,KNAME,PKNAME,PATH,SIZE,MODEL,TYPE,RM,TRAN,MOUNTPOINTS,FSTYPE,LABEL,PTTYPE,PARTTYPE",
             ],
             text=True,
         )
@@ -173,68 +154,115 @@ def find_install_source() -> str:
     return result.stdout.strip()
 
 
-def set_target(path: str) -> None:
+def ethernet_ready(sys_class_net: Path = Path("/sys/class/net")) -> bool:
+    """Require a cabled Ethernet carrier and working Internet, never a Wi-Fi interface."""
+    try:
+        ethernet = [path for path in sys_class_net.iterdir() if path.name.startswith(("en", "eth"))]
+    except OSError:
+        return False
+    def has_carrier(interface: Path) -> bool:
+        try:
+            return (interface / "carrier").read_text(encoding="ascii").strip() == "1"
+        except OSError:
+            return False
+
+    if not any(has_carrier(path) for path in ethernet):
+        return False
+    try:
+        route = subprocess.run(
+            ["ip", "-4", "route", "show", "default"],
+            check=False,
+            stdout=subprocess.PIPE,
+            text=True,
+            timeout=3,
+        )
+        if not route.stdout.strip():
+            return False
+        with socket.create_connection(("github.com", 443), timeout=4):
+            return True
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def configure_autoinstall(path: str, language: str) -> None:
+    config = LANGUAGES[language]
     autoinstall = Path(os.environ.get("ELISE_AUTOINSTALL_PATH", "/autoinstall.yaml"))
     content = autoinstall.read_text(encoding="utf-8")
-    if content.count(TARGET_TOKEN) != 1:
-        raise RuntimeError(f"target token absent or duplicated in {autoinstall}")
+    replacements = {
+        TARGET_TOKEN: path,
+        LOCALE_TOKEN: config["locale"],
+        KEYBOARD_TOKEN: config["keyboard"],
+        TIMEZONE_TOKEN: config["timezone"],
+    }
+    for token, value in replacements.items():
+        if content.count(token) != 1:
+            raise RuntimeError(f"token {token} absent or duplicated in {autoinstall}")
+        content = content.replace(token, value)
     temporary = autoinstall.with_suffix(".elise.tmp")
-    temporary.write_text(content.replace(TARGET_TOKEN, path), encoding="utf-8")
+    temporary.write_text(content, encoding="utf-8")
     temporary.replace(autoinstall)
 
 
+def save_language(language: str) -> Path:
+    STATE_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
+    output = STATE_DIR / "language.json"
+    temporary = output.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(
+            {
+                "language": language,
+                "source": "installer",
+                "updatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            },
+            ensure_ascii=False,
+        ) + "\n",
+        encoding="utf-8",
+    )
+    temporary.chmod(0o644)
+    temporary.replace(output)
+    return output
+
+
+def scripted_key_reader() -> Callable[[], str] | None:
+    """Optional deterministic input for unit/preview harnesses; production reads the TTY."""
+    value = os.environ.get("ELISE_INSTALLER_KEYS")
+    if value is None:
+        return None
+    keys = iter(item.strip() for item in value.split(",") if item.strip())
+    return lambda: next(keys)
+
+
 def main() -> int:
-    devices = load_devices()
-    source = find_install_source()
-    target, rejected = select_target(devices, source)
     path = console_path()
     flags = os.O_RDWR | os.O_NOCTTY if not os.path.isfile(path) else os.O_RDWR | os.O_CREAT | os.O_APPEND
     with os.fdopen(os.open(path, flags, 0o600), "rb+", buffering=0) as console:
-        if target is None:
-            write_screen(
-                console,
-                [
-                    "ÉLISE OS — INSTALLATION REFUSÉE",
-                    "ÉLISE OS — INSTALLATION REFUSED",
-                    "",
-                    "Aucun disque interne d’au moins 32 Go n’a été trouvé.",
-                    "No internal disk of at least 32 GB was found.",
-                    "",
-                    "La clé USB d’installation ne sera jamais effacée.",
-                    "The installation USB drive will never be erased.",
-                ],
-            )
-            serial("REFUSED no eligible internal disk >= 32 GB")
+        ui = TextUI(console, key_reader=scripted_key_reader(), state_logger=lambda state: serial(f"SCREEN {state}"))
+        language = choose_language(ui)
+        save_language(language)
+        serial(f"LANGUAGE selected={language}")
+
+        wait_for_ethernet(ui, ethernet_ready)
+        serial("ETHERNET online")
+
+        candidates, rejected = eligible_disks(load_devices(), find_install_source())
+        if not candidates:
+            show_error(ui, "", kind="no_disk")
+            serial(f"REFUSED no eligible internal disk >= 32 GB rejected={len(rejected)}")
             return 1
-        target_path = str(target.get("path") or target.get("name"))
+
+        chosen = choose_disk(ui, candidates)
         serial(
-            f"CONFIRM target={target_path} model={str(target.get('model') or '').strip()} "
-            f"size={int(target.get('size') or 0)} rejected={len(rejected)}"
+            f"DISK selected={chosen.path} model={chosen.model} size={chosen.size} "
+            f"has_data={str(chosen.has_data).lower()} candidates={len(candidates)} rejected={len(rejected)}"
         )
-        seconds = int(os.environ.get("ELISE_CONFIRM_SECONDS", "30"))
-        if wait_for_key(console, seconds, target):
-            write_screen(
-                console,
-                [
-                    "Installation annulée. Aucun disque n’a été modifié.",
-                    "Installation cancelled. No disk was modified.",
-                ],
-            )
-            serial("CANCELLED by key press")
+        if not confirm_erase(ui, chosen):
+            show_error(ui, "", kind="cancelled")
+            serial("CANCELLED at explicit erase confirmation")
             return 130
-        set_target(target_path)
-        write_screen(
-            console,
-            [
-                "Installation d’Élise OS…",
-                "Installing Élise OS…",
-                "",
-                "Le mini PC redémarrera automatiquement.",
-                "The mini PC will restart automatically.",
-            ],
-        )
-        serial(f"ACCEPTED target={target_path}; Installation d'Élise OS")
-        time.sleep(2)
+
+        configure_autoinstall(chosen.path, language)
+        show_progress(ui, "subiquity", 0)
+        serial(f"ACCEPTED target={chosen.path} language={language}; Installation d'Élise OS")
     return 0
 
 

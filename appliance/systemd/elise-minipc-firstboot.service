@@ -1,8 +1,8 @@
 [Unit]
 Description=Élise OS mini PC first boot installation
 ConditionPathExists=!/var/lib/elise/.firstboot-complete
-After=network-online.target elise-preparation.service
-Wants=network-online.target elise-preparation.service
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot

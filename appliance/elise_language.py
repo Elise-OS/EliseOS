@@ -2,9 +2,10 @@
 
 Three levels, the first that answers wins:
 
-1. Chosen: the Élise app sends the language it shows when it follows the preparation; a
-   browser opening the preparation page sends its own unless the app already did. A language
-   written by hand as ELISE_LANGUAGE in elise.env counts as chosen too, after the app's.
+1. Chosen: the Élise app sends the language it shows when it follows the preparation; the
+   mini-PC installer records the language explicitly selected on its first screen; a browser
+   opening the preparation page sends its own unless a stronger choice already exists. A
+   language written by hand as ELISE_LANGUAGE in elise.env counts as chosen too, after the app's.
 2. Detected: guessed from what Raspberry Pi Imager wrote on the card (keyboard, time zone,
    locale), see `guess()`.
 3. None: the TV takes turns in every language until one of the above answers.
@@ -29,7 +30,7 @@ LANGUAGES = ("fr", "en", "es", "it")
 FALLBACK = "en"
 CHOICE_FILE = os.environ.get("ELISE_LANGUAGE_FILE", os.path.join(install.STATE_DIR, "language.json"))
 # The app is the family's deliberate choice; a browser only says what one visitor reads.
-SOURCES = ("app", "browser")
+SOURCES = ("app", "installer", "browser")
 
 # What Imager writes: cloud-init's user-data on Ubuntu (read before cloud-init applies it,
 # the screen starts earlier), then the system files cloud-init or a person configured.
@@ -208,7 +209,7 @@ def detect(root: str = "/") -> str | None:
 # Choice -----------------------------------------------------------------------------------------
 
 def chosen() -> dict | None:
-    """The language the app, elise.env or a browser asked for, in that order."""
+    """The language the app, config, installer or browser asked for, in that order."""
     try:
         with open(CHOICE_FILE, encoding="utf-8") as saved:
             choice = json.load(saved)
@@ -221,11 +222,11 @@ def chosen() -> dict | None:
     configured = supported(install.read_env("ELISE_LANGUAGE"))
     if configured:
         return {"language": configured, "source": "config"}
-    return {"language": choice["language"], "source": "browser"} if choice else None
+    return {"language": choice["language"], "source": choice["source"]} if choice else None
 
 
 def current(root: str = "/") -> dict:
-    """{"language": code or None, "source": "app" | "config" | "browser" | "detected" | None}."""
+    """Return the active language and its app/config/installer/browser/detected source."""
     choice = chosen()
     if choice:
         return choice
@@ -237,10 +238,10 @@ def current(root: str = "/") -> dict:
 
 
 def save(language: str, source: str) -> tuple[dict, bool]:
-    """Keeps a language sent by the app or a browser; returns the box's language and whether it changed.
+    """Keeps a language sent by the app, installer or browser; returns it and whether it changed.
 
-    Sending the same language again changes nothing. A browser never replaces what the app or
-    elise.env chose.
+    Sending the same language again changes nothing. A browser never replaces what the app,
+    installer or elise.env chose. The app may replace the installer choice later.
     """
     code = supported(language)
     if code is None or code != str(language).strip().lower():
@@ -249,7 +250,11 @@ def save(language: str, source: str) -> tuple[dict, bool]:
         raise ValueError(f"unknown source: {source!r}")
     with _lock:
         before = chosen()
-        if before and (before == {"language": code, "source": source} or (source == "browser" and before["source"] != "browser")):
+        if before and (
+            before == {"language": code, "source": source}
+            or (source == "browser" and before["source"] != "browser")
+            or (source == "installer" and before["source"] in ("app", "config"))
+        ):
             return before, False
         directory = os.path.dirname(CHOICE_FILE)
         os.makedirs(directory, mode=0o755, exist_ok=True)
