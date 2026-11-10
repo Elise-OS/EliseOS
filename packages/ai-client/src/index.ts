@@ -23,7 +23,7 @@ export const modelTrainingResultSchema = z.object({
 
 export type ModelTrainingResult = z.infer<typeof modelTrainingResultSchema>;
 
-export class MichelAiClient {
+export class EliseAiClient {
   public constructor(
     private readonly baseUrl: string,
     private readonly sharedSecret: string,
@@ -32,20 +32,20 @@ export class MichelAiClient {
   public async score(input: Record<string, unknown>): Promise<AnomalyScore> {
     const response = await fetch(`${this.baseUrl}/v1/anomalies/score`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-michel-secret': this.sharedSecret },
+      headers: { 'content-type': 'application/json', 'x-elise-secret': this.sharedSecret },
       body: JSON.stringify(input),
     });
-    if (!response.ok) throw new Error(`Michel AI returned ${response.status}`);
+    if (!response.ok) throw new Error(`Élise AI returned ${response.status}`);
     return anomalyScoreSchema.parse(await response.json());
   }
 
   public async train(input: Record<string, unknown>): Promise<ModelTrainingResult> {
     const response = await fetch(`${this.baseUrl}/v1/models/train`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-michel-secret': this.sharedSecret },
+      headers: { 'content-type': 'application/json', 'x-elise-secret': this.sharedSecret },
       body: JSON.stringify(input),
     });
-    if (!response.ok) throw new Error(`Michel AI training returned ${response.status}`);
+    if (!response.ok) throw new Error(`Élise AI training returned ${response.status}`);
     return modelTrainingResultSchema.parse(await response.json());
   }
 }

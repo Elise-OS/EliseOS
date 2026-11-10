@@ -1,0 +1,396 @@
+name: Release Élise OS
+
+# Started by hand (Actions → Release Élise OS → Run workflow, or `gh workflow run release.yml`):
+# test images are built on the NAS with `pnpm pi:image`, without GitHub minutes.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+concurrency:
+  group: elise-release-main
+  cancel-in-progress: false
+
+jobs:
+  version:
+    # The signature identity installers trust is release.yml on refs/heads/main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      sha: ${{ github.sha }}
+    steps:
+      - name: Require a successful CI run for this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          conclusion="$(gh api "repos/$REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$SHA&status=completed&per_page=1" --jq '.workflow_runs[0].conclusion // ""')"
+          [[ "$conclusion" == success ]] || { echo "CI has not succeeded on $SHA (${conclusion:-no run})." >&2; exit 1; }
+      - id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          releases="$(gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name')"
+          version="$(printf '%s\n' "$releases" | python3 -c '
+          import re, sys
+          versions=[]
+          for value in sys.stdin:
+              value=value.strip()
+              match=re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", value)
+              if match: versions.append(tuple(map(int, match.groups())))
+          if not versions:
+              print("v0.1.0")
+          else:
+              major, minor, patch = max(versions)
+              print(f"v{major}.{minor}.{patch + 1}")
+          ')"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  sync_version:
+    needs: version
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+    env:
+      RELEASE_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Synchronize release metadata
+        run: python3 scripts/sync-release-version.py "$RELEASE_VERSION"
+      - name: Commit synchronized metadata
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git add -- \
+            .env.example \
+            apps/ai/pyproject.toml \
+            apps/mobile/app.json \
+            apps/*/package.json \
+            packages/*/package.json \
+            package.json \
+            README.md \
+            README.en.md \
+            README.es.md \
+            compose.yaml \
+            compose.raspberry.yaml \
+            docker/homeassistant/custom_components/elise_bridge/__init__.py \
+            docker/homeassistant/custom_components/elise_bridge/manifest.json
+          git diff --cached --check
+          git commit -m "chore(release): synchronize metadata to $RELEASE_VERSION [skip ci]"
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  validate:
+    needs: [version, sync_version]
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_version.outputs.sha }}
+          submodules: false
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.10.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: pip }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: python3 scripts/sync-release-version.py --check "$RELEASE_VERSION"
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: python -m pip install -e './apps/ai[dev]' && ruff check apps/ai && pytest apps/ai
+      # The TV installation screen's tests draw with Pillow and qrcode, as the appliance does.
+      - run: python -m pip install 'pillow==10.2.0' 'qrcode==7.4.2'
+      - run: bash scripts/test-distribution.sh
+      - run: docker compose config --quiet
+
+  containers:
+    needs: [version, sync_version, validate]
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - { name: api, file: docker/Dockerfile.node, target: api }
+          - { name: worker, file: docker/Dockerfile.node, target: worker }
+          - { name: dashboard, file: docker/Dockerfile.node, target: dashboard }
+          - { name: ai, file: docker/Dockerfile.ai, target: '' }
+          - { name: mdns, file: docker/mdns/Dockerfile, target: '' }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_version.outputs.sha }}
+          submodules: false
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/elise-os/eliseos-${{ matrix.name }}:${{ needs.version.outputs.version }}
+      - name: Install cosign
+        run: .github/scripts/install-cosign.sh
+      - run: cosign sign --yes "ghcr.io/elise-os/eliseos-${{ matrix.name }}@${{ steps.build.outputs.digest }}"
+
+  minipc_installer:
+    needs: [version, sync_version, validate]
+    runs-on: ubuntu-24.04
+    outputs:
+      available: ${{ steps.sourceforge.outputs.enabled }}
+    env:
+      RELEASE_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Check SourceForge publication configuration
+        id: sourceforge
+        env:
+          SOURCEFORGE_USER: ${{ secrets.SOURCEFORGE_USER }}
+          SOURCEFORGE_PROJECT: ${{ secrets.SOURCEFORGE_PROJECT }}
+          SOURCEFORGE_SSH_PRIVATE_KEY: ${{ secrets.SOURCEFORGE_SSH_PRIVATE_KEY }}
+        run: |
+          if [[ -n "$SOURCEFORGE_USER" && -n "$SOURCEFORGE_PROJECT" && -n "$SOURCEFORGE_SSH_PRIVATE_KEY" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo '::warning::Mini-PC ISO skipped: SOURCEFORGE_USER, SOURCEFORGE_PROJECT and SOURCEFORGE_SSH_PRIVATE_KEY are not all configured.'
+            {
+              echo '## Mini-PC installer ISO'
+              echo ''
+              echo '⚠️ Build and upload skipped because the three SourceForge secrets are not all configured.'
+              echo 'The rest of the Élise OS release continues normally.'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - if: steps.sourceforge.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_version.outputs.sha }}
+          submodules: false
+      - name: Install ISO builder dependencies
+        if: steps.sourceforge.outputs.enabled == 'true'
+        run: sudo apt-get update && sudo apt-get install -y curl gpgv rsync ubuntu-keyring xorriso
+      - name: Build AMD64 mini PC USB installer
+        if: steps.sourceforge.outputs.enabled == 'true'
+        env:
+          ELISE_BUILD_WORKDIR: ${{ runner.temp }}/elise-minipc
+          UBUNTU_ISO_CACHE: ${{ runner.temp }}/elise-minipc/ubuntu-24.04.5-live-server-amd64.iso
+        run: |
+          mkdir -p dist "$ELISE_BUILD_WORKDIR"
+          appliance/build-minipc-installer.sh \
+            "$RELEASE_VERSION" \
+            "dist/elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso"
+          (cd dist && sha256sum "elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso" \
+            > "elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso.sha256")
+      - name: Sign and verify AMD64 mini PC installer
+        if: steps.sourceforge.outputs.enabled == 'true'
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          .github/scripts/install-cosign.sh
+          file="dist/elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso"
+          cosign sign-blob --yes --bundle "$file.sigstore.json" "$file"
+          (cd dist && sha256sum -c "elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso.sha256")
+          cosign verify-blob "$file" --bundle "$file.sigstore.json" \
+            --certificate-identity-regexp "^https://github.com/${REPOSITORY}/.github/workflows/release.yml@refs/heads/main$" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null
+      - name: Upload the ISO to SourceForge FRS
+        if: steps.sourceforge.outputs.enabled == 'true'
+        env:
+          SOURCEFORGE_USER: ${{ secrets.SOURCEFORGE_USER }}
+          SOURCEFORGE_PROJECT: ${{ secrets.SOURCEFORGE_PROJECT }}
+          SOURCEFORGE_SSH_PRIVATE_KEY: ${{ secrets.SOURCEFORGE_SSH_PRIVATE_KEY }}
+        run: |
+          [[ "$SOURCEFORGE_USER" =~ ^[A-Za-z0-9._-]+$ ]] || { echo 'Invalid SourceForge user.' >&2; exit 1; }
+          [[ "$SOURCEFORGE_PROJECT" =~ ^[a-z0-9][a-z0-9-]+$ ]] || { echo 'Invalid SourceForge project URL name.' >&2; exit 1; }
+          key="$RUNNER_TEMP/sourceforge-ci-key"
+          known_hosts="$RUNNER_TEMP/sourceforge-known-hosts"
+          install -m 0600 /dev/null "$key"
+          printf '%s\n' "$SOURCEFORGE_SSH_PRIVATE_KEY" > "$key"
+          ssh-keyscan -T 20 -t ed25519 frs.sourceforge.net > "$known_hosts.scanned" 2>/dev/null
+          fingerprint="$(ssh-keygen -lf "$known_hosts.scanned" -E sha256 | awk '{print $2}')"
+          expected='SHA256:209BDmH3jsRyO9UeGPPgLWPSegKmYCBIya0nR/AWWCY'
+          [[ "$fingerprint" == "$expected" ]] || { echo "SourceForge host key mismatch: $fingerprint" >&2; exit 1; }
+          install -m 0600 "$known_hosts.scanned" "$known_hosts"
+          file="dist/elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso"
+          rsync --archive --partial --progress \
+            -e "ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$known_hosts -o StrictHostKeyChecking=yes" \
+            "$file" \
+            "${SOURCEFORGE_USER}@frs.sourceforge.net:/home/frs/project/${SOURCEFORGE_PROJECT}/${RELEASE_VERSION}/"
+          rm -f "$key"
+      - name: Describe and check the public SourceForge download
+        if: steps.sourceforge.outputs.enabled == 'true'
+        env:
+          SOURCEFORGE_PROJECT: ${{ secrets.SOURCEFORGE_PROJECT }}
+        run: |
+          file="dist/elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso"
+          name="${file##*/}"
+          size="$(stat -c %s "$file")"
+          sha256="$(sha256sum "$file" | cut -d' ' -f1)"
+          url="https://sourceforge.net/projects/${SOURCEFORGE_PROJECT}/files/${RELEASE_VERSION}/${name}/download"
+          python3 - "$RELEASE_VERSION" "$url" "$size" "$sha256" > dist/minipc-installer.json <<'PY'
+          import json, sys
+          json.dump({"version": sys.argv[1], "url": sys.argv[2], "size": int(sys.argv[3]), "sha256": sys.argv[4]}, sys.stdout, indent=2)
+          print()
+          PY
+          cosign sign-blob --yes --bundle dist/minipc-installer.json.sigstore.json dist/minipc-installer.json
+          public_size=''
+          for _ in $(seq 1 60); do
+            if curl -fsSLI --connect-timeout 15 --max-time 90 "$url" -o "$RUNNER_TEMP/sourceforge-headers"; then
+              public_size="$(awk 'BEGIN{IGNORECASE=1} /^HTTP\//{size=""} /^content-length:/{gsub("\r", "", $2); size=$2} END{print size}' "$RUNNER_TEMP/sourceforge-headers")"
+              [[ "$public_size" == "$size" ]] && break
+            fi
+            sleep 30
+          done
+          if [[ "$public_size" == "$size" ]]; then
+            echo "✓ SourceForge public download reports $size bytes" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning::SourceForge mirrors did not report the expected size within 30 minutes (expected $size, got ${public_size:-unknown})."
+            echo "⚠️ SourceForge mirror propagation was not confirmed within 30 minutes; expected $size bytes." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - if: steps.sourceforge.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: minipc-amd64-installer-metadata
+          path: |
+            dist/elise-os-${{ env.RELEASE_VERSION }}-minipc-amd64-installer.iso.sha256
+            dist/elise-os-${{ env.RELEASE_VERSION }}-minipc-amd64-installer.iso.sigstore.json
+            dist/minipc-installer.json
+            dist/minipc-installer.json.sigstore.json
+          compression-level: 0
+          retention-days: 1
+
+  artifacts:
+    needs: [version, sync_version, containers, minipc_installer]
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.sync_version.outputs.sha }}
+          submodules: false
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create runtime and digest manifest
+        env:
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          mkdir -p dist runtime
+          rsync -a --relative compose.yaml compose.release.yaml compose.raspberry.yaml compose.raspberry.release.yaml .env.example docker scripts appliance install runtime/
+          tar -czf "dist/elise-runtime-${RELEASE_VERSION}.tar.gz" -C runtime .
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          owner = os.environ['GH_REPOSITORY'].split('/', 1)[0].lower()
+          version = os.environ['RELEASE_VERSION']
+          images = {}
+          for name in ('api', 'worker', 'dashboard', 'ai', 'mdns'):
+              image = f'ghcr.io/{owner}/eliseos-{name}:{version}'
+              manifest = subprocess.check_output(['docker', 'buildx', 'imagetools', 'inspect', '--raw', image])
+              digest = 'sha256:' + hashlib.sha256(manifest).hexdigest()
+              images[name] = {'name': image.rsplit(':', 1)[0], 'digest': digest, 'platforms': ['linux/amd64', 'linux/arm64']}
+          base = json.loads(subprocess.check_output(['docker', 'compose', '-f', 'compose.yaml', 'config', '--format', 'json'], text=True))
+          for name in ('bootstrap', 'postgres', 'mosquitto', 'zigbee2mqtt', 'homeassistant', 'go2rtc'):
+              image = base['services'][name]['image']
+              manifest = subprocess.check_output(['docker', 'buildx', 'imagetools', 'inspect', '--raw', image])
+              digest = 'sha256:' + hashlib.sha256(manifest).hexdigest()
+              images[name] = {'name': image.rsplit(':', 1)[0], 'digest': digest, 'platforms': ['linux/amd64', 'linux/arm64']}
+          json.dump({'version': version, 'images': images}, open('dist/release-manifest.json', 'w'), indent=2)
+          PY
+          (cd dist && sha256sum "elise-runtime-${RELEASE_VERSION}.tar.gz" > "elise-runtime-${RELEASE_VERSION}.tar.gz.sha256")
+          (cd dist && sha256sum release-manifest.json > release-manifest.json.sha256)
+          sed "s/__ELISE_VERSION__/${RELEASE_VERSION}/g" install/install-elise.sh > dist/install-elise.sh
+          chmod +x dist/install-elise.sh
+      - name: Install image builder dependencies
+        run: sudo apt-get update && sudo apt-get install -y qemu-user-static parted rsync zerofree
+      - name: Build Raspberry Pi image
+        run: sudo appliance/build-raspberry-image.sh "$RELEASE_VERSION" "$PWD/dist/elise-os-${RELEASE_VERSION}-raspberry-pi-arm64.img.xz"
+      - name: Describe Raspberry Pi image
+        run: |
+          image="dist/elise-os-${RELEASE_VERSION}-raspberry-pi-arm64.img.xz"
+          (cd dist && sha256sum "${image##*/}" > "${image##*/}.sha256")
+          download_sha="$(sha256sum "$image" | cut -d' ' -f1)"
+          download_size="$(stat -c %s "$image")"
+          extract_sha="$(xz -dc "$image" | sha256sum | cut -d' ' -f1)"
+          extract_size="$(xz -dc "$image" | wc -c)"
+          sed -e "s/{{VERSION}}/${RELEASE_VERSION}/g" -e "s/{{DATE}}/$(date -u +%F)/g" -e "s/{{DOWNLOAD_SHA256}}/$download_sha/g" -e "s/22222222222/$download_size/g" -e "s/11111111111/$extract_size/g" -e "s/{{EXTRACT_SHA256}}/$extract_sha/g" appliance/os_list.template.json > dist/os_list.json
+      - name: Install cosign
+        run: .github/scripts/install-cosign.sh
+      - name: Sign release files
+        run: |
+          for file in dist/*.tar.gz dist/*.img.xz dist/release-manifest.json dist/install-elise.sh dist/os_list.json; do
+            cosign sign-blob --yes --bundle "$file.sigstore.json" "$file"
+          done
+      - name: Download AMD64 mini PC installer
+        if: needs.minipc_installer.outputs.available == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: minipc-amd64-installer-metadata
+          path: dist
+      - name: Verify release files
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          (cd dist && sha256sum -c "elise-runtime-${RELEASE_VERSION}.tar.gz.sha256" && sha256sum -c release-manifest.json.sha256)
+          files=(dist/*.tar.gz dist/*.img.xz dist/release-manifest.json dist/install-elise.sh dist/os_list.json)
+          if [[ -f dist/minipc-installer.json ]]; then files+=(dist/minipc-installer.json); fi
+          for file in "${files[@]}"; do
+            cosign verify-blob "$file" --bundle "$file.sigstore.json" \
+              --certificate-identity-regexp "^https://github.com/${REPOSITORY}/.github/workflows/release.yml@refs/heads/main$" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null
+          done
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.version }}
+          target_commitish: ${{ needs.sync_version.outputs.sha }}
+          files: dist/*
+          draft: true
+          generate_release_notes: true
+      - name: Publish release and advance latest tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          gh release edit "$RELEASE_VERSION" --repo "$GH_REPOSITORY" --draft=false
+          for name in api worker dashboard ai mdns; do
+            docker buildx imagetools create --tag "ghcr.io/elise-os/eliseos-${name}:latest" "ghcr.io/elise-os/eliseos-${name}:${RELEASE_VERSION}"
+          done
+      - name: Remove an incomplete draft
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: gh release delete "$RELEASE_VERSION" --repo "$GH_REPOSITORY" --cleanup-tag --yes || true

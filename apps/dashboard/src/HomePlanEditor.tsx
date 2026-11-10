@@ -1,0 +1,3263 @@
+import type {
+  EquipmentCoverage,
+  FloorLayout,
+  HomePlan,
+  Opening,
+  PlanRoom,
+  RequestedRoom,
+  SensorDevice,
+} from '@elise/contracts';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  BrickWall,
+  ChevronDown,
+  CircleCheck,
+  DoorOpen,
+  Grid2X2,
+  Layers,
+  LayoutGrid,
+  Link2,
+  MousePointer2,
+  MoveHorizontal,
+  MoveUpRight,
+  PencilLine,
+  Plus,
+  Radio,
+  Redo2,
+  Route,
+  RotateCcw,
+  Ruler,
+  Save,
+  Square,
+  Trash2,
+  Undo2,
+  Waves,
+} from 'lucide-react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
+import {
+  DrawingSetupPanel,
+  ExampleOverlay,
+  HomeSetupOnboarding,
+  type HomeSetupDetails,
+} from './HomeSetupOnboarding';
+import { RoomEquipmentPage } from './RoomEquipmentPage';
+import { StairEquipmentPage } from './StairEquipmentPage';
+import { retireFurniture } from '@elise/contracts';
+import { sensorRequest } from './sensor-ui';
+import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';
+import { DataLoadingScreen } from './DataLoadingScreen';
+import { connectionBoundary, connectionCurve } from './plan-connections';
+import './plan-connections.css';
+import { type Locale, t } from './i18n';
+import { createId } from './lib/createId';
+
+type Sensor = {
+  id: string;
+  entityId: string;
+  capability: string;
+  status: string;
+  lastSeenAt?: string | null;
+  lastValue?: Record<string, unknown> | null;
+  device?: { name: string } | null;
+};
+
+type CameraItem = {
+  id: string;
+  name: string;
+  status: string;
+  room: { id: string; name: string; kind: string } | null;
+};
+
+type Tool =
+  | 'SELECT'
+  | 'ROOM'
+  | 'ROOM_L'
+  | 'CORRIDOR'
+  | 'DOOR'
+  | 'MAIN_ENTRANCE'
+  | 'WINDOW'
+  | 'CONNECT'
+  | 'STAIR';
+
+const emptyCoverage: EquipmentCoverage = {
+  recommendations: [],
+  profiles: [],
+  summary: {
+    main: [],
+    optional: [],
+    totals: { required: 0, covered: 0, toAdd: 0, optional: 0 },
+    warnings: [],
+  },
+};
+
+const ROOM_SENSOR_CAPABILITIES = new Set([
+  'person_presence',
+  'occupancy',
+  'motion',
+  'temperature',
+  'humidity',
+  'illuminance',
+  'voc',
+  'co2',
+  'button',
+  'water_leak',
+  'smoke',
+  'carbon_monoxide',
+]);
+
+export function sensorDevicePresentation(device: SensorDevice) {
+  const capabilities = new Set(device.capabilities.map(({ capability }) => capability));
+  const brand = device.manufacturer?.trim()
+    ? device.manufacturer.trim().toLowerCase() === 'sonoff'
+      ? 'Sonoff'
+      : device.manufacturer.trim()
+    : '';
+  const kind =
+    capabilities.has('temperature') && capabilities.has('humidity')
+      ? t('homePlanEditor.temperatureAndHumiditySensor')
+      : capabilities.has('temperature')
+        ? t('homePlanEditor.temperatureSensor')
+        : capabilities.has('humidity')
+          ? t('homePlanEditor.humiditySensor')
+          : capabilities.has('person_presence') || capabilities.has('occupancy')
+            ? t('homePlanEditor.presenceSensor')
+            : capabilities.has('motion')
+              ? t('homePlanEditor.motionDetector')
+              : capabilities.has('contact')
+                ? t('homePlanEditor.contactSensor')
+                : capabilities.has('water_leak')
+                  ? t('homePlanEditor.leakDetector')
+                  : device.name;
+  return {
+    name:
+      brand && !kind.toLocaleLowerCase('fr').includes(brand.toLocaleLowerCase('fr'))
+        ? `${kind} ${brand}`
+        : kind,
+    details: [brand, device.model]
+      .filter(
+        (value, index, values): value is string =>
+          Boolean(value) && values.indexOf(value) === index,
+      )
+      .join(' · '),
+    capabilities: [...new Set(device.capabilities.map(({ label }) => label))],
+  };
+}
+
+export function isRoomSensorDevice(device: SensorDevice) {
+  return device.capabilities.some(({ capability }) => ROOM_SENSOR_CAPABILITIES.has(capability));
+}
+type Point = { x: number; y: number };
+
+export const shouldRunHomeSetup = ({
+  configured,
+  installationStatus,
+  preview,
+}: {
+  configured: boolean;
+  installationStatus: string | undefined;
+  preview: boolean;
+}) => !configured && (preview || installationStatus === 'DRAFT');
+
+const expandFloorToRooms = (floor: FloorLayout) => {
+  const points = floor.rooms.flatMap(({ geometry }) => geometry.points);
+  floor.width = Math.min(
+    10_000,
+    Math.max(floor.width || 1_200, 1_200, ...points.map(({ x }) => x + 180)),
+  );
+  floor.height = Math.min(
+    10_000,
+    Math.max(floor.height || 800, 800, ...points.map(({ y }) => y + 180)),
+  );
+};
+
+const emptyUnderstanding: HomePlan['understanding'] = {
+  levels: [],
+  isolatedRoomIds: [],
+  adjacentWithoutPassage: [],
+  nearAdjacencyIds: [],
+  floorsWithoutStairs: [],
+  incompleteStairIds: [],
+};
+
+const geometryAreaM2 = (points: PlanRoom['geometry']['points']) =>
+  Math.abs(
+    points.reduce((sum, point, index) => {
+      const next = points[(index + 1) % points.length]!;
+      return sum + point.x * next.y - next.x * point.y;
+    }, 0) / 2,
+  ) / 10_000;
+
+const normalizePlan = (source: HomePlan): HomePlan => {
+  const value = retireFurniture(source);
+  const levels = (value.levels ?? []).map((level) => ({
+    ...level,
+    rooms: (level.rooms ?? []).map((room) => ({
+      ...room,
+      areaM2: room.areaM2 ?? geometryAreaM2(room.geometry.points),
+    })),
+    openings: level.openings ?? [],
+    stairs: level.stairs ?? [],
+    items: [],
+  }));
+  for (const level of levels) expandFloorToRooms(level);
+  return {
+    ...value,
+    schemaVersion: 4,
+    setupDraft: value.setupDraft ?? null,
+    levels,
+    placements: (value.placements ?? []).map((placement) => ({
+      ...placement,
+      targetType: placement.targetType ?? 'ROOM',
+      targetId: placement.targetId ?? placement.roomId,
+      capabilityBindings: placement.capabilityBindings ?? [],
+      equipmentRefKind:
+        placement.equipmentRefKind ?? (placement.kind === 'CAMERA' ? 'CAMERA' : undefined),
+    })),
+    connections: value.connections ?? [],
+    adjacencies: value.adjacencies ?? [],
+    understanding: {
+      ...emptyUnderstanding,
+      ...(value.understanding ?? {}),
+    },
+  };
+};
+
+const previewSetupPlan = (): HomePlan => ({
+  schemaVersion: 4,
+  revision: 0,
+  configured: false,
+  setupDraft: {
+    stage: 'DETAILS',
+    requestedRooms: [],
+    tutorialCompleted: false,
+  },
+  levels: [
+    {
+      id: 'floor-0',
+      name: t('homePlanEditor.groundFloor'),
+      floor: 0,
+      order: 0,
+      width: 1_200,
+      height: 800,
+      scaleCmPerUnit: null,
+      rooms: [],
+      openings: [],
+      stairs: [],
+      items: [],
+    },
+  ],
+  placements: [],
+  connections: [],
+  adjacencies: [],
+  understanding: emptyUnderstanding,
+});
+
+const migratePlanDevices = (plan: HomePlan, devices: SensorDevice[]) => {
+  const sensorToDevice = new Map(
+    devices.flatMap((device) =>
+      device.capabilities.map(({ sensorId }) => [sensorId, device] as const),
+    ),
+  );
+  const migrated = clone(plan);
+  for (const placement of migrated.placements) {
+    if (placement.kind !== 'SENSOR' || placement.equipmentRefKind) continue;
+    const device = sensorToDevice.get(placement.equipmentId);
+    if (device) {
+      placement.equipmentId = device.id;
+      placement.equipmentRefKind = 'DEVICE';
+      placement.capabilityBindings = device.capabilities.map(({ sensorId, capability }) => ({
+        sensorId,
+        capability,
+        role: capability === 'button' ? 'UNASSIGNED' : capability.toUpperCase(),
+      }));
+    } else placement.equipmentRefKind = 'SENSOR_ENTITY';
+  }
+  migrated.placements = migrated.placements.filter(
+    (placement, index, all) =>
+      placement.equipmentRefKind !== 'DEVICE' ||
+      all.findIndex(
+        (candidate) =>
+          candidate.equipmentRefKind === 'DEVICE' &&
+          candidate.equipmentId === placement.equipmentId,
+      ) === index,
+  );
+  return migrated;
+};
+
+const roomKinds = () =>
+  [
+    ['LIVING_ROOM', t('homePlanEditor.livingRoom')],
+    ['KITCHEN', t('homePlanEditor.kitchen')],
+    ['BEDROOM', t('homePlanEditor.bedroom')],
+    ['BATHROOM', t('homePlanEditor.bathroom')],
+    ['TOILET', t('homePlanEditor.toilet')],
+    ['ENTRANCE', t('homePlanEditor.entrance')],
+    ['HALLWAY', t('homePlanEditor.hallway')],
+    ['DINING_ROOM', t('homePlanEditor.diningRoom')],
+    ['OTHER', t('homePlanEditor.other')],
+  ] as const;
+
+const levelName = (floor: number) =>
+  floor === 0
+    ? t('common.levelName.ground')
+    : floor === 1
+      ? t('common.levelName.first')
+      : t('common.levelName.numbered', { floor });
+
+const colors = ['#E8F0F3', '#F5EAD8', '#E6EFE7', '#EEE8F3', '#F3E5E5', '#E8EAF2'];
+
+const uid = (prefix: string) => `${prefix}-${createId()}`;
+const snap = (value: number) => Math.round(value / 10) * 10;
+const clone = <T,>(value: T): T => structuredClone(value);
+const polygon = (room: PlanRoom) => room.geometry.points.map(({ x, y }) => `${x},${y}`).join(' ');
+const bounds = (room: PlanRoom) => {
+  const xs = room.geometry.points.map(({ x }) => x);
+  const ys = room.geometry.points.map(({ y }) => y);
+  return {
+    x: Math.min(...xs),
+    y: Math.min(...ys),
+    width: Math.max(...xs) - Math.min(...xs),
+    height: Math.max(...ys) - Math.min(...ys),
+  };
+};
+const center = (room: PlanRoom) => {
+  const box = bounds(room);
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+};
+const roomAreaM2 = (room: PlanRoom) => room.areaM2 ?? geometryAreaM2(room.geometry.points);
+const roomDraftPoints = (start: Point, end: Point, lShape = false, corridor = false) => {
+  const x = Math.min(start.x, end.x);
+  const y = Math.min(start.y, end.y);
+  const width = Math.max(120, Math.abs(end.x - start.x));
+  const height = corridor
+    ? Math.max(100, Math.min(180, Math.abs(end.y - start.y)))
+    : Math.max(120, Math.abs(end.y - start.y));
+  return lShape
+    ? [
+        { x, y },
+        { x: x + width, y },
+        { x: x + width, y: y + height / 2 },
+        { x: x + width / 2, y: y + height / 2 },
+        { x: x + width / 2, y: y + height },
+        { x, y: y + height },
+      ]
+    : [
+        { x, y },
+        { x: x + width, y },
+        { x: x + width, y: y + height },
+        { x, y: y + height },
+      ];
+};
+const stairDockPoint = (room: PlanRoom, floor: FloorLayout) => {
+  const box = bounds(room);
+  const gap = 42;
+  const candidates = [
+    { x: box.x + box.width + gap, y: box.y + box.height / 2 },
+    { x: box.x + box.width / 2, y: box.y + box.height + gap },
+    { x: box.x - gap, y: box.y + box.height / 2 },
+    { x: box.x + box.width / 2, y: box.y - gap },
+  ];
+  return (
+    candidates.find(
+      (candidate) =>
+        candidate.x >= 32 &&
+        candidate.x <= floor.width - 32 &&
+        candidate.y >= 32 &&
+        candidate.y <= floor.height - 32 &&
+        !floor.rooms.some((candidateRoom) => pointInRoom(candidate, candidateRoom)),
+    ) ?? candidates[0]!
+  );
+};
+const exteriorAnchorAt = (room: PlanRoom, at: Point) => {
+  const wall = closestWall(at, [room]);
+  if (!wall) return at;
+  const roomCenter = center(room);
+  const dx = wall.point.x - roomCenter.x;
+  const dy = wall.point.y - roomCenter.y;
+  const length = Math.hypot(dx, dy) || 1;
+  return {
+    x: snap(wall.point.x + (dx / length) * 42),
+    y: snap(wall.point.y + (dy / length) * 42),
+  };
+};
+const roomEdgeToward = connectionBoundary;
+const roomConnectionAnchors = (room: PlanRoom) => {
+  const box = bounds(room);
+  return [
+    { id: 'N', x: box.x + box.width / 2, y: box.y - 1 },
+    { id: 'E', x: box.x + box.width + 1, y: box.y + box.height / 2 },
+    { id: 'S', x: box.x + box.width / 2, y: box.y + box.height + 1 },
+    { id: 'W', x: box.x - 1, y: box.y + box.height / 2 },
+  ].map(({ id, ...point }) => ({ id, ...connectionBoundary(room, point) }));
+};
+const pointInRoom = (point: Point, room: PlanRoom) => {
+  const points = room.geometry.points;
+  let inside = false;
+  for (
+    let current = 0, previous = points.length - 1;
+    current < points.length;
+    previous = current++
+  ) {
+    const a = points[current]!;
+    const b = points[previous]!;
+    if (
+      a.y > point.y !== b.y > point.y &&
+      point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x
+    )
+      inside = !inside;
+  }
+  return inside;
+};
+const closestWall = (point: Point, rooms: PlanRoom[]) => {
+  let closest: { room: PlanRoom; point: Point; distance: number; rotation: number } | null = null;
+  for (const room of rooms) {
+    for (let index = 0; index < room.geometry.points.length; index += 1) {
+      const start = room.geometry.points[index]!;
+      const end = room.geometry.points[(index + 1) % room.geometry.points.length]!;
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const length = dx * dx + dy * dy;
+      const ratio = length
+        ? Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / length))
+        : 0;
+      const projected = { x: start.x + ratio * dx, y: start.y + ratio * dy };
+      const distance = Math.hypot(point.x - projected.x, point.y - projected.y);
+      if (!closest || distance < closest.distance)
+        closest = {
+          room,
+          point: projected,
+          distance,
+          rotation: (Math.atan2(dy, dx) * 180) / Math.PI,
+        };
+    }
+  }
+  return closest;
+};
+
+const sharedWallPoint = (first: PlanRoom, second: PlanRoom) => {
+  for (let left = 0; left < first.geometry.points.length; left += 1) {
+    const a = first.geometry.points[left]!;
+    const b = first.geometry.points[(left + 1) % first.geometry.points.length]!;
+    for (let right = 0; right < second.geometry.points.length; right += 1) {
+      const c = second.geometry.points[right]!;
+      const d = second.geometry.points[(right + 1) % second.geometry.points.length]!;
+      const vertical = Math.abs(a.x - b.x) < 2 && Math.abs(c.x - d.x) < 2;
+      const horizontal = Math.abs(a.y - b.y) < 2 && Math.abs(c.y - d.y) < 2;
+      if (vertical && Math.abs(a.x - c.x) <= 30) {
+        const start = Math.max(Math.min(a.y, b.y), Math.min(c.y, d.y));
+        const end = Math.min(Math.max(a.y, b.y), Math.max(c.y, d.y));
+        if (end - start >= 90) return { x: (a.x + c.x) / 2, y: (start + end) / 2, rotation: 90 };
+      }
+      if (horizontal && Math.abs(a.y - c.y) <= 30) {
+        const start = Math.max(Math.min(a.x, b.x), Math.min(c.x, d.x));
+        const end = Math.min(Math.max(a.x, b.x), Math.max(c.x, d.x));
+        if (end - start >= 90) return { x: (start + end) / 2, y: (a.y + c.y) / 2, rotation: 0 };
+      }
+    }
+  }
+  return null;
+};
+
+type ResizeHandle = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
+
+const resizeHandles = (room: PlanRoom): Array<{ id: ResizeHandle; x: number; y: number }> => {
+  const box = bounds(room);
+  return [
+    { id: 'NW', x: box.x, y: box.y },
+    { id: 'N', x: box.x + box.width / 2, y: box.y },
+    { id: 'NE', x: box.x + box.width, y: box.y },
+    { id: 'E', x: box.x + box.width, y: box.y + box.height / 2 },
+    { id: 'SE', x: box.x + box.width, y: box.y + box.height },
+    { id: 'S', x: box.x + box.width / 2, y: box.y + box.height },
+    { id: 'SW', x: box.x, y: box.y + box.height },
+    { id: 'W', x: box.x, y: box.y + box.height / 2 },
+  ];
+};
+
+const resizedPoints = (original: PlanRoom, handle: ResizeHandle, start: Point, at: Point) => {
+  const originalBox = bounds(original);
+  const dx = at.x - start.x;
+  const dy = at.y - start.y;
+  let left = originalBox.x;
+  let right = originalBox.x + originalBox.width;
+  let top = originalBox.y;
+  let bottom = originalBox.y + originalBox.height;
+  if (handle.includes('W')) left = Math.min(right - 80, left + dx);
+  if (handle.includes('E')) right = Math.max(left + 80, right + dx);
+  if (handle.includes('N')) top = Math.min(bottom - 80, top + dy);
+  if (handle.includes('S')) bottom = Math.max(top + 80, bottom + dy);
+  return original.geometry.points.map(({ x, y }) => ({
+    x: snap(left + ((x - originalBox.x) / originalBox.width) * (right - left)),
+    y: snap(top + ((y - originalBox.y) / originalBox.height) * (bottom - top)),
+  }));
+};
+
+const transformRoomContents = (
+  draft: HomePlan,
+  floorId: string,
+  roomId: string,
+  nextPoints: Point[],
+) => {
+  const targetFloor = draft.levels.find(({ id }) => id === floorId)!;
+  const targetRoom = targetFloor.rooms.find(({ id }) => id === roomId)!;
+  const before = bounds(targetRoom);
+  const after = bounds({
+    ...targetRoom,
+    geometry: { ...targetRoom.geometry, points: nextPoints },
+  });
+  const transform = ({ x, y }: Point) => ({
+    x: snap(after.x + ((x - before.x) / before.width) * after.width),
+    y: snap(after.y + ((y - before.y) / before.height) * after.height),
+  });
+  targetRoom.geometry.points = nextPoints;
+  const roomScale = Math.min(1, after.width / before.width, after.height / before.height);
+  for (const item of targetFloor.items.filter(({ roomId: id }) => id === roomId)) {
+    Object.assign(item, transform(item));
+    if (roomScale < 1) {
+      item.visualScaleX = Math.max(0.2, (item.visualScaleX ?? 1) * roomScale);
+      item.visualScaleY = Math.max(0.2, (item.visualScaleY ?? 1) * roomScale);
+    }
+  }
+  for (const placement of draft.placements.filter(({ roomId: id }) => id === roomId))
+    Object.assign(placement, transform(placement));
+  for (const stair of draft.levels.flatMap(({ stairs }) => stairs)) {
+    if (stair.fromRoomId === roomId) {
+      Object.assign(stair, transform(stair));
+      if (stair.fromAnchor) stair.fromAnchor = transform(stair.fromAnchor);
+    }
+    if (stair.toRoomId === roomId && stair.toAnchor) stair.toAnchor = transform(stair.toAnchor);
+  }
+  for (const opening of targetFloor.openings.filter(({ roomIds }) => roomIds.includes(roomId))) {
+    if (opening.logical && (opening.hostRoomId ?? opening.roomIds[0]) !== roomId) continue;
+    Object.assign(opening, transform(opening));
+    if (!opening.logical && opening.roomIds.length > 1) opening.roomIds = [roomId];
+  }
+  expandFloorToRooms(targetFloor);
+};
+
+export function HomePlanEditor({
+  locale,
+  home,
+  sensors,
+  cameras,
+  onSaved,
+  initialRoomId = null,
+  initialStairId = null,
+  onBack,
+  setupPreview = false,
+  onSetupPreviewClose,
+}: {
+  locale: Locale;
+  home:
+    | {
+        name: string;
+        type: string;
+        address: string | null;
+        timezone: string;
+        floorCount: number;
+        installationStatus: string;
+      }
+    | undefined;
+  sensors: Sensor[];
+  cameras: CameraItem[];
+  onSaved: () => void;
+  initialRoomId?: string | null;
+  initialStairId?: string | null;
+  onBack?: () => void;
+  setupPreview?: boolean;
+  onSetupPreviewClose?: () => void;
+}) {
+  const [plan, setPlan] = useState<HomePlan | null>(null);
+  const [sensorDevices, setSensorDevices] = useState<SensorDevice[]>([]);
+  const [coverage, setCoverage] = useState<EquipmentCoverage>(emptyCoverage);
+  const [coverageLoading, setCoverageLoading] = useState(true);
+  const [coverageError, setCoverageError] = useState('');
+  const [tool, setTool] = useState<Tool>('SELECT');
+  const [floorId, setFloorId] = useState('');
+  const [editingFloorId, setEditingFloorId] = useState<string | null>(null);
+  const [floorNameDraft, setFloorNameDraft] = useState('');
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [selectedPlacementId, setSelectedPlacementId] = useState<string | null>(null);
+  const [selectedOpeningId, setSelectedOpeningId] = useState<string | null>(null);
+  const [movingOpeningId, setMovingOpeningId] = useState<string | null>(null);
+  const [drawStart, setDrawStart] = useState<Point | null>(null);
+  const [drawCurrent, setDrawCurrent] = useState<Point | null>(null);
+  const [history, setHistory] = useState<HomePlan[]>([]);
+  const [future, setFuture] = useState<HomePlan[]>([]);
+  const [dirty, setDirty] = useState(false);
+  const [saveState, setSaveState] = useState<'LOADING' | 'SAVED' | 'SAVING' | 'ERROR' | 'CONFLICT'>(
+    'LOADING',
+  );
+  const [message, setMessage] = useState('');
+  const [setupBusy, setSetupBusy] = useState(false);
+  const [setupError, setSetupError] = useState('');
+  const [selectedRequestedRoomId, setSelectedRequestedRoomId] = useState<string | null>(null);
+  const [showSetupExample, setShowSetupExample] = useState(false);
+  const [setupConfirmOpen, setSetupConfirmOpen] = useState(false);
+  const [roomDeleteTarget, setRoomDeleteTarget] = useState<{
+    room: PlanRoom;
+    blocked: boolean;
+  } | null>(null);
+  const [previewHome, setPreviewHome] = useState({
+    name: t('homePlanEditor.jeanneSHome'),
+    type: t('homePlanEditor.house'),
+    address: '',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris',
+  });
+  const canvasRef = useRef<SVGSVGElement>(null);
+  const saveTimer = useRef<number | null>(null);
+  const saving = useRef(false);
+  const editVersion = useRef(0);
+  const roomDrag = useRef<{
+    roomId: string;
+    floorId: string;
+    start: Point;
+    original: HomePlan;
+    moved: boolean;
+  } | null>(null);
+  const [planResize, setPlanResize] = useState<{
+    roomId: string;
+    floorId: string;
+    handle: ResizeHandle;
+    start: Point;
+    original: PlanRoom;
+  } | null>(null);
+  const [connectionDrag, setConnectionDrag] = useState<{
+    sourceRoomId: string;
+    start: Point;
+    current: Point;
+    targetRoomId: string | null;
+    targetValid: boolean;
+  } | null>(null);
+  const [stairModalOpen, setStairModalOpen] = useState(false);
+  const canvasResize = useRef<{
+    floorId: string;
+    startClient: Point;
+    originalWidth: number;
+    originalHeight: number;
+    renderedWidth: number;
+    renderedHeight: number;
+    original: HomePlan;
+  } | null>(null);
+  const stairDrag = useRef<{
+    stairId: string;
+    endpoint: 'FROM' | 'TO';
+    roomId: string;
+    original: HomePlan;
+  } | null>(null);
+
+  const refreshDeviceData = useCallback(async () => {
+    if (setupPreview) {
+      setCoverageLoading(false);
+      return;
+    }
+    setCoverageLoading(true);
+    setCoverageError('');
+    try {
+      const [devicesResponse, coverageResponse] = await Promise.all([
+        fetch('/api/v1/sensor-devices', { cache: 'no-store' }),
+        fetch('/api/v1/household/plan/equipment-coverage', { cache: 'no-store' }),
+      ]);
+      if (devicesResponse.ok) setSensorDevices((await devicesResponse.json()) as SensorDevice[]);
+      if (!coverageResponse.ok) throw new Error();
+      setCoverage((await coverageResponse.json()) as EquipmentCoverage);
+    } catch {
+      setCoverageError(t('homePlanEditor.theSensorAnalysisCouldNot'));
+    } finally {
+      setCoverageLoading(false);
+    }
+  }, [locale, setupPreview]);
+
+  const load = useCallback(async () => {
+    setSaveState('LOADING');
+    if (setupPreview) {
+      const loaded = previewSetupPlan();
+      setPlan(loaded);
+      setFloorId(loaded.levels[0]!.id);
+      setSelectedRoomId(null);
+      setEditingRoomId(null);
+      setHistory([]);
+      setFuture([]);
+      setDirty(false);
+      setSaveState('SAVED');
+      setSetupError('');
+      setCoverageLoading(false);
+      return;
+    }
+    try {
+      const [planResponse, devicesResponse, coverageResponse] = await Promise.all([
+        fetch('/api/v1/household/plan'),
+        fetch('/api/v1/sensor-devices', { cache: 'no-store' }),
+        fetch('/api/v1/household/plan/equipment-coverage', { cache: 'no-store' }),
+      ]);
+      if (!planResponse.ok) throw new Error();
+      const devices = devicesResponse.ok ? ((await devicesResponse.json()) as SensorDevice[]) : [];
+      const loaded = migratePlanDevices(
+        normalizePlan((await planResponse.json()) as HomePlan),
+        devices,
+      );
+      setSensorDevices(devices);
+      if (coverageResponse.ok) {
+        setCoverage((await coverageResponse.json()) as EquipmentCoverage);
+        setCoverageError('');
+      } else {
+        setCoverageError(t('homePlanEditor.theSensorAnalysisCouldNot'));
+      }
+      setCoverageLoading(false);
+      setPlan(loaded);
+      const requestedFloor = initialRoomId
+        ? loaded.levels.find(({ rooms }) => rooms.some(({ id }) => id === initialRoomId))
+        : initialStairId
+          ? loaded.levels.find(({ stairs }) => stairs.some(({ id }) => id === initialStairId))
+          : undefined;
+      setFloorId(requestedFloor?.id ?? loaded.levels[0]?.id ?? '');
+      setSelectedRoomId(requestedFloor ? initialRoomId : null);
+      setEditingRoomId(requestedFloor ? initialRoomId : null);
+      setHistory([]);
+      setFuture([]);
+      setDirty(false);
+      setSaveState('SAVED');
+    } catch {
+      setSaveState('ERROR');
+      setCoverageLoading(false);
+      setMessage(t('homePlanEditor.thePlanCannotBeLoaded'));
+    }
+  }, [initialRoomId, initialStairId, locale, setupPreview]);
+
+  useEffect(() => void load(), [load]);
+  useEffect(() => {
+    if (setupPreview) return;
+    const events = new EventSource('/api/v1/events');
+    events.onmessage = () => void refreshDeviceData();
+    return () => events.close();
+  }, [refreshDeviceData, setupPreview]);
+  const currentFloor = plan?.levels.find((level) => level.id === floorId) ?? plan?.levels[0];
+  const selectedRoom = currentFloor?.rooms.find((room) => room.id === selectedRoomId) ?? null;
+  const selectedOpening =
+    currentFloor?.openings.find((opening) => opening.id === selectedOpeningId) ?? null;
+  const editingRoom = plan?.levels
+    .flatMap(({ rooms }) => rooms)
+    .find(({ id }) => id === editingRoomId);
+  const editingFloor = plan?.levels.find((level) =>
+    level.rooms.some(({ id }) => id === editingRoomId),
+  );
+  const sensorMap = useMemo(() => new Map(sensors.map((sensor) => [sensor.id, sensor])), [sensors]);
+  const cameraMap = useMemo(() => new Map(cameras.map((camera) => [camera.id, camera])), [cameras]);
+
+  const commit = useCallback((update: (draft: HomePlan) => void) => {
+    setPlan((current) => {
+      if (!current) return current;
+      const next = clone(current);
+      update(next);
+      setHistory((items) => [...items.slice(-29), clone(current)]);
+      setFuture([]);
+      editVersion.current += 1;
+      setDirty(true);
+      return next;
+    });
+  }, []);
+
+  const save = useCallback(async () => {
+    if (setupPreview || !plan || !dirty || saving.current) return;
+    saving.current = true;
+    const savingVersion = editVersion.current;
+    setSaveState('SAVING');
+    try {
+      const response = await fetch('/api/v1/household/plan', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(plan),
+      });
+      if (response.status === 409) {
+        setSaveState('CONFLICT');
+        setMessage(t('homePlanEditor.aNewerVersionExistsReload'));
+        return;
+      }
+      const result = (await response.json().catch(() => null)) as
+        HomePlan | { message?: string } | null;
+      if (!response.ok || !result || !('levels' in result)) {
+        setMessage(
+          (result && 'message' in result && result.message) ||
+            t('homePlanEditor.thePlanContainsAnInvalid'),
+        );
+        setSaveState('ERROR');
+        return;
+      }
+      const normalizedResult = normalizePlan(result);
+      const unchanged = editVersion.current === savingVersion;
+      setPlan((current) =>
+        unchanged || !current
+          ? normalizedResult
+          : {
+              ...current,
+              revision: normalizedResult.revision,
+              connections: normalizedResult.connections,
+              adjacencies: normalizedResult.adjacencies,
+              understanding: normalizedResult.understanding,
+            },
+      );
+      setDirty(!unchanged);
+      setSaveState(unchanged ? 'SAVED' : 'SAVING');
+      onSaved();
+      void refreshDeviceData();
+    } catch {
+      setSaveState('ERROR');
+      setMessage(t('homePlanEditor.offlineChangesRemainOnThis'));
+    } finally {
+      saving.current = false;
+    }
+  }, [dirty, locale, onSaved, plan, refreshDeviceData, setupPreview]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => void save(), 1_200);
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    };
+  }, [dirty, plan, save]);
+
+  const undo = () => {
+    const previous = history.at(-1);
+    if (!previous || !plan) return;
+    setFuture((items) => [clone(plan), ...items].slice(0, 30));
+    setHistory((items) => items.slice(0, -1));
+    setPlan(clone(previous));
+    editVersion.current += 1;
+    setDirty(true);
+  };
+  const redo = () => {
+    const next = future[0];
+    if (!next || !plan) return;
+    setHistory((items) => [...items, clone(plan)].slice(-30));
+    setFuture((items) => items.slice(1));
+    setPlan(clone(next));
+    editVersion.current += 1;
+    setDirty(true);
+  };
+
+  const canvasPoint = (event: ReactPointerEvent<SVGSVGElement | SVGElement>): Point => {
+    const svg = canvasRef.current!;
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const transformed = point.matrixTransform(svg.getScreenCTM()?.inverse());
+    return tool === 'CONNECT'
+      ? { x: transformed.x, y: transformed.y }
+      : { x: snap(transformed.x), y: snap(transformed.y) };
+  };
+
+  const addRoom = (start: Point, end: Point, lShape = false, corridor = false) => {
+    const drawnRoomIds = new Set(
+      plan?.levels.flatMap(({ rooms }) => rooms.map(({ id }) => id)) ?? [],
+    );
+    const requestedRoom = plan?.setupDraft?.requestedRooms.find(
+      ({ id, floor }) =>
+        id === selectedRequestedRoomId && !drawnRoomIds.has(id) && currentFloor?.floor === floor,
+    );
+    const id = requestedRoom?.id ?? uid('room');
+    const points = roomDraftPoints(start, end, lShape, corridor);
+    commit((draft) => {
+      const floor = draft.levels.find((item) => item.id === floorId)!;
+      floor.rooms.push({
+        id,
+        name:
+          requestedRoom?.name ??
+          (corridor
+            ? `${t('homePlanEditor.hallway')} ${draft.levels.flatMap((item) => item.rooms).filter(({ kind }) => kind === 'HALLWAY').length + 1}`
+            : `${t('homePlanEditor.room')} ${draft.levels.flatMap((item) => item.rooms).length + 1}`),
+        kind: requestedRoom?.kind ?? (corridor ? 'HALLWAY' : 'OTHER'),
+        areaM2: geometryAreaM2(points),
+        geometry: { points, color: colors[floor.rooms.length % colors.length]! },
+      });
+    });
+    setSelectedRoomId(id);
+    setSelectedRequestedRoomId(null);
+    setTool('SELECT');
+  };
+
+  const addOpening = (kind: Opening['kind'], at: Point, mainEntrance = false) => {
+    if (!currentFloor) return;
+    const wall = closestWall(at, currentFloor.rooms);
+    if (!wall || wall.distance > 70) {
+      setMessage(t('homePlanEditor.tapAWallToAdd'));
+      return;
+    }
+    const touching = currentFloor.rooms.filter((room) => {
+      const nearest = closestWall(wall.point, [room]);
+      return nearest && nearest.distance < 8;
+    });
+    commit((draft) => {
+      if (mainEntrance) {
+        for (const level of draft.levels)
+          for (const opening of level.openings) opening.isMainEntrance = false;
+      }
+      draft.levels
+        .find(({ id }) => id === floorId)!
+        .openings.push({
+          id: uid(kind.toLowerCase()),
+          kind,
+          roomIds: touching.slice(0, mainEntrance ? 1 : 2).map(({ id }) => id),
+          x: snap(wall.point.x),
+          y: snap(wall.point.y),
+          width: kind === 'DOOR' ? 90 : 120,
+          rotation: wall.rotation,
+          isMainEntrance: mainEntrance,
+          hostRoomId: wall.room.id,
+        });
+    });
+    setTool('SELECT');
+  };
+
+  const onCanvasDown = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const at = canvasPoint(event);
+    if (movingOpeningId && currentFloor) {
+      const opening = currentFloor.openings.find(({ id }) => id === movingOpeningId);
+      const relatedRooms = currentFloor.rooms.filter(({ id }) => opening?.roomIds.includes(id));
+      const movableRooms =
+        relatedRooms.some(({ kind }) => kind === 'HALLWAY') &&
+        relatedRooms.some(({ kind }) => kind !== 'HALLWAY')
+          ? relatedRooms.filter(({ kind }) => kind !== 'HALLWAY')
+          : relatedRooms;
+      const wall = closestWall(at, movableRooms);
+      if (!opening || !wall || wall.distance > 100) {
+        setMessage(t('homePlanEditor.tapTheWallOfOne'));
+        return;
+      }
+      commit((draft) => {
+        const target = draft.levels
+          .find(({ id }) => id === currentFloor.id)!
+          .openings.find(({ id }) => id === movingOpeningId)!;
+        target.x = snap(wall.point.x);
+        target.y = snap(wall.point.y);
+        target.rotation = wall.rotation;
+        target.hostRoomId = wall.room.id;
+        target.logical =
+          target.roomIds.length === 2
+            ? !target.roomIds.every((roomId) => {
+                const room = currentFloor.rooms.find(({ id }) => id === roomId);
+                return Boolean(room && closestWall(wall.point, [room])!.distance < 8);
+              })
+            : false;
+        for (const placement of draft.placements.filter(
+          ({ targetType, targetId }) => targetType === 'OPENING' && targetId === movingOpeningId,
+        )) {
+          placement.x = target.x;
+          placement.y = target.y;
+          placement.rotation = target.rotation;
+          placement.roomId = target.hostRoomId ?? placement.roomId;
+        }
+      });
+      setMovingOpeningId(null);
+      setMessage(
+        opening.kind === 'WINDOW'
+          ? t('homePlanEditor.openingMoved.WINDOW', { room: wall.room.name })
+          : opening.kind === 'PASSAGE'
+            ? t('homePlanEditor.openingMoved.PASSAGE', { room: wall.room.name })
+            : t('homePlanEditor.openingMoved.DOOR', { room: wall.room.name }),
+      );
+      return;
+    }
+    if ((event.target as Element).getAttribute?.('data-plan-background') === 'true') {
+      setSelectedRoomId(null);
+      setSelectedPlacementId(null);
+      setSelectedOpeningId(null);
+    }
+    if (tool === 'ROOM' || tool === 'ROOM_L' || tool === 'CORRIDOR') {
+      setDrawStart(at);
+      setDrawCurrent(at);
+    }
+    if (tool === 'DOOR' || tool === 'WINDOW') addOpening(tool, at);
+    if (tool === 'MAIN_ENTRANCE') addOpening('DOOR', at, true);
+  };
+  const connectionTargetAt = (sourceRoomId: string, at: Point) => {
+    if (!currentFloor) return null;
+    return (
+      currentFloor.rooms
+        .filter(({ id }) => id !== sourceRoomId)
+        .map((room) => ({
+          room,
+          distance: pointInRoom(at, room) ? 0 : (closestWall(at, [room])?.distance ?? Infinity),
+        }))
+        .filter(({ distance }) => distance <= 24)
+        .sort((first, second) => first.distance - second.distance)[0]?.room ?? null
+    );
+  };
+  const connectRooms = (sourceRoomId: string, at: Point, targetRoomId?: string | null) => {
+    if (!currentFloor) return;
+    const source = currentFloor.rooms.find(({ id }) => id === sourceRoomId);
+    const target = targetRoomId
+      ? currentFloor.rooms.find(({ id }) => id === targetRoomId)
+      : connectionTargetAt(sourceRoomId, at);
+    if (!source || !target) {
+      setMessage(t('homePlanEditor.dropTheLinkInAnother'));
+      return;
+    }
+    const exists = currentFloor.openings.some(
+      ({ kind, roomIds }) =>
+        (kind === 'DOOR' || kind === 'PASSAGE') &&
+        roomIds.includes(source.id) &&
+        roomIds.includes(target.id),
+    );
+    if (exists) {
+      setMessage(
+        t('homePlanEditor.andAreAlreadyConnected', { name: source.name, name2: target.name }),
+      );
+      return;
+    }
+    const shared = sharedWallPoint(source, target);
+    const sourceEdge = roomEdgeToward(source, center(target));
+    const sourceBox = bounds(source);
+    const logicalRotation =
+      Math.abs(sourceEdge.x - sourceBox.x) < 2 ||
+      Math.abs(sourceEdge.x - sourceBox.x - sourceBox.width) < 2
+        ? 90
+        : 0;
+    const openingId = uid('link');
+    commit((draft) => {
+      draft.levels
+        .find(({ id }) => id === currentFloor.id)!
+        .openings.push({
+          id: openingId,
+          kind: 'PASSAGE',
+          roomIds: [source.id, target.id],
+          x: shared ? snap(shared.x) : snap(sourceEdge.x),
+          y: shared ? snap(shared.y) : snap(sourceEdge.y),
+          width: 130,
+          rotation: shared?.rotation ?? logicalRotation,
+          isMainEntrance: false,
+          logical: !shared,
+        });
+    });
+    setSelectedRoomId(null);
+    setSelectedPlacementId(null);
+    setSelectedOpeningId(openingId);
+    setMovingOpeningId(null);
+    setMessage(t('homePlanEditor.isNowConnectedTo', { name: source.name, name2: target.name }));
+  };
+  const moveStairAnchor = (at: Point) => {
+    const drag = stairDrag.current;
+    if (!drag) return;
+    setPlan((current) => {
+      if (!current) return current;
+      const next = clone(current);
+      const level = next.levels.find(({ rooms }) => rooms.some(({ id }) => id === drag.roomId));
+      const room = level?.rooms.find(({ id }) => id === drag.roomId);
+      const stair = next.levels
+        .flatMap(({ stairs }) => stairs)
+        .find(({ id }) => id === drag.stairId);
+      if (!room || !stair) return current;
+      const rawAnchor = exteriorAnchorAt(room, at);
+      const anchor = {
+        x: Math.max(0, Math.min(level!.width, rawAnchor.x)),
+        y: Math.max(0, Math.min(level!.height, rawAnchor.y)),
+      };
+      if (drag.endpoint === 'FROM') stair.fromAnchor = anchor;
+      else stair.toAnchor = anchor;
+      return next;
+    });
+  };
+  const finishStairDrag = () => {
+    const drag = stairDrag.current;
+    if (!drag) return;
+    setHistory((items) => [...items.slice(-29), drag.original]);
+    setFuture([]);
+    editVersion.current += 1;
+    setDirty(true);
+    stairDrag.current = null;
+  };
+  const updateConnectionDrag = (sourceRoomId: string, at: Point) => {
+    const target = connectionTargetAt(sourceRoomId, at);
+    const source = currentFloor?.rooms.find(({ id }) => id === sourceRoomId);
+    if (!source) return;
+    const start = roomEdgeToward(source, target ? center(target) : at);
+    const snapped = target ? roomEdgeToward(target, center(source)) : at;
+    const alreadyLinked =
+      target &&
+      currentFloor?.openings.some(
+        ({ kind, roomIds }) =>
+          (kind === 'DOOR' || kind === 'PASSAGE') &&
+          roomIds.includes(sourceRoomId) &&
+          roomIds.includes(target.id),
+      );
+    setConnectionDrag((current) =>
+      current
+        ? {
+            ...current,
+            start,
+            current: snapped,
+            targetRoomId: target?.id ?? null,
+            targetValid: Boolean(target) && !alreadyLinked,
+          }
+        : current,
+    );
+  };
+  const finishConnectionDrag = (sourceRoomId: string, at: Point) => {
+    const target = connectionTargetAt(sourceRoomId, at);
+    connectRooms(sourceRoomId, at, target?.id);
+    setConnectionDrag(null);
+  };
+  const onCanvasMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const resize = canvasResize.current;
+    if (resize) {
+      const dx = event.clientX - resize.startClient.x;
+      const dy = event.clientY - resize.startClient.y;
+      const width = Math.min(
+        10_000,
+        Math.max(
+          1_200,
+          snap(resize.originalWidth + (dx * resize.originalWidth) / resize.renderedWidth),
+        ),
+      );
+      const height = Math.min(
+        10_000,
+        Math.max(
+          800,
+          snap(resize.originalHeight + (dy * resize.originalHeight) / resize.renderedHeight),
+        ),
+      );
+      setPlan((current) => {
+        if (!current) return current;
+        const next = clone(current);
+        const floor = next.levels.find(({ id }) => id === resize.floorId);
+        if (!floor) return current;
+        floor.width = width;
+        floor.height = height;
+        expandFloorToRooms(floor);
+        return next;
+      });
+      return;
+    }
+    if (stairDrag.current) {
+      moveStairAnchor(canvasPoint(event));
+      return;
+    }
+    if (!connectionDrag) {
+      if (drawStart) setDrawCurrent(canvasPoint(event));
+      return;
+    }
+    updateConnectionDrag(connectionDrag.sourceRoomId, canvasPoint(event));
+  };
+  const onCanvasUp = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const resize = canvasResize.current;
+    if (resize) {
+      setHistory((items) => [...items.slice(-29), resize.original]);
+      setFuture([]);
+      editVersion.current += 1;
+      setDirty(true);
+      canvasResize.current = null;
+      return;
+    }
+    if (stairDrag.current) {
+      moveStairAnchor(canvasPoint(event));
+      finishStairDrag();
+      return;
+    }
+    if (connectionDrag) {
+      finishConnectionDrag(connectionDrag.sourceRoomId, canvasPoint(event));
+      event.stopPropagation();
+      return;
+    }
+    if (!drawStart || (tool !== 'ROOM' && tool !== 'ROOM_L' && tool !== 'CORRIDOR')) return;
+    addRoom(drawStart, canvasPoint(event), tool === 'ROOM_L', tool === 'CORRIDOR');
+    setDrawStart(null);
+    setDrawCurrent(null);
+  };
+
+  const requestDeleteRoom = () => {
+    if (!selectedRoom) return;
+    const blocked = Boolean(
+      plan?.placements.some(
+        (placement) => placement.roomId === selectedRoom.id && placement.kind === 'SENSOR',
+      ),
+    );
+    setRoomDeleteTarget({ room: selectedRoom, blocked });
+  };
+  const confirmDeleteRoom = () => {
+    if (!roomDeleteTarget || roomDeleteTarget.blocked) return;
+    const roomId = roomDeleteTarget.room.id;
+    commit((draft) => {
+      for (const level of draft.levels) {
+        level.rooms = level.rooms.filter(({ id }) => id !== roomId);
+        level.openings = level.openings.filter(({ roomIds }) => !roomIds.includes(roomId));
+        level.items = level.items.filter(({ roomId: itemRoomId }) => itemRoomId !== roomId);
+        level.stairs = level.stairs.filter(
+          ({ fromRoomId, toRoomId }) => fromRoomId !== roomId && toRoomId !== roomId,
+        );
+      }
+      draft.placements = draft.placements.filter(
+        ({ roomId: placementRoomId }) => placementRoomId !== roomId,
+      );
+    });
+    setSelectedRoomId(null);
+    setRoomDeleteTarget(null);
+  };
+  const rotateSelectedRoom = () => {
+    if (!selectedRoom || !currentFloor) return;
+    commit((draft) => {
+      const level = draft.levels.find(({ id }) => id === currentFloor.id)!;
+      const room = level.rooms.find(({ id }) => id === selectedRoom.id)!;
+      const at = center(room);
+      const rotate = ({ x, y }: Point) => ({ x: at.x - (y - at.y), y: at.y + (x - at.x) });
+      const rotated = room.geometry.points.map(rotate);
+      const rotatedRoom = { ...room, geometry: { ...room.geometry, points: rotated } };
+      const box = bounds(rotatedRoom);
+      const dx = Math.max(-box.x, Math.min(0, level.width - box.x - box.width));
+      const dy = Math.max(-box.y, Math.min(0, level.height - box.y - box.height));
+      const transform = (point: Point) => {
+        const result = rotate(point);
+        return { x: snap(result.x + dx), y: snap(result.y + dy) };
+      };
+      room.geometry.points = room.geometry.points.map(transform);
+      for (const item of level.items.filter(({ roomId }) => roomId === room.id)) {
+        Object.assign(item, transform(item));
+        item.rotation = (item.rotation + 90) % 360;
+      }
+      for (const placement of draft.placements.filter(({ roomId }) => roomId === room.id)) {
+        Object.assign(placement, transform(placement));
+        placement.rotation = (placement.rotation + 90) % 360;
+      }
+      for (const opening of level.openings.filter(({ roomIds }) => roomIds.includes(room.id))) {
+        if (opening.logical && (opening.hostRoomId ?? opening.roomIds[0]) !== room.id) continue;
+        Object.assign(opening, transform(opening));
+        opening.rotation = (opening.rotation + 90) % 360;
+        if (!opening.logical && opening.roomIds.length > 1) opening.roomIds = [room.id];
+      }
+      for (const stair of draft.levels.flatMap(({ stairs }) => stairs)) {
+        if (stair.fromRoomId === room.id) {
+          Object.assign(stair, transform(stair));
+          if (stair.fromAnchor) stair.fromAnchor = transform(stair.fromAnchor);
+        }
+        if (stair.toRoomId === room.id && stair.toAnchor)
+          stair.toAnchor = transform(stair.toAnchor);
+      }
+      expandFloorToRooms(level);
+    });
+  };
+  const updateSelectedRoomArea = (area: number) => {
+    if (!selectedRoom || !Number.isFinite(area) || area < 0.1) return;
+    commit((draft) => {
+      draft.levels.flatMap(({ rooms }) => rooms).find(({ id }) => id === selectedRoom.id)!.areaM2 =
+        area;
+    });
+  };
+  const startRenamingFloor = (level: FloorLayout) => {
+    setEditingFloorId(level.id);
+    setFloorNameDraft(level.name);
+  };
+  const finishRenamingFloor = (save: boolean) => {
+    const id = editingFloorId;
+    const name = floorNameDraft.trim();
+    setEditingFloorId(null);
+    if (!save || !id || !name) return;
+    if (plan?.levels.find((level) => level.id === id)?.name === name) return;
+    commit((draft) => {
+      const level = draft.levels.find((item) => item.id === id);
+      if (level) level.name = name;
+    });
+  };
+  const addFloor = () => {
+    if (!plan) return;
+    const floor = Math.max(...plan.levels.map((item) => item.floor), -1) + 1;
+    const id = uid('floor');
+    commit((draft) =>
+      draft.levels.push({
+        id,
+        name: levelName(floor),
+        floor,
+        order: draft.levels.length,
+        width: 1_200,
+        height: 800,
+        scaleCmPerUnit: null,
+        rooms: [],
+        openings: [],
+        stairs: [],
+        items: [],
+      }),
+    );
+    setFloorId(id);
+    setSelectedRoomId(null);
+    setSelectedOpeningId(null);
+    setMovingOpeningId(null);
+    // A new level opens straight on its name, so it can be called "Sous-sol" or "Combles".
+    setEditingFloorId(id);
+    setFloorNameDraft(levelName(floor));
+  };
+  const deleteCurrentFloor = () => {
+    if (!plan || !currentFloor || plan.levels.length <= 1) return;
+    const deletingFloor = currentFloor;
+    if (!window.confirm(t('homePlanEditor.deleteTheLevelAndAll', { name: deletingFloor.name })))
+      return;
+    const sorted = [...plan.levels].sort((a, b) => a.order - b.order);
+    const fallback = sorted.find(({ id }) => id !== deletingFloor.id)!;
+    const removedRoomIds = new Set(deletingFloor.rooms.map(({ id }) => id));
+    commit((draft) => {
+      draft.levels = draft.levels.filter(({ id }) => id !== deletingFloor.id);
+      for (const level of draft.levels) {
+        level.stairs = level.stairs.filter(
+          ({ fromFloorId, toFloorId, fromRoomId, toRoomId }) =>
+            fromFloorId !== deletingFloor.id &&
+            toFloorId !== deletingFloor.id &&
+            !removedRoomIds.has(fromRoomId) &&
+            !removedRoomIds.has(toRoomId),
+        );
+      }
+      draft.placements = draft.placements.filter(
+        ({ floorId, roomId }) => floorId !== deletingFloor.id && !removedRoomIds.has(roomId),
+      );
+      [...draft.levels]
+        .sort((a, b) => a.order - b.order)
+        .forEach((level, index) => {
+          // Only levels still carrying their automatic name follow the new numbering.
+          if (level.name === levelName(level.floor)) level.name = levelName(index);
+          level.order = index;
+          level.floor = index;
+        });
+    });
+    setFloorId(fallback.id);
+    setSelectedRoomId(null);
+    setSelectedOpeningId(null);
+    setMovingOpeningId(null);
+  };
+  const addStair = (
+    fromFloorId: string,
+    fromRoomId: string,
+    toFloorId: string,
+    toRoomId: string,
+  ) => {
+    if (!plan || !fromFloorId || !fromRoomId || !toFloorId || !toRoomId) return false;
+    const departureFloor = plan.levels.find(({ id }) => id === fromFloorId);
+    const departureRoom = departureFloor?.rooms.find(({ id }) => id === fromRoomId);
+    if (!departureFloor || !departureRoom || fromFloorId === toFloorId) return false;
+    const alreadyExists = plan.levels
+      .flatMap(({ stairs }) => stairs)
+      .some(
+        (stair) =>
+          (stair.fromRoomId === fromRoomId && stair.toRoomId === toRoomId) ||
+          (stair.fromRoomId === toRoomId && stair.toRoomId === fromRoomId),
+      );
+    if (alreadyExists) {
+      setMessage(t('homePlanEditor.theseTwoSpacesAreAlready'));
+      return false;
+    }
+    const at = stairDockPoint(departureRoom, departureFloor);
+    const destinationFloor = plan.levels.find(({ id }) => id === toFloorId);
+    const destinationRoom = destinationFloor?.rooms.find(({ id }) => id === toRoomId);
+    const destinationAt =
+      destinationFloor && destinationRoom
+        ? stairDockPoint(destinationRoom, destinationFloor)
+        : undefined;
+    commit((draft) =>
+      draft.levels
+        .find(({ id }) => id === departureFloor.id)!
+        .stairs.push({
+          id: uid('stair'),
+          fromFloorId: departureFloor.id,
+          toFloorId,
+          fromRoomId: departureRoom.id,
+          toRoomId,
+          x: at.x,
+          y: at.y,
+          width: 100,
+          height: 180,
+          rotation: 0,
+          fromAnchor: at,
+          toAnchor: destinationAt,
+        }),
+    );
+    setFloorId(departureFloor.id);
+    setSelectedRoomId(departureRoom.id);
+    setTool('SELECT');
+    setMessage(t('homePlanEditor.staircaseAddedThenMoveEach'));
+    return true;
+  };
+
+  const moveRoom = (event: ReactPointerEvent<SVGGElement>) => {
+    const drag = roomDrag.current;
+    if (!drag || event.buttons !== 1 || drag.roomId !== event.currentTarget.dataset.roomId) return;
+    const originalFloor = drag.original.levels.find(({ id }) => id === drag.floorId)!;
+    const originalRoom = originalFloor.rooms.find(({ id }) => id === drag.roomId)!;
+    const originalBox = bounds(originalRoom);
+    const at = canvasPoint(event);
+    const dx = Math.max(
+      -originalBox.x,
+      Math.min(originalFloor.width - originalBox.x - originalBox.width, at.x - drag.start.x),
+    );
+    const dy = Math.max(
+      -originalBox.y,
+      Math.min(originalFloor.height - originalBox.y - originalBox.height, at.y - drag.start.y),
+    );
+    if (Math.abs(dx) + Math.abs(dy) < 10) return;
+    drag.moved = true;
+    setPlan(() => {
+      const next = clone(drag.original);
+      const floor = next.levels.find(({ id }) => id === drag.floorId)!;
+      const room = floor.rooms.find(({ id }) => id === drag.roomId)!;
+      room.geometry.points = room.geometry.points.map(({ x, y }) => ({
+        x: snap(x + dx),
+        y: snap(y + dy),
+      }));
+      for (const placement of next.placements.filter(({ roomId }) => roomId === room.id)) {
+        placement.x = snap(placement.x + dx);
+        placement.y = snap(placement.y + dy);
+      }
+      for (const stair of next.levels.flatMap(({ stairs }) => stairs)) {
+        if (stair.fromRoomId === room.id) {
+          stair.x = snap(stair.x + dx);
+          stair.y = snap(stair.y + dy);
+          if (stair.fromAnchor)
+            stair.fromAnchor = {
+              x: snap(stair.fromAnchor.x + dx),
+              y: snap(stair.fromAnchor.y + dy),
+            };
+        }
+        if (stair.toRoomId === room.id && stair.toAnchor)
+          stair.toAnchor = {
+            x: snap(stair.toAnchor.x + dx),
+            y: snap(stair.toAnchor.y + dy),
+          };
+      }
+      for (const opening of floor.openings.filter(({ roomIds }) => roomIds.includes(room.id))) {
+        if (opening.logical && (opening.hostRoomId ?? opening.roomIds[0]) !== room.id) continue;
+        opening.x = snap(opening.x + dx);
+        opening.y = snap(opening.y + dy);
+        if (!opening.logical && opening.roomIds.length > 1) opening.roomIds = [room.id];
+      }
+      return next;
+    });
+  };
+
+  const finishRoomMove = (roomId: string, cancelled = false) => {
+    const drag = roomDrag.current;
+    if (!drag || drag.roomId !== roomId) return;
+    roomDrag.current = null;
+    if (drag.moved) {
+      setHistory((items) => [...items.slice(-29), drag.original]);
+      setFuture([]);
+      editVersion.current += 1;
+      setDirty(true);
+    } else if (cancelled) setPlan(clone(drag.original));
+  };
+
+  const resizeRoomOnPlan = (event: ReactPointerEvent<SVGCircleElement>) => {
+    if (!planResize || event.buttons !== 1) return;
+    const at = canvasPoint(event);
+    const points = resizedPoints(planResize.original, planResize.handle, planResize.start, at);
+    commit((draft) => transformRoomContents(draft, planResize.floorId, planResize.roomId, points));
+  };
+
+  const persistSetupPlan = async (candidate: HomePlan) => {
+    if (setupPreview) {
+      const saved = normalizePlan({ ...candidate, revision: candidate.revision + 1 });
+      setPlan(saved);
+      setDirty(false);
+      setSaveState('SAVED');
+      return saved;
+    }
+    setSaveState('SAVING');
+    const response = await fetch('/api/v1/household/plan', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(candidate),
+    });
+    const result = (await response.json().catch(() => null)) as
+      HomePlan | { message?: string } | null;
+    if (!response.ok || !result || !('levels' in result)) {
+      setSaveState('ERROR');
+      throw new Error(
+        (result && 'message' in result && result.message) || t('homePlanEditor.theDraftCouldNotBe'),
+      );
+    }
+    const saved = normalizePlan(result);
+    setPlan(saved);
+    editVersion.current += 1;
+    setDirty(false);
+    setSaveState('SAVED');
+    onSaved();
+    return saved;
+  };
+
+  const saveSetupDetails = async (details: HomeSetupDetails) => {
+    if (!plan) return;
+    setSetupBusy(true);
+    setSetupError('');
+    try {
+      if (!setupPreview) {
+        const response = await fetch('/api/v1/household/home', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            name: details.name,
+            type: details.type,
+            address: details.address,
+            timezone: details.timezone,
+          }),
+        });
+        if (!response.ok) throw new Error('Home details could not be saved');
+      }
+      const count = Math.max(1, Math.min(4, details.levels));
+      if (setupPreview) {
+        setPreviewHome({
+          name: details.name,
+          type: details.type,
+          address: details.address,
+          timezone: details.timezone,
+        });
+      }
+      const next = clone(plan);
+      next.setupDraft = {
+        stage: 'ROOMS',
+        requestedRooms: (next.setupDraft?.requestedRooms ?? []).map((room) => ({
+          ...room,
+          floor: Math.min(room.floor, count - 1),
+        })),
+        tutorialCompleted: false,
+      };
+      next.levels = Array.from(
+        { length: count },
+        (_, floor) =>
+          next.levels.find((level) => level.floor === floor) ??
+          ({
+            id: `floor-${floor}`,
+            name: levelName(floor),
+            floor,
+            order: floor,
+            width: 1_200,
+            height: 800,
+            scaleCmPerUnit: null,
+            rooms: [],
+            openings: [],
+            stairs: [],
+            items: [],
+          } satisfies FloorLayout),
+      );
+      await persistSetupPlan(next);
+    } catch (error) {
+      setSetupError(error instanceof Error ? error.message : 'Save failed');
+    } finally {
+      setSetupBusy(false);
+    }
+  };
+
+  const saveRequestedRooms = async (rooms: RequestedRoom[]) => {
+    if (!plan) return;
+    setSetupBusy(true);
+    setSetupError('');
+    try {
+      const next = clone(plan);
+      next.setupDraft = { stage: 'EXAMPLE', requestedRooms: rooms, tutorialCompleted: false };
+      await persistSetupPlan(next);
+    } catch (error) {
+      setSetupError(error instanceof Error ? error.message : 'Save failed');
+    } finally {
+      setSetupBusy(false);
+    }
+  };
+
+  const moveSetupBack = async () => {
+    if (!plan?.setupDraft) return;
+    setSetupBusy(true);
+    setSetupError('');
+    try {
+      const next = clone(plan);
+      next.setupDraft = {
+        ...plan.setupDraft,
+        stage: plan.setupDraft.stage === 'EXAMPLE' ? 'ROOMS' : 'DETAILS',
+      };
+      await persistSetupPlan(next);
+    } catch (error) {
+      setSetupError(error instanceof Error ? error.message : 'Save failed');
+    } finally {
+      setSetupBusy(false);
+    }
+  };
+
+  const beginSetupDrawing = async () => {
+    if (!plan?.setupDraft) return;
+    setSetupBusy(true);
+    setSetupError('');
+    try {
+      const next = clone(plan);
+      next.setupDraft = { ...plan.setupDraft, stage: 'DRAW', tutorialCompleted: true };
+      const saved = await persistSetupPlan(next);
+      const first = saved.setupDraft?.requestedRooms[0];
+      if (first) {
+        setSelectedRequestedRoomId(first.id);
+        setFloorId(
+          saved.levels.find(({ floor }) => floor === first.floor)?.id ?? saved.levels[0]!.id,
+        );
+        setTool('ROOM');
+      }
+    } catch (error) {
+      setSetupError(error instanceof Error ? error.message : 'Save failed');
+    } finally {
+      setSetupBusy(false);
+    }
+  };
+
+  const finalizeSetup = async () => {
+    if (!plan || !plan.levels.some(({ rooms }) => rooms.length)) return;
+    setSetupBusy(true);
+    setSetupError('');
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    setDirty(false);
+    try {
+      const next = clone(plan);
+      next.configured = true;
+      next.setupDraft = null;
+      await persistSetupPlan(next);
+      setSetupConfirmOpen(false);
+      if (setupPreview) onSetupPreviewClose?.();
+      else void refreshDeviceData();
+    } catch (error) {
+      setDirty(true);
+      setSetupError(error instanceof Error ? error.message : 'Save failed');
+    } finally {
+      setSetupBusy(false);
+    }
+  };
+
+  const showSetupRecommendations = async () => {
+    if (!plan || !plan.levels.some(({ rooms }) => rooms.length)) return;
+    setSetupBusy(true);
+    setSetupError('');
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    setDirty(false);
+    try {
+      const next = clone(plan);
+      next.configured = false;
+      next.setupDraft = {
+        ...(plan.setupDraft ?? { requestedRooms: [], tutorialCompleted: true }),
+        stage: 'RECOMMENDATIONS',
+      };
+      await persistSetupPlan(next);
+      if (!setupPreview) await refreshDeviceData();
+      setSetupConfirmOpen(false);
+    } catch (error) {
+      setDirty(true);
+      setSetupError(error instanceof Error ? error.message : 'Save failed');
+    } finally {
+      setSetupBusy(false);
+    }
+  };
+
+  const returnToSetupDrawing = async () => {
+    if (!plan?.setupDraft) return;
+    setSetupBusy(true);
+    setSetupError('');
+    try {
+      const next = clone(plan);
+      next.setupDraft = { ...plan.setupDraft, stage: 'DRAW' };
+      await persistSetupPlan(next);
+    } catch (error) {
+      setSetupError(error instanceof Error ? error.message : 'Save failed');
+    } finally {
+      setSetupBusy(false);
+    }
+  };
+
+  const focusRoom = (roomId: string) => {
+    if (!plan) return;
+    const level = plan.levels.find(({ rooms }) => rooms.some(({ id }) => id === roomId));
+    if (!level) return;
+    setFloorId(level.id);
+    setSelectedRoomId(roomId);
+    setSelectedPlacementId(null);
+    setSelectedOpeningId(null);
+    setMovingOpeningId(null);
+  };
+
+  if (!plan || !currentFloor)
+    return saveState === 'ERROR' ? (
+      <div className="home-plan-loading">{message}</div>
+    ) : (
+      <DataLoadingScreen locale={locale} message={t('homePlanEditor.loadingYourHome')} />
+    );
+
+  const setupDraft = shouldRunHomeSetup({
+    configured: plan.configured,
+    installationStatus: home?.installationStatus,
+    preview: setupPreview,
+  })
+    ? (plan.setupDraft ?? {
+        stage: 'DETAILS' as const,
+        requestedRooms: [],
+        tutorialCompleted: false,
+      })
+    : null;
+  const setupHome = setupPreview
+    ? previewHome
+    : {
+        name: home?.name ?? '',
+        type: home?.type ?? t('homePlanEditor.house'),
+        address: home?.address ?? '',
+        timezone:
+          home?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'Europe/Paris',
+      };
+
+  if (setupDraft?.stage === 'RECOMMENDATIONS') {
+    return (
+      <SensorCoverageRecommendations
+        locale={locale}
+        coverage={coverage}
+        loading={setupBusy || coverageLoading}
+        error={setupError || coverageError}
+        onRetry={() => void refreshDeviceData()}
+        onBack={() => void returnToSetupDrawing()}
+        onContinue={() => void finalizeSetup()}
+        {...(setupPreview && onSetupPreviewClose ? { onClose: onSetupPreviewClose } : {})}
+      />
+    );
+  }
+
+  if (setupDraft && setupDraft.stage !== 'DRAW') {
+    return (
+      <HomeSetupOnboarding
+        locale={locale}
+        stage={setupDraft.stage}
+        home={setupHome}
+        floorCount={plan.levels.length}
+        requestedRooms={setupDraft.requestedRooms}
+        busy={setupBusy}
+        error={setupError}
+        preview={setupPreview}
+        onSaveDetails={saveSetupDetails}
+        onSaveRooms={saveRequestedRooms}
+        onBack={moveSetupBack}
+        onBeginDrawing={beginSetupDrawing}
+        onClosePreview={onSetupPreviewClose}
+      />
+    );
+  }
+
+  if (initialStairId && !setupDraft) {
+    return (
+      <StairEquipmentPage
+        stairId={initialStairId}
+        plan={plan}
+        devices={sensorDevices}
+        locale={locale}
+        onBack={() => onBack?.()}
+        onRefresh={load}
+      />
+    );
+  }
+
+  if (editingRoom && editingFloor && !setupDraft) {
+    return (
+      <RoomEquipmentPage
+        key={editingRoom.id}
+        roomId={editingRoom.id}
+        plan={plan}
+        devices={sensorDevices}
+        cameras={cameras}
+        locale={locale}
+        onBack={() => {
+          if (initialRoomId && onBack) {
+            onBack();
+            return;
+          }
+          setEditingRoomId(null);
+        }}
+        onPlanSaved={(saved) => {
+          setPlan(normalizePlan(saved));
+          setHistory([]);
+          setFuture([]);
+          setDirty(false);
+          setSaveState('SAVED');
+          onSaved();
+        }}
+        onCameraAdded={onSaved}
+        onRefresh={async () => {
+          if (saving.current || dirty) throw new Error(t('homePlanEditor.thePlanIsBeingSaved'));
+          const [fresh, freshDevices] = await Promise.all([
+            sensorRequest<HomePlan>('/api/v1/household/plan'),
+            sensorRequest<SensorDevice[]>('/api/v1/sensor-devices'),
+          ]);
+          setPlan((current) =>
+            current && current.revision > fresh.revision ? current : normalizePlan(fresh),
+          );
+          setSensorDevices(freshDevices);
+          setHistory([]);
+          setFuture([]);
+          setDirty(false);
+          setSaveState('SAVED');
+          onSaved();
+          void refreshDeviceData();
+        }}
+      />
+    );
+  }
+
+  const drawnRoomIds = new Set(plan.levels.flatMap(({ rooms }) => rooms.map(({ id }) => id)));
+  const requestedRemaining =
+    setupDraft?.requestedRooms.filter(({ id }) => !drawnRoomIds.has(id)).length ?? 0;
+
+  return (
+    <section className="home-plan-page">
+      {onBack && !setupDraft && (
+        <button className="home-plan-back" onClick={onBack}>
+          <ArrowLeft /> {t('homePlanEditor.backToMyHome')}
+        </button>
+      )}
+      <header className="home-plan-header">
+        <div>
+          <span className="eyebrow">{t('homePlanEditor.digitalHomeTwin')}</span>
+          <h2>{t('homePlanEditor.manageMyHome')}</h2>
+          <p>{t('homePlanEditor.drawTheHomeAndPlace')}</p>
+        </div>
+      </header>
+
+      {setupDraft && (
+        <DrawingSetupPanel
+          locale={locale}
+          requestedRooms={setupDraft.requestedRooms}
+          drawnRoomIds={drawnRoomIds}
+          selectedRoomId={selectedRequestedRoomId}
+          roomCount={drawnRoomIds.size}
+          busy={setupBusy || saveState === 'SAVING'}
+          error={setupError}
+          preview={setupPreview}
+          onSelect={(room) => {
+            setSelectedRequestedRoomId(room.id);
+            setFloorId(
+              plan.levels.find(({ floor }) => floor === room.floor)?.id ?? currentFloor.id,
+            );
+            setTool('ROOM');
+            setMessage(t('homePlanEditor.nowDrawTheShapeOf', { name: room.name }));
+          }}
+          onShowExample={() => setShowSetupExample(true)}
+          onConfirm={() => {
+            if (requestedRemaining) setSetupConfirmOpen(true);
+            else void showSetupRecommendations();
+          }}
+          onClosePreview={onSetupPreviewClose}
+        />
+      )}
+
+      <div className="home-plan-floorbar">
+        {[...plan.levels]
+          .sort((a, b) => a.order - b.order)
+          .map((level) =>
+            editingFloorId === level.id ? (
+              <input
+                key={level.id}
+                className="floor-name-input"
+                aria-label={t('homePlanEditor.levelNameField')}
+                value={floorNameDraft}
+                maxLength={40}
+                size={Math.max(8, floorNameDraft.length + 1)}
+                autoFocus
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) => setFloorNameDraft(event.target.value)}
+                onBlur={() => finishRenamingFloor(true)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') event.currentTarget.blur();
+                  if (event.key === 'Escape') finishRenamingFloor(false);
+                }}
+              />
+            ) : (
+              <button
+                key={level.id}
+                className={level.id === currentFloor.id ? 'active' : ''}
+                title={level.id === currentFloor.id ? t('homePlanEditor.renameLevel') : undefined}
+                onClick={() => {
+                  if (level.id === currentFloor.id) {
+                    startRenamingFloor(level);
+                    return;
+                  }
+                  setFloorId(level.id);
+                  setSelectedRoomId(null);
+                  setSelectedOpeningId(null);
+                  setMovingOpeningId(null);
+                }}
+              >
+                {level.name}
+                {level.id === currentFloor.id && (
+                  <PencilLine aria-hidden="true" className="floor-rename-hint" />
+                )}
+              </button>
+            ),
+          )}
+        <button className="add-floor" onClick={addFloor}>
+          <Plus /> {t('homePlanEditor.level')}
+        </button>
+        {plan.levels.length > 1 && (
+          <button className="remove-floor" onClick={deleteCurrentFloor}>
+            <Trash2 /> {t('homePlanEditor.deleteThisLevel')}
+          </button>
+        )}
+        <span className="construction-mode-label">
+          {t('homePlanEditor.freeBuildingSpacedRooms')}
+        </span>
+        <span className={`save-indicator ${saveState.toLowerCase()}`}>
+          {saveState === 'SAVING' ? (
+            <>
+              <RotateCcw className="spin" /> {t('homePlanEditor.saving')}
+            </>
+          ) : saveState === 'SAVED' ? (
+            <>
+              <Save /> {t('homePlanEditor.saved')}
+            </>
+          ) : (
+            <button onClick={() => void (saveState === 'CONFLICT' ? load() : save())}>
+              {message || t('homePlanEditor.tryAgain')}
+            </button>
+          )}
+        </span>
+      </div>
+
+      <div className="home-plan-toolbar" aria-label={t('homePlanEditor.planTools')}>
+        <button className={tool === 'SELECT' ? 'active' : ''} onClick={() => setTool('SELECT')}>
+          <MousePointer2 /> {t('homePlanEditor.select')}
+        </button>
+        <button className={tool === 'ROOM' ? 'active' : ''} onClick={() => setTool('ROOM')}>
+          <Square /> {t('homePlanEditor.room')}
+        </button>
+        <button className={tool === 'ROOM_L' ? 'active' : ''} onClick={() => setTool('ROOM_L')}>
+          <Grid2X2 /> {t('homePlanEditor.lShapedRoom')}
+        </button>
+        <button className={tool === 'CORRIDOR' ? 'active' : ''} onClick={() => setTool('CORRIDOR')}>
+          <MoveHorizontal /> {t('homePlanEditor.hallway')}
+        </button>
+        <button
+          className={tool === 'CONNECT' ? 'active' : ''}
+          onClick={() => {
+            setTool('CONNECT');
+            setMessage(t('homePlanEditor.dragFromOneRoomTo'));
+          }}
+        >
+          <Link2 /> {t('homePlanEditor.connectRooms')}
+        </button>
+        <button
+          disabled={plan.levels.length < 2}
+          className={stairModalOpen ? 'active' : ''}
+          onClick={() => {
+            setTool('SELECT');
+            setStairModalOpen(true);
+          }}
+        >
+          <MoveUpRight /> {t('homePlanEditor.staircase')}
+        </button>
+        <i />
+        <button disabled={!history.length} onClick={undo} title={t('homePlanEditor.undo')}>
+          <Undo2 />
+        </button>
+        <button disabled={!future.length} onClick={redo} title={t('homePlanEditor.redo')}>
+          <Redo2 />
+        </button>
+      </div>
+
+      <div className="home-plan-workspace">
+        <div className="home-plan-canvas-wrap">
+          <svg
+            ref={canvasRef}
+            className={`home-plan-canvas tool-${tool.toLowerCase()}`}
+            viewBox={`0 0 ${currentFloor.width} ${currentFloor.height}`}
+            style={{ aspectRatio: `${currentFloor.width} / ${currentFloor.height}` }}
+            role="application"
+            aria-label={t('homePlanEditor.plan', { name: currentFloor.name })}
+            onPointerDownCapture={(event) => {
+              if (!movingOpeningId) return;
+              onCanvasDown(event);
+              event.stopPropagation();
+            }}
+            onPointerDown={onCanvasDown}
+            onPointerMoveCapture={onCanvasMove}
+            onPointerUpCapture={onCanvasUp}
+            onPointerCancel={() => {
+              setConnectionDrag(null);
+              finishStairDrag();
+            }}
+          >
+            <defs>
+              <pattern id="plan-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#d8e0e3" strokeWidth="1" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#plan-grid)" data-plan-background="true" />
+            {drawStart && drawCurrent && (
+              <polygon
+                className="room-drawing-preview"
+                points={roomDraftPoints(
+                  drawStart,
+                  drawCurrent,
+                  tool === 'ROOM_L',
+                  tool === 'CORRIDOR',
+                )
+                  .map(({ x, y }) => `${x},${y}`)
+                  .join(' ')}
+              />
+            )}
+            {currentFloor.rooms.map((room) => {
+              const at = center(room);
+              return (
+                <g
+                  key={room.id}
+                  data-room-id={room.id}
+                  className={`plan-room ${selectedRoomId === room.id ? 'selected' : ''} ${connectionDrag?.sourceRoomId === room.id ? 'connection-source' : ''} ${connectionDrag?.targetRoomId === room.id ? (connectionDrag.targetValid ? 'connection-target' : 'connection-target-invalid') : ''}`}
+                  onPointerDown={(event) => {
+                    if (tool === 'CONNECT') {
+                      event.stopPropagation();
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      const at = canvasPoint(event);
+                      setConnectionDrag({
+                        sourceRoomId: room.id,
+                        start: roomEdgeToward(room, at),
+                        current: at,
+                        targetRoomId: null,
+                        targetValid: false,
+                      });
+                      return;
+                    }
+                    if (tool !== 'SELECT') return;
+                    event.stopPropagation();
+                    setSelectedRoomId(room.id);
+                    setSelectedOpeningId(null);
+                    setMovingOpeningId(null);
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    roomDrag.current = {
+                      roomId: room.id,
+                      floorId: currentFloor.id,
+                      start: canvasPoint(event),
+                      original: clone(plan),
+                      moved: false,
+                    };
+                    setSelectedPlacementId(null);
+                  }}
+                  onPointerMove={moveRoom}
+                  onPointerUp={(event) => {
+                    event.stopPropagation();
+                    if (tool === 'CONNECT') return;
+                    finishRoomMove(room.id);
+                  }}
+                  onPointerCancel={() => finishRoomMove(room.id, true)}
+                >
+                  <polygon points={polygon(room)} fill={room.geometry.color} />
+                  <text x={at.x} y={at.y - 4} textAnchor="middle">
+                    {room.name}
+                  </text>
+                  <text className="room-size" x={at.x} y={at.y + 24} textAnchor="middle">
+                    {roomAreaM2(room).toFixed(1)} m²
+                    {currentFloor.scaleCmPerUnit ? '' : ' env.'}
+                  </text>
+                  {tool === 'CONNECT' &&
+                    roomConnectionAnchors(room).map((anchor) => (
+                      <g
+                        className={`room-link-anchor ${connectionDrag?.sourceRoomId === room.id ? 'is-source' : ''}`}
+                        key={anchor.id}
+                      >
+                        <circle
+                          className="anchor-hit"
+                          cx={anchor.x}
+                          cy={anchor.y}
+                          r="34"
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            event.currentTarget.setPointerCapture(event.pointerId);
+                            const start = { x: anchor.x, y: anchor.y };
+                            setConnectionDrag({
+                              sourceRoomId: room.id,
+                              start,
+                              current: start,
+                              targetRoomId: null,
+                              targetValid: false,
+                            });
+                          }}
+                        />
+                        <circle className="anchor-dot" cx={anchor.x} cy={anchor.y} r="7" />
+                      </g>
+                    ))}
+                  {tool === 'SELECT' &&
+                    selectedRoomId === room.id &&
+                    resizeHandles(room).map((handle) => (
+                      <circle
+                        key={handle.id}
+                        cx={handle.x}
+                        cy={handle.y}
+                        r="13"
+                        className={`room-resize-handle handle-${handle.id.toLowerCase()}`}
+                        onPointerDown={(event) => {
+                          event.stopPropagation();
+                          event.currentTarget.setPointerCapture(event.pointerId);
+                          setPlanResize({
+                            roomId: room.id,
+                            floorId: currentFloor.id,
+                            handle: handle.id,
+                            start: canvasPoint(event),
+                            original: clone(room),
+                          });
+                        }}
+                        onPointerMove={resizeRoomOnPlan}
+                        onPointerUp={() => setPlanResize(null)}
+                      />
+                    ))}
+                </g>
+              );
+            })}
+            {currentFloor.openings
+              .filter(({ kind, roomIds }) => kind === 'PASSAGE' && roomIds.length === 2)
+              .map((opening) => {
+                const from = currentFloor.rooms.find(({ id }) => id === opening.roomIds[0]);
+                const to = currentFloor.rooms.find(({ id }) => id === opening.roomIds[1]);
+                if (!from || !to) return null;
+                const start = roomEdgeToward(from, center(to));
+                const end = roomEdgeToward(to, center(from));
+                const selectOpening = () => {
+                  setSelectedOpeningId(opening.id);
+                  setSelectedRoomId(null);
+                  setSelectedPlacementId(null);
+                  setMovingOpeningId(null);
+                };
+                return (
+                  <g
+                    className={`room-connection-string ${opening.kind.toLowerCase()} ${selectedOpeningId === opening.id ? 'selected' : ''}`}
+                    key={`link-${opening.id}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${from.name} ↔ ${to.name}`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      selectOpening();
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') return;
+                      event.preventDefault();
+                      selectOpening();
+                    }}
+                  >
+                    <path
+                      className="room-connection-hit-area"
+                      d={connectionCurve(start, end)}
+                      aria-hidden="true"
+                    />
+                    <path d={connectionCurve(start, end)} />
+                    <circle cx={start.x} cy={start.y} r="8" />
+                    <circle cx={end.x} cy={end.y} r="8" />
+                  </g>
+                );
+              })}
+            {connectionDrag && (
+              <g
+                className={`connection-preview ${connectionDrag.targetRoomId ? (connectionDrag.targetValid ? 'is-valid' : 'is-invalid') : ''}`}
+              >
+                <path
+                  className="connection-string-preview"
+                  d={connectionCurve(connectionDrag.start, connectionDrag.current)}
+                />
+                <circle cx={connectionDrag.start.x} cy={connectionDrag.start.y} r="8" />
+                <circle cx={connectionDrag.current.x} cy={connectionDrag.current.y} r="8" />
+              </g>
+            )}
+            {tool !== 'CONNECT' &&
+              plan.levels
+                .flatMap(({ stairs }) => stairs)
+                .filter(
+                  ({ fromFloorId, toFloorId }) =>
+                    fromFloorId === currentFloor.id || toFloorId === currentFloor.id,
+                )
+                .map((stair) => {
+                  const isDeparture = stair.fromFloorId === currentFloor.id;
+                  const localRoomId = isDeparture ? stair.fromRoomId : stair.toRoomId;
+                  const destinationFloorId = isDeparture ? stair.toFloorId : stair.fromFloorId;
+                  const destinationRoomId = isDeparture ? stair.toRoomId : stair.fromRoomId;
+                  const destinationFloor = plan.levels.find(({ id }) => id === destinationFloorId);
+                  const goesUp =
+                    (destinationFloor?.floor ?? currentFloor.floor) > currentFloor.floor;
+                  const destinationRoom = destinationFloor?.rooms.find(
+                    ({ id }) => id === destinationRoomId,
+                  );
+                  const localRoom = currentFloor.rooms.find(({ id }) => id === localRoomId);
+                  if (!localRoom) return null;
+                  const at =
+                    (isDeparture ? stair.fromAnchor : stair.toAnchor) ??
+                    stairDockPoint(localRoom, currentFloor);
+                  const roomAt = roomEdgeToward(localRoom, at);
+                  const tooltipLeft = at.x > currentFloor.width - 270;
+                  return (
+                    <g key={`${stair.id}-${currentFloor.id}`} className="plan-stair-link">
+                      <path
+                        className="stair-string"
+                        d={`M ${roomAt.x} ${roomAt.y} C ${(roomAt.x + at.x) / 2} ${roomAt.y - 35}, ${(roomAt.x + at.x) / 2} ${at.y - 35}, ${at.x} ${at.y}`}
+                      />
+                      <g
+                        className={`plan-stair-port ${goesUp ? 'up' : 'down'}`}
+                        transform={`translate(${at.x} ${at.y})`}
+                        onPointerDown={(event) => {
+                          event.stopPropagation();
+                          event.currentTarget.setPointerCapture(event.pointerId);
+                          stairDrag.current = {
+                            stairId: stair.id,
+                            endpoint: isDeparture ? 'FROM' : 'TO',
+                            roomId: localRoom.id,
+                            original: clone(plan),
+                          };
+                        }}
+                      >
+                        <circle r="17" />
+                        <path d={goesUp ? 'M -7 3 L 0 -4 L 7 3' : 'M -7 -3 L 0 4 L 7 -3'} />
+                        <g
+                          className={`stair-hover-card ${tooltipLeft ? 'align-left' : ''}`}
+                          transform={`translate(${tooltipLeft ? -238 : 26} -32)`}
+                        >
+                          <rect width="212" height="45" rx="11" />
+                          <text x="13" y="19">
+                            Escalier vers {destinationFloor?.name}
+                          </text>
+                          <text className="stair-hover-room" x="13" y="34">
+                            {destinationRoom?.name}
+                          </text>
+                        </g>
+                      </g>
+                    </g>
+                  );
+                })}
+            {plan.placements
+              .filter(({ floorId: id, kind }) => id === currentFloor.id && kind !== 'SENSOR')
+              .map((placement) => {
+                const sensor = sensorMap.get(placement.equipmentId);
+                const camera = cameraMap.get(placement.equipmentId);
+                const online = (sensor?.status ?? camera?.status) === 'ONLINE';
+                return (
+                  <g
+                    key={placement.id}
+                    className={`plan-equipment ${placement.kind.toLowerCase()} ${online ? 'online' : 'offline'} ${selectedPlacementId === placement.id ? 'selected' : ''}`}
+                    transform={`translate(${placement.x} ${placement.y})`}
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      setSelectedPlacementId(placement.id);
+                      setSelectedRoomId(null);
+                      setSelectedOpeningId(null);
+                      setMovingOpeningId(null);
+                    }}
+                    onPointerMove={(event) => {
+                      if (event.buttons !== 1) return;
+                      const at = canvasPoint(event);
+                      const room = currentFloor.rooms.find((item) => pointInRoom(at, item));
+                      if (!room) return;
+                      commit((draft) => {
+                        const target = draft.placements.find(({ id }) => id === placement.id)!;
+                        Object.assign(target, { x: at.x, y: at.y, roomId: room.id });
+                      });
+                    }}
+                  >
+                    <circle r="22" />
+                    <text textAnchor="middle" y="6">
+                      {placement.kind === 'CAMERA' ? '◉' : '●'}
+                    </text>
+                    <title>
+                      {sensor?.device?.name ?? sensor?.entityId ?? camera?.name}
+                      {sensor?.lastValue ? ` · ${JSON.stringify(sensor.lastValue)}` : ''}
+                    </title>
+                  </g>
+                );
+              })}
+            <g
+              className="plan-canvas-resize"
+              transform={`translate(${currentFloor.width - 27} ${currentFloor.height - 27})`}
+              role="button"
+              aria-label={t('homePlanEditor.enlargeThePlanArea')}
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                event.currentTarget.setPointerCapture(event.pointerId);
+                const box = canvasRef.current?.getBoundingClientRect();
+                if (!box) return;
+                canvasResize.current = {
+                  floorId: currentFloor.id,
+                  startClient: { x: event.clientX, y: event.clientY },
+                  originalWidth: currentFloor.width,
+                  originalHeight: currentFloor.height,
+                  renderedWidth: Math.max(1, box.width),
+                  renderedHeight: Math.max(1, box.height),
+                  original: clone(plan),
+                };
+              }}
+            >
+              <rect width="27" height="27" rx="7" />
+              <path d="M 9 21 L 21 9 M 15 21 L 21 15" />
+            </g>
+          </svg>
+          <PlanLegend plan={plan} floor={currentFloor} showSensors={false} />
+          {(tool === 'ROOM' || tool === 'ROOM_L' || tool === 'CORRIDOR') && (
+            <div className="canvas-hint">{t('homePlanEditor.tapAndDragToDraw')}</div>
+          )}
+          {tool === 'CONNECT' && (
+            <div className="canvas-hint">{t('homePlanEditor.dragFromOneRoomTo2')}</div>
+          )}
+        </div>
+
+        <aside className="home-plan-inspector">
+          {selectedRoom ? (
+            <div className="plan-room-summary">
+              <div className="inspector-heading">
+                <div>
+                  <span className="eyebrow">{t('homePlanEditor.furnishedRoom')}</span>
+                  <h3>{selectedRoom.name}</h3>
+                </div>
+                <button onClick={requestDeleteRoom} aria-label={t('homePlanEditor.delete')}>
+                  <Trash2 />
+                </button>
+              </div>
+              <label className="room-field">
+                <span>{t('homePlanEditor.roomName')}</span>
+                <input
+                  value={selectedRoom.name}
+                  onChange={(event) => {
+                    const name = event.target.value;
+                    commit((draft) => {
+                      draft.levels
+                        .flatMap(({ rooms }) => rooms)
+                        .find(({ id }) => id === selectedRoom.id)!.name = name;
+                    });
+                  }}
+                />
+              </label>
+              <label className="room-field">
+                <span>{t('homePlanEditor.presetType')}</span>
+                <select
+                  value={selectedRoom.kind}
+                  onChange={(event) => {
+                    const kind = event.target.value;
+                    const definition = roomKinds().find(([value]) => value === kind);
+                    commit((draft) => {
+                      const target = draft.levels
+                        .flatMap(({ rooms }) => rooms)
+                        .find(({ id }) => id === selectedRoom.id)!;
+                      const genericName = /^(Pièce|Couloir|Room|Hallway)\s*\d*$/i.test(target.name);
+                      target.kind = kind;
+                      if (genericName && definition) target.name = definition[1];
+                    });
+                  }}
+                >
+                  {roomKinds().map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="room-area-editor">
+                <span>{t('homePlanEditor.roomArea')}</span>
+                <div>
+                  <input
+                    key={`${selectedRoom.id}-${roomAreaM2(selectedRoom).toFixed(1)}`}
+                    type="number"
+                    min="1"
+                    step="0.5"
+                    defaultValue={roomAreaM2(selectedRoom).toFixed(1)}
+                    onBlur={(event) => updateSelectedRoomArea(Number(event.target.value))}
+                  />
+                  <strong>m²</strong>
+                </div>
+                <small>{t('homePlanEditor.actualAreaIndependentOfThe')}</small>
+              </label>
+              <button className="rotate-room" onClick={rotateSelectedRoom}>
+                <RotateCcw /> {t('homePlanEditor.rotateTheRoom90')}
+              </button>
+              <button
+                className="open-room-studio"
+                disabled={dirty || saveState !== 'SAVED'}
+                onClick={() => setEditingRoomId(selectedRoom.id)}
+              >
+                {t('homePlanEditor.furnishThisRoom')}
+              </button>
+            </div>
+          ) : selectedOpening ? (
+            <OpeningInspector
+              opening={selectedOpening}
+              floor={currentFloor}
+              moving={movingOpeningId === selectedOpening.id}
+              onMove={() => {
+                setMovingOpeningId(selectedOpening.id);
+                setMessage(t('homePlanEditor.tapTheWallWhereYou'));
+              }}
+              onRemove={() => {
+                commit((draft) => {
+                  const floor = draft.levels.find(({ id }) => id === currentFloor.id)!;
+                  floor.openings = floor.openings.filter(({ id }) => id !== selectedOpening.id);
+                  for (const placement of draft.placements.filter(
+                    ({ targetType, targetId }) =>
+                      targetType === 'OPENING' && targetId === selectedOpening.id,
+                  )) {
+                    placement.targetType = 'ROOM';
+                    placement.targetId = placement.roomId;
+                    placement.openingId = null;
+                  }
+                });
+                setSelectedOpeningId(null);
+                setMovingOpeningId(null);
+                setMessage(t('homePlanEditor.openingRemovedYouCanUndo'));
+              }}
+            />
+          ) : selectedPlacementId ? (
+            <PlacementInspector
+              plan={plan}
+              placementId={selectedPlacementId}
+              onRemove={() => {
+                commit((draft) => {
+                  draft.placements = draft.placements.filter(
+                    ({ id }) => id !== selectedPlacementId,
+                  );
+                });
+                setSelectedPlacementId(null);
+              }}
+            />
+          ) : (
+            <div className="inspector-empty">
+              <MousePointer2 />
+              <h3>{t('homePlanEditor.selectARoom')}</h3>
+              <p>{t('homePlanEditor.editItsNameSizeAnd')}</p>
+            </div>
+          )}
+        </aside>
+      </div>
+
+      {stairModalOpen && (
+        <StairModal
+          key={`${currentFloor.id}:${selectedRoomId ?? 'none'}`}
+          levels={plan.levels}
+          initialFloorId={currentFloor.id}
+          initialRoomId={selectedRoomId}
+          onClose={() => setStairModalOpen(false)}
+          onAdd={(fromFloorId, fromRoomId, toFloorId, toRoomId) => {
+            if (addStair(fromFloorId, fromRoomId, toFloorId, toRoomId)) {
+              setStairModalOpen(false);
+            }
+          }}
+        />
+      )}
+
+      {roomDeleteTarget && (
+        <RoomDeleteDialog
+          roomName={roomDeleteTarget.room.name}
+          blocked={roomDeleteTarget.blocked}
+          locale={locale}
+          onCancel={() => setRoomDeleteTarget(null)}
+          onConfirm={confirmDeleteRoom}
+        />
+      )}
+
+      <PlanUnderstandingPanel
+        plan={plan}
+        locale={locale}
+        updating={dirty || saveState === 'SAVING'}
+        onFocusRoom={focusRoom}
+        onFocusFloor={(id) => {
+          setFloorId(id);
+          setSelectedRoomId(null);
+          setSelectedOpeningId(null);
+          setMovingOpeningId(null);
+        }}
+      />
+
+      {showSetupExample && (
+        <ExampleOverlay locale={locale} onClose={() => setShowSetupExample(false)} />
+      )}
+      {setupConfirmOpen && (
+        <div className="setup-confirm-backdrop" role="dialog" aria-modal="true">
+          <div className="setup-confirm-card">
+            <span>
+              <AlertTriangle />
+            </span>
+            <h2>{t('homePlanEditor.confirmThisFirstPlan')}</h2>
+            <p>{t('homePlanEditor.roomSFromYourList', { requestedRemaining })}</p>
+            <div>
+              <button type="button" onClick={() => setSetupConfirmOpen(false)}>
+                {t('homePlanEditor.keepDrawing')}
+              </button>
+              <button
+                type="button"
+                className="home-setup-primary"
+                disabled={setupBusy}
+                onClick={() => void showSetupRecommendations()}
+              >
+                {t('homePlanEditor.confirmMyPlan')} <ArrowRight />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RoomDeleteDialog({
+  roomName,
+  blocked,
+  onCancel,
+  onConfirm,
+}: {
+  roomName: string;
+  blocked: boolean;
+  locale: Locale;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const title = blocked
+    ? t('homePlanEditor.thisRoomCannotBeDeleted')
+    : t('homePlanEditor.deleteThisRoom');
+  const description = blocked
+    ? t('homePlanEditor.moveOrRemoveTheSensors')
+    : t('homePlanEditor.itsOpeningsAndConnectionsWill', { roomName });
+
+  return (
+    <div
+      className="plan-confirm-backdrop"
+      role="presentation"
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <div
+        className="plan-confirm-modal room-delete-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="room-delete-title"
+        aria-describedby="room-delete-description"
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <span className="understanding-icon attention">
+          {blocked ? <AlertTriangle /> : <Trash2 />}
+        </span>
+        <div>
+          <span className="eyebrow">{t('homePlanEditor.roomManagement')}</span>
+          <h3 id="room-delete-title">{title}</h3>
+          <p id="room-delete-description">{description}</p>
+        </div>
+        <footer>
+          <button type="button" className="secondary" onClick={onCancel} autoFocus>
+            {blocked ? t('homePlanEditor.close') : t('homePlanEditor.cancel')}
+          </button>
+          {!blocked && (
+            <button type="button" className="delete-room" onClick={onConfirm}>
+              <Trash2 /> {t('homePlanEditor.deleteRoom')}
+            </button>
+          )}
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+export function PlanLegend({
+  plan,
+  floor,
+  showSensors = true,
+}: {
+  plan: HomePlan;
+  floor: FloorLayout;
+  showSensors?: boolean;
+}) {
+  const floorPlacements = plan.placements.filter(({ floorId }) => floorId === floor.id);
+  const hasStair = plan.levels
+    .flatMap(({ stairs }) => stairs)
+    .some(({ fromFloorId, toFloorId }) => fromFloorId === floor.id || toFloorId === floor.id);
+  const hasSensor = showSensors && floorPlacements.some(({ kind }) => kind === 'SENSOR');
+  const hasCamera = floorPlacements.some(({ kind }) => kind === 'CAMERA');
+  if (!hasStair && !hasSensor && !hasCamera) return null;
+  return (
+    <aside className="plan-legend" aria-label={t('homePlanEditor.planLegend')}>
+      <strong>{t('homePlanEditor.legend')}</strong>
+      <div>
+        {hasStair && (
+          <span>
+            <i className="legend-stair">⌃</i> {t('homePlanEditor.staircase')}
+          </span>
+        )}
+        {hasSensor && (
+          <span>
+            <i className="legend-device sensor">●</i> {t('homePlanEditor.sensor')}
+          </span>
+        )}
+        {hasCamera && (
+          <span>
+            <i className="legend-device camera">◉</i> {t('homePlanEditor.camera')}
+          </span>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+export function PlanUnderstandingPanel({
+  plan,
+  locale,
+  updating,
+  onFocusRoom,
+  onFocusFloor,
+}: {
+  plan: HomePlan;
+  locale: Locale;
+  updating: boolean;
+  onFocusRoom: (roomId: string) => void;
+  onFocusFloor: (floorId: string) => void;
+}) {
+  const rooms = new Map(
+    plan.levels.flatMap((level) =>
+      level.rooms.map((room) => [room.id, { ...room, level }] as const),
+    ),
+  );
+  const levels = new Map(plan.levels.map((level) => [level.id, level]));
+  const list = (names: string[]) =>
+    new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format(names);
+  const roomName = (id: string) => rooms.get(id)?.name ?? t('homePlanEditor.unknownRoom');
+  const [openFloorId, setOpenFloorId] = useState<string | null>(null);
+  const adjacencyGroups = new Map<string, Set<string>>();
+  for (const adjacency of plan.adjacencies) {
+    const [firstId, secondId] = adjacency.roomIds;
+    const first = rooms.get(firstId);
+    const second = rooms.get(secondId);
+    const owner =
+      first?.kind === 'HALLWAY' ? firstId : second?.kind === 'HALLWAY' ? secondId : firstId;
+    const neighbour = owner === firstId ? secondId : firstId;
+    const group = adjacencyGroups.get(owner) ?? new Set<string>();
+    group.add(neighbour);
+    adjacencyGroups.set(owner, group);
+  }
+  const roomLinks = plan.connections.filter(({ kind }) => kind === 'DOOR' || kind === 'PASSAGE');
+  const stairs = plan.levels.flatMap(({ stairs }) => stairs);
+  const issueCount =
+    plan.understanding.isolatedRoomIds.length +
+    plan.understanding.adjacentWithoutPassage.length +
+    plan.understanding.nearAdjacencyIds.length +
+    plan.understanding.floorsWithoutStairs.length +
+    plan.understanding.incompleteStairIds.length;
+
+  const levelsTopDown = [...plan.levels].sort((a, b) => b.floor - a.floor);
+  const totalRooms = plan.understanding.levels.reduce((sum, { roomCount }) => sum + roomCount, 0);
+  const totalArea = plan.understanding.levels.reduce((sum, { areaM2 }) => sum + areaM2, 0);
+  const anyApproximate = plan.understanding.levels.some(({ approximate }) => approximate);
+  const formatArea = (value: number, approximate: boolean) =>
+    t(approximate ? 'homePlanEditor.areaValueApprox' : 'homePlanEditor.areaValue', {
+      area: value.toLocaleString(locale, { maximumFractionDigits: 1 }),
+    });
+  const stats = [
+    { key: 'rooms', icon: LayoutGrid, value: String(totalRooms) },
+    { key: 'area', icon: Ruler, value: formatArea(totalArea, anyApproximate) },
+    { key: 'walls', icon: BrickWall, value: String(adjacencyGroups.size) },
+    { key: 'links', icon: MoveHorizontal, value: String(roomLinks.length) },
+    { key: 'stairs', icon: ArrowUpDown, value: String(stairs.length) },
+  ] as const;
+  const statementGroups = [
+    {
+      key: 'walls' as const,
+      icon: BrickWall,
+      items: [...adjacencyGroups].map(([ownerId, neighbourIds]) => ({
+        id: `adjacency-${ownerId}`,
+        floorIds: [rooms.get(ownerId)?.level.id],
+        onClick: () => onFocusRoom(ownerId),
+        text: t('homePlanEditor.sharesAWallWith', {
+          roomName: roomName(ownerId),
+          list: list([...neighbourIds].map(roomName)),
+        }),
+      })),
+    },
+    {
+      key: 'links' as const,
+      icon: MoveHorizontal,
+      items: roomLinks.map((connection) => ({
+        id: connection.id,
+        floorIds: [
+          rooms.get(connection.fromRoomId)?.level.id,
+          rooms.get(connection.toRoomId)?.level.id,
+        ],
+        onClick: () => onFocusRoom(connection.fromRoomId),
+        text: t('homePlanEditor.isLinkedTo', {
+          roomName: roomName(connection.fromRoomId),
+          roomName2: roomName(connection.toRoomId),
+        }),
+      })),
+    },
+    {
+      key: 'stairs' as const,
+      icon: ArrowUpDown,
+      items: stairs.map((stair) => {
+        const toFloor = levels.get(stair.toFloorId);
+        const goingUp = (toFloor?.floor ?? 0) > (levels.get(stair.fromFloorId)?.floor ?? 0);
+        return {
+          id: `statement-${stair.id}`,
+          floorIds: [stair.fromFloorId, stair.toFloorId],
+          onClick: () => onFocusRoom(stair.fromRoomId),
+          text: t(goingUp ? 'homePlanEditor.stairsGoUp' : 'homePlanEditor.stairsGoDown', {
+            from: roomName(stair.fromRoomId),
+            to: roomName(stair.toRoomId),
+            floor: toFloor?.name,
+          }),
+        };
+      }),
+    },
+  ].filter(({ items }) => items.length);
+  const largestFloorArea = Math.max(1, ...plan.understanding.levels.map(({ areaM2 }) => areaM2));
+  const floorSentence = (metric: (typeof plan.understanding.levels)[number]) =>
+    t(metric.approximate ? 'homePlanEditor.floorSummaryApprox' : 'homePlanEditor.floorSummary', {
+      level: levels.get(metric.floorId)?.name,
+      count: metric.roomCount,
+      area: metric.areaM2.toLocaleString(locale, { maximumFractionDigits: 1 }),
+    });
+  const openMetric = plan.understanding.levels.find(({ floorId }) => floorId === openFloorId);
+  const openFloorGroups = openMetric
+    ? statementGroups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter(({ floorIds }) => floorIds.includes(openMetric.floorId)),
+        }))
+        .filter(({ items }) => items.length)
+    : [];
+
+  return (
+    <div className="home-plan-understanding">
+      <section className="floor-routes" aria-label={t('homePlanEditor.routesBetweenFloors')}>
+        <header>
+          <div>
+            <span className="understanding-icon route">
+              <Route />
+            </span>
+            <div>
+              <span className="eyebrow">{t('homePlanEditor.verticalCirculation')}</span>
+              <h3>{t('homePlanEditor.routesBetweenFloors')}</h3>
+            </div>
+          </div>
+          <span className="understanding-count">
+            <strong>{stairs.length}</strong>
+            {t('homePlanEditor.routeS')}
+          </span>
+        </header>
+        {stairs.length ? (
+          <div className="floor-route-list">
+            {stairs.map((stair) => {
+              const fromFloor = levels.get(stair.fromFloorId);
+              const toFloor = levels.get(stair.toFloorId);
+              const fromLevel = fromFloor?.floor ?? 0;
+              const toLevel = toFloor?.floor ?? 0;
+              const goingUp = toLevel > fromLevel;
+              const low = Math.min(fromLevel, toLevel);
+              const high = Math.max(fromLevel, toLevel);
+              const stops = [
+                {
+                  role: 'from',
+                  label: t('homePlanEditor.start'),
+                  floor: fromFloor?.name,
+                  roomId: stair.fromRoomId,
+                },
+                {
+                  role: 'to',
+                  label: t('homePlanEditor.arrival'),
+                  floor: toFloor?.name,
+                  roomId: stair.toRoomId,
+                },
+              ];
+              // The higher floor is drawn on top, as in the building.
+              if (goingUp) stops.reverse();
+              return (
+                <article
+                  className={`floor-route-card ${goingUp ? 'is-up' : 'is-down'}`}
+                  key={stair.id}
+                >
+                  <div className="floor-route-building" aria-hidden="true">
+                    {levelsTopDown.map((level) => (
+                      <span
+                        key={level.id}
+                        className={[
+                          level.id === stair.fromFloorId ? 'is-from' : '',
+                          level.id === stair.toFloorId ? 'is-to' : '',
+                          level.floor > low && level.floor < high ? 'is-path' : '',
+                        ].join(' ')}
+                      />
+                    ))}
+                    <i>{goingUp ? <ArrowUp /> : <ArrowDown />}</i>
+                  </div>
+                  <div className="floor-route-stops">
+                    {stops.map((stop, index) => (
+                      <Fragment key={stop.role}>
+                        {index === 1 && (
+                          <span className="route-direction">
+                            {goingUp ? <ArrowUp /> : <ArrowDown />}
+                            {goingUp ? t('homePlanEditor.up') : t('homePlanEditor.down')}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          className={`floor-route-stop is-${stop.role}`}
+                          onClick={() => onFocusRoom(stop.roomId)}
+                        >
+                          <i aria-hidden="true" />
+                          <span>
+                            <small>{stop.label}</small>
+                            <strong>{roomName(stop.roomId)}</strong>
+                            <span>{stop.floor}</span>
+                          </span>
+                          <ArrowRight aria-hidden="true" />
+                        </button>
+                      </Fragment>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="understanding-empty">
+            <span aria-hidden="true">
+              <Layers />
+            </span>
+            <p>
+              {plan.levels.length > 1
+                ? t('homePlanEditor.noStairsConnectTheFloors')
+                : t('homePlanEditor.addAFloorToCreate')}
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section className="plan-understanding-card">
+        <header>
+          <div>
+            <span className={`understanding-icon ${issueCount ? 'attention' : 'ready'}`}>
+              {issueCount ? <AlertTriangle /> : <CircleCheck />}
+            </span>
+            <div>
+              <span className="eyebrow">{t('homePlanEditor.structuralReading')}</span>
+              <h3>{t('homePlanEditor.whatEliseUnderstands')}</h3>
+            </div>
+          </div>
+          <span
+            className={`understanding-status ${
+              updating ? 'is-updating' : issueCount ? 'is-attention' : 'is-ready'
+            }`}
+          >
+            <i aria-hidden="true" />
+            {updating
+              ? t('homePlanEditor.updating')
+              : issueCount
+                ? t('homePlanEditor.itemSToCheck', { issueCount })
+                : t('homePlanEditor.planConsistent')}
+          </span>
+        </header>
+
+        <div className="understanding-stats">
+          {stats.map(({ key, icon: Icon, value }) => (
+            <div className={`understanding-stat is-${key}`} key={key}>
+              <span aria-hidden="true">
+                <Icon />
+              </span>
+              <strong>{value}</strong>
+              <small>{t(`homePlanEditor.understandingStat.${key}`)}</small>
+            </div>
+          ))}
+        </div>
+
+        <div className="understanding-grid">
+          <div className="understanding-main">
+            <div className="understanding-floors">
+              {[...plan.understanding.levels]
+                .sort(
+                  (a, b) =>
+                    (levels.get(b.floorId)?.floor ?? 0) - (levels.get(a.floorId)?.floor ?? 0),
+                )
+                .map((metric) => {
+                  const level = levels.get(metric.floorId);
+                  const open = metric.floorId === openFloorId;
+                  return (
+                    <button
+                      type="button"
+                      key={metric.floorId}
+                      className={open ? 'is-open' : ''}
+                      aria-label={floorSentence(metric)}
+                      aria-expanded={open}
+                      aria-controls="understanding-floor-detail"
+                      onClick={() => {
+                        setOpenFloorId(open ? null : metric.floorId);
+                        if (!open) onFocusFloor(metric.floorId);
+                      }}
+                    >
+                      <span className="understanding-floor-head">
+                        <Layers aria-hidden="true" />
+                        <strong>{level?.name}</strong>
+                        <ChevronDown aria-hidden="true" className="understanding-floor-chevron" />
+                      </span>
+                      <span className="understanding-floor-figures">
+                        <span>
+                          <strong>{metric.roomCount}</strong>
+                          {t('homePlanEditor.roomCount', { count: metric.roomCount })}
+                        </span>
+                        <span>{formatArea(metric.areaM2, metric.approximate)}</span>
+                      </span>
+                      <span className="understanding-floor-bar" aria-hidden="true">
+                        <span style={{ width: `${(metric.areaM2 / largestFloorArea) * 100}%` }} />
+                      </span>
+                    </button>
+                  );
+                })}
+            </div>
+
+            {openMetric && (
+              <div className="understanding-floor-detail" id="understanding-floor-detail">
+                <p className="understanding-floor-sentence">
+                  <CircleCheck aria-hidden="true" />
+                  {floorSentence(openMetric)}
+                </p>
+                {openFloorGroups.map(({ key, icon: Icon, items }) => (
+                  <div className={`understanding-group is-${key}`} key={key}>
+                    <h4>
+                      <span aria-hidden="true">
+                        <Icon />
+                      </span>
+                      {t(`homePlanEditor.understandingStat.${key}`)}
+                      <small>{items.length}</small>
+                    </h4>
+                    <div>
+                      {items.map((item) => (
+                        <button type="button" key={item.id} onClick={item.onClick}>
+                          {item.text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <aside className={`understanding-issues ${issueCount ? '' : 'is-clear'}`}>
+            <h4>
+              {t('homePlanEditor.check')}
+              {!!issueCount && <small>{issueCount}</small>}
+            </h4>
+            {!issueCount && (
+              <div className="understanding-clear">
+                <span aria-hidden="true">
+                  <CircleCheck />
+                </span>
+                <p>{t('homePlanEditor.allRoomsAreProperlyConnected')}</p>
+              </div>
+            )}
+            {plan.understanding.isolatedRoomIds.map((roomId) => (
+              <button type="button" key={`isolated-${roomId}`} onClick={() => onFocusRoom(roomId)}>
+                <AlertTriangle aria-hidden="true" />
+                <span>
+                  {t('homePlanEditor.isNotConnectedToAnother', { roomName: roomName(roomId) })}
+                </span>
+              </button>
+            ))}
+            {plan.understanding.adjacentWithoutPassage.map(([first, second]) => (
+              <button
+                type="button"
+                key={`missing-${first}-${second}`}
+                onClick={() => onFocusRoom(first)}
+              >
+                <AlertTriangle aria-hidden="true" />
+                <span>
+                  {t('homePlanEditor.andTouchButNoLink', {
+                    roomName: roomName(first),
+                    roomName2: roomName(second),
+                  })}
+                </span>
+              </button>
+            ))}
+            {plan.understanding.nearAdjacencyIds.map((adjacencyId) => {
+              const adjacency = plan.adjacencies.find(({ id }) => id === adjacencyId);
+              if (!adjacency) return null;
+              return (
+                <button
+                  type="button"
+                  key={`near-${adjacencyId}`}
+                  onClick={() => onFocusRoom(adjacency.roomIds[0])}
+                >
+                  <AlertTriangle aria-hidden="true" />
+                  <span>
+                    {t('homePlanEditor.theWallsOfAndNearly', {
+                      roomName: roomName(adjacency.roomIds[0]),
+                      roomName2: roomName(adjacency.roomIds[1]),
+                    })}
+                  </span>
+                </button>
+              );
+            })}
+            {plan.understanding.floorsWithoutStairs.map((floorId) => (
+              <button type="button" key={`floor-${floorId}`} onClick={() => onFocusFloor(floorId)}>
+                <AlertTriangle aria-hidden="true" />
+                <span>
+                  {t('homePlanEditor.isNotConnectedToAnother2', {
+                    name: levels.get(floorId)?.name,
+                  })}
+                </span>
+              </button>
+            ))}
+            {plan.understanding.incompleteStairIds.map((stairId) => (
+              <button
+                type="button"
+                key={`incomplete-stair-${stairId}`}
+                onClick={() => onFocusFloor(plan.levels[0]?.id ?? '')}
+              >
+                <AlertTriangle aria-hidden="true" />
+                <span>{t('homePlanEditor.aStaircaseIsIncompleteChoose')}</span>
+              </button>
+            ))}
+          </aside>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export function StairModal({
+  levels,
+  initialFloorId,
+  initialRoomId,
+  onClose,
+  onAdd,
+}: {
+  levels: FloorLayout[];
+  initialFloorId: string;
+  initialRoomId: string | null;
+  onClose: () => void;
+  onAdd: (fromFloorId: string, fromRoomId: string, toFloorId: string, toRoomId: string) => void;
+}) {
+  const initialFloor = levels.find(({ id }) => id === initialFloorId) ?? levels[0];
+  const [departureFloorId, setDepartureFloorId] = useState(initialFloor?.id ?? '');
+  const departureFloor = levels.find(({ id }) => id === departureFloorId);
+  const [departureRoomId, setDepartureRoomId] = useState(
+    departureFloor?.rooms.some(({ id }) => id === initialRoomId)
+      ? initialRoomId!
+      : (departureFloor?.rooms[0]?.id ?? ''),
+  );
+  const targetFloors = levels.filter(({ id }) => id !== departureFloorId);
+  const [targetFloorId, setTargetFloorId] = useState(targetFloors[0]?.id ?? '');
+  const targetFloor = levels.find(({ id }) => id === targetFloorId);
+  const [targetRoomId, setTargetRoomId] = useState(targetFloor?.rooms[0]?.id ?? '');
+
+  useEffect(() => {
+    if (!departureFloor?.rooms.some(({ id }) => id === departureRoomId)) {
+      setDepartureRoomId(departureFloor?.rooms[0]?.id ?? '');
+    }
+  }, [departureFloor, departureRoomId]);
+  useEffect(() => {
+    if (!targetFloors.some(({ id }) => id === targetFloorId)) {
+      setTargetFloorId(targetFloors[0]?.id ?? '');
+    }
+  }, [targetFloorId, targetFloors]);
+  useEffect(() => setTargetRoomId(targetFloor?.rooms[0]?.id ?? ''), [targetFloor]);
+
+  const departureRoom = departureFloor?.rooms.find(({ id }) => id === departureRoomId);
+  const targetRoom = targetFloor?.rooms.find(({ id }) => id === targetRoomId);
+
+  return (
+    <div className="plan-confirm-backdrop" role="presentation" onPointerDown={onClose}>
+      <div
+        className="plan-confirm-modal stair-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="stair-modal-title"
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <span className="understanding-icon stair">
+          <MoveUpRight />
+        </span>
+        <div>
+          <span className="eyebrow">{t('homePlanEditor.newStaircase')}</span>
+          <h3 id="stair-modal-title">{t('homePlanEditor.connectTwoLevels')}</h3>
+          <p>{t('homePlanEditor.chooseExactlyWhereItStarts')}</p>
+        </div>
+
+        <div className="stair-modal-fields">
+          <fieldset>
+            <legend>{t('homePlanEditor.start')}</legend>
+            <label>
+              <span>{t('homePlanEditor.level')}</span>
+              <select
+                value={departureFloorId}
+                onChange={(event) => setDepartureFloorId(event.target.value)}
+              >
+                {levels.map((level) => (
+                  <option value={level.id} key={level.id}>
+                    {level.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>{t('homePlanEditor.startingRoom')}</span>
+              <select
+                value={departureRoomId}
+                onChange={(event) => setDepartureRoomId(event.target.value)}
+              >
+                {!departureFloor?.rooms.length && (
+                  <option value="">{t('homePlanEditor.noRoomAvailable')}</option>
+                )}
+                {departureFloor?.rooms.map((room) => (
+                  <option value={room.id} key={room.id}>
+                    {room.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </fieldset>
+
+          <span className="stair-modal-arrow">→</span>
+
+          <fieldset>
+            <legend>{t('homePlanEditor.end')}</legend>
+            <label>
+              <span>{t('homePlanEditor.level')}</span>
+              <select
+                value={targetFloorId}
+                onChange={(event) => setTargetFloorId(event.target.value)}
+              >
+                {targetFloors.map((level) => (
+                  <option value={level.id} key={level.id}>
+                    {level.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>{t('homePlanEditor.destinationRoom')}</span>
+              <select
+                value={targetRoomId}
+                onChange={(event) => setTargetRoomId(event.target.value)}
+              >
+                {!targetFloor?.rooms.length && (
+                  <option value="">{t('homePlanEditor.noRoomAvailable')}</option>
+                )}
+                {targetFloor?.rooms.map((room) => (
+                  <option value={room.id} key={room.id}>
+                    {room.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </fieldset>
+        </div>
+
+        <div className="stair-route stair-modal-route">
+          <strong>{departureFloor?.name}</strong> ·{' '}
+          {departureRoom?.name || t('homePlanEditor.roomToChoose')}
+          <span>→</span>
+          <strong>{targetFloor?.name}</strong> ·{' '}
+          {targetRoom?.name || t('homePlanEditor.roomToChoose')}
+        </div>
+
+        <small className="stair-modal-help">{t('homePlanEditor.onceConfirmedBothArrowsCan')}</small>
+
+        <footer>
+          <button className="secondary" onClick={onClose}>
+            {t('homePlanEditor.cancel')}
+          </button>
+          <button
+            className="primary"
+            disabled={!departureRoomId || !targetFloorId || !targetRoomId}
+            onClick={() => onAdd(departureFloorId, departureRoomId, targetFloorId, targetRoomId)}
+          >
+            <MoveUpRight /> {t('homePlanEditor.addTheStaircase')}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function OpeningInspector({
+  opening,
+  floor,
+  moving,
+  onMove,
+  onRemove,
+}: {
+  opening: Opening;
+  floor: FloorLayout;
+  moving: boolean;
+  onMove: () => void;
+  onRemove: () => void;
+}) {
+  const rooms = floor.rooms.filter(({ id }) => opening.roomIds.includes(id));
+  const hostRoom = floor.rooms.find(
+    ({ id }) => id === (opening.hostRoomId ?? opening.roomIds[opening.roomIds.length - 1]),
+  );
+  const label = opening.isMainEntrance
+    ? t('homePlanEditor.mainEntrance')
+    : opening.kind === 'WINDOW'
+      ? t('homePlanEditor.window')
+      : opening.kind === 'PASSAGE'
+        ? t('homePlanEditor.openPassage')
+        : t('homePlanEditor.interiorDoor');
+  const noun =
+    opening.kind === 'WINDOW'
+      ? t('homePlanEditor.theWindow')
+      : opening.kind === 'PASSAGE'
+        ? t('homePlanEditor.thePassage')
+        : t('homePlanEditor.theDoor');
+  return (
+    <div className="opening-inspector">
+      <span className={`opening-inspector-icon ${opening.kind.toLowerCase()}`}>
+        {opening.kind === 'WINDOW' ? <Waves /> : <DoorOpen />}
+      </span>
+      <span className="eyebrow">{t('homePlanEditor.selectedOpening')}</span>
+      <h3>{label}</h3>
+      <p>
+        {rooms.length === 2
+          ? `${rooms[0]!.name} ↔ ${rooms[1]!.name}`
+          : rooms[0]?.name
+            ? t('homePlanEditor.accessTo', { room: rooms[0].name })
+            : t('homePlanEditor.accessToTheRoom')}
+      </p>
+      {hostRoom && (
+        <div className="opening-host-room">
+          <small>{t('homePlanEditor.placedOnTheWallOf')}</small>
+          <strong>{hostRoom.name}</strong>
+        </div>
+      )}
+      <button className={`move-opening ${moving ? 'active' : ''}`} onClick={onMove}>
+        <MoveHorizontal />{' '}
+        {moving ? t('homePlanEditor.nowChooseAWall') : t('homePlanEditor.move', { noun })}
+      </button>
+      <button className="delete-opening" onClick={onRemove}>
+        <Trash2 /> {t('homePlanEditor.delete2', { noun })}
+      </button>
+      <small className="opening-inspector-help">
+        {t('homePlanEditor.linkedConnectionsAndSensorsStay')}
+      </small>
+    </div>
+  );
+}
+
+function PlacementInspector({
+  plan,
+  placementId,
+  onRemove,
+}: {
+  plan: HomePlan;
+  placementId: string;
+  onRemove: () => void;
+}) {
+  const placement = plan.placements.find(({ id }) => id === placementId);
+  if (!placement) return null;
+  const room = plan.levels.flatMap(({ rooms }) => rooms).find(({ id }) => id === placement.roomId);
+  return (
+    <div className="placement-inspector">
+      <Radio />
+      <span className="eyebrow">{t('homePlanEditor.placedEquipment')}</span>
+      <h3>
+        {placement.kind === 'CAMERA' ? t('homePlanEditor.camera') : t('homePlanEditor.sensor')}
+      </h3>
+      <p>{room?.name}</p>
+      <button onClick={onRemove}>
+        <Trash2 /> {t('homePlanEditor.removeFromThePlan')}
+      </button>
+    </div>
+  );
+}

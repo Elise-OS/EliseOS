@@ -1,0 +1,26 @@
+Élise OS – Companion es la aplicación para iPhone de los familiares y cuidadores que acompañan a una persona que vive sola en su domicilio. Se conecta al servidor Élise OS instalado en casa de la persona y le informa de lo que se sale de lo habitual, sin vigilancia permanente.
+
+Élise se apoya en sensores discretos (movimiento, presencia, apertura de puerta, cama, temperatura, humo, fuga de agua, caída…) y aprende los hábitos de la casa. Cuando aparece una situación poco habitual, usted recibe un aviso.
+
+QUÉ PUEDE HACER
+• Ver de un vistazo si el día transcurre con normalidad en el domicilio.
+• Recibir una notificación en caso de caída detectada, humo, fuga de agua, monóxido de carbono, pulsación del botón de asistencia o inactividad prolongada.
+• Elegir las notificaciones que desea recibir.
+• Seguir una alerta, atenderla y ver las mediciones que la han provocado.
+• Comunicarse con la familia y los profesionales gracias al cuaderno de seguimiento: mensajes, estados de ánimo, tareas y visitas.
+• Consultar la agenda compartida: citas, visitas y recordatorios.
+• Hacer una videollamada a la persona en su televisor y enviarle fotos y mensajes.
+• Ver las cámaras del domicilio en directo, solo si se han instalado con el consentimiento de la persona.
+• Instalar y colocar los sensores estancia por estancia gracias al plano de la vivienda.
+
+SUS DATOS SE QUEDAN EN CASA
+Élise OS funciona en local: los datos de los sensores y el análisis de los hábitos permanecen en el servidor instalado en el domicilio, no en la nube de un fabricante. Desde fuera, la aplicación se conecta mediante un acceso privado y cifrado. Las cámaras son opcionales, pueden ponerse en modo privado en cualquier momento y sus imágenes nunca se utilizan para analizar el comportamiento.
+
+SOFTWARE LIBRE
+Élise OS es software libre y de código abierto (licencia AGPL-3.0).
+
+REQUISITOS
+Esta aplicación necesita un servidor Élise OS instalado en el domicilio (Raspberry Pi o servidor Ubuntu) y una cuenta creada por el administrador de ese servidor. No funciona por sí sola.
+
+IMPORTANTE
+Élise OS es una herramienta de bienestar y tranquilidad. No es un dispositivo médico, ni un servicio de teleasistencia, ni un servicio de emergencias. En caso de emergencia, llame al 112.

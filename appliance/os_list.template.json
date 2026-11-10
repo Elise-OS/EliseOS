@@ -1,0 +1,18 @@
+{
+  "os_list": [
+    {
+      "name": "Élise OS {{VERSION}}",
+      "description": "Élise OS privé pour Raspberry Pi 4 et 5",
+      "url": "https://github.com/Elise-OS/EliseOS/releases/download/{{VERSION}}/elise-os-{{VERSION}}-raspberry-pi-arm64.img.xz",
+      "icon": "https://raw.githubusercontent.com/Elise-OS/EliseOS/main/apps/dashboard/public/logo.png",
+      "release_date": "{{DATE}}",
+      "extract_size": 11111111111,
+      "extract_sha256": "{{EXTRACT_SHA256}}",
+      "image_download_size": 22222222222,
+      "image_download_sha256": "{{DOWNLOAD_SHA256}}",
+      "init_format": "cloudinit",
+      "architecture": "armv8",
+      "devices": ["pi4", "pi5"]
+    }
+  ]
+}

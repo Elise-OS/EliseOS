@@ -1,11 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { z } from 'zod';
-import { alertRuleSettingsSchema } from '@michel/contracts';
+import { alertRuleSettingsSchema } from '@elise/contracts';
 import { parseRequest } from '../../platform/zod-validation';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
 import { AlertsService } from './alerts.service';
 import { SessionGuard } from '../auth/session.guard';
+import { CamerasService } from '../cameras/cameras.service';
 
 const transitionSchema = z.object({
   status: z.enum(['ACKNOWLEDGED', 'RESOLVED', 'DISMISSED']),
@@ -21,7 +23,10 @@ const feedQuerySchema = z.object({
 @Controller('alerts')
 @UseGuards(SessionGuard)
 export class AlertsController {
-  public constructor(private readonly alerts: AlertsService) {}
+  public constructor(
+    private readonly alerts: AlertsService,
+    private readonly cameras: CamerasService,
+  ) {}
 
   @Get()
   public list(@Req() request: AuthenticatedRequest) {
@@ -41,6 +46,27 @@ export class AlertsController {
   @Get('rules')
   public rules(@Req() request: AuthenticatedRequest) {
     return this.alerts.rules(request.userId);
+  }
+
+  @Get('summary')
+  public summary(@Req() request: AuthenticatedRequest) {
+    return this.alerts.summary(request.userId);
+  }
+
+  @Get(':id/detail')
+  public detail(@Req() request: AuthenticatedRequest, @Param('id') id: string) {
+    return this.alerts.detail(request.userId, id);
+  }
+
+  @Get(':id/snapshot')
+  public snapshot(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    response.setHeader('Cache-Control', 'private, no-store, max-age=0');
+    response.setHeader('Pragma', 'no-cache');
+    return this.cameras.snapshotForAlert(request.userId, id);
   }
 
   @Patch('rules')

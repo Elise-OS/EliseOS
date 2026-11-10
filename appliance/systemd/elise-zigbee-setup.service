@@ -1,0 +1,13 @@
+[Unit]
+Description=Élise Zigbee coordinator detection
+After=docker.service
+Wants=docker.service
+ConditionPathExists=/opt/elise/current
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/elise/elise-zigbee-setup
+TimeoutStartSec=15min
+
+[Install]
+WantedBy=multi-user.target

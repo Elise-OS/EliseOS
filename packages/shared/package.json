@@ -1,6 +1,6 @@
 {
-  "name": "@michel/shared",
-  "version": "0.1.0",
+  "name": "@elise/shared",
+  "version": "0.1.28",
   "private": true,
   "type": "module",
   "main": "dist/index.js",

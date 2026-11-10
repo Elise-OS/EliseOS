@@ -1,0 +1,64 @@
+# App Store Connect publishing for the Élise companion app.
+#
+# Authentication uses an App Store Connect API key, never an Apple ID password:
+#   ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_PATH (path to the downloaded .p8 file).
+#
+# Both lanes take an optional locale to touch a single language and leave the others as they are:
+#   fastlane ios metadata locale:en-US
+#   fastlane ios screenshots locale:en-US
+
+require "fileutils"
+require "tmpdir"
+
+default_platform(:ios)
+
+# Folder holding only the requested locale (or the whole folder when no locale is given).
+def locale_folder(source, locale, work_dir)
+  return source if locale.nil? || locale.empty?
+  UI.user_error!("No #{locale} folder in #{source}") unless File.directory?(File.join(source, locale))
+  target = File.join(work_dir, File.basename(source))
+  FileUtils.mkdir_p(target)
+  FileUtils.cp_r(File.join(source, locale), target)
+  target
+end
+
+platform :ios do
+  before_all do
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: ENV.fetch("ASC_KEY_PATH"),
+    )
+  end
+
+  desc "Upload the store texts (all languages, or locale:xx-XX) without touching screenshots or builds"
+  lane :metadata do |options|
+    Dir.mktmpdir do |work_dir|
+      deliver(
+        metadata_path: locale_folder(File.expand_path("metadata", __dir__), options[:locale], work_dir),
+        skip_binary_upload: true,
+        skip_screenshots: true,
+        skip_app_version_update: true,
+        precheck_include_in_app_purchases: false,
+        submit_for_review: false,
+        force: true,
+      )
+    end
+  end
+
+  desc "Replace the App Store screenshots (all languages, or locale:xx-XX) with fastlane/screenshots"
+  lane :screenshots do |options|
+    Dir.mktmpdir do |work_dir|
+      deliver(
+        screenshots_path: locale_folder(File.expand_path("screenshots", __dir__), options[:locale], work_dir),
+        skip_binary_upload: true,
+        skip_metadata: true,
+        skip_app_version_update: true,
+        overwrite_screenshots: true,
+        precheck_include_in_app_purchases: false,
+        submit_for_review: false,
+        force: true,
+      )
+    end
+  end
+end

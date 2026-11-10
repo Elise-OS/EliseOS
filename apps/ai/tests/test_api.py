@@ -2,7 +2,7 @@ import os
 
 from fastapi.testclient import TestClient
 
-os.environ["AI_SHARED_SECRET"] = "test-secret-for-michel-ai"
+os.environ["AI_SHARED_SECRET"] = "test-secret-for-elise-ai"
 
 from app.main import app  # noqa: E402
 
@@ -27,7 +27,7 @@ def test_cold_start_never_claims_anomaly(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("app.main.MODEL_ROOT", tmp_path)
     response = client.post(
         "/v1/anomalies/score",
-        headers={"x-michel-secret": "test-secret-for-michel-ai"},
+        headers={"x-elise-secret": "test-secret-for-elise-ai"},
         json={"home_id": "new-home", "observed_at": "2026-08-03T08:00:00Z", "features": {}},
     )
     assert response.status_code == 200

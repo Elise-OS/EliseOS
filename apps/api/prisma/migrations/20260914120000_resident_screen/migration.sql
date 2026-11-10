@@ -1,0 +1,5 @@
+CREATE TABLE "ResidentScreen" (
+ "id" TEXT NOT NULL PRIMARY KEY, "homeId" TEXT NOT NULL UNIQUE REFERENCES "Home"("id") ON DELETE CASCADE,
+ "state" JSONB NOT NULL, "tokenHash" TEXT UNIQUE, "pairingHash" TEXT UNIQUE, "pairingExpiresAt" TIMESTAMP(3),
+ "lastSeenAt" TIMESTAMP(3), "capabilities" JSONB NOT NULL DEFAULT '{}', "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL
+);

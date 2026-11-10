@@ -19,4 +19,21 @@ export default tseslint.config(
       '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
     },
   },
+  {
+    files: [
+      'apps/dashboard/src/**/*.{ts,tsx}',
+      'apps/mobile/{app,src}/**/*.{ts,tsx}',
+      'packages/ui/src/**/*.{ts,tsx}',
+    ],
+    rules: {
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'crypto',
+          property: 'randomUUID',
+          message: 'Use createId() so IDs also work in HTTP and React Native contexts.',
+        },
+      ],
+    },
+  },
 );

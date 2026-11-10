@@ -1,0 +1,13 @@
+[Unit]
+Description=Limit Élise Tailscale traffic to private web and WebRTC
+After=tailscaled.service
+Wants=tailscaled.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/elise/agent.env
+ExecStart=/usr/lib/elise/elise-tailscale-firewall.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

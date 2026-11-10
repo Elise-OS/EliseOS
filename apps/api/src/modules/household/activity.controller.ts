@@ -1,21 +1,10 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  Req,
-  Sse,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, Req, Sse, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { setupContactSchema } from '@michel/contracts';
 import type { Observable } from 'rxjs';
 import { z } from 'zod';
 import { parseRequest } from '../../platform/zod-validation';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
+import { HomePlanService } from './home-plan.service';
 import { ActivityService } from './activity.service';
 import { SessionGuard } from '../auth/session.guard';
 import { RealtimeService } from './realtime.service';
@@ -29,11 +18,23 @@ const feedQuerySchema = z.object({
   cursor: z.string().min(1).optional(),
 });
 
-const summaryQuerySchema = z.object({ period: z.enum(['24h', '7d']).default('24h') });
+const summaryQuerySchema = z.object({
+  period: z.enum(['24h', '7d', '28d']).default('24h'),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+});
 const contactPrioritiesSchema = z.object({
   orderedIds: z.array(z.string().min(1)).min(1).max(100),
 });
 const sensorRoomSchema = z.object({ roomId: z.string().min(1).nullable() });
+const homeDetailsSchema = z.object({
+  name: z.string().trim().min(1).max(150),
+  type: z.string().trim().min(1).max(100),
+  address: z.string().trim().max(500),
+  timezone: z.string().trim().min(1).max(100),
+});
 
 const scheduleQuerySchema = z.object({
   from: z.coerce.date().default(() => new Date(Date.now() - 30 * 86_400_000)),
@@ -47,11 +48,18 @@ export class ActivityController {
   public constructor(
     private readonly activity: ActivityService,
     private readonly realtime: RealtimeService,
+    private readonly plans: HomePlanService,
   ) {}
 
   @Get('overview')
   public overview(@Req() request: AuthenticatedRequest) {
     return this.activity.overview(request.userId);
+  }
+
+  @Get('home-summary')
+  public async homeSummary(@Req() request: AuthenticatedRequest) {
+    const presence = await this.plans.presence(request.userId);
+    return this.activity.homeSummary(request.userId, presence);
   }
 
   @Get('activity')
@@ -71,9 +79,18 @@ export class ActivityController {
   }
 
   @Get('analytics/activity')
-  public summary(@Req() request: AuthenticatedRequest, @Query('period') period?: string) {
-    const query = parseRequest(summaryQuerySchema, { period: period ?? '24h' });
-    return this.activity.summary(request.userId, query.period);
+  public summary(
+    @Req() request: AuthenticatedRequest,
+    @Query('period') period?: string,
+    @Query('date') date?: string,
+  ) {
+    const query = parseRequest(summaryQuerySchema, { period: period ?? '24h', date });
+    return this.activity.summary(request.userId, query.period, query.date);
+  }
+
+  @Get('analytics/routines')
+  public routines(@Req() request: AuthenticatedRequest) {
+    return this.activity.routines(request.userId);
   }
 
   @Get('household')
@@ -81,16 +98,16 @@ export class ActivityController {
     return this.activity.household(request.userId);
   }
 
+  @Patch('household/home')
+  public updateHome(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    const input = parseRequest(homeDetailsSchema, body);
+    return this.activity.updateHome(request.userId, input);
+  }
+
   @Patch('household/contacts/priorities')
   public reorderContacts(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
     const input = parseRequest(contactPrioritiesSchema, body);
     return this.activity.reorderContacts(request.userId, input.orderedIds);
-  }
-
-  @Post('household/contacts')
-  public createContact(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
-    const input = parseRequest(setupContactSchema, body);
-    return this.activity.createContact(request.userId, input);
   }
 
   @Patch('household/sensors/:sensorId/room')

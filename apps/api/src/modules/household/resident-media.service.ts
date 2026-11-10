@@ -42,7 +42,7 @@ export class ResidentMediaService {
     const resident = await this.prisma.resident.findFirst({
       where: {
         id: residentId,
-        home: { organization: { memberships: { some: { userId } } } },
+        home: { organization: { memberships: { some: { userId, disabledAt: null } } } },
       },
       select: { photoPath: true, photoMimeType: true },
     });
@@ -74,7 +74,11 @@ export class ResidentMediaService {
         home: {
           organization: {
             memberships: {
-              some: { userId, systemRole: { in: ['OWNER', 'ADMINISTRATOR'] } },
+              some: {
+                userId,
+                disabledAt: null,
+                systemRole: { in: ['OWNER', 'ADMINISTRATOR'] },
+              },
             },
           },
         },

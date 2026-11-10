@@ -18,6 +18,10 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
+    },
+    "@elise/contracts#test": {
+      "dependsOn": ["build"],
+      "outputs": []
     }
   }
 }

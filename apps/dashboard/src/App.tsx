@@ -1,29 +1,79 @@
-import * as Progress from '@radix-ui/react-progress';
-import { Button, Card, Metric, StatusPill } from '@michel/ui';
+import { LiaisonPage } from './LiaisonPage';
+import { JournalPage } from './JournalPage';
+import { CalendarPage } from './CalendarPage';
+import { WelcomePage } from './WelcomePage';
+import { ScreenPanel, startResidentScreenCall } from './ScreenPanel';
+import { AlertsPage, type SafetyCategory } from './AlertsPage';
+import { AlertRulesPanel } from './AlertRulesPanel';
+import { Button, Card, StatusPill } from '@elise/ui';
 import {
+  Accessibility,
   Activity,
-  ArrowDown,
-  ArrowUp,
+  Archive,
   Bell,
   BookOpen,
+  CalendarDays,
+  Camera,
   ChevronRight,
   CircleCheck,
-  CookingPot,
+  CircleHelp,
+  Clock3,
   DoorOpen,
+  Ear,
+  Eye,
+  Footprints,
   HeartHandshake,
   Home,
+  Languages,
+  KeyRound,
+  LoaderCircle,
+  LogOut,
+  Mail,
+  Maximize2,
   Menu,
+  PawPrint,
+  PanelLeftClose,
   Pill,
+  Phone,
+  Play,
+  Plus,
+  Power,
   Radar,
+  Search,
   Settings,
   ShieldCheck,
   Sofa,
+  Sparkles,
+  Trash2,
+  Tv,
   UsersRound,
+  UserRound,
+  Video,
   X,
+  Usb,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { copy, type Locale } from './i18n';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import {
+  currentLanguage,
+  dashboardLanguages,
+  dateLocale,
+  type Locale,
+  setLanguage,
+  t as i18nT,
+  textBlock,
+} from './i18n';
 import { resizeResidentPhoto, Setup } from './Setup';
+import { HomePlanEditor } from './HomePlanEditor';
+import { HomeOverview, homeRealtimeEventAction } from './HomeOverview';
+import { GuidedTour, type GuidedTourMode } from './GuidedTour';
+import { DataLoadingScreen } from './DataLoadingScreen';
+import { FlagIcon } from './FlagIcons';
+import { RemoteAccessCard } from './RemoteAccessCard';
+import { ActivityPage } from './ActivityPage';
+import { UpdateCard } from './UpdateCard';
+import { ZigbeeKeyPanel } from './ZigbeeKeyPanel';
+import type { UpdateStatus } from '@elise/contracts';
+import { createId } from './lib/createId';
 
 interface Overview {
   onboardingRequired: boolean;
@@ -91,15 +141,15 @@ interface Household {
     photoUrl: string | null;
     primary: boolean;
     context: null | {
-      livesAlone: boolean;
-      livesWithPartner: boolean;
-      livesWithRelative: boolean;
-      receivesHomeHelp: boolean;
-      receivesVisits: boolean;
-      hasPet: boolean;
+      livesAlone: boolean | null;
+      livesWithPartner: boolean | null;
+      livesWithRelative: boolean | null;
+      receivesHomeHelp: boolean | null;
+      receivesVisits: boolean | null;
+      hasPet: boolean | null;
       mobility: string;
-      hearingDifficulty: boolean;
-      visualDifficulty: boolean;
+      hearingDifficulty: boolean | null;
+      visualDifficulty: boolean | null;
     };
     supportNeeds: Array<{ id: string; kind: string; note: string | null }>;
     habits: Array<{
@@ -117,9 +167,13 @@ interface Household {
     phone: string | null;
     email: string | null;
     relation: string | null;
-    role: 'ADMINISTRATOR' | 'RELATIVE' | 'EMERGENCY';
+    role: 'OWNER' | 'ADMINISTRATOR' | 'CAREGIVER' | 'VIEWER' | null;
+    isEmergency: boolean;
     priority: number;
     hasAccount: boolean;
+    accessDisabled: boolean;
+    archived: boolean;
+    isCurrentUser: boolean;
     username: string | null;
   }>;
   rooms: Array<{
@@ -133,32 +187,12 @@ interface Household {
   unassignedSensors: HouseholdSensor[];
 }
 
-interface EquipmentStatus {
-  homeAssistant: { connected: boolean; lastSeenAt: string | null };
-  inventory: {
-    lastSyncAt: string | null;
-    lastRequestedAt: string | null;
-    entities: number;
-    devices: number;
-  };
-  pairing: { active: boolean; expiresAt: string | null };
-  lastError: string | null;
-}
+type Person = Household['trustedContacts'][number];
+type AccessRole = Exclude<Person['role'], 'OWNER' | null>;
 
-interface EquipmentCandidate {
-  id: string;
-  entityId: string;
-  sourceName: string | null;
-  capability: string;
-  compatibility: 'VALIDATED' | 'RECOGNIZED' | 'PARTIAL' | 'UNSUPPORTED';
-  status: string;
-  available: boolean;
-  domain: string | null;
-  deviceClass: string | null;
-  unit: string | null;
-  device: { name: string; manufacturer: string | null; model: string | null } | null;
-  room: { id: string; name: string } | null;
-  mapping: { capability: string; transform: string; enabled: boolean } | null;
+interface CurrentAccess {
+  role: 'OWNER' | 'ADMINISTRATOR' | 'CAREGIVER' | 'VIEWER';
+  capabilities: string[];
 }
 
 interface ActivityItem {
@@ -185,6 +219,45 @@ interface AlertItem {
     note: string | null;
     createdAt: string;
   }>;
+  cameraSnapshots?: Array<{
+    id: string;
+    cameraId: string;
+    capturedAt: string;
+    expiresAt: string;
+  }>;
+}
+
+interface CameraItem {
+  id: string;
+  name: string;
+  provider: string;
+  status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'UNKNOWN';
+  compatibility: 'VALIDATED' | 'RECOGNIZED' | 'PARTIAL' | 'UNSUPPORTED';
+  room: { id: string; name: string; kind: string } | null;
+  capabilities: { live: boolean; talk: boolean; ptz: boolean; privacy: boolean; snapshot: boolean };
+  privacyMode: boolean;
+  consentedAt: string | null;
+  lastSeenAt: string | null;
+  lastPersonSeenAt: string | null;
+}
+
+interface CameraSession {
+  cameraId: string;
+  mediaUrl: string;
+  expiresAt: string;
+  talkEnabled: boolean;
+}
+
+interface CameraRecording {
+  id: string;
+  cameraId: string;
+  cameraName: string;
+  roomId: string | null;
+  roomName: string | null;
+  doorName: string;
+  capturedAt: string;
+  durationSeconds: number;
+  expiresAt: string;
 }
 
 interface JournalItem {
@@ -214,6 +287,7 @@ interface AlertRuleSettings {
   };
   sensorOffline: { enabled: boolean; minutes: number };
   lowBattery: { enabled: boolean; percent: number };
+  behavioral: { enabled: boolean };
 }
 
 interface MedicationItem {
@@ -253,35 +327,101 @@ interface MedicationDraft {
   graceMinutes: number;
 }
 
-interface ActivitySummary {
-  period: '24h' | '7d';
-  from: string;
-  to: string;
-  total: number;
-  buckets: Array<{ start: string; label: string; count: number }>;
-  byRoom: Array<{ id: string | null; name: string; count: number }>;
-  byCapability: Array<{ capability: string; count: number }>;
+const navIcons = [
+  Home,
+  Activity,
+  Bell,
+  Sofa,
+  Radar,
+  Pill,
+  BookOpen,
+  UsersRound,
+  Settings,
+  Video,
+  Tv,
+  BookOpen,
+];
+export const sidebarHiddenNavIndexes = new Set([4, 5, 6, 9]);
+export const sidebarNavOrder = [0, 1, 2, 11, 9, 10, 3, 7, 8] as const;
+export function SidebarNavigation({
+  labels,
+  active,
+  openAlerts,
+  updateAvailable = false,
+  onSelect,
+}: {
+  labels: readonly string[];
+  active: number;
+  openAlerts: number;
+  updateAvailable?: boolean;
+  onSelect: (index: number) => void;
+}) {
+  return (
+    <nav aria-label={i18nT('app.mainNavigation')}>
+      {sidebarNavOrder.map((index) => {
+        const label = labels[index];
+        if (!label) return null;
+        if (sidebarHiddenNavIndexes.has(index)) return null;
+        const Icon = navIcons[index]!;
+        return (
+          <button
+            key={label}
+            type="button"
+            aria-current={active === index ? 'page' : undefined}
+            data-tour-target={`nav-${index}`}
+            className={`nav-item nav-item--${index === 10 ? 'tv' : index === 3 ? 'home' : 'default'}${active === index ? ' nav-item--active' : ''}`}
+            onClick={() => onSelect(index)}
+          >
+            <Icon size={18} />
+            <span>{label}</span>
+            {index === 2 && openAlerts > 0 && <b>{openAlerts}</b>}
+            {index === 8 && updateAvailable && <b className="nav-update-badge">!</b>}
+          </button>
+        );
+      })}
+    </nav>
+  );
 }
 
-interface ScheduleItem {
-  id: string;
-  type: 'VISIT' | 'APPOINTMENT';
-  title: string;
-  startsAt: string;
-  endsAt: string | null;
-  detail: string | null;
-  notes: string | null;
+export function SidebarBehaviorSetting({
+  enabled,
+  disabled,
+  onChange,
+}: {
+  locale: Locale;
+  enabled: boolean;
+  disabled: boolean;
+  onChange: (enabled: boolean) => void;
+}) {
+  return (
+    <article className="settings-option-row sidebar-behavior-settings">
+      <div className="settings-option-copy">
+        <span className="settings-option-icon settings-option-icon--blue">
+          <PanelLeftClose />
+        </span>
+        <div>
+          <h2>{i18nT('app.automaticSidebar')}</h2>
+          <p>
+            {disabled ? i18nT('app.theSidebarStaysOpenWhile') : i18nT('app.hideTheSidebarWhenThe')}
+          </p>
+        </div>
+        <button
+          type="button"
+          className={`config-toggle-btn ${enabled && !disabled ? 'is-on' : ''}`}
+          role="switch"
+          aria-checked={enabled && !disabled}
+          aria-label={i18nT('app.automaticallyHideTheSidebar')}
+          disabled={disabled}
+          onClick={() => onChange(!enabled)}
+        >
+          <span className="config-toggle-handle" />
+        </button>
+      </div>
+    </article>
+  );
 }
-
-const navIcons = [Home, Activity, Bell, Sofa, Pill, BookOpen, UsersRound, Settings];
-const roomIcons: Record<string, typeof Sofa> = {
-  LIVING_ROOM: Sofa,
-  KITCHEN: CookingPot,
-  ENTRANCE: DoorOpen,
-};
 
 export function Login({
-  locale,
   onSuccess,
   onPasswordChangeRequired,
   onOpenSetup,
@@ -313,21 +453,17 @@ export function Login({
     <main className="login-screen">
       <div className="login-brand">
         <div className="brand-mark">
-          <Home />
+          <img src="/logo.png" alt="" />
         </div>
         <span>Élise</span>
       </div>
       <Card className="login-card">
-        <span className="eyebrow">{locale === 'fr' ? 'Accès familial' : 'Family access'}</span>
-        <h1>{locale === 'fr' ? 'Heureux de vous revoir.' : 'Welcome back.'}</h1>
-        <p>
-          {locale === 'fr'
-            ? 'Connectez-vous pour retrouver votre environnement Élise.'
-            : 'Sign in to access your Élise home.'}
-        </p>
+        <span className="eyebrow">{i18nT('app.familyAccess')}</span>
+        <h1>{i18nT('app.welcomeBack')}</h1>
+        <p>{i18nT('app.signInToAccessYour')}</p>
         <form onSubmit={(event) => void submit(event)}>
           <label>
-            {locale === 'fr' ? 'Identifiant' : 'Username'}
+            {i18nT('app.username')}
             <input
               value={identifier}
               onChange={(event) => setIdentifier(event.target.value)}
@@ -335,7 +471,7 @@ export function Login({
             />
           </label>
           <label>
-            {locale === 'fr' ? 'Mot de passe' : 'Password'}
+            {i18nT('app.password')}
             <input
               type="password"
               value={password}
@@ -343,51 +479,32 @@ export function Login({
               autoComplete="current-password"
             />
           </label>
-          {error && (
-            <p className="form-error">
-              {locale === 'fr' ? 'Identifiants incorrects.' : 'Incorrect credentials.'}
-            </p>
-          )}
-          <Button type="submit">{locale === 'fr' ? 'Se connecter' : 'Sign in'}</Button>
+          {error && <p className="form-error">{i18nT('app.incorrectCredentials')}</p>}
+          <Button type="submit">{i18nT('app.signIn')}</Button>
         </form>
         <div className="login-setup">
-          <p>
-            {locale === 'fr'
-              ? 'Vous installez Élise pour la première fois ?'
-              : 'Setting up Élise for the first time?'}
-          </p>
+          <p>{i18nT('app.settingUpEliseForThe')}</p>
           <Button type="button" className="login-setup-button" onClick={onOpenSetup}>
-            {locale === 'fr' ? 'Créer un environnement Élise' : 'Create an Élise home'}
+            {i18nT('app.createAnEliseHome')}
           </Button>
-          <small>
-            {locale === 'fr'
-              ? 'Cette étape crée le premier compte administrateur de la maison.'
-              : 'This step creates the home’s first administrator account.'}
-          </small>
+          <small>{i18nT('app.thisStepCreatesTheHome')}</small>
         </div>
       </Card>
       <p className="login-privacy">
-        <ShieldCheck />{' '}
-        {locale === 'fr'
-          ? 'Vos données ne quittent pas le domicile.'
-          : 'Your data never leaves the home.'}
+        <ShieldCheck /> {i18nT('app.yourDataNeverLeavesThe')}
       </p>
     </main>
   );
 }
 
-function ChangePassword({ locale, onSuccess }: { locale: Locale; onSuccess: () => void }) {
+function ChangePassword({ onSuccess }: { locale: Locale; onSuccess: () => void }) {
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [error, setError] = useState('');
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (password.length < 12 || password !== confirmation) {
-      setError(
-        locale === 'fr'
-          ? 'Utilisez au moins 12 caractères et confirmez le même mot de passe.'
-          : 'Use at least 12 characters and enter the same password twice.',
-      );
+      setError(i18nT('app.useAtLeast12Characters'));
       return;
     }
     const response = await fetch('/api/v1/auth/change-password', {
@@ -396,11 +513,7 @@ function ChangePassword({ locale, onSuccess }: { locale: Locale; onSuccess: () =
       body: JSON.stringify({ newPassword: password }),
     });
     if (!response.ok) {
-      setError(
-        locale === 'fr'
-          ? 'Le mot de passe n’a pas pu être modifié.'
-          : 'The password could not be changed.',
-      );
+      setError(i18nT('app.thePasswordCouldNotBe'));
       return;
     }
     onSuccess();
@@ -409,21 +522,17 @@ function ChangePassword({ locale, onSuccess }: { locale: Locale; onSuccess: () =
     <main className="login-screen">
       <div className="login-brand">
         <div className="brand-mark">
-          <Home />
+          <img src="/logo.png" alt="" />
         </div>
         <span>Élise</span>
       </div>
       <Card className="login-card">
-        <span className="eyebrow">{locale === 'fr' ? 'Première connexion' : 'First sign-in'}</span>
-        <h1>{locale === 'fr' ? 'Choisissez votre mot de passe.' : 'Choose your password.'}</h1>
-        <p>
-          {locale === 'fr'
-            ? 'Le mot de passe temporaire doit être remplacé avant d’accéder aux informations du résident.'
-            : 'The temporary password must be replaced before accessing resident information.'}
-        </p>
+        <span className="eyebrow">{i18nT('app.firstSignIn')}</span>
+        <h1>{i18nT('app.chooseYourPassword')}</h1>
+        <p>{i18nT('app.theTemporaryPasswordMustBe')}</p>
         <form onSubmit={(event) => void submit(event)}>
           <label>
-            {locale === 'fr' ? 'Nouveau mot de passe' : 'New password'}
+            {i18nT('app.newPassword')}
             <input
               type="password"
               minLength={12}
@@ -433,7 +542,7 @@ function ChangePassword({ locale, onSuccess }: { locale: Locale; onSuccess: () =
             />
           </label>
           <label>
-            {locale === 'fr' ? 'Confirmer' : 'Confirm'}
+            {i18nT('app.confirm')}
             <input
               type="password"
               minLength={12}
@@ -443,9 +552,7 @@ function ChangePassword({ locale, onSuccess }: { locale: Locale; onSuccess: () =
             />
           </label>
           {error && <p className="form-error">{error}</p>}
-          <Button type="submit">
-            {locale === 'fr' ? 'Enregistrer et continuer' : 'Save and continue'}
-          </Button>
+          <Button type="submit">{i18nT('app.saveAndContinue')}</Button>
         </form>
       </Card>
     </main>
@@ -458,58 +565,104 @@ function time(value?: string): string {
   return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(date);
 }
 
-function relativeTime(value: string, locale: Locale): string {
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60_000));
-  if (minutes < 60) return locale === 'fr' ? `il y a ${minutes} min` : `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  return locale === 'fr' ? `il y a ${hours} h` : `${hours}h ago`;
-}
-
 function formatMinute(value: number | null): string {
   if (value === null) return '—';
   return `${String(Math.floor(value / 60)).padStart(2, '0')} h ${String(value % 60).padStart(2, '0')}`;
 }
 
-function inputTime(value: number): string {
-  return `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
+function residentAge(value: string | null): string | null {
+  if (!value) return null;
+  const birthDate = new Date(value);
+  if (Number.isNaN(birthDate.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  if (
+    today.getMonth() < birthDate.getMonth() ||
+    (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())
+  ) {
+    age -= 1;
+  }
+  return i18nT('app.yearsOld', { age });
 }
 
-function timeMinute(value: string): number {
-  const [hour = 0, minute = 0] = value.split(':').map(Number);
-  return hour * 60 + minute;
-}
-
-function capabilityLabel(capability: string, locale: Locale): string {
-  const labels: Record<string, [string, string]> = {
-    motion: ['Mouvement', 'Motion'],
-    occupancy: ['Présence', 'Occupancy'],
-    contact: ['Ouverture', 'Opening'],
-    button: ['Bouton d’appel', 'Call button'],
-    temperature: ['Température', 'Temperature'],
-    humidity: ['Humidité', 'Humidity'],
-    power: ['Puissance', 'Power'],
-    energy: ['Énergie', 'Energy'],
-    battery: ['Batterie', 'Battery'],
+function residentMobilityLabel(value: string): string {
+  const labels: Record<string, () => string> = {
+    INDEPENDENT: () => i18nT('app.residentMobilityLabel.labels.INDEPENDENT'),
+    CANE: () => i18nT('app.residentMobilityLabel.labels.CANE'),
+    WALKER: () => i18nT('app.residentMobilityLabel.labels.WALKER'),
+    WHEELCHAIR: () => i18nT('app.residentMobilityLabel.labels.WHEELCHAIR'),
+    UNKNOWN: () => i18nT('app.residentMobilityLabel.labels.UNKNOWN'),
   };
-  return labels[capability]?.[locale === 'fr' ? 0 : 1] ?? capability;
+  return labels[value]?.() ?? value;
 }
 
-function sensorStatusLabel(status: string, locale: Locale): string {
-  const labels: Record<string, [string, string]> = {
-    ONLINE: ['Disponible', 'Available'],
-    DEGRADED: ['Données fragiles', 'Limited data'],
-    OFFLINE: ['Ne répond plus', 'Not responding'],
-    UNKNOWN: ['À vérifier', 'To check'],
+function supportNeedLabel(value: string): string {
+  const labels: Record<string, () => string> = {
+    MEMORY: () => i18nT('app.supportNeedLabel.labels.MEMORY'),
+    PARKINSON: () => i18nT('app.supportNeedLabel.labels.PARKINSON'),
+    FALL_RISK: () => i18nT('app.supportNeedLabel.labels.FALL_RISK'),
+    VISION: () => i18nT('app.supportNeedLabel.labels.VISION'),
+    HEARING: () => i18nT('app.supportNeedLabel.labels.HEARING'),
+    OTHER: () => i18nT('app.supportNeedLabel.labels.OTHER'),
   };
-  return labels[status]?.[locale === 'fr' ? 0 : 1] ?? status;
+  return labels[value]?.() ?? value;
 }
 
-export function activityDescription(item: ActivityItem, locale: Locale): string {
+function habitLabel(value: string): string {
+  const labels: Record<string, () => string> = {
+    WAKE_UP: () => i18nT('app.habitLabel.labels.WAKE_UP'),
+    BREAKFAST: () => i18nT('app.habitLabel.labels.BREAKFAST'),
+    LUNCH: () => i18nT('app.habitLabel.labels.LUNCH'),
+    DINNER: () => i18nT('app.habitLabel.labels.DINNER'),
+    BEDTIME: () => i18nT('app.habitLabel.labels.BEDTIME'),
+    NIGHT: () => i18nT('app.habitLabel.labels.NIGHT'),
+    // Habits named during the first setup keep their French names.
+    Lever: () => i18nT('app.habitLabel.labels.Lever'),
+    Déjeuner: () => i18nT('app.habitLabel.labels.Déjeuner'),
+    Dîner: () => i18nT('app.habitLabel.labels.Dîner'),
+    Coucher: () => i18nT('app.habitLabel.labels.Coucher'),
+  };
+  return (
+    labels[value]?.() ??
+    value
+      .toLowerCase()
+      .replaceAll('_', ' ')
+      .replace(/^./, (letter) => letter.toUpperCase())
+  );
+}
+
+function capabilityLabel(capability: string): string {
+  const labels: Record<string, () => string> = {
+    motion: () => i18nT('app.capabilityLabel.labels.motion'),
+    occupancy: () => i18nT('app.capabilityLabel.labels.occupancy'),
+    person_presence: () => i18nT('app.capabilityLabel.labels.person_presence'),
+    contact: () => i18nT('app.capabilityLabel.labels.contact'),
+    dry_contact: () => i18nT('app.capabilityLabel.labels.dry_contact'),
+    button: () => i18nT('app.capabilityLabel.labels.button'),
+    temperature: () => i18nT('app.capabilityLabel.labels.temperature'),
+    humidity: () => i18nT('app.capabilityLabel.labels.humidity'),
+    power: () => i18nT('app.capabilityLabel.labels.power'),
+    energy: () => i18nT('app.capabilityLabel.labels.energy'),
+    battery: () => i18nT('app.capabilityLabel.labels.battery'),
+  };
+  return labels[capability]?.() ?? capability;
+}
+
+export function activityDescription(item: ActivityItem): string {
   const payload =
     item.payload && typeof item.payload === 'object'
       ? (item.payload as Record<string, unknown>)
       : {};
-  const rawValue = payload.value ?? payload.state;
+  const context =
+    payload.context && typeof payload.context === 'object'
+      ? (payload.context as Record<string, unknown>)
+      : {};
+  const contactRole = typeof context.role === 'string' ? context.role : null;
+  const bedOccupiedWhen =
+    context.bedOccupiedWhen === 'OPEN' || item.capability === 'occupancy' ? 'OPEN' : 'CLOSED';
+  const rawValue = ['contact', 'dry_contact', 'occupancy'].includes(item.capability)
+    ? (payload.open ?? payload.active ?? payload.value ?? payload.state)
+    : (payload.value ?? payload.state);
   const unit = typeof payload.unit === 'string' ? payload.unit : '';
   const value =
     typeof rawValue === 'number' || typeof rawValue === 'string'
@@ -517,56 +670,60 @@ export function activityDescription(item: ActivityItem, locale: Locale): string 
       : null;
   const contactOpen =
     rawValue === true || rawValue === 'open' || rawValue === 'on' || rawValue === 1;
-  const labels: Record<string, [string, string]> = {
-    motion: ['Mouvement détecté', 'Movement detected'],
-    occupancy: ['Présence détectée', 'Presence detected'],
-    contact: contactOpen
-      ? ['Ouverture détectée', 'Opening detected']
-      : ['Fermeture détectée', 'Closing detected'],
-    temperature: [
-      value ? `Température · ${value}` : 'Température relevée',
-      value ? `Temperature · ${value}` : 'Temperature reading',
-    ],
-    humidity: [
-      value ? `Humidité · ${value}` : 'Humidité relevée',
-      value ? `Humidity · ${value}` : 'Humidity reading',
-    ],
-    battery: [
-      value ? `Batterie · ${value}` : 'Niveau de batterie reçu',
-      value ? `Battery · ${value}` : 'Battery level received',
-    ],
-    power: [
-      value ? `Puissance · ${value}` : 'Consommation instantanée',
-      value ? `Power · ${value}` : 'Current power use',
-    ],
-    energy: [
-      value ? `Énergie · ${value}` : 'Consommation cumulée',
-      value ? `Energy · ${value}` : 'Cumulative energy use',
-    ],
-    button: ['Bouton d’appel activé', 'Call button pressed'],
+  const bed = () =>
+    contactOpen === (bedOccupiedWhen === 'OPEN')
+      ? i18nT('app.activityText.bedOccupied')
+      : i18nT('app.activityText.bedUnoccupied');
+  const labels: Record<string, () => string> = {
+    motion: () => i18nT('app.activityText.movementDetected'),
+    occupancy: () =>
+      contactRole === 'BED'
+        ? contactOpen
+          ? i18nT('app.activityText.bedOccupied')
+          : i18nT('app.activityText.bedUnoccupied')
+        : i18nT('app.activityText.presenceDetected'),
+    person_presence: () => i18nT('app.activityText.personDetected'),
+    contact: () =>
+      contactRole === 'BED'
+        ? bed()
+        : contactRole === 'FRIDGE'
+          ? contactOpen
+            ? i18nT('app.activityText.fridgeOpen')
+            : i18nT('app.activityText.fridgeClosed')
+          : contactOpen
+            ? i18nT('app.activityText.openingDetected')
+            : i18nT('app.activityText.closingDetected'),
+    dry_contact: () =>
+      contactRole === 'BED'
+        ? bed()
+        : contactOpen
+          ? i18nT('app.activityText.contactOpen')
+          : i18nT('app.activityText.contactClosed'),
+    temperature: () =>
+      value
+        ? i18nT('app.activityText.temperatureWithValue', { value })
+        : i18nT('app.activityText.temperature'),
+    humidity: () =>
+      value
+        ? i18nT('app.activityText.humidityWithValue', { value })
+        : i18nT('app.activityText.humidity'),
+    illuminance: () =>
+      value
+        ? i18nT('app.activityText.illuminanceWithValue', { value })
+        : i18nT('app.activityText.illuminance'),
+    battery: () =>
+      value
+        ? i18nT('app.activityText.batteryWithValue', { value })
+        : i18nT('app.activityText.battery'),
+    power: () =>
+      value ? i18nT('app.activityText.powerWithValue', { value }) : i18nT('app.activityText.power'),
+    energy: () =>
+      value
+        ? i18nT('app.activityText.energyWithValue', { value })
+        : i18nT('app.activityText.energy'),
+    button: () => i18nT('app.activityText.callButtonPressed'),
   };
-  return (
-    labels[item.capability]?.[locale === 'fr' ? 0 : 1] ?? capabilityLabel(item.capability, locale)
-  );
-}
-
-function alertStatusLabel(status: AlertItem['status'], locale: Locale): string {
-  const labels = {
-    OPEN: ['Ouverte', 'Open'],
-    ACKNOWLEDGED: ['Prise en charge', 'Acknowledged'],
-    RESOLVED: ['Résolue', 'Resolved'],
-    DISMISSED: ['Ignorée', 'Dismissed'],
-  } as const;
-  return labels[status][locale === 'fr' ? 0 : 1];
-}
-
-function alertSeverityLabel(severity: AlertItem['severity'], locale: Locale): string {
-  const labels = {
-    INFO: ['Information', 'Information'],
-    ATTENTION: ['À vérifier', 'Needs attention'],
-    URGENT: ['Urgent', 'Urgent'],
-  } as const;
-  return labels[severity][locale === 'fr' ? 0 : 1];
+  return labels[item.capability]?.() ?? capabilityLabel(item.capability);
 }
 
 export function SimulationPanel({
@@ -579,20 +736,18 @@ export function SimulationPanel({
   running: string | null;
   notice: string;
   onRun: (scenario: string) => void;
+  locale?: Locale;
 }) {
   return (
-    <Card className="settings-card simulation-card">
-      <div className="settings-card-heading">
-        <span className="settings-icon">
+    <article className="settings-option-row settings-demo-row simulation-card">
+      <div className="settings-option-copy">
+        <span className="settings-option-icon settings-option-icon--purple">
           <Radar />
         </span>
         <div>
-          <span className="eyebrow">Mode démonstration</span>
-          <h2>Tester une situation</h2>
-          <p>
-            Ces scénarios utilisent le même parcours que les capteurs du domicile. Ils restent
-            réservés à cette installation de test.
-          </p>
+          <span className="eyebrow">{i18nT('app.demoMode')}</span>
+          <h2>{i18nT('app.testASituation')}</h2>
+          <p>{i18nT('app.theseScenariosFollowTheSame')}</p>
         </div>
       </div>
       <div className="simulation-grid">
@@ -607,7 +762,7 @@ export function SimulationPanel({
               <strong>{scenario.title}</strong>
               <small>{scenario.description}</small>
             </span>
-            <b>{running === scenario.id ? 'Simulation…' : 'Lancer'}</b>
+            <b>{running === scenario.id ? i18nT('app.simulating') : i18nT('app.run')}</b>
           </button>
         ))}
       </div>
@@ -616,267 +771,7 @@ export function SimulationPanel({
           <CircleCheck /> {notice}
         </p>
       )}
-    </Card>
-  );
-}
-
-export function AlertRulesPanel({
-  rules,
-  saving,
-  notice,
-  onChange,
-  onSave,
-}: {
-  rules: AlertRuleSettings;
-  saving: boolean;
-  notice: string;
-  onChange: (rules: AlertRuleSettings) => void;
-  onSave: () => void;
-}) {
-  const toggle = (key: keyof AlertRuleSettings, enabled: boolean) =>
-    onChange({ ...rules, [key]: { ...rules[key], enabled } });
-  return (
-    <Card className="settings-card alert-rules-card">
-      <div className="settings-card-heading">
-        <span className="settings-icon">
-          <Bell />
-        </span>
-        <div>
-          <span className="eyebrow">Repères du domicile</span>
-          <h2>Situations à signaler</h2>
-          <p>
-            Choisissez des seuils simples. Élise explique toujours ce qu’elle observe avant de
-            proposer une vérification.
-          </p>
-        </div>
-      </div>
-      <div className="alert-rule-list">
-        <label className="alert-rule-row">
-          <span>
-            <strong>Absence de mouvement</strong>
-            <small>Seulement lorsque les capteurs répondent correctement.</small>
-          </span>
-          <input
-            aria-label="Activer l’absence de mouvement"
-            type="checkbox"
-            checked={rules.inactivity.enabled}
-            onChange={(event) => toggle('inactivity', event.target.checked)}
-          />
-          <span className="rule-value">
-            <input
-              aria-label="Durée sans mouvement"
-              type="number"
-              min="15"
-              max="1440"
-              value={rules.inactivity.minutes}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  inactivity: { ...rules.inactivity, minutes: Number(event.target.value) },
-                })
-              }
-            />
-            minutes
-          </span>
-        </label>
-        <label className="alert-rule-row">
-          <span>
-            <strong>Porte laissée ouverte</strong>
-            <small>Une ouverture brève reste un événement normal.</small>
-          </span>
-          <input
-            aria-label="Activer la porte ouverte"
-            type="checkbox"
-            checked={rules.doorOpen.enabled}
-            onChange={(event) => toggle('doorOpen', event.target.checked)}
-          />
-          <span className="rule-value">
-            <input
-              aria-label="Durée porte ouverte"
-              type="number"
-              min="1"
-              max="120"
-              value={rules.doorOpen.minutes}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  doorOpen: { ...rules.doorOpen, minutes: Number(event.target.value) },
-                })
-              }
-            />
-            minutes
-          </span>
-        </label>
-        <div className="alert-rule-row temperature-rule">
-          <span>
-            <strong>Température inhabituelle</strong>
-            <small>Le seuil doit persister avant qu’Élise le signale.</small>
-          </span>
-          <label className="rule-inline-toggle">
-            <input
-              aria-label="Activer les températures inhabituelles"
-              type="checkbox"
-              checked={rules.lowTemperature.enabled || rules.highTemperature.enabled}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  lowTemperature: { ...rules.lowTemperature, enabled: event.target.checked },
-                  highTemperature: { ...rules.highTemperature, enabled: event.target.checked },
-                })
-              }
-            />
-            Active
-          </label>
-          <span className="temperature-values">
-            <label>
-              Sous
-              <input
-                aria-label="Température minimale"
-                type="number"
-                value={rules.lowTemperature.celsius}
-                onChange={(event) =>
-                  onChange({
-                    ...rules,
-                    lowTemperature: {
-                      ...rules.lowTemperature,
-                      celsius: Number(event.target.value),
-                    },
-                  })
-                }
-              />
-              °C
-            </label>
-            <label>
-              Au-dessus de
-              <input
-                aria-label="Température maximale"
-                type="number"
-                value={rules.highTemperature.celsius}
-                onChange={(event) =>
-                  onChange({
-                    ...rules,
-                    highTemperature: {
-                      ...rules.highTemperature,
-                      celsius: Number(event.target.value),
-                    },
-                  })
-                }
-              />
-              °C
-            </label>
-          </span>
-        </div>
-        <label className="alert-rule-row">
-          <span>
-            <strong>Activité nocturne répétée</strong>
-            <small>Plusieurs mouvements, jamais un passage isolé.</small>
-          </span>
-          <input
-            aria-label="Activer l’activité nocturne"
-            type="checkbox"
-            checked={rules.nightActivity.enabled}
-            onChange={(event) => toggle('nightActivity', event.target.checked)}
-          />
-          <span className="night-values">
-            <input
-              aria-label="Début de la nuit"
-              type="time"
-              value={inputTime(rules.nightActivity.startMinute)}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  nightActivity: {
-                    ...rules.nightActivity,
-                    startMinute: timeMinute(event.target.value),
-                  },
-                })
-              }
-            />
-            à
-            <input
-              aria-label="Fin de la nuit"
-              type="time"
-              value={inputTime(rules.nightActivity.endMinute)}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  nightActivity: {
-                    ...rules.nightActivity,
-                    endMinute: timeMinute(event.target.value),
-                  },
-                })
-              }
-            />
-          </span>
-        </label>
-        <label className="alert-rule-row">
-          <span>
-            <strong>Capteur silencieux</strong>
-            <small>Évite de confondre une panne avec une absence d’activité.</small>
-          </span>
-          <input
-            aria-label="Activer le capteur silencieux"
-            type="checkbox"
-            checked={rules.sensorOffline.enabled}
-            onChange={(event) => toggle('sensorOffline', event.target.checked)}
-          />
-          <span className="rule-value">
-            <input
-              aria-label="Délai capteur silencieux"
-              type="number"
-              min="15"
-              max="10080"
-              value={rules.sensorOffline.minutes}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  sensorOffline: { ...rules.sensorOffline, minutes: Number(event.target.value) },
-                })
-              }
-            />
-            minutes
-          </span>
-        </label>
-        <label className="alert-rule-row">
-          <span>
-            <strong>Batterie faible</strong>
-            <small>Une information calme pour anticiper le remplacement.</small>
-          </span>
-          <input
-            aria-label="Activer la batterie faible"
-            type="checkbox"
-            checked={rules.lowBattery.enabled}
-            onChange={(event) => toggle('lowBattery', event.target.checked)}
-          />
-          <span className="rule-value">
-            <input
-              aria-label="Seuil de batterie"
-              type="number"
-              min="1"
-              max="50"
-              value={rules.lowBattery.percent}
-              onChange={(event) =>
-                onChange({
-                  ...rules,
-                  lowBattery: { ...rules.lowBattery, percent: Number(event.target.value) },
-                })
-              }
-            />
-            %
-          </span>
-        </label>
-      </div>
-      <div className="rule-actions">
-        <Button type="button" disabled={saving} onClick={onSave}>
-          {saving ? 'Enregistrement…' : 'Enregistrer les repères'}
-        </Button>
-        {notice && (
-          <p role="status">
-            <CircleCheck /> {notice}
-          </p>
-        )}
-      </div>
-    </Card>
+    </article>
   );
 }
 
@@ -887,14 +782,14 @@ function dateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function medicationStatusLabel(status: MedicationDoseItem['status'], locale: Locale): string {
+function medicationStatusLabel(status: MedicationDoseItem['status']): string {
   const labels = {
-    PENDING: ['Prévue', 'Scheduled'],
-    TAKEN: ['Confirmée', 'Confirmed'],
-    MISSED: ['Non confirmée', 'Unconfirmed'],
-    SKIPPED: ['Ignorée', 'Skipped'],
+    PENDING: () => i18nT('app.medicationStatusLabel.labels.PENDING'),
+    TAKEN: () => i18nT('app.medicationStatusLabel.labels.TAKEN'),
+    MISSED: () => i18nT('app.medicationStatusLabel.labels.MISSED'),
+    SKIPPED: () => i18nT('app.medicationStatusLabel.labels.SKIPPED'),
   } as const;
-  return labels[status][locale === 'fr' ? 0 : 1];
+  return labels[status]();
 }
 
 export function MedicationPanel({
@@ -935,12 +830,17 @@ export function MedicationPanel({
       (dose) => dose.status === 'PENDING' && new Date(dose.scheduledFor).getTime() >= Date.now(),
     ) ??
     todayDoses.find((dose) => dose.status === 'PENDING');
-  const dayLabels =
-    locale === 'fr' ? ['D', 'L', 'M', 'M', 'J', 'V', 'S'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  const fullDayLabels =
-    locale === 'fr'
-      ? ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
-      : ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  // Sunday first, as daysOfWeek counts them; names come from the language itself.
+  const weekday = (style: 'narrow' | 'long') =>
+    Array.from({ length: 7 }, (_, day) => {
+      const name = new Intl.DateTimeFormat(dateLocale(), {
+        weekday: style,
+        timeZone: 'UTC',
+      }).format(new Date(Date.UTC(2023, 0, 1 + day)));
+      return name.charAt(0).toLocaleUpperCase(dateLocale()) + name.slice(1);
+    });
+  const dayLabels = weekday('narrow');
+  const fullDayLabels = weekday('long');
   const toggleDay = (day: number) => {
     const selected = draft.daysOfWeek.includes(day);
     const daysOfWeek = selected
@@ -963,31 +863,25 @@ export function MedicationPanel({
 
   return (
     <section className="section-view medication-page">
-      <div className="page-heading medication-heading">
-        <span className="eyebrow">{locale === 'fr' ? 'Pilulier local' : 'Local pillbox'}</span>
-        <h2>{locale === 'fr' ? 'Médicaments' : 'Medications'}</h2>
-        <p>
-          {locale === 'fr'
-            ? 'Des repères simples pour accompagner les prises, sans remplacer un avis médical.'
-            : 'Simple reminders to support medication routines, without replacing medical advice.'}
-        </p>
-      </div>
+      <header className="page-hero medication-heading">
+        <div className="page-hero__copy">
+          <span className="page-hero__eyebrow">{i18nT('app.localPillbox')}</span>
+          <h2 className="page-hero__title">{i18nT('app.medications')}</h2>
+          <p className="page-hero__text">{i18nT('app.simpleRemindersToSupportMedication')}</p>
+        </div>
+      </header>
 
       <div className="medication-layout">
         <Card className={`next-dose-card ${focusDose?.status === 'MISSED' ? 'is-late' : ''}`}>
           <div className="next-dose-topline">
             <span className="eyebrow">
               {focusDose?.status === 'MISSED'
-                ? locale === 'fr'
-                  ? 'À vérifier avec douceur'
-                  : 'A gentle check may help'
-                : locale === 'fr'
-                  ? 'Prochaine prise'
-                  : 'Next dose'}
+                ? i18nT('app.aGentleCheckMayHelp')
+                : i18nT('app.nextDose')}
             </span>
             {focusDose && (
               <StatusPill tone={focusDose.status === 'MISSED' ? 'attention' : 'neutral'}>
-                {medicationStatusLabel(focusDose.status, locale)}
+                {medicationStatusLabel(focusDose.status)}
               </StatusPill>
             )}
           </div>
@@ -1000,40 +894,30 @@ export function MedicationPanel({
                 <p>{focusDose.schedule.medication.instructions}</p>
               )}
               {focusDose.status === 'MISSED' && (
-                <p className="dose-caution">
-                  {locale === 'fr'
-                    ? 'Cette prise n’a pas encore été confirmée. Un oubli est possible ; vérifiez simplement avant d’agir.'
-                    : 'This dose has not been confirmed yet. It may have been forgotten; please check before acting.'}
-                </p>
+                <p className="dose-caution">{i18nT('app.thisDoseHasNotBeen')}</p>
               )}
               <div className="dose-actions">
                 <Button type="button" onClick={() => onConfirm(focusDose.id)}>
                   <CircleCheck />
-                  {locale === 'fr' ? 'Confirmer la prise' : 'Confirm dose'}
+                  {i18nT('app.confirmDose')}
                 </Button>
                 <Button
                   type="button"
                   className="button-secondary"
                   onClick={() => onSkip(focusDose.id)}
                 >
-                  {locale === 'fr' ? 'Indiquer comme ignorée' : 'Mark as skipped'}
+                  {i18nT('app.markAsSkipped')}
                 </Button>
               </div>
             </>
           ) : (
             <div className="medication-empty">
               <Pill />
-              <h2>
-                {locale === 'fr' ? 'Aucune prise à venir aujourd’hui' : 'No upcoming dose today'}
-              </h2>
+              <h2>{i18nT('app.noUpcomingDoseToday')}</h2>
               <p>
                 {medications.length === 0
-                  ? locale === 'fr'
-                    ? 'Ajoutez un premier traitement pour préparer un repère quotidien.'
-                    : 'Add a first treatment to prepare a daily reminder.'
-                  : locale === 'fr'
-                    ? 'Toutes les prises prévues aujourd’hui ont été traitées.'
-                    : 'All scheduled doses for today have been handled.'}
+                  ? i18nT('app.addAFirstTreatmentTo')
+                  : i18nT('app.allScheduledDosesForToday')}
               </p>
             </div>
           )}
@@ -1045,32 +929,25 @@ export function MedicationPanel({
         </Card>
 
         <Card className="medication-today-card">
-          <span className="eyebrow">{locale === 'fr' ? 'Aujourd’hui' : 'Today'}</span>
-          <h2>{locale === 'fr' ? 'Le fil des prises' : 'Dose timeline'}</h2>
-          <div
-            className="dose-summary"
-            aria-label={locale === 'fr' ? 'Résumé des prises' : 'Dose summary'}
-          >
+          <span className="eyebrow">{i18nT('app.today')}</span>
+          <h2>{i18nT('app.doseTimeline')}</h2>
+          <div className="dose-summary" aria-label={i18nT('app.doseSummary')}>
             <span>
               <strong>{todayDoses.filter((dose) => dose.status === 'TAKEN').length}</strong>
-              {locale === 'fr' ? ' confirmée(s)' : ' confirmed'}
+              {i18nT('app.confirmed')}
             </span>
             <span>
               <strong>{todayDoses.filter((dose) => dose.status === 'PENDING').length}</strong>
-              {locale === 'fr' ? ' prévue(s)' : ' scheduled'}
+              {i18nT('app.scheduled')}
             </span>
             <span>
               <strong>{todayDoses.filter((dose) => dose.status === 'MISSED').length}</strong>
-              {locale === 'fr' ? ' à vérifier' : ' to check'}
+              {i18nT('app.toCheck')}
             </span>
           </div>
           <div className="dose-list">
             {todayDoses.length === 0 ? (
-              <p className="empty-state">
-                {locale === 'fr'
-                  ? 'Aucune prise planifiée pour cette journée.'
-                  : 'No dose planned today.'}
-              </p>
+              <p className="empty-state">{i18nT('app.noDosePlannedToday')}</p>
             ) : (
               todayDoses.map((dose) => (
                 <article className={`dose-row status-${dose.status.toLowerCase()}`} key={dose.id}>
@@ -1080,7 +957,7 @@ export function MedicationPanel({
                     <small>{dose.schedule.medication.dosage}</small>
                   </span>
                   <StatusPill tone={dose.status === 'MISSED' ? 'attention' : 'neutral'}>
-                    {medicationStatusLabel(dose.status, locale)}
+                    {medicationStatusLabel(dose.status)}
                   </StatusPill>
                 </article>
               ))
@@ -1091,10 +968,8 @@ export function MedicationPanel({
 
       <div className="medication-secondary-grid">
         <Card className="medication-history-card">
-          <span className="eyebrow">
-            {locale === 'fr' ? 'Sept derniers jours' : 'Last seven days'}
-          </span>
-          <h2>{locale === 'fr' ? 'Historique' : 'History'}</h2>
+          <span className="eyebrow">{i18nT('app.lastSevenDays')}</span>
+          <h2>{i18nT('app.history')}</h2>
           <div className="dose-history">
             {[...ordered]
               .reverse()
@@ -1112,33 +987,25 @@ export function MedicationPanel({
                   <span>
                     <strong>{dose.schedule.medication.name}</strong>
                     <small>
-                      {medicationStatusLabel(dose.status, locale)}
+                      {medicationStatusLabel(dose.status)}
                       {dose.confirmedBy ? ` · ${dose.confirmedBy.displayName}` : ''}
                     </small>
                   </span>
                 </article>
               ))}
             {ordered.length === 0 && (
-              <p className="empty-state">
-                {locale === 'fr'
-                  ? 'L’historique se remplira au fil des prises.'
-                  : 'History will appear as doses are recorded.'}
-              </p>
+              <p className="empty-state">{i18nT('app.historyWillAppearAsDoses')}</p>
             )}
           </div>
         </Card>
 
         <Card className="medication-form-card">
-          <span className="eyebrow">{locale === 'fr' ? 'Nouveau repère' : 'New reminder'}</span>
-          <h2>{locale === 'fr' ? 'Ajouter un traitement' : 'Add a treatment'}</h2>
-          <p>
-            {locale === 'fr'
-              ? 'Recopiez uniquement les informations déjà données par le professionnel de santé.'
-              : 'Only copy information already provided by the healthcare professional.'}
-          </p>
+          <span className="eyebrow">{i18nT('app.newReminder')}</span>
+          <h2>{i18nT('app.addATreatment')}</h2>
+          <p>{i18nT('app.onlyCopyInformationAlreadyProvided')}</p>
           <form onSubmit={(event) => void submit(event)}>
             <label>
-              {locale === 'fr' ? 'Nom du traitement' : 'Treatment name'}
+              {i18nT('app.treatmentName')}
               <input
                 required
                 maxLength={150}
@@ -1147,17 +1014,17 @@ export function MedicationPanel({
               />
             </label>
             <label>
-              {locale === 'fr' ? 'Dosage indiqué' : 'Prescribed dosage'}
+              {i18nT('app.prescribedDosage')}
               <input
                 required
                 maxLength={150}
-                placeholder={locale === 'fr' ? 'Ex. 1 comprimé' : 'E.g. 1 tablet'}
+                placeholder={i18nT('app.eG1Tablet')}
                 value={draft.dosage}
                 onChange={(event) => setDraft({ ...draft, dosage: event.target.value })}
               />
             </label>
             <label>
-              {locale === 'fr' ? 'Consigne (facultatif)' : 'Instructions (optional)'}
+              {i18nT('app.instructionsOptional')}
               <textarea
                 maxLength={1000}
                 value={draft.instructions}
@@ -1166,7 +1033,7 @@ export function MedicationPanel({
             </label>
             <div className="medication-form-row">
               <label>
-                {locale === 'fr' ? 'Heure prévue' : 'Scheduled time'}
+                {i18nT('app.scheduledTime')}
                 <input
                   type="time"
                   required
@@ -1175,7 +1042,7 @@ export function MedicationPanel({
                 />
               </label>
               <label>
-                {locale === 'fr' ? 'Marge de confirmation' : 'Confirmation window'}
+                {i18nT('app.confirmationWindow')}
                 <select
                   value={draft.graceMinutes}
                   onChange={(event) =>
@@ -1189,7 +1056,7 @@ export function MedicationPanel({
               </label>
             </div>
             <fieldset>
-              <legend>{locale === 'fr' ? 'Jours concernés' : 'Scheduled days'}</legend>
+              <legend>{i18nT('app.scheduledDays')}</legend>
               <div className="medication-days">
                 {dayLabels.map((label, day) => (
                   <button
@@ -1205,13 +1072,7 @@ export function MedicationPanel({
               </div>
             </fieldset>
             <Button type="submit" disabled={submitting}>
-              {submitting
-                ? locale === 'fr'
-                  ? 'Ajout…'
-                  : 'Adding…'
-                : locale === 'fr'
-                  ? 'Ajouter ce traitement'
-                  : 'Add treatment'}
+              {submitting ? i18nT('app.adding') : i18nT('app.addTreatment')}
             </Button>
           </form>
         </Card>
@@ -1220,26 +1081,796 @@ export function MedicationPanel({
   );
 }
 
-export function App() {
-  const [locale, setLocale] = useState<Locale>(() => {
-    if (typeof window === 'undefined') return 'fr';
-    return window.localStorage.getItem('michel_locale') === 'en' ? 'en' : 'fr';
+function CamerasPanel({
+  cameras,
+  recordings,
+  session,
+  notice,
+  onOpen,
+  onClose,
+}: {
+  locale: Locale;
+  cameras: CameraItem[];
+  recordings: CameraRecording[];
+  session: CameraSession | null;
+  notice: string;
+  onOpen: (cameraId: string) => void;
+  onClose: () => void;
+}) {
+  const selectedCamera = cameras.find((camera) => camera.id === session?.cameraId) ?? null;
+  const onlineCameras = cameras.filter(
+    (camera) => camera.status === 'ONLINE' && !camera.privacyMode,
+  ).length;
+  const formatDate = (value: string) =>
+    new Intl.DateTimeFormat(dateLocale(), {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(value));
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
+  };
+
+  return (
+    <section className="section-view camera-page camera-page--designed">
+      <header className="page-hero camera-hero">
+        <div className="page-hero__copy camera-hero-main">
+          <span className="camera-hero-icon">
+            <Video aria-hidden="true" />
+          </span>
+          <div>
+            <span className="page-hero__eyebrow">{i18nT('app.homeCameras')}</span>
+            <h1 className="page-hero__title">{i18nT('app.cameras')}</h1>
+            <p className="page-hero__text">{i18nT('app.liveStreamsAndClipsTriggered')}</p>
+          </div>
+        </div>
+        <div className="page-hero__actions camera-hero-actions">
+          <span className="camera-online-count">
+            <span className="camera-online-dot" />
+            {onlineCameras} {i18nT('app.online')}
+          </span>
+          <button
+            type="button"
+            className="camera-primary-action"
+            onClick={() => {
+              const page = document.querySelector<HTMLElement>('.camera-page');
+              if (page?.requestFullscreen) void page.requestFullscreen().catch(() => undefined);
+            }}
+          >
+            <Maximize2 aria-hidden="true" />
+            {i18nT('app.fullScreen')}
+          </button>
+        </div>
+      </header>
+
+      {notice && (
+        <p className="form-notice camera-notice" role="status">
+          {notice}
+        </p>
+      )}
+
+      <section className="camera-panel-card camera-live-section">
+        <div className="camera-section-heading">
+          <div className="camera-section-title">
+            <span className="camera-section-icon">
+              <Tv aria-hidden="true" />
+            </span>
+            <div>
+              <h2>{i18nT('app.liveStreams')}</h2>
+              <p>{i18nT('app.selectACameraToOpen')}</p>
+            </div>
+          </div>
+        </div>
+        {cameras.length ? (
+          <div className="camera-live-grid">
+            {cameras.map((camera) => {
+              const unavailable =
+                camera.privacyMode || camera.status === 'OFFLINE' || !camera.capabilities.live;
+              return (
+                <article
+                  className={`camera-live-card ${camera.privacyMode ? 'is-private' : ''}`}
+                  key={camera.id}
+                >
+                  <div className="camera-live-card-heading">
+                    <div className="camera-room-name">
+                      <span className="camera-room-icon">
+                        <Video aria-hidden="true" />
+                      </span>
+                      <h3>{camera.room?.name ?? i18nT('app.noRoom')}</h3>
+                    </div>
+                    <span
+                      className={`camera-live-status ${camera.status === 'ONLINE' && !camera.privacyMode ? 'is-online' : ''}`}
+                    >
+                      <span />
+                      {camera.privacyMode
+                        ? i18nT('app.privacy')
+                        : camera.status === 'ONLINE'
+                          ? i18nT('app.online2')
+                          : camera.status}
+                    </span>
+                  </div>
+                  <div className="camera-preview">
+                    <button
+                      type="button"
+                      className="camera-preview-main"
+                      disabled={unavailable}
+                      onClick={() => onOpen(camera.id)}
+                      aria-label={`${i18nT('app.openLiveStreamFor')} ${camera.name}`}
+                    >
+                      <span className="camera-preview-scene">
+                        <Video aria-hidden="true" />
+                      </span>
+                      <span className="camera-preview-label">
+                        {camera.privacyMode
+                          ? i18nT('app.privacyModeEnabled')
+                          : unavailable
+                            ? i18nT('app.streamUnavailable')
+                            : i18nT('app.openLiveStream')}
+                      </span>
+                    </button>
+                  </div>
+                  <div className="camera-live-card-footer">
+                    <strong>{camera.name}</strong>
+                    <button type="button" disabled={unavailable} onClick={() => onOpen(camera.id)}>
+                      {i18nT('app.openLive')} <ChevronRight aria-hidden="true" />
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="camera-empty camera-empty--inline">
+            <Video aria-hidden="true" />
+            <div>
+              <h3>{i18nT('app.noCamerasConnected')}</h3>
+              <p>{i18nT('app.addItUnderMyHome')}</p>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="camera-panel-card camera-recordings-section">
+        <div className="camera-section-heading camera-recordings-heading">
+          <div className="camera-section-title">
+            <span className="camera-section-icon camera-section-icon--blue">
+              <Play aria-hidden="true" />
+            </span>
+            <div>
+              <h2>{i18nT('app.recordings')}</h2>
+              <p>{i18nT('app.n30SecondSilentVideoClips')}</p>
+            </div>
+          </div>
+        </div>
+        <div className="camera-recordings-grid">
+          {recordings.map((recording) => (
+            <article className="camera-recording-item" key={recording.id}>
+              <video
+                className="camera-recording-video"
+                controls
+                preload="metadata"
+                src={`/api/v1/cameras/recordings/${encodeURIComponent(recording.id)}/video`}
+                aria-label={`${i18nT('app.recording')} ${recording.cameraName}`}
+              />
+              <div className="camera-recording-copy">
+                <strong>
+                  {recording.cameraName} · {recording.roomName ?? i18nT('app.noRoom')}
+                </strong>
+                <span className="camera-recording-tag camera-recording-tag--attention">
+                  <DoorOpen aria-hidden="true" />
+                  {i18nT('app.mainEntranceOpened')}
+                </span>
+                <small>
+                  {formatDate(recording.capturedAt)} · {formatDuration(recording.durationSeconds)}
+                </small>
+              </div>
+            </article>
+          ))}
+          {!recordings.length && (
+            <div className="camera-recordings-empty">
+              <Play aria-hidden="true" />
+              <span>{i18nT('app.clipsWillAppearHereAfter')}</span>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {session && selectedCamera && (
+        <Card className="camera-viewer-card">
+          <div className="camera-viewer-heading">
+            <div>
+              <span className="camera-live-dot" />
+              <span className="eyebrow">{i18nT('app.live')}</span>
+              <h2>{selectedCamera.name}</h2>
+              <p>{selectedCamera.room?.name}</p>
+            </div>
+            <button
+              type="button"
+              className="camera-close"
+              onClick={onClose}
+              aria-label={i18nT('app.closeLiveStream')}
+            >
+              <X />
+            </button>
+          </div>
+          <div className="camera-frame">
+            <iframe
+              key={session.mediaUrl}
+              src={session.mediaUrl}
+              title={selectedCamera.name}
+              allow="autoplay; fullscreen"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <div className="camera-viewer-actions">
+            <small>{i18nT('app.recordingsContainVideoOnly')}</small>
+          </div>
+        </Card>
+      )}
+    </section>
+  );
+}
+
+const blankPerson = {
+  firstName: '',
+  lastName: '',
+  phone: '',
+  email: '',
+  relation: '',
+  isEmergency: false,
+  hasAccess: false,
+  role: 'CAREGIVER' as AccessRole,
+  username: '',
+  temporaryPassword: '',
+};
+
+const personRoleLabel = (role: Person['role']) => {
+  const labels = {
+    OWNER: () => i18nT('app.personRoleLabel.labels.OWNER'),
+    ADMINISTRATOR: () => i18nT('app.personRoleLabel.labels.ADMINISTRATOR'),
+    CAREGIVER: () => i18nT('app.personRoleLabel.labels.CAREGIVER'),
+    VIEWER: () => i18nT('app.personRoleLabel.labels.VIEWER'),
+  } as const;
+  return role ? labels[role]() : i18nT('app.noAccess');
+};
+
+const personRoleIcon = (role: Person['role']) => {
+  const Icon =
+    role === 'CAREGIVER'
+      ? HeartHandshake
+      : role === 'OWNER' || role === 'ADMINISTRATOR'
+        ? ShieldCheck
+        : role === 'VIEWER'
+          ? Eye
+          : UserRound;
+  return <Icon aria-hidden="true" />;
+};
+
+export function PeoplePanel({
+  locale,
+  currentRole,
+}: {
+  locale: Locale;
+  currentRole: CurrentAccess['role'];
+}) {
+  const [people, setPeople] = useState<Person[]>([]);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<'ALL' | 'ACCESS' | 'EMERGENCY' | 'DISABLED'>('ALL');
+  const [editor, setEditor] = useState<Person | 'new' | null>(null);
+  const [draft, setDraft] = useState(blankPerson);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const canManage = currentRole === 'OWNER' || currentRole === 'ADMINISTRATOR';
+  const load = useCallback(async () => {
+    try {
+      const response = await fetch('/api/v1/household/people?archived=true');
+      if (response.ok) setPeople((await response.json()) as Person[]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => void load(), [load]);
+
+  const edit = (person?: Person) => {
+    setEditor(person ?? 'new');
+    setError('');
+    setDraft(
+      person
+        ? {
+            firstName: person.firstName,
+            lastName: person.lastName,
+            phone: person.phone ?? '',
+            email: person.email ?? '',
+            relation: person.relation ?? '',
+            isEmergency: person.isEmergency,
+            hasAccess: person.hasAccount,
+            role: person.role && person.role !== 'OWNER' ? person.role : 'CAREGIVER',
+            username: person.username ?? '',
+            temporaryPassword: '',
+          }
+        : blankPerson,
+    );
+  };
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    const existing = editor === 'new' ? null : editor;
+    if (!draft.firstName || !draft.lastName || (!draft.phone && !draft.email)) {
+      setError(i18nT('app.enterANameAndContact'));
+      return;
+    }
+    if (
+      (!existing || !existing.hasAccount) &&
+      draft.hasAccess &&
+      (!draft.username || draft.temporaryPassword.length < 12)
+    ) {
+      setError(i18nT('app.aUsernameAnd12Character'));
+      return;
+    }
+    setSaving(true);
+    setError('');
+    const response = await fetch(
+      existing ? `/api/v1/household/people/${existing.id}` : '/api/v1/household/people',
+      {
+        method: existing ? 'PATCH' : 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          firstName: draft.firstName,
+          lastName: draft.lastName,
+          phone: draft.phone,
+          email: draft.email,
+          relation: draft.relation,
+          isEmergency: draft.isEmergency,
+          ...(!existing && draft.hasAccess
+            ? {
+                access: {
+                  role: draft.role,
+                  username: draft.username,
+                  temporaryPassword: draft.temporaryPassword,
+                },
+              }
+            : {}),
+        }),
+      },
+    );
+    let roleOk = true;
+    if (
+      response.ok &&
+      existing &&
+      ((!existing.hasAccount && draft.hasAccess) ||
+        (existing.hasAccount && existing.role !== draft.role))
+    ) {
+      roleOk = (
+        await fetch(`/api/v1/household/people/${existing.id}/access`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(
+            existing.hasAccount
+              ? { action: 'role', role: draft.role }
+              : {
+                  action: 'create',
+                  role: draft.role,
+                  username: draft.username,
+                  temporaryPassword: draft.temporaryPassword,
+                },
+          ),
+        })
+      ).ok;
+    }
+    setSaving(false);
+    if (!response.ok || !roleOk) {
+      const body = (await response.json().catch(() => null)) as { message?: string } | null;
+      setError(body?.message ?? i18nT('app.unableToSaveThisProfile'));
+      return;
+    }
+    setEditor(null);
+    await load();
+  };
+  const access = async (
+    person: Person,
+    action: 'disable' | 'enable' | 'reset-password' | 'restore',
+  ) => {
+    let body: Record<string, string> = { action };
+    if (action === 'reset-password') {
+      const password = window.prompt(i18nT('app.temporaryPassword12CharactersMinimum'));
+      if (!password || password.length < 12) return;
+      body = { action, temporaryPassword: password };
+    } else if (
+      !window.confirm(
+        action === 'restore'
+          ? i18nT('app.restoreThisProfileAccessWill')
+          : i18nT('app.confirmThisAccessChange'),
+      )
+    )
+      return;
+    const response = await fetch(`/api/v1/household/people/${person.id}/access`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (response.ok) await load();
+  };
+  const archive = async (person: Person) => {
+    if (!window.confirm(i18nT('app.archiveThisProfileItsHistory'))) return;
+    if ((await fetch(`/api/v1/household/people/${person.id}`, { method: 'DELETE' })).ok)
+      await load();
+  };
+  const visible = people.filter((person) => {
+    if (
+      !`${person.firstName} ${person.lastName} ${person.relation ?? ''} ${person.email ?? ''}`
+        .toLowerCase()
+        .includes(query.toLowerCase())
+    )
+      return false;
+    if (filter === 'ACCESS') return person.hasAccount && !person.accessDisabled && !person.archived;
+    if (filter === 'EMERGENCY') return person.isEmergency && !person.archived;
+    if (filter === 'DISABLED') return person.accessDisabled || person.archived;
+    return !person.archived;
   });
+  const filters = {
+    ALL: i18nT('app.all'),
+    ACCESS: i18nT('app.withAccess'),
+    EMERGENCY: i18nT('app.emergency'),
+    DISABLED: i18nT('app.disabled'),
+  };
+  const activePeople = people.filter((person) => !person.archived).length;
+  const activeAccess = people.filter(
+    (person) => person.hasAccount && !person.accessDisabled && !person.archived,
+  ).length;
+  const emergencyContacts = people.filter(
+    (person) => person.isEmergency && !person.archived,
+  ).length;
+
+  if (loading)
+    return <DataLoadingScreen locale={locale} message={i18nT('app.preparingYourCareCircle')} />;
+
+  return (
+    <section className="section-view people-page">
+      <header className="page-hero people-hero">
+        <div className="page-hero__copy people-title-row">
+          <div>
+            <span className="page-hero__eyebrow">{i18nT('app.careCircle')}</span>
+            <h2 className="page-hero__title">{i18nT('app.people')}</h2>
+            <p className="page-hero__text">{i18nT('app.theRightPeopleWithThe')}</p>
+          </div>
+        </div>
+        {canManage && (
+          <Button className="people-add-button" onClick={() => edit()}>
+            <Plus />
+            {i18nT('app.addPerson')}
+          </Button>
+        )}
+      </header>
+      <div className="people-overview" aria-label={i18nT('app.summary')}>
+        <div>
+          <span className="people-overview-icon people-overview-icon--family">
+            <UserRound />
+          </span>
+          <p>
+            <strong>{activePeople}</strong>
+            <span>{i18nT('app.savedPeople')}</span>
+          </p>
+        </div>
+        <i />
+        <div>
+          <span className="people-overview-icon people-overview-icon--access">
+            <ShieldCheck />
+          </span>
+          <p>
+            <strong>{activeAccess}</strong>
+            <span>{i18nT('app.eliseAccess')}</span>
+          </p>
+        </div>
+        <i />
+        <div>
+          <span className="people-overview-icon people-overview-icon--urgent">
+            <Bell />
+          </span>
+          <p>
+            <strong>{emergencyContacts}</strong>
+            <span>{i18nT('app.priorityContacts')}</span>
+          </p>
+        </div>
+      </div>
+      <div className="people-toolbar">
+        <label className="people-search">
+          <Search />
+          <input
+            aria-label={i18nT('app.search')}
+            type="search"
+            placeholder={i18nT('app.searchByNameRelationshipOr')}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <div role="group" aria-label={i18nT('app.filterList')}>
+          {(Object.keys(filters) as Array<keyof typeof filters>).map((value) => (
+            <button
+              type="button"
+              className={filter === value ? 'is-active' : ''}
+              key={value}
+              onClick={() => setFilter(value)}
+            >
+              {filters[value]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="people-card-grid">
+        {!loading &&
+          visible.map((person) => (
+            <Card
+              className={`people-card role-card-${person.role ?? 'NONE'}${person.accessDisabled || person.archived ? ' is-disabled' : ''}`}
+              key={person.id}
+            >
+              <div className="people-card-top">
+                <span className="people-avatar">{personRoleIcon(person.role)}</span>
+                <div>
+                  <h3>
+                    {person.firstName} {person.lastName}
+                  </h3>
+                  <p>{person.relation || i18nT('app.relationshipNotSpecified')}</p>
+                </div>
+                {person.isEmergency && (
+                  <span className="people-priority" title={i18nT('app.callPriority')}>
+                    <Bell />
+                    {person.priority + 1}
+                  </span>
+                )}
+              </div>
+              <div className="people-badges">
+                <span className={`people-role role-${person.role ?? 'NONE'}`}>
+                  {personRoleIcon(person.role)}
+                  {personRoleLabel(person.role)}
+                </span>
+                {person.isEmergency && (
+                  <span className="people-emergency">
+                    <Bell />
+                    {i18nT('app.priorityContact')}
+                  </span>
+                )}
+                {person.accessDisabled && <span>{i18nT('app.accessDisabled')}</span>}
+                {person.archived && <span>{i18nT('app.archived')}</span>}
+              </div>
+              <div className="people-contact-lines">
+                {person.phone && (
+                  <a href={`tel:${person.phone}`}>
+                    <Phone /> <span>{person.phone}</span>
+                  </a>
+                )}
+                {person.email && (
+                  <a href={`mailto:${person.email}`}>
+                    <Mail /> <span>{person.email}</span>
+                  </a>
+                )}
+                {person.username && (
+                  <small>
+                    <UserRound /> <span>@{person.username}</span>
+                  </small>
+                )}
+              </div>
+              <div className="people-card-footer">
+                <span className={`people-access-state${person.accessDisabled ? ' is-off' : ''}`}>
+                  <i />
+                  {person.hasAccount
+                    ? person.accessDisabled
+                      ? i18nT('app.accessSuspended')
+                      : i18nT('app.activeAccess')
+                    : i18nT('app.contactOnly')}
+                </span>
+                {canManage && !person.isCurrentUser && (
+                  <div className="people-actions">
+                    <button className="people-edit" onClick={() => edit(person)}>
+                      {i18nT('app.viewProfile')}
+                      <ChevronRight aria-hidden="true" />
+                    </button>
+                    <details className="people-action-menu">
+                      <summary aria-label={i18nT('app.moreActions')}>•••</summary>
+                      <div>
+                        {person.archived ? (
+                          <button onClick={() => void access(person, 'restore')}>
+                            <Archive />
+                            {i18nT('app.restoreProfile')}
+                          </button>
+                        ) : person.hasAccount ? (
+                          <button
+                            onClick={() =>
+                              void access(person, person.accessDisabled ? 'enable' : 'disable')
+                            }
+                          >
+                            <Power />
+                            {person.accessDisabled
+                              ? i18nT('app.enableAccess')
+                              : i18nT('app.suspendAccess')}
+                          </button>
+                        ) : null}
+                        {!person.archived && person.hasAccount && !person.accessDisabled && (
+                          <button onClick={() => void access(person, 'reset-password')}>
+                            <KeyRound />
+                            {i18nT('app.resetPassword')}
+                          </button>
+                        )}
+                        {!person.archived && (
+                          <button className="is-danger" onClick={() => void archive(person)}>
+                            <Archive />
+                            {i18nT('app.archiveProfile')}
+                          </button>
+                        )}
+                      </div>
+                    </details>
+                  </div>
+                )}
+                {person.isCurrentUser && <small>{i18nT('app.yourAccount')}</small>}
+              </div>
+            </Card>
+          ))}
+        {!loading && visible.length === 0 && (
+          <Card className="people-empty">
+            <span>
+              <UsersRound />
+            </span>
+            <h3>{i18nT('app.noOneMatchesThisView')}</h3>
+            <p>{i18nT('app.changeYourSearchOrChoose')}</p>
+          </Card>
+        )}
+      </div>
+      {editor && (
+        <div
+          className="people-editor-backdrop"
+          onMouseDown={(event) => event.target === event.currentTarget && setEditor(null)}
+        >
+          <div className="people-editor" role="dialog" aria-modal="true">
+            <header>
+              <div>
+                <span className="eyebrow">
+                  {editor === 'new' ? i18nT('app.newPerson') : i18nT('app.editProfile')}
+                </span>
+                <h2>
+                  {editor === 'new'
+                    ? i18nT('app.addToCircle')
+                    : `${editor.firstName} ${editor.lastName}`}
+                </h2>
+              </div>
+              <button aria-label={i18nT('app.close')} onClick={() => setEditor(null)}>
+                <X />
+              </button>
+            </header>
+            <form onSubmit={(event) => void save(event)}>
+              <div className="people-form-grid">
+                <label>
+                  {i18nT('app.firstName')}
+                  <input
+                    autoFocus
+                    value={draft.firstName}
+                    onChange={(e) => setDraft({ ...draft, firstName: e.target.value })}
+                  />
+                </label>
+                <label>
+                  {i18nT('app.lastName')}
+                  <input
+                    value={draft.lastName}
+                    onChange={(e) => setDraft({ ...draft, lastName: e.target.value })}
+                  />
+                </label>
+                <label>
+                  {i18nT('app.phone')}
+                  <input
+                    type="tel"
+                    value={draft.phone}
+                    onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Email
+                  <input
+                    type="email"
+                    value={draft.email}
+                    onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                  />
+                </label>
+                <label className="wide">
+                  {i18nT('app.relationship')}
+                  <input
+                    value={draft.relation}
+                    onChange={(e) => setDraft({ ...draft, relation: e.target.value })}
+                  />
+                </label>
+              </div>
+              <label className="people-check">
+                <input
+                  type="checkbox"
+                  checked={draft.isEmergency}
+                  onChange={(e) => setDraft({ ...draft, isEmergency: e.target.checked })}
+                />
+                <span>
+                  <strong>{i18nT('app.emergencyContact')}</strong>
+                  <small>{i18nT('app.shownInThePriorityCall')}</small>
+                </span>
+              </label>
+              {(editor === 'new' || !editor.hasAccount) && (
+                <label className="people-check">
+                  <input
+                    type="checkbox"
+                    checked={draft.hasAccess}
+                    onChange={(e) => setDraft({ ...draft, hasAccess: e.target.checked })}
+                  />
+                  <span>
+                    <strong>{i18nT('app.grantEliseAccess')}</strong>
+                    <small>{i18nT('app.passwordMustBeChangedAt')}</small>
+                  </span>
+                </label>
+              )}
+              {(draft.hasAccess || (editor !== 'new' && editor.hasAccount)) &&
+                (editor === 'new' || editor.role !== 'OWNER') && (
+                  <div className="people-access-fields">
+                    <label>
+                      {i18nT('app.role')}
+                      <select
+                        value={draft.role}
+                        onChange={(e) => setDraft({ ...draft, role: e.target.value as AccessRole })}
+                      >
+                        {currentRole === 'OWNER' && (
+                          <option value="ADMINISTRATOR">{i18nT('app.administrator')}</option>
+                        )}
+                        <option value="CAREGIVER">{i18nT('app.caregiver')}</option>
+                        <option value="VIEWER">{i18nT('app.readOnly')}</option>
+                      </select>
+                    </label>
+                    {(editor === 'new' || !editor.hasAccount) && (
+                      <>
+                        <label>
+                          {i18nT('app.username')}
+                          <input
+                            value={draft.username}
+                            onChange={(e) => setDraft({ ...draft, username: e.target.value })}
+                          />
+                        </label>
+                        <label className="wide">
+                          {i18nT('app.temporaryPassword')}
+                          <input
+                            type="password"
+                            minLength={12}
+                            value={draft.temporaryPassword}
+                            onChange={(e) =>
+                              setDraft({ ...draft, temporaryPassword: e.target.value })
+                            }
+                          />
+                        </label>
+                      </>
+                    )}
+                  </div>
+                )}
+              {error && <p className="form-error">{error}</p>}
+              <footer>
+                <Button type="button" className="button-secondary" onClick={() => setEditor(null)}>
+                  {i18nT('app.cancel')}
+                </Button>
+                <Button disabled={saving}>
+                  {saving ? i18nT('app.saving') : i18nT('app.save')}
+                </Button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function App() {
+  // ?lang= in the address, then the choice saved in this browser (read by ./i18n), French otherwise.
+  const [locale, setLocale] = useState<Locale>(currentLanguage);
+  // Texts outside React read the language from i18n: set it before the children render.
+  setLanguage(locale);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
+  const [currentAccess, setCurrentAccess] = useState<CurrentAccess>({
+    role: 'VIEWER',
+    capabilities: [],
+  });
   const [dataError, setDataError] = useState(false);
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
-  const [activityCursor, setActivityCursor] = useState<string | null>(null);
-  const [activityDay, setActivityDay] = useState('');
-  const [activityRoom, setActivityRoom] = useState('');
-  const [activityType, setActivityType] = useState('');
-  const [loadingMoreActivity, setLoadingMoreActivity] = useState(false);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
-  const [alertFilter, setAlertFilter] = useState<'ALL' | AlertItem['status']>('ALL');
   const [journal, setJournal] = useState<JournalItem[]>([]);
-  const [analyticsPeriod, setAnalyticsPeriod] = useState<'24h' | '7d'>('24h');
-  const [analytics, setAnalytics] = useState<ActivitySummary | null>(null);
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [medications, setMedications] = useState<MedicationItem[]>([]);
   const [medicationDoses, setMedicationDoses] = useState<MedicationDoseItem[]>([]);
   const [savingMedication, setSavingMedication] = useState(false);
@@ -1250,38 +1881,63 @@ export function App() {
   const [alertRules, setAlertRules] = useState<AlertRuleSettings | null>(null);
   const [savingRules, setSavingRules] = useState(false);
   const [ruleNotice, setRuleNotice] = useState('');
-  const [equipmentStatus, setEquipmentStatus] = useState<EquipmentStatus | null>(null);
-  const [equipmentCandidates, setEquipmentCandidates] = useState<EquipmentCandidate[]>([]);
-  const [equipmentNotice, setEquipmentNotice] = useState('');
+  const [cameras, setCameras] = useState<CameraItem[]>([]);
+  const [cameraSession, setCameraSession] = useState<CameraSession | null>(null);
+  const cameraSessionRequest = useRef(0);
+  const [cameraNotice, setCameraNotice] = useState('');
+  const [cameraRecordings, setCameraRecordings] = useState<CameraRecording[]>([]);
   const [active, setActive] = useState(0);
+  const [screenSection, setScreenSection] = useState<
+    'call' | 'messages' | 'display' | 'photos' | 'planning'
+  >('display');
+  const [homeSection, setHomeSection] = useState<'OVERVIEW' | 'EDITOR'>('OVERVIEW');
+  const [homeSensorCategory, setHomeSensorCategory] = useState<SafetyCategory | null>(null);
+  const clearHomeSensorCategory = useCallback(() => setHomeSensorCategory(null), []);
+  const [settingsTab, setSettingsTab] = useState<'general' | 'zigbee' | 'rules'>('general');
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [homeEditorRoomId, setHomeEditorRoomId] = useState<string | null>(null);
+  const [homeEditorStairId, setHomeEditorStairId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarAutoHide, setSidebarAutoHide] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.localStorage.getItem('elise_sidebar_auto_hide') !== 'false';
+  });
   const [authRequired, setAuthRequired] = useState(false);
   const [passwordChangeRequired, setPasswordChangeRequired] = useState(false);
-  const [contactDraft, setContactDraft] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    email: '',
-    relation: '',
-    role: 'proche' as 'proche' | 'administrateur' | 'urgence',
-    username: '',
-    temporaryPassword: '',
-    confirmation: '',
-  });
-  const [contactError, setContactError] = useState('');
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutFailed, setLogoutFailed] = useState(false);
+  const [tourMode, setTourMode] = useState<GuidedTourMode | null>(null);
+  const [initialTourHandled, setInitialTourHandled] = useState(false);
+  const [homeSetupPreview, setHomeSetupPreview] = useState(false);
+  const tourReturnActive = useRef(8);
+  const refreshInFlight = useRef<Promise<void> | null>(null);
+  const refreshPending = useRef(false);
+  const realtimeRefreshTimer = useRef<number | null>(null);
   const previewSetup =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('setup') === '1';
   const [entryState, setEntryState] = useState<'loading' | 'setup' | 'app'>(
     previewSetup ? 'setup' : 'loading',
   );
-  const t = copy[locale];
+  const t = textBlock('app.copy');
+  const sidebarAutoHideLocked =
+    household?.home.installationStatus === 'DRAFT' || tourMode !== null || homeSetupPreview;
+  const sidebarAutoHideActive = sidebarAutoHide && !sidebarAutoHideLocked;
   const changeLocale = (nextLocale: Locale) => {
+    setLanguage(nextLocale);
     setLocale(nextLocale);
-    window.localStorage.setItem('michel_locale', nextLocale);
+    window.localStorage.setItem('elise_locale', nextLocale);
+  };
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+  const changeSidebarAutoHide = (enabled: boolean) => {
+    setSidebarAutoHide(enabled);
+    window.localStorage.setItem('elise_sidebar_auto_hide', String(enabled));
   };
 
-  const refresh = useCallback(async () => {
+  const refreshOnce = useCallback(async () => {
     try {
       const response = await fetch('/api/v1/overview');
       if (response.status === 401) {
@@ -1301,11 +1957,12 @@ export function App() {
       }
       if (!response.ok) throw new Error('Overview unavailable');
       setOverview((await response.json()) as Overview);
+      const meResponse = await fetch('/api/v1/auth/me');
+      if (meResponse.ok) setCurrentAccess((await meResponse.json()) as CurrentAccess);
       const now = new Date();
       const historyStart = new Date(now.getTime() - 7 * 86_400_000);
       const historyEnd = new Date(now.getTime() + 86_400_000);
       const [
-        activityResponse,
         alertsResponse,
         journalResponse,
         householdResponse,
@@ -1313,12 +1970,9 @@ export function App() {
         rulesResponse,
         medicationsResponse,
         dosesResponse,
-        analyticsResponse,
-        scheduleResponse,
-        equipmentStatusResponse,
-        equipmentCandidatesResponse,
+        camerasResponse,
+        cameraRecordingsResponse,
       ] = await Promise.all([
-        fetch('/api/v1/activity/feed?limit=30'),
         fetch('/api/v1/alerts'),
         fetch('/api/v1/journal'),
         fetch('/api/v1/household'),
@@ -1326,21 +1980,9 @@ export function App() {
         fetch('/api/v1/alerts/rules'),
         fetch('/api/v1/medications'),
         fetch(`/api/v1/medications/doses?from=${dateKey(historyStart)}&to=${dateKey(historyEnd)}`),
-        fetch(`/api/v1/analytics/activity?period=${analyticsPeriod}`),
-        fetch(
-          `/api/v1/schedule?from=${encodeURIComponent(now.toISOString())}&to=${encodeURIComponent(new Date(now.getTime() + 90 * 86_400_000).toISOString())}`,
-        ),
-        fetch('/api/v1/equipment/status'),
-        fetch('/api/v1/equipment/candidates'),
+        fetch('/api/v1/cameras'),
+        fetch('/api/v1/cameras/recordings'),
       ]);
-      if (activityResponse.ok) {
-        const feed = (await activityResponse.json()) as {
-          items: ActivityItem[];
-          nextCursor: string | null;
-        };
-        setActivity(feed.items);
-        setActivityCursor(feed.nextCursor);
-      }
       if (alertsResponse.ok) setAlerts((await alertsResponse.json()) as AlertItem[]);
       if (journalResponse.ok) setJournal((await journalResponse.json()) as JournalItem[]);
       if (householdResponse.ok) setHousehold((await householdResponse.json()) as Household);
@@ -1352,18 +1994,163 @@ export function App() {
         setMedications((await medicationsResponse.json()) as MedicationItem[]);
       if (dosesResponse.ok)
         setMedicationDoses((await dosesResponse.json()) as MedicationDoseItem[]);
-      if (analyticsResponse.ok) setAnalytics((await analyticsResponse.json()) as ActivitySummary);
-      if (scheduleResponse.ok) setSchedule((await scheduleResponse.json()) as ScheduleItem[]);
-      if (equipmentStatusResponse.ok)
-        setEquipmentStatus((await equipmentStatusResponse.json()) as EquipmentStatus);
-      if (equipmentCandidatesResponse.ok)
-        setEquipmentCandidates((await equipmentCandidatesResponse.json()) as EquipmentCandidate[]);
+      if (camerasResponse.ok) setCameras((await camerasResponse.json()) as CameraItem[]);
+      if (cameraRecordingsResponse.ok)
+        setCameraRecordings((await cameraRecordingsResponse.json()) as CameraRecording[]);
       setAuthRequired(false);
       setDataError(false);
     } catch {
       setDataError(true);
     }
-  }, [analyticsPeriod]);
+  }, []);
+
+  const refresh = useCallback(() => {
+    if (refreshInFlight.current) {
+      refreshPending.current = true;
+      return refreshInFlight.current;
+    }
+
+    const run = async () => {
+      do {
+        refreshPending.current = false;
+        await refreshOnce();
+      } while (refreshPending.current);
+    };
+    const promise = run();
+    refreshInFlight.current = promise;
+    void promise.then(
+      () => {
+        if (refreshInFlight.current === promise) refreshInFlight.current = null;
+      },
+      () => {
+        if (refreshInFlight.current === promise) refreshInFlight.current = null;
+      },
+    );
+    return promise;
+  }, [refreshOnce]);
+
+  const refreshUpdate = useCallback(async (check = false): Promise<void> => {
+    try {
+      const response = await fetch(`/api/v1/system/update${check ? '/check' : ''}`, {
+        method: check ? 'POST' : 'GET',
+      });
+      if (response.ok) setUpdateStatus((await response.json()) as UpdateStatus);
+    } catch {
+      // Update availability is advisory and must never prevent the main dashboard from loading.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!['OWNER', 'ADMINISTRATOR'].includes(currentAccess.role)) return;
+    void refreshUpdate(true);
+    const timer = window.setInterval(() => void refreshUpdate(true), 6 * 60 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, [currentAccess.role, refreshUpdate]);
+
+  useEffect(() => {
+    if (active === 8 && ['OWNER', 'ADMINISTRATOR'].includes(currentAccess.role)) {
+      void refreshUpdate(true);
+    }
+  }, [active, currentAccess.role, refreshUpdate]);
+
+  const saveUpdateCredentials = useCallback(async (username: string, token: string) => {
+    setUpdateBusy(true);
+    try {
+      const response = await fetch('/api/v1/system/update/credentials', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username, token }),
+      });
+      if (response.ok) setUpdateStatus((await response.json()) as UpdateStatus);
+    } finally {
+      setUpdateBusy(false);
+    }
+  }, []);
+
+  const deleteUpdateCredentials = useCallback(async () => {
+    setUpdateBusy(true);
+    try {
+      const response = await fetch('/api/v1/system/update/credentials', { method: 'DELETE' });
+      if (response.ok) setUpdateStatus((await response.json()) as UpdateStatus);
+    } finally {
+      setUpdateBusy(false);
+    }
+  }, []);
+
+  const checkForUpdate = useCallback(async () => {
+    setUpdateBusy(true);
+    try {
+      await refreshUpdate(true);
+    } finally {
+      setUpdateBusy(false);
+    }
+  }, [refreshUpdate]);
+
+  const installUpdate = useCallback(
+    async (version: string) => {
+      setUpdateBusy(true);
+      try {
+        const response = await fetch('/api/v1/system/update/install', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ version }),
+        });
+        if (response.ok) {
+          setUpdateStatus((await response.json()) as UpdateStatus);
+          return;
+        }
+        // The agent explains a refusal (older version, update already running…).
+        const body = (await response.json().catch(() => null)) as { message?: unknown } | null;
+        const error =
+          typeof body?.message === 'string' ? body.message : i18nT('app.theUpdateCouldNotStart');
+        setUpdateStatus((current) => current && { ...current, error });
+      } finally {
+        setUpdateBusy(false);
+      }
+    },
+    [locale],
+  );
+
+  const unreachable = dataError && !overview;
+  useEffect(() => {
+    // During an update the API restarts for a minute or two: a page opened or
+    // reloaded meanwhile comes back on its own once Élise answers again.
+    if (!unreachable) return;
+    const timer = window.setInterval(() => void refresh(), 5000);
+    return () => window.clearInterval(timer);
+  }, [unreachable, refresh]);
+
+  const updateRunning =
+    updateStatus !== null &&
+    ['DOWNLOADING', 'INSTALLING', 'VERIFYING', 'RESTARTING'].includes(updateStatus.state);
+  useEffect(() => {
+    // Follows an update started here or elsewhere, through the API restarting with the new release.
+    if (!updateRunning) return;
+    const timer = window.setInterval(() => void refreshUpdate(), 3000);
+    return () => window.clearInterval(timer);
+  }, [updateRunning, refreshUpdate]);
+
+  const logout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setLogoutFailed(false);
+    try {
+      const response = await fetch('/api/v1/auth/logout', { method: 'POST' });
+      if (!response.ok && response.status !== 401) throw new Error('Logout failed');
+      setOverview(null);
+      setHousehold(null);
+      setAuthRequired(true);
+      setPasswordChangeRequired(false);
+      setMenuOpen(false);
+      setDataError(false);
+      setTourMode(null);
+      setInitialTourHandled(false);
+    } catch {
+      setLogoutFailed(true);
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   useEffect(() => {
     if (previewSetup) return;
@@ -1392,89 +2179,57 @@ export function App() {
   useEffect(() => {
     if (authRequired || passwordChangeRequired || entryState !== 'app') return;
     const events = new EventSource('/api/v1/events');
-    events.onmessage = refresh;
-    return () => events.close();
-  }, [authRequired, passwordChangeRequired, entryState, refresh]);
+    events.onmessage = (event) => {
+      const action = homeRealtimeEventAction(String(event.data));
+      if (action === 'IGNORE' || (action === 'PRESENCE' && active === 3)) return;
+      if (realtimeRefreshTimer.current) window.clearTimeout(realtimeRefreshTimer.current);
+      realtimeRefreshTimer.current = window.setTimeout(() => void refresh(), 500);
+    };
+    return () => {
+      events.close();
+      if (realtimeRefreshTimer.current) window.clearTimeout(realtimeRefreshTimer.current);
+      realtimeRefreshTimer.current = null;
+    };
+  }, [active, authRequired, passwordChangeRequired, entryState, refresh]);
 
-  const isLearning = overview?.reassurance === 'LEARNING';
-  const statusTitle =
-    overview?.reassurance === 'ATTENTION'
-      ? t.attention
-      : overview?.reassurance === 'INSUFFICIENT_DATA'
-        ? t.insufficient
-        : isLearning
-          ? t.learning
-          : t.normal;
-  const statusDetail =
-    overview?.reassurance === 'ATTENTION'
-      ? t.attentionDetail
-      : overview?.reassurance === 'INSUFFICIENT_DATA'
-        ? t.insufficientDetail
-        : isLearning
-          ? t.learningDetail
-          : t.normalDetail;
-  const currentAlert = [...alerts]
-    .filter((alert) => ['OPEN', 'ACKNOWLEDGED'].includes(alert.status))
-    .sort((left, right) => {
-      const priority = { URGENT: 0, ATTENTION: 1, INFO: 2 } as const;
-      return priority[left.severity] - priority[right.severity];
-    })[0];
-  const filteredActivity = activity.filter((item) => {
-    const room = item.sensor?.room?.name ?? item.room ?? 'Maison';
-    return (
-      (!activityDay || dateKey(new Date(item.occurredAt)) === activityDay) &&
-      (!activityRoom || room === activityRoom) &&
-      (!activityType || item.capability === activityType)
-    );
-  });
-  const filteredAlerts = alerts.filter(
-    (alert) => alertFilter === 'ALL' || alert.status === alertFilter,
-  );
-
-  const transitionAlert = async (
-    alertId: string,
-    status: 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED',
-  ) => {
-    const response = await fetch(`/api/v1/alerts/${alertId}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
-    if (response.ok) await refresh();
-  };
-  const loadMoreActivity = async () => {
-    if (!activityCursor) return;
-    setLoadingMoreActivity(true);
-    const response = await fetch(
-      `/api/v1/activity/feed?limit=30&cursor=${encodeURIComponent(activityCursor)}`,
-    );
-    if (response.ok) {
-      const feed = (await response.json()) as {
-        items: ActivityItem[];
-        nextCursor: string | null;
-      };
-      setActivity((current) => [
-        ...current,
-        ...feed.items.filter((item) => !current.some((existing) => existing.id === item.id)),
-      ]);
-      setActivityCursor(feed.nextCursor);
+  useEffect(() => {
+    if (
+      entryState === 'app' &&
+      household?.home.installationStatus === 'DRAFT' &&
+      !initialTourHandled &&
+      !tourMode &&
+      homeSection !== 'EDITOR'
+    ) {
+      setTourMode('initial');
     }
-    setLoadingMoreActivity(false);
-  };
-  const moveContact = async (contactId: string, direction: -1 | 1) => {
-    if (!household) return;
-    const contacts = [...household.trustedContacts];
-    const current = contacts.findIndex((contact) => contact.id === contactId);
-    const target = current + direction;
-    if (current < 0 || target < 0 || target >= contacts.length) return;
-    [contacts[current], contacts[target]] = [contacts[target]!, contacts[current]!];
-    const response = await fetch('/api/v1/household/contacts/priorities', {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ orderedIds: contacts.map((contact) => contact.id) }),
-    });
-    if (response.ok) await refresh();
-  };
+  }, [entryState, homeSection, household?.home.installationStatus, initialTourHandled, tourMode]);
+
+  const showTourTarget = useCallback((index: number) => {
+    setActive(index);
+    if (index === 3) {
+      setHomeEditorRoomId(null);
+      setHomeSection('OVERVIEW');
+    }
+    if (window.matchMedia('(max-width: 960px)').matches) setMenuOpen(true);
+  }, []);
+
+  const closeTour = useCallback(() => {
+    const initial = tourMode === 'initial';
+    setTourMode(null);
+    setMenuOpen(false);
+    if (initial) {
+      setInitialTourHandled(true);
+      setHomeEditorRoomId(null);
+      setHomeSection('EDITOR');
+      setActive(3);
+    } else {
+      setHomeSetupPreview(true);
+      setHomeEditorRoomId(null);
+      setHomeSection('EDITOR');
+      setActive(3);
+    }
+  }, [tourMode]);
+
   const replaceResidentPhoto = async (file: File) => {
     if (!resident) return;
     const form = new FormData();
@@ -1490,117 +2245,22 @@ export function App() {
     const response = await fetch(`/api/v1/residents/${resident.id}/photo`, { method: 'DELETE' });
     if (response.ok) await refresh();
   };
-  const addContactAfterSetup = async (event: FormEvent) => {
-    event.preventDefault();
-    setContactError('');
-    if (
-      !contactDraft.firstName ||
-      !contactDraft.lastName ||
-      (!contactDraft.phone && !contactDraft.email)
-    ) {
-      setContactError(
-        locale === 'fr'
-          ? 'Indiquez le nom et au moins un moyen de contact.'
-          : 'Enter a name and at least one contact method.',
-      );
-      return;
-    }
-    if (
-      contactDraft.role === 'administrateur' &&
-      (contactDraft.temporaryPassword.length < 12 ||
-        contactDraft.temporaryPassword !== contactDraft.confirmation ||
-        !contactDraft.username)
-    ) {
-      setContactError(
-        locale === 'fr'
-          ? 'L’administrateur a besoin d’un identifiant et d’un mot de passe temporaire confirmé de 12 caractères.'
-          : 'The administrator needs a username and a confirmed 12-character temporary password.',
-      );
-      return;
-    }
-    const response = await fetch('/api/v1/household/contacts', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        id: `contact-${Date.now()}`,
-        firstName: contactDraft.firstName,
-        lastName: contactDraft.lastName,
-        phone: contactDraft.phone,
-        email: contactDraft.email,
-        relation: contactDraft.relation,
-        role: contactDraft.role,
-        username: contactDraft.role === 'administrateur' ? contactDraft.username : undefined,
-        temporaryPassword:
-          contactDraft.role === 'administrateur' ? contactDraft.temporaryPassword : undefined,
-      }),
-    });
-    if (!response.ok) {
-      setContactError(
-        locale === 'fr'
-          ? 'Ce proche n’a pas pu être ajouté. Vérifiez notamment que l’identifiant est unique.'
-          : 'This contact could not be added. Check that the username is unique.',
-      );
-      return;
-    }
-    setContactDraft({
-      firstName: '',
-      lastName: '',
-      phone: '',
-      email: '',
-      relation: '',
-      role: 'proche',
-      username: '',
-      temporaryPassword: '',
-      confirmation: '',
-    });
-    await refresh();
-  };
-  const assignSensor = async (sensorId: string, roomId: string | null) => {
-    const response = await fetch(`/api/v1/household/sensors/${sensorId}/room`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ roomId }),
-    });
-    if (response.ok) await refresh();
-  };
-  const syncEquipment = async () => {
-    setEquipmentNotice(locale === 'fr' ? 'Synchronisation demandée…' : 'Sync requested…');
-    const response = await fetch('/api/v1/equipment/sync', { method: 'POST' });
-    setEquipmentNotice(
-      response.ok
-        ? locale === 'fr'
-          ? 'Home Assistant actualise maintenant l’inventaire.'
-          : 'Home Assistant is refreshing the inventory.'
-        : locale === 'fr'
-          ? 'La synchronisation n’a pas pu démarrer.'
-          : 'Sync could not be started.',
-    );
-    if (response.ok) window.setTimeout(() => void refresh(), 1_500);
-  };
-  const togglePairing = async () => {
-    const activePairing = equipmentStatus?.pairing.active;
-    const response = await fetch(
-      '/api/v1/equipment/pairing-sessions' + (activePairing ? '/current' : ''),
-      {
-        method: activePairing ? 'DELETE' : 'POST',
-        headers: { 'content-type': 'application/json' },
-        ...(activePairing ? {} : { body: JSON.stringify({ durationSeconds: 180 }) }),
-      },
-    );
-    if (response.ok) await refresh();
-  };
-  const mapEquipment = async (entityId: string, capability: string, transform: string) => {
-    const response = await fetch(
-      `/api/v1/equipment/entities/${encodeURIComponent(entityId)}/mapping`,
-      {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ capability, transform, enabled: true }),
-      },
-    );
-    if (response.ok) {
-      setEquipmentNotice(locale === 'fr' ? 'Correspondance enregistrée.' : 'Mapping saved.');
-      await refresh();
+  const openCamera = async (cameraId: string) => {
+    const requestId = ++cameraSessionRequest.current;
+    setCameraNotice('');
+    try {
+      const response = await fetch(`/api/v1/cameras/${cameraId}/live-session`, { method: 'POST' });
+      if (requestId !== cameraSessionRequest.current) return;
+      if (response.ok) {
+        setCameraSession((await response.json()) as CameraSession);
+        return;
+      }
+      const result = (await response.json().catch(() => null)) as { message?: string } | null;
+      setCameraNotice(result?.message ?? i18nT('app.liveViewIsUnavailable'));
+    } catch {
+      if (requestId === cameraSessionRequest.current) {
+        setCameraNotice(i18nT('app.liveViewIsUnavailable'));
+      }
     }
   };
   const runSimulation = async (scenario: string) => {
@@ -1610,25 +2270,24 @@ export function App() {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        runId:
-          typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `manual-${Date.now()}`,
+        runId: createId(),
       }),
     });
     if (response.ok) {
       const result = (await response.json()) as { accepted: number; duplicates: number };
       setSimulationNotice(
         result.accepted > 0
-          ? `${result.accepted} événement(s) ajouté(s) au journal d’activité.`
-          : 'Ce scénario avait déjà été appliqué.',
+          ? i18nT('app.eventSAddedToThe', { accepted: result.accepted })
+          : i18nT('app.thisScenarioHadAlreadyBeen'),
       );
       await refresh();
     } else {
-      setSimulationNotice('La situation n’a pas pu être simulée. Réessayez dans un instant.');
+      setSimulationNotice(i18nT('app.theSituationCouldNotBe'));
     }
     setRunningSimulation(null);
   };
   const saveAlertRules = async () => {
-    if (!alertRules) return;
+    if (!alertRules) return false;
     setSavingRules(true);
     setRuleNotice('');
     const response = await fetch('/api/v1/alerts/rules', {
@@ -1636,12 +2295,12 @@ export function App() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(alertRules),
     });
+    if (response.ok) setAlertRules((await response.json()) as AlertRuleSettings);
     setRuleNotice(
-      response.ok
-        ? 'Les repères ont été enregistrés localement.'
-        : 'Les repères n’ont pas pu être enregistrés.',
+      response.ok ? i18nT('app.yourLandmarksHaveBeenSaved') : i18nT('app.yourLandmarksCouldNotBe'),
     );
     setSavingRules(false);
+    return response.ok;
   };
   const createMedication = async (draft: MedicationDraft): Promise<boolean> => {
     setSavingMedication(true);
@@ -1664,18 +2323,10 @@ export function App() {
     });
     setSavingMedication(false);
     if (!response.ok) {
-      setMedicationNotice(
-        locale === 'fr'
-          ? 'Le traitement n’a pas pu être ajouté. Vérifiez vos droits ou réessayez.'
-          : 'The treatment could not be added. Check your access or try again.',
-      );
+      setMedicationNotice(i18nT('app.theTreatmentCouldNotBe'));
       return false;
     }
-    setMedicationNotice(
-      locale === 'fr'
-        ? 'Le traitement et son horaire ont été ajoutés localement.'
-        : 'The treatment and its schedule were added locally.',
-    );
+    setMedicationNotice(i18nT('app.theTreatmentAndItsSchedule'));
     await refresh();
     return true;
   };
@@ -1692,38 +2343,14 @@ export function App() {
     setMedicationNotice(
       response.ok
         ? status === 'TAKEN'
-          ? locale === 'fr'
-            ? 'Prise confirmée. Le suivi a été mis à jour.'
-            : 'Dose confirmed. The timeline is up to date.'
-          : locale === 'fr'
-            ? 'La prise a été indiquée comme ignorée.'
-            : 'The dose was marked as skipped.'
-        : locale === 'fr'
-          ? 'La prise n’a pas pu être mise à jour.'
-          : 'The dose could not be updated.',
+          ? i18nT('app.doseConfirmedTheTimelineIs')
+          : i18nT('app.theDoseWasMarkedAs')
+        : i18nT('app.theDoseCouldNotBe'),
     );
     if (response.ok) await refresh();
   };
-  const learningProgress = useMemo(
-    () => Math.min(100, ((overview?.learningDays ?? 0) / 14) * 100),
-    [overview?.learningDays],
-  );
-
   const resident = household?.residents.find((item) => item.primary) ?? household?.residents[0];
-  const configuredSensors = [
-    ...(household?.unassignedSensors.map((sensor) => ({
-      ...sensor,
-      roomId: null,
-    })) ?? []),
-    ...(household?.rooms.flatMap((room) =>
-      room.sensors.map((sensor) => ({ ...sensor, roomId: room.id, roomName: room.name })),
-    ) ?? []),
-  ];
-  const lowBatterySensors = configuredSensors.filter((sensor) => {
-    if (sensor.capability !== 'battery') return false;
-    const value = Number(sensor.lastValue?.value);
-    return Number.isFinite(value) && value <= (alertRules?.lowBattery.percent ?? 15);
-  }).length;
+  const canEditResident = currentAccess.capabilities.includes('configuration:manage');
   const managerName = overview?.currentUser?.displayName ?? '';
   const managerInitials = managerName
     .split(/\s+/)
@@ -1732,27 +2359,21 @@ export function App() {
     .map((part) => part[0]?.toUpperCase())
     .join('');
   const residentName = overview?.resident?.preferredName ?? overview?.home?.resident ?? '';
-  const homeDose = [...medicationDoses]
-    .filter((dose) =>
-      dose.status === 'MISSED'
-        ? true
-        : dose.status === 'PENDING' && new Date(dose.scheduledFor).getTime() >= Date.now(),
-    )
-    .sort((left, right) => {
-      if (left.status === 'MISSED' && right.status !== 'MISSED') return -1;
-      if (right.status === 'MISSED' && left.status !== 'MISSED') return 1;
-      return new Date(left.scheduledFor).getTime() - new Date(right.scheduledFor).getTime();
-    })[0];
-  const nextScheduleItem = schedule[0] ?? overview?.nextSchedule;
-
+  const nextPendingDose = medicationDoses
+    .filter((dose) => dose.status === 'PENDING' && new Date(dose.scheduledFor) >= new Date())
+    .sort(
+      (left, right) =>
+        new Date(left.scheduledFor).getTime() - new Date(right.scheduledFor).getTime(),
+    )[0];
+  const liaisonAttention = alerts.find(
+    (alert) =>
+      ['OPEN', 'ACKNOWLEDGED'].includes(alert.status) &&
+      ['ATTENTION', 'URGENT'].includes(alert.severity),
+  );
   if (entryState === 'loading') {
     return (
-      <main className="boot-screen">
-        <span className="boot-mark">
-          <Home />
-        </span>
-        <b>Élise</b>
-        <i />
+      <main className="data-loading-page">
+        <DataLoadingScreen locale={locale} message={i18nT('app.preparingYourSpace')} fullPage />
       </main>
     );
   }
@@ -1764,6 +2385,9 @@ export function App() {
         onCompleted={() => {
           setEntryState('app');
           setAuthRequired(false);
+          setHomeSection('OVERVIEW');
+          setInitialTourHandled(false);
+          setActive(0);
           void refresh();
         }}
       />
@@ -1801,429 +2425,208 @@ export function App() {
     return (
       <main className="boot-screen unavailable-screen">
         <span className="boot-mark">
-          <Home />
+          <img src="/logo.png" alt="" />
         </span>
-        <h1>Élise est momentanément inaccessible</h1>
-        <p>Vérifiez que le service local est démarré, puis réessayez.</p>
-        <Button onClick={() => void refresh()}>Réessayer</Button>
+        <h1>{i18nT('app.eliseIsTemporarilyUnreachable')}</h1>
+        <p>{i18nT('app.checkThatTheLocalService')}</p>
+        <p className="unavailable-retry" role="status">
+          <LoaderCircle className="spin" aria-hidden="true" />
+          {i18nT('app.retryingAutomatically')}
+        </p>
+        <Button onClick={() => void refresh()}>{i18nT('app.tryAgain')}</Button>
       </main>
     );
   }
 
   if (!overview) {
     return (
-      <main className="boot-screen">
-        <span className="boot-mark">
-          <Home />
-        </span>
-        <b>Élise</b>
-        <i />
+      <main className="data-loading-page">
+        <DataLoadingScreen locale={locale} message={i18nT('app.loadingYourData')} fullPage />
       </main>
     );
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${sidebarAutoHideActive ? 'app-shell--sidebar-auto-hide' : ''}`}>
       <aside className={`sidebar ${menuOpen ? 'sidebar--open' : ''}`}>
         <div className="brand">
-          <div className="brand-mark">
-            <Home size={23} strokeWidth={1.8} />
-          </div>
-          <span>Élise</span>
+          <img src="/logo-transparent.png" width="46" height="46" alt="" />
+          <span>
+            élise<span className="brand-os">OS</span>
+          </span>
         </div>
         <button
           className="mobile-close"
           onClick={() => setMenuOpen(false)}
-          aria-label="Fermer le menu"
+          aria-label={i18nT('app.closeTheMenu')}
         >
           <X />
         </button>
-        <nav aria-label="Navigation principale">
-          {t.nav.map((label, index) => {
-            const Icon = navIcons[index]!;
-            return (
-              <button
-                key={label}
-                className={active === index ? 'nav-item nav-item--active' : 'nav-item'}
-                onClick={() => {
-                  setActive(index);
-                  setMenuOpen(false);
-                }}
-              >
-                <Icon size={18} />
-                <span>{label}</span>
-                {index === 2 && <b>{overview.openAlerts ?? 0}</b>}
-              </button>
-            );
-          })}
-        </nav>
+        <div className="sidebar-navigation">
+          <SidebarNavigation
+            labels={t.nav}
+            active={active}
+            openAlerts={overview.openAlerts ?? 0}
+            updateAvailable={updateStatus?.updateAvailable ?? false}
+            onSelect={(index) => {
+              if (index === 3) {
+                setHomeEditorRoomId(null);
+                setHomeSection('OVERVIEW');
+              }
+              setActive(index);
+              if (!tourMode) setMenuOpen(false);
+            }}
+          />
+        </div>
         <div className="caregiver">
           <div className="avatar">{managerInitials || '—'}</div>
-          <div>
+          <div className="caregiver-identity">
             <strong>{managerName}</strong>
-            <span>{locale === 'fr' ? 'Aidant principal' : 'Primary caregiver'}</span>
+            <span>{i18nT('app.primaryCaregiver')}</span>
           </div>
+          <button
+            type="button"
+            className={`caregiver-logout${logoutFailed ? ' caregiver-logout--failed' : ''}`}
+            onClick={() => void logout()}
+            disabled={loggingOut}
+            aria-label={logoutFailed ? i18nT('app.retrySigningOut') : i18nT('app.signOut')}
+            title={i18nT('app.signOut')}
+          >
+            <LogOut size={16} />
+            <span className="sr-only">
+              {logoutFailed
+                ? i18nT('app.tryAgain')
+                : loggingOut
+                  ? i18nT('app.signingOut')
+                  : i18nT('app.signOut')}
+            </span>
+          </button>
         </div>
       </aside>
 
       <main>
-        <header className="topbar">
+        <header className="topbar topbar--compact">
           <button
             className="mobile-menu"
             onClick={() => setMenuOpen(true)}
-            aria-label="Ouvrir le menu"
+            aria-label={i18nT('app.openTheMenu')}
           >
             <Menu />
           </button>
-          <div>
-            <span className="eyebrow">{overview.home?.name ?? 'Élise OS'}</span>
-            <h1>
-              {locale === 'fr'
-                ? `Bonjour ${overview.currentUser?.firstName ?? ''},`
-                : `Hello ${overview.currentUser?.firstName ?? ''},`}
-              <br />
-              <em>
-                {locale === 'fr'
-                  ? `Élise veille sur ${residentName}.`
-                  : `Élise is watching over ${residentName}.`}
-              </em>
-            </h1>
-          </div>
-          <div className="top-actions">
-            <StatusPill>{t.local}</StatusPill>
-          </div>
+          {active === 0 && (
+            <div className="top-actions">
+              <StatusPill>{t.local}</StatusPill>
+            </div>
+          )}
         </header>
 
         {dataError && (
           <div className="connection-banner" role="status">
             <Radar />
             <span>
-              <strong>
-                {locale === 'fr' ? 'Connexion locale interrompue' : 'Local connection interrupted'}
-              </strong>
-              {locale === 'fr'
-                ? ' Les dernières informations reçues restent affichées.'
-                : ' The latest received information remains visible.'}
+              <strong>{i18nT('app.localConnectionInterrupted')}</strong>
+              {i18nT('app.theLatestReceivedInformationRemains')}
             </span>
             <button type="button" onClick={() => void refresh()}>
-              {locale === 'fr' ? 'Réessayer' : 'Retry'}
+              {i18nT('app.retry')}
             </button>
           </div>
         )}
 
         {active === 1 ? (
-          <section className="section-view activity-insights-page">
-            <div className="page-heading activity-page-heading">
-              <div>
-                <span className="eyebrow">
-                  {locale === 'fr' ? 'Lecture du quotidien' : 'Daily overview'}
-                </span>
-                <h2>{t.nav[1]}</h2>
-                <p>
-                  {locale === 'fr'
-                    ? 'Une synthèse factuelle des événements reçus par les capteurs.'
-                    : 'A factual summary of events received from the sensors.'}
-                </p>
-              </div>
-              <div className="period-switch" role="group" aria-label="Période d’analyse">
-                {(['24h', '7d'] as const).map((period) => (
-                  <button
-                    type="button"
-                    key={period}
-                    aria-pressed={analyticsPeriod === period}
-                    onClick={() => setAnalyticsPeriod(period)}
-                  >
-                    {period === '24h' ? '24 h' : '7 jours'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="analytics-grid">
-              <Card className="activity-chart-card">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">
-                      {locale === 'fr' ? 'Rythme observé' : 'Observed rhythm'}
-                    </span>
-                    <h2>
-                      {analytics?.total ?? 0}{' '}
-                      {locale === 'fr' ? 'événements utiles' : 'useful events'}
-                    </h2>
-                  </div>
-                  <StatusPill>{analyticsPeriod === '24h' ? '24 h' : '7 j'}</StatusPill>
-                </div>
-                <div className="activity-bars" aria-label="Répartition des événements">
-                  {analytics?.buckets.map((bucket) => {
-                    const maximum = Math.max(1, ...analytics.buckets.map((item) => item.count));
-                    return (
-                      <div key={bucket.start}>
-                        <span
-                          style={{ height: `${Math.max(4, (bucket.count / maximum) * 100)}%` }}
-                          title={`${bucket.label} · ${bucket.count}`}
-                        />
-                        <small>{bucket.label}</small>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-              <Card className="deterministic-summary-card">
-                <span className="eyebrow">{locale === 'fr' ? 'En bref' : 'At a glance'}</span>
-                <h2>{locale === 'fr' ? 'Ce qu’il faut retenir' : 'What matters'}</h2>
-                <p>
-                  {analytics?.total
-                    ? locale === 'fr'
-                      ? `${analytics.total} événements utiles ont été reçus. ${analytics.byRoom[0]?.name ?? 'Le domicile'} concentre le plus d’activité. ${overview.sensors?.offline ? `${overview.sensors.offline} capteur(s) ne répond(ent) plus.` : 'La couverture capteurs ne signale pas de coupure.'}`
-                      : `${analytics.total} useful events were received. ${analytics.byRoom[0]?.name ?? 'The home'} has the most activity. ${overview.sensors?.offline ? `${overview.sensors.offline} sensor(s) are not responding.` : 'Sensor coverage shows no outage.'}`
-                    : locale === 'fr'
-                      ? 'Aucun événement utile sur cette période. Vérifiez la couverture avant toute conclusion.'
-                      : 'No useful event in this period. Check sensor coverage before drawing a conclusion.'}
-                </p>
-                <div className="analytics-breakdown">
-                  {analytics?.byRoom.slice(0, 3).map((room) => (
-                    <span key={room.id ?? room.name}>
-                      <strong>{room.count}</strong> {room.name}
-                    </span>
-                  ))}
-                  {analytics?.byCapability.slice(0, 3).map((item) => (
-                    <span key={item.capability}>
-                      <strong>{item.count}</strong> {capabilityLabel(item.capability, locale)}
-                    </span>
-                  ))}
-                </div>
-                <small>
-                  {locale === 'fr'
-                    ? 'Résumé produit par des règles locales déterministes.'
-                    : 'Summary produced by deterministic local rules.'}
-                </small>
-              </Card>
-            </div>
-
-            <Card className="timeline-card activity-page">
-              <div className="section-heading timeline-heading">
-                <div>
-                  <span className="eyebrow">Timeline</span>
-                  <h2>{locale === 'fr' ? 'Événements du domicile' : 'Home events'}</h2>
-                </div>
-                <div className="activity-filters">
-                  <label>
-                    <span>{locale === 'fr' ? 'Jour' : 'Day'}</span>
-                    <input
-                      type="date"
-                      value={activityDay}
-                      onChange={(event) => setActivityDay(event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    <span>{locale === 'fr' ? 'Pièce' : 'Room'}</span>
-                    <select
-                      value={activityRoom}
-                      onChange={(event) => setActivityRoom(event.target.value)}
-                    >
-                      <option value="">{locale === 'fr' ? 'Toutes' : 'All'}</option>
-                      {household?.rooms.map((room) => (
-                        <option key={room.id} value={room.name}>
-                          {room.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span>{locale === 'fr' ? 'Type' : 'Type'}</span>
-                    <select
-                      value={activityType}
-                      onChange={(event) => setActivityType(event.target.value)}
-                    >
-                      <option value="">{locale === 'fr' ? 'Tous' : 'All'}</option>
-                      {[
-                        'motion',
-                        'occupancy',
-                        'contact',
-                        'temperature',
-                        'humidity',
-                        'battery',
-                        'power',
-                        'energy',
-                        'button',
-                      ].map((capability) => (
-                        <option key={capability} value={capability}>
-                          {capabilityLabel(capability, locale)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </div>
-              <div className="timeline">
-                {filteredActivity.map((item) => (
-                  <div className="timeline-item" key={item.id}>
-                    <time>{time(item.occurredAt)}</time>
-                    <i></i>
-                    <div>
-                      <strong>{item.sensor?.room?.name ?? item.room ?? 'Maison'}</strong>
-                      <span>{activityDescription(item, locale)}</span>
-                      <small>{relativeTime(item.occurredAt, locale)}</small>
-                    </div>
-                  </div>
-                ))}
-                {filteredActivity.length === 0 && (
-                  <p className="empty-state">
-                    {locale === 'fr'
-                      ? 'Aucun événement ne correspond à ces filtres.'
-                      : 'No event matches these filters.'}
-                  </p>
-                )}
-              </div>
-              {activityCursor && (
-                <Button
-                  className="button-secondary load-more-button"
-                  disabled={loadingMoreActivity}
-                  onClick={() => void loadMoreActivity()}
-                >
-                  {loadingMoreActivity
-                    ? locale === 'fr'
-                      ? 'Chargement…'
-                      : 'Loading…'
-                    : locale === 'fr'
-                      ? 'Afficher les événements précédents'
-                      : 'Show earlier events'}
-                </Button>
-              )}
-            </Card>
-          </section>
+          <ActivityPage
+            locale={locale}
+            homeName={household?.home.name ?? overview.home?.name ?? 'Élise'}
+            timeZone={household?.home.timezone ?? 'Europe/Paris'}
+            residentName={residentName}
+            reassurance={overview.reassurance ?? 'INSUFFICIENT_DATA'}
+            openAlerts={overview.openAlerts ?? 0}
+            canManage={currentAccess.role === 'OWNER' || currentAccess.role === 'ADMINISTRATOR'}
+            onOpenAlerts={() => setActive(2)}
+            onOpenRoom={(roomId) => {
+              setHomeEditorRoomId(roomId);
+              setHomeEditorStairId(null);
+              setHomeSection('EDITOR');
+              setActive(3);
+            }}
+            onOpenStair={(stairId) => {
+              setHomeEditorRoomId(null);
+              setHomeEditorStairId(stairId);
+              setHomeSection('EDITOR');
+              setActive(3);
+            }}
+          />
         ) : active === 2 ? (
-          <section className="section-view">
-            <div className="page-heading alert-page-heading">
-              <div>
-                <span className="eyebrow">{overview.home?.name}</span>
-                <h2>{t.nav[2]}</h2>
-                <p>
-                  {locale === 'fr'
-                    ? 'Chaque situation conserve sa chronologie et l’action décidée.'
-                    : 'Each situation keeps its timeline and the action taken.'}
-                </p>
-              </div>
-              <div className="alert-filter" role="group" aria-label="Filtrer les alertes">
-                {(['ALL', 'OPEN', 'ACKNOWLEDGED', 'RESOLVED'] as const).map((status) => (
-                  <button
-                    type="button"
-                    key={status}
-                    aria-pressed={alertFilter === status}
-                    onClick={() => setAlertFilter(status)}
-                  >
-                    {status === 'ALL'
-                      ? locale === 'fr'
-                        ? 'Toutes'
-                        : 'All'
-                      : alertStatusLabel(status, locale)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="alert-list">
-              {filteredAlerts.length === 0 ? (
-                <Card className="calm-card">
-                  <CircleCheck />
-                  <div>
-                    <h2>
-                      {alertFilter === 'ALL'
-                        ? t.normal
-                        : locale === 'fr'
-                          ? 'Aucun résultat'
-                          : 'No result'}
-                    </h2>
-                    <p>
-                      {alertFilter === 'ALL'
-                        ? t.noAlert
-                        : locale === 'fr'
-                          ? 'Aucune alerte ne correspond à ce statut.'
-                          : 'No alert matches this status.'}
-                    </p>
-                  </div>
-                </Card>
-              ) : (
-                filteredAlerts.map((alert) => (
-                  <Card className="alert-list-card" key={alert.id}>
-                    <div className="alert-card-content">
-                      <div className="alert-pill-row">
-                        <StatusPill tone={alert.severity === 'URGENT' ? 'urgent' : 'attention'}>
-                          {alertSeverityLabel(alert.severity, locale)}
-                        </StatusPill>
-                        <StatusPill>{alertStatusLabel(alert.status, locale)}</StatusPill>
-                      </div>
-                      <h2>{alert.title}</h2>
-                      <p>{alert.explanation}</p>
-                      <small>{relativeTime(alert.openedAt, locale)}</small>
-                      {alert.transitions && alert.transitions.length > 0 && (
-                        <details className="alert-history">
-                          <summary>
-                            {locale === 'fr' ? 'Voir la chronologie' : 'View timeline'}
-                          </summary>
-                          <ol>
-                            <li>
-                              <time>{time(alert.openedAt)}</time>
-                              <span>{locale === 'fr' ? 'Alerte ouverte' : 'Alert opened'}</span>
-                            </li>
-                            {alert.transitions.map((transition) => (
-                              <li key={transition.id}>
-                                <time>{time(transition.createdAt)}</time>
-                                <span>
-                                  {alertStatusLabel(transition.to as AlertItem['status'], locale)}
-                                  {transition.note ? ` · ${transition.note}` : ''}
-                                </span>
-                              </li>
-                            ))}
-                          </ol>
-                        </details>
-                      )}
-                    </div>
-                    {(alert.status === 'OPEN' || alert.status === 'ACKNOWLEDGED') && (
-                      <div className="alert-actions">
-                        {alert.status === 'OPEN' && (
-                          <Button onClick={() => void transitionAlert(alert.id, 'ACKNOWLEDGED')}>
-                            {locale === 'fr' ? 'Prendre en charge' : 'Acknowledge'}
-                          </Button>
-                        )}
-                        <Button
-                          className="button-secondary"
-                          onClick={() => void transitionAlert(alert.id, 'RESOLVED')}
-                        >
-                          {locale === 'fr' ? 'Résoudre' : 'Resolve'}
-                        </Button>
-                      </div>
-                    )}
-                  </Card>
-                ))
-              )}
-            </div>
-          </section>
+          <AlertsPage
+            locale={locale}
+            canManage={currentAccess.capabilities.includes('alerts:manage')}
+            residentName={residentName}
+            timezone={household?.home.timezone ?? 'Europe/Paris'}
+            onSettings={() => {
+              setSettingsTab('rules');
+              setActive(8);
+            }}
+            onOpenHomeCategory={(category) => {
+              setHomeSection('OVERVIEW');
+              setHomeSensorCategory(category);
+              setActive(3);
+            }}
+            onCall={async () => {
+              await startResidentScreenCall();
+              setScreenSection('call');
+              setActive(10);
+            }}
+            onChanged={refresh}
+          />
         ) : active === 3 ? (
-          <section className="section-view">
-            <div className="page-heading">
-              <span className="eyebrow">{overview.home?.name}</span>
-              <h2>{t.nav[3]}</h2>
-            </div>
-            <Card className="rooms-card rooms-page">
-              <div className="room-grid">
-                {overview.rooms?.map((room) => {
-                  const Icon = roomIcons[room.kind] ?? Home;
-                  return (
-                    <div key={room.id} className="room">
-                      <Icon />
-                      <span>
-                        <strong>{room.name}</strong>
-                        <small>
-                          {room.sensors} {locale === 'fr' ? 'capteurs' : 'sensors'}
-                        </small>
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          </section>
-        ) : active === 4 ? (
+          homeSection === 'OVERVIEW' ? (
+            <HomeOverview
+              locale={locale}
+              home={household?.home}
+              cameras={cameras}
+              initialSensorCategory={homeSensorCategory}
+              onSensorCategoryOpened={clearHomeSensorCategory}
+              canManage={currentAccess.role === 'OWNER' || currentAccess.role === 'ADMINISTRATOR'}
+              onManage={(roomId) => {
+                setHomeEditorRoomId(roomId ?? null);
+                setHomeEditorStairId(null);
+                setHomeSection('EDITOR');
+              }}
+              onManageStair={(stairId) => {
+                setHomeEditorRoomId(null);
+                setHomeEditorStairId(stairId);
+                setHomeSection('EDITOR');
+              }}
+            />
+          ) : (
+            <HomePlanEditor
+              key={homeSetupPreview ? 'setup-preview' : 'home-plan'}
+              locale={locale}
+              home={household?.home}
+              sensors={[
+                ...(household?.unassignedSensors ?? []),
+                ...(household?.rooms.flatMap((room) => room.sensors) ?? []),
+              ]}
+              cameras={cameras}
+              initialRoomId={homeSection === 'EDITOR' ? homeEditorRoomId : null}
+              initialStairId={homeSection === 'EDITOR' ? homeEditorStairId : null}
+              setupPreview={homeSetupPreview}
+              onSetupPreviewClose={() => {
+                setHomeSetupPreview(false);
+                setHomeEditorRoomId(null);
+                setHomeEditorStairId(null);
+                setHomeSection('OVERVIEW');
+                setActive(tourReturnActive.current);
+              }}
+              onBack={() => {
+                setHomeEditorRoomId(null);
+                setHomeEditorStairId(null);
+                setHomeSection('OVERVIEW');
+              }}
+              onSaved={() => void refresh()}
+            />
+          )
+        ) : active === 5 ? (
           <MedicationPanel
             locale={locale}
             medications={medications}
@@ -2234,151 +2637,89 @@ export function App() {
             onConfirm={(doseId) => void confirmMedicationDose(doseId, 'TAKEN')}
             onSkip={(doseId) => void confirmMedicationDose(doseId, 'SKIPPED')}
           />
-        ) : active === 5 ? (
-          <section className="section-view">
-            <div className="page-heading">
-              <span className="eyebrow">{overview.home?.name}</span>
-              <h2>{t.nav[5]}</h2>
-            </div>
-            <Card className="journal-card journal-page">
-              {journal.length === 0 ? (
-                <p>{locale === 'fr' ? 'Le journal est encore vide.' : 'The journal is empty.'}</p>
-              ) : (
-                journal.map((entry) => (
-                  <article className="journal-entry" key={entry.id}>
-                    <time>{new Date(entry.occurredAt).toLocaleDateString(locale)}</time>
-                    <h2>{entry.title}</h2>
-                    {entry.body && <p>{entry.body}</p>}
-                  </article>
-                ))
-              )}
-            </Card>
-          </section>
+        ) : active === 12 ? (
+          <CalendarPage locale={locale} onBack={() => setActive(11)} />
+        ) : active === 11 ? (
+          <LiaisonPage
+            locale={locale}
+            pendingMedication={
+              nextPendingDose
+                ? {
+                    name: nextPendingDose.schedule.medication.name,
+                    dosage: nextPendingDose.schedule.medication.dosage,
+                    scheduledFor: nextPendingDose.scheduledFor,
+                  }
+                : null
+            }
+            attention={liaisonAttention ?? null}
+            onMedication={() => setActive(5)}
+            onAttention={() => setActive(2)}
+            onJournal={() => setActive(6)}
+            onCalendar={() => setActive(12)}
+          />
         ) : active === 6 ? (
-          <section className="section-view">
-            <div className="page-heading">
-              <span className="eyebrow">{residentName}</span>
-              <h2>{t.nav[6]}</h2>
-              <p>
-                {locale === 'fr'
-                  ? 'Les personnes enregistrées localement, classées selon leur priorité de contact.'
-                  : 'People stored locally, ordered by contact priority.'}
-              </p>
-            </div>
-            <div className="contact-grid">
-              {household?.trustedContacts.map((contact, index) => (
-                <Card className="contact-card" key={contact.id}>
-                  <div className="contact-priority">{contact.priority + 1}</div>
-                  <div>
-                    <StatusPill>
-                      {contact.role === 'ADMINISTRATOR'
-                        ? locale === 'fr'
-                          ? 'Administrateur'
-                          : 'Administrator'
-                        : contact.role === 'EMERGENCY'
-                          ? locale === 'fr'
-                            ? 'Urgence'
-                            : 'Emergency'
-                          : locale === 'fr'
-                            ? 'Proche'
-                            : 'Relative'}
-                    </StatusPill>
-                    <h2>
-                      {contact.firstName} {contact.lastName}
-                    </h2>
-                    <p>
-                      {contact.relation ||
-                        (locale === 'fr' ? 'Lien non précisé' : 'Relationship not specified')}
-                    </p>
-                    {contact.phone && <a href={`tel:${contact.phone}`}>{contact.phone}</a>}
-                    {contact.email && <a href={`mailto:${contact.email}`}>{contact.email}</a>}
-                    {contact.hasAccount && (
-                      <small>
-                        {locale === 'fr' ? 'Compte associé' : 'Linked account'} :{' '}
-                        {contact.username ?? '—'}
-                      </small>
-                    )}
-                    <div className="contact-order-actions">
-                      <button
-                        type="button"
-                        disabled={index === 0}
-                        aria-label="Monter dans la priorité"
-                        onClick={() => void moveContact(contact.id, -1)}
-                      >
-                        <ArrowUp />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={index === household.trustedContacts.length - 1}
-                        aria-label="Descendre dans la priorité"
-                        onClick={() => void moveContact(contact.id, 1)}
-                      >
-                        <ArrowDown />
-                      </button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-              {household?.trustedContacts.length === 0 && (
-                <Card>
-                  <p>
-                    {locale === 'fr'
-                      ? 'Aucun proche supplémentaire n’a été ajouté.'
-                      : 'No additional contact has been added.'}
-                  </p>
-                </Card>
-              )}
-            </div>
-          </section>
-        ) : active === 8 ? (
+          <JournalPage
+            locale={locale}
+            items={journal}
+            timezone={household?.home.timezone ?? 'Europe/Paris'}
+            residentName={residentName}
+            onBack={() => setActive(11)}
+          />
+        ) : active === 7 ? (
+          <PeoplePanel locale={locale} currentRole={currentAccess.role} />
+        ) : active === 9 ? (
+          <CamerasPanel
+            locale={locale}
+            cameras={cameras}
+            recordings={cameraRecordings}
+            session={cameraSession}
+            notice={cameraNotice}
+            onOpen={(cameraId) => void openCamera(cameraId)}
+            onClose={() => {
+              cameraSessionRequest.current += 1;
+              setCameraSession(null);
+            }}
+          />
+        ) : active === 10 ? (
+          <ScreenPanel initialSection={screenSection} locale={locale} />
+        ) : active === 11 ? (
           <section className="section-view resident-page">
-            <div className="page-heading">
-              <span className="eyebrow">
-                {locale === 'fr' ? 'Profil d’accompagnement' : 'Support profile'}
-              </span>
-              <h2>{resident?.displayName ?? residentName}</h2>
-              <p>
-                {locale === 'fr'
-                  ? 'Toutes les informations utiles enregistrées pendant l’installation.'
-                  : 'All useful information recorded during setup.'}
-              </p>
-            </div>
-            {resident && (
-              <div className="resident-detail-grid">
-                <Card className="resident-identity-card">
-                  {resident.photoUrl ? (
-                    <img src={resident.photoUrl} alt="" />
-                  ) : (
-                    <div className="resident-photo-fallback">
-                      {(resident.preferredName ?? resident.firstName ?? '?')[0]}
-                    </div>
-                  )}
-                  <div>
-                    <span className="eyebrow">{locale === 'fr' ? 'Identité' : 'Identity'}</span>
-                    <h2>
-                      {resident.firstName} {resident.lastName}
-                    </h2>
-                    <p>
-                      {locale === 'fr' ? 'Prénom utilisé' : 'Preferred name'} :{' '}
-                      {resident.preferredName || '—'}
-                    </p>
-                    <p>
-                      {locale === 'fr' ? 'Appellation' : 'Form of address'} :{' '}
-                      {resident.formOfAddress || '—'}
-                    </p>
-                    <p>
-                      {locale === 'fr' ? 'Date de naissance' : 'Birth date'} :{' '}
-                      {resident.birthDate
-                        ? new Date(resident.birthDate).toLocaleDateString(locale)
-                        : '—'}
-                    </p>
-                    <p>
-                      {locale === 'fr' ? 'Langue parlée' : 'Spoken language'} :{' '}
-                      {resident.spokenLanguage}
-                    </p>
-                    <div className="resident-photo-actions">
-                      <label className="button button-secondary">
-                        {locale === 'fr' ? 'Remplacer la photo' : 'Replace photo'}
+            <header className="page-hero resident-hero">
+              <div className="page-hero__copy">
+                <span className="page-hero__eyebrow">{i18nT('app.supportProfile')}</span>
+                <h2 className="page-hero__title">
+                  {i18nT('app.residentProfileTitle', {
+                    name: resident?.preferredName ?? resident?.displayName ?? residentName,
+                  })}
+                </h2>
+                <p className="page-hero__text">
+                  {i18nT('app.essentialContextForAttentivePersonal')}
+                </p>
+              </div>
+              <Button className="button-secondary resident-back" onClick={() => setActive(0)}>
+                <ChevronRight aria-hidden="true" />
+                {i18nT('app.backToHome')}
+              </Button>
+            </header>
+
+            {resident ? (
+              <div className="resident-profile-layout">
+                <Card className="resident-profile-card">
+                  <div className="resident-profile-photo">
+                    {resident.photoUrl ? (
+                      <img
+                        src={resident.photoUrl}
+                        alt={i18nT('app.residentPortrait', { name: resident.displayName })}
+                      />
+                    ) : (
+                      <div className="resident-photo-fallback">
+                        {(resident.preferredName ?? resident.firstName ?? '?')[0]}
+                      </div>
+                    )}
+                    {canEditResident && (
+                      <label className="resident-photo-upload" title={i18nT('app.changePhoto')}>
+                        <Camera aria-hidden="true" />
+                        <span className="sr-only">{i18nT('app.changePhoto')}</span>
                         <input
                           type="file"
                           accept="image/jpeg,image/png,image/webp"
@@ -2388,485 +2729,402 @@ export function App() {
                           }}
                         />
                       </label>
-                      {resident.photoUrl && (
-                        <Button
-                          className="button-secondary"
-                          onClick={() => void removeResidentPhoto()}
-                        >
-                          {locale === 'fr' ? 'Supprimer la photo' : 'Remove photo'}
-                        </Button>
-                      )}
+                    )}
+                  </div>
+
+                  <div className="resident-profile-intro">
+                    <span className="resident-primary-pill">
+                      <i />
+                      {i18nT('app.resident')}
+                    </span>
+                    <h3>
+                      {resident.firstName} {resident.lastName}
+                    </h3>
+                    <p>
+                      {resident.formOfAddress
+                        ? `${resident.formOfAddress} · ${resident.preferredName || resident.firstName}`
+                        : i18nT('app.preferredName', {
+                            value: resident.preferredName || resident.firstName || '—',
+                          })}
+                    </p>
+                  </div>
+
+                  <div className="resident-facts">
+                    <div>
+                      <span className="resident-fact-icon resident-fact-icon--date">
+                        <CalendarDays aria-hidden="true" />
+                      </span>
+                      <p>
+                        <small>{i18nT('app.born')}</small>
+                        <strong>
+                          {resident.birthDate
+                            ? new Date(resident.birthDate).toLocaleDateString(locale, {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric',
+                              })
+                            : '—'}
+                        </strong>
+                        {residentAge(resident.birthDate) && (
+                          <span>{residentAge(resident.birthDate)}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="resident-fact-icon resident-fact-icon--language">
+                        <BookOpen aria-hidden="true" />
+                      </span>
+                      <p>
+                        <small>{i18nT('app.spokenLanguage')}</small>
+                        <strong>{resident.spokenLanguage || '—'}</strong>
+                      </p>
                     </div>
                   </div>
-                </Card>
-                <Card>
-                  <span className="eyebrow">
-                    {locale === 'fr' ? 'Situation de vie' : 'Living context'}
-                  </span>
-                  <h2>{locale === 'fr' ? 'Repères du quotidien' : 'Daily context'}</h2>
-                  {resident.context ? (
-                    <ul className="detail-list">
-                      <li>
-                        {resident.context.livesAlone
-                          ? locale === 'fr'
-                            ? 'Vit seul(e)'
-                            : 'Lives alone'
-                          : locale === 'fr'
-                            ? 'Ne vit pas seul(e)'
-                            : 'Does not live alone'}
-                      </li>
-                      {resident.context.livesWithPartner && (
-                        <li>
-                          {locale === 'fr' ? 'Vit avec son conjoint' : 'Lives with a partner'}
-                        </li>
-                      )}
-                      {resident.context.livesWithRelative && (
-                        <li>{locale === 'fr' ? 'Vit avec un proche' : 'Lives with a relative'}</li>
-                      )}
-                      {resident.context.receivesHomeHelp && (
-                        <li>
-                          {locale === 'fr' ? 'Reçoit une aide à domicile' : 'Receives home help'}
-                        </li>
-                      )}
-                      {resident.context.receivesVisits && (
-                        <li>
-                          {locale === 'fr'
-                            ? 'Reçoit des visites régulières'
-                            : 'Receives regular visits'}
-                        </li>
-                      )}
-                      {resident.context.hasPet && (
-                        <li>{locale === 'fr' ? 'Possède un animal' : 'Has a pet'}</li>
-                      )}
-                      <li>
-                        {locale === 'fr' ? 'Mobilité' : 'Mobility'} : {resident.context.mobility}
-                      </li>
-                      {resident.context.visualDifficulty && (
-                        <li>{locale === 'fr' ? 'Difficulté visuelle' : 'Visual difficulty'}</li>
-                      )}
-                      {resident.context.hearingDifficulty && (
-                        <li>{locale === 'fr' ? 'Difficulté auditive' : 'Hearing difficulty'}</li>
-                      )}
-                    </ul>
-                  ) : (
-                    <p>—</p>
+
+                  {canEditResident && resident.photoUrl && (
+                    <button
+                      className="resident-remove-photo"
+                      type="button"
+                      onClick={() => void removeResidentPhoto()}
+                    >
+                      <Trash2 aria-hidden="true" />
+                      {i18nT('app.removePhoto')}
+                    </button>
                   )}
                 </Card>
-                <Card>
-                  <span className="eyebrow">{locale === 'fr' ? 'Accompagnement' : 'Support'}</span>
-                  <h2>{locale === 'fr' ? 'Informations importantes' : 'Important information'}</h2>
-                  {resident.supportNeeds.length ? (
-                    <ul className="detail-list">
-                      {resident.supportNeeds.map((need) => (
-                        <li key={need.id}>
-                          {need.kind}
-                          {need.note ? ` — ${need.note}` : ''}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>
-                      {locale === 'fr'
-                        ? 'Aucun besoin particulier indiqué.'
-                        : 'No particular support need recorded.'}
-                    </p>
-                  )}
-                </Card>
-                <Card>
-                  <span className="eyebrow">{locale === 'fr' ? 'Habitudes' : 'Habits'}</span>
-                  <h2>{locale === 'fr' ? 'Repères enregistrés' : 'Recorded routines'}</h2>
-                  {resident.habits.length ? (
-                    <ul className="detail-list">
-                      {resident.habits.map((habit) => (
-                        <li key={habit.id}>
-                          {habit.kind} —{' '}
-                          {habit.status === 'UNKNOWN'
-                            ? locale === 'fr'
-                              ? 'À apprendre'
-                              : 'To learn'
-                            : `${formatMinute(habit.startMinute)} – ${formatMinute(habit.endMinute)}`}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>
-                      {locale === 'fr'
-                        ? 'Élise apprendra progressivement les habitudes.'
-                        : 'Élise will learn routines progressively.'}
-                    </p>
-                  )}
-                </Card>
-              </div>
-            )}
-            <Button className="button-secondary" onClick={() => setActive(0)}>
-              {t.nav[0]}
-            </Button>
-          </section>
-        ) : active === 7 ? (
-          <section className="section-view settings-page">
-            <div className="page-heading">
-              <span className="eyebrow">Élise OS</span>
-              <h2>{t.nav[7]}</h2>
-            </div>
-            <Card className="settings-card">
-              <div className="settings-card-heading">
-                <span className="settings-icon">
-                  <Settings />
-                </span>
-                <div>
-                  <h2>{locale === 'fr' ? 'Langue de l’interface' : 'Interface language'}</h2>
-                  <p>
-                    {locale === 'fr'
-                      ? 'Choisissez la langue utilisée par Élise sur cet appareil.'
-                      : 'Choose the language Élise uses on this device.'}
-                  </p>
-                </div>
-              </div>
-              <div className="settings-language-options" role="group" aria-label="Language">
-                <button
-                  className={locale === 'fr' ? 'is-selected' : ''}
-                  onClick={() => changeLocale('fr')}
-                  aria-pressed={locale === 'fr'}
-                >
-                  <span>FR</span>
-                  <strong>Français</strong>
-                  {locale === 'fr' && <CircleCheck />}
-                </button>
-                <button
-                  className={locale === 'en' ? 'is-selected' : ''}
-                  onClick={() => changeLocale('en')}
-                  aria-pressed={locale === 'en'}
-                >
-                  <span>EN</span>
-                  <strong>English</strong>
-                  {locale === 'en' && <CircleCheck />}
-                </button>
-              </div>
-            </Card>
-            {household && (
-              <Card className="settings-card">
-                <div className="settings-card-heading">
-                  <span className="settings-icon">
-                    <Home />
-                  </span>
-                  <div>
-                    <h2>{household.home.name}</h2>
-                    <p>
-                      {household.home.type} · {household.home.floorCount}{' '}
-                      {locale === 'fr' ? 'niveau(x)' : 'floor(s)'} · {household.home.timezone}
-                    </p>
-                    {household.home.address && <p>{household.home.address}</p>}
-                  </div>
-                </div>
-              </Card>
-            )}
-            {household && (
-              <Card className="settings-card">
-                <div className="settings-card-heading">
-                  <span className="settings-icon">
-                    <Radar />
-                  </span>
-                  <div>
-                    <h2>{locale === 'fr' ? 'Équipements réels' : 'Real equipment'}</h2>
-                    <p>
-                      {locale === 'fr'
-                        ? 'Tous les équipements exposés par Home Assistant sont reconnus, quel que soit leur protocole ou leur marque.'
-                        : 'Every device exposed by Home Assistant is discovered, regardless of protocol or brand.'}
-                    </p>
-                  </div>
-                </div>
-                <div className="equipment-health">
-                  <span
-                    className={
-                      equipmentStatus?.homeAssistant.connected ? 'is-online' : 'is-offline'
-                    }
-                  >
-                    <i />
-                    Home Assistant ·{' '}
-                    {equipmentStatus?.homeAssistant.connected
-                      ? locale === 'fr'
-                        ? 'connecté'
-                        : 'connected'
-                      : locale === 'fr'
-                        ? 'hors ligne'
-                        : 'offline'}
-                  </span>
-                  <small>
-                    {equipmentStatus
-                      ? `${equipmentStatus.inventory.devices} appareil(s) · ${equipmentStatus.inventory.entities} entité(s)`
-                      : locale === 'fr'
-                        ? 'Inventaire en attente'
-                        : 'Waiting for inventory'}
-                  </small>
-                  <div className="equipment-actions">
-                    <Button className="button-secondary" onClick={() => void syncEquipment()}>
-                      {locale === 'fr' ? 'Actualiser' : 'Refresh'}
-                    </Button>
-                    <Button className="button-secondary" onClick={() => void togglePairing()}>
-                      {equipmentStatus?.pairing.active
-                        ? locale === 'fr'
-                          ? 'Arrêter l’association Zigbee'
-                          : 'Stop Zigbee pairing'
-                        : locale === 'fr'
-                          ? 'Associer un appareil Zigbee'
-                          : 'Pair a Zigbee device'}
-                    </Button>
-                  </div>
-                  {equipmentNotice && <p className="equipment-notice">{equipmentNotice}</p>}
-                </div>
-                {equipmentCandidates.length ? (
-                  <div className="settings-sensor-list">
-                    {equipmentCandidates.map((sensor) => (
-                      <div className="equipment-row" key={sensor.id}>
-                        <span>
-                          <strong>
-                            {sensor.sourceName ?? sensor.device?.name ?? sensor.entityId}
-                          </strong>
-                          <small>
-                            {sensor.compatibility === 'UNSUPPORTED'
-                              ? locale === 'fr'
-                                ? 'À configurer'
-                                : 'Needs mapping'
-                              : capabilityLabel(sensor.capability, locale)}{' '}
-                            ·{' '}
-                            {sensor.available
-                              ? sensorStatusLabel(sensor.status, locale)
-                              : locale === 'fr'
-                                ? 'Indisponible'
-                                : 'Unavailable'}
-                          </small>
-                          <small>{sensor.entityId}</small>
-                        </span>
-                        {sensor.compatibility === 'UNSUPPORTED' ? (
-                          <div className="equipment-mapping">
-                            <select
-                              defaultValue="motion"
-                              aria-label="Capacité Élise"
-                              id={`cap-${sensor.id}`}
-                            >
-                              <option value="motion">Mouvement</option>
-                              <option value="occupancy">Présence</option>
-                              <option value="contact">Ouverture</option>
-                              <option value="button">Bouton</option>
-                              <option value="temperature">Température</option>
-                              <option value="humidity">Humidité</option>
-                              <option value="power">Puissance</option>
-                              <option value="energy">Énergie</option>
-                              <option value="battery">Batterie</option>
-                            </select>
-                            <Button
-                              className="button-secondary"
-                              onClick={() => {
-                                const select = document.getElementById(
-                                  `cap-${sensor.id}`,
-                                ) as HTMLSelectElement;
-                                const numeric = [
-                                  'temperature',
-                                  'humidity',
-                                  'power',
-                                  'energy',
-                                  'battery',
-                                ].includes(select.value);
-                                void mapEquipment(
-                                  sensor.entityId,
-                                  select.value,
-                                  numeric
-                                    ? 'NUMERIC'
-                                    : select.value === 'contact'
-                                      ? 'OPEN_CLOSED'
-                                      : select.value === 'button'
-                                        ? 'EVENT_ACTION'
-                                        : 'ON_OFF',
-                                );
-                              }}
-                            >
-                              {locale === 'fr' ? 'Utiliser' : 'Use'}
-                            </Button>
+
+                <div className="resident-content-grid">
+                  <Card className="resident-info-card resident-context-card">
+                    <header>
+                      <span className="resident-section-icon resident-section-icon--home">
+                        <Home aria-hidden="true" />
+                      </span>
+                      <div>
+                        <span className="eyebrow">{i18nT('app.livingContext')}</span>
+                        <h3>{i18nT('app.dailyLife')}</h3>
+                      </div>
+                    </header>
+                    {resident.context ? (
+                      <div className="resident-context-list">
+                        <div className="resident-context-item resident-context-item--wide">
+                          {resident.context.livesAlone === null ? (
+                            <CircleHelp aria-hidden="true" />
+                          ) : resident.context.livesAlone ? (
+                            <Home aria-hidden="true" />
+                          ) : (
+                            <UsersRound aria-hidden="true" />
+                          )}
+                          <span>
+                            {resident.context.livesAlone === null
+                              ? i18nT('app.livingSituationNotProvided')
+                              : resident.context.livesAlone
+                                ? i18nT('app.livesAloneAtHome')
+                                : i18nT('app.livesWithSomeoneAtHome')}
+                          </span>
+                        </div>
+                        {resident.context.livesWithPartner && (
+                          <div className="resident-context-item">
+                            <HeartHandshake aria-hidden="true" />
+                            <span>{i18nT('app.withAPartner')}</span>
                           </div>
-                        ) : (
-                          <select
-                            value={sensor.room?.id ?? ''}
-                            onChange={(event) =>
-                              void assignSensor(sensor.id, event.target.value || null)
-                            }
-                          >
-                            <option value="">
-                              {locale === 'fr' ? 'Sans pièce' : 'Unassigned'}
-                            </option>
-                            {household.rooms.map((room) => (
-                              <option key={room.id} value={room.id}>
-                                {room.name}
-                              </option>
-                            ))}
-                          </select>
+                        )}
+                        {resident.context.livesWithRelative && (
+                          <div className="resident-context-item">
+                            <UsersRound aria-hidden="true" />
+                            <span>{i18nT('app.withARelative')}</span>
+                          </div>
+                        )}
+                        {resident.context.receivesHomeHelp && (
+                          <div className="resident-context-item">
+                            <Accessibility aria-hidden="true" />
+                            <span>{i18nT('app.homeHelp')}</span>
+                          </div>
+                        )}
+                        {resident.context.receivesVisits && (
+                          <div className="resident-context-item">
+                            <CalendarDays aria-hidden="true" />
+                            <span>{i18nT('app.regularVisits')}</span>
+                          </div>
+                        )}
+                        {resident.context.hasPet && (
+                          <div className="resident-context-item">
+                            <PawPrint aria-hidden="true" />
+                            <span>{i18nT('app.livesWithAPet')}</span>
+                          </div>
+                        )}
+                        <div className="resident-context-item resident-context-item--wide">
+                          <Footprints aria-hidden="true" />
+                          <span>{residentMobilityLabel(resident.context.mobility)}</span>
+                        </div>
+                        {resident.context.visualDifficulty && (
+                          <div className="resident-context-item resident-context-item--attention">
+                            <Eye aria-hidden="true" />
+                            <span>{i18nT('app.visualDifficulty')}</span>
+                          </div>
+                        )}
+                        {resident.context.hearingDifficulty && (
+                          <div className="resident-context-item resident-context-item--attention">
+                            <Ear aria-hidden="true" />
+                            <span>{i18nT('app.hearingDifficulty')}</span>
+                          </div>
                         )}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="empty-state">
-                    {locale === 'fr'
-                      ? 'Aucun équipement réel détecté. L’installation reste pleinement valide.'
-                      : 'No real equipment detected. The installation remains valid.'}
-                  </p>
-                )}
+                    ) : (
+                      <div className="resident-empty-state">
+                        <Home aria-hidden="true" />
+                        <p>{i18nT('app.noContextRecorded')}</p>
+                      </div>
+                    )}
+                  </Card>
+
+                  <Card className="resident-info-card resident-support-card">
+                    <header>
+                      <span className="resident-section-icon resident-section-icon--support">
+                        <HeartHandshake aria-hidden="true" />
+                      </span>
+                      <div>
+                        <span className="eyebrow">{i18nT('app.support')}</span>
+                        <h3>{i18nT('app.keyConsiderations')}</h3>
+                      </div>
+                      <span className="resident-card-count">{resident.supportNeeds.length}</span>
+                    </header>
+                    {resident.supportNeeds.length ? (
+                      <div className="resident-support-list">
+                        {resident.supportNeeds.map((need) => (
+                          <article key={need.id}>
+                            <span>
+                              {need.kind === 'VISION' ? (
+                                <Eye aria-hidden="true" />
+                              ) : need.kind === 'HEARING' ? (
+                                <Ear aria-hidden="true" />
+                              ) : need.kind === 'FALL_RISK' || need.kind === 'PARKINSON' ? (
+                                <Footprints aria-hidden="true" />
+                              ) : (
+                                <HeartHandshake aria-hidden="true" />
+                              )}
+                            </span>
+                            <div>
+                              <strong>{supportNeedLabel(need.kind)}</strong>
+                              {need.note && <p>{need.note}</p>}
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="resident-empty-state resident-empty-state--positive">
+                        <CircleCheck aria-hidden="true" />
+                        <p>{i18nT('app.noParticularSupportNeedRecorded')}</p>
+                      </div>
+                    )}
+                  </Card>
+
+                  <Card className="resident-info-card resident-habits-card">
+                    <header>
+                      <span className="resident-section-icon resident-section-icon--habits">
+                        <Clock3 aria-hidden="true" />
+                      </span>
+                      <div>
+                        <span className="eyebrow">{i18nT('app.habits')}</span>
+                        <h3>{i18nT('app.dailyRoutines')}</h3>
+                      </div>
+                      <span className="resident-card-count">{resident.habits.length}</span>
+                    </header>
+                    {resident.habits.length ? (
+                      <div className="resident-routine-list">
+                        {resident.habits.map((habit) => (
+                          <article key={habit.id}>
+                            <span className="resident-routine-dot" />
+                            <div>
+                              <strong>{habitLabel(habit.kind)}</strong>
+                              <small>
+                                {habit.status === 'UNKNOWN'
+                                  ? i18nT('app.eliseIsLearningThisRoutine')
+                                  : `${formatMinute(habit.startMinute)} – ${formatMinute(habit.endMinute)}`}
+                              </small>
+                            </div>
+                            <span
+                              className={`resident-routine-status status-${habit.status.toLowerCase()}`}
+                            >
+                              {habit.status === 'UNKNOWN'
+                                ? i18nT('app.toLearn')
+                                : i18nT('app.recorded')}
+                            </span>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="resident-empty-state">
+                        <Clock3 aria-hidden="true" />
+                        <p>{i18nT('app.eliseWillLearnRoutinesProgressively')}</p>
+                      </div>
+                    )}
+                  </Card>
+                </div>
+              </div>
+            ) : (
+              <Card className="resident-empty-profile">
+                <UserRound aria-hidden="true" />
+                <h3>{i18nT('app.noResidentConfigured')}</h3>
+                <p>{i18nT('app.theProfileWillAppearHere')}</p>
               </Card>
             )}
-            {simulationScenarios.length > 0 && (
-              <SimulationPanel
-                scenarios={simulationScenarios}
-                running={runningSimulation}
-                notice={simulationNotice}
-                onRun={(scenario) => void runSimulation(scenario)}
-              />
+          </section>
+        ) : active === 8 ? (
+          <section className="section-view settings-page">
+            <header className="page-hero settings-hero">
+              <div className="page-hero__copy settings-hero-copy">
+                <span className="page-hero__eyebrow">Élise OS</span>
+                <h2 className="page-hero__title">{t.nav[8]}</h2>
+                <p className="page-hero__text">{i18nT('app.adaptEliseToYourDaily')}</p>
+              </div>
+              <span className="settings-hero-icon" aria-hidden="true">
+                <Settings />
+              </span>
+            </header>
+
+            <nav className="settings-tabs" aria-label={i18nT('app.settingsSections')}>
+              <button
+                type="button"
+                className={settingsTab === 'general' ? 'is-selected' : ''}
+                aria-selected={settingsTab === 'general'}
+                onClick={() => setSettingsTab('general')}
+              >
+                <Settings aria-hidden="true" /> {i18nT('app.general')}
+              </button>
+              {currentAccess.capabilities.includes('configuration:manage') && (
+                <button
+                  type="button"
+                  className={settingsTab === 'zigbee' ? 'is-selected' : ''}
+                  aria-selected={settingsTab === 'zigbee'}
+                  onClick={() => setSettingsTab('zigbee')}
+                >
+                  <Usb aria-hidden="true" /> {i18nT('zigbeeKey.tab')}
+                </button>
+              )}
+              <button
+                type="button"
+                className={settingsTab === 'rules' ? 'is-selected' : ''}
+                aria-selected={settingsTab === 'rules'}
+                onClick={() => setSettingsTab('rules')}
+              >
+                <Bell aria-hidden="true" /> {i18nT('app.rules')}
+              </button>
+            </nav>
+
+            {settingsTab === 'general' && (
+              <details className="elise-card settings-section-card settings-disclosure settings-general-card">
+                <summary className="settings-section-heading">
+                  <span className="settings-section-icon">
+                    <Settings />
+                  </span>
+                  <div>
+                    <span className="eyebrow">{i18nT('app.applicationPreferences')}</span>
+                    <h2>{i18nT('app.general')}</h2>
+                    <p>{i18nT('app.essentialSettingsForThisDevice')}</p>
+                  </div>
+                  <span className="settings-disclosure-chevron" aria-hidden="true">
+                    <ChevronRight />
+                  </span>
+                </summary>
+
+                <div className="settings-option-list">
+                  <article className="settings-option-row settings-language-row">
+                    <div className="settings-option-copy">
+                      <span className="settings-option-icon settings-option-icon--sage">
+                        <Languages />
+                      </span>
+                      <div>
+                        <h3>{i18nT('app.interfaceLanguage')}</h3>
+                        <p>{i18nT('app.chooseTheLanguageEliseUses')}</p>
+                      </div>
+                    </div>
+                    <div className="settings-language-options" role="group" aria-label="Language">
+                      {dashboardLanguages.map((language) => (
+                        <button
+                          key={language.code}
+                          className={locale === language.code ? 'is-selected' : ''}
+                          onClick={() => changeLocale(language.code)}
+                          aria-pressed={locale === language.code}
+                        >
+                          <FlagIcon language={language.code} />
+                          <strong>{language.name}</strong>
+                          {locale === language.code && <CircleCheck />}
+                        </button>
+                      ))}
+                    </div>
+                  </article>
+
+                  <SidebarBehaviorSetting
+                    locale={locale}
+                    enabled={sidebarAutoHide}
+                    disabled={sidebarAutoHideLocked}
+                    onChange={changeSidebarAutoHide}
+                  />
+
+                  <article className="settings-option-row guided-tour-settings">
+                    <div className="settings-option-copy">
+                      <span className="settings-option-icon settings-option-icon--amber">
+                        <Sparkles />
+                      </span>
+                      <div>
+                        <h3>{i18nT('app.guidedTour')}</h3>
+                        <p>{i18nT('app.rediscoverTheEssentialAreasOf')}</p>
+                      </div>
+                    </div>
+                    <Button
+                      className="button-secondary"
+                      onClick={() => {
+                        tourReturnActive.current = active;
+                        setHomeSetupPreview(false);
+                        setTourMode('replay');
+                      }}
+                    >
+                      {i18nT('app.replayTheTour')}
+                    </Button>
+                  </article>
+
+                  {simulationScenarios.length > 0 && (
+                    <SimulationPanel
+                      scenarios={simulationScenarios}
+                      running={runningSimulation}
+                      notice={simulationNotice}
+                      onRun={(scenario) => void runSimulation(scenario)}
+                      locale={locale}
+                    />
+                  )}
+                </div>
+              </details>
             )}
-            {alertRules && (
+            {settingsTab === 'general' &&
+              currentAccess.capabilities.includes('configuration:manage') && (
+                <RemoteAccessCard locale={locale} />
+              )}
+            {settingsTab === 'general' &&
+              currentAccess.capabilities.includes('configuration:manage') && (
+                <UpdateCard
+                  locale={locale}
+                  status={updateStatus}
+                  busy={updateBusy}
+                  onCheck={() => void checkForUpdate()}
+                  onSaveCredentials={(username, token) =>
+                    void saveUpdateCredentials(username, token)
+                  }
+                  onDeleteCredentials={() => void deleteUpdateCredentials()}
+                  onInstall={(version) => void installUpdate(version)}
+                />
+              )}
+            {settingsTab === 'zigbee' &&
+              currentAccess.capabilities.includes('configuration:manage') && <ZigbeeKeyPanel />}
+            {settingsTab === 'rules' && alertRules && (
               <AlertRulesPanel
                 rules={alertRules}
+                locale={locale}
                 saving={savingRules}
                 notice={ruleNotice}
                 onChange={setAlertRules}
-                onSave={() => void saveAlertRules()}
+                onSave={saveAlertRules}
               />
             )}
-            <Card className="settings-card">
-              <div className="settings-card-heading">
-                <span className="settings-icon">
-                  <UsersRound />
-                </span>
-                <div>
-                  <h2>{locale === 'fr' ? 'Ajouter un proche' : 'Add a contact'}</h2>
-                  <p>
-                    {locale === 'fr'
-                      ? 'Un administrateur reçoit un mot de passe temporaire qu’il devra remplacer à sa première connexion.'
-                      : 'An administrator receives a temporary password that must be changed at first sign-in.'}
-                  </p>
-                </div>
-              </div>
-              <form
-                className="settings-contact-form"
-                onSubmit={(event) => void addContactAfterSetup(event)}
-              >
-                <label>
-                  {locale === 'fr' ? 'Prénom' : 'First name'}
-                  <input
-                    value={contactDraft.firstName}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({ ...current, firstName: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  {locale === 'fr' ? 'Nom' : 'Last name'}
-                  <input
-                    value={contactDraft.lastName}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({ ...current, lastName: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  {locale === 'fr' ? 'Téléphone' : 'Phone'}
-                  <input
-                    type="tel"
-                    value={contactDraft.phone}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({ ...current, phone: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  Email
-                  <input
-                    type="email"
-                    value={contactDraft.email}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({ ...current, email: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  {locale === 'fr' ? 'Lien avec le résident' : 'Relationship'}
-                  <input
-                    value={contactDraft.relation}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({ ...current, relation: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  {locale === 'fr' ? 'Rôle' : 'Role'}
-                  <select
-                    value={contactDraft.role}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({
-                        ...current,
-                        role: event.target.value as typeof current.role,
-                      }))
-                    }
-                  >
-                    <option value="proche">{locale === 'fr' ? 'Proche' : 'Relative'}</option>
-                    <option value="urgence">
-                      {locale === 'fr' ? 'Contact d’urgence' : 'Emergency contact'}
-                    </option>
-                    <option value="administrateur">
-                      {locale === 'fr' ? 'Administrateur' : 'Administrator'}
-                    </option>
-                  </select>
-                </label>
-                {contactDraft.role === 'administrateur' && (
-                  <>
-                    <label>
-                      {locale === 'fr' ? 'Identifiant' : 'Username'}
-                      <input
-                        autoComplete="off"
-                        value={contactDraft.username}
-                        onChange={(event) =>
-                          setContactDraft((current) => ({
-                            ...current,
-                            username: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      {locale === 'fr' ? 'Mot de passe temporaire' : 'Temporary password'}
-                      <input
-                        type="password"
-                        minLength={12}
-                        autoComplete="new-password"
-                        value={contactDraft.temporaryPassword}
-                        onChange={(event) =>
-                          setContactDraft((current) => ({
-                            ...current,
-                            temporaryPassword: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      {locale === 'fr' ? 'Confirmer' : 'Confirm'}
-                      <input
-                        type="password"
-                        minLength={12}
-                        autoComplete="new-password"
-                        value={contactDraft.confirmation}
-                        onChange={(event) =>
-                          setContactDraft((current) => ({
-                            ...current,
-                            confirmation: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                  </>
-                )}
-                {contactError && <p className="form-error">{contactError}</p>}
-                <Button type="submit">
-                  {locale === 'fr' ? 'Ajouter ce proche' : 'Add contact'}
-                </Button>
-              </form>
-            </Card>
           </section>
         ) : active !== 0 ? (
           <section className="placeholder-view">
@@ -2878,341 +3136,70 @@ export function App() {
                 })()}
               </div>
               <h2>{t.nav[active]}</h2>
-              <p>
-                {locale === 'fr'
-                  ? 'Cette section utilise déjà les fondations d’Élise et sera enrichie au prochain incrément vertical.'
-                  : 'This section already uses the Élise foundations and will be expanded in the next vertical increment.'}
-              </p>
+              <p>{i18nT('app.thisSectionAlreadyUsesThe')}</p>
               <Button onClick={() => setActive(0)}>{t.nav[0]}</Button>
             </Card>
           </section>
         ) : (
-          <>
-            <section className="hero-grid">
-              <Card className="reassurance-card">
-                <div className="reassurance-icon">
-                  <CircleCheck size={27} />
-                </div>
-                <div>
-                  <StatusPill
-                    tone={
-                      overview.reassurance === 'ATTENTION' ||
-                      overview.reassurance === 'INSUFFICIENT_DATA'
-                        ? 'attention'
-                        : 'neutral'
-                    }
-                  >
-                    {isLearning
-                      ? `${overview.learningDays ?? 0}/14`
-                      : locale === 'fr'
-                        ? 'Situation actuelle'
-                        : 'Current status'}
-                  </StatusPill>
-                  <h2>{statusTitle}</h2>
-                  <p>{statusDetail}</p>
-                  {isLearning && (
-                    <>
-                      <Progress.Root className="progress-root" value={learningProgress}>
-                        <Progress.Indicator
-                          className="progress-indicator"
-                          style={{ transform: `translateX(-${100 - learningProgress}%)` }}
-                        />
-                      </Progress.Root>
-                      <small>
-                        {t.learningProgress.replace('{day}', String(overview.learningDays ?? 0))}
-                      </small>
-                    </>
-                  )}
-                  <Button className="button-secondary" onClick={() => setActive(1)}>
-                    {t.allActivity}
-                  </Button>
-                </div>
-              </Card>
-              <div className="metrics-stack">
-                <Metric
-                  label={t.lastActivity}
-                  value={
-                    <>
-                      {overview.lastActivity?.room ?? '—'}
-                      <small>
-                        {overview.lastActivity
-                          ? `${capabilityLabel(overview.lastActivity.capability, locale)} · ${relativeTime(overview.lastActivity.occurredAt, locale)}`
-                          : ''}
-                      </small>
-                    </>
-                  }
-                  icon={<CookingPot />}
-                />
-                <Metric
-                  label={locale === 'fr' ? 'Couverture capteurs' : 'Sensor coverage'}
-                  value={
-                    <>
-                      {overview.sensors?.online ?? 0}/{overview.sensors?.total ?? 0}
-                      <small>
-                        {[
-                          overview.sensors?.offline
-                            ? locale === 'fr'
-                              ? `${overview.sensors.offline} hors ligne`
-                              : `${overview.sensors.offline} offline`
-                            : '',
-                          lowBatterySensors
-                            ? locale === 'fr'
-                              ? `${lowBatterySensors} batterie(s) faible(s)`
-                              : `${lowBatterySensors} low battery level(s)`
-                            : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' · ') ||
-                          (locale === 'fr' ? 'Couverture disponible' : 'Coverage available')}
-                      </small>
-                    </>
-                  }
-                  icon={<Radar />}
-                />
-              </div>
-            </section>
-
-            <section className="essentials-section">
-              <Card className="essentials-card">
-                <article className={homeDose?.status === 'MISSED' ? 'needs-attention' : ''}>
-                  <span className="essential-icon">
-                    <Pill />
-                  </span>
-                  <div>
-                    <span className="eyebrow">
-                      {homeDose?.status === 'MISSED'
-                        ? locale === 'fr'
-                          ? 'Prise à vérifier'
-                          : 'Dose to check'
-                        : locale === 'fr'
-                          ? 'Prochaine prise'
-                          : 'Next dose'}
-                    </span>
-                    <h2>
-                      {homeDose
-                        ? `${time(homeDose.scheduledFor)} · ${homeDose.schedule.medication.name}`
-                        : locale === 'fr'
-                          ? 'Aucune prise à venir'
-                          : 'No upcoming dose'}
-                    </h2>
-                    <p>
-                      {homeDose
-                        ? homeDose.status === 'MISSED'
-                          ? locale === 'fr'
-                            ? 'Confirmation non reçue ; un oubli est possible.'
-                            : 'No confirmation received; it may have been forgotten.'
-                          : homeDose.schedule.medication.dosage
-                        : locale === 'fr'
-                          ? 'Le pilulier est à jour pour aujourd’hui.'
-                          : 'The pillbox is up to date today.'}
-                    </p>
-                  </div>
-                  <button type="button" onClick={() => setActive(4)}>
-                    {locale === 'fr' ? 'Voir' : 'View'} <ChevronRight />
-                  </button>
-                </article>
-                <article className={currentAlert ? 'needs-attention' : ''}>
-                  <span className="essential-icon">
-                    <Bell />
-                  </span>
-                  <div>
-                    <span className="eyebrow">
-                      {locale === 'fr' ? 'Action immédiate' : 'Immediate action'}
-                    </span>
-                    <h2>{currentAlert?.title ?? t.noAlert}</h2>
-                    <p>
-                      {currentAlert
-                        ? alertSeverityLabel(currentAlert.severity, locale)
-                        : locale === 'fr'
-                          ? 'Aucune situation ouverte.'
-                          : 'No open situation.'}
-                    </p>
-                  </div>
-                  <button type="button" onClick={() => setActive(2)}>
-                    {locale === 'fr' ? 'Ouvrir' : 'Open'} <ChevronRight />
-                  </button>
-                </article>
-                <article>
-                  <span className="essential-icon">
-                    <UsersRound />
-                  </span>
-                  <div>
-                    <span className="eyebrow">
-                      {locale === 'fr' ? 'Prochaine visite' : 'Next visit'}
-                    </span>
-                    <h2>
-                      {nextScheduleItem?.title ??
-                        (locale === 'fr' ? 'Rien de planifié' : 'Nothing scheduled')}
-                    </h2>
-                    <p>
-                      {nextScheduleItem
-                        ? new Date(nextScheduleItem.startsAt).toLocaleString(locale, {
-                            weekday: 'long',
-                            day: 'numeric',
-                            month: 'long',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : locale === 'fr'
-                          ? 'Aucun rendez-vous ou visite à venir.'
-                          : 'No upcoming visit or appointment.'}
-                    </p>
-                  </div>
-                </article>
-              </Card>
-            </section>
-
-            {overview.resident && (
-              <section className="resident-summary-section">
-                <Card className="resident-summary-card">
-                  {overview.resident.photoUrl ? (
-                    <img src={overview.resident.photoUrl} alt="" />
-                  ) : (
-                    <div className="resident-photo-fallback">
-                      {overview.resident.preferredName[0]}
-                    </div>
-                  )}
-                  <div>
-                    <span className="eyebrow">
-                      {locale === 'fr' ? 'Personne accompagnée' : 'Resident'}
-                    </span>
-                    <h2>{overview.resident.displayName}</h2>
-                    <p>
-                      {overview.resident.knownHabits}{' '}
-                      {locale === 'fr' ? 'habitude(s) connue(s)' : 'known habit(s)'} ·{' '}
-                      {overview.resident.supportNeeds.length}{' '}
-                      {locale === 'fr' ? 'information(s) importante(s)' : 'important item(s)'}
-                    </p>
-                  </div>
-                  <Button className="button-secondary" onClick={() => setActive(8)}>
-                    {locale === 'fr' ? 'Voir la fiche résident' : 'View resident profile'}
-                  </Button>
-                </Card>
-              </section>
-            )}
-
-            <section className="content-grid">
-              <Card className="timeline-card">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">{locale === 'fr' ? 'Activité' : 'Activity'}</span>
-                    <h2>{t.summary}</h2>
-                  </div>
-                  <StatusPill>{t.today}</StatusPill>
-                </div>
-                <div className="timeline">
-                  {overview.activity?.slice(0, 5).map((item) => (
-                    <div className="timeline-item" key={item.id}>
-                      <time>{time(item.occurredAt)}</time>
-                      <i></i>
-                      <div>
-                        <strong>{item.room}</strong>
-                        <span>{activityDescription(item, locale)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <Button className="button-secondary" onClick={() => setActive(1)}>
-                  {t.allActivity}
-                </Button>
-              </Card>
-              <Card className="rooms-card">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">{locale === 'fr' ? 'Maison' : 'Home'}</span>
-                    <h2>{t.rooms}</h2>
-                  </div>
-                </div>
-                <div className="room-grid">
-                  {overview.rooms?.map((room) => {
-                    const Icon = roomIcons[room.kind] ?? Home;
-                    return (
-                      <button key={room.id} className="room" onClick={() => setActive(3)}>
-                        <Icon />
-                        <span>
-                          <strong>{room.name}</strong>
-                          <small>
-                            {room.sensors} {locale === 'fr' ? 'capteurs' : 'sensors'}
-                          </small>
-                        </span>
-                        <ChevronRight />
-                      </button>
-                    );
-                  })}
-                </div>
-                <Button className="button-secondary" onClick={() => setActive(3)}>
-                  {t.allRooms}
-                </Button>
-              </Card>
-            </section>
-
-            <section className="lower-grid">
-              {currentAlert ? (
-                <Card className="alert-card">
-                  <div className="section-heading">
-                    <div>
-                      <span className="eyebrow">{t.nav[2]}</span>
-                      <h2>{currentAlert.title}</h2>
-                    </div>
-                    <StatusPill tone={currentAlert.severity === 'URGENT' ? 'urgent' : 'attention'}>
-                      {relativeTime(currentAlert.openedAt, locale)}
-                    </StatusPill>
-                  </div>
-                  <p>{currentAlert.explanation}</p>
-                  <div className="alert-actions">
-                    {currentAlert.status === 'OPEN' && (
-                      <Button onClick={() => void transitionAlert(currentAlert.id, 'ACKNOWLEDGED')}>
-                        {locale === 'fr' ? 'Prendre en charge' : 'Acknowledge'}
-                      </Button>
-                    )}
-                    <Button
-                      className="button-secondary"
-                      onClick={() => void transitionAlert(currentAlert.id, 'RESOLVED')}
-                    >
-                      {locale === 'fr' ? 'Résoudre' : 'Resolve'}
-                    </Button>
-                  </div>
-                </Card>
-              ) : (
-                <Card className="calm-card">
-                  <CircleCheck />
-                  <div>
-                    <span className="eyebrow">{t.nav[2]}</span>
-                    <h2>{t.noAlert}</h2>
-                    <p>{t.normalDetail}</p>
-                  </div>
-                </Card>
-              )}
-              <Card className="journal-card">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">{locale === 'fr' ? 'Suivi' : 'Follow-up'}</span>
-                    <h2>{t.dailyJournal}</h2>
-                  </div>
-                </div>
-                {journal.slice(0, 3).map((entry) => (
-                  <button className="journal-row" key={entry.id} onClick={() => setActive(5)}>
-                    <span>
-                      <strong>{new Date(entry.occurredAt).toLocaleDateString(locale)}</strong>
-                      <small>{entry.title}</small>
-                    </span>
-                    <ChevronRight size={18} />
-                  </button>
-                ))}
-              </Card>
-            </section>
-          </>
+          <WelcomePage
+            locale={locale}
+            caregiverFirstName={overview.currentUser?.firstName ?? ''}
+            residentName={residentName}
+            nextSchedule={overview.nextSchedule}
+            reassurance={overview.reassurance ?? 'INSUFFICIENT_DATA'}
+            events={(overview.activity ?? []).map((event) => ({
+              id: event.id,
+              occurredAt: event.occurredAt,
+              capability: event.capability,
+              label: `${activityDescription(event)}${event.room ? ` · ${event.room}` : ''}`,
+            }))}
+            reminders={[
+              ...medicationDoses
+                .filter((dose) => dose.status === 'PENDING')
+                .map((dose) => ({
+                  title: i18nT('app.medication'),
+                  at: dose.scheduledFor,
+                  medication: true,
+                })),
+              ...(overview.nextSchedule
+                ? [
+                    {
+                      title: overview.nextSchedule.title,
+                      at: overview.nextSchedule.startsAt,
+                      medication: false,
+                    },
+                  ]
+                : []),
+            ]}
+            onActivity={() => setActive(1)}
+            onSensors={() => {
+              setHomeSection('OVERVIEW');
+              setActive(3);
+            }}
+            onPlanning={(medication) => {
+              if (medication) setActive(5);
+              else setActive(12);
+            }}
+            onAlerts={() => setActive(2)}
+            onOpenRoom={(roomId) => {
+              setHomeEditorRoomId(roomId);
+              setHomeEditorStairId(null);
+              setHomeSection('EDITOR');
+              setActive(3);
+            }}
+          />
         )}
-        <footer>
-          <ShieldCheck />
-          <span>
-            {locale === 'fr'
-              ? 'Aucune caméra. Aucune écoute. Juste l’essentiel.'
-              : 'No cameras. No listening. Only what matters.'}
-          </span>
-          <HeartHandshake />
-        </footer>
       </main>
+      {tourMode && (
+        <GuidedTour
+          key={tourMode}
+          locale={locale}
+          mode={tourMode}
+          onTargetChange={showTourTarget}
+          onComplete={closeTour}
+          onSkip={closeTour}
+        />
+      )}
     </div>
   );
 }

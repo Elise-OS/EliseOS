@@ -1,0 +1,1335 @@
+# Espagnol : textes de sécurité à faire relire
+
+Les textes espagnols d’Élise ont été traduits depuis le français (espagnol d’Espagne, « usted »). Comme le demande [traductions.md](traductions.md#règles-de-traduction), les textes liés à la sécurité doivent être relus par une personne dont l’espagnol est la langue maternelle avant d’être présentés à des familles hispanophones.
+
+**431 textes** à relire, rangés par thème (chute, fumée, fuite d’eau, monoxyde de carbone, bouton d’assistance et urgences, alertes et prise en charge, confidentialité, accès à distance). Un texte n’apparaît qu’une fois, sous le premier thème qui le concerne.
+
+Pour corriger un texte : modifier la valeur de la clé dans le catalogue du bloc, puis `pnpm i18n:check`.
+
+- `mobile` : `apps/mobile/src/i18n/locales/es.json`
+- `web` : `apps/dashboard/src/i18n/locales/es.json`
+- `landing` : `eliselanding/src/i18n/locales/es.json`
+
+Ce qui compte à la relecture : aucune formule alarmiste, aucun diagnostic (Élise relève des repères, elle ne conclut pas), le 112 pour les urgences, des consignes claires sur ce qu’Élise ne remplace pas (téléassistance, service d’urgence, dispositif médical).
+
+## Hors catalogues
+
+- Fiche App Store : `apps/mobile/fastlane/metadata/es-ES/` (`description.txt`, `promotional_text.txt` : chute, fumée, fuite d’eau, 112, données locales).
+- Documentation du site : `eliselanding/src/content/docs/es/docs/concepts/safety.md`, `concepts/privacy.md`, `start/remote-access.md`, `use/cameras.md`, `use/sensors.md`, `use/resident-screen.md` (consentement aux appels), `contribute/security.md`.
+
+## Chute (46)
+
+- mobile · `dashboardApp.alertExplanation.possibleFall`
+  - FR : Le détecteur signale une chute possible. Vérifiez rapidement que la personne va bien.
+  - ES : El detector señala una posible caída. Compruebe rápidamente que la persona se encuentra bien.
+- mobile · `dashboardApp.alertTitle.possibleFallDetected`
+  - FR : Alerte de chute
+  - ES : Alerta de caída
+- mobile · `dashboardApp.fallDetection`
+  - FR : Détection des chutes
+  - ES : Detección de caídas
+- mobile · `dashboardApp.fallReported`
+  - FR : Chute signalée
+  - ES : Caída señalada
+- mobile · `dashboardApp.possibleFallReported`
+  - FR : Chute possible signalée
+  - ES : Posible caída señalada
+- mobile · `mobileSettingsPanel.fallDetection`
+  - FR : Détection de chute
+  - ES : Detección de caídas
+- mobile · `mobileSettingsPanel.fallsSmokeWaterLeaksAnd`
+  - FR : Chutes, fumée, fuite d’eau et carnet de liaison.
+  - ES : Caídas, humo, fugas de agua y cuaderno de seguimiento.
+- mobile · `mobileSettingsPanel.whenAFallIsDetected`
+  - FR : Lorsqu’une chute est détectée.
+  - ES : Cuando se detecta una caída.
+- mobile · `mockApi.fallDetector`
+  - FR : Détecteur de chute
+  - ES : Detector de caídas
+- mobile · `sensorCategories.fall_detection.description`
+  - FR : Les chutes signalées par un détecteur
+  - ES : Las caídas señaladas por un detector
+- mobile · `sensorCategories.fall_detection.label`
+  - FR : Détection de chute
+  - ES : Detección de caídas
+- web · `activityPage.capabilityLabels.fall_detection`
+  - FR : Chute détectée
+  - ES : Caída detectada
+- web · `alertsPage.advice.FALL_DETECTION`
+  - FR : Vérifiez rapidement que la personne va bien. Le signal peut être une chute possible : confirmez la situation sur place ou par appel.
+  - ES : Compruebe rápidamente que la persona está bien. La señal puede indicar una posible caída: confirme la situación en persona o llamando por teléfono.
+- web · `alertsPage.displayTitle.safetyTitles.FALL_DETECTION`
+  - FR : Alerte de chute
+  - ES : Alerta de caída
+- web · `alertsPage.explanationFor.safetyExplanations.FALL_DETECTION`
+  - FR : Le détecteur signale une chute possible. Vérifiez rapidement que la personne va bien.
+  - ES : El detector señala una posible caída. Compruebe rápidamente que la persona está bien.
+- web · `alertsPage.fallReported`
+  - FR : Chute signalée
+  - ES : Caída señalada
+- web · `alertsPage.possibleFallReported`
+  - FR : Chute possible signalée
+  - ES : Posible caída señalada
+- web · `alertsPage.safetyCard.fall`
+  - FR : Détection des chutes
+  - ES : Detección de caídas
+- web · `app.supportNeedLabel.labels.FALL_RISK`
+  - FR : Risque de chute
+  - ES : Riesgo de caída
+- web · `roomEquipmentPage.fallAlert`
+  - FR : Alerte de chute
+  - ES : Alerta de caída
+- web · `roomEquipmentPage.noFallReported`
+  - FR : Aucune chute signalée
+  - ES : Ninguna caída señalada
+- web · `scenario.fallAlert`
+  - FR : Alerte de chute
+  - ES : Alerta de caída
+- web · `scenario.fallDetector`
+  - FR : Détecteur de chute
+  - ES : Detector de caídas
+- web · `scenario.theBathroomDetectorReportedA`
+  - FR : Le détecteur de la salle de bains a signalé une chute possible. Jeanne avait laissé tomber une serviette ; fausse alerte.
+  - ES : El detector del baño señaló una posible caída. A Jeanne se le había caído una toalla; falsa alarma.
+- web · `sensorCategories.fall_detection.description`
+  - FR : Les chutes signalées par un détecteur
+  - ES : Las caídas señaladas por un detector
+- web · `sensorCategories.fall_detection.label`
+  - FR : Détection de chute
+  - ES : Detección de caídas
+- web · `sensorProducts.heiman-fall-detection.advice`
+  - FR : Installez-le uniquement à l’intérieur et respectez la hauteur et l’orientation indiquées dans la notice. Choisissez un emplacement dégagé qui couvre la zone de vie de la personne ; la fiche annonce 4 × 4 m au mur et 4 × 5 m au plafond. Élise complète la vigilance des proches : cette détection ne remplace pas une téléassistance ni une vérification humaine.
+  - ES : Instálelo solo en interiores y respete la altura y la orientación que indica el manual. Elija un lugar despejado que cubra la zona de vida de la persona; la ficha anuncia 4 × 4 m en pared y 4 × 5 m en techo. Élise complementa la atención de la familia: esta detección no sustituye a un servicio de teleasistencia ni a una comprobación por parte de una persona.
+- web · `sensorProducts.heiman-fall-detection.features.0`
+  - FR : États de chute transmis par Zigbee : normal, chute suspectée ou alarme de chute
+  - ES : Estados de caída transmitidos por Zigbee: normal, posible caída o alarma de caída
+- web · `sensorProducts.heiman-fall-detection.features.1`
+  - FR : Montage mural ou au plafond, pour intérieur uniquement
+  - ES : Montaje en pared o en techo, solo para interiores
+- web · `sensorProducts.heiman-fall-detection.features.2`
+  - FR : Portée annoncée : 4 × 4 m au mur ou 4 × 5 m au plafond
+  - ES : Alcance anunciado: 4 × 4 m en pared o 4 × 5 m en techo
+- web · `sensorProducts.heiman-fall-detection.features.3`
+  - FR : Aucune caméra
+  - ES : Sin cámara
+- web · `sensorProducts.heiman-fall-detection.name`
+  - FR : Détecteur de chute Zigbee
+  - ES : Detector de caídas Zigbee
+- web · `sensorProducts.heiman-fall-detection.placement.0`
+  - FR : Installez-le uniquement à l’intérieur et respectez la hauteur et l’orientation indiquées dans la notice.
+  - ES : Instálelo solo en interiores y respete la altura y la orientación que indica el manual.
+- web · `sensorProducts.heiman-fall-detection.placement.1`
+  - FR : Choisissez un emplacement dégagé qui couvre la zone de vie de la personne ; la fiche annonce 4 × 4 m au mur et 4 × 5 m au plafond.
+  - ES : Elija un lugar despejado que cubra la zona de vida de la persona; la ficha anuncia 4 × 4 m en pared y 4 × 5 m en techo.
+- web · `sensorProducts.heiman-fall-detection.placement.2`
+  - FR : Élise complète la vigilance des proches : cette détection ne remplace pas une téléassistance ni une vérification humaine.
+  - ES : Élise complementa la atención de la familia: esta detección no sustituye a un servicio de teleasistencia ni a una comprobación por parte de una persona.
+- web · `sensorProducts.heiman-fall-detection.power`
+  - FR : Alimentation permanente · 5 V / 2 A
+  - ES : Alimentación permanente · 5 V / 2 A
+- web · `sensorProducts.heiman-fall-detection.preparation.0`
+  - FR : Le vendeur référence le produit HS2FD-E ; Zigbee2MQTT documente la variante HS2FD-EF1-3.0. Faites confirmer cette référence exacte avant l’achat.
+  - ES : El vendedor indica la referencia HS2FD-E; Zigbee2MQTT documenta la variante HS2FD-EF1-3.0. Pida que le confirmen la referencia exacta antes de comprarlo.
+- web · `sensorProducts.heiman-fall-detection.preparation.1`
+  - FR : Branchez le capteur à une alimentation 5 V / 2 A, près de la box Élise.
+  - ES : Conecte el sensor a una alimentación de 5 V / 2 A, cerca del equipo Élise.
+- web · `sensorProducts.heiman-fall-detection.preparation.2`
+  - FR : Dans Élise OS, choisissez « Installer ce capteur » puis Zigbee. Placez le capteur en mode association en suivant sa notice : aucun hub ni compte Heiman n’est requis.
+  - ES : En Élise OS, elija «Instalar este sensor» y luego Zigbee. Ponga el sensor en modo de vinculación siguiendo su manual: no se necesita ningún concentrador ni cuenta Heiman.
+- web · `sensorProducts.heiman-fall-detection.preparation.3`
+  - FR : Après l’installation, vérifiez la réception d’une alerte de chute avec le mode de test indiqué par le fabricant. Le modèle n’a pas encore été testé physiquement avec Élise.
+  - ES : Tras la instalación, compruebe que se recibe una alerta de caída con el modo de prueba indicado por el fabricante. Este modelo todavía no se ha probado físicamente con Élise.
+- web · `welcomePage.sensorLabels.fall_detection`
+  - FR : Chute
+  - ES : Caída
+- landing · `app.features.1.text`
+  - FR : Pas de notification à chaque passage dans le couloir. Élise vous prévient pour ce qui compte : une chute détectée, de la fumée, une fuite d’eau, un appui sur le bouton d’appel ou une inactivité inhabituelle. Vous choisissez ce que vous voulez recevoir.
+  - ES : Nada de notificaciones cada vez que alguien pasa por el pasillo. Élise le avisa de lo que importa: una caída detectada, humo, una fuga de agua, una pulsación del botón de llamada o una inactividad inusual. Usted elige lo que quiere recibir.
+- landing · `app.features.1.shot.alt`
+  - FR : Écran des alertes : protections actives contre les chutes, la fumée et les fuites d’eau, et une porte d’entrée restée ouverte plus longtemps que d’habitude.
+  - ES : Pantalla de alertas: protecciones activas frente a caídas, humo y fugas de agua, y una puerta de entrada abierta más tiempo de lo habitual.
+- landing · `setup.needs.options.fall.label`
+  - FR : Une chute
+  - ES : Una caída
+- landing · `setup.needs.options.fall.text`
+  - FR : Un capteur radar, encore en test.
+  - ES : Un sensor radar, todavía en pruebas.
+- landing · `sensors.HS2FD-EF1-3.0.name`
+  - FR : Détecteur de chute Zigbee
+  - ES : Detector de caídas Zigbee
+
+## Fumée (37)
+
+- mobile · `dashboardApp.alertExplanation.smoke`
+  - FR : Le détecteur de fumée s’est déclenché. Vérifiez rapidement la situation sans vous exposer au danger.
+  - ES : Se ha activado el detector de humo. Compruebe rápidamente la situación sin exponerse al peligro.
+- mobile · `dashboardApp.alertTitle.smokeDetected`
+  - FR : Fumée détectée
+  - ES : Humo detectado
+- mobile · `dashboardApp.smokeDetection`
+  - FR : Détection de la fumée
+  - ES : Detección de humo
+- mobile · `mobileSettingsPanel.smokeDetection`
+  - FR : Détection de fumée
+  - ES : Detección de humo
+- mobile · `mobileSettingsPanel.whenASensorDetectsSmoke`
+  - FR : Lorsqu’un détecteur signale de la fumée.
+  - ES : Cuando un detector indica humo.
+- mobile · `mockApi.smokeDetector`
+  - FR : Détecteur de fumée
+  - ES : Detector de humo
+- mobile · `sensorCategories.smoke.description`
+  - FR : Les signaux du détecteur de fumée
+  - ES : Las señales del detector de humo
+- mobile · `sensorCategories.smoke.label`
+  - FR : Fumée
+  - ES : Humo
+- web · `activityPage.capabilityLabels.smoke`
+  - FR : Fumée
+  - ES : Humo
+- web · `alertsPage.advice.SMOKE`
+  - FR : Si de la fumée est présente, mettez-vous en sécurité et appelez les secours.
+  - ES : Si hay humo, póngase a salvo y llame a los servicios de emergencia (112).
+- web · `alertsPage.displayTitle.safetyTitles.SMOKE`
+  - FR : Fumée détectée
+  - ES : Humo detectado
+- web · `alertsPage.explanationFor.safetyExplanations.SMOKE`
+  - FR : Le détecteur de fumée s’est déclenché. Vérifiez rapidement la situation sans vous exposer au danger.
+  - ES : El detector de humo se ha activado. Compruebe rápidamente la situación sin exponerse al peligro.
+- web · `alertsPage.safetyCard.smoke`
+  - FR : Détection de la fumée
+  - ES : Detección de humo
+- web · `scenario.smokeDetected`
+  - FR : Fumée détectée
+  - ES : Humo detectado
+- web · `scenario.smokeDetector`
+  - FR : Détecteur de fumée
+  - ES : Detector de humo
+- web · `sensorCategories.smoke.description`
+  - FR : Les signaux du détecteur de fumée
+  - ES : Las señales del detector de humo
+- web · `sensorCategories.smoke.label`
+  - FR : Fumée
+  - ES : Humo
+- web · `sensorProducts.heiman-smoke-detector.advice`
+  - FR : Fixez-le à l’emplacement et dans l’orientation prescrits par la notice et les règles applicables au logement. Gardez le détecteur dégagé, accessible pour le test, et ne le peignez ni ne le recouvrez.
+  - ES : Fíjelo en el lugar y con la orientación que exigen el manual y la normativa aplicable a la vivienda. Mantenga el detector despejado y accesible para la prueba, y no lo pinte ni lo cubra.
+- web · `sensorProducts.heiman-smoke-detector.features.0`
+  - FR : Détection photoélectrique de fumée et sirène locale ≥ 85 dB à 3 m
+  - ES : Detección fotoeléctrica de humo y sirena local ≥ 85 dB a 3 m
+- web · `sensorProducts.heiman-smoke-detector.features.1`
+  - FR : Zigbee2MQTT expose les états fumée, test et batterie (0–100 %) ; Élise reçoit la fumée et le niveau de batterie
+  - ES : Zigbee2MQTT expone los estados de humo, prueba y batería (0–100 %); Élise recibe el humo y el nivel de batería
+- web · `sensorProducts.heiman-smoke-detector.features.2`
+  - FR : Certification EN 14604 indiquée par le vendeur
+  - ES : Certificación EN 14604 indicada por el vendedor
+- web · `sensorProducts.heiman-smoke-detector.name`
+  - FR : Détecteur de fumée intelligent Zigbee
+  - ES : Detector de humo inteligente Zigbee
+- web · `sensorProducts.heiman-smoke-detector.placement.0`
+  - FR : Fixez-le à l’emplacement et dans l’orientation prescrits par la notice et les règles applicables au logement.
+  - ES : Fíjelo en el lugar y con la orientación que exigen el manual y la normativa aplicable a la vivienda.
+- web · `sensorProducts.heiman-smoke-detector.placement.1`
+  - FR : Gardez le détecteur dégagé, accessible pour le test, et ne le peignez ni ne le recouvrez.
+  - ES : Mantenga el detector despejado y accesible para la prueba, y no lo pinte ni lo cubra.
+- web · `sensorProducts.heiman-smoke-detector.power`
+  - FR : Pile lithium CR17335 / CR123A · 3 V
+  - ES : Pila de litio CR17335 / CR123A · 3 V
+- web · `sensorProducts.heiman-smoke-detector.preparation.0`
+  - FR : Vérifiez la référence HS1SA-E : les variantes Heiman autonomes ou Z-Wave ne sont pas compatibles avec l’installation Zigbee Élise.
+  - ES : Compruebe la referencia HS1SA-E: las variantes Heiman autónomas o Z-Wave no son compatibles con la instalación Zigbee de Élise.
+- web · `sensorProducts.heiman-smoke-detector.preparation.1`
+  - FR : Installez une pile CR123A puis rapprochez le détecteur de la box Élise.
+  - ES : Coloque una pila CR123A y acerque el detector al equipo Élise.
+- web · `sensorProducts.heiman-smoke-detector.preparation.2`
+  - FR : Dans Élise OS, choisissez « Installer ce capteur » puis Zigbee. Avec un trombone, maintenez le bouton latéral plus de 2 secondes jusqu’au clignotement rapide de la LED.
+  - ES : En Élise OS, elija «Instalar este sensor» y luego Zigbee. Con un clip, mantenga pulsado el botón lateral más de 2 segundos hasta que el LED parpadee rápidamente.
+- web · `sensorProducts.heiman-smoke-detector.preparation.3`
+  - FR : Il rejoint le réseau Zigbee d’Élise OS via Zigbee2MQTT : aucun compte, application ni concentrateur Heiman n’est requis.
+  - ES : Se une a la red Zigbee de Élise OS a través de Zigbee2MQTT: no se necesita ninguna cuenta, aplicación ni concentrador Heiman.
+- web · `sensorProducts.heiman-smoke-detector.preparation.4`
+  - FR : Gardez le détecteur éveillé en appuyant sur son bouton toutes les 2 secondes jusqu’à la fin de l’appairage.
+  - ES : Mantenga el detector activo pulsando su botón cada 2 segundos hasta que termine la vinculación.
+- web · `sensorProducts.heiman-smoke-detector.preparation.5`
+  - FR : Après l’installation, testez la sirène selon la notice et vérifiez l’état du détecteur et de sa batterie dans Élise. Zigbee2MQTT signale que certains firmwares peuvent envoyer de faux états fumée répétés ; surveillez son comportement après l’appairage.
+  - ES : Tras la instalación, pruebe la sirena según el manual y compruebe el estado del detector y de su batería en Élise. Zigbee2MQTT advierte de que algunos firmwares pueden enviar falsos estados de humo repetidos; vigile su comportamiento tras la vinculación.
+- web · `sensorProducts.heiman-smoke-detector.preparation.6`
+  - FR : La sirène locale fonctionne sur le détecteur. Les notifications Élise complètent la vigilance et n’ont pas encore été validées sur un appareil physique.
+  - ES : La sirena local funciona en el propio detector. Las notificaciones de Élise complementan la atención y todavía no se han validado en un dispositivo físico.
+- web · `welcomePage.sensorLabels.smoke`
+  - FR : Fumée
+  - ES : Humo
+- landing · `app.features.4.extra.alt`
+  - FR : Détail du séjour : capteurs de température, humidité, mouvement, caméra et fumée, tous configurés.
+  - ES : Detalle del salón: sensores de temperatura, humedad, movimiento, cámara y humo, todos configurados.
+- landing · `setup.needs.options.smoke.label`
+  - FR : Un départ de fumée
+  - ES : Un indicio de humo
+- landing · `setup.needs.options.smoke.text`
+  - FR : Un détecteur de fumée certifié.
+  - ES : Un detector de humo certificado.
+- landing · `sensors.HS1SA-E.name`
+  - FR : Détecteur de fumée intelligent Zigbee
+  - ES : Detector de humo inteligente Zigbee
+
+## Fuite d’eau (31)
+
+- mobile · `dashboardApp.alertExplanation.waterLeak`
+  - FR : Le capteur a signalé la présence d’eau. Vérifiez la zone concernée et coupez l’eau si nécessaire.
+  - ES : El sensor ha señalado presencia de agua. Compruebe la zona afectada y corte el agua si es necesario.
+- mobile · `dashboardApp.alertTitle.waterLeakDetected`
+  - FR : Fuite d’eau détectée
+  - ES : Fuga de agua detectada
+- mobile · `dashboardApp.waterLeakDetection`
+  - FR : Détection des fuites d’eau
+  - ES : Detección de fugas de agua
+- mobile · `mobileSettingsPanel.waterLeak`
+  - FR : Fuite d’eau
+  - ES : Fuga de agua
+- mobile · `mobileSettingsPanel.whenAWaterLeakIs`
+  - FR : Lorsqu’une fuite d’eau est détectée.
+  - ES : Cuando se detecta una fuga de agua.
+- mobile · `mockApi.waterLeakDetector`
+  - FR : Détecteur de fuite d’eau
+  - ES : Detector de fugas de agua
+- mobile · `sensorCategories.water_leak.description`
+  - FR : Les points d’eau à surveiller
+  - ES : Los puntos de agua que vigilar
+- mobile · `sensorCategories.water_leak.label`
+  - FR : Fuite d’eau
+  - ES : Fuga de agua
+- web · `activityPage.capabilityLabels.water_leak`
+  - FR : Détection d’eau
+  - ES : Detección de agua
+- web · `alertsPage.advice.WATER_LEAK`
+  - FR : Vérifiez la zone concernée et coupez l’eau si nécessaire.
+  - ES : Compruebe la zona afectada y corte el agua si es necesario.
+- web · `alertsPage.displayTitle.safetyTitles.WATER_LEAK`
+  - FR : Fuite d’eau détectée
+  - ES : Fuga de agua detectada
+- web · `alertsPage.explanationFor.safetyExplanations.WATER_LEAK`
+  - FR : Le capteur a signalé la présence d’eau. Vérifiez la zone concernée et coupez l’eau si nécessaire.
+  - ES : El sensor ha señalado presencia de agua. Compruebe la zona afectada y corte el agua si es necesario.
+- web · `alertsPage.safetyCard.water`
+  - FR : Détection des fuites d’eau
+  - ES : Detección de fugas de agua
+- web · `homePlanEditor.leakDetector`
+  - FR : Détecteur de fuite
+  - ES : Detector de fugas
+- web · `scenario.waterLeakDetector`
+  - FR : Détecteur de fuite d’eau
+  - ES : Detector de fugas de agua
+- web · `scenario.waterLeakDetectorNotResponding`
+  - FR : Détecteur de fuite d’eau ne répond plus
+  - ES : El detector de fugas de agua no responde
+- web · `sensorCategories.water_leak.description`
+  - FR : Les points d’eau à surveiller
+  - ES : Los puntos de agua que conviene vigilar
+- web · `sensorCategories.water_leak.label`
+  - FR : Fuite d’eau
+  - ES : Fuga de agua
+- web · `sensorProducts.thirdreality-water-leak.advice`
+  - FR : Posez-le à plat là où l’eau apparaîtrait en premier : sous évier, lavabo ou chauffe-eau. Gardez le boîtier accessible pour le test et l’entretien.
+  - ES : Colóquelo en horizontal donde aparecería primero el agua: bajo el fregadero, el lavabo o el calentador de agua. Mantenga el sensor accesible para la prueba y el mantenimiento.
+- web · `sensorProducts.thirdreality-water-leak.features.0`
+  - FR : Détection de fuite
+  - ES : Detección de fugas de agua
+- web · `sensorProducts.thirdreality-water-leak.features.1`
+  - FR : Sirène intégrée
+  - ES : Sirena integrada
+- web · `sensorProducts.thirdreality-water-leak.features.2`
+  - FR : Niveau de batterie
+  - ES : Nivel de batería
+- web · `sensorProducts.thirdreality-water-leak.name`
+  - FR : Water Leak Sensor
+  - ES : Water Leak Sensor
+- web · `sensorProducts.thirdreality-water-leak.placement.0`
+  - FR : Posez-le à plat là où l’eau apparaîtrait en premier : sous évier, lavabo ou chauffe-eau.
+  - ES : Colóquelo en horizontal donde aparecería primero el agua: bajo el fregadero, el lavabo o el calentador de agua.
+- web · `sensorProducts.thirdreality-water-leak.placement.1`
+  - FR : Gardez le boîtier accessible pour le test et l’entretien.
+  - ES : Mantenga el sensor accesible para la prueba y el mantenimiento.
+- web · `sensorProducts.thirdreality-water-leak.power`
+  - FR : 2 piles AAA
+  - ES : 2 pilas AAA
+- web · `sensorProducts.thirdreality-water-leak.preparation.0`
+  - FR : Installez les piles puis rapprochez le capteur de la box.
+  - ES : Coloque las pilas y acerque el sensor al equipo.
+- web · `sensorProducts.thirdreality-water-leak.preparation.1`
+  - FR : Pour le réinitialiser, ouvrez le boîtier et maintenez le bouton interne jusqu’au voyant rouge ; le bleu clignote en mode association.
+  - ES : Para restablecerlo, abra la carcasa y mantenga pulsado el botón interno hasta que se encienda el piloto rojo; el azul parpadea en modo de vinculación.
+- web · `welcomePage.sensorLabels.water_leak`
+  - FR : Fuite d’eau
+  - ES : Fuga de agua
+- landing · `landing.plan.sensors.leak`
+  - FR : Fuite d’eau
+  - ES : Fuga de agua
+- landing · `setup.needs.options.water.label`
+  - FR : Une fuite d’eau
+  - ES : Una fuga de agua
+
+## Monoxyde de carbone (11)
+
+- mobile · `dashboardApp.alertExplanation.carbonMonoxide`
+  - FR : Le détecteur a signalé du monoxyde de carbone. Vérifiez immédiatement la situation et suivez les consignes d’urgence.
+  - ES : El detector ha señalado monóxido de carbono. Compruebe la situación de inmediato y siga las indicaciones de emergencia.
+- mobile · `dashboardApp.alertTitle.carbonMonoxideDetected`
+  - FR : Monoxyde de carbone détecté
+  - ES : Monóxido de carbono detectado
+- mobile · `sensorCategories.carbon_monoxide.description`
+  - FR : Les signaux du détecteur de CO
+  - ES : Las señales del detector de CO
+- mobile · `sensorCategories.carbon_monoxide.label`
+  - FR : Monoxyde de carbone
+  - ES : Monóxido de carbono
+- web · `activityPage.capabilityLabels.carbon_monoxide`
+  - FR : Monoxyde de carbone
+  - ES : Monóxido de carbono
+- web · `alertsPage.advice.CARBON_MONOXIDE`
+  - FR : Évacuez le logement et appelez les secours si la détection est confirmée.
+  - ES : Salga de la vivienda y llame a los servicios de emergencia (112) si se confirma la detección.
+- web · `alertsPage.displayTitle.safetyTitles.CARBON_MONOXIDE`
+  - FR : Monoxyde de carbone détecté
+  - ES : Monóxido de carbono detectado
+- web · `alertsPage.explanationFor.safetyExplanations.CARBON_MONOXIDE`
+  - FR : Le détecteur a signalé du monoxyde de carbone. Vérifiez immédiatement la situation et suivez les consignes d’urgence.
+  - ES : El detector ha señalado monóxido de carbono. Compruebe la situación de inmediato y siga las indicaciones de emergencia.
+- web · `sensorCategories.carbon_monoxide.description`
+  - FR : Les signaux du détecteur de CO
+  - ES : Las señales del detector de CO
+- web · `sensorCategories.carbon_monoxide.label`
+  - FR : Monoxyde de carbone
+  - ES : Monóxido de carbono
+- web · `welcomePage.sensorLabels.carbon_monoxide`
+  - FR : Monoxyde de carbone
+  - ES : Monóxido de carbono
+
+## Bouton d’assistance / SOS / urgences (50)
+
+- mobile · `dashboardApp.alertExplanation.assistanceButton`
+  - FR : Le bouton d’assistance du domicile a été activé. Contactez rapidement la personne.
+  - ES : Se ha activado el botón de asistencia del domicilio. Póngase en contacto rápidamente con la persona.
+- mobile · `dashboardApp.alertTitle.assistanceButtonPressed`
+  - FR : Bouton d’assistance activé
+  - ES : Botón de asistencia activado
+- mobile · `dashboardApp.callButtonPressed`
+  - FR : Bouton d’appel activé
+  - ES : Botón de llamada activado
+- mobile · `mobilePeoplePanel.emergency`
+  - FR : Urgence
+  - ES : Urgencia
+- mobile · `mobilePeoplePanel.emergencyContact`
+  - FR : Contact d’urgence
+  - ES : Contacto de emergencia
+- mobile · `mobileSettingsPanel.eliseIsNeitherAMedical`
+  - FR : Élise n’est ni un dispositif médical ni un service d’urgence.
+  - ES : Élise no es un dispositivo médico ni un servicio de emergencias.
+- mobile · `mobileSettingsPanel.inAnEmergencyCall112`
+  - FR : En cas d’urgence, appelez le 112
+  - ES : En caso de emergencia, llame al 112
+- mobile · `mobileWelcomePanel.callButton`
+  - FR : Bouton d’appel
+  - ES : Botón de llamada
+- mobile · `sensorCategories.button.label`
+  - FR : Bouton d’assistance
+  - ES : Botón de asistencia
+- mobile · `welcomeExperience.copy.privacy.disclaimer`
+  - FR : Élise n’est ni un dispositif médical ni un service d’urgence. En cas d’urgence, appelez le 112.
+  - ES : Élise no es un dispositivo médico ni un servicio de emergencias. En caso de emergencia, llame al 112.
+- web · `activityPage.callButtonActivated`
+  - FR : Bouton d’appel activé
+  - ES : Botón de llamada activado
+- web · `activityPage.capabilityLabels.button`
+  - FR : Bouton d’appel
+  - ES : Botón de llamada
+- web · `alertsPage.advice.SOS`
+  - FR : Contactez la personne ou les secours selon la situation.
+  - ES : Contacte con la persona o con los servicios de emergencia según la situación.
+- web · `alertsPage.displayTitle.safetyTitles.SOS`
+  - FR : Bouton d’assistance activé
+  - ES : Botón de asistencia activado
+- web · `alertsPage.explanationFor.safetyExplanations.SOS`
+  - FR : Le bouton d’assistance du domicile a été activé. Contactez rapidement la personne.
+  - ES : Se ha activado el botón de asistencia del domicilio. Contacte rápidamente con la persona.
+- web · `app.activityText.callButtonPressed`
+  - FR : Bouton d’appel activé
+  - ES : Botón de llamada activado
+- web · `app.capabilityLabel.labels.button`
+  - FR : Bouton d’appel
+  - ES : Botón de llamada
+- web · `app.emergency`
+  - FR : Urgence
+  - ES : Urgencia
+- web · `app.emergencyContact`
+  - FR : Contact d’urgence
+  - ES : Contacto de emergencia
+- web · `homeSensorOnboardingDialog.connectADryContactPressure`
+  - FR : Branchez un tapis de pression à contact sec au NodOn et placez le tapis sous le matelas. Le module NodOn doit rester exposé à la lumière ou utiliser sa pile de secours.
+  - ES : Conecte una alfombrilla de presión de contacto seco al NodOn y coloque la alfombrilla bajo el colchón. El módulo NodOn debe quedar expuesto a la luz o utilizar su pila de reserva.
+- web · `scenario.assistanceButton`
+  - FR : Bouton d’assistance
+  - ES : Botón de asistencia
+- web · `scenario.assistanceButtonPressed`
+  - FR : Bouton d’assistance activé
+  - ES : Botón de asistencia activado
+- web · `screenPanel.addAsFallback`
+  - FR : Ajouter en secours
+  - ES : Añadir como reserva
+- web · `screenPanel.homeAssistantControlAvailableAs`
+  - FR : Commande Home Assistant disponible en secours.
+  - ES : Control de Home Assistant disponible como reserva.
+- web · `screenPanel.homeAssistantFallback`
+  - FR : Secours Home Assistant : {{name}}
+  - ES : Reserva de Home Assistant: {{name}}
+- web · `screenPanel.homeAssistantFallbackPaired`
+  - FR : Secours Home Assistant associé.
+  - ES : Reserva de Home Assistant vinculada.
+- web · `sensorCategories.button.label`
+  - FR : Bouton d’assistance
+  - ES : Botón de asistencia
+- web · `sensorOnboardingDialog.connectTheSdc41`
+  - FR : Le SDC-4-1-00 doit être raccordé à un tapis de pression à contact sec placé sous le matelas. Gardez le module NodOn exposé à la lumière ou équipez-le de sa pile de secours.
+  - ES : El SDC-4-1-00 debe conectarse a una alfombrilla de presión de contacto seco colocada bajo el colchón. Mantenga el módulo NodOn expuesto a la luz o instálele su pila de respaldo.
+- web · `sensorProducts.nodon-climate.features.3`
+  - FR : Niveau de batterie de secours
+  - ES : Nivel de la pila de respaldo
+- web · `sensorProducts.nodon-dry-contact.advice`
+  - FR : Installez le boîtier près du contact filaire à surveiller. Gardez-le accessible et protégez les conducteurs contre l’arrachement. Pour suivre un lit, glissez le tapis de pression raccordé sous le matelas et gardez le boîtier à la lumière ou utilisez sa pile de secours.
+  - ES : Instale el módulo cerca del contacto cableado que desea vigilar. Manténgalo accesible y proteja los cables contra tirones. Para seguir una cama, deslice la alfombrilla de presión conectada bajo el colchón y mantenga el módulo expuesto a la luz o utilice su pila de respaldo.
+- web · `sensorProducts.nodon-dry-contact.features.2`
+  - FR : Niveau de batterie de secours
+  - ES : Nivel de la pila de respaldo
+- web · `sensorProducts.nodon-dry-contact.placement.2`
+  - FR : Pour suivre un lit, glissez le tapis de pression raccordé sous le matelas et gardez le boîtier à la lumière ou utilisez sa pile de secours.
+  - ES : Para seguir una cama, deslice la alfombrilla de presión conectada bajo el colchón y mantenga el módulo expuesto a la luz o utilice su pila de respaldo.
+- web · `sensorProducts.thirdreality-smart-button.advice`
+  - FR : Placez-le à portée de main, par exemple près du lit ou du fauteuil. Utilisez le support magnétique ou adhésif et vérifiez que la personne peut facilement l’actionner.
+  - ES : Colóquelo al alcance de la mano, por ejemplo cerca de la cama o del sillón. Utilice el soporte magnético o adhesivo y compruebe que la persona puede pulsarlo con facilidad.
+- web · `sensorProducts.thirdreality-smart-button.features.0`
+  - FR : Appui simple
+  - ES : Pulsación simple
+- web · `sensorProducts.thirdreality-smart-button.features.1`
+  - FR : Double appui
+  - ES : Doble pulsación
+- web · `sensorProducts.thirdreality-smart-button.features.2`
+  - FR : Appui long
+  - ES : Pulsación larga
+- web · `sensorProducts.thirdreality-smart-button.features.3`
+  - FR : Niveau de batterie
+  - ES : Nivel de batería
+- web · `sensorProducts.thirdreality-smart-button.name`
+  - FR : Zigbee Smart Button
+  - ES : Zigbee Smart Button
+- web · `sensorProducts.thirdreality-smart-button.placement.0`
+  - FR : Placez-le à portée de main, par exemple près du lit ou du fauteuil.
+  - ES : Colóquelo al alcance de la mano, por ejemplo cerca de la cama o del sillón.
+- web · `sensorProducts.thirdreality-smart-button.placement.1`
+  - FR : Utilisez le support magnétique ou adhésif et vérifiez que la personne peut facilement l’actionner.
+  - ES : Utilice el soporte magnético o adhesivo y compruebe que la persona puede pulsarlo con facilidad.
+- web · `sensorProducts.thirdreality-smart-button.power`
+  - FR : 2 piles AAA
+  - ES : 2 pilas AAA
+- web · `sensorProducts.thirdreality-smart-button.preparation.0`
+  - FR : Installez les piles et rapprochez le bouton de la box.
+  - ES : Coloque las pilas y acerque el botón al equipo.
+- web · `sensorProducts.thirdreality-smart-button.preparation.1`
+  - FR : Maintenez le bouton de réinitialisation jusqu’au clignotement pour l’associer.
+  - ES : Mantenga pulsado el botón de reinicio hasta que parpadee para vincularlo.
+- landing · `landing.plan.sensors.button`
+  - FR : Bouton d’appel
+  - ES : Botón de llamada
+- landing · `landing.principles.items.5.text`
+  - FR : Élise aide à savoir quand prendre des nouvelles. Elle ne remplace ni la téléassistance, ni les secours, ni une visite.
+  - ES : Élise le ayuda a saber cuándo llamar para preguntar cómo está. No sustituye a la teleasistencia, ni a los servicios de emergencia, ni a una visita.
+- landing · `landing.install.lead`
+  - FR : Élise est en phase de test. Elle est faite pour être essayée en famille, idéalement avec un proche à l’aise avec l’informatique. Elle ne remplace pas une téléassistance.
+  - ES : Élise está en fase de pruebas. Está pensada para probarse en familia, idealmente con alguien que se maneje bien con la informática. No sustituye a la teleasistencia.
+- landing · `landing.footer.disclaimer`
+  - FR : Élise n’est ni un dispositif médical ni un service d’urgence.
+  - ES : Élise no es un dispositivo médico ni un servicio de emergencias.
+- landing · `app.caution`
+  - FR : Élise n’est ni un dispositif médical, ni une téléassistance, ni un service d’urgence. En cas d’urgence, appelez le 112 ou le 15.
+  - ES : Élise no es un dispositivo médico, ni un servicio de teleasistencia, ni un servicio de emergencias. En caso de emergencia, llame al 112.
+- landing · `setup.needs.options.call.text`
+  - FR : Un simple bouton. Ce n’est pas une téléassistance.
+  - ES : Un simple botón. No es un servicio de teleasistencia.
+- landing · `pilot.legal.sections.3.text`
+  - FR : Les captures proviennent d’une installation de démonstration avec des données fictives. Elles montrent les interfaces réelles du prototype, mais ne prouvent ni son efficacité terrain ni une compatibilité matérielle complète. Élise est en développement et ne remplace ni un service d’urgence ni un professionnel.
+  - ES : Las capturas proceden de una instalación de demostración con datos ficticios. Muestran las interfaces reales del prototipo, pero no demuestran su eficacia sobre el terreno ni una compatibilidad de hardware completa. Élise está en desarrollo y no sustituye a un servicio de emergencias ni a un profesional.
+
+## Alertes urgentes / prise en charge (74)
+
+- mobile · `app.alerts`
+  - FR : ALERTES
+  - ES : ALERTAS
+- mobile · `app.alertsCannotBeRefreshed`
+  - FR : Les alertes ne peuvent pas être actualisées.
+  - ES : No se pueden actualizar las alertas.
+- mobile · `app.noAlerts`
+  - FR : Aucune alerte
+  - ES : Sin alertas
+- mobile · `app.reviewTheOpenAlertsBelow`
+  - FR : Consultez les alertes ouvertes ci-dessous.
+  - ES : Consulte las alertas abiertas a continuación.
+- mobile · `dashboardApp.acknowledge`
+  - FR : Prendre en charge
+  - ES : Atender
+- mobile · `dashboardApp.acknowledged`
+  - FR : Prises en charge
+  - ES : Atendidas
+- mobile · `dashboardApp.acknowledged2`
+  - FR : PRISE EN CHARGE
+  - ES : ATENDIDA
+- mobile · `dashboardApp.acknowledged3`
+  - FR : Prise en charge
+  - ES : Atendida
+- mobile · `dashboardApp.alertDetails`
+  - FR : DÉTAIL DE L’ALERTE
+  - ES : DETALLE DE LA ALERTA
+- mobile · `dashboardApp.alertRules`
+  - FR : Règles des alertes
+  - ES : Reglas de las alertas
+- mobile · `dashboardApp.alerts`
+  - FR : Alertes
+  - ES : Alertas
+- mobile · `dashboardApp.filterAlerts`
+  - FR : Filtrer les alertes
+  - ES : Filtrar las alertas
+- mobile · `dashboardApp.homeAlerts`
+  - FR : ALERTES DU DOMICILE
+  - ES : ALERTAS DEL DOMICILIO
+- mobile · `dashboardApp.noAlertsInTheHistory`
+  - FR : Aucune alerte dans l’historique.
+  - ES : No hay alertas en el historial.
+- mobile · `dashboardApp.noAlertsNeedYourAttention`
+  - FR : Aucune alerte ne demande votre attention.
+  - ES : Ninguna alerta requiere su atención.
+- mobile · `dashboardApp.noRecentOrOngoingAlerts`
+  - FR : Aucune alerte récente ou en cours. Des situations terminées plus anciennes sont dans l’historique.
+  - ES : No hay alertas recientes ni en curso. Las situaciones terminadas más antiguas están en el historial.
+- mobile · `dashboardApp.noUrgentAlertsRightNow`
+  - FR : Aucune alerte urgente en cours
+  - ES : No hay alertas urgentes en curso
+- mobile · `dashboardApp.refineAlerts`
+  - FR : Affiner les alertes
+  - ES : Afinar las alertas
+- mobile · `dashboardApp.reportAFalseAlarm`
+  - FR : Signaler une fausse alerte
+  - ES : Señalar una falsa alerta
+- mobile · `dashboardApp.theAlertWillLeaveThe`
+  - FR : L’alerte quittera la liste des alertes ouvertes.
+  - ES : La alerta saldrá de la lista de alertas abiertas.
+- mobile · `dashboardApp.theAlertWillStayVisible`
+  - FR : L’alerte restera visible comme prise en charge.
+  - ES : La alerta seguirá visible como atendida.
+- mobile · `dashboardApp.urgent`
+  - FR : Urgence
+  - ES : Urgencia
+- mobile · `dashboardApp.urgentAlertsOngoing_many`
+  - FR : {{count}} alertes urgentes en cours
+  - ES : {{count}} alertas urgentes en curso
+- mobile · `dashboardApp.urgentAlertsOngoing_one`
+  - FR : {{count}} alerte urgente en cours
+  - ES : {{count}} alerta urgente en curso
+- mobile · `dashboardApp.urgentAlertsOngoing_other`
+  - FR : {{count}} alertes urgentes en cours
+  - ES : {{count}} alertas urgentes en curso
+- mobile · `dashboardApp.urgentStatusUnavailable`
+  - FR : État des urgences indisponible
+  - ES : Estado de las urgencias no disponible
+- mobile · `dashboardApp.whyIsThisAlertFalse`
+  - FR : Pourquoi cette alerte est-elle fausse ?
+  - ES : ¿Por qué es falsa esta alerta?
+- mobile · `mobileSettingsPanel.alertsAndNewJournalEntries`
+  - FR : Les alertes et les nouveaux éléments du carnet sont envoyés à l’application. Les notifications doivent aussi être autorisées dans les réglages du téléphone.
+  - ES : Las alertas y las nuevas entradas del cuaderno se envían a la aplicación. Las notificaciones también deben estar permitidas en los ajustes del teléfono.
+- mobile · `mobileSettingsPanel.chooseWhichSafetyAlertsTo`
+  - FR : Choisissez les alertes de sécurité à envoyer en notification push. Ces préférences s’appliquent aux appareils associés à ce compte.
+  - ES : Elija las alertas de seguridad que se envían como notificación push. Estas preferencias se aplican a los dispositivos vinculados a esta cuenta.
+- mobile · `mobileSettingsPanel.homeAlerts`
+  - FR : ALERTES DU LOGEMENT
+  - ES : ALERTAS DE LA VIVIENDA
+- mobile · `mobileSettingsPanel.onlyAnAdministratorCanChange`
+  - FR : Seul un administrateur peut modifier les règles des alertes.
+  - ES : Solo un administrador puede modificar las reglas de las alertas.
+- mobile · `mobileWelcomePanel.alerts`
+  - FR : Alertes
+  - ES : Alertas
+- mobile · `mobileWelcomePanel.alertsAnItemNeedsAttention`
+  - FR : Alertes, une situation à consulter
+  - ES : Alertas, una situación por consultar
+- mobile · `mobileWelcomePanel.opensTheAlertsPage`
+  - FR : Ouvre la page Alertes.
+  - ES : Abre la página Alertas.
+- mobile · `welcomeExperience.copy.mobile.body`
+  - FR : Consultez les faits du jour, les événements et les alertes. Une situation inhabituelle invite à vérifier et à prendre des nouvelles, jamais à conclure à distance.
+  - ES : Consulte los hechos del día, los eventos y las alertas. Una situación inusual invita a comprobar y a interesarse por su familiar, nunca a sacar conclusiones a distancia.
+- web · `alertRulesPanel.enableBehaviouralAlerts`
+  - FR : Activer les alertes comportementales
+  - ES : Activar las alertas de comportamiento
+- web · `alertsPage.acknowledge`
+  - FR : Prendre en charge
+  - ES : Atender
+- web · `alertsPage.alertRules`
+  - FR : Règles des alertes
+  - ES : Reglas de alertas
+- web · `alertsPage.alerts`
+  - FR : Alertes
+  - ES : Alertas
+- web · `alertsPage.homeAlerts`
+  - FR : ALERTES DU DOMICILE
+  - ES : ALERTAS DEL DOMICILIO
+- web · `alertsPage.lastReliableMovement`
+  - FR : Dernier mouvement fiable enregistré le {{recordedAt}}. L’alerte a été déclenchée {{gap}} après.
+  - ES : Último movimiento fiable registrado el {{recordedAt}}. La alerta se activó {{gap}} después.
+- web · `alertsPage.lastReliableMovementIn`
+  - FR : Dernier mouvement fiable enregistré le {{recordedAt}}, dans {{room}}. L’alerte a été déclenchée {{gap}} après.
+  - ES : Último movimiento fiable registrado el {{recordedAt}}, en {{room}}. La alerta se activó {{gap}} después.
+- web · `alertsPage.noUrgentAlertInProgress`
+  - FR : Aucune alerte urgente en cours
+  - ES : Ninguna alerta urgente en curso
+- web · `alertsPage.reportAFalseAlert`
+  - FR : Signaler une fausse alerte
+  - ES : Señalar una falsa alerta
+- web · `alertsPage.severityLabels.URGENT`
+  - FR : Urgence
+  - ES : Urgencia
+- web · `alertsPage.statusFilter.acknowledged`
+  - FR : Prises en charge
+  - ES : Atendidas
+- web · `alertsPage.statusLabels.ACKNOWLEDGED`
+  - FR : Prise en charge
+  - ES : Atendida
+- web · `alertsPage.urgencyStatusUnavailable`
+  - FR : État des urgences indisponible
+  - ES : Estado de las urgencias no disponible
+- web · `alertsPage.urgentAlertsActive_many`
+  - FR : {{count}} alertes urgentes en cours
+  - ES : {{count}} alertas urgentes en curso
+- web · `alertsPage.urgentAlertsActive_one`
+  - FR : {{count}} alerte urgente en cours
+  - ES : {{count}} alerta urgente en curso
+- web · `alertsPage.urgentAlertsActive_other`
+  - FR : {{count}} alertes urgentes en cours
+  - ES : {{count}} alertas urgentes en curso
+- web · `alertsPage.whyIsThisAlertFalse`
+  - FR : Pourquoi cette alerte est-elle fausse ?
+  - ES : ¿Por qué es falsa esta alerta?
+- web · `app.copy.attentionDetail`
+  - FR : Consultez l’alerte et confirmez la suite à donner.
+  - ES : Consulte la alerta y confirme qué hacer a continuación.
+- web · `app.copy.intelligentAlert`
+  - FR : Exemple d’alerte intelligente
+  - ES : Ejemplo de alerta inteligente
+- web · `app.copy.nav.2`
+  - FR : Alertes
+  - ES : Alertas
+- web · `app.copy.noAlert`
+  - FR : Aucune alerte
+  - ES : Ninguna alerta
+- web · `guidedTour.steps.2.description`
+  - FR : Alertes explique chaque situation inhabituelle et vous guide vers l’action la plus adaptée.
+  - ES : Alertas explica cada situación inusual y le orienta hacia la acción más adecuada.
+- landing · `landing.principles.items.3.title`
+  - FR : Pas de fausse alerte
+  - ES : Sin falsas alertas
+- landing · `app.meta.description`
+  - FR : L’application mobile Élise pour les proches et les aidants : la journée en un coup d’œil, une alerte seulement quand il le faut, le carnet de liaison et la télévision du proche depuis votre téléphone.
+  - ES : La aplicación móvil Élise para familiares y cuidadores: el día de un vistazo, una alerta solo cuando hace falta, el cuaderno de seguimiento y el televisor de su familiar desde su teléfono.
+- landing · `app.features.1.id`
+  - FR : alertes
+  - ES : alertes
+- landing · `app.features.1.label`
+  - FR : Alertes
+  - ES : Alertas
+- landing · `app.features.1.points.1`
+  - FR : Une alerte se prend en charge, et la famille le voit
+  - ES : Una alerta se atiende, y la familia lo ve
+- landing · `app.features.1.shot.id`
+  - FR : mobile/iphone-03-alertes
+  - ES : mobile/iphone-03-alertes
+- landing · `app.tablet.lead`
+  - FR : Sur une tablette, tout tient sur un écran : la journée, les alertes, le logement, le carnet et la télévision.
+  - ES : En una tableta, todo cabe en una pantalla: el día, las alertas, la vivienda, el cuaderno y el televisor.
+- landing · `app.tablet.shots.1.id`
+  - FR : mobile/ipad-02-alertes
+  - ES : mobile/ipad-02-alertes
+- landing · `app.tablet.shots.1.alt`
+  - FR : Alertes sur iPad.
+  - ES : Alertas en iPad.
+- landing · `setup.steps.app.body`
+  - FR : Sur iPhone, iPad ou Android, ils suivent la maison et reçoivent les alertes. Sur le Wi-Fi de la maison, l’application trouve Élise toute seule ; à distance, ils scannent le QR code affiché dans Élise.
+  - ES : En iPhone, iPad o Android, siguen la casa y reciben las alertas. En el Wi-Fi de casa, la aplicación encuentra Élise sola; a distancia, escanean el código QR que se muestra en Élise.
+- landing · `setup.steps.learn.body`
+  - FR : Pendant 14 jours, Élise découvre les habitudes du logement. Seules les règles que vous avez confirmées peuvent déclencher une alerte pendant ce temps.
+  - ES : Durante 14 días, Élise descubre los hábitos de la vivienda. Durante ese tiempo, solo las reglas que usted haya confirmado pueden activar una alerta.
+- landing · `pilot.pilot.stages.items.2.desc`
+  - FR : Rejouer des situations définies, recueillir les retours et analyser les alertes utiles, manquées ou jugées inutiles.
+  - ES : Reproducir situaciones definidas, recoger opiniones y analizar las alertas útiles, las que faltaron y las que se consideraron innecesarias.
+- landing · `pilot.pilot.evaluation.rows.2.0`
+  - FR : Pertinence des alertes
+  - ES : Pertinencia de las alertas
+- landing · `pilot.pilot.evaluation.rows.2.1`
+  - FR : Alertes utiles, inutiles ou absentes lors des essais
+  - ES : Alertas útiles, innecesarias o ausentes durante las pruebas
+- landing · `privacy.sections.1.paragraphs.0`
+  - FR : Selon les fonctions activées, une installation peut traiter les informations de compte et de session, les noms et rôles des membres du foyer, les informations saisies dans les fonctions de journal ou de calendrier, les événements normalisés transmis par les capteurs et les alertes utiles au suivi du logement. Ces repères peuvent révéler des habitudes de vie et doivent être protégés comme des informations personnelles.
+  - ES : Según las funciones activadas, una instalación puede tratar la información de cuenta y de sesión, los nombres y roles de los miembros del hogar, la información introducida en las funciones de diario o de calendario, los eventos normalizados transmitidos por los sensores y las alertas útiles para el seguimiento de la vivienda. Estas referencias pueden revelar hábitos de vida y deben protegerse como información personal.
+- landing · `privacy.sections.1.paragraphs.2`
+  - FR : Si les notifications mobiles sont activées avec l’accord de la personne, l’installation conserve le jeton de notification Expo, la plateforme mobile et, si disponible, le nom de l’appareil. Une notification d’alerte contient un texte générique, le type et l’identifiant de l’alerte ainsi que sa priorité pour permettre à l’application de l’ouvrir ; son détail reste dans l’espace du logement.
+  - ES : Si las notificaciones móviles están activadas con el consentimiento de la persona, la instalación conserva el token de notificación de Expo, la plataforma móvil y, si está disponible, el nombre del dispositivo. Una notificación de alerta contiene un texto genérico, el tipo y el identificador de la alerta, así como su prioridad, para que la aplicación pueda abrirla; el detalle permanece en el espacio de la vivienda.
+- landing · `privacy.sections.4.items.4`
+  - FR : Captures liées aux alertes : 24 heures, stockées localement et exclues des sauvegardes habituelles.
+  - ES : Capturas vinculadas a las alertas: 24 horas, almacenadas localmente y excluidas de las copias de seguridad habituales.
+
+## Confidentialité / vie privée (67)
+
+- mobile · `mobilePartnerRibbon.role.lifeplus`
+  - FR : Conseils & intimité du résident
+  - ES : Asesoramiento e intimidad del residente
+- mobile · `mobilePartnerRibbon.supportingTheProjectNodonLead`
+  - FR : Ils accompagnent le projet : NodOn, partenaire principal ; ThirdReality et SMLIGHT, partenaires matériels ; Life Plus, conseils et intimité du résident.
+  - ES : Apoyan el proyecto: NodOn, socio principal; ThirdReality y SMLIGHT, socios de hardware; Life Plus, asesoramiento e intimidad del residente.
+- mobile · `mobileSettingsPanel.privacy`
+  - FR : VIE PRIVÉE
+  - ES : PRIVACIDAD
+- mobile · `mobileSettingsPanel.privacyPolicy`
+  - FR : Politique de confidentialité
+  - ES : Política de privacidad
+- mobile · `mobileSettingsPanel.privacyPolicyUrl`
+  - FR : https://eliseos.paulbreton.dev/politique/
+  - ES : https://eliseos.paulbreton.dev/politique/
+- mobile · `mobileSetup.copy.privacyBadge`
+  - FR : Respecte votre intimité
+  - ES : Respeta su intimidad
+- mobile · `welcomeExperience.copy.privacy.body`
+  - FR : Les événements sont traités au domicile. Les proches autorisés accèdent à leur espace par un réseau privé. Aucune caméra n’est nécessaire pour les repères du logement.
+  - ES : Los eventos se procesan en el domicilio. Los familiares autorizados acceden a su espacio a través de una red privada. No se necesita ninguna cámara para las referencias de la vivienda.
+- mobile · `welcomeExperience.copy.privacy.eyebrow`
+  - FR : 04 / VOTRE ESPACE
+  - ES : 04 / SU ESPACIO
+- mobile · `welcomeExperience.copy.privacy.home`
+  - FR : Au domicile
+  - ES : En el domicilio
+- mobile · `welcomeExperience.copy.privacy.optional`
+  - FR : Caméra facultative
+  - ES : Cámara opcional
+- mobile · `welcomeExperience.copy.privacy.private`
+  - FR : Accès privé
+  - ES : Acceso privado
+- mobile · `welcomeExperience.copy.privacy.title`
+  - FR : Le cœur du système reste chez soi.
+  - ES : El corazón del sistema se queda en casa.
+- web · `app.privacy`
+  - FR : Intimité
+  - ES : Intimidad
+- web · `app.privacyModeEnabled`
+  - FR : Mode intimité activé
+  - ES : Modo intimidad activado
+- web · `screenPanel.consentToCallsIsTurned`
+  - FR : Le consentement aux appels est désactivé.
+  - ES : El consentimiento para las llamadas está desactivado.
+- web · `setup.privacyComesFirst`
+  - FR : Respecte votre intimité
+  - ES : Respeta su intimidad
+- landing · `landing.partners.roles.advice`
+  - FR : Conseils et intimité du résident
+  - ES : Asesoramiento e intimidad del residente
+- landing · `landing.footer.links.privacyDoc`
+  - FR : Confidentialité et rétention
+  - ES : Privacidad y conservación
+- landing · `landing.footer.links.privacy`
+  - FR : Politique de confidentialité
+  - ES : Política de privacidad
+- landing · `app.privacy.title`
+  - FR : Vos informations restent à la maison.
+  - ES : Su información se queda en casa.
+- landing · `app.privacy.text`
+  - FR : L’application ne stocke rien dans le cloud d’un fabricant : elle lit les informations sur l’Élise de votre proche. Les notifications ne contiennent qu’un message court ; le détail ne s’affiche qu’une fois connecté.
+  - ES : La aplicación no guarda nada en la nube de ningún fabricante: lee la información en el Élise de su familiar. Las notificaciones solo contienen un mensaje breve; el detalle solo se muestra después de iniciar sesión.
+- landing · `ui.privacy.breadcrumb`
+  - FR : Fil d’Ariane
+  - ES : Ruta de navegación
+- landing · `ui.privacy.home`
+  - FR : Accueil
+  - ES : Inicio
+- landing · `pilot.pilot.intent.desc`
+  - FR : L’objectif est d’évaluer si l’ensemble Élise peut soutenir le maintien à domicile : donner des repères aux proches, simplifier la télévision du résident et permettre d’agir à distance sans empiéter sur son intimité.
+  - ES : El objetivo es evaluar si el conjunto Élise puede favorecer la permanencia en el domicilio: dar referencias a los familiares, simplificar el televisor del residente y permitir actuar a distancia sin invadir su intimidad.
+- landing · `pilot.pilot.stages.items.0.desc`
+  - FR : Définir le logement, les personnes impliquées, les situations testées, les choix de confidentialité et les conditions d’arrêt.
+  - ES : Definir la vivienda, las personas implicadas, las situaciones que se probarán, las opciones de privacidad y las condiciones de finalización.
+- landing · `pilot.pilot.evaluation.rows.4.1`
+  - FR : Confort, intimité, choix d’usage et souhait d’arrêt
+  - ES : Comodidad, intimidad, preferencias de uso y deseo de dejarlo
+- landing · `pilot.pilot.needs.note`
+  - FR : Soutien matériel reçu : NodOn, partenaire principal, ainsi que ThirdReality et SMLIGHT. Life Plus apporte un regard de conseil sur l’autonomie et l’intimité du résident. Les besoins complémentaires concernent la poursuite du pilote et un lieu adapté.
+  - ES : Apoyo material recibido: NodOn, socio principal, así como ThirdReality y SMLIGHT. Life Plus aporta asesoramiento sobre la autonomía y la intimidad del residente. Las necesidades adicionales se refieren a la continuación del piloto y a un lugar adecuado.
+- landing · `pilot.pilot.framework.items.0.title`
+  - FR : Personnes et consentement
+  - ES : Personas y consentimiento
+- landing · `pilot.legal.title`
+  - FR : Informations & confidentialité
+  - ES : Información y privacidad
+- landing · `privacy.breadcrumb`
+  - FR : Politique de confidentialité
+  - ES : Política de privacidad
+- landing · `privacy.eyebrow`
+  - FR : DONNÉES & VIE PRIVÉE
+  - ES : DATOS Y PRIVACIDAD
+- landing · `privacy.title`
+  - FR : Vos repères
+  - ES : Sus referencias
+- landing · `privacy.italic`
+  - FR : sont traités au domicile.
+  - ES : se tratan en el domicilio.
+- landing · `privacy.intro`
+  - FR : Cette page présente les traitements prévus par le code ouvert d’Élise OS et par le site public. Le fonctionnement réel dépend de la configuration et de l’hébergement de chaque installation.
+  - ES : Esta página presenta los tratamientos previstos por el código abierto de Élise OS y por el sitio público. El funcionamiento real depende de la configuración y del alojamiento de cada instalación.
+- landing · `privacy.updated`
+  - FR : Dernière mise à jour : 30 septembre 2026
+  - ES : Última actualización: 30 de septiembre de 2026
+- landing · `privacy.sections.0.title`
+  - FR : Périmètre et responsable
+  - ES : Ámbito y responsable
+- landing · `privacy.sections.0.paragraphs.0`
+  - FR : Élise OS est un logiciel libre, distribué sous licence AGPL-3.0-only et conçu pour être installé au domicile. Le projet ne reçoit pas automatiquement les données produites par une installation. Chaque personne ou organisation qui configure un logement détermine les usages et les accès : elle doit informer les personnes concernées et leur indiquer le responsable de traitement à contacter.
+  - ES : Élise OS es un software libre, distribuido bajo licencia AGPL-3.0-only y diseñado para instalarse en el domicilio. El proyecto no recibe automáticamente los datos que genera una instalación. Cada persona u organización que configura una vivienda determina los usos y los accesos: debe informar a las personas afectadas e indicarles el responsable del tratamiento al que pueden dirigirse.
+- landing · `privacy.sections.0.paragraphs.1`
+  - FR : Pour le site public, le projet est porté individuellement en France par Paul Breton. Contact : contact@paulbreton.dev. L’hébergeur du site peut traiter des données techniques de connexion pour délivrer et sécuriser les pages ; son identité et la durée de ses journaux dépendent de l’hébergement en service.
+  - ES : En lo que respecta al sitio público, el proyecto lo lleva a título individual en Francia Paul Breton. Contacto: contact@paulbreton.dev. El proveedor de alojamiento del sitio puede tratar datos técnicos de conexión para servir y proteger las páginas; su identidad y el plazo de conservación de sus registros dependen del alojamiento en uso.
+- landing · `privacy.sections.0.paragraphs.2`
+  - FR : Les bases juridiques et les obligations propres à un logement ne peuvent pas être fixées une fois pour toutes par le logiciel : elles sont à déterminer par le responsable de chaque installation, selon ses usages et les données traitées.
+  - ES : Las bases jurídicas y las obligaciones propias de una vivienda no pueden fijarse de una vez por todas en el software: debe determinarlas el responsable de cada instalación, según sus usos y los datos tratados.
+- landing · `privacy.sections.1.title`
+  - FR : Données traitées et finalités
+  - ES : Datos tratados y finalidades
+- landing · `privacy.sections.1.paragraphs.1`
+  - FR : Les capteurs envoient des faits structurés nécessaires au fonctionnement du service. Les caméras sont facultatives et séparées de ces repères : leurs images et leur son ne sont pas intégrés aux observations ni aux fonctions d’analyse par IA. Une caméra configurée peut uniquement contribuer à un fait normalisé de présence.
+  - ES : Los sensores envían hechos estructurados necesarios para el funcionamiento del servicio. Las cámaras son opcionales y están separadas de estas referencias: sus imágenes y su sonido no se integran en las observaciones ni en las funciones de análisis por IA. Una cámara configurada solo puede contribuir a un hecho normalizado de presencia.
+- landing · `privacy.sections.2.title`
+  - FR : Caméra, interphone et visioconférence
+  - ES : Cámara, interfono y videoconferencia
+- landing · `privacy.sections.2.paragraphs.0`
+  - FR : La vidéo en direct est relayée à la demande dans une session signée de cinq minutes. L’audio de l’interphone est transmis uniquement pendant l’appui volontaire sur le bouton et n’est pas enregistré par Élise OS. Les identifiants des flux caméra sont chiffrés au repos. Les accès aux caméras et les changements de réglage de confidentialité ou de consentement sont journalisés.
+  - ES : El vídeo en directo se retransmite a petición en una sesión firmada de cinco minutos. El audio del interfono solo se transmite mientras se mantiene pulsado voluntariamente el botón y Élise OS no lo graba. Las credenciales de los flujos de las cámaras se cifran en reposo. Los accesos a las cámaras y los cambios en los ajustes de privacidad o de consentimiento quedan registrados.
+- landing · `privacy.sections.2.paragraphs.1`
+  - FR : Les rôles OWNER, ADMINISTRATOR et CAREGIVER peuvent consulter les caméras configurées. Seuls OWNER et ADMINISTRATOR peuvent les ajouter ou les reconfigurer. Une confirmation de consentement est exigée pour configurer une caméra dans une chambre ou une salle de bains. Le responsable du logement doit vérifier que l’information et le consentement sont adaptés à la situation.
+  - ES : Los roles OWNER, ADMINISTRATOR y CAREGIVER pueden consultar las cámaras configuradas. Solo OWNER y ADMINISTRATOR pueden añadirlas o volver a configurarlas. Se exige una confirmación de consentimiento para configurar una cámara en un dormitorio o un baño. El responsable de la vivienda debe comprobar que la información y el consentimiento son adecuados a la situación.
+- landing · `privacy.sections.2.paragraphs.2`
+  - FR : Les appels vidéo utilisent le serveur Jitsi configuré pour l’installation. Le son et l’image sont transmis à ce serveur pendant l’appel ; l’exploitant du serveur et les personnes participantes peuvent donc y avoir accès selon la configuration. Il peut s’agir d’un serveur autohébergé ou d’un prestataire choisi par l’installation. Vérifiez ses conditions et sa localisation avant utilisation.
+  - ES : Las videollamadas utilizan el servidor Jitsi configurado para la instalación. El sonido y la imagen se transmiten a ese servidor durante la llamada; por tanto, el operador del servidor y los participantes pueden tener acceso a ellos según la configuración. Puede tratarse de un servidor autoalojado o de un proveedor elegido para la instalación. Compruebe sus condiciones y su ubicación antes de utilizarlo.
+- landing · `privacy.sections.2.paragraphs.3`
+  - FR : Élise OS ne peut pas vérifier qu’une caméra tierce a cessé d’enregistrer lorsqu’un mode de confidentialité logiciel est utilisé seul. Un dispositif matériel de confidentialité est préférable.
+  - ES : Élise OS no puede verificar que una cámara de terceros haya dejado de grabar cuando solo se utiliza un modo de privacidad por software. Es preferible un dispositivo de privacidad físico.
+- landing · `privacy.sections.3.title`
+  - FR : Destinataires et transferts
+  - ES : Destinatarios y transferencias
+- landing · `privacy.sections.3.paragraphs.0`
+  - FR : Les données du logement sont traitées sur l’installation locale et accessibles aux membres autorisés selon leur rôle. L’accès distant des proches peut passer par un VPN géré par le foyer. Le mainteneur du logiciel n’accède pas automatiquement à ces données.
+  - ES : Los datos de la vivienda se tratan en la instalación local y son accesibles para los miembros autorizados según su rol. El acceso remoto de los familiares puede pasar por una VPN gestionada por el hogar. El mantenedor del software no accede automáticamente a estos datos.
+- landing · `privacy.sections.3.paragraphs.1`
+  - FR : Pour acheminer les notifications, le serveur transmet à Expo Push le jeton et le contenu minimal de la notification. Apple Push Notification service ou Firebase Cloud Messaging intervient ensuite selon le système mobile. Expo et ces services reçoivent les informations techniques nécessaires à la livraison ; leurs propres conditions et durées s’appliquent.
+  - ES : Para entregar las notificaciones, el servidor transmite a Expo Push el token y el contenido mínimo de la notificación. Después interviene Apple Push Notification service o Firebase Cloud Messaging, según el sistema móvil. Expo y estos servicios reciben la información técnica necesaria para la entrega; se aplican sus propias condiciones y plazos de conservación.
+- landing · `privacy.sections.3.paragraphs.2`
+  - FR : Les appels vidéo transmettent l’audio et l’image au serveur Jitsi configuré. Des webhooks ou autres intégrations externes ne reçoivent des données que s’ils sont explicitement configurés. Le responsable du logement doit documenter les prestataires choisis, leurs accès, les transferts éventuels hors de l’Espace économique européen et les garanties applicables.
+  - ES : Las videollamadas transmiten el audio y la imagen al servidor Jitsi configurado. Los webhooks u otras integraciones externas solo reciben datos si se han configurado explícitamente. El responsable de la vivienda debe documentar los proveedores elegidos, sus accesos, las posibles transferencias fuera del Espacio Económico Europeo y las garantías aplicables.
+- landing · `privacy.sections.4.title`
+  - FR : Durées de conservation
+  - ES : Plazos de conservación
+- landing · `privacy.sections.4.paragraphs.0`
+  - FR : Dans la configuration de référence documentée par le projet, les durées sont les suivantes. Une installation peut avoir été adaptée ; son responsable doit vérifier ses réglages et en informer les personnes concernées.
+  - ES : En la configuración de referencia documentada por el proyecto, los plazos son los siguientes. Una instalación puede haberse adaptado; su responsable debe comprobar sus ajustes e informar de ello a las personas afectadas.
+- landing · `privacy.sections.4.items.0`
+  - FR : Observations détaillées : 90 jours.
+  - ES : Observaciones detalladas: 90 días.
+- landing · `privacy.sections.4.items.1`
+  - FR : Tâches de livraison terminées et journaux techniques : 30 jours.
+  - ES : Tareas de entrega finalizadas y registros técnicos: 30 días.
+- landing · `privacy.sections.4.items.2`
+  - FR : Résumés du journal : jusqu’à deux ans par défaut.
+  - ES : Resúmenes del diario: hasta dos años por defecto.
+- landing · `privacy.sections.4.items.3`
+  - FR : Comptes et traces d’audit : jusqu’à la suppression du compte ou du logement, sous réserve des besoins d’intégrité.
+  - ES : Cuentas y registros de auditoría: hasta la eliminación de la cuenta o de la vivienda, sin perjuicio de las necesidades de integridad.
+- landing · `privacy.sections.4.items.5`
+  - FR : Jetons d’abonnement aux notifications : conservés par l’installation tant que l’abonnement y est enregistré ; les journaux de livraison relèvent de la durée des journaux techniques. Retirer l’autorisation dans les réglages du téléphone n’efface pas nécessairement l’abonnement du serveur local.
+  - ES : Tokens de suscripción a las notificaciones: la instalación los conserva mientras la suscripción esté registrada en ella; los registros de entrega siguen el plazo de los registros técnicos. Retirar el permiso en los ajustes del teléfono no borra necesariamente la suscripción del servidor local.
+- landing · `privacy.sections.5.title`
+  - FR : Site public
+  - ES : Sitio público
+- landing · `privacy.sections.5.paragraphs.0`
+  - FR : Le code actuel du site ne contient ni outil de mesure d’audience, ni pixel publicitaire, ni formulaire de collecte. Les polices, images et logos affichés sont servis avec le site. Le choix de langue est porté par l’adresse de la page. Comme pour tout site, l’infrastructure d’hébergement peut traiter des journaux techniques nécessaires à la délivrance et à la sécurité.
+  - ES : El código actual del sitio no contiene ninguna herramienta de medición de audiencia, ningún píxel publicitario ni ningún formulario de recogida de datos. Las fuentes tipográficas, las imágenes y los logotipos mostrados se sirven con el sitio. El idioma se determina por la dirección de la página. Como en cualquier sitio web, la infraestructura de alojamiento puede tratar los registros técnicos necesarios para servirlo y protegerlo.
+- landing · `privacy.sections.5.paragraphs.1`
+  - FR : Un lien de contact ouvre votre logiciel de messagerie et n’envoie aucun message automatiquement. Les informations que vous choisissez d’envoyer par e-mail servent à répondre à votre demande. Les liens vers des sites tiers sont soumis à leurs propres politiques de confidentialité.
+  - ES : Un enlace de contacto abre su programa de correo y no envía ningún mensaje automáticamente. La información que decida enviar por correo electrónico sirve para responder a su solicitud. Los enlaces a sitios de terceros están sujetos a sus propias políticas de privacidad.
+- landing · `privacy.sections.6.title`
+  - FR : Vos choix et vos droits
+  - ES : Sus opciones y sus derechos
+- landing · `privacy.sections.6.paragraphs.0`
+  - FR : Pour les données d’un logement, adressez toute demande au responsable de l’installation indiqué par la personne ou l’organisation qui la gère. Selon les règles applicables à votre situation, vous pouvez demander l’accès, la rectification, l’effacement ou la limitation de vos données, vous opposer à certains traitements, demander leur portabilité ou retirer un consentement. Vous pouvez également demander l’arrêt d’une caméra ou d’un interphone au responsable du logement.
+  - ES : En lo que respecta a los datos de una vivienda, dirija cualquier solicitud al responsable de la instalación indicado por la persona u organización que la gestiona. Según las normas aplicables a su situación, puede solicitar el acceso, la rectificación, la supresión o la limitación de sus datos, oponerse a determinados tratamientos, solicitar su portabilidad o retirar un consentimiento. También puede pedir al responsable de la vivienda que desactive una cámara o un interfono.
+- landing · `privacy.sections.6.paragraphs.1`
+  - FR : Pour une demande concernant le site public ou le projet, écrivez à contact@paulbreton.dev. Si vous estimez que vos droits ne sont pas respectés dans le cadre d’un traitement relevant de la loi française, vous pouvez adresser une réclamation à la CNIL.
+  - ES : Para cualquier solicitud relativa al sitio público o al proyecto, escriba a contact@paulbreton.dev. Si considera que no se respetan sus derechos en un tratamiento sujeto a la legislación francesa, puede presentar una reclamación ante la CNIL.
+- landing · `privacy.sections.6.paragraphs.2`
+  - FR : Les exports de données doivent être chiffrés avant de quitter le domicile. Les réglages réseau, les sauvegardes et les éventuels prestataires doivent être protégés par le responsable de l’installation.
+  - ES : Las exportaciones de datos deben cifrarse antes de salir del domicilio. El responsable de la instalación debe proteger los ajustes de red, las copias de seguridad y los posibles proveedores.
+- landing · `privacy.contactLabel`
+  - FR : Contacter le porteur du projet
+  - ES : Contactar con el responsable del proyecto
+- landing · `privacy.cnilLabel`
+  - FR : Déposer une plainte auprès de la CNIL
+  - ES : Presentar una reclamación ante la CNIL
+- landing · `privacy.note`
+  - FR : Cette page décrit le fonctionnement technique de référence du logiciel libre ; elle ne constitue pas un conseil juridique ni une certification de conformité au RGPD. Chaque responsable d’installation doit vérifier les traitements réellement activés, leur base juridique, les prestataires et les informations à fournir aux personnes concernées.
+  - ES : Esta página describe el funcionamiento técnico de referencia del software libre; no constituye asesoramiento jurídico ni una certificación de conformidad con el RGPD. Cada responsable de instalación debe comprobar los tratamientos realmente activados, su base jurídica, los proveedores y la información que debe facilitarse a las personas afectadas.
+
+## Accès à distance (115)
+
+- mobile · `app.addressNotFoundCheckThe`
+  - FR : Adresse introuvable. Vérifiez le réseau local ou que Tailscale est actif.
+  - ES : No se encuentra la dirección. Compruebe la red local o que Tailscale esté activo.
+- mobile · `app.securePrivateConnectionThroughTailscale`
+  - FR : Connexion privée sécurisée via Tailscale
+  - ES : Conexión privada y segura mediante Tailscale
+- mobile · `app.theEliseLinkIsValid`
+  - FR : Le lien Élise est valide, mais Tailscale ne répond pas encore.
+  - ES : El enlace de Élise es válido, pero Tailscale aún no responde.
+- mobile · `app.useYourServerSLocal`
+  - FR : Utilisez l’adresse locale ou Tailscale de votre serveur.
+  - ES : Use la dirección local o de Tailscale de su servidor.
+- mobile · `app.yourPhoneLooksForElise`
+  - FR : Votre téléphone cherche Élise sur le Wi-Fi du domicile ou via une adresse Tailscale enregistrée.
+  - ES : Su teléfono busca a Élise en el Wi-Fi del domicilio o mediante una dirección de Tailscale guardada.
+- mobile · `mobileSettingsPanel.approveTheTailscaleConnectionApproval`
+  - FR : Validez la connexion Tailscale. La validation sera détectée automatiquement.
+  - ES : Apruebe la conexión de Tailscale. La aprobación se detectará automáticamente.
+- mobile · `mobileSettingsPanel.disableRemoteAccess`
+  - FR : Désactiver l’accès à distance ?
+  - ES : ¿Desactivar el acceso remoto?
+- mobile · `mobileSettingsPanel.linkEliseToYourFamily`
+  - FR : Reliez Élise à votre famille. La clé Tailscale reste hors de l’image Élise.
+  - ES : Conecte Élise con su familia. La clave de Tailscale queda fuera de la imagen de Élise.
+- mobile · `mobileSettingsPanel.noResponseCheckTailscaleAnd`
+  - FR : Aucune réponse. Vérifiez Tailscale et réessayez.
+  - ES : Sin respuesta. Compruebe Tailscale y vuelva a intentarlo.
+- mobile · `mobileSettingsPanel.openTailscale`
+  - FR : Ouvrir Tailscale
+  - ES : Abrir Tailscale
+- mobile · `mobileSettingsPanel.remoteAccess`
+  - FR : Accès à distance
+  - ES : Acceso remoto
+- mobile · `mobileSettingsPanel.toInviteSomeoneCreateTheir`
+  - FR : Pour inviter un proche : créez son compte et son rôle, partagez uniquement la machine Élise dans Tailscale, puis envoyez-lui le lien.
+  - ES : Para invitar a un familiar: cree su cuenta y su rol, comparta únicamente la máquina Élise en Tailscale y después envíele el enlace.
+- mobile · `mobileSettingsPanel.useEliseAwayFromHome`
+  - FR : Consultez Élise depuis l’extérieur avec Tailscale. Seules les personnes invitées peuvent entrer.
+  - ES : Consulte Élise desde fuera de casa con Tailscale. Solo las personas invitadas pueden acceder.
+- mobile · `mobileSetup.copy.eyebrows.4`
+  - FR : ACCÈS À DISTANCE · RECOMMANDÉ
+  - ES : ACCESO REMOTO · RECOMENDADO
+- mobile · `mobileSetup.copy.intros.4`
+  - FR : Tailscale relie votre téléphone à Élise par un tunnel privé et chiffré, sans rien ouvrir sur Internet.
+  - ES : Tailscale conecta su teléfono con Élise mediante un túnel privado y cifrado, sin abrir nada a Internet.
+- mobile · `mobileSetup.copy.steps.4`
+  - FR : Accès à distance
+  - ES : Acceso remoto
+- mobile · `remoteAccessStep.copy.address`
+  - FR : Adresse privée
+  - ES : Dirección privada
+- mobile · `remoteAccessStep.copy.addressClose`
+  - FR : Fermer
+  - ES : Cerrar
+- mobile · `remoteAccessStep.copy.addressCopied`
+  - FR : Adresse copiée
+  - ES : Dirección copiada
+- mobile · `remoteAccessStep.copy.addressCopy`
+  - FR : Copier l’adresse
+  - ES : Copiar la dirección
+- mobile · `remoteAccessStep.copy.addressHint`
+  - FR : Gardez cette adresse : elle permet de joindre Élise depuis un appareil connecté à Tailscale.
+  - ES : Guarde esta dirección: permite acceder a Élise desde un dispositivo conectado a Tailscale.
+- mobile · `remoteAccessStep.copy.addressOpen`
+  - FR : Ouvrir dans le navigateur
+  - ES : Abrir en el navegador
+- mobile · `remoteAccessStep.copy.addressOpenHint`
+  - FR : Affiche l’adresse complète pour la copier ou l’enregistrer
+  - ES : Muestra la dirección completa para copiarla o guardarla
+- mobile · `remoteAccessStep.copy.addressSave`
+  - FR : Enregistrer ou partager
+  - ES : Guardar o compartir
+- mobile · `remoteAccessStep.copy.addressSaveFailed`
+  - FR : Le partage n’a pas fonctionné. Copiez l’adresse à la place.
+  - ES : No se ha podido compartir. Copie la dirección en su lugar.
+- mobile · `remoteAccessStep.copy.approve`
+  - FR : Ouvrir Tailscale
+  - ES : Abrir Tailscale
+- mobile · `remoteAccessStep.copy.benefits.0`
+  - FR : Tunnel privé et chiffré
+  - ES : Túnel privado y cifrado
+- mobile · `remoteAccessStep.copy.benefits.1`
+  - FR : Rien n’est ouvert sur Internet
+  - ES : Nada queda expuesto a Internet
+- mobile · `remoteAccessStep.copy.benefits.2`
+  - FR : Gratuit pour la famille
+  - ES : Gratuito para la familia
+- mobile · `remoteAccessStep.copy.checking`
+  - FR : Vérification de l’accès à distance…
+  - ES : Comprobando el acceso remoto…
+- mobile · `remoteAccessStep.copy.configuring`
+  - FR : Préparation de l’adresse…
+  - ES : Preparando la dirección…
+- mobile · `remoteAccessStep.copy.connect`
+  - FR : Relier Élise
+  - ES : Vincular Élise
+- mobile · `remoteAccessStep.copy.degraded`
+  - FR : L’accès à distance demande une vérification. Vous pourrez reprendre dans les réglages.
+  - ES : El acceso remoto requiere una comprobación. Podrá continuar más tarde desde los ajustes.
+- mobile · `remoteAccessStep.copy.enable`
+  - FR : Activer
+  - ES : Activar
+- mobile · `remoteAccessStep.copy.installApp`
+  - FR : Installer Tailscale sur ce téléphone
+  - ES : Instalar Tailscale en este teléfono
+- mobile · `remoteAccessStep.copy.later`
+  - FR : Vous pouvez aussi passer cette étape et l’activer plus tard dans les réglages.
+  - ES : También puede omitir este paso y activarlo más tarde en los ajustes.
+- mobile · `remoteAccessStep.copy.preview`
+  - FR : Aperçu : la connexion à Tailscale se fait sur un vrai boîtier Élise.
+  - ES : Vista previa: la conexión con Tailscale se realiza en un equipo Élise real.
+- mobile · `remoteAccessStep.copy.ready`
+  - FR : Accès à distance activé
+  - ES : Acceso remoto activado
+- mobile · `remoteAccessStep.copy.readyHint`
+  - FR : Installez Tailscale sur ce téléphone avec le même compte pour joindre Élise hors de la maison.
+  - ES : Instale Tailscale en este teléfono con la misma cuenta para acceder a Élise fuera de casa.
+- mobile · `remoteAccessStep.copy.steps.0.0`
+  - FR : Relier Élise à Tailscale
+  - ES : Vincular Élise a Tailscale
+- mobile · `remoteAccessStep.copy.steps.0.1`
+  - FR : Élise prépare une demande de connexion.
+  - ES : Élise prepara una solicitud de conexión.
+- mobile · `remoteAccessStep.copy.steps.1.0`
+  - FR : Valider dans Tailscale
+  - ES : Aprobar en Tailscale
+- mobile · `remoteAccessStep.copy.steps.1.1`
+  - FR : Connectez-vous ou créez un compte gratuit, puis revenez ici.
+  - ES : Inicie sesión o cree una cuenta gratuita y vuelva aquí.
+- mobile · `remoteAccessStep.copy.steps.2.0`
+  - FR : Activer l’adresse privée
+  - ES : Activar la dirección privada
+- mobile · `remoteAccessStep.copy.steps.2.1`
+  - FR : Élise obtient son adresse sécurisée.
+  - ES : Élise obtiene su dirección segura.
+- mobile · `remoteAccessStep.copy.unavailable`
+  - FR : L’accès à distance n’est pas disponible sur ce boîtier pour le moment. Vous pourrez l’activer plus tard dans les réglages.
+  - ES : El acceso remoto no está disponible en este equipo por el momento. Podrá activarlo más tarde en los ajustes.
+- mobile · `remoteAccessStep.copy.waiting`
+  - FR : En attente de votre validation…
+  - ES : Esperando su aprobación…
+- mobile · `setupSummary.remoteAccess`
+  - FR : Accès à distance
+  - ES : Acceso remoto
+- web · `remoteAccessCard.actionFailed`
+  - FR : Action impossible.
+  - ES : No se ha podido realizar la acción.
+- web · `remoteAccessCard.activeAndPrivate`
+  - FR : Actif et privé
+  - ES : Activo y privado
+- web · `remoteAccessCard.addEliseToTheApp`
+  - FR : Ajouter Élise dans l’app
+  - ES : Añadir Élise a la app
+- web · `remoteAccessCard.appLinkCopied`
+  - FR : Lien pour l’app copié.
+  - ES : Enlace para la app copiado.
+- web · `remoteAccessCard.approvalWillBeDetectedAutomatically`
+  - FR : La validation sera détectée automatiquement.
+  - ES : La aprobación se detectará automáticamente.
+- web · `remoteAccessCard.approveTheTailscaleConnection`
+  - FR : Validez la connexion Tailscale
+  - ES : Apruebe la conexión de Tailscale
+- web · `remoteAccessCard.cameraAndIntercom`
+  - FR : Caméra et interphone
+  - ES : Cámara e interfono
+- web · `remoteAccessCard.checking`
+  - FR : Vérification…
+  - ES : Comprobando…
+- web · `remoteAccessCard.connecting`
+  - FR : Connexion en cours
+  - ES : Conectando
+- web · `remoteAccessCard.copyAppLink`
+  - FR : Copier le lien pour l’app
+  - ES : Copiar el enlace para la app
+- web · `remoteAccessCard.copyLink`
+  - FR : Copier le lien
+  - ES : Copiar el enlace
+- web · `remoteAccessCard.createTheirAccountAndChoose`
+  - FR : Créez son compte et choisissez son rôle dans Élise.
+  - ES : Cree su cuenta y elija su rol en Élise.
+- web · `remoteAccessCard.disableEliseAccess`
+  - FR : Désactiver l’accès Élise
+  - ES : Desactivar el acceso a Élise
+- web · `remoteAccessCard.eliseConnectionQrCode`
+  - FR : QR code de connexion à Élise
+  - ES : Código QR de conexión a Élise
+- web · `remoteAccessCard.eliseWillUseDedicatedPort`
+  - FR : Élise utilisera le port dédié 8443 sans modifier les autres services.
+  - ES : Élise usará el puerto dedicado 8443 sin modificar los demás servicios.
+- web · `remoteAccessCard.enablePrivateAccess`
+  - FR : Activer l’accès privé
+  - ES : Activar el acceso privado
+- web · `remoteAccessCard.finishActivation`
+  - FR : Terminer l’activation
+  - ES : Terminar la activación
+- web · `remoteAccessCard.forAPermanentServerDisable`
+  - FR : Pour un serveur permanent, désactivez l’expiration de clé uniquement pour la machine Élise.
+  - ES : Para un servidor permanente, desactive la caducidad de la clave solo para la máquina Élise.
+- web · `remoteAccessCard.howDoIInviteSomeone`
+  - FR : Comment inviter un proche ?
+  - ES : ¿Cómo invitar a un familiar?
+- web · `remoteAccessCard.inTailscaleShareOnlyThe`
+  - FR : Dans Tailscale, partagez uniquement la machine Élise.
+  - ES : En Tailscale, comparta solo la máquina Élise.
+- web · `remoteAccessCard.keyValidUntil`
+  - FR : Clé valide jusqu’au
+  - ES : Clave válida hasta el
+- web · `remoteAccessCard.linkCopied`
+  - FR : Lien copié.
+  - ES : Enlace copiado.
+- web · `remoteAccessCard.n1LinkEliseToYour`
+  - FR : 1. Relier Élise à votre famille
+  - ES : 1. Vincular Élise a su familia
+- web · `remoteAccessCard.n2OpenThePrivateLink`
+  - FR : 2. Ouvrir le lien privé
+  - ES : 2. Abrir el enlace privado
+- web · `remoteAccessCard.needsAttention`
+  - FR : À vérifier
+  - ES : Por revisar
+- web · `remoteAccessCard.notConnected`
+  - FR : À activer
+  - ES : Por activar
+- web · `remoteAccessCard.openEliseWithTheWeb`
+  - FR : Ouvrez Élise avec le lien web ou le QR code de l’app.
+  - ES : Abra Élise con el enlace web o el código QR de la app.
+- web · `remoteAccessCard.openTailscale`
+  - FR : Ouvrir Tailscale
+  - ES : Abrir Tailscale
+- web · `remoteAccessCard.privateAddress`
+  - FR : Adresse privée
+  - ES : Dirección privada
+- web · `remoteAccessCard.privateConnection`
+  - FR : Connexion privée
+  - ES : Conexión privada
+- web · `remoteAccessCard.readyToSecure`
+  - FR : Prêt à sécuriser
+  - ES : Listo para proteger
+- web · `remoteAccessCard.remoteAccess`
+  - FR : Accès à distance
+  - ES : Acceso remoto
+- web · `remoteAccessCard.scanThisCodeFromThe`
+  - FR : Scannez ce code depuis le téléphone de l’aidant après lui avoir installé Tailscale.
+  - ES : Escanee este código desde el teléfono del cuidador después de instalarle Tailscale.
+- web · `remoteAccessCard.sendTheInvitationAndHave`
+  - FR : Envoyez l’invitation et faites installer Tailscale à l’aidant.
+  - ES : Envíe la invitación y pida al cuidador que instale Tailscale.
+- web · `remoteAccessCard.testConnection`
+  - FR : Tester la connexion
+  - ES : Probar la conexión
+- web · `remoteAccessCard.thePrivateAccessServiceIs`
+  - FR : Le service d’accès privé n’est pas encore disponible sur cet appareil.
+  - ES : El servicio de acceso privado todavía no está disponible en este dispositivo.
+- web · `remoteAccessCard.toChangeThisAccessOpen`
+  - FR : Pour modifier cet accès, ouvrez Élise depuis le réseau du domicile.
+  - ES : Para modificar este acceso, abra Élise desde la red del domicilio.
+- web · `remoteAccessCard.unavailable`
+  - FR : Indisponible
+  - ES : No disponible
+- web · `remoteAccessCard.useEliseAwayFromHome`
+  - FR : Consultez Élise depuis l’extérieur avec Tailscale. Seules les personnes invitées peuvent entrer.
+  - ES : Consulte Élise desde fuera de casa con Tailscale. Solo pueden entrar las personas invitadas.
+- web · `remoteAccessCard.yourTailscaleKeyIsNever`
+  - FR : Votre clé Tailscale n’est jamais stockée dans l’image Élise.
+  - ES : Su clave de Tailscale nunca se almacena en la imagen de Élise.
+- web · `sensorProducts.nodon-dry-contact.features.3`
+  - FR : Mises à jour à distance
+  - ES : Actualizaciones a distancia
+- web · `sensorProducts.nodon-opening.features.2`
+  - FR : Mises à jour à distance
+  - ES : Actualizaciones a distancia
+- web · `setup.accessDeniedOpenEliseFrom`
+  - FR : Accès refusé. Ouvrez Élise depuis le réseau local ou son accès privé Tailscale.
+  - ES : Acceso denegado. Abra Élise desde la red local o desde su acceso privado Tailscale.
+- web · `setup.accessUsesYourPrivateTailscale`
+  - FR : L’accès passe par votre espace privé Tailscale. Il peut être activé maintenant ou plus tard depuis les réglages.
+  - ES : El acceso pasa por su espacio privado Tailscale. Puede activarlo ahora o más tarde desde los ajustes.
+- web · `setup.cannotReachEliseCheckYour`
+  - FR : Impossible de joindre Élise. Vérifiez votre connexion locale ou Tailscale.
+  - ES : No se puede contactar con Élise. Compruebe su conexión local o Tailscale.
+- web · `setup.reachEliseWhileAwayFrom`
+  - FR : Retrouvez Élise, même à distance
+  - ES : Acceda a Élise, incluso a distancia
+- web · `setup.thisWalkthroughWillNotChange`
+  - FR : Aucun réglage Tailscale ne sera modifié pendant ce parcours.
+  - ES : Durante este recorrido no se modificará ningún ajuste de Tailscale.
+- landing · `landing.principles.items.2.text`
+  - FR : Pour consulter Élise à distance, il faut avoir été invité par la famille. Rien n’est publié sur Internet.
+  - ES : Para consultar Élise a distancia, hay que haber sido invitado por la familia. No se publica nada en Internet.
+- landing · `app.features.3.points.1`
+  - FR : Programme, pause et volume à distance
+  - ES : Programa, pausa y volumen a distancia
+- landing · `setup.steps.tailscaleButton`
+  - FR : Télécharger Tailscale
+  - ES : Descargar Tailscale
+- landing · `setup.steps.remoteGuide`
+  - FR : Guide de l’accès à distance
+  - ES : Guía del acceso remoto
+- landing · `setup.steps.phoneAccount.list4`
+  - FR : **Accès à distance** : vous pouvez le faire maintenant ou plus tard (étape suivante).
+  - ES : **Acceso remoto**: puede activarlo ahora o más tarde (paso siguiente).
+- landing · `setup.steps.phoneRemote.title`
+  - FR : Activez l’accès à distance
+  - ES : Active el acceso remoto
+- landing · `setup.steps.phoneRemote.body`
+  - FR : Tailscale relie vos téléphones au boîtier par un tunnel privé et chiffré, sans rien ouvrir sur internet. C’est gratuit pour une famille.
+  - ES : Tailscale conecta sus teléfonos con el equipo mediante un túnel privado y cifrado, sin abrir nada a internet. Es gratuito para una familia.
+- landing · `setup.steps.phoneRemote.list`
+  - FR : À l’étape **Accès à distance** de l’application, touchez **Relier Élise**.
+  - ES : En el paso **Acceso remoto** de la aplicación, toque **Vincular Élise**.
+- landing · `setup.steps.phoneRemote.list2`
+  - FR : Touchez **Ouvrir Tailscale**, connectez-vous ou créez un compte gratuit, puis revenez dans l’application.
+  - ES : Toque **Abrir Tailscale**, inicie sesión o cree una cuenta gratuita y vuelva a la aplicación.
+- landing · `setup.steps.phoneRemote.list3`
+  - FR : Élise obtient son adresse privée. Installez Tailscale sur le téléphone, avec le même compte, pour joindre Élise hors de la maison.
+  - ES : Élise obtiene su dirección privada. Instale Tailscale en el teléfono, con la misma cuenta, para acceder a Élise fuera de casa.
+- landing · `setup.steps.phoneFamily.body`
+  - FR : Créez le compte de chaque proche dans Élise. Ils installent l’application : sur le Wi-Fi de la maison, elle trouve Élise toute seule ; à distance, ils scannent le QR code affiché dans les réglages d’Élise, avec Tailscale actif.
+  - ES : Cree en Élise la cuenta de cada familiar. Ellos instalan la aplicación: en el Wi-Fi de casa, encuentra Élise por sí sola; a distancia, escanean el código QR que aparece en los ajustes de Élise, con Tailscale activado.
+- landing · `setup.steps.docker.note`
+  - FR : Ce parcours installe le cœur d’Élise : pas d’écran pour la télévision, pas de mise à jour automatique ni d’accès à distance intégré.
+  - ES : Esta opción instala el núcleo de Élise: sin pantalla para el televisor, sin actualizaciones automáticas y sin acceso remoto integrado.
+- landing · `setup.steps.remote.title`
+  - FR : Activez l’accès à distance
+  - ES : Active el acceso remoto
+- landing · `setup.steps.remote.body`
+  - FR : Tailscale relie vos téléphones au boîtier sans l’exposer sur internet. Le compte est gratuit pour une famille.
+  - ES : Tailscale conecta sus teléfonos con el equipo sin exponerlo a internet. La cuenta es gratuita para una familia.
+- landing · `setup.steps.remote.list`
+  - FR : Installez Tailscale sur le serveur et sur les téléphones des proches.
+  - ES : Instale Tailscale en el servidor y en los teléfonos de sus familiares.
+- landing · `setup.steps.remote.list2`
+  - FR : Le guide de l’accès à distance détaille les réglages pour un serveur Docker.
+  - ES : La guía del acceso remoto detalla los ajustes para un servidor Docker.
+- landing · `setup.steps.remote.list3`
+  - FR : Dans l’assistant d’Élise, associez Tailscale et suivez le lien.
+  - ES : En el asistente de Élise, vincule Tailscale y siga el enlace.
+- landing · `setup.steps.remote.list5`
+  - FR : Invitez les proches dans Élise, puis partagez-leur la machine dans Tailscale.
+  - ES : Invite a la familia en Élise y, después, comparta con ellos la máquina en Tailscale.
+- landing · `ui.download.completeScriptForAnAmd64`
+  - FR : Script complet pour un serveur AMD64 ou ARM64 : Docker, Tailscale, Avahi, Élise et l’écran TV.
+  - ES : Script completo para un servidor AMD64 o ARM64: Docker, Tailscale, Avahi, Élise y la pantalla de la TV.
+- landing · `ui.commands.status`
+  - FR : # état des services et de Tailscale
+  - ES : # estado de los servicios y de Tailscale

@@ -1,3 +1,13 @@
+import { LiaisonController } from './modules/liaison/liaison.controller';
+import { LiaisonService } from './modules/liaison/liaison.service';
+import { ScreenService } from './modules/screen/screen.service';
+import {
+  ScreenController,
+  ScreenDeviceController,
+  ScreenMediaController,
+  ScreenDeviceMediaController,
+  ScreenYoutubeCallbackController,
+} from './modules/screen/screen.controller';
 import { Module } from '@nestjs/common';
 import { AlertsController } from './modules/alerts/alerts.controller';
 import { AlertsService } from './modules/alerts/alerts.service';
@@ -24,9 +34,32 @@ import { NotificationsController } from './modules/notifications/notifications.c
 import { NotificationsService } from './modules/notifications/notifications.service';
 import { PrismaService } from './platform/prisma.service';
 import { SeedService } from './platform/seed.service';
+import { CameraMediaAuthController, CamerasController } from './modules/cameras/cameras.controller';
+import { CamerasService } from './modules/cameras/cameras.service';
+import { CameraNetworkDiscoveryService } from './modules/cameras/camera-network-discovery.service';
+import { SensorsController } from './modules/sensors/sensors.controller';
+import { SensorsService } from './modules/sensors/sensors.service';
+import { HomePlanController } from './modules/household/home-plan.controller';
+import { HomePlanService } from './modules/household/home-plan.service';
+import { PeopleController } from './modules/household/people.controller';
+import { PeopleService } from './modules/household/people.service';
+import { RemoteAccessController } from './modules/remote-access/remote-access.controller';
+import { RemoteAccessService } from './modules/remote-access/remote-access.service';
+import { RemoteAccessAgentClient } from './modules/remote-access/remote-access-agent.client';
+import { CalendarController } from './modules/calendar/calendar.controller';
+import { CalendarService } from './modules/calendar/calendar.service';
+import { UpdateAgentClient } from './modules/system/update-agent.client';
+import { ZigbeeController } from './modules/zigbee/zigbee.controller';
+import { ZigbeeAgentClient } from './modules/zigbee/zigbee-agent.client';
 
 @Module({
   controllers: [
+    LiaisonController,
+    ScreenController,
+    ScreenDeviceController,
+    ScreenMediaController,
+    ScreenDeviceMediaController,
+    ScreenYoutubeCallbackController,
     SystemController,
     AuthController,
     ActivityController,
@@ -37,8 +70,18 @@ import { SeedService } from './platform/seed.service';
     MedicationsController,
     EquipmentController,
     NotificationsController,
+    CamerasController,
+    CameraMediaAuthController,
+    SensorsController,
+    HomePlanController,
+    PeopleController,
+    RemoteAccessController,
+    CalendarController,
+    ZigbeeController,
   ],
   providers: [
+    LiaisonService,
+    ScreenService,
     PrismaService,
     SeedService,
     AuthService,
@@ -54,6 +97,16 @@ import { SeedService } from './platform/seed.service';
     MqttIngestionService,
     SimulationService,
     MedicationsService,
+    CamerasService,
+    CameraNetworkDiscoveryService,
+    SensorsService,
+    HomePlanService,
+    PeopleService,
+    RemoteAccessService,
+    RemoteAccessAgentClient,
+    CalendarService,
+    UpdateAgentClient,
+    ZigbeeAgentClient,
   ],
 })
 export class AppModule {}

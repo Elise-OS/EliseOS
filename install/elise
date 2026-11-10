@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ "${EUID}" -ne 0 ]]; then exec sudo -E "$0" "$@"; fi
+
+ELISE_ROOT="${ELISE_ROOT:-/opt/elise}"
+ELISE_STATE="${ELISE_STATE:-/var/lib/elise}"
+ELISE_ENV="${ELISE_ENV:-/etc/elise/elise.env}"
+COMPOSE=(docker compose --project-name elise-os --env-file "$ELISE_ENV" -f "$ELISE_ROOT/current/compose.yaml" -f "$ELISE_ROOT/current/compose.release.yaml")
+if [[ -f "$ELISE_ROOT/current/compose.raspberry.yaml" && "$(uname -m)" == aarch64 ]]; then
+  COMPOSE+=(-f "$ELISE_ROOT/current/compose.raspberry.yaml" -f "$ELISE_ROOT/current/compose.raspberry.release.yaml")
+fi
+
+usage() {
+  echo "Usage: elise {status|logs|update|backup|restore|uninstall}"
+}
+
+case "${1:-}" in
+  status)
+    "${COMPOSE[@]}" ps
+    echo
+    tailscale status 2>/dev/null || true
+    ;;
+  logs)
+    shift
+    "${COMPOSE[@]}" logs --tail="${ELISE_LOG_LINES:-200}" "$@"
+    ;;
+  update)
+    shift
+    requested_version="__ELISE_VERSION__"
+    while (($#)); do
+      case "$1" in
+        --version)
+          requested_version="${2:-}"
+          [[ "$requested_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] || {
+            echo "Version invalide." >&2
+            exit 2
+          }
+          shift 2
+          ;;
+        *)
+          echo "Option inconnue : $1" >&2
+          exit 2
+          ;;
+      esac
+    done
+    ELISE_VERSION="$requested_version" ELISE_GITHUB_AUTH_FILE="${ELISE_GITHUB_AUTH_FILE:-/etc/elise/github-auth}" \
+      "$ELISE_ROOT/current/install/install-elise.sh"
+    ;;
+  backup)
+    destination="${2:-$ELISE_STATE/backups}"
+    recipient="$(sed -n 's/^ELISE_BACKUP_RECIPIENT=//p' "$ELISE_ENV" | tail -1)"
+    compose_files='compose.yaml:compose.release.yaml'
+    [[ "$(uname -m)" == aarch64 ]] && compose_files+=':compose.raspberry.yaml:compose.raspberry.release.yaml'
+    (cd "$ELISE_ROOT/current" && ELISE_BACKUP_RECIPIENT="$recipient" COMPOSE_PROJECT_NAME=elise-os COMPOSE_FILE="$compose_files" COMPOSE_ENV_FILES="$ELISE_ENV" ./scripts/backup.sh "$destination")
+    ;;
+  restore)
+    archive="${2:-}"
+    [[ -f "$archive" ]] || { echo "Indiquez une sauvegarde existante." >&2; exit 2; }
+    [[ "${3:-}" == --confirm ]] || { echo "Ajoutez --confirm pour restaurer cette sauvegarde." >&2; exit 2; }
+    compose_files='compose.yaml:compose.release.yaml'
+    [[ "$(uname -m)" == aarch64 ]] && compose_files+=':compose.raspberry.yaml:compose.raspberry.release.yaml'
+    (cd "$ELISE_ROOT/current" && COMPOSE_PROJECT_NAME=elise-os COMPOSE_FILE="$compose_files" COMPOSE_ENV_FILES="$ELISE_ENV" ./scripts/restore.sh "$archive")
+    echo "Sauvegarde restaurée."
+    ;;
+  uninstall)
+    "${COMPOSE[@]}" down
+    if [[ -f /var/lib/elise/jitsi/jitsi.env && -f "$ELISE_ROOT/current/docker/jitsi/compose.yaml" ]]; then
+      docker compose --project-name elise-jitsi \
+        --env-file /var/lib/elise/jitsi/jitsi.env \
+        -f "$ELISE_ROOT/current/docker/jitsi/compose.yaml" down || true
+    fi
+    systemctl disable --now \
+      elise-firstboot.service elise-preparation.service elise-remote-access-agent.service \
+      elise-update-agent.service elise-tailscale-firewall.service elise-screen-setup.timer elise-screen-setup.service \
+      elise-screen-agent.service elise-jitsi-firewall.service elise-zigbee-setup.service 2>/dev/null || true
+    rm -f /etc/udev/rules.d/90-elise-zigbee.rules /etc/avahi/services/elise.service
+    if [[ "${2:-}" == --purge ]]; then
+      [[ "$ELISE_ROOT" == /opt/elise && "$ELISE_STATE" == /var/lib/elise && "$ELISE_ENV" == /etc/elise/elise.env ]] || {
+        echo "Suppression refusée : chemins Élise non standards." >&2
+        exit 2
+      }
+      "${COMPOSE[@]}" down --volumes
+      rm -rf -- "$ELISE_ROOT" "$ELISE_STATE" /etc/elise
+      echo "Élise et ses données ont été supprimées. L’identité Tailscale de la machine est conservée."
+    else
+      echo "Élise est arrêtée. Données, sauvegardes, secrets et identité Tailscale sont conservés."
+    fi
+    ;;
+  *) usage; exit 2 ;;
+esac

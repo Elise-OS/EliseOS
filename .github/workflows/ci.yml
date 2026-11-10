@@ -44,6 +44,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      # The packages the Raspberry Pi image ships for its TV installation screen.
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends python3-pil python3-qrcode
+      - run: bash scripts/test-distribution.sh
       - run: docker compose config --quiet
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
@@ -53,11 +56,11 @@ jobs:
           target: api
           platforms: linux/amd64,linux/arm64
           push: false
-          tags: michel-os/api:ci
+          tags: elise-os/api:ci
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile.ai
           platforms: linux/amd64,linux/arm64
           push: false
-          tags: michel-os/ai:ci
+          tags: elise-os/ai:ci

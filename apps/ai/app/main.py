@@ -15,8 +15,23 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 from sklearn.ensemble import IsolationForest
 
-MODEL_ROOT = Path(os.getenv("MODEL_ROOT", "/var/lib/michel-ai"))
-FEATURE_ORDER = ["hour_sin", "hour_cos", "capability_code", "quality"]
+MODEL_ROOT = Path(os.getenv("MODEL_ROOT", "/var/lib/elise-ai"))
+LEGACY_FEATURE_ORDER = ["hour_sin", "hour_cos", "capability_code", "quality"]
+FEATURE_ORDER = [
+    "hour_sin",
+    "hour_cos",
+    "weekday_sin",
+    "weekday_cos",
+    "log_duration",
+    "daily_total_hours",
+    "source_sensor",
+    "source_camera",
+    "source_combined",
+    "confidence",
+    "plausible_transition",
+    *[f"room_{index}" for index in range(8)],
+    *[f"previous_room_{index}" for index in range(8)],
+]
 
 
 class Factor(BaseModel):
@@ -55,22 +70,22 @@ class TrainResponse(BaseModel):
 
 
 app = FastAPI(
-    title="Michel AI",
+    title="Élise AI",
     version="1.0.0",
     description=(
         "Local, explainable routine anomaly scoring. "
-        "Michel Core remains the decision authority."
+        "Élise Core remains the decision authority."
     ),
 )
 
 
-def require_secret(x_michel_secret: Annotated[str | None, Header()] = None) -> None:
+def require_secret(x_elise_secret: Annotated[str | None, Header()] = None) -> None:
     expected = os.getenv("AI_SHARED_SECRET")
     secret_file = os.getenv("AI_SHARED_SECRET_FILE")
     if not expected and secret_file:
         expected = Path(secret_file).read_text(encoding="utf-8").strip()
     expected = expected or "development-secret-change-me"
-    if not x_michel_secret or not hmac.compare_digest(x_michel_secret, expected):
+    if not x_elise_secret or not hmac.compare_digest(x_elise_secret, expected):
         raise HTTPException(status_code=401, detail="Invalid service credential")
 
 
@@ -88,7 +103,7 @@ def vector(features: dict[str, float]) -> np.ndarray:
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "michel-ai"}
+    return {"status": "ok", "service": "elise-ai"}
 
 
 @app.post("/v1/models/train", response_model=TrainResponse, dependencies=[Depends(require_secret)])
@@ -107,6 +122,7 @@ def train(request: TrainRequest) -> TrainResponse:
         "mad": mad,
         "version": version,
         "samples": len(data),
+        "feature_order": FEATURE_ORDER,
     }
     path = model_path(request.home_id)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -137,21 +153,27 @@ def score(request: ScoreRequest) -> ScoreResponse:
                 Factor(
                     feature="history",
                     contribution=0,
-                    message="Michel apprend encore les habitudes de ce domicile.",
+                    message="Élise apprend encore les habitudes de ce domicile.",
                 )
             ],
         )
     artifact = joblib.load(path)
-    row = vector(request.features)
+    feature_order = artifact.get("feature_order", LEGACY_FEATURE_ORDER)
+    row = np.asarray(
+        [float(request.features.get(name, 0.0)) for name in feature_order], dtype=float
+    )
     raw = float(artifact["model"].decision_function([row])[0])
     anomaly_score = 1 / (1 + math.exp(8 * raw))
     sample_confidence = min(1.0, float(artifact["samples"]) / (14 * 96))
     deviations = np.abs(row - artifact["median"]) / np.maximum(artifact["mad"] * 1.4826, 0.05)
     factors = [
         Factor(
-            feature=FEATURE_ORDER[int(index)],
+            feature=feature_order[int(index)],
             contribution=round(float(deviations[int(index)]), 3),
-            message=f"La caractéristique {FEATURE_ORDER[int(index)]} diffère du rythme habituel.",
+            message=(
+                f"La caractéristique {feature_order[int(index)]} "
+                "diffère du rythme habituel."
+            ),
         )
         for index in np.argsort(deviations)[::-1][:3]
         if deviations[int(index)] > 1

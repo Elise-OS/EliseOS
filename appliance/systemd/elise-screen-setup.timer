@@ -1,0 +1,11 @@
+[Unit]
+Description=Retry Élise resident TV setup until Tailscale is ready
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=60s
+Persistent=true
+Unit=elise-screen-setup.service
+
+[Install]
+WantedBy=timers.target

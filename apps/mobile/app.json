@@ -1,15 +1,24 @@
 {
   "expo": {
-    "name": "Élise",
+    "name": "Elise Os - Companion",
     "slug": "michel-mobile",
-    "scheme": "michel",
-    "version": "0.1.0",
+    "scheme": "elise",
+    "version": "0.1.28",
+    "icon": "./assets/logo.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "plugins": [
       "expo-router",
       "expo-secure-store",
       "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Élise accède à votre photothèque pour ajouter des photos à l’album de la TV.",
+          "cameraPermission": "Élise utilise la caméra lorsque vous appelez le résident en visioconférence.",
+          "microphonePermission": "Élise utilise le microphone pendant vos appels au résident ou lorsque vous utilisez l’interphone."
+        }
+      ],
       [
         "expo-build-properties",
         {
@@ -21,31 +30,57 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      "@react-native-community/datetimepicker"
     ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "org.michel.mobile",
+      "associatedDomains": ["applinks:eliseos.paulbreton.dev"],
+      "entitlements": {
+        "com.apple.developer.usernotifications.time-sensitive": true
+      },
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "Michel utilise le réseau local pour détecter votre serveur à domicile.",
-        "NSBonjourServices": ["_michel._tcp"],
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocalNetworkUsageDescription": "Élise utilise le réseau local pour détecter votre serveur à domicile.",
+        "NSMicrophoneUsageDescription": "Élise utilise le microphone pendant vos appels au résident ou lorsque vous utilisez l’interphone.",
+        "NSBonjourServices": ["_elise._tcp"],
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "NSCameraUsageDescription": "Élise utilise la caméra lorsque vous appelez le résident en visioconférence."
       }
     },
     "android": {
       "package": "org.michel.mobile",
+      "googleServicesFile": "./google-services.json",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "https", "host": "eliseos.paulbreton.dev", "pathPrefix": "/setup" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.ACCESS_WIFI_STATE",
-        "android.permission.CHANGE_WIFI_MULTICAST_STATE"
+        "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
       ]
     },
     "experiments": {
       "typedRoutes": true,
       "autolinkingModuleResolution": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e31ba564-936e-4d36-a455-ac4c014c0d7e"
+      }
+    },
+    "owner": "drsamourai"
   }
 }

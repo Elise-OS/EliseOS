@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nes
 import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { installationSchema } from '@michel/contracts';
+import { installationSchema } from '@elise/contracts';
 import { parseRequest } from '../../platform/zod-validation';
 import type { AuthenticatedRequest } from './authenticated-request';
 import { AuthService } from './auth.service';
@@ -34,20 +34,29 @@ export class AuthController {
     return this.auth.setupState();
   }
 
+  @Get('login-options')
+  public loginOptions() {
+    return this.auth.loginOptions();
+  }
+
   @Get('bootstrap-equipment')
   public bootstrapEquipment(@Req() request: Request) {
     const authorization = request.header('authorization');
     const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
-    const token = bearer ?? (request.cookies?.michel_session as string | undefined);
+    const token = bearer ?? (request.cookies?.elise_session as string | undefined);
     return this.auth.bootstrapEquipment(token);
   }
 
   @Post('login')
   @HttpCode(200)
-  public async login(@Body() body: unknown, @Res({ passthrough: true }) response: Response) {
+  public async login(
+    @Body() body: unknown,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const input = parseRequest(loginSchema, body);
     const result = await this.auth.login(input.identifier, input.password);
-    this.setSessionCookie(response, result.token);
+    this.setSessionCookie(request, response, result.token);
     return { user: result.user };
   }
 
@@ -60,11 +69,20 @@ export class AuthController {
   }
 
   @Post('bootstrap')
-  public async bootstrap(@Body() body: unknown, @Res({ passthrough: true }) response: Response) {
+  public async bootstrap(
+    @Body() body: unknown,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const input = parseRequest(bootstrapSchema, body);
     const result = await this.auth.bootstrap(input);
-    this.setSessionCookie(response, result.token);
-    return { user: result.user, homeId: result.homeId, residentId: result.residentId };
+    this.setSessionCookie(request, response, result.token);
+    return {
+      accessToken: result.token,
+      user: result.user,
+      homeId: result.homeId,
+      residentId: result.residentId,
+    };
   }
 
   @Get('me')
@@ -89,14 +107,15 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<void> {
     await this.auth.logout(request.sessionId);
-    response.clearCookie('michel_session', { path: '/' });
+    response.clearCookie('elise_session', { path: '/' });
   }
 
-  private setSessionCookie(response: Response, token: string): void {
-    response.cookie('michel_session', token, {
+  private setSessionCookie(request: Request, response: Response, token: string): void {
+    const forwardedProtocol = request.header('x-forwarded-proto')?.split(',')[0]?.trim();
+    response.cookie('elise_session', token, {
       httpOnly: true,
       sameSite: 'strict',
-      secure: process.env.COOKIE_SECURE === 'true',
+      secure: process.env.COOKIE_SECURE === 'true' || forwardedProtocol === 'https',
       maxAge: 30 * 86_400_000,
       path: '/',
     });

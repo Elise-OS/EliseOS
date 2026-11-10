@@ -14,44 +14,45 @@ COPY apps/worker/package.json ./apps/worker/package.json
 COPY packages/ai-client/package.json ./packages/ai-client/package.json
 COPY packages/config/package.json ./packages/config/package.json
 COPY packages/contracts/package.json ./packages/contracts/package.json
+COPY packages/i18n/package.json ./packages/i18n/package.json
 COPY packages/mqtt/package.json ./packages/mqtt/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY packages/ui/package.json ./packages/ui/package.json
-RUN --mount=type=cache,id=michel-pnpm-store,target=/pnpm/store \
-  pnpm install --frozen-lockfile --store-dir /pnpm/store
+RUN --mount=type=cache,id=elise-pnpm-store,target=/pnpm/store \
+  pnpm install --frozen-lockfile --store-dir /pnpm/store --network-concurrency=8
 COPY . .
 
 FROM dependencies AS builder
 RUN pnpm db:generate && pnpm build \
-  && pnpm --filter @michel/api deploy --prod /deploy/api \
-  && pnpm --filter @michel/worker deploy --prod /deploy/worker
+  && node scripts/package-runtime.cjs apps/api /deploy/api \
+  && node scripts/package-runtime.cjs apps/worker /deploy/worker
 
 FROM dependencies AS dashboard-builder
 COPY . .
-RUN pnpm turbo run build --filter=@michel/dashboard...
+RUN pnpm turbo run build --filter=@elise/dashboard...
 
 FROM base AS api
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=builder /deploy/api .
-COPY docker/node-entrypoint.sh /usr/local/bin/michel-entrypoint
-RUN chmod +x /usr/local/bin/michel-entrypoint && useradd --system --uid 10001 --create-home michel
-USER michel
+COPY docker/node-entrypoint.sh /usr/local/bin/elise-entrypoint
+RUN chmod +x /usr/local/bin/elise-entrypoint && useradd --system --uid 10001 --create-home elise
+USER elise
 EXPOSE 3000
-ENTRYPOINT ["michel-entrypoint"]
+ENTRYPOINT ["elise-entrypoint"]
 CMD ["node", "dist/main.js"]
 
 FROM base AS worker
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=builder /deploy/worker .
-COPY docker/node-entrypoint.sh /usr/local/bin/michel-entrypoint
-RUN chmod +x /usr/local/bin/michel-entrypoint && useradd --system --uid 10001 --create-home michel
-USER michel
-ENTRYPOINT ["michel-entrypoint"]
+COPY docker/node-entrypoint.sh /usr/local/bin/elise-entrypoint
+RUN chmod +x /usr/local/bin/elise-entrypoint && useradd --system --uid 10001 --create-home elise
+USER elise
+ENTRYPOINT ["elise-entrypoint"]
 CMD ["node", "dist/main.js"]
 
 FROM caddy:2.10-alpine AS dashboard
 COPY --from=dashboard-builder /workspace/apps/dashboard/dist /srv
 COPY docker/dashboard/Caddyfile /etc/caddy/Caddyfile
-EXPOSE 8080
+EXPOSE 8080 8081

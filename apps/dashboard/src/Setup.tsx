@@ -1,37 +1,37 @@
 import {
-  Accessibility,
   ArrowLeft,
   ArrowRight,
   Baby,
   BedDouble,
   BellRing,
-  CalendarDays,
   Check,
   ChevronDown,
   CircleCheck,
   CircleHelp,
+  Clock3,
+  Coffee,
   Ear,
   Eye,
+  EyeOff,
   Footprints,
   HeartHandshake,
-  Home,
-  Languages,
   LoaderCircle,
   MapPin,
-  PawPrint,
+  Moon,
   Plus,
   Radar,
   ShieldCheck,
   Sparkles,
+  Sunrise,
   Trash2,
-  Upload,
-  UsersRound,
+  Utensils,
   Wifi,
   WifiOff,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { FRFlag, GBFlag } from './FlagIcons';
-import type { Locale } from './i18n';
+import { FlagIcon } from './FlagIcons';
+import { dashboardLanguages, type Locale, t, textBlock } from './i18n';
+import { RemoteAccessCard } from './RemoteAccessCard';
 
 interface SetupProps {
   locale: Locale;
@@ -65,6 +65,7 @@ interface SetupDraft {
     firstName: string;
     lastName: string;
     username: string;
+    usernameEdited: boolean;
     password: string;
     confirmation: string;
     relation: string;
@@ -73,15 +74,12 @@ interface SetupDraft {
     firstName: string;
     lastName: string;
     dailyName: string;
+    dailyNameEdited: boolean;
     birthDate: string;
     language: string;
     addressAs: string;
     customAddress: string;
-    photoName: string;
   };
-  life: string[];
-  mobility: string;
-  senses: string[];
   important: string[];
   importantNote: string;
   home: { name: string; type: string; floors: string; address: string; timezone: string };
@@ -100,26 +98,14 @@ export function createBootstrapPayload(
   return { displayName: `${firstName.trim()} ${lastName.trim()}`, email: email.trim(), password };
 }
 
-const steps = [
-  'Bienvenue',
-  'Vous',
-  'Résident',
-  'Quotidien',
-  'Accompagnement',
-  'Logement',
-  'Pièces',
-  'Proches',
-  'Habitudes',
-  'Équipements',
-  'Vérification',
-  'Apprentissage',
-];
+const setupFlow = [0, 1, 2, 8, 12, 11] as const;
 
 const defaultDraft: SetupDraft = {
   caregiver: {
     firstName: '',
     lastName: '',
     username: '',
+    usernameEdited: false,
     password: '',
     confirmation: '',
     relation: '',
@@ -128,15 +114,12 @@ const defaultDraft: SetupDraft = {
     firstName: '',
     lastName: '',
     dailyName: '',
+    dailyNameEdited: false,
     birthDate: '',
     language: 'Français',
     addressAs: 'daily',
     customAddress: '',
-    photoName: '',
   },
-  life: [],
-  mobility: '',
-  senses: [],
   important: [],
   importantNote: '',
   home: {
@@ -146,13 +129,7 @@ const defaultDraft: SetupDraft = {
     address: '',
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris',
   },
-  rooms: [
-    { id: 'room-entry', kind: 'ENTRANCE', name: 'Entrée', floor: 'Rez-de-chaussée' },
-    { id: 'room-living', kind: 'LIVING_ROOM', name: 'Salon', floor: 'Rez-de-chaussée' },
-    { id: 'room-kitchen', kind: 'KITCHEN', name: 'Cuisine', floor: 'Rez-de-chaussée' },
-    { id: 'room-bedroom', kind: 'BEDROOM', name: 'Chambre', floor: 'Rez-de-chaussée' },
-    { id: 'room-bathroom', kind: 'BATHROOM', name: 'Salle de bain', floor: 'Rez-de-chaussée' },
-  ],
+  rooms: [],
   contacts: [],
   habits: {
     Lever: { from: '07:30', to: '09:00', unknown: false },
@@ -178,20 +155,6 @@ const roomCatalog = [
   ['OTHER', 'Autre'],
 ] as const;
 
-const lifeOptions = [
-  ['alone', 'Vit seul', Home],
-  ['partner', 'Vit avec son conjoint', HeartHandshake],
-  ['relative', 'Vit avec un proche', UsersRound],
-  ['home_help', 'Reçoit une aide à domicile', Accessibility],
-  ['visits', 'Reçoit des visites régulières', CalendarDays],
-  ['pet', 'Possède un animal', PawPrint],
-] as const;
-const mobilityOptions = [
-  ['independent', 'Se déplace seul'],
-  ['cane', 'Utilise une canne'],
-  ['walker', 'Utilise un déambulateur'],
-  ['wheelchair', 'Utilise un fauteuil roulant'],
-] as const;
 const importantOptions = [
   [
     'memory',
@@ -224,8 +187,23 @@ function toggle(list: string[], value: string): string[] {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
 
+function generateUsername(firstName: string, lastName: string): string {
+  const normalizePart = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '.')
+      .replace(/^\.+|\.+$/g, '');
+  const first = normalizePart(firstName);
+  const last = normalizePart(lastName);
+  return first && last ? `${first}.${last}` : '';
+}
+
 export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
   const [step, setStep] = useState(0);
+  const [previewMode, setPreviewMode] = useState(false);
   const [draft, setDraft] = useState<SetupDraft>(() => {
     if (typeof window === 'undefined') return defaultDraft;
     try {
@@ -238,10 +216,36 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
         caregiver: {
           ...defaultDraft.caregiver,
           ...saved.caregiver,
+          username:
+            saved.caregiver?.usernameEdited === true
+              ? (saved.caregiver?.username ?? '')
+              : saved.caregiver?.username ||
+                generateUsername(saved.caregiver?.firstName ?? '', saved.caregiver?.lastName ?? ''),
+          usernameEdited:
+            saved.caregiver?.usernameEdited ??
+            Boolean(
+              saved.caregiver?.username &&
+              saved.caregiver.username !==
+                generateUsername(saved.caregiver.firstName ?? '', saved.caregiver.lastName ?? ''),
+            ),
           password: '',
           confirmation: '',
         },
-        resident: { ...defaultDraft.resident, ...saved.resident, photoName: '' },
+        resident: {
+          ...defaultDraft.resident,
+          firstName: saved.resident?.firstName ?? '',
+          lastName: saved.resident?.lastName ?? '',
+          dailyName: saved.resident?.dailyName ?? '',
+          dailyNameEdited:
+            saved.resident?.dailyNameEdited ??
+            Boolean(
+              saved.resident?.dailyName && saved.resident.dailyName !== saved.resident.firstName,
+            ),
+          birthDate: '',
+          language: saved.resident?.language ?? defaultDraft.resident.language,
+          addressAs: saved.resident?.addressAs ?? defaultDraft.resident.addressAs,
+          customAddress: saved.resident?.customAddress ?? '',
+        },
         contacts: (saved.contacts ?? []).map((contact) => ({
           ...contact,
           temporaryPassword: '',
@@ -265,13 +269,15 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
   });
   const [otherContactRelation, setOtherContactRelation] = useState('');
   const [testing, setTesting] = useState(false);
-  const [residentPhoto, setResidentPhoto] = useState<File | null>(null);
 
   useEffect(() => {
     const safeDraft = {
       ...draft,
+      life: undefined,
+      mobility: undefined,
+      senses: undefined,
       caregiver: { ...draft.caregiver, password: '', confirmation: '' },
-      resident: { ...draft.resident, photoName: '' },
+      resident: { ...draft.resident, birthDate: '' },
       contacts: draft.contacts.map((contact) => ({
         id: contact.id,
         firstName: contact.firstName,
@@ -286,8 +292,11 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
     window.localStorage.setItem('elise_setup_draft', JSON.stringify(safeDraft));
   }, [draft]);
 
-  const residentName = draft.resident.dailyName || draft.resident.firstName || 'le résident';
-  const progress = Math.round(((step + 1) / steps.length) * 100);
+  const residentName =
+    draft.resident.dailyName || draft.resident.firstName || t('setup.theResident');
+  const stepLabels = textBlock('setup.steps');
+  const visibleStep = Math.max(0, setupFlow.indexOf(step as (typeof setupFlow)[number]));
+  const progress = Math.round(((visibleStep + 1) / stepLabels.length) * 100);
   const passwordStrength = useMemo(
     () =>
       [
@@ -300,8 +309,29 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
 
   const patchCaregiver = (value: Partial<SetupDraft['caregiver']>) =>
     setDraft((d) => ({ ...d, caregiver: { ...d.caregiver, ...value } }));
+  const patchCaregiverName = (field: 'firstName' | 'lastName', value: string) =>
+    setDraft((d) => {
+      const caregiver = { ...d.caregiver, [field]: value };
+      if (!caregiver.usernameEdited)
+        caregiver.username = generateUsername(caregiver.firstName, caregiver.lastName);
+      return { ...d, caregiver };
+    });
   const patchResident = (value: Partial<SetupDraft['resident']>) =>
     setDraft((d) => ({ ...d, resident: { ...d.resident, ...value } }));
+  const patchResidentFirstName = (firstName: string) =>
+    setDraft((d) => ({
+      ...d,
+      resident: {
+        ...d.resident,
+        firstName,
+        dailyName:
+          d.resident.dailyNameEdited && d.resident.dailyName.trim()
+            ? d.resident.dailyName
+            : firstName,
+      },
+    }));
+  const patchResidentDailyName = (dailyName: string) =>
+    patchResident({ dailyName, dailyNameEdited: true });
   const patchHome = (value: Partial<SetupDraft['home']>) =>
     setDraft((d) => ({ ...d, home: { ...d.home, ...value } }));
 
@@ -310,52 +340,32 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
     if (step === 1) {
       const c = draft.caregiver;
       if (!c.firstName || !c.lastName || !c.username || !c.relation || c.password.length < 12)
-        return (
-          setError('Complétez les champs et choisissez un mot de passe d’au moins 12 caractères.'),
-          false
-        );
+        return (setError(t('setup.fillInTheFieldsAnd')), false);
       if (c.password !== c.confirmation)
-        return (setError('Les mots de passe ne correspondent pas.'), false);
+        return (setError(t('setup.thePasswordsDoNotMatch')), false);
     }
     if (
       step === 2 &&
       (!draft.resident.firstName || !draft.resident.lastName || !draft.resident.dailyName)
     )
-      return (
-        setError('Indiquez au moins le nom, le prénom et le prénom utilisé au quotidien.'),
-        false
-      );
-    if (step === 3 && !draft.mobility)
-      return (setError('Choisissez la situation qui décrit le mieux ses déplacements.'), false);
-    if (step === 5 && (!draft.home.name || !draft.home.type || !draft.home.floors))
-      return (setError('Donnez un nom au logement et précisez son type.'), false);
-    if (step === 6 && draft.rooms.length === 0)
-      return (setError('Ajoutez au moins une pièce.'), false);
-    if (
-      step === 7 &&
-      draft.contacts.some(
-        (contact) =>
-          contact.role === 'administrateur' &&
-          (!contact.username ||
-            (contact.temporaryPassword?.length ?? 0) < 12 ||
-            contact.temporaryPassword !== contact.passwordConfirmation),
-      )
-    ) {
-      return (
-        setError('Renseignez et confirmez le mot de passe temporaire de chaque administrateur.'),
-        false
-      );
-    }
+      return (setError(t('setup.enterAtLeastTheLast')), false);
     return true;
   };
 
   const next = async () => {
-    if (!validate()) return;
-    if (step === 10) {
+    if (!previewMode && !validate()) return;
+    setError('');
+    if (step === 8) {
+      if (previewMode) {
+        setStep(12);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
       await submitInstallation();
       return;
     }
-    setStep((value) => Math.min(11, value + 1));
+    const currentIndex = setupFlow.indexOf(step as (typeof setupFlow)[number]);
+    setStep(setupFlow[currentIndex + 1] ?? 11);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -374,64 +384,43 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
           displayName: `${draft.caregiver.firstName.trim()} ${draft.caregiver.lastName.trim()}`,
           password: draft.caregiver.password,
           installation: {
-            ...draft,
+            username,
+            timezone: draft.home.timezone,
             caregiver: {
               firstName: draft.caregiver.firstName,
               lastName: draft.caregiver.lastName,
               relation: draft.caregiver.relation,
             },
-            contacts: draft.contacts.map((contact) => ({
-              id: contact.id,
-              firstName: contact.firstName,
-              lastName: contact.lastName,
-              phone: contact.phone,
-              email: contact.email,
-              relation: contact.relation,
-              role: contact.role,
-              username: contact.username,
-              temporaryPassword: contact.temporaryPassword,
-            })),
-            username,
+            resident: {
+              firstName: draft.resident.firstName,
+              lastName: draft.resident.lastName,
+              dailyName: draft.resident.dailyName,
+              birthDate: '',
+              language: draft.resident.language,
+              addressAs: draft.resident.addressAs,
+              customAddress: draft.resident.customAddress,
+            },
+            life: [],
+            mobility: 'unknown',
+            senses: [],
+            important: draft.important,
+            importantNote: draft.importantNote,
+            habits: draft.habits,
           },
         }),
       });
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { message?: string } | null;
-        if (response.status === 409)
-          setError(
-            'Cette installation a déjà été configurée. Rechargez la page pour vous connecter.',
-          );
-        else if (response.status === 403)
-          setError(
-            'La configuration doit être effectuée depuis le réseau local de votre installation.',
-          );
-        else
-          setError(
-            body?.message ??
-              'Élise n’a pas pu finaliser l’installation. Réessayez dans un instant.',
-          );
+        if (response.status === 409) {
+          setError(t('setup.thisInstallationIsAlreadyConfigured'));
+        } else if (response.status === 403) setError(t('setup.accessDeniedOpenEliseFrom'));
+        else setError(body?.message ?? t('setup.eliseCouldNotFinishThe'));
         return;
       }
-      const result = (await response.json()) as { residentId: string };
-      if (residentPhoto) {
-        try {
-          const photo = new FormData();
-          photo.append('photo', await resizeResidentPhoto(residentPhoto), 'resident.webp');
-          const upload = await fetch(`/api/v1/residents/${result.residentId}/photo`, {
-            method: 'POST',
-            body: photo,
-          });
-          if (!upload.ok) throw new Error('Photo upload failed');
-        } catch {
-          setError(
-            'L’environnement est créé, mais la photo n’a pas pu être enregistrée. Vous pourrez la réessayer depuis la fiche résident.',
-          );
-        }
-      }
       window.localStorage.removeItem('elise_setup_draft');
-      setStep(11);
+      setStep(12);
     } catch {
-      setError('Impossible de joindre Élise. Vérifiez votre connexion au réseau local.');
+      setError(t('setup.cannotReachEliseCheckYour'));
     } finally {
       setSubmitting(false);
     }
@@ -456,13 +445,11 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       return;
     if (contactForm.role === 'administrateur') {
       if (!contactForm.username || (contactForm.temporaryPassword?.length ?? 0) < 12) {
-        setError(
-          'Un identifiant et un mot de passe temporaire de 12 caractères sont requis pour cet administrateur.',
-        );
+        setError(t('setup.aUsernameAndA12'));
         return;
       }
       if (contactForm.temporaryPassword !== contactForm.passwordConfirmation) {
-        setError('Les mots de passe temporaires ne correspondent pas.');
+        setError(t('setup.theTemporaryPasswordsDoNot'));
         return;
       }
     }
@@ -493,15 +480,12 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       const response = await fetch('/api/v1/auth/bootstrap-equipment');
       if (!response.ok) throw new Error('Discovery unavailable');
       const equipment = (await response.json()) as Equipment[];
-      const firstRoom = draft.rooms[0]?.id ?? '';
       setDraft((d) => ({
         ...d,
-        equipment: equipment.map((item) => ({ ...item, roomId: item.roomId || firstRoom })),
+        equipment: equipment.map((item) => ({ ...item, roomId: '' })),
       }));
     } catch {
-      setError(
-        'La détection réelle n’est pas disponible. Vous pouvez terminer sans équipement et reprendre plus tard.',
-      );
+      setError(t('setup.realDetectionIsNotAvailable'));
     } finally {
       setTesting(false);
     }
@@ -510,53 +494,49 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
   const page = (() => {
     switch (step) {
       case 0:
-        return <Welcome onStart={() => setStep(1)} />;
+        return <Welcome locale={locale} onStart={() => setStep(1)} />;
       case 1:
         return (
           <StepShell
-            eyebrow="Votre rôle"
-            title="Créons votre accès"
-            text="Vous serez le gestionnaire principal de cette installation. Vous pourrez inviter d’autres proches plus tard."
+            eyebrow={t('setup.yourRole')}
+            title={t('setup.createYourAccess')}
+            text={t('setup.youWillBeThePrimary')}
           >
             <div className="elise-fields two-cols">
-              <Field label="Prénom">
+              <Field label={t('setup.firstName')}>
                 <input
                   autoFocus
                   autoComplete="given-name"
                   value={draft.caregiver.firstName}
-                  onChange={(e) => patchCaregiver({ firstName: e.target.value })}
+                  onChange={(e) => patchCaregiverName('firstName', e.target.value)}
                 />
               </Field>
-              <Field label="Nom">
+              <Field label={t('setup.lastName')}>
                 <input
                   autoComplete="family-name"
                   value={draft.caregiver.lastName}
-                  onChange={(e) => patchCaregiver({ lastName: e.target.value })}
+                  onChange={(e) => patchCaregiverName('lastName', e.target.value)}
                 />
               </Field>
-              <Field label="Identifiant" hint="Il servira à vous connecter depuis le domicile.">
+              <Field label={t('setup.username')} hint={t('setup.youWillUseItTo')}>
                 <input
                   autoComplete="username"
-                  placeholder="ex. paul.martin"
+                  placeholder={t('setup.eGPaulBreton')}
                   value={draft.caregiver.username}
-                  onChange={(e) => patchCaregiver({ username: e.target.value })}
+                  onChange={(e) =>
+                    patchCaregiver({ username: e.target.value, usernameEdited: true })
+                  }
                 />
               </Field>
-              <Field label="Lien avec le résident">
+              <Field label={t('setup.relationshipToTheResident')}>
                 <Segmented
                   value={draft.caregiver.relation}
-                  options={[
-                    'Enfant',
-                    'Petit-enfant',
-                    'Conjoint',
-                    'Ami(e)',
-                    'Professionnel',
-                    'Autre',
-                  ]}
+                  // The relation is kept as written, in the language of the setup.
+                  options={textBlock('setup.relations')}
                   onChange={(relation) => patchCaregiver({ relation })}
                 />
               </Field>
-              <Field label="Mot de passe" hint="12 caractères minimum">
+              <Field label={t('setup.password')} hint={t('setup.n12CharactersMinimum')}>
                 <input
                   type="password"
                   autoComplete="new-password"
@@ -569,7 +549,7 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
                   ))}
                 </span>
               </Field>
-              <Field label="Confirmer le mot de passe">
+              <Field label={t('setup.confirmThePassword')}>
                 <input
                   type="password"
                   autoComplete="new-password"
@@ -583,162 +563,66 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       case 2:
         return (
           <StepShell
-            eyebrow="Profil d’accompagnement"
-            title="Qui Élise va-t-elle accompagner ?"
-            text="Le résident n’a pas de compte à gérer. Ces quelques repères permettent simplement à Élise de s’adresser à lui naturellement."
+            className="elise-panel--profile"
+            eyebrow={t('setup.supportProfile')}
+            title={t('setup.whoWillEliseSupport')}
+            text={t('setup.theResidentDoesNotNeed')}
           >
-            <div className="elise-profile-grid">
-              <label className="elise-photo">
-                <span>{draft.resident.photoName ? <CircleCheck /> : <Upload />}</span>
-                <strong>{draft.resident.photoName || 'Ajouter une photo'}</strong>
-                <small>Facultatif · modifiable plus tard</small>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    setResidentPhoto(file);
-                    patchResident({ photoName: file?.name ?? '' });
-                  }}
-                />
-              </label>
-              <div className="elise-fields two-cols">
-                <Field label="Prénom">
-                  <input
-                    autoFocus
-                    value={draft.resident.firstName}
-                    onChange={(e) =>
-                      patchResident({
-                        firstName: e.target.value,
-                        dailyName: draft.resident.dailyName || e.target.value,
-                      })
-                    }
-                  />
-                </Field>
-                <Field label="Nom">
-                  <input
-                    value={draft.resident.lastName}
-                    onChange={(e) => patchResident({ lastName: e.target.value })}
-                  />
-                </Field>
-                <Field label="Prénom utilisé au quotidien">
-                  <input
-                    value={draft.resident.dailyName}
-                    onChange={(e) => patchResident({ dailyName: e.target.value })}
-                  />
-                </Field>
-                <Field label="Date de naissance" optional>
-                  <input
-                    type="date"
-                    value={draft.resident.birthDate}
-                    onChange={(e) => patchResident({ birthDate: e.target.value })}
-                  />
-                </Field>
-                <Field label="Langue parlée">
-                  <ModernSelect
-                    value={draft.resident.language}
-                    options={[
-                      { value: 'Français', label: 'Français', icon: <FRFlag /> },
-                      { value: 'English', label: 'English', icon: <GBFlag /> },
-                    ]}
-                    onChange={(language) => patchResident({ language })}
-                  />
-                </Field>
-                <Field label="Comment Élise doit-elle s’adresser à lui ?">
-                  <ModernSelect
-                    value={draft.resident.addressAs}
-                    options={[
-                      { value: 'daily', label: draft.resident.dailyName || 'Par son prénom' },
-                      { value: 'grandmother', label: `Mamie ${draft.resident.dailyName}` },
-                      { value: 'grandfather', label: `Papi ${draft.resident.dailyName}` },
-                      { value: 'formal-f', label: `Madame ${draft.resident.lastName}` },
-                      { value: 'formal-m', label: `Monsieur ${draft.resident.lastName}` },
-                      { value: 'nickname', label: 'Par son surnom…' },
-                    ]}
-                    onChange={(addressAs) => patchResident({ addressAs })}
-                  />
-                </Field>
-                {draft.resident.addressAs === 'nickname' && (
-                  <Field label="Surnom utilisé au quotidien" hint="Par exemple : Lili, Dédé, Mado…">
+            <div className="elise-profile-layout">
+              <aside className="elise-profile-preview">
+                <span className="elise-profile-mark">
+                  <HeartHandshake />
+                </span>
+                <span className="elise-profile-kicker">{t('setup.aPersonFirstAndForemost')}</span>
+                <strong>{draft.resident.dailyName || t('setup.yourLovedOne')}</strong>
+                <small>
+                  {[draft.resident.firstName, draft.resident.lastName].filter(Boolean).join(' ') ||
+                    t('setup.theirFullNameWillAppear')}
+                </small>
+                <div className="elise-profile-note">
+                  <Sparkles />
+                  <span>{t('setup.eliseWillUseThisName')}</span>
+                </div>
+              </aside>
+              <div className="elise-profile-form">
+                <div className="elise-profile-form-heading">
+                  <strong>{t('setup.aFewDetails')}</strong>
+                  <span>{t('setup.youCanUpdateTheseDetails')}</span>
+                </div>
+                <div className="elise-fields two-cols elise-resident-fields">
+                  <Field label={t('setup.firstName')}>
                     <input
                       autoFocus
-                      placeholder="Son surnom"
-                      value={draft.resident.customAddress}
-                      onChange={(e) => patchResident({ customAddress: e.target.value })}
+                      placeholder={t('setup.eGElise')}
+                      value={draft.resident.firstName}
+                      onChange={(e) => patchResidentFirstName(e.target.value)}
                     />
                   </Field>
-                )}
+                  <Field label={t('setup.lastName')}>
+                    <input
+                      placeholder={t('setup.eGMartin')}
+                      value={draft.resident.lastName}
+                      onChange={(e) => patchResident({ lastName: e.target.value })}
+                    />
+                  </Field>
+                  <Field label={t('setup.nameUsedEveryDay')} hint={t('setup.theNameEliseWillUse')}>
+                    <input
+                      placeholder={t('setup.eGLily')}
+                      value={draft.resident.dailyName}
+                      onChange={(e) => patchResidentDailyName(e.target.value)}
+                    />
+                  </Field>
+                </div>
               </div>
-            </div>
-          </StepShell>
-        );
-      case 3:
-        return (
-          <StepShell
-            eyebrow="Son quotidien"
-            title={`Comment vit ${residentName} ?`}
-            text="Quelques repères suffisent pour comprendre le contexte du domicile. Élise ne vous demande pas de dossier médical."
-          >
-            <SectionLabel>
-              Situation de vie <small>Plusieurs choix possibles</small>
-            </SectionLabel>
-            <div className="elise-choice-grid compact">
-              {lifeOptions.map(([value, label, Icon]) => (
-                <Choice
-                  key={value}
-                  active={draft.life.includes(value)}
-                  onClick={() => setDraft((d) => ({ ...d, life: toggle(d.life, value) }))}
-                >
-                  <Icon />
-                  {label}
-                </Choice>
-              ))}
-            </div>
-            <SectionLabel>Déplacements</SectionLabel>
-            <div className="elise-choice-grid compact">
-              {mobilityOptions.map(([value, label]) => (
-                <Choice
-                  key={value}
-                  active={draft.mobility === value}
-                  onClick={() => setDraft((d) => ({ ...d, mobility: value }))}
-                >
-                  {label}
-                </Choice>
-              ))}
-            </div>
-            <SectionLabel>
-              Confort sensoriel <small>Facultatif</small>
-            </SectionLabel>
-            <div className="elise-choice-grid compact">
-              <Choice
-                active={draft.senses.includes('hearing')}
-                onClick={() => setDraft((d) => ({ ...d, senses: toggle(d.senses, 'hearing') }))}
-              >
-                <Ear />
-                Difficultés auditives
-              </Choice>
-              <Choice
-                active={draft.senses.includes('vision')}
-                onClick={() => setDraft((d) => ({ ...d, senses: toggle(d.senses, 'vision') }))}
-              >
-                <Eye />
-                Difficultés visuelles
-              </Choice>
-              <Choice
-                active={draft.senses.length === 0}
-                onClick={() => setDraft((d) => ({ ...d, senses: [] }))}
-              >
-                Aucune difficulté signalée
-              </Choice>
             </div>
           </StepShell>
         );
       case 4:
         return (
           <StepShell
-            eyebrow="Adaptation intelligente"
-            title="Informations importantes pour l’accompagnement"
-            text="Certaines situations permettent à Élise d’adapter son comportement. Tout est facultatif et enregistré uniquement sur cette installation locale."
+            eyebrow={t('setup.thoughtfulAdaptation')}
+            title={t('setup.importantSupportInformation')}
+            text={t('setup.someSituationsHelpEliseAdapt')}
           >
             <div className="elise-important-grid">
               {importantOptions.map(([value, title, detail, Icon]) => (
@@ -774,9 +658,9 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       case 5:
         return (
           <StepShell
-            eyebrow="Le lieu de vie"
-            title="Créons le logement"
-            text="Ce logement correspond à cette installation d’Élise. L’adresse n’est pas nécessaire au fonctionnement."
+            eyebrow={t('setup.theHome')}
+            title={t('setup.setUpTheHome')}
+            text={t('setup.thisHomeCorrespondsToThis')}
           >
             <div className="elise-fields two-cols">
               <Field label="Nom du logement" hint="Un nom simple, visible par les proches.">
@@ -830,9 +714,9 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       case 6:
         return (
           <StepShell
-            eyebrow="Plan du domicile"
-            title="Quelles pièces composent le logement ?"
-            text="Ajoutez les espaces où seront placés les équipements. Vous pourrez compléter ce plan à tout moment."
+            eyebrow={t('setup.homeLayout')}
+            title={t('setup.whichRoomsAreInThe')}
+            text={t('setup.addTheSpacesWhereDevices')}
           >
             <div className="elise-room-catalog">
               {roomCatalog.map(([kind, name]) => {
@@ -921,9 +805,9 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       case 7:
         return (
           <StepShell
-            eyebrow="Cercle de confiance"
-            title="Qui pourra être contacté ?"
-            text="Ajoutez maintenant les personnes importantes, ou passez cette étape. Les rôles et l’ordre de priorité resteront modifiables."
+            eyebrow={t('setup.careCircle')}
+            title={t('setup.whoCanBeContacted')}
+            text={t('setup.addImportantPeopleNowOr')}
           >
             {draft.contacts.length > 0 && (
               <div className="elise-contact-list">
@@ -1113,69 +997,118 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       case 8:
         return (
           <StepShell
-            eyebrow="Premiers repères"
-            title="À quoi ressemble une journée habituelle ?"
-            text="Des plages approximatives suffisent. Élise observera le quotidien et vous proposera ensuite des repères plus justes."
+            className="elise-panel--routines"
+            eyebrow={t('setup.firstRoutines')}
+            title={t('setup.whatDoesATypicalDay')}
+            text={t('setup.approximateTimeRangesAreEnough')}
           >
+            <div className="elise-routine-overview">
+              <span>
+                <Clock3 /> {t('setup.n4MomentsInTheDay')}
+              </span>
+              <small>{t('setup.flexibleStartingPointsAtYour')}</small>
+            </div>
             <div className="elise-habits">
-              {Object.entries(draft.habits).map(([name, value]) => (
-                <div key={name}>
-                  <div>
-                    <strong>{name}</strong>
-                    <small>
-                      {value.unknown
-                        ? 'Élise l’apprendra progressivement'
-                        : `Entre ${value.from.replace(':', ' h ')} et ${value.to.replace(':', ' h ')}`}
-                    </small>
-                  </div>
-                  <div className="elise-time-range">
-                    <input
-                      aria-label={`Début ${name}`}
-                      type="time"
-                      value={value.from}
-                      disabled={value.unknown}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          habits: { ...d.habits, [name]: { ...value, from: e.target.value } },
-                        }))
-                      }
-                    />
-                    <span>à</span>
-                    <input
-                      aria-label={`Fin ${name}`}
-                      type="time"
-                      value={value.to}
-                      disabled={value.unknown}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          habits: { ...d.habits, [name]: { ...value, to: e.target.value } },
-                        }))
-                      }
-                    />
-                  </div>
-                  <label className="elise-unknown">
-                    <input
-                      type="checkbox"
-                      checked={value.unknown}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          habits: { ...d.habits, [name]: { ...value, unknown: e.target.checked } },
-                        }))
-                      }
-                    />
-                    Je ne sais pas
-                  </label>
-                </div>
-              ))}
+              {Object.entries(draft.habits).map(([name, value]) => {
+                const Icon =
+                  name === 'Lever'
+                    ? Sunrise
+                    : name === 'Coucher'
+                      ? Moon
+                      : name === 'Déjeuner'
+                        ? Coffee
+                        : Utensils;
+                const moment =
+                  name === 'Lever'
+                    ? t('setup.theStartOfTheMorning')
+                    : name === 'Coucher'
+                      ? t('setup.theEndOfTheDay')
+                      : name === 'Déjeuner'
+                        ? t('setup.theMiddayMeal')
+                        : t('setup.theEveningMeal');
+                // The routines are stored under their French names.
+                const habitKey = (
+                  {
+                    Lever: 'wakeUp',
+                    Coucher: 'bedtime',
+                    Déjeuner: 'lunch',
+                    Dîner: 'dinner',
+                  } as const
+                )[name as 'Lever' | 'Coucher' | 'Déjeuner' | 'Dîner'] as
+                  'wakeUp' | 'bedtime' | 'lunch' | 'dinner' | undefined;
+                const label = habitKey ? t(`setup.habit.${habitKey}`) : name;
+                return (
+                  <article
+                    className={`elise-habit-card ${value.unknown ? 'is-unknown' : ''}`}
+                    key={name}
+                  >
+                    <div className="elise-habit-heading">
+                      <span className="elise-habit-icon">
+                        <Icon />
+                      </span>
+                      <div>
+                        <strong>{label}</strong>
+                        <span>{moment}</span>
+                      </div>
+                    </div>
+                    <div className="elise-time-range">
+                      <label>
+                        <span>{t('setup.from')}</span>
+                        <input
+                          aria-label={`${t('setup.start')} ${label}`}
+                          type="time"
+                          value={value.from}
+                          disabled={value.unknown}
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              habits: { ...d.habits, [name]: { ...value, from: e.target.value } },
+                            }))
+                          }
+                        />
+                      </label>
+                      <span className="elise-range-separator">{t('setup.to')}</span>
+                      <label>
+                        <span>{t('setup.until')}</span>
+                        <input
+                          aria-label={`${t('setup.end')} ${label}`}
+                          type="time"
+                          value={value.to}
+                          disabled={value.unknown}
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              habits: { ...d.habits, [name]: { ...value, to: e.target.value } },
+                            }))
+                          }
+                        />
+                      </label>
+                    </div>
+                    <label className="elise-unknown">
+                      <input
+                        type="checkbox"
+                        checked={value.unknown}
+                        onChange={(e) =>
+                          setDraft((d) => ({
+                            ...d,
+                            habits: {
+                              ...d.habits,
+                              [name]: { ...value, unknown: e.target.checked },
+                            },
+                          }))
+                        }
+                      />
+                      <span>{t('setup.notSureYet')}</span>
+                    </label>
+                  </article>
+                );
+              })}
             </div>
             <div className="elise-learning-note">
               <Sparkles />
               <div>
-                <strong>Rien n’est figé</strong>
-                <small>Ces horaires sont des repères de départ, jamais des règles rigides.</small>
+                <strong>{t('setup.nothingIsFixed')}</strong>
+                <small>{t('setup.theseTimesAreStartingPoints')}</small>
               </div>
             </div>
           </StepShell>
@@ -1183,9 +1116,9 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       case 9:
         return (
           <StepShell
-            eyebrow="Connexion du domicile"
-            title="Ajoutons les équipements présents"
-            text="Toutes les fonctions d’Élise sont déjà disponibles. Il suffit de connecter les équipements installés dans le logement."
+            eyebrow={t('setup.homeConnection')}
+            title={t('setup.addTheAvailableDevices')}
+            text={t('setup.allEliseFeaturesAreReady')}
           >
             <div className="elise-discovery">
               <span className={testing ? 'scanning' : ''}>
@@ -1215,9 +1148,9 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       case 10:
         return (
           <StepShell
-            eyebrow="Dernière vérification"
-            title="Faisons un test ensemble"
-            text="Vérifiez chaque équipement dans la pièce indiquée. Vous pourrez terminer même si l’un d’eux ne répond pas."
+            eyebrow={t('setup.finalCheck')}
+            title={t('setup.letSRunATest')}
+            text={t('setup.checkEachDeviceInIts')}
           >
             {draft.equipment.length ? (
               <div className="elise-tests">
@@ -1256,52 +1189,113 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
               </div>
             )}
             <div className="elise-summary">
-              <ShieldCheck />
+              {previewMode ? <Eye /> : <ShieldCheck />}
               <div>
-                <strong>Prêt à créer l’environnement de {residentName}</strong>
+                <strong>
+                  {previewMode
+                    ? t('setup.noInstallationWillBeCreated')
+                    : `Prêt à créer l’environnement de ${residentName}`}
+                </strong>
                 <small>
-                  Le compte, le logement et les préférences seront enregistrés ensemble sur cette
-                  installation.
+                  {previewMode
+                    ? t('setup.continueToPreviewTheFinal')
+                    : t('setup.theAccountHomeAndPreferences')}
                 </small>
               </div>
+            </div>
+          </StepShell>
+        );
+      case 12:
+        return (
+          <StepShell
+            eyebrow={t('setup.recommendedOption')}
+            title={t('setup.reachEliseWhileAwayFrom')}
+            text={t('setup.accessUsesYourPrivateTailscale')}
+          >
+            {previewMode ? (
+              <div className="elise-preview-state">
+                <Eye />
+                <div>
+                  <strong>{t('setup.previewOnly')}</strong>
+                  <small>{t('setup.thisWalkthroughWillNotChange')}</small>
+                </div>
+              </div>
+            ) : (
+              <RemoteAccessCard locale={locale} compact />
+            )}
+            <div className="elise-remote-nav">
+              <button
+                className="elise-back"
+                type="button"
+                onClick={() => setStep(previewMode ? 8 : 11)}
+              >
+                {previewMode ? t('setup.backToRoutines') : t('setup.setUpLater')}
+              </button>
+              <button className="elise-primary" type="button" onClick={() => setStep(11)}>
+                {previewMode ? t('setup.continuePreview') : t('setup.continue')} <ArrowRight />
+              </button>
             </div>
           </StepShell>
         );
       default:
         return (
           <StepShell
-            eyebrow="Installation terminée"
-            title={`Élise est prête à découvrir le quotidien de ${residentName}`}
-            text="Une période d’observation commence maintenant. Les routines vont se construire progressivement, sans alerte critique fondée sur les habitudes."
+            eyebrow={previewMode ? t('setup.previewComplete') : t('setup.environmentCreated')}
+            title={
+              previewMode ? t('setup.youHaveViewedAll6') : t('setup.yourEliseEnvironmentIsReady')
+            }
+            text={
+              previewMode
+                ? t('setup.noEnvironmentWasCreatedYou')
+                : t('setup.discoverTheEssentialAreasOf')
+            }
           >
-            <div className="elise-success">
-              <span>
-                <CircleCheck />
-              </span>
-              <div className="elise-learning-timeline">
-                <div className="active">
-                  <b>1</b>
-                  <strong>Aujourd’hui</strong>
-                  <small>Observation discrète du domicile</small>
-                </div>
+            {previewMode ? (
+              <div className="elise-preview-state is-complete">
+                <Eye />
                 <div>
-                  <b>2</b>
-                  <strong>Dans quelques jours</strong>
-                  <small>Premières habitudes proposées</small>
-                </div>
-                <div>
-                  <b>3</b>
-                  <strong>Avec votre accord</strong>
-                  <small>Repères validés ou ajustés</small>
+                  <strong>{t('setup.noEnvironmentWasCreated')}</strong>
+                  <small>{t('setup.youViewedAllSixScreens')}</small>
                 </div>
               </div>
-              <blockquote>
-                « J’ai remarqué que {residentName} se lève généralement entre 8 h et 9 h.
-                Souhaitez-vous utiliser cette habitude comme référence ? »
-              </blockquote>
-            </div>
-            <button className="elise-primary final" type="button" onClick={onCompleted}>
-              Découvrir l’espace de {residentName}
+            ) : (
+              <div className="elise-success">
+                <span>
+                  <CircleCheck />
+                </span>
+                <div className="elise-learning-timeline">
+                  <div className="active">
+                    <b>1</b>
+                    <strong>{t('setup.environmentCreated')}</strong>
+                    <small>{t('setup.accountAndProfileSaved')}</small>
+                  </div>
+                  <div>
+                    <b>2</b>
+                    <strong>{t('setup.applicationTour')}</strong>
+                    <small>{t('setup.sixEssentialAreasToDiscover')}</small>
+                  </div>
+                  <div>
+                    <b>3</b>
+                    <strong>{t('setup.homeCreation')}</strong>
+                    <small>{t('setup.roomsFloorsAndDevices')}</small>
+                  </div>
+                </div>
+                <blockquote>{t('setup.letSTakeAMoment')}</blockquote>
+              </div>
+            )}
+            <button
+              className="elise-primary final"
+              type="button"
+              onClick={() => {
+                if (previewMode) {
+                  setPreviewMode(false);
+                  setStep(0);
+                } else {
+                  onCompleted();
+                }
+              }}
+            >
+              {previewMode ? t('setup.returnToTheBeginning') : t('setup.discoverElise')}
               <ArrowRight />
             </button>
           </StepShell>
@@ -1313,44 +1307,39 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
     <main className="elise-setup">
       <header className="elise-header">
         <div className="elise-brand">
-          <span>
-            <Home />
-          </span>
+          <img src="/logo-transparent.png" width="46" height="46" alt="" />
           <div>
-            <strong>Élise</strong>
-            <small>{step === 0 ? 'OS · Installation locale' : 'Installation locale'}</small>
+            <span className="elise-wordmark">
+              élise<span className="brand-os">OS</span>
+            </span>
+            <small>{t('setup.localSetup')}</small>
           </div>
         </div>
         <div className="elise-header-right">
           <span className="elise-saved">
-            <CircleCheck /> Brouillon enregistré sur cet appareil
+            <CircleCheck /> {t('setup.draftSavedOnThisDevice')}
           </span>
           <div className="elise-language">
             <button type="button" onClick={() => setLangOpen(!langOpen)} aria-expanded={langOpen}>
-              {locale === 'fr' ? <FRFlag /> : <GBFlag />}
-              <span>{locale === 'fr' ? 'Français' : 'English'}</span>
+              <FlagIcon language={locale} />
+              <span>{dashboardLanguages.find(({ code }) => code === locale)?.name ?? locale}</span>
               <ChevronDown />
             </button>
             {langOpen && (
               <div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onLocaleChange('fr');
-                    setLangOpen(false);
-                  }}
-                >
-                  <FRFlag /> Français
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onLocaleChange('en');
-                    setLangOpen(false);
-                  }}
-                >
-                  <GBFlag /> English
-                </button>
+                {dashboardLanguages.map((language) => (
+                  <button
+                    key={language.code}
+                    type="button"
+                    aria-pressed={language.code === locale}
+                    onClick={() => {
+                      onLocaleChange(language.code);
+                      setLangOpen(false);
+                    }}
+                  >
+                    <FlagIcon language={language.code} /> {language.name}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -1358,9 +1347,16 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       </header>
       <div className="elise-progress-wrap">
         <div className="elise-progress-copy">
-          <span>{step === 0 ? 'Installation d’Élise OS' : 'Installation d’Élise'}</span>
+          <span>
+            {previewMode
+              ? t('setup.previewNothingWillBeCreated')
+              : step === 0
+                ? t('setup.eliseOsSetup')
+                : t('setup.eliseSetup')}
+          </span>
           <strong>
-            Étape {step + 1} sur {steps.length} · {steps[step]}
+            {t('setup.step')} {visibleStep + 1} {t('setup.of')} {stepLabels.length} ·{' '}
+            {stepLabels[visibleStep]}
           </strong>
         </div>
         <div className="elise-progress" role="progressbar" aria-valuenow={progress}>
@@ -1381,12 +1377,13 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
               className="elise-back"
               onClick={() => {
                 setError('');
-                setStep((v) => v - 1);
+                const currentIndex = setupFlow.indexOf(step as (typeof setupFlow)[number]);
+                setStep(setupFlow[currentIndex - 1] ?? 0);
               }}
             >
-              <ArrowLeft /> Retour
+              <ArrowLeft /> {t('setup.back')}
             </button>
-            <span>Tout pourra être modifié plus tard.</span>
+            <span>{t('setup.everythingCanBeChangedLater')}</span>
             <button
               type="button"
               className="elise-primary"
@@ -1395,11 +1392,15 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
             >
               {submitting ? (
                 <>
-                  <LoaderCircle className="spin" /> Création en cours…
+                  <LoaderCircle className="spin" /> {t('setup.creating')}
                 </>
               ) : (
                 <>
-                  {step === 10 ? 'Commencer l’apprentissage' : 'Continuer'}
+                  {step === 8
+                    ? previewMode
+                      ? t('setup.previewTheFinalSteps')
+                      : t('setup.startLearning')
+                    : t('setup.continue')}
                   <ArrowRight />
                 </>
               )}
@@ -1409,27 +1410,27 @@ export function Setup({ locale, onLocaleChange, onCompleted }: SetupProps) {
       </section>
       <footer className="elise-footer">
         <ShieldCheck />{' '}
-        {step === 0
-          ? 'Vos données restent stockées localement sur votre installation Élise OS.'
-          : 'Vos données restent stockées localement par Élise.'}
+        {step === 0 ? t('setup.yourDataStaysLocallyOn') : t('setup.yourDataStaysStoredLocally')}
       </footer>
     </main>
   );
 }
 
 function StepShell({
+  className,
   eyebrow,
   title,
   text,
   children,
 }: {
+  className?: string;
   eyebrow: string;
   title: string;
   text: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="elise-panel">
+    <div className={`elise-panel ${className ?? ''}`.trim()}>
       <div className="elise-panel-heading">
         <span>{eyebrow}</span>
         <h1>{title}</h1>
@@ -1461,25 +1462,7 @@ function Field({
     </label>
   );
 }
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <h3 className="elise-section-label">{children}</h3>;
-}
-function Choice({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button type="button" className={`elise-choice ${active ? 'selected' : ''}`} onClick={onClick}>
-      {children}
-      <span>{active && <Check />}</span>
-    </button>
-  );
-}
+
 function Segmented({
   value,
   options,
@@ -1511,106 +1494,52 @@ function Segmented({
     </div>
   );
 }
-function ModernSelect({
-  value,
-  options,
-  onChange,
-}: {
-  value: string;
-  options: Array<{ value: string; label: string; icon?: React.ReactNode }>;
-  onChange: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const selected = options.find((option) => option.value === value) ?? options[0];
-  return (
-    <div className={`elise-modern-select ${open ? 'open' : ''}`}>
-      <button
-        type="button"
-        className="elise-modern-trigger"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-      >
-        {selected?.icon && <span className="elise-option-icon">{selected.icon}</span>}
-        <strong>{selected?.label}</strong>
-        <ChevronDown />
-      </button>
-      {open && (
-        <div className="elise-modern-options" role="listbox">
-          {options.map((option) => (
-            <button
-              type="button"
-              role="option"
-              aria-selected={value === option.value}
-              className={value === option.value ? 'selected' : ''}
-              key={option.value}
-              onClick={() => {
-                onChange(option.value);
-                setOpen(false);
-              }}
-            >
-              {option.icon && <span className="elise-option-icon">{option.icon}</span>}
-              <span>{option.label}</span>
-              {value === option.value && <Check />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-function Welcome({ onStart }: { onStart: () => void }) {
+function Welcome({ onStart }: { locale: Locale; onStart: () => void }) {
   return (
     <div className="elise-welcome">
       <div className="elise-welcome-copy">
-        <span className="elise-kicker">
-          <Sparkles /> Bienvenue chez vous
-        </span>
-        <h1>Préparons Élise pour une personne qui compte.</h1>
-        <p>
-          En quelques étapes, vous allez présenter le résident, son logement et les équipements
-          présents. Élise apprendra ensuite, naturellement.
-        </p>
+        <h1>{t('setup.setUpEliseForSomeone')}</h1>
+        <p>{t('setup.inAFewStepsYou')}</p>
         <button className="elise-primary welcome" type="button" onClick={onStart}>
-          Commencer l’installation <ArrowRight />
+          {t('setup.startSetup')} <ArrowRight />
         </button>
         <small>
-          <ShieldCheck /> Vos données restent stockées localement sur votre installation Élise OS.
+          <ShieldCheck /> {t('setup.yourDataStaysLocallyOn')}
         </small>
       </div>
       <div className="elise-home-card">
         <div className="elise-home-orbit one" />
         <div className="elise-home-orbit two" />
         <span className="elise-home-icon">
-          <Home />
+          <img src="/logo-transparent.png" alt="" />
         </span>
         <div className="elise-signal signal-one">
           <Radar />
-          <span>Observe</span>
+          <span>{t('setup.observes')}</span>
         </div>
         <div className="elise-signal signal-two">
           <HeartHandshake />
-          <span>Accompagne</span>
+          <span>{t('setup.supports')}</span>
         </div>
         <div className="elise-signal signal-three">
           <BellRing />
-          <span>Rassure</span>
+          <span>{t('setup.reassures')}</span>
         </div>
         <div className="elise-device">
           <i />
           <span>Élise OS</span>
-          <small>Installation prête</small>
+          <small>{t('setup.readyToSetUp')}</small>
         </div>
       </div>
       <div className="elise-pill-row">
         <span>
-          <ShieldCheck /> Entièrement local
+          <ShieldCheck /> {t('setup.entirelyLocal')}
         </span>
         <span>
-          <Eye /> Sans caméra
+          <EyeOff /> {t('setup.privacyComesFirst')}
         </span>
         <span>
-          <Languages /> Simple et humain
+          <HeartHandshake /> {t('setup.designedForCaregivers')}
         </span>
       </div>
     </div>

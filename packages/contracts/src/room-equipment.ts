@@ -1,0 +1,356 @@
+import { z } from 'zod';
+
+export const roomSensorCategorySchema = z.enum([
+  'temperature',
+  'humidity',
+  'shower',
+  'motion',
+  'presence',
+  'fall_detection',
+  'button',
+  'contact',
+  'bed',
+  'water_leak',
+  'smoke',
+  'carbon_monoxide',
+  'air_quality',
+  'illuminance',
+  'camera',
+]);
+export type RoomSensorCategory = z.infer<typeof roomSensorCategorySchema>;
+
+export const contactRoleSchema = z.enum([
+  'MAIN_ENTRANCE',
+  'FRIDGE',
+  'DOOR',
+  'WINDOW',
+  'VERANDA',
+  'OTHER',
+  'BED',
+]);
+export type ContactRole = z.infer<typeof contactRoleSchema>;
+export const CONTACT_TYPES: Array<{ id: ContactRole; label: string; labelEn: string }> = [
+  { id: 'MAIN_ENTRANCE', label: 'Ouverture principale', labelEn: 'Main entrance' },
+  { id: 'FRIDGE', label: 'Frigo', labelEn: 'Fridge' },
+  { id: 'DOOR', label: 'Porte', labelEn: 'Door' },
+  { id: 'WINDOW', label: 'Fenêtre', labelEn: 'Window' },
+  { id: 'VERANDA', label: 'Véranda', labelEn: 'Veranda' },
+  { id: 'OTHER', label: 'Autre', labelEn: 'Other' },
+];
+
+export const ROOM_SENSOR_CATEGORIES: Array<{
+  id: RoomSensorCategory;
+  label: string;
+  labelEn: string;
+  description: string;
+  descriptionEn: string;
+}> = [
+  {
+    id: 'temperature',
+    label: 'Température',
+    labelEn: 'Temperature',
+    description: 'Le confort de la pièce',
+    descriptionEn: 'Room comfort',
+  },
+  {
+    id: 'humidity',
+    label: 'Humidité',
+    labelEn: 'Humidity',
+    description: 'L’équilibre de l’air ambiant',
+    descriptionEn: 'Indoor humidity',
+  },
+  {
+    id: 'shower',
+    label: 'Douche',
+    labelEn: 'Shower',
+    description: 'Repérer une douche grâce à la hausse d’humidité',
+    descriptionEn: 'Detect a shower from the rise in humidity',
+  },
+  {
+    id: 'motion',
+    label: 'Mouvement',
+    labelEn: 'Motion',
+    description: 'Les déplacements et passages',
+    descriptionEn: 'Movement and passages',
+  },
+  {
+    id: 'presence',
+    label: 'Présence',
+    labelEn: 'Presence',
+    description: 'Une présence, même immobile',
+    descriptionEn: 'Presence, even when still',
+  },
+  {
+    id: 'fall_detection',
+    label: 'Détection de chute',
+    labelEn: 'Fall detection',
+    description: 'Les chutes signalées par un détecteur',
+    descriptionEn: 'Falls reported by a detector',
+  },
+  {
+    id: 'button',
+    label: 'Bouton d’assistance',
+    labelEn: 'Assistance button',
+    description: 'Un bouton à portée de main',
+    descriptionEn: 'A button within reach',
+  },
+  {
+    id: 'contact',
+    label: 'Ouverture',
+    labelEn: 'Contact',
+    description: 'Les portes, fenêtres et autres ouvrants',
+    descriptionEn: 'Doors and windows',
+  },
+  {
+    id: 'bed',
+    label: 'Lit',
+    labelEn: 'Bed',
+    description: 'Occupation du lit pour repérer le coucher et le réveil',
+    descriptionEn: 'Bed occupancy to identify bedtime and wake-up',
+  },
+  {
+    id: 'camera',
+    label: 'Caméras',
+    labelEn: 'Cameras',
+    description: 'Les caméras de la pièce',
+    descriptionEn: 'Room cameras',
+  },
+  {
+    id: 'water_leak',
+    label: 'Fuite d’eau',
+    labelEn: 'Water leak',
+    description: 'Les points d’eau à surveiller',
+    descriptionEn: 'Water points to monitor',
+  },
+  {
+    id: 'smoke',
+    label: 'Fumée',
+    labelEn: 'Smoke',
+    description: 'Les signaux du détecteur de fumée',
+    descriptionEn: 'Smoke detector signals',
+  },
+  {
+    id: 'carbon_monoxide',
+    label: 'Monoxyde de carbone',
+    labelEn: 'Carbon monoxide',
+    description: 'Les signaux du détecteur de CO',
+    descriptionEn: 'CO detector signals',
+  },
+  {
+    id: 'air_quality',
+    label: 'Qualité de l’air',
+    labelEn: 'Air quality',
+    description: 'CO₂, particules et qualité de l’air',
+    descriptionEn: 'CO₂, particles and air quality',
+  },
+  {
+    id: 'illuminance',
+    label: 'Luminosité',
+    labelEn: 'Light level',
+    description: 'La lumière dans la pièce',
+    descriptionEn: 'Light in the room',
+  },
+];
+
+export const ROOM_SENSOR_PRESETS: Record<string, readonly RoomSensorCategory[]> = {
+  LIVING_ROOM: [
+    'temperature',
+    'humidity',
+    'motion',
+    'presence',
+    'fall_detection',
+    'button',
+    'contact',
+  ],
+  BEDROOM: [
+    'temperature',
+    'humidity',
+    'motion',
+    'presence',
+    'fall_detection',
+    'button',
+    'contact',
+    'bed',
+  ],
+  KITCHEN: ['temperature', 'humidity', 'motion', 'water_leak', 'contact'],
+  BATHROOM: ['temperature', 'shower', 'presence', 'fall_detection', 'button', 'water_leak'],
+  TOILET: ['motion', 'presence', 'fall_detection', 'button', 'water_leak'],
+  ENTRANCE: ['motion', 'contact', 'button'],
+  HALLWAY: ['motion', 'smoke'],
+  DINING_ROOM: ['temperature', 'humidity', 'motion', 'presence', 'button'],
+  GARAGE: ['temperature', 'motion', 'contact', 'water_leak'],
+  GARDEN: ['temperature', 'motion', 'illuminance'],
+  TERRACE: ['temperature', 'motion', 'illuminance'],
+  OTHER: ['temperature', 'motion', 'presence'],
+};
+
+export const roomSensorPreferencesSchema = z.object({
+  added: z.array(roomSensorCategorySchema).max(14).default([]),
+  hidden: z.array(roomSensorCategorySchema).max(14).default([]),
+});
+export type RoomSensorPreferences = z.infer<typeof roomSensorPreferencesSchema>;
+
+export const roomSupportsCategory = (kind: string, category: RoomSensorCategory) =>
+  (category !== 'shower' || kind === 'BATHROOM') && (category !== 'bed' || kind === 'BEDROOM');
+
+export function visibleRoomCategories(
+  kind: string,
+  preferences?: RoomSensorPreferences,
+  equipped: RoomSensorCategory[] = [],
+) {
+  const visible = new Set([
+    ...(ROOM_SENSOR_PRESETS[kind] ?? ROOM_SENSOR_PRESETS.OTHER!),
+    ...(preferences?.added ?? []),
+  ]);
+  for (const category of preferences?.hidden ?? []) visible.delete(category);
+  for (const category of equipped) visible.add(category);
+  return ROOM_SENSOR_CATEGORIES.filter(
+    ({ id }) => visible.has(id) && roomSupportsCategory(kind, id),
+  ).map(({ id }) => id);
+}
+
+// Occupancy is also emitted by PIR motion sensors. Only documented radar models
+// or an explicitly classified person_presence capability imply still presence.
+const STILL_PRESENCE_MODELS = new Set([
+  'SNZB-06P',
+  'SNZB-06P24',
+  '3RPL01084Z',
+  'FP1',
+  'FP1E',
+  'PS-S02D',
+]);
+const STILL_PRESENCE_MODEL_NAMES = ['SMARTPRESENCESENSORR3', 'MULTIFUNCTIONSMARTPRESENCESENSORR3'];
+const MOTION_MODELS = new Set(['SNZB-03P', 'SNZB-03', '3RMS16BZ', '3RMS16BZ-NEW', '3RSM0147Z']);
+const MOTION_MODEL_NAMES = ['WIRELESSMOTIONSENSOR'];
+const BED_OCCUPANCY_MODEL_NAMES = [
+  'TS0601BEDPRESENCESENSOR',
+  'PRESSURESENSINGSTRAPBEDOCCUPANCYSENSOR',
+  'TZE200SEQ9CM6U',
+];
+
+export function isBedOccupancySensorModel(model: string | null | undefined): boolean {
+  const normalizedModel =
+    model
+      ?.trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '') ?? '';
+  return BED_OCCUPANCY_MODEL_NAMES.some((name) => normalizedModel.includes(name));
+}
+
+export type CategoryDevice = { model: string | null; capabilities: Array<{ capability: string }> };
+
+export function presenceCapabilityForDevice(
+  capability: string,
+  model: string | null | undefined,
+): string {
+  if (capability !== 'occupancy') return capability;
+  return deviceSupportsCategory({ model: model ?? null, capabilities: [{ capability }] }, 'motion')
+    ? 'motion'
+    : capability;
+}
+
+export function deviceSupportsCategory(
+  device: CategoryDevice,
+  category: RoomSensorCategory,
+): boolean {
+  const values = new Set(device.capabilities.map(({ capability }) => capability));
+  const model = device.model?.trim().toUpperCase() ?? '';
+  const normalizedModel = model.replace(/[^A-Z0-9]/g, '');
+  const stillPresenceModel =
+    STILL_PRESENCE_MODELS.has(model) ||
+    STILL_PRESENCE_MODEL_NAMES.some((name) => normalizedModel.includes(name));
+  const motionModel =
+    MOTION_MODELS.has(model) || MOTION_MODEL_NAMES.some((name) => normalizedModel.includes(name));
+  // Shower activity is inferred from the humidity rise. A leak detector is
+  // deliberately not accepted: it must stay dry and reserved for abnormal water.
+  if (category === 'shower') return values.has('humidity');
+  if (category === 'presence')
+    return (
+      !motionModel &&
+      (values.has('person_presence') || (stillPresenceModel && values.has('occupancy')))
+    );
+  if (category === 'motion')
+    return values.has('motion') || (motionModel && values.has('occupancy'));
+  if (category === 'contact') return values.has('contact') || values.has('dry_contact');
+  if (category === 'bed')
+    return (
+      values.has('dry_contact') ||
+      (normalizedModel.includes('SDC4100') && values.has('contact')) ||
+      (values.has('occupancy') && isBedOccupancySensorModel(model))
+    );
+  if (category === 'air_quality')
+    return ['co2', 'voc', 'total_volatile_organic_compounds', 'pm25', 'air_quality'].some((value) =>
+      values.has(value),
+    );
+  return values.has(category);
+}
+
+/**
+ * Returns sensors that are assigned to a room or placed in the home plan and
+ * support the requested category. Unassigned devices found during discovery
+ * are intentionally excluded.
+ */
+export function configuredHomeDevicesForCategory<
+  T extends {
+    id: string;
+    model: string | null;
+    room?: { id: string } | null;
+    capabilities: Array<{ sensorId: string; capability: string }>;
+  },
+>(
+  plan: {
+    placements: Array<{
+      kind: string;
+      equipmentId: string;
+      equipmentRefKind?: string | undefined;
+    }>;
+  },
+  devices: readonly T[],
+  category: RoomSensorCategory,
+): T[] {
+  return devices.filter((device) => {
+    const placedInPlan = plan.placements.some(
+      (placement) =>
+        placement.kind === 'SENSOR' &&
+        (placement.equipmentRefKind === 'DEVICE'
+          ? placement.equipmentId === device.id
+          : device.capabilities.some(({ sensorId }) => sensorId === placement.equipmentId)),
+    );
+    return (Boolean(device.room?.id) || placedInPlan) && deviceSupportsCategory(device, category);
+  });
+}
+
+export type SensorProduct = {
+  recommendation?: {
+    mode: 'ROOM' | 'DETECTION' | 'TARGET' | 'APPLIANCE' | 'HOME';
+    detectionDistanceM?: number;
+    advice: string;
+    adviceEn: string;
+    sourceUrl: string;
+  };
+  id: string;
+  brand: string;
+  model: string;
+  name: string;
+  nameEn: string;
+  kind: 'ROOM_SENSOR' | 'SMART_PLUG' | 'ENERGY_MONITOR';
+  testQuantity: number;
+  categories: RoomSensorCategory[];
+  protocol: 'zigbee' | 'wifi' | 'esphome';
+  image: string;
+  sourceUrl: string;
+  manualUrl: string;
+  integrationUrl: string;
+  power: string;
+  powerEn: string;
+  features: string[];
+  featuresEn: string[];
+  preparation: string[];
+  preparationEn: string[];
+  placement: string[];
+  placementEn: string[];
+  outdoor: boolean;
+  compatibility: 'DOCUMENTED' | 'UNVERIFIED';
+  verifiedAt: string;
+  eliseValidated: boolean;
+};

@@ -1,27 +1,92 @@
-:8080 {
-  encode zstd gzip
-
-  @remote_bootstrap {
-    path /api/v1/auth/bootstrap /api/v1/auth/bootstrap-equipment
-    not remote_ip private_ranges
+(elise_security_headers) {
+  header {
+    X-Content-Type-Options nosniff
+    X-Frame-Options SAMEORIGIN
+    Referrer-Policy no-referrer
+    Permissions-Policy "camera=(self \"{$ELISE_JITSI_URL:https://jitsi.invalid}\"), microphone=(self \"{$ELISE_JITSI_URL:https://jitsi.invalid}\"), geolocation=()"
+    Content-Security-Policy "default-src 'self'; connect-src 'self' ws: wss: https:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; frame-src 'self' https://*.ts.net:8444 https://www.youtube.com; style-src 'self' 'unsafe-inline'; script-src 'self' https://*.ts.net:8444 https://www.youtube.com https://s.ytimg.com; worker-src 'self' blob:; font-src 'self'"
   }
-  respond @remote_bootstrap "La configuration d’Élise est disponible uniquement sur le réseau local." 403
+}
 
-  handle /api/* {
-    reverse_proxy api:3000
+(elise_static) {
+  @sensor_product_images path /sensor-products/*
+  header @sensor_product_images Cache-Control "public, max-age=604800"
+  # Everything else, index.html first, is checked again on each load so a page
+  # opened after an update never asks for the files of the previous release.
+  @revalidated not path /assets/* /sensor-products/*
+  header @revalidated Cache-Control "no-cache"
+  # A build file missing after an update must fail plainly, not come back as the
+  # HTML page with a 200 that a browser or the screen service worker would keep.
+  handle /assets/* {
+    root * /srv
+    # Build files carry a content hash in their name: they never change.
+    @build_file file
+    header @build_file Cache-Control "public, max-age=31536000, immutable"
+    file_server
   }
-
   handle {
     root * /srv
     try_files {path} /index.html
     file_server
   }
+}
 
-  header {
-    X-Content-Type-Options nosniff
-    X-Frame-Options DENY
-    Referrer-Policy no-referrer
-    Permissions-Policy "camera=(), microphone=(), geolocation=()"
-    Content-Security-Policy "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'"
+:8080 {
+  encode zstd gzip
+  handle /api/* {
+    reverse_proxy api:3000 {
+      transport http {
+        keepalive 4s
+      }
+      header_up X-Elise-Gateway local
+      header_up X-Forwarded-Proto {scheme}
+    }
   }
+  handle_path /camera-media/* {
+    forward_auth api:3000 {
+      uri /api/v1/cameras/media-auth?ticket={query.ticket}&src={query.src}&talk={query.talk}&path={http.request.uri.path}
+      header_up X-Elise-Gateway local
+    }
+    reverse_proxy go2rtc:1984
+  }
+  import elise_static
+  import elise_security_headers
+}
+
+# Compose publishes this listener on host loopback only. Tailscale Serve is the
+# sole network entry point and terminates private HTTPS on port 8443.
+:8081 {
+  encode zstd gzip
+  # First-account setup is available through this private Tailscale listener.
+  @remote_forbidden {
+    path /api/v1/auth/bootstrap-equipment /api/docs*
+  }
+  handle @remote_forbidden {
+    respond "Cette fonction est disponible uniquement au domicile." 403
+  }
+  @remote_access_changes {
+    method POST PUT PATCH DELETE
+    path /api/v1/remote-access/*
+  }
+  handle @remote_access_changes {
+    respond "L’accès à distance se règle uniquement au domicile." 403
+  }
+  handle /api/* {
+    reverse_proxy api:3000 {
+      transport http {
+        keepalive 4s
+      }
+      header_up X-Elise-Gateway remote
+      header_up X-Forwarded-Proto https
+    }
+  }
+  handle_path /camera-media/* {
+    forward_auth api:3000 {
+      uri /api/v1/cameras/media-auth?ticket={query.ticket}&src={query.src}&talk={query.talk}&path={http.request.uri.path}
+      header_up X-Elise-Gateway remote
+    }
+    reverse_proxy go2rtc:1984
+  }
+  import elise_static
+  import elise_security_headers
 }

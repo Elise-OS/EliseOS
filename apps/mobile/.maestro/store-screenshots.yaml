@@ -1,0 +1,187 @@
+# App Store screenshots in demo mode: only fictional data from src/demo/mock-api.ts.
+# Run through scripts/store-screenshots.sh, which prepares the simulator status bar,
+# picks the language (STORE_LANG=fr|en|es|it), the device family (DEVICE=iphone|ipad) and the
+# output directory. File names stay the same in every language so fastlane pairs them.
+appId: org.michel.mobile
+# No env defaults here: Maestro lets them override the values given with -e.
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: deny
+- runFlow:
+    when:
+      true: ${STORE_LANG == 'en'}
+    commands:
+      # The app opens in the phone's language; switch only if it did not.
+      - extendedWaitUntil:
+          visible:
+            id: 'language-menu'
+          timeout: 30000
+      # Retried because a tap while the app is still starting can be lost.
+      - repeat:
+          while:
+            notVisible: 'Explore the demo'
+          times: 4
+          commands:
+            - tapOn:
+                id: 'language-menu'
+            - tapOn: 'English'
+            - waitForAnimationToEnd
+- runFlow:
+    when:
+      true: ${STORE_LANG == 'es'}
+    commands:
+      # The app opens in the phone's language; switch only if it did not.
+      - extendedWaitUntil:
+          visible:
+            id: 'language-menu'
+          timeout: 30000
+      # Retried because a tap while the app is still starting can be lost.
+      - repeat:
+          while:
+            notVisible: 'Descubrir la demostración'
+          times: 4
+          commands:
+            - tapOn:
+                id: 'language-menu'
+            - tapOn: 'Español'
+            - waitForAnimationToEnd
+- runFlow:
+    when:
+      true: ${STORE_LANG == 'it'}
+    commands:
+      # The app opens in the phone's language; switch only if it did not.
+      - extendedWaitUntil:
+          visible:
+            id: 'language-menu'
+          timeout: 30000
+      # Retried because a tap while the app is still starting can be lost.
+      - repeat:
+          while:
+            notVisible: 'Scopri la demo'
+          times: 4
+          commands:
+            - tapOn:
+                id: 'language-menu'
+            - tapOn: 'Italiano'
+            - waitForAnimationToEnd
+- runScript:
+    file: store-labels.js
+- extendedWaitUntil:
+    visible: ${output.labels.demo}
+    timeout: 30000
+- waitForAnimationToEnd
+- runFlow:
+    when:
+      true: ${DEVICE == 'iphone'}
+    commands:
+      - takeScreenshot: ${OUT}/01-${output.labels.welcomeFile}
+# A tap during the welcome animation can be lost (seen on iPad): retry while the button stays.
+# Each page change below is retried the same way until a text of the target page shows.
+- repeat:
+    while:
+      visible: ${output.labels.demo}
+    times: 4
+    commands:
+      - tapOn: ${output.labels.demo}
+      - waitForAnimationToEnd
+- extendedWaitUntil:
+    visible: ${output.labels.home}
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/${output.labels.n.dashboard}-${output.labels.dashboardFile}
+- tapOn: ${output.labels.alerts}
+- extendedWaitUntil:
+    visible: ${output.labels.alertsPage}
+    timeout: 5000
+    optional: true
+- repeat:
+    while:
+      notVisible: ${output.labels.alertsPage}
+    times: 3
+    commands:
+      - tapOn: ${output.labels.alerts}
+      - extendedWaitUntil:
+          visible: ${output.labels.alertsPage}
+          timeout: 5000
+          optional: true
+- assertVisible: ${output.labels.alertsPage}
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/${output.labels.n.alerts}-${output.labels.alertsFile}
+- tapOn: ${output.labels.house}
+- extendedWaitUntil:
+    visible: ${output.labels.housePage}
+    timeout: 5000
+    optional: true
+- repeat:
+    while:
+      notVisible: ${output.labels.housePage}
+    times: 3
+    commands:
+      - tapOn: ${output.labels.house}
+      - extendedWaitUntil:
+          visible: ${output.labels.housePage}
+          timeout: 5000
+          optional: true
+- assertVisible: ${output.labels.housePage}
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/${output.labels.n.house}-${output.labels.houseFile}
+- runFlow:
+    when:
+      true: ${DEVICE == 'iphone'}
+    commands:
+      - tapOn: ${output.labels.room}
+      - extendedWaitUntil:
+          visible: ${output.labels.roomPage}
+          timeout: 5000
+          optional: true
+      - repeat:
+          while:
+            notVisible: ${output.labels.roomPage}
+          times: 3
+          commands:
+            - tapOn: ${output.labels.room}
+            - extendedWaitUntil:
+                visible: ${output.labels.roomPage}
+                timeout: 5000
+                optional: true
+      - assertVisible: ${output.labels.roomPage}
+      - waitForAnimationToEnd
+      - takeScreenshot: ${OUT}/05-${output.labels.roomFile}
+- tapOn: ${output.labels.journal}
+- extendedWaitUntil:
+    visible: ${output.labels.journalPage}
+    timeout: 5000
+    optional: true
+- repeat:
+    while:
+      notVisible: ${output.labels.journalPage}
+    times: 3
+    commands:
+      - tapOn: ${output.labels.journal}
+      - extendedWaitUntil:
+          visible: ${output.labels.journalPage}
+          timeout: 5000
+          optional: true
+- assertVisible: ${output.labels.journalPage}
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/${output.labels.n.journal}-${output.labels.journalFile}
+- tapOn: ${output.labels.screen}
+- extendedWaitUntil:
+    visible: ${output.labels.screenPage}
+    timeout: 5000
+    optional: true
+- repeat:
+    while:
+      notVisible: ${output.labels.screenPage}
+    times: 3
+    commands:
+      - tapOn: ${output.labels.screen}
+      - extendedWaitUntil:
+          visible: ${output.labels.screenPage}
+          timeout: 5000
+          optional: true
+- assertVisible: ${output.labels.screenPage}
+- waitForAnimationToEnd
+- takeScreenshot: ${OUT}/${output.labels.n.screen}-${output.labels.screenFile}

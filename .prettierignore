@@ -4,4 +4,6 @@ build
 coverage
 pnpm-lock.yaml
 apps/api/src/generated
+apps/mobile/ios/Pods
 docker/*/data
+eliselanding

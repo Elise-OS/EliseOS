@@ -1,0 +1,2 @@
+# Detect the Zigbee coordinator again whenever a USB serial adapter appears or disappears.
+ACTION=="add|remove", SUBSYSTEM=="tty", KERNEL=="ttyUSB[0-9]*|ttyACM[0-9]*", RUN+="/usr/bin/systemctl --no-block start elise-zigbee-setup.service"

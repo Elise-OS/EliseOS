@@ -1,1 +1,1 @@
-"""Michel AI service."""
+"""Élise AI service."""

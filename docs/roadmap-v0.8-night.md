@@ -25,7 +25,7 @@ La création initiale de l'environnement est considérée comme une base existan
 
 - Élise reste local-first, sans dépendance cloud obligatoire.
 - Aucun diagnostic médical ni promesse de sécurité absolue.
-- L'interface utilisateur porte le nom **Élise OS**. Le namespace technique historique `michel` peut rester interne jusqu'après la v0.8 pour éviter un renommage risqué.
+- L'interface utilisateur porte le nom **Élise OS**. Le namespace technique historique `elise` peut rester interne jusqu'après la v0.8 pour éviter un renommage risqué.
 - PostgreSQL est conservé : le dépôt est déjà architecturé et migré autour de Prisma/PostgreSQL. Revenir à SQLite pendant cette nuit créerait du travail sans valeur produit immédiate.
 - Home Assistant, Mosquitto et Zigbee2MQTT restent des moteurs internes, invisibles dans l'expérience familiale normale.
 - Pas de création d'image Raspberry, de portail Wi-Fi, d'OTA ou d'accès distant dans ce cycle.

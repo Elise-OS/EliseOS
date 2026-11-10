@@ -5,6 +5,9 @@ homeassistant:
   country: FR
   time_zone: Europe/Paris
 
+http:
+  server_port: !env_var HA_HTTP_PORT
+
 default_config:
 
 recorder:
@@ -12,4 +15,4 @@ recorder:
   purge_keep_days: 10
   auto_purge: true
 
-michel_bridge:
+elise_bridge:

@@ -1,16 +1,25 @@
 import NetInfo from '@react-native-community/netinfo';
 import { Platform } from 'react-native';
 import Zeroconf, { ImplType, type ZeroconfService } from 'react-native-zeroconf';
-import { normalizeUrl, parseDiscoveryInfo, subnetPrefix } from './helpers';
-import type { DiscoveredServer } from './types';
+import {
+  isTailscaleUrl,
+  normalizeUrl,
+  parseDiscoveryInfo,
+  serverUrls,
+  subnetCandidates,
+} from './helpers';
+import type { DiscoveredServer, SavedServer } from './types';
+import { t } from '../i18n';
 
 type Listener = (servers: DiscoveredServer[]) => void;
 type ErrorListener = (message: string) => void;
 
-const SERVICE_TYPE = 'michel';
+const SERVICE_TYPE = 'elise';
 const SERVICE_PROTOCOL = 'tcp';
 const SERVICE_DOMAIN = 'local.';
-const PORT = 8080;
+// Raspberry Pi appliances answer on port 80, from the preparation page onwards.
+const PORTS = [80, 8080, 8090] as const;
+const PORT = PORTS[0];
 const PROBE_TIMEOUT = 700;
 const CONCURRENCY = 32;
 
@@ -56,7 +65,7 @@ export class DiscoveryService {
       }
       void this.scanFallback(session);
     } catch {
-      this.emitError('La découverte réseau local est indisponible sur cet appareil.');
+      this.emitError(t('service.localNetworkDiscoveryIsUnavailable'));
     }
   }
 
@@ -78,14 +87,42 @@ export class DiscoveryService {
     this.zeroconf = null;
   }
 
-  async manual(input: string): Promise<DiscoveredServer> {
+  async manual(input: string, timeoutMs = 5000): Promise<DiscoveredServer> {
     const url = normalizeUrl(input);
     if (!url) throw new Error('Adresse manquante');
-    return this.probe(url, 'manual', 5000);
+    return this.probe(url, 'manual', timeoutMs);
   }
 
   async refreshServer(server: DiscoveredServer): Promise<DiscoveredServer> {
-    return this.probe(server.url, server.source, 5000);
+    let lastError: unknown;
+    for (const url of serverUrls(server)) {
+      try {
+        return await this.probe(url, server.source, 5000);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error('Serveur Élise introuvable');
+  }
+
+  async discoverRemote(server: SavedServer): Promise<void> {
+    const session = this.session;
+    if (!this.current(session)) return;
+
+    const urls = [server.remoteUrl, server.url, ...server.urls]
+      .filter((value): value is string => Boolean(value))
+      .map(normalizeUrl)
+      .filter((url, index, values) => isTailscaleUrl(url) && values.indexOf(url) === index);
+
+    for (const url of urls) {
+      try {
+        const discovered = await this.probe(url, 'tailscale', 5000);
+        if (this.current(session)) this.add(discovered);
+        return;
+      } catch {
+        // A remembered Tailscale address is only reachable while the tailnet is connected.
+      }
+    }
   }
 
   private async handleResolved(service: ZeroconfService) {
@@ -104,14 +141,7 @@ export class DiscoveryService {
     const network = await NetInfo.fetch();
     if (!this.current(session)) return;
     const address = (network.details as { ipAddress?: string | null } | null)?.ipAddress;
-    const prefix = subnetPrefix(address);
-    const candidates = ['http://michel.local:8080'];
-    if (prefix) {
-      for (let suffix = 1; suffix <= 254; suffix += 1) {
-        if (`${prefix}.${suffix}` !== address)
-          candidates.push(`http://${prefix}.${suffix}:${PORT}`);
-      }
-    }
+    const candidates = subnetCandidates(address, PORTS);
 
     let index = 0;
     const worker = async () => {
@@ -121,7 +151,7 @@ export class DiscoveryService {
         try {
           this.add(await this.probe(url, 'subnet', PROBE_TIMEOUT));
         } catch {
-          // Most candidate addresses are expected not to contain Michel.
+          // Most candidate addresses are expected not to contain Élise.
         }
       }
     };

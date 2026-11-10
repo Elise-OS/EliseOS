@@ -1,0 +1,6 @@
+*.p8
+report.xml
+README.md
+Preview.html
+test_output/
+screenshots/

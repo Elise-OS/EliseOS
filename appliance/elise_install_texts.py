@@ -1,0 +1,401 @@
+"""Texts of the first installation, shared by the TV screen and the preparation page.
+
+One entry per language of elise_language.LANGUAGES, written in French first. Tone and rules:
+docs/traductions-agents.md. Keys starting with "page_" are only used by the web page.
+"""
+
+import os
+
+TEXT = {
+    "fr": {
+        "elapsed": "Commencé il y a {duration}",
+        "step_of": "Étape {n} sur {total}",
+        "steps": {
+            "settings": "Réglages du Raspberry Pi", "network": "Connexion à Internet", "clock": "Mise à l’heure",
+            "verify": "Vérification de la version", "download": "Téléchargement des composants",
+            "start": "Démarrage d’Élise",
+        },
+        "leads": {
+            "settings": "Élise applique les réglages choisis lors de la préparation de la carte.",
+            "network": "Élise vérifie sa connexion à Internet.",
+            "clock": "Élise se met à l’heure pour sécuriser ses échanges.",
+            "verify": "Élise vérifie que sa version est authentique.",
+            "download": "Élise télécharge ses composants. C’est l’étape la plus longue.",
+            "start": "Élise démarre et vérifie que tout fonctionne.",
+        },
+        "components": "{done} composants sur {total}",
+        "percent": "{percent} %",
+        "local": "Adresse locale",
+        "remote": "Accès à distance",
+        "remote_later": "à configurer depuis l’application",
+        "remote_value": "Accès à distance : {value}",
+        "no_network": "en attente du réseau",
+        "version": "Version {version}",
+        "scan": "Scannez avec l’appareil photo de votre téléphone",
+        "open_address": "Ouvrez cette adresse dans un navigateur",
+        "welcome_eyebrow": "PREMIÈRE INSTALLATION",
+        "welcome_title": "Élise OS est en cours d’installation",
+        "welcome_lead": "Tout se fait automatiquement. Laissez le boîtier allumé et relié à Internet.",
+        "continue": "Pour continuer",
+        "continue_body": "Ouvrez l’application mobile Élise, ou rendez-vous sur",
+        "progress_eyebrow": "INSTALLATION EN COURS",
+        "reassure": "Vous n’avez rien à faire : cet écran se met à jour tout seul.",
+        "action_eyebrow": "UNE INFORMATION EST NÉCESSAIRE",
+        "action_title": "Continuez sur votre téléphone ou votre ordinateur",
+        "action_body": "Pour télécharger ses composants, Élise a besoin du compte bot GitHub. "
+        "Indiquez-le dans l’application Élise ou sur la page de préparation.",
+        "action_note": "Rien à saisir sur la télévision. L’installation reprendra toute seule.",
+        "paused": "Installation en pause · étape {n} sur {total}",
+        "problem_eyebrow": "INSTALLATION EN PAUSE",
+        "problem_network": "Élise n’arrive pas à joindre Internet",
+        "problem_other": "L’installation a rencontré un problème",
+        "auto_title": "Ce qu’Élise fait",
+        "auto_body": "Élise réessaie toute seule, chaque minute. Inutile de débrancher le boîtier.",
+        "check_title": "Ce que vous pouvez vérifier",
+        "checks_network": [
+            "Le câble réseau relie bien le boîtier à la box Internet.",
+            "La box Internet est allumée et fonctionne.",
+            "En Wi-Fi : le nom et le mot de passe saisis lors de la préparation de la carte.",
+        ],
+        "checks_other": [
+            "Laissez le boîtier allumé et relié à Internet.",
+            "Si le problème revient, ouvrez l’application Élise pour voir le détail.",
+        ],
+        "detail": "Détail : {message}",
+        "done_eyebrow": "INSTALLATION TERMINÉE",
+        "done_title": "Élise est prête",
+        "ready_body": "Ouvrez l’application Élise, ou l’adresse ci-contre, pour créer le compte de la famille.",
+        "pair_title": "Dernière étape : l’écran du salon",
+        "pair_steps": [
+            "Ouvrez l’application Élise sur votre téléphone.",
+            "Touchez « Activer l’accès privé » et suivez les étapes.",
+            "La télévision affichera ensuite Élise toute seule.",
+        ],
+        "installing_title": "L’écran du salon se prépare",
+        "installing_body": "L’accès privé est actif. Élise installe l’affichage de la télévision : "
+        "cela peut prendre une vingtaine de minutes. Cet écran sera remplacé automatiquement.",
+    },
+    "en": {
+        "elapsed": "Started {duration} ago",
+        "step_of": "Step {n} of {total}",
+        "steps": {
+            "settings": "Raspberry Pi settings", "network": "Internet connection", "clock": "Setting the clock",
+            "verify": "Checking the version", "download": "Downloading components", "start": "Starting Élise",
+        },
+        "leads": {
+            "settings": "Élise is applying the settings chosen when the card was prepared.",
+            "network": "Élise is checking its Internet connection.",
+            "clock": "Élise is setting its clock to keep its connections secure.",
+            "verify": "Élise is checking that its version is authentic.",
+            "download": "Élise is downloading its components. This is the longest step.",
+            "start": "Élise is starting and checking that everything works.",
+        },
+        "components": "{done} of {total} components",
+        "percent": "{percent}%",
+        "local": "Local address",
+        "remote": "Remote access",
+        "remote_later": "to set up from the app",
+        "remote_value": "Remote access: {value}",
+        "no_network": "waiting for the network",
+        "version": "Version {version}",
+        "scan": "Scan with your phone’s camera",
+        "open_address": "Open this address in a browser",
+        "welcome_eyebrow": "FIRST INSTALLATION",
+        "welcome_title": "Élise OS is being installed",
+        "welcome_lead": "Everything happens automatically. Keep the box switched on and connected to the Internet.",
+        "continue": "To continue",
+        "continue_body": "Open the Élise mobile app, or go to",
+        "progress_eyebrow": "INSTALLING",
+        "reassure": "Nothing to do: this screen updates by itself.",
+        "action_eyebrow": "INFORMATION NEEDED",
+        "action_title": "Continue on your phone or computer",
+        "action_body": "To download its components, Élise needs the GitHub bot account. "
+        "Enter it in the Élise app or on the preparation page.",
+        "action_note": "Nothing to type on the TV. The installation will resume by itself.",
+        "paused": "Installation paused · step {n} of {total}",
+        "problem_eyebrow": "INSTALLATION PAUSED",
+        "problem_network": "Élise cannot reach the Internet",
+        "problem_other": "The installation ran into a problem",
+        "auto_title": "What Élise is doing",
+        "auto_body": "Élise tries again by itself every minute. No need to unplug the box.",
+        "check_title": "What you can check",
+        "checks_network": [
+            "The network cable connects the box to your Internet router.",
+            "Your Internet router is switched on and working.",
+            "On Wi-Fi: the network name and password entered when preparing the card.",
+        ],
+        "checks_other": [
+            "Keep the box switched on and connected to the Internet.",
+            "If the problem comes back, open the Élise app to see the details.",
+        ],
+        "detail": "Details: {message}",
+        "done_eyebrow": "INSTALLATION COMPLETE",
+        "done_title": "Élise is ready",
+        "ready_body": "Open the Élise app, or the address shown here, to create the family account.",
+        "pair_title": "Last step: the living room screen",
+        "pair_steps": [
+            "Open the Élise app on your phone.",
+            "Tap “Enable private access” and follow the steps.",
+            "The TV will then show Élise by itself.",
+        ],
+        "installing_title": "Preparing the living room screen",
+        "installing_body": "Private access is on. Élise is installing the TV display, which can take about "
+        "twenty minutes. This screen will be replaced automatically.",
+    },
+    "es": {
+        "elapsed": "Iniciada hace {duration}",
+        "step_of": "Paso {n} de {total}",
+        "steps": {
+            "settings": "Ajustes de la Raspberry Pi", "network": "Conexión a Internet", "clock": "Puesta en hora",
+            "verify": "Verificación de la versión", "download": "Descarga de componentes", "start": "Inicio de Élise",
+        },
+        "leads": {
+            "settings": "Élise aplica los ajustes elegidos al preparar la tarjeta.",
+            "network": "Élise comprueba su conexión a Internet.",
+            "clock": "Élise se pone en hora para proteger sus comunicaciones.",
+            "verify": "Élise comprueba que su versión es auténtica.",
+            "download": "Élise descarga sus componentes. Es el paso más largo.",
+            "start": "Élise se inicia y comprueba que todo funciona.",
+        },
+        "components": "{done} de {total} componentes",
+        "percent": "{percent} %",
+        "local": "Dirección local",
+        "remote": "Acceso remoto",
+        "remote_later": "se configura desde la aplicación",
+        "remote_value": "Acceso remoto: {value}",
+        "no_network": "esperando la red",
+        "version": "Versión {version}",
+        "scan": "Escanee con la cámara de su teléfono",
+        "open_address": "Abra esta dirección en un navegador",
+        "welcome_eyebrow": "PRIMERA INSTALACIÓN",
+        "welcome_title": "Élise OS se está instalando",
+        "welcome_lead": "Todo se hace automáticamente. Deje el equipo encendido y conectado a Internet.",
+        "continue": "Para continuar",
+        "continue_body": "Abra la aplicación móvil Élise o vaya a",
+        "progress_eyebrow": "INSTALACIÓN EN CURSO",
+        "reassure": "No tiene que hacer nada: esta pantalla se actualiza sola.",
+        "action_eyebrow": "SE NECESITA UN DATO",
+        "action_title": "Continúe en su teléfono u ordenador",
+        "action_body": "Para descargar sus componentes, Élise necesita la cuenta bot de GitHub. "
+        "Indíquela en la aplicación Élise o en la página de preparación.",
+        "action_note": "No hay nada que escribir en el televisor. La instalación continuará sola.",
+        "paused": "Instalación en pausa · paso {n} de {total}",
+        "problem_eyebrow": "INSTALACIÓN EN PAUSA",
+        "problem_network": "Élise no consigue conectarse a Internet",
+        "problem_other": "La instalación ha encontrado un problema",
+        "auto_title": "Lo que hace Élise",
+        "auto_body": "Élise lo vuelve a intentar sola cada minuto. No hace falta desenchufar el equipo.",
+        "check_title": "Lo que puede comprobar",
+        "checks_network": [
+            "El cable de red conecta el equipo con el router de Internet.",
+            "El router de Internet está encendido y funciona.",
+            "Por Wi-Fi: el nombre y la contraseña indicados al preparar la tarjeta.",
+        ],
+        "checks_other": [
+            "Deje el equipo encendido y conectado a Internet.",
+            "Si el problema vuelve, abra la aplicación Élise para ver el detalle.",
+        ],
+        "detail": "Detalle: {message}",
+        "done_eyebrow": "INSTALACIÓN TERMINADA",
+        "done_title": "Élise está lista",
+        "ready_body": "Abra la aplicación Élise, o la dirección indicada, para crear la cuenta de la familia.",
+        "pair_title": "Último paso: la pantalla del salón",
+        "pair_steps": [
+            "Abra la aplicación Élise en su teléfono.",
+            "Toque «Activar el acceso privado» y siga los pasos.",
+            "El televisor mostrará Élise automáticamente.",
+        ],
+        "installing_title": "Preparando la pantalla del salón",
+        "installing_body": "El acceso privado está activo. Élise instala la pantalla del televisor: "
+        "puede tardar unos veinte minutos. Esta pantalla se sustituirá automáticamente.",
+    },
+    "it": {
+        "elapsed": "Avviata {duration} fa",
+        "step_of": "Passaggio {n} di {total}",
+        "steps": {
+            "settings": "Impostazioni del Raspberry Pi", "network": "Connessione a Internet",
+            "clock": "Regolazione dell’ora", "verify": "Verifica della versione",
+            "download": "Download dei componenti", "start": "Avvio di Élise",
+        },
+        "leads": {
+            "settings": "Élise applica le impostazioni scelte durante la preparazione della scheda.",
+            "network": "Élise controlla la connessione a Internet.",
+            "clock": "Élise regola l’ora per proteggere le sue comunicazioni.",
+            "verify": "Élise verifica che la sua versione sia autentica.",
+            "download": "Élise scarica i suoi componenti. È il passaggio più lungo.",
+            "start": "Élise si avvia e controlla che tutto funzioni.",
+        },
+        "components": "{done} componenti su {total}",
+        "percent": "{percent}%",
+        "local": "Indirizzo locale",
+        "remote": "Accesso remoto",
+        "remote_later": "da configurare dall’app",
+        "remote_value": "Accesso remoto: {value}",
+        "no_network": "in attesa della rete",
+        "version": "Versione {version}",
+        "scan": "Inquadri il codice con la fotocamera del telefono",
+        "open_address": "Apra questo indirizzo in un browser",
+        "welcome_eyebrow": "PRIMA INSTALLAZIONE",
+        "welcome_title": "Élise OS è in fase di installazione",
+        "welcome_lead": "Tutto avviene automaticamente. Lasci il dispositivo acceso e collegato a Internet.",
+        "continue": "Per continuare",
+        "continue_body": "Apra l’app Élise sul telefono oppure vada su",
+        "progress_eyebrow": "INSTALLAZIONE IN CORSO",
+        "reassure": "Non deve fare nulla: questa schermata si aggiorna da sola.",
+        "action_eyebrow": "SERVE UN’INFORMAZIONE",
+        "action_title": "Continui dal telefono o dal computer",
+        "action_body": "Per scaricare i suoi componenti, Élise ha bisogno dell’account bot GitHub. "
+        "Lo indichi nell’app Élise o nella pagina di preparazione.",
+        "action_note": "Non c’è nulla da digitare sul televisore. L’installazione riprenderà da sola.",
+        "paused": "Installazione in pausa · passaggio {n} di {total}",
+        "problem_eyebrow": "INSTALLAZIONE IN PAUSA",
+        "problem_network": "Élise non riesce a raggiungere Internet",
+        "problem_other": "L’installazione ha incontrato un problema",
+        "auto_title": "Cosa fa Élise",
+        "auto_body": "Élise riprova da sola ogni minuto. Non serve scollegare il dispositivo.",
+        "check_title": "Cosa può controllare",
+        "checks_network": [
+            "Il cavo di rete collega il dispositivo al modem/router.",
+            "Il modem/router è acceso e funziona.",
+            "In Wi-Fi: nome e password inseriti durante la preparazione della scheda.",
+        ],
+        "checks_other": [
+            "Lasci il dispositivo acceso e collegato a Internet.",
+            "Se il problema si ripresenta, apra l’app Élise per vedere i dettagli.",
+        ],
+        "detail": "Dettaglio: {message}",
+        "done_eyebrow": "INSTALLAZIONE COMPLETATA",
+        "done_title": "Élise è pronta",
+        "ready_body": "Apra l’app Élise, o l’indirizzo indicato, per creare l’account della famiglia.",
+        "pair_title": "Ultimo passaggio: lo schermo del soggiorno",
+        "pair_steps": [
+            "Apra l’app Élise sul telefono.",
+            "Tocchi «Attiva l’accesso privato» e segua i passaggi.",
+            "Il televisore mostrerà poi Élise da solo.",
+        ],
+        "installing_title": "Lo schermo del soggiorno si sta preparando",
+        "installing_body": "L’accesso privato è attivo. Élise installa la visualizzazione sul televisore: "
+        "può richiedere una ventina di minuti. Questa schermata verrà sostituita automaticamente.",
+    },
+}
+
+# The preparation page opened from a phone or a computer, next to the TV's texts it reuses.
+PAGE = {
+    "fr": {
+        "page_title": "Préparation d’Élise",
+        "page_connecting": "Connexion à Élise…",
+        "page_address": "Adresse : {value}",
+        "page_footer": "Cette page se met à jour toute seule. L’app Élise détecte aussi ce boîtier sur le Wi-Fi de la maison.",
+        "page_auth_intro": "Le dépôt Élise est privé : indiquez le compte bot GitHub pour télécharger les composants.",
+        "page_auth_username": "Nom du compte bot GitHub",
+        "page_auth_token": "Jeton (ghp_…)",
+        "page_auth_submit": "Enregistrer et continuer",
+        "page_auth_checking": "Vérification auprès de GitHub…",
+        "page_auth_no_answer": "Élise ne répond pas, réessayez.",
+        "page_auth_saved": "Compte bot enregistré, la préparation reprend.",
+        "page_auth_invalid": "Nom de compte ou jeton non valide.",
+        "page_auth_refused": "GitHub refuse ce jeton ou il n’a pas accès au dépôt Élise.",
+        "page_auth_github_status": "GitHub a répondu {status}, réessayez dans un instant.",
+        "page_auth_github_unreachable": "GitHub est injoignable, vérifiez la connexion Internet.",
+        "page_auth_scope": "Le jeton doit aussi avoir la permission read:packages.",
+        "page_local_only": "Disponible uniquement depuis le réseau local.",
+        "page_bad_request": "Requête non valide.",
+    },
+    "en": {
+        "page_title": "Preparing Élise",
+        "page_connecting": "Connecting to Élise…",
+        "page_address": "Address: {value}",
+        "page_footer": "This page updates by itself. The Élise app also finds this box on your home Wi-Fi.",
+        "page_auth_intro": "The Élise repository is private: enter the GitHub bot account to download the components.",
+        "page_auth_username": "GitHub bot account name",
+        "page_auth_token": "Token (ghp_…)",
+        "page_auth_submit": "Save and continue",
+        "page_auth_checking": "Checking with GitHub…",
+        "page_auth_no_answer": "Élise is not answering, please try again.",
+        "page_auth_saved": "Bot account saved, the preparation is resuming.",
+        "page_auth_invalid": "Invalid account name or token.",
+        "page_auth_refused": "GitHub refuses this token, or it cannot access the Élise repository.",
+        "page_auth_github_status": "GitHub answered {status}, please try again in a moment.",
+        "page_auth_github_unreachable": "GitHub cannot be reached, check the Internet connection.",
+        "page_auth_scope": "The token also needs the read:packages permission.",
+        "page_local_only": "Only available from the home network.",
+        "page_bad_request": "Invalid request.",
+    },
+    "es": {
+        "page_title": "Preparación de Élise",
+        "page_connecting": "Conectando con Élise…",
+        "page_address": "Dirección: {value}",
+        "page_footer": "Esta página se actualiza sola. La aplicación Élise también encuentra este equipo en el Wi-Fi de casa.",
+        "page_auth_intro": "El repositorio de Élise es privado: indique la cuenta bot de GitHub para descargar los componentes.",
+        "page_auth_username": "Nombre de la cuenta bot de GitHub",
+        "page_auth_token": "Token (ghp_…)",
+        "page_auth_submit": "Guardar y continuar",
+        "page_auth_checking": "Comprobando con GitHub…",
+        "page_auth_no_answer": "Élise no responde, inténtelo de nuevo.",
+        "page_auth_saved": "Cuenta bot guardada, la preparación continúa.",
+        "page_auth_invalid": "Nombre de cuenta o token no válido.",
+        "page_auth_refused": "GitHub rechaza este token o no tiene acceso al repositorio de Élise.",
+        "page_auth_github_status": "GitHub ha respondido {status}, inténtelo de nuevo en un momento.",
+        "page_auth_github_unreachable": "No se puede contactar con GitHub, compruebe la conexión a Internet.",
+        "page_auth_scope": "El token también necesita el permiso read:packages.",
+        "page_local_only": "Solo disponible desde la red de casa.",
+        "page_bad_request": "Solicitud no válida.",
+    },
+    "it": {
+        "page_title": "Preparazione di Élise",
+        "page_connecting": "Connessione a Élise…",
+        "page_address": "Indirizzo: {value}",
+        "page_footer": "Questa pagina si aggiorna da sola. Anche l’app Élise trova questo dispositivo sul Wi-Fi di casa.",
+        "page_auth_intro": "Il repository di Élise è privato: indichi l’account bot GitHub per scaricare i componenti.",
+        "page_auth_username": "Nome dell’account bot GitHub",
+        "page_auth_token": "Token (ghp_…)",
+        "page_auth_submit": "Salva e continua",
+        "page_auth_checking": "Verifica con GitHub…",
+        "page_auth_no_answer": "Élise non risponde, riprovi.",
+        "page_auth_saved": "Account bot salvato, la preparazione riprende.",
+        "page_auth_invalid": "Nome dell’account o token non valido.",
+        "page_auth_refused": "GitHub rifiuta questo token oppure non ha accesso al repository di Élise.",
+        "page_auth_github_status": "GitHub ha risposto {status}, riprovi tra un momento.",
+        "page_auth_github_unreachable": "GitHub non è raggiungibile, controlli la connessione a Internet.",
+        "page_auth_scope": "Il token deve avere anche il permesso read:packages.",
+        "page_local_only": "Disponibile solo dalla rete di casa.",
+        "page_bad_request": "Richiesta non valida.",
+    },
+}
+for _code, _texts in PAGE.items():
+    TEXT[_code].update(_texts)
+
+# A mini PC has no Raspberry Pi settings nor a card: its first step names the device.
+DEVICE_SETTINGS = {
+    "fr": ("Réglages de l’appareil", "Élise applique les réglages choisis pendant l’installation."),
+    "en": ("Device settings", "Élise is applying the settings chosen during installation."),
+    "es": ("Ajustes del dispositivo", "Élise aplica los ajustes elegidos durante la instalación."),
+    "it": ("Impostazioni del dispositivo", "Élise applica le impostazioni scelte durante l’installazione."),
+}
+
+
+def raspberry_pi(model_file: str = "/proc/device-tree/model") -> bool:
+    """A Raspberry Pi names itself in its device tree; ELISE_PLATFORM=raspberry-pi|minipc decides
+    for previews and tests."""
+    forced = os.environ.get("ELISE_PLATFORM")
+    if forced:
+        return forced == "raspberry-pi"
+    try:
+        with open(model_file, "rb") as model:
+            return b"Raspberry Pi" in model.read()
+    except OSError:
+        return False
+
+
+if not raspberry_pi():
+    for _code, (_label, _lead) in DEVICE_SETTINGS.items():
+        TEXT[_code]["steps"]["settings"] = _label
+        TEXT[_code]["leads"]["settings"] = _lead
+
+# Texts the page needs, sent to the browser with it.
+PAGE_KEYS = (*PAGE["fr"], "steps", "leads", "percent", "remote_value", "remote_later", "version",
+             "problem_network", "problem_other", "auto_body")
+
+
+def page_texts() -> dict:
+    return {code: {key: texts[key] for key in PAGE_KEYS} for code, texts in TEXT.items()}

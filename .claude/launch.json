@@ -1,0 +1,49 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mobile-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@elise/mobile",
+        "exec",
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8099"
+      ],
+      "port": 8099
+    },
+    {
+      "name": "dashboard-demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@elise/dashboard",
+        "exec",
+        "vite",
+        "--mode",
+        "demo",
+        "--port",
+        "5180",
+        "--strictPort"
+      ],
+      "port": 5180
+    },
+    {
+      "name": "landing",
+      "runtimeExecutable": "/opt/homebrew/opt/node@24/bin/node",
+      "runtimeArgs": [
+        "eliselanding/node_modules/astro/bin/astro.mjs",
+        "dev",
+        "--root",
+        "eliselanding",
+        "--port",
+        "4321"
+      ],
+      "port": 4321
+    }
+  ]
+}
