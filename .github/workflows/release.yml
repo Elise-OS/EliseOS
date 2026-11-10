@@ -372,7 +372,7 @@ jobs:
               --certificate-identity-regexp "^https://github.com/${REPOSITORY}/.github/workflows/release.yml@refs/heads/main$" \
               --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null
           done
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.version.outputs.version }}
           target_commitish: ${{ needs.sync_version.outputs.sha }}
