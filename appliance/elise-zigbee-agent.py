@@ -873,6 +873,11 @@ def firmware_status(technology: str | None, coordinator: dict[str, Any] | None) 
 FAILURE_PATTERNS = (
     ("NETWORK_MISMATCH", r"not consistent|inconsistent|network (key|settings).*(differ|mismatch)|adapter backup"),
     ("PORT_UNAVAILABLE", r"ENOENT|No such file|Permission denied|EACCES|EBUSY|resource busy|Error while opening serialport"),
+    (
+        "FIRMWARE_OLD",
+        r"(?:adapter\s+)?EZSP protocol version.*(?:not supported|unsupported|too old)|"
+        r"(?:Ember|EZSP).*(?:firmware|protocol).*(?:minimum|required|too old|unsupported)",
+    ),
     ("WRONG_ADAPTER", r"unknown adapter|Adapter .* not supported|Failed to determine adapter"),
     ("NO_ANSWER", r"Failed to start zigbee-herdsman|Failure to connect|not responding|ASH_ERROR|Exiting\.\.\."),
 )

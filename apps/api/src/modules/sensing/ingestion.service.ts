@@ -163,7 +163,7 @@ export class IngestionService {
       );
       const isMainEntranceOpeningEvent =
         event.capability === 'contact' &&
-        event.payload.active === true &&
+        (event.payload.open === true || event.payload.active === true) &&
         placementIsMainEntrance &&
         Boolean(placement?.roomId);
       const previousContactEvent = isMainEntranceOpeningEvent
@@ -179,7 +179,11 @@ export class IngestionService {
         : null;
       const doorOpenedNow =
         isMainEntranceOpeningEvent &&
-        (previousContactEvent?.payload as { active?: unknown } | undefined)?.active !== true;
+        !(
+          (previousContactEvent?.payload as { open?: unknown; active?: unknown } | undefined)
+            ?.open === true ||
+          (previousContactEvent?.payload as { active?: unknown } | undefined)?.active === true
+        );
       const saved = await tx.observationEvent.create({
         data: {
           homeId: event.homeId,
@@ -405,8 +409,12 @@ export class IngestionService {
             },
           });
         }
-        if (current && !current.conditionClearedAt) return { accepted: true, id: saved.id };
-        if (current && !clearedForTwoMinutes) return { accepted: true, id: saved.id };
+        // A button press has no "released" report: once its alert is closed, the next press
+        // must open a new one instead of waiting for a cleared condition that never comes.
+        const momentary = activeSecurityAlert.type === 'SOS';
+        if (current && !momentary && !current.conditionClearedAt)
+          return { accepted: true, id: saved.id };
+        if (current && !momentary && !clearedForTwoMinutes) return { accepted: true, id: saved.id };
         const alert = await tx.alert.create({
           data: {
             homeId: event.homeId,

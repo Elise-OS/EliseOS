@@ -10,6 +10,10 @@ if [ ! -s "$configuration_file" ]; then
 fi
 
 export ZIGBEE2MQTT_CONFIG_MQTT_PASSWORD="$(cat "$secret_dir/mqtt_password")"
+# Boxes installed before these settings keep their own configuration file: force the two
+# settings Élise depends on (offline sensors, button presses) without touching their network.
+export ZIGBEE2MQTT_CONFIG_AVAILABILITY_ENABLED=true
+export ZIGBEE2MQTT_CONFIG_HOMEASSISTANT_EXPERIMENTAL_EVENT_ENTITIES=true
 case "${ELISE_ZIGBEE_ADAPTER_TYPE:-auto}" in
   auto | '')
     # Zigbee2MQTT probes the mapped serial port when no driver is forced.

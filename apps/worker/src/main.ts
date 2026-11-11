@@ -18,6 +18,7 @@ import {
   isDoorOpenTooLong,
   isUnavailableLongEnough,
   numericPayload,
+  offlineReporterByDevice,
   persistentTemperatureViolation,
   sensorCoverageState,
   shouldOpenInactivityAlert,
@@ -691,6 +692,7 @@ async function evaluateSensorRules(): Promise<void> {
     const evaluatedSensorKeys = new Set<string>();
     const sensors = await pool.query<{
       id: string;
+      deviceId: string | null;
       entityId: string;
       name: string;
       capability: string;
@@ -703,7 +705,7 @@ async function evaluateSensorRules(): Promise<void> {
       payload: unknown;
       occurredAt: Date | null;
     }>(
-      `SELECT s.id, s."entityId", COALESCE(d.name, s."entityId") AS name, s.capability,
+      `SELECT s.id, s."deviceId", s."entityId", COALESCE(d.name, s."entityId") AS name, s.capability,
         s.status, s.available, s."unavailableSince", s."lastSeenAt",
         r.id AS "roomId", r.name AS "roomName", latest.payload, latest."occurredAt"
        FROM "Sensor" s
@@ -723,6 +725,7 @@ async function evaluateSensorRules(): Promise<void> {
          ))`,
       [home.homeId],
     );
+    const offlineReporters = offlineReporterByDevice(sensors.rows);
     for (const sensor of sensors.rows) {
       evaluatedSensorKeys.add(`sensor-offline:${sensor.id}`);
       // Motion sensors can legitimately remain silent for hours. Home Assistant's
@@ -735,6 +738,9 @@ async function evaluateSensorRules(): Promise<void> {
         severity: 'ATTENTION',
         active:
           rules.sensorOffline.enabled &&
+          // A Zigbee sensor going silent makes all its measurements unavailable at once:
+          // the caregiver gets one alert for the device, not one per measurement.
+          (!sensor.deviceId || offlineReporters.get(sensor.deviceId) === sensor.id) &&
           isUnavailableLongEnough(
             sensor.available,
             sensor.unavailableSince,

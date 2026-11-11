@@ -183,3 +183,30 @@ export function numericPayload(payload: unknown): number | null {
   }
   return null;
 }
+
+const SECONDARY_OFFLINE_CAPABILITIES = new Set([
+  'battery',
+  'voltage',
+  'current',
+  'energy',
+  'signal_strength',
+]);
+
+/** Picks, for each device, the one measurement that reports the device as offline. */
+export function offlineReporterByDevice(
+  sensors: Array<{ id: string; deviceId: string | null; capability: string }>,
+): Map<string, string> {
+  const reporters = new Map<string, { id: string; secondary: boolean }>();
+  for (const sensor of sensors) {
+    if (!sensor.deviceId) continue;
+    const secondary = SECONDARY_OFFLINE_CAPABILITIES.has(sensor.capability);
+    const current = reporters.get(sensor.deviceId);
+    if (
+      !current ||
+      (current.secondary && !secondary) ||
+      (current.secondary === secondary && sensor.id < current.id)
+    )
+      reporters.set(sensor.deviceId, { id: sensor.id, secondary });
+  }
+  return new Map([...reporters].map(([deviceId, { id }]) => [deviceId, id]));
+}

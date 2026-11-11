@@ -38,6 +38,51 @@ describe('MqttIngestionService Zigbee pairing', () => {
     );
   });
 
+  it('reopens a search in progress when Zigbee2MQTT restarts with joining closed', () => {
+    vi.useFakeTimers();
+    try {
+      const client = new EventEmitter();
+      const publish = vi.fn();
+      Object.assign(client, { subscribe: vi.fn(), publish, end: vi.fn() });
+      vi.mocked(connectEliseMqtt).mockReturnValue(client as never);
+      const equipment = { reconcileZigbeeDevices: vi.fn().mockResolvedValue(undefined) };
+      const service = new MqttIngestionService({} as never, equipment as never);
+      service.onModuleInit();
+      const state = (value: string) =>
+        client.emit(
+          'message',
+          'zigbee2mqtt/bridge/state',
+          Buffer.from(JSON.stringify({ state: value })),
+        );
+
+      state('online');
+      service.setZigbeePairing(true, 240);
+      vi.advanceTimersByTime(60_000);
+      publish.mockClear();
+      state('offline');
+      state('online');
+
+      expect(publish).toHaveBeenCalledWith(
+        'zigbee2mqtt/bridge/request/permit_join',
+        JSON.stringify({ time: 180 }),
+        { qos: 1 },
+      );
+
+      service.setZigbeePairing(false, 0);
+      publish.mockClear();
+      state('offline');
+      state('online');
+      expect(publish).not.toHaveBeenCalledWith(
+        'zigbee2mqtt/bridge/request/permit_join',
+        expect.anything(),
+        expect.anything(),
+      );
+      service.onModuleDestroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('removes a device from the Zigbee network without blocking future pairing', () => {
     const publish = vi.fn();
     const service = new MqttIngestionService({} as never, {} as never);
@@ -122,6 +167,28 @@ describe('MqttIngestionService Zigbee pairing', () => {
 
     expect(service.zigbeeDevicesJoinedSince(startedAt)).toEqual(['0x00124b0023456789']);
     expect(service.zigbeeDevicesJoinedSince(new Date(Date.now() + 1_000))).toEqual([]);
+    service.onModuleDestroy();
+  });
+
+  it('records a failed interview and clears it after a successful retry', () => {
+    const { client, service } = connectedService();
+    const startedAt = new Date(Date.now() - 1_000);
+    const event = (status: 'failed' | 'successful') =>
+      client.emit(
+        'message',
+        'zigbee2mqtt/bridge/event',
+        Buffer.from(
+          JSON.stringify({
+            type: 'device_interview',
+            data: { ieee_address: '0x00124B0023456789', status },
+          }),
+        ),
+      );
+
+    event('failed');
+    expect(service.zigbeeInterviewFailedSince(startedAt)).toBe(true);
+    event('successful');
+    expect(service.zigbeeInterviewFailedSince(startedAt)).toBe(false);
     service.onModuleDestroy();
   });
 

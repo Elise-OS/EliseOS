@@ -138,7 +138,7 @@ export const zigbeeInstallSchema = z.object({
     .nullable(),
   networkMode: z.enum(['keep', 'new']),
   /**
-   * PORT_BUSY, KEY_UNREACHABLE, NO_Z2M, PORT_UNAVAILABLE, NO_ANSWER, WRONG_ADAPTER, NETWORK_MISMATCH,
+   * PORT_BUSY, KEY_UNREACHABLE, NO_Z2M, PORT_UNAVAILABLE, FIRMWARE_OLD, NO_ANSWER, WRONG_ADAPTER, NETWORK_MISMATCH,
    * TIMEOUT, CANCELLED, INTERRUPTED, ROLLBACK_FAILED, INTERNAL
    */
   errorCode: z.string().nullable(),

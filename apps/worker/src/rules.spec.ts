@@ -8,6 +8,7 @@ import {
   isStale,
   isUnavailableLongEnough,
   numericPayload,
+  offlineReporterByDevice,
   persistentTemperatureViolation,
   sensorCoverageState,
   shouldOpenInactivityAlert,
@@ -148,5 +149,19 @@ describe('deterministic alert rules', () => {
     expect(clearanceConfirmed(null, now)).toBe(false);
     expect(clearanceConfirmed(new Date('2026-08-09T11:59:00Z'), now)).toBe(false);
     expect(clearanceConfirmed(new Date('2026-08-09T11:58:00Z'), now)).toBe(true);
+  });
+
+  it('reports an offline SNZB-02P once, through its main measurement', () => {
+    const reporters = offlineReporterByDevice([
+      { id: 's-battery', deviceId: 'snzb-02p', capability: 'battery' },
+      { id: 's-temperature', deviceId: 'snzb-02p', capability: 'temperature' },
+      { id: 's-humidity', deviceId: 'snzb-02p', capability: 'humidity' },
+      { id: 's-low-battery', deviceId: 'snzb-04p', capability: 'battery' },
+      { id: 'z-contact', deviceId: 'snzb-04p', capability: 'contact' },
+      { id: 'standalone', deviceId: null, capability: 'motion' },
+    ]);
+    expect(reporters.get('snzb-02p')).toBe('s-humidity');
+    expect(reporters.get('snzb-04p')).toBe('z-contact');
+    expect(reporters.has('standalone')).toBe(false);
   });
 });

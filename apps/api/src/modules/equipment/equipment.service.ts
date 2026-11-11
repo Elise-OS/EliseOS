@@ -356,7 +356,23 @@ export class EquipmentService {
       where: { homeId_entityId: { homeId: state.homeId, entityId: state.entityId } },
       include: { mapping: true, device: true },
     });
-    if (!sensor || sensor.removedAt || !sensor.mapping?.enabled) return;
+    if (!sensor || sensor.removedAt) return;
+    const available = state.state !== 'unknown' && state.state !== 'unavailable';
+    const observedAt = new Date(state.occurredAt);
+    await this.prisma.sensor.updateMany({
+      where: { homeId: state.homeId, entityId: state.entityId, removedAt: null },
+      data: {
+        available,
+        unavailableSince: available
+          ? null
+          : sensor.available === false
+            ? (sensor.unavailableSince ?? observedAt)
+            : observedAt,
+        status: available ? 'ONLINE' : 'OFFLINE',
+        ...(available ? { lastSeenAt: observedAt } : {}),
+      },
+    });
+    if (!available || !sensor.mapping?.enabled) return;
     const transformed = this.transform(
       sensor.mapping.capability as Capability,
       sensor.mapping.transform,

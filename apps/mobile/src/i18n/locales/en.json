@@ -1978,6 +1978,7 @@
       "INTERRUPTED": "The installation was interrupted (the box restarted).",
       "KEY_UNREACHABLE": "The network key does not answer at the given address.",
       "NETWORK_MISMATCH": "This key already holds another Zigbee network, different from your sensors’ one.",
+      "FIRMWARE_OLD": "The key firmware is too old for this version. Update the coordinator firmware, then try again.",
       "NO_ANSWER": "The key did not answer with these settings. Check the model, or try another technology in the advanced mode.",
       "NO_Z2M": "The Zigbee service is not installed on this box.",
       "PORT_BUSY": "The key is being used by another program ({{detail}}).",

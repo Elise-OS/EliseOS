@@ -3091,6 +3091,7 @@
       "INTERRUPTED": "La instalación se interrumpió (la caja se reinició).",
       "KEY_UNREACHABLE": "La llave de red no responde en la dirección indicada.",
       "NETWORK_MISMATCH": "Esta llave ya contiene otra red Zigbee, distinta de la de sus sensores.",
+      "FIRMWARE_OLD": "El firmware de la llave es demasiado antiguo para esta versión. Actualice el firmware del coordinador y vuelva a intentarlo.",
       "NO_ANSWER": "La llave no ha respondido con estos ajustes. Compruebe el modelo o pruebe otra tecnología en el modo avanzado.",
       "NO_Z2M": "El servicio Zigbee no está instalado en esta caja.",
       "PORT_BUSY": "La llave la está usando otro programa ({{detail}}).",

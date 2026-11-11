@@ -369,6 +369,10 @@ class ParsingTests(unittest.TestCase):
             "NETWORK_MISMATCH",
         )
         self.assertEqual(agent.classify_failure("Error: Error while opening serialport 'Error: ENOENT'"), "PORT_UNAVAILABLE")
+        self.assertEqual(
+            agent.classify_failure("Adapter EZSP protocol version (8) is not supported by Host [13-14]"),
+            "FIRMWARE_OLD",
+        )
         self.assertEqual(agent.classify_failure("Failed to start zigbee-herdsman"), "NO_ANSWER")
         self.assertIsNone(agent.classify_failure("Zigbee2MQTT started!"))
 

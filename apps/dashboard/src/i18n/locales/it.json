@@ -3096,6 +3096,7 @@
       "INTERRUPTED": "L’installazione è stata interrotta (la scatola si è riavviata).",
       "KEY_UNREACHABLE": "La chiavetta di rete non risponde all’indirizzo indicato.",
       "NETWORK_MISMATCH": "Questa chiavetta contiene già un’altra rete Zigbee, diversa da quella dei Suoi sensori.",
+      "FIRMWARE_OLD": "Il firmware della chiavetta è troppo vecchio per questa versione. Aggiorni il firmware del coordinatore e riprovi.",
       "NO_ANSWER": "La chiavetta non ha risposto con queste impostazioni. Verifichi il modello oppure provi un’altra tecnologia nella modalità avanzata.",
       "NO_Z2M": "Il servizio Zigbee non è installato su questa scatola.",
       "PORT_BUSY": "La chiavetta è usata da un altro programma ({{detail}}).",

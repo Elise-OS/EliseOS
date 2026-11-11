@@ -18,6 +18,13 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
+from .mapping import (
+    capability as sensor_capability,
+    device_model,
+    is_new_button_press,
+    payload as sensor_payload,
+)
+
 DOMAIN = "elise_bridge"
 _LOGGER = logging.getLogger(__name__)
 EVENT_TOPIC = "elise/v1/events"
@@ -58,36 +65,6 @@ ACTION_FIELDS = {
     "play_media": ["media_content_id", "media_content_type"],
     "volume_set": ["volume_level"], "volume_mute": ["is_volume_muted"],
     "send_message": ["message", "title"],
-}
-
-CAPABILITIES = {
-    ("binary_sensor", "motion"): "motion",
-    ("binary_sensor", "occupancy"): "occupancy",
-    ("binary_sensor", "presence"): "person_presence",
-    ("binary_sensor", "door"): "contact",
-    ("binary_sensor", "opening"): "contact",
-    ("binary_sensor", "window"): "contact",
-    ("binary_sensor", "garage_door"): "contact",
-    ("camera", ""): "camera",
-    ("sensor", "temperature"): "temperature",
-    ("sensor", "humidity"): "humidity",
-    ("sensor", "power"): "power",
-    ("sensor", "energy"): "energy",
-    ("sensor", "current"): "current",
-    ("sensor", "voltage"): "voltage",
-    ("sensor", "battery"): "battery",
-    ("event", "button"): "button",
-    ("binary_sensor", "moisture"): "water_leak",
-    ("binary_sensor", "smoke"): "smoke",
-    ("binary_sensor", "carbon_monoxide"): "carbon_monoxide",
-    ("binary_sensor", "vibration"): "vibration",
-    ("sensor", "carbon_dioxide"): "co2",
-    ("sensor", "volatile_organic_compounds"): "voc",
-    ("sensor", "pm25"): "pm25",
-    ("sensor", "aqi"): "air_quality",
-    ("sensor", "illuminance"): "illuminance",
-    ("sensor", "signal_strength"): "signal_strength",
-    ("switch", ""): "switch",
 }
 
 SENSOR_ENTITY_DOMAINS = {"binary_sensor", "event", "sensor", "switch", "camera"}
@@ -178,33 +155,7 @@ def _secret(name: str) -> str:
 
 
 def _payload(capability: str, state: Any) -> dict[str, Any]:
-    if capability == "fall_detection":
-        fall_status = str(state.state).strip().lower()
-        if fall_status in {"fall_warning", "fall_alarm"}:
-            return {"active": True, "fallStatus": fall_status}
-        if fall_status == "normal":
-            return {"active": False, "fallStatus": fall_status}
-        return {"fallStatus": fall_status}
-    if capability in {
-        "motion",
-        "occupancy",
-        "person_presence",
-        "water_leak",
-        "smoke",
-        "carbon_monoxide",
-        "vibration",
-    }:
-        return {"active": state.state == "on"}
-    if capability == "contact":
-        return {"open": str(state.state).lower() in {"on", "open", "contact_open", "true"}}
-    if capability == "button":
-        action = state.attributes.get("event_type") or state.attributes.get("action") or state.state
-        return {"action": str(action)}
-    try:
-        value: str | float = float(state.state)
-    except (TypeError, ValueError):
-        value = state.state
-    return {"value": value, "unit": state.attributes.get("unit_of_measurement")}
+    return sensor_payload(capability, state.state, state.attributes)
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
@@ -262,7 +213,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         # "dry_contact", rather than as Home Assistant's opening binary sensor.
         if domain in {"sensor", "binary_sensor"} and "dry_contact" in entity_id.lower():
             return "contact"
-        return CAPABILITIES.get((domain, device_class or ""))
+        return sensor_capability(entity_id, device_class)
 
     async def publish_inventory() -> None:
         entity_registry = er.async_get(hass)
@@ -313,7 +264,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
                     "deviceId": device.id,
                     "name": device.name_by_user or device.name or device.id,
                     "manufacturer": device.manufacturer,
-                    "model": device.model,
+                    "model": device_model(device.model, getattr(device, "model_id", None)),
                     "networkIdentifier": _zigbee2mqtt_identifier(device),
                 }
             )
@@ -596,8 +547,20 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
             ),
             qos=1,
         )
+        # Availability is carried by ENTITY_STATE_TOPIC. It must not look like a normal
+        # inactive/zero reading, which could clear a smoke, leak or door alert.
+        if state.state in {"unknown", "unavailable"}:
+            return
         if capability is None:
             return
+        if domain == "event":
+            old_state = event.data.get("old_state")
+            if not is_new_button_press(
+                old_state.state if old_state is not None else None,
+                state.state,
+                datetime.now(UTC),
+            ):
+                return
         device = dr.async_get(hass).async_get(entity_entry.device_id) if entity_entry and entity_entry.device_id else None
         payload = {
             "schemaVersion": "1.0",
@@ -611,7 +574,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
                 "deviceId": entity_entry.device_id if entity_entry else None,
                 "name": (entity_entry.name or entity_entry.original_name) if entity_entry else None,
                 "manufacturer": device.manufacturer if device else None,
-                "model": device.model if device else None,
+                "model": device_model(device.model, getattr(device, "model_id", None)) if device else None,
             },
             "capability": capability,
             "quality": "good" if state.state not in {"unknown", "unavailable"} else "degraded",

@@ -1,6 +1,9 @@
-version: 4
+version: 5
 homeassistant:
   enabled: true
+  # Z2M 2.x otherwise only creates automation triggers for action devices.
+  # Élise ingests the event entity to turn SNZB-01P single/double/long presses into observations.
+  experimental_event_entities: true
 mqtt:
   base_topic: zigbee2mqtt
   server: mqtt://mosquitto:1883
@@ -8,9 +11,21 @@ mqtt:
 frontend:
   enabled: true
   port: 8080
+availability:
+  enabled: true
+  # Routers are queried quickly; sleeping battery sensors may legitimately report only daily.
+  active:
+    timeout: 10
+  passive:
+    timeout: 1500
 advanced:
   log_level: info
   channel: 11
+  # Never inherit Zigbee2MQTT's public fallback network. On first successful start Z2M replaces
+  # these markers with random values in the persistent configuration volume.
+  network_key: GENERATE
+  pan_id: GENERATE
+  ext_pan_id: GENERATE
   transmit_power: 20
   last_seen: ISO_8601
   cache_state: true

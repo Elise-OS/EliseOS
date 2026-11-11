@@ -54,6 +54,15 @@ classify_adapter() {
     *zboss* | *nrf52840*zigbee*)
       printf 'zboss\n'
       ;;
+    # ZBDongle-E is the "Dongle Plus V2". The original Dongle Plus (ZBDongle-P) is a TI CC2652P;
+    # its by-id name ends with a hex serial, which may start with "e", or carries the
+    # Silicon Labs USB bridge vendor name: neither must turn it into an Ember key.
+    *sonoff*dongle_plus_v2*)
+      printf 'ember\n'
+      ;;
+    *sonoff_zigbee_3.0_usb_dongle_plus*)
+      printf 'zstack\n'
+      ;;
     *zbdongle-p* | *dongle_plus_p* | *cc2530* | *cc2531* | *cc2652* | *cc1352* | *ti_cc* | *texas_instruments* | *electrolama* | *zzh* | *slae.sh* | *tubeszb*ti* | *zigstar*ti*)
       printf 'zstack\n'
       ;;

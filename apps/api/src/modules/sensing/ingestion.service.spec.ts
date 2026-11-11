@@ -170,4 +170,85 @@ describe('critical alert ingestion', () => {
     expect(alerts[1]?.status).toBe('RESOLVED');
     expect(tx.alertTransition.create).toHaveBeenCalledOnce();
   });
+
+  it('opens a new SOS for every press once the previous one is closed', async () => {
+    const alerts: Array<{
+      id: string;
+      ruleKey: string;
+      status: string;
+      conditionClearedAt: Date | null;
+    }> = [];
+    const tx = {
+      sensor: {
+        upsert: vi.fn((args: { where: { homeId_entityId: { entityId: string } } }) => ({
+          id: args.where.homeId_entityId.entityId,
+          roomId: null,
+          analysisEnabled: true,
+        })),
+      },
+      homePlan: { findUnique: vi.fn().mockResolvedValue(null) },
+      observationEvent: {
+        create: vi.fn().mockResolvedValue({ id: 'saved-event' }),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
+      outboxMessage: { create: vi.fn() },
+      alertTransition: { create: vi.fn() },
+      $executeRaw: vi.fn(),
+      alert: {
+        findFirst: vi.fn(
+          (args: { where: { ruleKey: string } }) =>
+            alerts.filter((item) => item.ruleKey === args.where.ruleKey).at(-1) ?? null,
+        ),
+        create: vi.fn((args: { data: { ruleKey: string } }) => {
+          const alert = {
+            id: `alert-${alerts.length + 1}`,
+            ruleKey: args.data.ruleKey,
+            status: 'OPEN',
+            conditionClearedAt: null,
+          };
+          alerts.push(alert);
+          return alert;
+        }),
+        update: vi.fn(
+          (args: {
+            where: { id: string };
+            data: { conditionClearedAt?: Date | null; status?: string };
+          }) => {
+            const alert = alerts.find((item) => item.id === args.where.id)!;
+            if ('conditionClearedAt' in args.data)
+              alert.conditionClearedAt = args.data.conditionClearedAt ?? null;
+            if (args.data.status) alert.status = args.data.status;
+            return alert;
+          },
+        ),
+      },
+    };
+    const prisma = {
+      observationEvent: { findUnique: vi.fn().mockResolvedValue(null) },
+      $transaction: vi.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
+    };
+    const service = new IngestionService(prisma as never);
+    const press = (eventId: string, occurredAt: string) =>
+      service.ingest({
+        schemaVersion: '1.0',
+        eventId,
+        occurredAt,
+        receivedAt: occurredAt,
+        homeId: 'home-1',
+        source: { platform: 'home-assistant', entityId: 'event.snzb_01p_bouton_action' },
+        capability: 'button',
+        quality: 'good',
+        payload: { action: 'sos' },
+      });
+
+    await press('evt-1', '2026-11-12T08:00:00.000Z');
+    await press('evt-2', '2026-11-12T08:00:20.000Z');
+    // A second press while the first SOS is still open does not duplicate it.
+    expect(alerts).toHaveLength(1);
+    alerts[0]!.status = 'RESOLVED';
+    // No "released" report ever arrives from a button: the next press must alert again.
+    await press('evt-3', '2026-11-12T08:30:00.000Z');
+    expect(alerts).toHaveLength(2);
+    expect(alerts[1]?.ruleKey).toBe('security:SOS:event.snzb_01p_bouton_action');
+  });
 });

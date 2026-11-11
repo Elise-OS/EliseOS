@@ -57,7 +57,8 @@ function isPirMotionModel(model: string | null | undefined) {
   const normalized = (model ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   return (
     ['SNZB03P', 'SNZB03', '3RMS16BZ', '3RMS16BZNEW', '3RSM0147Z'].includes(normalized) ||
-    normalized.includes('WIRELESSMOTIONSENSOR')
+    normalized.includes('WIRELESSMOTIONSENSOR') ||
+    normalized.includes('ZIGBEEPIRSENSOR')
   );
 }
 
@@ -290,6 +291,26 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
       where: { id, homeId: home.id },
     });
     if (!session) throw new NotFoundException('Session d’installation introuvable.');
+    // SONOFF sensors need up to a minute of interview after joining: a device that joined
+    // just before the end of the search gets a short extension instead of being orphaned.
+    const latestJoin =
+      session.protocol === 'zigbee' && session.status === 'WAITING_FOR_DEVICE'
+        ? this.mqtt.zigbeeLatestJoinAt?.()
+        : null;
+    if (
+      session.expiresAt <= new Date() &&
+      latestJoin &&
+      latestJoin >= session.createdAt &&
+      Date.now() - latestJoin.getTime() < 120_000 &&
+      session.expiresAt.getTime() - session.createdAt.getTime() < 8 * 60_000
+    ) {
+      session.expiresAt = (
+        await this.prisma.sensorOnboardingSession.update({
+          where: { id },
+          data: { expiresAt: new Date(latestJoin.getTime() + 120_000) },
+        })
+      ).expiresAt;
+    }
     if (
       session.expiresAt <= new Date() &&
       ['PENDING', 'WAITING_FOR_DEVICE', 'DEVICE_FOUND'].includes(session.status)
@@ -316,6 +337,22 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
           status: 'FAILED',
           errorCode: 'PAIRING_REJECTED',
           errorMessage: zigbee.pairingError,
+        },
+      });
+      return this.sessionView(failed);
+    }
+    if (
+      session.protocol === 'zigbee' &&
+      this.mqtt.zigbeeInterviewFailedSince?.(session.createdAt)
+    ) {
+      await this.closeZigbeePairing(home.id);
+      const failed = await this.prisma.sensorOnboardingSession.update({
+        where: { id },
+        data: {
+          status: 'FAILED',
+          errorCode: 'INTERVIEW_FAILED',
+          // The clients already localize their simple "pairing rejected" guidance.
+          errorMessage: null,
         },
       });
       return this.sessionView(failed);

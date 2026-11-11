@@ -2006,6 +2006,7 @@
       "INTERRUPTED": "L’installation a été interrompue (la box a redémarré).",
       "KEY_UNREACHABLE": "La clé réseau ne répond pas à l’adresse indiquée.",
       "NETWORK_MISMATCH": "Cette clé contient déjà un autre réseau Zigbee, différent de celui de vos capteurs.",
+      "FIRMWARE_OLD": "Le micrologiciel de la clé est trop ancien pour cette version. Mettez à jour le firmware coordinateur, puis réessayez.",
       "NO_ANSWER": "La clé n’a pas répondu avec ces réglages. Vérifiez le modèle, ou essayez une autre technologie dans le mode avancé.",
       "NO_Z2M": "Le service Zigbee n’est pas installé sur cette box.",
       "PORT_BUSY": "La clé est utilisée par un autre programme ({{detail}}).",

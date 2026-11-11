@@ -19,6 +19,7 @@ describe('EquipmentService manual mappings', () => {
     const prisma = {
       deviceEntity: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
       sensor: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         findUnique: vi.fn().mockResolvedValue({
           sourceName: 'Présence personnalisée',
           mapping: { enabled: true, capability: 'occupancy', transform: 'ON_OFF' },
@@ -40,6 +41,7 @@ describe('EquipmentService manual mappings', () => {
     const prisma = {
       deviceEntity: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
       sensor: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         findUnique: vi.fn().mockResolvedValue({
           sourceName: 'Contact du lit',
           mapping: { enabled: true, capability: 'contact', transform: 'OPEN_CLOSED' },
@@ -64,7 +66,10 @@ describe('EquipmentService manual mappings', () => {
   it('does not use an unknown entity until an administrator maps it', async () => {
     const prisma = {
       deviceEntity: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
-      sensor: { findUnique: vi.fn().mockResolvedValue({ mapping: null }) },
+      sensor: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ mapping: null }),
+      },
     };
     const ingestion = { ingest: vi.fn() };
     const service = new EquipmentService(prisma as never, ingestion as never);
@@ -78,6 +83,7 @@ describe('EquipmentService manual mappings', () => {
     const prisma = {
       deviceEntity: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
       sensor: {
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         findUnique: vi.fn().mockResolvedValue({
           removedAt: new Date(),
           mapping: { enabled: true, capability: 'occupancy', transform: 'ON_OFF' },
@@ -88,6 +94,39 @@ describe('EquipmentService manual mappings', () => {
 
     await new EquipmentService(prisma as never, ingestion as never).ingestMappedState(state);
 
+    expect(ingestion.ingest).not.toHaveBeenCalled();
+  });
+
+  it('marks an unavailable Z2M entity offline without emitting a false inactive event', async () => {
+    const unavailableSince = new Date('2026-08-10T11:00:00.000Z');
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const prisma = {
+      deviceEntity: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      sensor: {
+        updateMany,
+        findUnique: vi.fn().mockResolvedValue({
+          available: false,
+          unavailableSince,
+          removedAt: null,
+          mapping: { enabled: true, capability: 'occupancy', transform: 'ON_OFF' },
+        }),
+      },
+    };
+    const ingestion = { ingest: vi.fn() };
+
+    await new EquipmentService(prisma as never, ingestion as never).ingestMappedState({
+      ...state,
+      state: 'unavailable',
+    });
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { homeId: state.homeId, entityId: state.entityId, removedAt: null },
+      data: {
+        available: false,
+        unavailableSince,
+        status: 'OFFLINE',
+      },
+    });
     expect(ingestion.ingest).not.toHaveBeenCalled();
   });
 });

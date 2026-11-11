@@ -100,6 +100,7 @@ test('the view helpers decide what the screens show', async () => {
   const current = status.candidates.find((item) => item.isCurrent);
   const other = status.candidates.find((item) => !item.isCurrent);
   assert.equal(zigbeeErrorKey('NO_ANSWER'), 'NO_ANSWER');
+  assert.equal(zigbeeErrorKey('FIRMWARE_OLD'), 'FIRMWARE_OLD');
   assert.equal(zigbeeErrorKey('SOMETHING_NEW'), 'unknown');
   assert.equal(zigbeeErrorKey(null), 'unknown');
   assert.deepEqual(zigbeeKnownNotes(['usb3-extension', 'made-up']), ['usb3-extension']);

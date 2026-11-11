@@ -20,6 +20,8 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
   private zigbeeInventoryReceived = false;
   private readonly joinedZigbeeDevices = new Set<string>();
   private readonly zigbeePairingJoins = new Map<string, Date>();
+  private zigbeePairingUntil = 0;
+  private readonly zigbeeInterviewFailures = new Map<string, Date>();
   private eventIngestion = Promise.resolve();
   private rejoinedDeviceInventoryTimer: NodeJS.Timeout | undefined;
   private readonly pendingDiscoveryCommands = new Map<
@@ -88,6 +90,9 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
               this.logger.error('Unable to mark Zigbee devices offline', error),
             );
         } else if (!wasOnline) {
+          // Zigbee2MQTT always restarts with joining closed: reopen a search still in progress.
+          const remainingSeconds = Math.floor((this.zigbeePairingUntil - Date.now()) / 1_000);
+          if (remainingSeconds >= 10) this.setZigbeePairing(true, remainingSeconds);
           if (this.rejoinedDeviceInventoryTimer) clearTimeout(this.rejoinedDeviceInventoryTimer);
           this.rejoinedDeviceInventoryTimer = setTimeout(() => {
             this.rejoinedDeviceInventoryTimer = undefined;
@@ -141,10 +146,24 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
       if (topic === 'zigbee2mqtt/bridge/event') {
         const event = parsed as {
           type?: unknown;
-          data?: { ieee_address?: unknown };
+          data?: { ieee_address?: unknown; status?: unknown };
         };
         if (event.type === 'device_joined' && typeof event.data?.ieee_address === 'string') {
-          this.zigbeePairingJoins.set(event.data.ieee_address.toLowerCase(), new Date());
+          const identifier = event.data.ieee_address.toLowerCase();
+          this.zigbeePairingJoins.set(identifier, new Date());
+          this.zigbeeInterviewFailures.delete(identifier);
+        } else if (
+          event.type === 'device_interview' &&
+          event.data?.status === 'failed' &&
+          typeof event.data.ieee_address === 'string'
+        ) {
+          this.zigbeeInterviewFailures.set(event.data.ieee_address.toLowerCase(), new Date());
+        } else if (
+          event.type === 'device_interview' &&
+          event.data?.status === 'successful' &&
+          typeof event.data.ieee_address === 'string'
+        ) {
+          this.zigbeeInterviewFailures.delete(event.data.ieee_address.toLowerCase());
         } else if (event.type === 'device_leave' && typeof event.data?.ieee_address === 'string') {
           this.joinedZigbeeDevices.delete(event.data.ieee_address.toLowerCase());
           void this.equipment
@@ -266,6 +285,7 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
 
   public setZigbeePairing(active: boolean, durationSeconds: number): void {
     const supportedDuration = Math.min(Math.max(durationSeconds, 1), 254);
+    this.zigbeePairingUntil = active ? Date.now() + supportedDuration * 1_000 : 0;
     this.zigbee.pairingError = null;
     this.zigbee.pairingResponseAt = null;
     this.client?.publish(
@@ -325,12 +345,27 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
     return this.joinedZigbeeDevices.has(identifier.toLowerCase());
   }
 
+  public zigbeeLatestJoinAt(): Date | null {
+    let latest: Date | null = null;
+    for (const joinedAt of this.zigbeePairingJoins.values())
+      if (!latest || joinedAt > latest) latest = joinedAt;
+    return latest;
+  }
+
   public zigbeeDevicesJoinedSince(startedAt: Date): string[] {
     const cutoff = startedAt.getTime();
     for (const [identifier, joinedAt] of this.zigbeePairingJoins) {
       if (joinedAt.getTime() < cutoff) this.zigbeePairingJoins.delete(identifier);
     }
     return [...this.zigbeePairingJoins.keys()];
+  }
+
+  public zigbeeInterviewFailedSince(startedAt: Date): boolean {
+    const cutoff = startedAt.getTime();
+    for (const [identifier, failedAt] of this.zigbeeInterviewFailures) {
+      if (failedAt.getTime() < cutoff) this.zigbeeInterviewFailures.delete(identifier);
+    }
+    return this.zigbeeInterviewFailures.size > 0;
   }
 
   public executeHomeAssistantCommand(command: {
