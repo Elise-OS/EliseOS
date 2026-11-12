@@ -8,6 +8,7 @@ import {
 } from '@elise/contracts';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../platform/prisma.service';
+import { isSosButtonEvent, isSosPress } from './assistance-button';
 import { connectionsFromPlan, PresenceSessionService } from './presence-session.service';
 import { PresenceTrackingService } from './presence-tracking.service';
 
@@ -301,10 +302,7 @@ export class IngestionService {
             ? 'SMOKE'
             : event.capability === 'carbon_monoxide'
               ? 'CARBON_MONOXIDE'
-              : event.capability === 'button' &&
-                  (role?.toUpperCase() === 'ASSISTANCE' ||
-                    event.payload.action === 'sos' ||
-                    event.payload.action === 'release')
+              : event.capability === 'button' && isSosButtonEvent(event.payload.action, role)
                 ? 'SOS'
                 : null;
       const alertType = event.capability === 'fall_detection' ? 'FALL_DETECTION' : securityType;
@@ -313,9 +311,9 @@ export class IngestionService {
       const securityActive =
         alertType !== null &&
         event.payload.active !== false &&
-        event.payload.action !== 'release' &&
         (securityType === 'SOS'
-          ? event.payload.action === 'sos' || role?.toUpperCase() === 'ASSISTANCE'
+          ? // Assistance button: single, double and long presses are all an SOS.
+            isSosPress(event.payload.action, role)
           : event.payload.active === true);
       const securityAlert =
         securityActive && securityType === 'WATER_LEAK'

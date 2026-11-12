@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { homeAssistantInventorySchema, normalizedEventSchema } from '@elise/contracts';
+import {
+  homeAssistantInventorySchema,
+  homePlanSchema,
+  normalizedEventSchema,
+} from '@elise/contracts';
 import { IngestionService } from './ingestion.service';
 
 describe('normalized Élise event', () => {
@@ -250,5 +254,146 @@ describe('critical alert ingestion', () => {
     await press('evt-3', '2026-11-12T08:30:00.000Z');
     expect(alerts).toHaveLength(2);
     expect(alerts[1]?.ruleKey).toBe('security:SOS:event.snzb_01p_bouton_action');
+  });
+
+  describe('SNZB-01P assistance button (Zigbee2MQTT 2.13 event entity)', () => {
+    const entityId = 'event.snzb_01p_bouton_action';
+    const assistancePlan = {
+      schemaVersion: 4,
+      revision: 1,
+      configured: true,
+      levels: [
+        {
+          id: 'ground',
+          name: 'RDC',
+          floor: 0,
+          order: 0,
+          width: 1_000,
+          height: 600,
+          scaleCmPerUnit: 1,
+          rooms: [
+            {
+              id: 'salon',
+              name: 'Salon',
+              kind: 'LIVING_ROOM',
+              geometry: {
+                color: '#ffffff',
+                points: [
+                  { x: 0, y: 0 },
+                  { x: 100, y: 0 },
+                  { x: 100, y: 100 },
+                  { x: 0, y: 100 },
+                ],
+              },
+            },
+          ],
+          openings: [],
+          stairs: [],
+          items: [],
+        },
+      ],
+      placements: [
+        {
+          id: 'button-placement',
+          kind: 'SENSOR',
+          floorId: 'ground',
+          x: 10,
+          y: 10,
+          equipmentId: entityId,
+          roomId: 'salon',
+          capabilityBindings: [{ sensorId: entityId, capability: 'button', role: 'ASSISTANCE' }],
+        },
+      ],
+      connections: [],
+      adjacencies: [],
+      understanding: {
+        levels: [],
+        isolatedRoomIds: [],
+        adjacentWithoutPassage: [],
+        nearAdjacencyIds: [],
+        floorsWithoutStairs: [],
+        incompleteStairIds: [],
+      },
+    };
+
+    it('uses a valid home plan fixture', () => {
+      expect(homePlanSchema.safeParse(assistancePlan).success).toBe(true);
+    });
+
+    const harness = (plan: unknown) => {
+      const alerts: Array<{ id: string; ruleKey: string; type: string; status: string }> = [];
+      const tx = {
+        sensor: {
+          upsert: vi.fn((args: { where: { homeId_entityId: { entityId: string } } }) => ({
+            id: args.where.homeId_entityId.entityId,
+            roomId: 'salon',
+            analysisEnabled: true,
+          })),
+        },
+        homePlan: { findUnique: vi.fn().mockResolvedValue(plan ? { data: plan } : null) },
+        observationEvent: {
+          create: vi.fn().mockResolvedValue({ id: 'saved-event' }),
+          findFirst: vi.fn().mockResolvedValue(null),
+        },
+        outboxMessage: { create: vi.fn() },
+        alertTransition: { create: vi.fn() },
+        roomPresenceSession: { findFirst: vi.fn().mockResolvedValue(null) },
+        $executeRaw: vi.fn(),
+        alert: {
+          findFirst: vi.fn(
+            (args: { where: { ruleKey: string } }) =>
+              alerts.filter((item) => item.ruleKey === args.where.ruleKey).at(-1) ?? null,
+          ),
+          create: vi.fn((args: { data: { ruleKey: string; type: string } }) => {
+            const alert = {
+              id: `alert-${alerts.length + 1}`,
+              ruleKey: args.data.ruleKey,
+              type: args.data.type,
+              status: 'OPEN',
+            };
+            alerts.push(alert);
+            return alert;
+          }),
+          update: vi.fn(),
+        },
+      };
+      const prisma = {
+        observationEvent: { findUnique: vi.fn().mockResolvedValue(null) },
+        $transaction: vi.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
+      };
+      const service = new IngestionService(prisma as never);
+      const press = (action: string) =>
+        service.ingest({
+          schemaVersion: '1.0',
+          eventId: `evt-${action}`,
+          occurredAt: '2026-11-12T08:00:00.000Z',
+          receivedAt: '2026-11-12T08:00:00.100Z',
+          homeId: 'home-1',
+          source: { platform: 'home-assistant', entityId },
+          capability: 'button',
+          quality: 'good',
+          payload: { action },
+        });
+      return { alerts, press };
+    };
+
+    it.each(['single', 'double', 'long'])(
+      'raises an SOS for a %s press of a button with the assistance role',
+      async (action) => {
+        const { alerts, press } = harness(assistancePlan);
+        await press(action);
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0]).toMatchObject({ type: 'SOS', ruleKey: `security:SOS:${entityId}` });
+      },
+    );
+
+    it.each(['single', 'double', 'long'])(
+      'keeps a %s press of a button without the assistance role out of SOS',
+      async (action) => {
+        const { alerts, press } = harness(null);
+        await press(action);
+        expect(alerts).toHaveLength(0);
+      },
+    );
   });
 });
