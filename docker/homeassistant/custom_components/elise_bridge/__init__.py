@@ -23,6 +23,9 @@ from .mapping import (
     device_model,
     is_new_button_press,
     payload as sensor_payload,
+    smoke_test_entity_id,
+    smoke_test_unique_id,
+    with_smoke_test,
 )
 
 DOMAIN = "elise_bridge"
@@ -580,7 +583,20 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
             "quality": "good" if state.state not in {"unknown", "unavailable"} else "degraded",
             "payload": _payload(capability, state),
         }
+        if capability == "smoke":
+            payload["payload"] = with_smoke_test(payload["payload"], smoke_test_state(entity_entry, state.entity_id))
         client.publish(EVENT_TOPIC, json.dumps(payload, separators=(",", ":")), qos=1)
+
+    def smoke_test_state(entity_entry: Any, entity_id: str) -> Any:
+        # Both HS1SA-E entities come from one Zigbee2MQTT MQTT message; Home Assistant
+        # updates them in the same loop iteration, before this listener task runs.
+        test_entity_id = None
+        test_unique_id = smoke_test_unique_id(entity_entry.unique_id if entity_entry else None)
+        if test_unique_id:
+            test_entity_id = er.async_get(hass).async_get_entity_id("binary_sensor", "mqtt", test_unique_id)
+        test_entity_id = test_entity_id or smoke_test_entity_id(entity_id)
+        test_state = hass.states.get(test_entity_id) if test_entity_id else None
+        return test_state.state if test_state is not None else None
 
     async def inventory_changed(_event: Event) -> None:
         await publish_inventory()

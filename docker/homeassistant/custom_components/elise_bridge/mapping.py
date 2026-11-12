@@ -1,6 +1,7 @@
 """Pure Home Assistant → Élise sensor mapping, kept dependency-free for release tests."""
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Any
 
@@ -105,3 +106,34 @@ def device_model(model: str | None, model_id: str | None) -> str | None:
     """Zigbee2MQTT 2.x gives Home Assistant its description as model and the real
     reference (e.g. SNZB-03P) as model_id; Élise recognises sensors by reference."""
     return model_id or model
+
+
+# Zigbee2MQTT 2.13 publishes one MQTT state for the HEIMAN HS1SA-E, decoded by
+# zigbee-herdsman-converters ``ias_smoke_alarm_1``: ``smoke`` is zoneStatus bit 0 and
+# ``test`` is bit 8. Home Assistant discovery turns them into two entities of the same
+# device, ``binary_sensor.<name>_smoke`` (unique_id ``<ieee>_smoke_<base_topic>``) and a
+# diagnostic ``binary_sensor.<name>_test`` (unique_id ``<ieee>_test_<base_topic>``).
+_Z2M_SMOKE_UNIQUE_ID = re.compile(r"^(0x[0-9a-fA-F]{16})_smoke_(.+)$")
+
+
+def smoke_test_unique_id(smoke_unique_id: str | None) -> str | None:
+    """unique_id of the Zigbee2MQTT ``test`` entity next to a ``smoke`` entity."""
+    match = _Z2M_SMOKE_UNIQUE_ID.match(smoke_unique_id or "")
+    return f"{match.group(1)}_test_{match.group(2)}" if match else None
+
+
+def smoke_test_entity_id(smoke_entity_id: str) -> str | None:
+    """Default entity_id of the ``test`` entity, used when the unique_id is unknown."""
+    if smoke_entity_id.startswith("binary_sensor.") and smoke_entity_id.endswith("_smoke"):
+        return f"{smoke_entity_id[: -len('_smoke')]}_test"
+    return None
+
+
+def with_smoke_test(event_payload: dict[str, Any], test_state: Any) -> dict[str, Any]:
+    """Mark a smoke report as a test press only when Zigbee2MQTT says so.
+
+    Without a ``test`` entity at "on", the report stays a real smoke alarm: safety first.
+    """
+    if event_payload.get("active") is True and test_state == "on":
+        return {**event_payload, "test": True}
+    return event_payload
