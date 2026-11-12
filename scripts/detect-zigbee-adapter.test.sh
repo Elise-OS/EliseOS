@@ -56,4 +56,22 @@ printf '%s=zigate\n' "$generic_dir/usb-1a86_USB_Serial-if00-port0" > "$TEST_DIR/
 ELISE_SERIAL_BY_ID_DIR="$generic_dir" ZIGBEE_ADAPTER_CACHE="$TEST_DIR/adapters" "$DETECTOR" --write-env "$env_file" >/dev/null
 grep -Fqx 'ZIGBEE_ADAPTER_TYPE=zigate' "$env_file"
 
+# A configured key unplugged during an update is kept, so it restarts once plugged back in.
+empty_dir="$TEST_DIR/empty/by-id"
+mkdir -p "$empty_dir"
+printf 'ZIGBEE_ADAPTER_MODE=auto\nZIGBEE_ADAPTER=%s/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_e8b1-if00-port0\nZIGBEE_ADAPTER_TYPE=zstack\n' "$empty_dir" > "$env_file"
+ELISE_SERIAL_BY_ID_DIR="$empty_dir" ZIGBEE_ADAPTER_CACHE="$TEST_DIR/missing" "$DETECTOR" --write-env "$env_file" >/dev/null
+grep -Fqx "ZIGBEE_ADAPTER=$empty_dir/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_e8b1-if00-port0" "$env_file"
+grep -Fqx 'ZIGBEE_ADAPTER_TYPE=zstack' "$env_file"
+# Without any key ever configured, or with a raw tty name, nothing is kept.
+for configured in /dev/null /dev/ttyUSB0; do
+  printf 'ZIGBEE_ADAPTER_MODE=auto\nZIGBEE_ADAPTER=%s\nZIGBEE_ADAPTER_TYPE=ember\n' "$configured" > "$env_file"
+  ELISE_SERIAL_BY_ID_DIR="$empty_dir" ZIGBEE_ADAPTER_CACHE="$TEST_DIR/missing" "$DETECTOR" --write-env "$env_file" >/dev/null
+  grep -Fqx 'ZIGBEE_ADAPTER=/dev/null' "$env_file"
+  grep -Fqx 'ZIGBEE_ADAPTER_TYPE=auto' "$env_file"
+done
+printf 'TZ=Europe/Paris\n' > "$env_file"
+ELISE_SERIAL_BY_ID_DIR="$empty_dir" ZIGBEE_ADAPTER_CACHE="$TEST_DIR/missing" "$DETECTOR" --write-env "$env_file" >/dev/null
+grep -Fqx 'ZIGBEE_ADAPTER=/dev/null' "$env_file"
+
 echo "Détection Zigbee : tests réussis."

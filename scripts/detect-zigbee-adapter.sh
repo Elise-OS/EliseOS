@@ -116,6 +116,16 @@ if [[ -d "$SERIAL_DIR" ]]; then
 fi
 
 if ((${#candidates[@]} == 0)); then
+  configured=""
+  [[ -n "$ENV_FILE" && -f "$ENV_FILE" ]] \
+    && configured="$(sed -n 's/^ZIGBEE_ADAPTER=//p' "$ENV_FILE" | tail -n 1)"
+  # Only a stable path (/dev/serial/by-id or by-path) names that key and no other.
+  if [[ "$configured" == "$(dirname "$SERIAL_DIR")"/by-* ]]; then
+    # The configured key is only unplugged (during an update, for instance): keeping it lets
+    # elise-zigbee-setup start Zigbee2MQTT again on the same key as soon as it comes back.
+    echo "Zigbee : la clé configurée ($configured) est débranchée ; elle est conservée."
+    exit 0
+  fi
   [[ -n "$ENV_FILE" ]] && set_env_value "$ENV_FILE" ZIGBEE_ADAPTER /dev/null
   [[ -n "$ENV_FILE" ]] && set_env_value "$ENV_FILE" ZIGBEE_ADAPTER_TYPE auto
   echo "Zigbee : aucun coordinateur USB détecté."
