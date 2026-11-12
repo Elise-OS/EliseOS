@@ -7,8 +7,15 @@ import {
   LIFE_ACTIVITY_CAPABILITIES,
 } from '../dist/index.js';
 
-test('life activity counts motion, presence and contacts', () => {
-  for (const capability of ['motion', 'occupancy', 'person_presence', 'contact', 'dry_contact']) {
+test('life activity counts motion, presence, contacts and button presses', () => {
+  for (const capability of [
+    'motion',
+    'occupancy',
+    'person_presence',
+    'contact',
+    'dry_contact',
+    'button',
+  ]) {
     assert.equal(isLifeActivityCapability(capability), true, capability);
   }
 });
@@ -36,6 +43,6 @@ test('reliable life activity requires a good quality', () => {
   assert.equal(isReliableLifeActivity({ capability: 'power', quality: 'good' }), false);
 });
 
-test('activity charts add the button to life signals', () => {
-  assert.deepEqual(ACTIVITY_CAPABILITIES, [...LIFE_ACTIVITY_CAPABILITIES, 'button']);
+test('activity charts and last activity use the same person-generated signals', () => {
+  assert.deepEqual(ACTIVITY_CAPABILITIES, LIFE_ACTIVITY_CAPABILITIES);
 });
