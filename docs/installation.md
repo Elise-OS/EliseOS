@@ -26,7 +26,7 @@ Cette méthode installe Ubuntu Server 24.04 et Élise OS sans commande. Elle né
 1. Téléchargez la [dernière clé d’installation mini-PC](https://sourceforge.net/projects/elise-os/files/latest/download). Le fichier ISO complet est hébergé sur SourceForge ; son [adresse exacte, sa taille et son SHA-256](https://github.com/Elise-OS/EliseOS/releases/latest/download/minipc-installer.json) restent publiés avec chaque version GitHub.
 2. Écrivez l’ISO sur une clé USB avec Raspberry Pi Imager (« Utiliser une image personnalisée ») ou balenaEtcher.
 3. Branchez l’Ethernet et un écran, puis démarrez le mini PC sur la clé USB.
-4. Choisissez Français, English, Español ou Italiano avec les flèches et Entrée. Cette langue est aussi utilisée par l’écran TV et l’app Élise.
+4. Choisissez Français, English, Español, Italiano ou Português avec les flèches et Entrée. Cette langue est aussi utilisée par l’écran TV et l’app Élise.
 5. Si le câble ou Internet manque, l’écran demande de brancher l’Ethernet et reprend tout seul dès que la connexion fonctionne.
 6. Choisissez le disque interne. L’écran montre son modèle, sa taille et, quand c’est détectable, s’il contient déjà un système ou des données. Le plus grand est présélectionné ; les disques USB et la clé d’installation ne sont jamais proposés.
 7. Vérifiez une dernière fois le disque, choisissez explicitement « Effacer et installer », puis laissez l’installation se terminer. « Annuler » est présélectionné par sécurité.

@@ -60,7 +60,7 @@ def rotation(output, size):
         images[f"rotation-{name}-fondu-1-fr-sortie"] = faded(turns.frame(0).image, fade, fade.OUT * 0.5)
         images[f"rotation-{name}-fondu-2-ecran-nu"] = faded(turns.frame(0).image, fade, fade.OUT)
         images[f"rotation-{name}-fondu-3-en-entree"] = faded(turns.frame(0).image, fade, fade.OUT + (1 - fade.OUT) * 0.5)
-    for (name, values), code in zip(list(PREVIEWS.items())[3:], ["it", "fr", "es", "it", "fr", "en"]):
+    for (name, values), code in zip(list(PREVIEWS.items())[3:], ["pt", "it", "fr", "es", "pt", "en"]):
         model = screen.model(lang=None, **{**COMMON, **values})
         images[f"rotation-{name}-{code}"] = screen.render(model, size, lang=code).image
     for name, image in images.items():

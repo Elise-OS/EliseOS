@@ -288,7 +288,7 @@ FLAG_W, FLAG_H = 72, 48
 
 
 def flag_image(code: str, width: int, height: int):
-    """The four flags as plain shapes (no bitmap asset), drawn 4× larger then reduced."""
+    """The flags as plain shapes (no bitmap asset), drawn 4× larger then reduced."""
     from PIL import Image, ImageDraw
 
     s = 4
@@ -302,6 +302,23 @@ def flag_image(code: str, width: int, height: int):
     elif code == "es":
         draw.rectangle((0, 0, w, h), fill=(170, 21, 27))
         draw.rectangle((0, h / 4, w, h * 3 / 4), fill=(241, 191, 0))
+    elif code == "pt":
+        # Green and red in 2:3 bands; the coat of arms simplified so it stays readable when small:
+        # yellow sphere, red shield, white inner shield and the five blue quinas.
+        draw.rectangle((0, 0, w, h), fill=(218, 41, 28))
+        draw.rectangle((0, 0, w * 2 / 5, h), fill=(4, 106, 56))
+        cx, cy, r = w * 2 / 5, h / 2, h * 0.32
+        draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(255, 224, 0))
+        sw, top, bottom = r * 1.08, cy - r * 0.66, cy + r * 0.66
+        draw.rounded_rectangle((cx - sw / 2, top, cx + sw / 2, bottom), sw * 0.42, fill=(218, 41, 28))
+        draw.rectangle((cx - sw / 2, top, cx + sw / 2, top + sw * 0.42), fill=(218, 41, 28))
+        iw, it, ib = sw * 0.7, top + sw * 0.15, bottom - sw * 0.15
+        draw.rounded_rectangle((cx - iw / 2, it, cx + iw / 2, ib), iw * 0.42, fill=(255, 255, 255))
+        draw.rectangle((cx - iw / 2, it, cx + iw / 2, it + iw * 0.42), fill=(255, 255, 255))
+        q = iw * 0.17
+        for dx, dy in ((0, -1), (-1, 0), (0, 0), (1, 0), (0, 1)):
+            x, y = cx + dx * q * 1.35, (it + ib) / 2 + dy * q * 1.35
+            draw.rectangle((x - q / 2, y - q / 2, x + q / 2, y + q / 2), fill=(0, 51, 153))
     elif code == "en":
         blue, red, white = (1, 33, 105), (200, 16, 46), (255, 255, 255)
         draw.rectangle((0, 0, w, h), fill=blue)
@@ -333,7 +350,9 @@ def draw_language(paint, t, data):
     eyebrow(paint, y, t["language_eyebrow"], SKY)
     heading(paint, y, t["language_title"], t["language_lead"], 80, COLUMN, 60,
               lead_width=COLUMN - 40, lead_lines=3)
-    card, gap = 124, 22
+    # Four languages fill the column with 124-pixel cards; more get slimmer ones so the list stays
+    # between the header and the footer rule.
+    card, gap = (124, 22) if len(LANGUAGES) <= 4 else (112, 18)
     top = MIDDLE - (len(LANGUAGES) * card + (len(LANGUAGES) - 1) * gap) / 2
     for index, (code, info) in enumerate(LANGUAGES.items()):
         box = (CARD_LEFT, top, RIGHT, top + card)

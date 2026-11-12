@@ -101,19 +101,21 @@ class TargetSelectionTest(unittest.TestCase):
         self.assertTrue(all(item.has_data for item in candidates))
 
     def test_replaces_disk_and_language_tokens_exactly_once(self):
-        with tempfile.TemporaryDirectory() as directory:
-            config = Path(directory) / "autoinstall.yaml"
-            config.write_text(
-                "path: __ELISE_TARGET_DISK__\nlocale: __ELISE_LOCALE__\n"
-                "layout: __ELISE_KEYBOARD__\ntimezone: __ELISE_TIMEZONE__\n",
-                encoding="utf-8",
-            )
-            with patch.dict(target.os.environ, {"ELISE_AUTOINSTALL_PATH": str(config)}):
-                target.configure_autoinstall("/dev/nvme0n1", "it")
-            self.assertEqual(
-                config.read_text(encoding="utf-8"),
-                "path: /dev/nvme0n1\nlocale: it_IT.UTF-8\nlayout: it\ntimezone: Europe/Rome\n",
-            )
+        expected = {
+            "it": "locale: it_IT.UTF-8\nlayout: it\ntimezone: Europe/Rome\n",
+            "pt": "locale: pt_PT.UTF-8\nlayout: pt\ntimezone: Europe/Lisbon\n",
+        }
+        for language, settings in expected.items():
+            with self.subTest(language=language), tempfile.TemporaryDirectory() as directory:
+                config = Path(directory) / "autoinstall.yaml"
+                config.write_text(
+                    "path: __ELISE_TARGET_DISK__\nlocale: __ELISE_LOCALE__\n"
+                    "layout: __ELISE_KEYBOARD__\ntimezone: __ELISE_TIMEZONE__\n",
+                    encoding="utf-8",
+                )
+                with patch.dict(target.os.environ, {"ELISE_AUTOINSTALL_PATH": str(config)}):
+                    target.configure_autoinstall("/dev/nvme0n1", language)
+                self.assertEqual(config.read_text(encoding="utf-8"), "path: /dev/nvme0n1\n" + settings)
 
     def test_saves_installer_language_for_the_target(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(target, "STATE_DIR", Path(directory)):
@@ -144,12 +146,14 @@ class InstallerUITest(unittest.TestCase):
         output = io.BytesIO()
         return TextUI(output, language=language, key_reader=KeySequence(*keys)), output
 
-    def test_language_defaults_to_french_and_supports_all_four_choices(self):
+    def test_language_defaults_to_french_and_supports_all_five_choices(self):
         ui, _ = self.ui("enter")
         self.assertEqual(choose_language(ui), "fr")
         ui, _ = self.ui("down", "enter")
         self.assertEqual(choose_language(ui), "en")
-        self.assertEqual(list(LANGUAGES), ["fr", "en", "es", "it"])
+        ui, _ = self.ui("down", "down", "down", "down", "enter")
+        self.assertEqual(choose_language(ui), "pt")
+        self.assertEqual(list(LANGUAGES), ["fr", "en", "es", "it", "pt"])
 
     def test_largest_disk_is_preselected_but_arrows_can_choose_another(self):
         disks = [Disk("/dev/vdb", "Large", 100_000_000_000), Disk("/dev/vda", "Small", 40_000_000_000)]
@@ -301,10 +305,11 @@ class GraphicUITest(unittest.TestCase):
         self.assertIsNotNone(graphics.E.ImageChops.difference(cancel, erase).getbbox())
 
     def test_language_screen_speaks_the_highlighted_language(self):
-        texts = [text for text, _box in picture("language", "it", (1280, 800)).boxes]
-        self.assertIn(TEXT["it"]["language_eyebrow"], texts)
-        for name in (item["name"] for item in LANGUAGES.values()):
-            self.assertIn(name, texts)
+        for language, size in (("it", (1280, 800)), ("pt", (1280, 720))):
+            texts = [text for text, _box in picture("language", language, size).boxes]
+            self.assertIn(TEXT[language]["language_eyebrow"], texts)
+            for name in (item["name"] for item in LANGUAGES.values()):
+                self.assertIn(name, texts)
 
     def test_graphic_ui_keeps_the_keyboard_and_draws_each_move(self):
         display = FakeDisplay()
@@ -371,6 +376,12 @@ class ProgressMonitorTest(unittest.TestCase):
             image, mask = graphics.flag_image(code, 72, 48)
             self.assertEqual(image.size, (72, 48))
             self.assertGreater(len(set(image.getdata())), 1, code)
+        # Portugal: green at the hoist, red at the fly, the yellow sphere on the boundary.
+        image, _mask = graphics.flag_image("pt", 72, 48)
+        green, red, sphere = image.getpixel((6, 24)), image.getpixel((66, 24)), image.getpixel((29, 38))
+        self.assertGreater(green[1], green[0])
+        self.assertGreater(red[0], red[1] + 100)
+        self.assertGreater(min(sphere[0], sphere[1]), 180)
 
     def test_failed_install_mark_is_written_by_error_commands(self):
         user_data = (MODULE_PATH.parent / "user-data").read_text(encoding="utf-8")

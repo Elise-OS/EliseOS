@@ -871,7 +871,7 @@ class Fade:
 
 
 class Rotation:
-    """Bonjour · Hello · Hola · Ciao, while no language is known.
+    """Bonjour · Hello · Hola · Ciao · Olá, while no language is known.
 
     The whole screen speaks one language at a time: title, steps, labels and footer change
     together, through the bare screen (see Fade). The welcome changes about every four seconds,

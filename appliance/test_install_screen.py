@@ -165,6 +165,12 @@ class LanguageTests(unittest.TestCase):
         ("Spanish keyboard", dict(layout="es", zone="Europe/Madrid"), "es"),
         ("Latin American keyboard", dict(layout="latam", zone="America/Mexico_City"), "es"),
         ("Italian keyboard", dict(layout="it", zone="Europe/Rome"), "it"),
+        ("Portuguese keyboard", dict(layout="pt", zone="Europe/Lisbon"), "pt"),
+        ("Portuguese keyboard in Paris", dict(layout="pt", zone="Europe/Paris"), "pt"),
+        ("Brazilian keyboard", dict(layout="br", zone="America/Sao_Paulo"), "pt"),
+        ("Lisbon alone", dict(layout="us", zone="Europe/Lisbon", keyboard_chosen=False), "pt"),
+        ("Azores alone", dict(zone="Atlantic/Azores"), "pt"),
+        ("Brazilian locale", dict(locale="pt_BR.UTF-8", layout="us", zone="Etc/UTC", keyboard_chosen=False), "pt"),
         ("British keyboard in Paris", dict(layout="gb", zone="Europe/Paris"), "en"),
         ("US keyboard in New York", dict(layout="us", zone="America/New_York"), "en"),
         ("US keyboard in Paris", dict(layout="us", zone="Europe/Paris"), None),
@@ -288,7 +294,7 @@ class LanguageTests(unittest.TestCase):
             return len(value) if isinstance(value, list) else "{" in value and sorted(
                 part.split("}")[0] for part in value.split("{")[1:])
 
-        for lang in ("en", "es", "it"):
+        for lang in ("en", "es", "it", "pt"):
             self.assertEqual(shape(screen.TEXT[lang]), shape(screen.TEXT["fr"]), lang)
 
 
@@ -445,7 +451,7 @@ class RotationTests(unittest.TestCase):
         self.assertEqual(shown.tobytes(), second.tobytes())
         area = sum((box[2] - box[0]) * (box[3] - box[1]) for box, *_ in fade.parts)
         self.assertLess(area, 0.6 * 640 * 360)  # the fade leaves the still parts alone
-        for _ in range(3):
+        for _ in range(len(screen.elise_language.LANGUAGES) - 1):
             rotation.advance()
         self.assertEqual(rotation.language, "fr")
 

@@ -26,6 +26,7 @@ LANGUAGES = {
     "en": {"name": "English", "locale": "en_GB.UTF-8", "keyboard": "gb", "timezone": "Europe/London"},
     "es": {"name": "Español", "locale": "es_ES.UTF-8", "keyboard": "es", "timezone": "Europe/Madrid"},
     "it": {"name": "Italiano", "locale": "it_IT.UTF-8", "keyboard": "it", "timezone": "Europe/Rome"},
+    "pt": {"name": "Português", "locale": "pt_PT.UTF-8", "keyboard": "pt", "timezone": "Europe/Lisbon"},
 }
 
 

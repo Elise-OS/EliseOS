@@ -26,7 +26,7 @@ import elise_install_state as install
 
 # The codes of LANGUAGES in packages/i18n/src/index.ts, in the same order: the appliance
 # does not ship the TypeScript sources, and test_install_screen.py keeps both lists in step.
-LANGUAGES = ("fr", "en", "es", "it")
+LANGUAGES = ("fr", "en", "es", "it", "pt")
 FALLBACK = "en"
 CHOICE_FILE = os.environ.get("ELISE_LANGUAGE_FILE", os.path.join(install.STATE_DIR, "language.json"))
 # The app is the family's deliberate choice; a browser only says what one visitor reads.
@@ -42,7 +42,10 @@ LOCALTIME = "etc/localtime"
 
 # Keyboard layouts (XKB names) that say which language the family types. "be" is written in
 # French by most of its users and Dutch is not offered; "ch" and "ca" depend on the variant.
-KEYBOARDS = {"fr": "fr", "be": "fr", "es": "es", "latam": "es", "it": "it", "gb": "en", "ie": "en", "au": "en"}
+KEYBOARDS = {
+    "fr": "fr", "be": "fr", "es": "es", "latam": "es", "it": "it", "pt": "pt", "br": "pt",
+    "gb": "en", "ie": "en", "au": "en",
+}
 
 # Time zones where one of the offered languages is clearly the everyday one. Zones shared by
 # several languages (Brussels, Zurich, Luxembourg, Canada…) are left out: the keyboard decides.
@@ -62,6 +65,15 @@ ZONES = {
         "America/Panama", "America/Havana", "America/Santo_Domingo",
     },
     "it": {"Europe/Rome", "Europe/San_Marino", "Europe/Vatican"},
+    # Portugal with Madeira and the Azores, Brazil, and the Portuguese-speaking African countries.
+    "pt": {
+        "Europe/Lisbon", "Atlantic/Madeira", "Atlantic/Azores", "America/Sao_Paulo", "America/Bahia",
+        "America/Fortaleza", "America/Recife", "America/Maceio", "America/Belem", "America/Araguaina",
+        "America/Santarem", "America/Manaus", "America/Cuiaba", "America/Campo_Grande",
+        "America/Porto_Velho", "America/Boa_Vista", "America/Rio_Branco", "America/Eirunepe",
+        "America/Noronha", "Africa/Luanda", "Africa/Maputo", "Atlantic/Cape_Verde", "Africa/Bissau",
+        "Africa/Sao_Tome",
+    },
     "en": {
         "Europe/London", "Europe/Dublin", "Europe/Isle_of_Man", "Europe/Jersey", "Europe/Guernsey",
         "America/New_York", "America/Chicago", "America/Denver", "America/Phoenix",
@@ -116,7 +128,7 @@ def guess(locale=None, layout=None, variant=None, zone=None, keyboard_chosen=Tru
 
     - A locale someone set wins: it names the language.
     - Then a keyboard layout chosen in Imager: people type in their own language, wherever they
-      live (a French keyboard in Madrid is French). Layouts of other languages (de, nl, pt…)
+      live (a French keyboard in Madrid is French). Layouts of other languages (de, nl…)
       and the ambiguous Swiss German one give None: better every language than a wrong one.
     - The US layout is the image's default and the most common layout worldwide: it only
       confirms English in an English-speaking time zone.

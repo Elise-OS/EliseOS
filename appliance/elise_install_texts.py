@@ -277,6 +277,74 @@ TEXT = {
         "installing_body": "L’accesso privato è attivo. Élise installa la visualizzazione sul televisore: "
         "può richiedere una ventina di minuti. Questa schermata verrà sostituita automaticamente.",
     },
+    "pt": {
+        "elapsed": "Iniciada há {duration}",
+        "step_of": "Passo {n} de {total}",
+        "steps": {
+            "settings": "Definições do Raspberry Pi", "network": "Ligação à Internet",
+            "clock": "Acerto da hora", "verify": "Verificação da versão",
+            "download": "Transferência dos componentes", "start": "Arranque da Élise",
+        },
+        "leads": {
+            "settings": "A Élise aplica as definições escolhidas na preparação do cartão.",
+            "network": "A Élise verifica a ligação à Internet.",
+            "clock": "A Élise acerta a hora para proteger as suas comunicações.",
+            "verify": "A Élise verifica que a sua versão é autêntica.",
+            "download": "A Élise transfere os seus componentes. É o passo mais demorado.",
+            "start": "A Élise arranca e verifica que tudo funciona.",
+        },
+        "components": "{done} componentes de {total}",
+        "percent": "{percent}%",
+        "local": "Endereço local",
+        "remote": "Acesso remoto",
+        "remote_later": "a configurar na aplicação",
+        "remote_value": "Acesso remoto: {value}",
+        "no_network": "a aguardar a rede",
+        "version": "Versão {version}",
+        "scan": "Leia o código com a câmara do telemóvel",
+        "open_address": "Abra este endereço num navegador",
+        "welcome_eyebrow": "PRIMEIRA INSTALAÇÃO",
+        "welcome_title": "O Élise OS está a ser instalado",
+        "welcome_lead": "Tudo é feito automaticamente. Deixe o aparelho ligado à corrente e à Internet.",
+        "continue": "Para continuar",
+        "continue_body": "Abra a aplicação Élise no telemóvel ou aceda a",
+        "progress_eyebrow": "INSTALAÇÃO EM CURSO",
+        "reassure": "Não precisa de fazer nada: este ecrã atualiza-se sozinho.",
+        "action_eyebrow": "FALTA UMA INFORMAÇÃO",
+        "action_title": "Continue no telemóvel ou no computador",
+        "action_body": "Para transferir os seus componentes, a Élise precisa da conta bot do GitHub. "
+        "Indique-a na aplicação Élise ou na página de preparação.",
+        "action_note": "Não há nada a escrever na televisão. A instalação retoma sozinha.",
+        "paused": "Instalação em pausa · passo {n} de {total}",
+        "problem_eyebrow": "INSTALAÇÃO EM PAUSA",
+        "problem_network": "A Élise não consegue aceder à Internet",
+        "problem_other": "A instalação encontrou um problema",
+        "auto_title": "O que a Élise faz",
+        "auto_body": "A Élise volta a tentar sozinha, a cada minuto. Não é preciso desligar o aparelho.",
+        "check_title": "O que pode verificar",
+        "checks_network": [
+            "O cabo de rede liga bem o aparelho ao router.",
+            "O router está ligado e a funcionar.",
+            "Em Wi-Fi: o nome e a palavra-passe indicados na preparação do cartão.",
+        ],
+        "checks_other": [
+            "Deixe o aparelho ligado à corrente e à Internet.",
+            "Se o problema voltar, abra a aplicação Élise para ver o detalhe.",
+        ],
+        "detail": "Detalhe: {message}",
+        "done_eyebrow": "INSTALAÇÃO CONCLUÍDA",
+        "done_title": "A Élise está pronta",
+        "ready_body": "Abra a aplicação Élise, ou o endereço ao lado, para criar a conta da família.",
+        "pair_title": "Último passo: o ecrã da sala",
+        "pair_steps": [
+            "Abra a aplicação Élise no telemóvel.",
+            "Toque em «Ativar o acesso privado» e siga os passos.",
+            "A televisão vai depois mostrar a Élise sozinha.",
+        ],
+        "installing_title": "O ecrã da sala está a ser preparado",
+        "installing_body": "O acesso privado está ativo. A Élise instala o ecrã da televisão: "
+        "pode demorar cerca de vinte minutos. Este ecrã será substituído automaticamente.",
+    },
 }
 
 # The preparation page opened from a phone or a computer, next to the TV's texts it reuses.
@@ -361,6 +429,26 @@ PAGE = {
         "page_local_only": "Disponibile solo dalla rete di casa.",
         "page_bad_request": "Richiesta non valida.",
     },
+    "pt": {
+        "page_title": "Preparação da Élise",
+        "page_connecting": "A ligar à Élise…",
+        "page_address": "Endereço: {value}",
+        "page_footer": "Esta página atualiza-se sozinha. A aplicação Élise também encontra este aparelho no Wi-Fi de casa.",
+        "page_auth_intro": "O repositório da Élise é privado: indique a conta bot do GitHub para transferir os componentes.",
+        "page_auth_username": "Nome da conta bot do GitHub",
+        "page_auth_token": "Token (ghp_…)",
+        "page_auth_submit": "Guardar e continuar",
+        "page_auth_checking": "A verificar com o GitHub…",
+        "page_auth_no_answer": "A Élise não responde, tente novamente.",
+        "page_auth_saved": "Conta bot guardada, a preparação continua.",
+        "page_auth_invalid": "Nome de conta ou token inválido.",
+        "page_auth_refused": "O GitHub recusa este token, ou este não tem acesso ao repositório da Élise.",
+        "page_auth_github_status": "O GitHub respondeu {status}, tente novamente dentro de momentos.",
+        "page_auth_github_unreachable": "Não é possível contactar o GitHub, verifique a ligação à Internet.",
+        "page_auth_scope": "O token também precisa da permissão read:packages.",
+        "page_local_only": "Disponível apenas a partir da rede de casa.",
+        "page_bad_request": "Pedido inválido.",
+    },
 }
 for _code, _texts in PAGE.items():
     TEXT[_code].update(_texts)
@@ -371,6 +459,7 @@ DEVICE_SETTINGS = {
     "en": ("Device settings", "Élise is applying the settings chosen during installation."),
     "es": ("Ajustes del dispositivo", "Élise aplica los ajustes elegidos durante la instalación."),
     "it": ("Impostazioni del dispositivo", "Élise applica le impostazioni scelte durante l’installazione."),
+    "pt": ("Definições do aparelho", "A Élise aplica as definições escolhidas durante a instalação."),
 }
 
 
