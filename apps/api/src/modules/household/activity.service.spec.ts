@@ -430,6 +430,53 @@ describe('ActivityService analytics', () => {
     );
   });
 
+  it('reports as last activity only a reliable life signal, never plug or battery updates', async () => {
+    const prisma = {
+      home: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'home-1',
+          name: 'Maison',
+          type: 'HOUSE',
+          timezone: 'Europe/Paris',
+          learningStartedAt: new Date('2026-07-01T00:00:00.000Z'),
+          primaryResident: null,
+          rooms: [],
+        }),
+      },
+      user: {
+        findUniqueOrThrow: vi.fn().mockResolvedValue({ id: 'user-1', displayName: 'Paul Test' }),
+      },
+      observationEvent: {
+        findFirst: vi.fn().mockResolvedValue({
+          occurredAt: new Date('2026-07-20T08:00:00.000Z'),
+          capability: 'motion',
+          sensor: { room: { name: 'Salon' } },
+        }),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      alert: { count: vi.fn().mockResolvedValue(0) },
+      sensor: { findMany: vi.fn().mockResolvedValue([]) },
+      visit: { findFirst: vi.fn().mockResolvedValue(null) },
+      appointment: { findFirst: vi.fn().mockResolvedValue(null) },
+    };
+
+    const result = await new ActivityService(prisma as never).overview('user-1');
+
+    const where = (
+      prisma.observationEvent.findFirst.mock.calls[0]![0] as {
+        where: { capability: { in: string[] }; quality: string };
+      }
+    ).where;
+    expect(where.quality).toBe('good');
+    expect([...where.capability.in].sort()).toEqual(
+      ['contact', 'dry_contact', 'motion', 'occupancy', 'person_presence'].sort(),
+    );
+    for (const ignored of ['power', 'energy', 'battery', 'signal_strength']) {
+      expect(where.capability.in).not.toContain(ignored);
+    }
+    expect(result.lastActivity).toMatchObject({ capability: 'motion', room: 'Salon' });
+  });
+
   it('confirms a room routine only after coverage, 14 days and 10 reliable sessions', async () => {
     const sessions = Array.from({ length: 10 }, (_, index) => ({
       id: `session-${index}`,
