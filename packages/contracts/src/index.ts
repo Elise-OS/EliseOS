@@ -10,6 +10,7 @@ function containsControlCharacters(value: string): boolean {
   return false;
 }
 
+export * from './activity.js';
 export * from './calendar.js';
 export * from './call-quality.js';
 export * from './notifications.js';
