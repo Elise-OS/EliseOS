@@ -1,6 +1,6 @@
 [project]
 name = "elise-ai"
-version = "0.1.30"
+version = "0.1.31"
 description = "Explainable local anomaly detection for Élise OS"
 requires-python = ">=3.12,<3.15"
 dependencies = [
