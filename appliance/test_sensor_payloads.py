@@ -57,6 +57,32 @@ class RealZigbeePayloadTests(unittest.TestCase):
     def test_heiman_hs1sa_e_smoke(self):
         self.assertEqual(mapping.payload("smoke", "on", {}), {"active": True})
 
+    def test_heiman_hs1sa_e_test_button_is_flagged_as_test(self):
+        # Z2M 2.13 / zigbee-herdsman-converters 26.90.0: ias_smoke_alarm_1 publishes
+        # {"smoke": true, "test": true, ...} on a test press (zoneStatus bits 0 and 8).
+        smoke = mapping.payload("smoke", "on", {"device_class": "smoke"})
+        self.assertEqual(mapping.with_smoke_test(smoke, "on"), {"active": True, "test": True})
+
+    def test_heiman_hs1sa_e_smoke_without_test_flag_stays_real(self):
+        smoke = mapping.payload("smoke", "on", {"device_class": "smoke"})
+        for test_state in ("off", None, "unknown", "unavailable"):
+            self.assertEqual(mapping.with_smoke_test(smoke, test_state), {"active": True})
+        cleared = mapping.payload("smoke", "off", {"device_class": "smoke"})
+        self.assertEqual(mapping.with_smoke_test(cleared, "on"), {"active": False})
+
+    def test_heiman_hs1sa_e_test_entity_lookup(self):
+        self.assertEqual(
+            mapping.smoke_test_unique_id("0x00124b0029a1b2c3_smoke_zigbee2mqtt"),
+            "0x00124b0029a1b2c3_test_zigbee2mqtt",
+        )
+        self.assertIsNone(mapping.smoke_test_unique_id("0x00124b0029a1b2c3_water_leak_zigbee2mqtt"))
+        self.assertIsNone(mapping.smoke_test_unique_id(None))
+        self.assertEqual(
+            mapping.smoke_test_entity_id("binary_sensor.detecteur_fumee_cuisine_smoke"),
+            "binary_sensor.detecteur_fumee_cuisine_test",
+        )
+        self.assertIsNone(mapping.smoke_test_entity_id("binary_sensor.cuisine_fumee"))
+
     def test_numeric_and_binary_low_battery(self):
         self.assertEqual(mapping.payload("battery", 9, {"unit_of_measurement": "%"})["value"], 9.0)
         self.assertEqual(mapping.payload("battery", "on", {}), {"value": 0, "low": True, "unit": "%"})
