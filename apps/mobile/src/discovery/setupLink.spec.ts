@@ -8,11 +8,11 @@ const link = (query: string, base = 'https://eliseos.paulbreton.dev/setup/') => 
 
 describe('parseSetupLink', () => {
   it('reads the universal link of the TV, with or without the trailing slash', () => {
-    const expected = { box: BOX, ip: '192.168.1.42', lang: 'it' };
-    expect(parseSetupLink(link(`box=${BOX}&ip=192.168.1.42&lang=it`))).toEqual(expected);
+    const expected = { box: BOX, ip: '192.168.1.42', lang: 'pt' };
+    expect(parseSetupLink(link(`box=${BOX}&ip=192.168.1.42&lang=pt`))).toEqual(expected);
     expect(
       parseSetupLink(
-        link(`box=${BOX}&ip=192.168.1.42&lang=it`, 'https://eliseos.paulbreton.dev/setup'),
+        link(`box=${BOX}&ip=192.168.1.42&lang=pt`, 'https://eliseos.paulbreton.dev/setup'),
       ),
     ).toEqual(expected);
   });

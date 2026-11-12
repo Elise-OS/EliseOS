@@ -64,6 +64,25 @@ appId: org.michel.mobile
                 id: 'language-menu'
             - tapOn: 'Italiano'
             - waitForAnimationToEnd
+- runFlow:
+    when:
+      true: ${STORE_LANG == 'pt'}
+    commands:
+      # The app opens in the phone's language; switch only if it did not.
+      - extendedWaitUntil:
+          visible:
+            id: 'language-menu'
+          timeout: 30000
+      # Retried because a tap while the app is still starting can be lost.
+      - repeat:
+          while:
+            notVisible: 'Explorar a demonstração'
+          times: 4
+          commands:
+            - tapOn:
+                id: 'language-menu'
+            - tapOn: 'Português'
+            - waitForAnimationToEnd
 - runScript:
     file: store-labels.js
 - runScript:

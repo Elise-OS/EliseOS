@@ -1,6 +1,6 @@
 # App Store screenshots in demo mode: only fictional data from src/demo/mock-api.ts.
 # Run through scripts/store-screenshots.sh, which prepares the simulator status bar,
-# picks the language (STORE_LANG=fr|en|es|it), the device family (DEVICE=iphone|ipad) and the
+# picks the language (STORE_LANG=fr|en|es|it|pt), the device family (DEVICE=iphone|ipad) and the
 # output directory. File names stay the same in every language so fastlane pairs them.
 appId: org.michel.mobile
 # No env defaults here: Maestro lets them override the values given with -e.
@@ -65,6 +65,25 @@ appId: org.michel.mobile
             - tapOn:
                 id: 'language-menu'
             - tapOn: 'Italiano'
+            - waitForAnimationToEnd
+- runFlow:
+    when:
+      true: ${STORE_LANG == 'pt'}
+    commands:
+      # The app opens in the phone's language; switch only if it did not.
+      - extendedWaitUntil:
+          visible:
+            id: 'language-menu'
+          timeout: 30000
+      # Retried because a tap while the app is still starting can be lost.
+      - repeat:
+          while:
+            notVisible: 'Explorar a demonstração'
+          times: 4
+          commands:
+            - tapOn:
+                id: 'language-menu'
+            - tapOn: 'Português'
             - waitForAnimationToEnd
 - runScript:
     file: store-labels.js

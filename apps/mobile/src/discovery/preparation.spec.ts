@@ -53,7 +53,7 @@ describe('sendPreparationLanguage', () => {
 
   it('does not insist with an older box that does not know the language', async () => {
     respond(404, { message: 'Introuvable.' });
-    await expect(sendPreparationLanguage('http://elise.local', 'it')).resolves.toBe(true);
+    await expect(sendPreparationLanguage('http://elise.local', 'pt')).resolves.toBe(true);
   });
 
   it('reports an unreachable box so the app can try again', async () => {

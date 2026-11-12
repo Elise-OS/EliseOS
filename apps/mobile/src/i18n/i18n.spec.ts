@@ -44,6 +44,8 @@ describe('Language of a new install', () => {
     expect(matchLanguage(['fr-FR'])).toBe('fr');
     expect(matchLanguage(['fr_CA'])).toBe('fr');
     expect(matchLanguage(['en-US'])).toBe('en');
+    expect(matchLanguage(['pt-PT'])).toBe('pt');
+    expect(matchLanguage(['pt-BR'])).toBe('pt');
     expect(matchLanguage(['de-DE', 'fr-FR'])).toBe('fr');
     expect(matchLanguage(['ja-JP'])).toBe('en');
     expect(matchLanguage([undefined])).toBe('en');
@@ -57,6 +59,7 @@ describe('Language of a new install', () => {
       en: { screen: { title: 'Title', items: ['One', 'Two'] } },
       es: { screen: { title: 'Título', items: ['Uno', 'Dos'] } },
       it: { screen: { title: 'Titolo', items: ['Uno', 'Due'] } },
+      pt: { screen: { title: 'Título', items: ['Um', 'Dois'] } },
     });
     const block = blockReader(i18n, layout)('screen');
     expect(block.title).toBe('Titre');
@@ -69,6 +72,7 @@ describe('Language of a new install', () => {
       en: { a: 'Hello', b: 'Not translated yet' },
       es: { a: 'Hola' },
       it: { a: 'Ciao' },
+      pt: { a: 'Olá' },
     });
     // The app's keys are typed; this test catalog has its own.
     const translate = i18n.t.bind(i18n) as unknown as (key: string) => string;
