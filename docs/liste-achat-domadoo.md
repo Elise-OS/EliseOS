@@ -48,3 +48,12 @@ Ce panier couvre les neuf scénarios de simulation d’Élise : matinée normale
 |        1 | [HEIMAN HS1SA-E — détecteur de fumée Zigbee 3.0, certifié EN14604](https://www.domadoo.fr/fr/peripheriques/6291-heiman-detecteur-de-fumee-intelligent-zigbee-30-certifie-en14604.html) | Sirène locale et remontée d’alerte fumée dans Élise OS via Zigbee2MQTT |            18,99 € TTC | Réapprovisionnement estimé le 6 octobre 2026 |
 
 Cette option est en plus du total du panier pilote ci-dessus. Vérifier la référence **HS1SA-E** lors de la commande : l’installation Élise utilise directement son réseau Zigbee, sans compte ni concentrateur Heiman.
+
+## Comportement des capteurs dans Élise
+
+### Bouton SONOFF SNZB-01P avec le rôle « assistance »
+
+- Zigbee2MQTT 2.13 (zigbee-herdsman-converters 26.90.0, `ewelinkAction()`) ne remonte que trois actions : `single` (appui simple), `double` (double appui) et `long` (appui long). Home Assistant les reçoit dans l’entité `event.<nom>_action`, attribut `event_type`.
+- Décision : **les trois appuis déclenchent un SOS**. Ni le convertisseur ni la documentation SONOFF ne donnent au double appui un sens d’annulation ou de test, et une personne âgée en détresse peut appuyer deux fois par panique ou tremblement. Un SOS manqué est bien plus grave qu’un faux SOS.
+- La liste nommée est `SNZB_01P_SOS_ACTIONS` dans `apps/api/src/modules/sensing/assistance-button.ts`. Toute autre valeur d’appui d’un bouton d’assistance déclenche aussi un SOS ; seul `release` est ignoré.
+- Un bouton sans le rôle « assistance » garde son comportement : seule une action explicite `sos` déclenche un SOS.
