@@ -608,24 +608,16 @@ describe('TV channels by language', () => {
     expect(italian.channels.find(({ id }) => id === 'euronewsIt')?.current?.title).toBe('Notizie');
   });
 
-  it('reads the Portuguese guide from its single source; RTP Mundo has none', async () => {
+  it('reads the Portuguese guide available outside Portugal; RTP Mundo has none', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(now);
     vi.stubGlobal('fetch', fetchGuide);
     const portuguese = await screenTvGuide(lineup('pt'));
     expect(fetched()).toEqual([TV_GUIDE_SOURCES.openEpgPt.url]);
-    expect(portuguese.channels.map(({ id }) => id)).toEqual([
-      'rtp1',
-      'rtp2',
-      'rtpNoticias',
-      'rtpMemoria',
-      'rtpAfrica',
-    ]);
+    expect(portuguese.channels.map(({ id }) => id)).toEqual(['rtpNoticias', 'rtpAfrica']);
     expect(portuguese.channels[0]).toMatchObject({
-      current: { title: 'Telejornal' },
-      next: { title: 'A Praça' },
+      current: { title: 'Notícias' },
     });
-    expect(portuguese.channels[2]?.current?.title).toBe('Notícias');
   });
 
   it('keeps the guides that answered when another source fails', async () => {

@@ -86,6 +86,7 @@ export interface TvChannel {
 }
 
 const SPAIN_TIMEZONES = ['Europe/Madrid', 'Atlantic/Canary', 'Africa/Ceuta'] as const;
+const PORTUGAL_TIMEZONES = ['Europe/Lisbon', 'Atlantic/Azores', 'Atlantic/Madeira'] as const;
 
 const CHANNELS = [
   {
@@ -259,16 +260,19 @@ const CHANNELS = [
     logo: 'rtp1',
     badge: { label: 'RTP 1', color: '#ffffff', background: '#0000ff' },
     guide: { source: 'openEpgPt', id: 'RTP 1 HD.pt' },
+    // RTP Play may replace programmes with an empty manifest outside Portugal when rights differ.
+    geoRestriction: { country: 'PT', timezones: PORTUGAL_TIMEZONES },
   },
   {
     id: 'rtp2',
     name: 'RTP 2',
     languages: ['pt'],
     country: 'PT',
-    url: 'https://streaming-live.rtp.pt/liverepeater/rtp2HD.smil/playlist.m3u8',
+    url: 'https://streaming-live.rtp.pt/liverepeater/smil:rtpClean2HD.smil/playlist.m3u8',
     logo: 'rtp2',
     badge: { label: 'RTP 2', color: '#ffffff', background: '#0000ff' },
     guide: { source: 'openEpgPt', id: 'RTP 2 HD.pt' },
+    geoRestriction: { country: 'PT', timezones: PORTUGAL_TIMEZONES },
   },
   {
     id: 'rtpNoticias',
@@ -298,6 +302,7 @@ const CHANNELS = [
     logo: 'rtp-memoria',
     badge: { label: 'RTP', color: '#ffffff', background: '#0000ff' },
     guide: { source: 'openEpgPt', id: 'RTP Memória.pt' },
+    geoRestriction: { country: 'PT', timezones: PORTUGAL_TIMEZONES },
   },
   {
     id: 'rtpAfrica',

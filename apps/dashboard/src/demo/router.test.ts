@@ -158,15 +158,9 @@ describe('demo TV channels', () => {
     expect(guideChannels()[0]?.current?.title).toBe('Documentario: l’Italia vista dall’alto');
     setLanguage('pt');
     resetDemo();
-    // RTP Mundo has no guide.
-    expect(guideChannels().map(({ id }) => id)).toEqual([
-      'rtp1',
-      'rtp2',
-      'rtpNoticias',
-      'rtpMemoria',
-      'rtpAfrica',
-    ]);
-    expect(guideChannels()[0]?.current?.title).toBe('Magazine da manhã: receitas da nossa terra');
+    // RTP 1, RTP 2 and RTP Memória are restricted to Portugal; RTP Mundo has no guide.
+    expect(guideChannels().map(({ id }) => id)).toEqual(['rtpNoticias', 'rtpAfrica']);
+    expect(guideChannels()[0]?.current?.title).toBe('Telejornal');
     setLanguage('en');
     resetDemo();
     expect(guideChannels().map(({ id }) => id)).toEqual(['dwEnglish', 'france24En', 'alJazeeraEn']);

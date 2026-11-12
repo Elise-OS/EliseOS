@@ -69,9 +69,11 @@ test('an Italian screen gets the Italian channels, none of them blocked abroad',
   assert.equal(tvChannelLanguage('IT'), 'it');
 });
 
-test('a Portuguese screen gets the RTP channels, in Portugal, in France and in Brazil', () => {
-  const channels = ids(defaultTvChannels('pt', 'Europe/Paris'));
-  assert.deepEqual(channels, [
+test('a Portuguese screen keeps rights-restricted RTP channels in Portugal only', () => {
+  const abroad = ids(defaultTvChannels('pt', 'Europe/Paris'));
+  assert.deepEqual(abroad, ['rtpNoticias', 'rtpMundo', 'rtpAfrica']);
+  const inPortugal = ids(defaultTvChannels('pt-PT', 'Europe/Lisbon'));
+  assert.deepEqual(inPortugal, [
     'rtp1',
     'rtp2',
     'rtpNoticias',
@@ -79,8 +81,7 @@ test('a Portuguese screen gets the RTP channels, in Portugal, in France and in B
     'rtpMemoria',
     'rtpAfrica',
   ]);
-  assert.deepEqual(ids(defaultTvChannels('pt-PT', 'Europe/Lisbon')), channels);
-  assert.deepEqual(ids(defaultTvChannels('pt-BR', 'America/Sao_Paulo')), channels);
+  assert.deepEqual(ids(defaultTvChannels('pt-BR', 'America/Sao_Paulo')), abroad);
   assert.equal(tvChannelLanguage('PT'), 'pt');
 });
 
