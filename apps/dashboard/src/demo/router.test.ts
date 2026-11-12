@@ -156,6 +156,17 @@ describe('demo TV channels', () => {
       'euronewsIt',
     ]);
     expect(guideChannels()[0]?.current?.title).toBe('Documentario: l’Italia vista dall’alto');
+    setLanguage('pt');
+    resetDemo();
+    // RTP Mundo has no guide.
+    expect(guideChannels().map(({ id }) => id)).toEqual([
+      'rtp1',
+      'rtp2',
+      'rtpNoticias',
+      'rtpMemoria',
+      'rtpAfrica',
+    ]);
+    expect(guideChannels()[0]?.current?.title).toBe('Magazine da manhã: receitas da nossa terra');
     setLanguage('en');
     resetDemo();
     expect(guideChannels().map(({ id }) => id)).toEqual(['dwEnglish', 'france24En', 'alJazeeraEn']);

@@ -16,6 +16,7 @@ describe('Language of the answers', () => {
     expect(wantsEnglish(withLanguage('en'))).toBe(true);
     expect(wantsEnglish(withLanguage('es'))).toBe(true);
     expect(wantsEnglish(withLanguage('it'))).toBe(true);
+    expect(wantsEnglish(withLanguage('pt'))).toBe(true);
     expect(wantsEnglish(withLanguage('de'))).toBe(true);
   });
 });

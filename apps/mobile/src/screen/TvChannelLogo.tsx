@@ -22,6 +22,12 @@ import logoRai3 from '../../assets/tv-logos/rai-3.png';
 import logoRmcDecouverte from '../../assets/tv-logos/rmc-decouverte.png';
 import logoRmcLife from '../../assets/tv-logos/rmc-life.png';
 import logoRmcStory from '../../assets/tv-logos/rmc-story.png';
+import logoRtp1 from '../../assets/tv-logos/rtp1.png';
+import logoRtp2 from '../../assets/tv-logos/rtp2.png';
+import logoRtpAfrica from '../../assets/tv-logos/rtp-africa.png';
+import logoRtpMemoria from '../../assets/tv-logos/rtp-memoria.png';
+import logoRtpMundo from '../../assets/tv-logos/rtp-mundo.png';
+import logoRtpNoticias from '../../assets/tv-logos/rtp-noticias.png';
 import logoTv2000 from '../../assets/tv-logos/tv2000.png';
 
 /** Official logos of the catalog channels (`logo` of @elise/contracts), bundled with the app. */
@@ -39,6 +45,12 @@ export const TV_CHANNEL_LOGOS: Record<string, ImageSourcePropType> = {
   'rmc-decouverte': logoRmcDecouverte,
   'rmc-life': logoRmcLife,
   'rmc-story': logoRmcStory,
+  'rtp-africa': logoRtpAfrica,
+  'rtp-memoria': logoRtpMemoria,
+  'rtp-mundo': logoRtpMundo,
+  'rtp-noticias': logoRtpNoticias,
+  rtp1: logoRtp1,
+  rtp2: logoRtp2,
   tv2000: logoTv2000,
 };
 

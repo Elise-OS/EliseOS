@@ -1616,7 +1616,16 @@
       "rai3Next": "Regional news",
       "tv2000Current": "Morning Mass",
       "tv2000Next": "Documentary: pilgrimage routes",
-      "euronewsNext": "Europe behind the scenes"
+      "euronewsNext": "Europe behind the scenes",
+      "rtp1Current": "Morning magazine: recipes from our regions",
+      "rtp1Next": "Midday news",
+      "rtp2Current": "Documentary: the villages of the Douro",
+      "rtp2Next": "Fado concert",
+      "rtpMemoriaCurrent": "A cult series from the 80s",
+      "rtpMemoriaNext": "Great moments of television",
+      "rtpAfricaCurrent": "Magazine: music from Cape Verde",
+      "rtpAfricaNext": "Africa news",
+      "rtpNoticiasNext": "The economy in focus"
     }
   },
   "scenario": {
@@ -1823,7 +1832,13 @@
       "rai3Bolzano": "Culture, documentaries and news, with South Tyrol regional news.",
       "rai3Friuli": "Culture, documentaries and news, with Friuli-Venezia Giulia regional news.",
       "tv2000": "General-interest Catholic channel: Mass, documentaries and drama.",
-      "euronewsIt": "European and international news in Italian."
+      "euronewsIt": "European and international news in Italian.",
+      "rtp1": "RTP’s general channel: news, drama and entertainment.",
+      "rtp2": "Culture, documentaries and children’s programmes from RTP.",
+      "rtpNoticias": "Rolling news in Portuguese.",
+      "rtpMundo": "RTP for Portuguese people abroad: the best of its channels.",
+      "rtpMemoria": "Series, shows and archives of Portuguese television.",
+      "rtpAfrica": "News and culture from Portuguese-speaking African countries."
     },
     "channelLive": "{{name}} live",
     "chooseAPhoto": "Choose a photo",

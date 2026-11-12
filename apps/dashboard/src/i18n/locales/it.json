@@ -1635,7 +1635,16 @@
       "rmcStoryCurrent": "Inchieste nel cuore delle dogane",
       "rmcStoryNext": "Gli eroi di ogni giorno",
       "tv2000Current": "La messa del mattino",
-      "tv2000Next": "Documentario: cammini di pellegrinaggio"
+      "tv2000Next": "Documentario: cammini di pellegrinaggio",
+      "rtp1Current": "Magazine del mattino: ricette delle nostre regioni",
+      "rtp1Next": "Il telegiornale di mezzogiorno",
+      "rtp2Current": "Documentario: i villaggi del Douro",
+      "rtp2Next": "Concerto di fado",
+      "rtpMemoriaCurrent": "Una serie cult degli anni ’80",
+      "rtpMemoriaNext": "Grandi momenti della televisione",
+      "rtpAfricaCurrent": "Magazine: musiche di Capo Verde",
+      "rtpAfricaNext": "Il telegiornale dell’Africa",
+      "rtpNoticiasNext": "Il punto sull’economia"
     }
   },
   "scenario": {
@@ -1842,7 +1851,13 @@
       "rmcDecouverte": "Documentari e scoperta.",
       "rmcLife": "Serie, film e intrattenimento.",
       "rmcStory": "Serie, fiction e intrattenimento.",
-      "tv2000": "Canale cattolico generalista: messe, documentari e fiction."
+      "tv2000": "Canale cattolico generalista: messe, documentari e fiction.",
+      "rtp1": "Generalista della RTP: attualità, fiction e intrattenimento.",
+      "rtp2": "Cultura, documentari e programmi per ragazzi della RTP.",
+      "rtpNoticias": "Notizie in diretta continua in portoghese.",
+      "rtpMundo": "La RTP per i portoghesi all’estero: il meglio dei suoi canali.",
+      "rtpMemoria": "Serie, programmi e archivi della televisione portoghese.",
+      "rtpAfrica": "Attualità e cultura dei paesi africani di lingua portoghese."
     },
     "channelLive": "{{name}} in diretta",
     "channelSpainOnly": "Disponibile solo in Spagna",

@@ -379,6 +379,36 @@ const DEMO_TV_PROGRAMMES: Record<
     from: [10, 30],
     to: [10, 45],
   },
+  rtp1: {
+    current: () => t('router.tvGuide.rtp1Current'),
+    next: () => t('router.tvGuide.rtp1Next'),
+    from: [10, 0],
+    to: [11, 0],
+  },
+  rtp2: {
+    current: () => t('router.tvGuide.rtp2Current'),
+    next: () => t('router.tvGuide.rtp2Next'),
+    from: [10, 5],
+    to: [10, 55],
+  },
+  rtpNoticias: {
+    current: () => t('router.tvGuide.newsCurrent'),
+    next: () => t('router.tvGuide.rtpNoticiasNext'),
+    from: [10, 30],
+    to: [10, 45],
+  },
+  rtpMemoria: {
+    current: () => t('router.tvGuide.rtpMemoriaCurrent'),
+    next: () => t('router.tvGuide.rtpMemoriaNext'),
+    from: [10, 10],
+    to: [11, 5],
+  },
+  rtpAfrica: {
+    current: () => t('router.tvGuide.rtpAfricaCurrent'),
+    next: () => t('router.tvGuide.rtpAfricaNext'),
+    from: [10, 0],
+    to: [11, 0],
+  },
   dwEnglish: {
     current: () => t('router.tvGuide.newsCurrent'),
     next: () => t('router.tvGuide.dwNext'),

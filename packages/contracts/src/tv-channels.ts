@@ -43,6 +43,13 @@ export const TV_GUIDE_SOURCES = {
     label: 'EPG Share',
     site: 'https://epgshare01.online/',
   },
+  // One file for the Portuguese channels (0.5 MB, 3.4 MB once decompressed). RTP Mundo is in none
+  // of the free files with readable titles: no guide for it.
+  openEpgPt: {
+    url: 'https://www.open-epg.com/files/portugal1.xml.gz',
+    label: 'Open-EPG',
+    site: 'https://www.open-epg.com/',
+  },
   epgpwAlJazeeraEn: {
     url: 'https://epg.pw/api/epg.xml?channel_id=443134',
     label: 'epg.pw',
@@ -239,6 +246,69 @@ const CHANNELS = [
     badge: { label: 'euronews', color: '#ffffff', background: '#0072f5' },
     guide: { source: 'epgshareIt', id: 'Euronews.it' },
   },
+  // RTP official streams (RTP Play CDN, CORS open). Tested from France on 2026-11-12: every channel
+  // played (playlist, variant, decoded segment). RTP may replace a programme it has no rights for
+  // abroad (football, some films) by a still image, the stream itself keeps playing. RTP Mundo is
+  // RTP's channel for the Portuguese living abroad.
+  {
+    id: 'rtp1',
+    name: 'RTP 1',
+    languages: ['pt'],
+    country: 'PT',
+    url: 'https://streaming-live.rtp.pt/liverepeater/rtp1HD.smil/playlist.m3u8',
+    logo: 'rtp1',
+    badge: { label: 'RTP 1', color: '#ffffff', background: '#0000ff' },
+    guide: { source: 'openEpgPt', id: 'RTP 1 HD.pt' },
+  },
+  {
+    id: 'rtp2',
+    name: 'RTP 2',
+    languages: ['pt'],
+    country: 'PT',
+    url: 'https://streaming-live.rtp.pt/liverepeater/rtp2HD.smil/playlist.m3u8',
+    logo: 'rtp2',
+    badge: { label: 'RTP 2', color: '#ffffff', background: '#0000ff' },
+    guide: { source: 'openEpgPt', id: 'RTP 2 HD.pt' },
+  },
+  {
+    id: 'rtpNoticias',
+    name: 'RTP Notícias',
+    languages: ['pt'],
+    country: 'PT',
+    url: 'https://streaming-live.rtp.pt/livetvhlsDVR/rtpnHDdvr.smil/playlist.m3u8',
+    logo: 'rtp-noticias',
+    badge: { label: 'RTP', color: '#ffffff', background: '#0000ff' },
+    guide: { source: 'openEpgPt', id: 'RTP Notícias HD.pt' },
+  },
+  {
+    id: 'rtpMundo',
+    name: 'RTP Mundo',
+    languages: ['pt'],
+    country: 'PT',
+    url: 'https://streaming-live.rtp.pt/liverepeater/smil:rtpi.smil/playlist.m3u8',
+    logo: 'rtp-mundo',
+    badge: { label: 'RTP', color: '#ffffff', background: '#0000ff' },
+  },
+  {
+    id: 'rtpMemoria',
+    name: 'RTP Memória',
+    languages: ['pt'],
+    country: 'PT',
+    url: 'https://streaming-live.rtp.pt/liverepeater/smil:rtpmem.smil/playlist.m3u8',
+    logo: 'rtp-memoria',
+    badge: { label: 'RTP', color: '#ffffff', background: '#0000ff' },
+    guide: { source: 'openEpgPt', id: 'RTP Memória.pt' },
+  },
+  {
+    id: 'rtpAfrica',
+    name: 'RTP África',
+    languages: ['pt'],
+    country: 'PT',
+    url: 'https://streaming-live.rtp.pt/liverepeater/smil:rtpafrica.smil/playlist.m3u8',
+    logo: 'rtp-africa',
+    badge: { label: 'RTP', color: '#ffffff', background: '#0000ff' },
+    guide: { source: 'openEpgPt', id: 'RTP África.pt' },
+  },
   {
     id: 'dwEnglish',
     name: 'DW English',
@@ -383,5 +453,6 @@ export function installationTvLanguage(spokenLanguage: string | null | undefined
   if (/^(english|anglais|ingl[eé]s)/.test(name)) return 'en';
   if (/^(espa[nñ]ol|spanish|espagnol|castellano)/.test(name)) return 'es';
   if (/^(italiano|italian|italien)/.test(name)) return 'it';
+  if (/^(portugu[eê]s|portuguese|portugais)/.test(name)) return 'pt';
   return tvLanguageCode(name.length <= 3 ? name : null);
 }

@@ -1635,7 +1635,16 @@
       "rai3Next": "Le journal régional",
       "tv2000Current": "La messe du matin",
       "tv2000Next": "Documentaire : chemins de pèlerinage",
-      "euronewsNext": "L’Europe en coulisses"
+      "euronewsNext": "L’Europe en coulisses",
+      "rtp1Current": "Magazine du matin : recettes de nos régions",
+      "rtp1Next": "Le journal de la mi-journée",
+      "rtp2Current": "Documentaire : les villages du Douro",
+      "rtp2Next": "Concert de fado",
+      "rtpMemoriaCurrent": "Une série culte des années 80",
+      "rtpMemoriaNext": "Grands moments de la télévision",
+      "rtpAfricaCurrent": "Magazine : musiques du Cap-Vert",
+      "rtpAfricaNext": "Le journal de l’Afrique",
+      "rtpNoticiasNext": "Le point sur l’économie"
     }
   },
   "scenario": {
@@ -1842,7 +1851,13 @@
       "rai3Bolzano": "Culture, documentaires et actualité, avec les infos du Haut-Adige.",
       "rai3Friuli": "Culture, documentaires et actualité, avec les infos du Frioul-Vénétie julienne.",
       "tv2000": "Chaîne catholique généraliste : messes, documentaires et fictions.",
-      "euronewsIt": "Actualité européenne et internationale en italien."
+      "euronewsIt": "Actualité européenne et internationale en italien.",
+      "rtp1": "Généraliste de la RTP : actualité, fictions et divertissement.",
+      "rtp2": "Culture, documentaires et programmes jeunesse de la RTP.",
+      "rtpNoticias": "Actualité en continu en portugais.",
+      "rtpMundo": "La RTP pour les Portugais de l’étranger : le meilleur de ses chaînes.",
+      "rtpMemoria": "Séries, émissions et archives de la télévision portugaise.",
+      "rtpAfrica": "Actualité et culture des pays africains de langue portugaise."
     },
     "channelLive": "{{name}} en direct",
     "chooseAPhoto": "Choisir une photo",

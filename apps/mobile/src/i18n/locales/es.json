@@ -689,7 +689,13 @@
       "rmcDecouverte": "Descubrimiento, ciencia y aventuras.",
       "rmcLife": "Entretenimiento y programas del día a día.",
       "rmcStory": "Documentales y magacines.",
-      "tv2000": "Cadena católica generalista: misas, documentales."
+      "tv2000": "Cadena católica generalista: misas, documentales.",
+      "rtp1": "Generalista de RTP: actualidad, ficción, entretenimiento.",
+      "rtp2": "Cultura, documentales e infantil (RTP).",
+      "rtpNoticias": "Noticias continuas en portugués (RTP).",
+      "rtpMundo": "RTP para los portugueses en el extranjero.",
+      "rtpMemoria": "Series y archivo de la televisión portuguesa.",
+      "rtpAfrica": "Actualidad y cultura de África lusófona (RTP)."
     },
     "channelSpainOnly": "Solo disponible en España",
     "chooseADateAndTime": "Elegir una fecha y una hora",

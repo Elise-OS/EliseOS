@@ -1635,7 +1635,16 @@
       "rai3Next": "Informativo regional",
       "tv2000Current": "La misa de la mañana",
       "tv2000Next": "Documental: caminos de peregrinación",
-      "euronewsNext": "Europa entre bastidores"
+      "euronewsNext": "Europa entre bastidores",
+      "rtp1Current": "Magacín matinal: recetas de nuestras regiones",
+      "rtp1Next": "Informativo del mediodía",
+      "rtp2Current": "Documental: los pueblos del Duero",
+      "rtp2Next": "Concierto de fado",
+      "rtpMemoriaCurrent": "Una serie de culto de los 80",
+      "rtpMemoriaNext": "Grandes momentos de la televisión",
+      "rtpAfricaCurrent": "Magacín: músicas de Cabo Verde",
+      "rtpAfricaNext": "Informativo de África",
+      "rtpNoticiasNext": "Repaso a la economía"
     }
   },
   "scenario": {
@@ -1842,7 +1851,13 @@
       "rai3Bolzano": "Cultura, documentales y actualidad, con las noticias regionales del Tirol del Sur.",
       "rai3Friuli": "Cultura, documentales y actualidad, con las noticias regionales de Friul-Venecia Julia.",
       "tv2000": "Cadena católica generalista: misas, documentales y series.",
-      "euronewsIt": "Actualidad europea e internacional en italiano."
+      "euronewsIt": "Actualidad europea e internacional en italiano.",
+      "rtp1": "Generalista de RTP: actualidad, ficción y entretenimiento.",
+      "rtp2": "Cultura, documentales y programas infantiles de RTP.",
+      "rtpNoticias": "Noticias continuas en portugués.",
+      "rtpMundo": "RTP para los portugueses en el extranjero: lo mejor de sus canales.",
+      "rtpMemoria": "Series, programas y archivo de la televisión portuguesa.",
+      "rtpAfrica": "Actualidad y cultura de los países africanos de lengua portuguesa."
     },
     "channelLive": "{{name}} en directo",
     "chooseAPhoto": "Elegir una foto",

@@ -679,7 +679,13 @@
       "rmcDecouverte": "Discovery, science and adventure.",
       "rmcLife": "Entertainment and everyday programmes.",
       "rmcStory": "Documentaries and magazines.",
-      "tv2000": "General-interest Catholic channel: Mass, documentaries."
+      "tv2000": "General-interest Catholic channel: Mass, documentaries.",
+      "rtp1": "RTP’s general channel: news, drama, entertainment.",
+      "rtp2": "Culture, documentaries and children’s shows (RTP).",
+      "rtpNoticias": "Rolling news in Portuguese (RTP).",
+      "rtpMundo": "RTP for Portuguese people abroad.",
+      "rtpMemoria": "Series and archives of Portuguese TV.",
+      "rtpAfrica": "News and culture from Portuguese-speaking Africa (RTP)."
     },
     "channelSpainOnly": "Only available in Spain",
     "chooseADateAndTime": "Choose a date and time",
