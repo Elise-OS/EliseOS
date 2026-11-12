@@ -400,7 +400,10 @@ export function SensorPairingFlow({
           <SetupNotice>
             {[
               state.queue.previous
-                ? t('sensorSetup.queue.previousInstalled', state.queue.previous)
+                ? t('sensorSetup.queue.previousInstalled', {
+                    name: state.queue.previous.name,
+                    room: state.queue.previous.room,
+                  })
                 : '',
               pending > 0 ? t('sensorSetup.queue.remaining', { count: pending }) : '',
             ]
