@@ -1634,17 +1634,17 @@
       "rmcLifeNext": "Uma casa para renovar",
       "rmcStoryCurrent": "Investigações no coração da alfândega",
       "rmcStoryNext": "Os heróis do dia a dia",
-      "tv2000Current": "A missa da manhã",
-      "tv2000Next": "Documentário: caminhos de peregrinação",
       "rtp1Current": "Magazine da manhã: receitas da nossa terra",
       "rtp1Next": "Jornal da Tarde",
       "rtp2Current": "Documentário: as aldeias do Douro",
       "rtp2Next": "Concerto de fado",
-      "rtpMemoriaCurrent": "Uma série de culto dos anos 80",
-      "rtpMemoriaNext": "Grandes momentos da televisão",
       "rtpAfricaCurrent": "Magazine: músicas de Cabo Verde",
       "rtpAfricaNext": "Jornal de África",
-      "rtpNoticiasNext": "Em foco: a economia"
+      "rtpMemoriaCurrent": "Uma série de culto dos anos 80",
+      "rtpMemoriaNext": "Grandes momentos da televisão",
+      "rtpNoticiasNext": "Em foco: a economia",
+      "tv2000Current": "A missa da manhã",
+      "tv2000Next": "Documentário: caminhos de peregrinação"
     }
   },
   "scenario": {
@@ -1853,13 +1853,13 @@
       "rmcDecouverte": "Documentários e descoberta.",
       "rmcLife": "Séries, filmes e entretenimento.",
       "rmcStory": "Séries, ficção e entretenimento.",
-      "tv2000": "Canal católico generalista: missas, documentários e ficção.",
       "rtp1": "Canal generalista da RTP: informação, ficção e entretenimento.",
       "rtp2": "Cultura, documentários e programas infantis da RTP.",
-      "rtpNoticias": "Informação contínua em português.",
-      "rtpMundo": "A RTP para os portugueses no estrangeiro: o melhor dos seus canais.",
+      "rtpAfrica": "Informação e cultura dos países africanos de língua portuguesa.",
       "rtpMemoria": "Séries, programas e arquivo da televisão portuguesa.",
-      "rtpAfrica": "Informação e cultura dos países africanos de língua portuguesa."
+      "rtpMundo": "A RTP para os portugueses no estrangeiro: o melhor dos seus canais.",
+      "rtpNoticias": "Informação contínua em português.",
+      "tv2000": "Canal católico generalista: missas, documentários e ficção."
     },
     "channelLive": "{{name}} em direto",
     "channelSpainOnly": "Disponível apenas em Espanha",
