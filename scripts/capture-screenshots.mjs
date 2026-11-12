@@ -205,7 +205,9 @@ async function captureLanding(language) {
   await page.locator('.add-sensor').click();
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor();
-  const room = dialog.locator('button').filter({ hasText: /Salle de bains|Bathroom|Baño|Bagno/ });
+  const room = dialog
+    .locator('button')
+    .filter({ hasText: /Salle de bains|Bathroom|Baño|Bagno|Casa de banho/ });
   await room.last().click();
   await page.waitForTimeout(180);
   await page.addStyleTag({
@@ -219,7 +221,9 @@ async function captureLanding(language) {
   await webpPair(page, path.join(outputDir, 'logement-ajout1'), () =>
     dialog.screenshot({ type: 'png', animations: 'disabled' }),
   );
-  const contact = dialog.locator('button').filter({ hasText: /Ouverture|Contact|Apertura/ });
+  const contact = dialog
+    .locator('button')
+    .filter({ hasText: /Ouverture|Contact|Apertura|Abertura/ });
   await contact.first().click();
   await page.waitForTimeout(180);
   await webpPair(page, path.join(outputDir, 'logement-ajout2'), () =>
