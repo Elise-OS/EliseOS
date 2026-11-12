@@ -396,4 +396,126 @@ describe('critical alert ingestion', () => {
       },
     );
   });
+
+  describe('HEIMAN HS1SA-E smoke detector (Zigbee2MQTT 2.13)', () => {
+    const entityId = 'binary_sensor.detecteur_fumee_cuisine_smoke';
+    const harness = (existing?: { status: string }) => {
+      const alerts: Array<{
+        id: string;
+        ruleKey: string;
+        type: string;
+        status: string;
+        conditionClearedAt: Date | null;
+      }> = existing
+        ? [
+            {
+              id: 'alert-0',
+              ruleKey: `security:SMOKE:${entityId}`,
+              type: 'SMOKE',
+              status: existing.status,
+              conditionClearedAt: null,
+            },
+          ]
+        : [];
+      const tx = {
+        sensor: {
+          upsert: vi.fn((args: { where: { homeId_entityId: { entityId: string } } }) => ({
+            id: args.where.homeId_entityId.entityId,
+            roomId: null,
+            analysisEnabled: true,
+          })),
+        },
+        homePlan: { findUnique: vi.fn().mockResolvedValue(null) },
+        observationEvent: {
+          create: vi.fn().mockResolvedValue({ id: 'saved-event' }),
+          findFirst: vi.fn().mockResolvedValue(null),
+        },
+        outboxMessage: { create: vi.fn() },
+        alertTransition: { create: vi.fn() },
+        $executeRaw: vi.fn(),
+        alert: {
+          findFirst: vi.fn(
+            (args: { where: { ruleKey: string } }) =>
+              alerts.filter((item) => item.ruleKey === args.where.ruleKey).at(-1) ?? null,
+          ),
+          create: vi.fn((args: { data: { ruleKey: string; type: string; severity: string } }) => {
+            const alert = {
+              id: `alert-${alerts.length + 1}`,
+              ruleKey: args.data.ruleKey,
+              type: args.data.type,
+              status: 'OPEN',
+              conditionClearedAt: null,
+            };
+            alerts.push(alert);
+            return alert;
+          }),
+          update: vi.fn(),
+        },
+      };
+      const prisma = {
+        observationEvent: { findUnique: vi.fn().mockResolvedValue(null) },
+        $transaction: vi.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
+      };
+      const service = new IngestionService(prisma as never);
+      // Payloads as forwarded by the Élise bridge from the Z2M state
+      // {"smoke":true,"test":true,"battery_low":false,"tamper":false,...}.
+      const report = (payload: Record<string, unknown>) =>
+        service.ingest({
+          schemaVersion: '1.0',
+          eventId: `evt-${JSON.stringify(payload)}`,
+          occurredAt: '2026-11-12T08:00:00.000Z',
+          receivedAt: '2026-11-12T08:00:00.100Z',
+          homeId: 'home-1',
+          source: {
+            platform: 'home-assistant',
+            entityId,
+            manufacturer: 'HEIMAN',
+            model: 'HS1SA-E',
+          },
+          capability: 'smoke',
+          quality: 'good',
+          payload,
+        });
+      return { alerts, tx, report };
+    };
+
+    it('records a test button press without an urgent smoke alert', async () => {
+      const { alerts, tx, report } = harness();
+      await report({ active: true, test: true });
+      expect(tx.observationEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            capability: 'smoke',
+            payload: expect.objectContaining({ active: true, test: true }) as unknown,
+          }) as unknown,
+        }),
+      );
+      expect(alerts).toHaveLength(0);
+    });
+
+    it('raises an urgent smoke alert when the test flag is absent', async () => {
+      const { alerts, tx, report } = harness();
+      await report({ active: true });
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0]?.type).toBe('SMOKE');
+      expect(tx.alert.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ severity: 'URGENT' }) as unknown,
+        }),
+      );
+    });
+
+    it('raises an urgent smoke alert when the test flag is false', async () => {
+      const { alerts, report } = harness();
+      await report({ active: true, test: false });
+      expect(alerts).toHaveLength(1);
+    });
+
+    it('never clears a real smoke alert because of a test press', async () => {
+      const { alerts, tx, report } = harness({ status: 'OPEN' });
+      await report({ active: true, test: true });
+      expect(tx.alert.update).not.toHaveBeenCalled();
+      expect(alerts[0]?.conditionClearedAt).toBeNull();
+    });
+  });
 });
