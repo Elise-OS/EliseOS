@@ -1,6 +1,6 @@
 """Synchronise Google Play texts and images for Elise OS locales.
 
-Usage: python3 scripts/play_localize.py [--dry-run] fr-FR en-US es-ES it-IT
+Usage: python3 scripts/play_localize.py [--dry-run] fr-FR en-US es-ES it-IT pt-PT
 Env overrides: PLAY_KEY_PATH, PLAY_META_DIR, PLAY_ASSETS_DIR, PLAY_PACKAGE.
 Never changes production/beta/tracks and never submits the app for review.
 """
@@ -15,12 +15,13 @@ META = Path(os.environ.get('PLAY_META_DIR', REPO / 'apps/mobile/fastlane/metadat
 ASSETS = Path(os.environ.get('PLAY_ASSETS_DIR', '/home/drsam/.hermes/data/elise_play/work/assets'))
 BASE = f'https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{PACKAGE}'
 UPLOAD = f'https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/{PACKAGE}'
-SOURCE_LOCALE = {'fr-FR': 'fr-FR', 'en-US': 'en-US', 'es-ES': 'es-ES', 'it-IT': 'it'}
+SOURCE_LOCALE = {'fr-FR': 'fr-FR', 'en-US': 'en-US', 'es-ES': 'es-ES', 'it-IT': 'it', 'pt-PT': 'pt-PT'}
 SHORT = {
     'fr-FR': "Le quotidien d’un proche, ses alertes et ses aidants, en toute simplicité.",
     'en-US': "A loved one’s daily routine, alerts and caregivers, simply brought together.",
     'es-ES': "El día a día, los avisos y los cuidadores de un familiar, en un solo lugar.",
     'it-IT': "Quotidianità, avvisi e caregiver di un familiare, riuniti con semplicità.",
+    'pt-PT': "O dia a dia de um familiar, os seus alertas e cuidadores, num só lugar.",
 }
 
 def token():
@@ -61,6 +62,8 @@ def full_description(locale):
         'en-US': [('the iPhone app', 'the Android app'), ('on iPhone', 'on an Android phone')],
         'es-ES': [('la aplicación para iPhone', 'la aplicación para Android')],
         'it-IT': [("l’app per iPhone", "l’app per Android")],
+        'pt-PT': [('a app para iPhone', 'a app para Android'),
+                  ('a aplicação para iPhone', 'a aplicação para Android')],
     }
     for old, new in substitutions[locale]: text = text.replace(old, new)
     return text
