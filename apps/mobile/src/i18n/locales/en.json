@@ -1657,7 +1657,12 @@
     "alreadyInstalledHere": "This sensor is already installed in this room. You can simply rename it.",
     "alreadyInstalledElsewhere": "This sensor is already installed in “{{name}}”. Continuing will move it to the room you chose.",
     "unsupportedTitle": "Sensor seen, but not usable yet",
-    "unsupportedText": "Élise saw a device connect but cannot read its measurements yet. Check that it is a model from the list, or reset it and try again."
+    "unsupportedText": "Élise saw a device connect but cannot read its measurements yet. Check that it is a model from the list, or reset it and try again.",
+    "queue": {
+      "previousInstalled": "{{name}} is installed in {{room}}. Here is the next device found during the same search.",
+      "remaining_one": "1 more device to name after this one.",
+      "remaining_other": "{{count}} more devices to name after this one."
+    }
   },
   "contactTypes": {
     "DOOR": "Door",

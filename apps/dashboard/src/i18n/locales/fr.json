@@ -2625,7 +2625,12 @@
     "alreadyInstalledElsewhere": "Ce capteur est déjà installé dans « {{name}} ». Continuer le déplacera dans la pièce choisie.",
     "unsupportedTitle": "Capteur vu, mais pas encore utilisable",
     "unsupportedText": "Élise a vu un appareil se connecter, mais ne sait pas encore lire ses mesures. Vérifiez que c’est un modèle de la liste, ou réinitialisez-le et réessayez.",
-    "searchStatus": "État de la recherche"
+    "searchStatus": "État de la recherche",
+    "queue": {
+      "previousInstalled": "{{name}} est installé dans {{room}}. Voici l’appareil suivant trouvé pendant la même recherche.",
+      "remaining_one": "Encore 1 autre appareil à nommer après celui-ci.",
+      "remaining_other": "Encore {{count}} autres appareils à nommer après celui-ci."
+    }
   },
   "sensorUi": {
     "connectionFailed": "Connexion impossible ({{status}})."

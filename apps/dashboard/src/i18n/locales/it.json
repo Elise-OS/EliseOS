@@ -2632,7 +2632,12 @@
     "alreadyInstalledElsewhere": "Questo sensore è già installato in «{{name}}». Se continua, verrà spostato nella stanza scelta.",
     "unsupportedTitle": "Sensore visto, ma non ancora utilizzabile",
     "unsupportedText": "Élise ha visto collegarsi un dispositivo, ma non sa ancora leggerne le misure. Controlli che sia un modello dell’elenco, oppure lo ripristini e riprovi.",
-    "searchStatus": "Stato della ricerca"
+    "searchStatus": "Stato della ricerca",
+    "queue": {
+      "previousInstalled": "{{name}} è installato in {{room}}. Ecco il dispositivo successivo trovato durante la stessa ricerca.",
+      "remaining_one": "Ancora 1 altro dispositivo da nominare dopo questo.",
+      "remaining_other": "Ancora {{count}} altri dispositivi da nominare dopo questo."
+    }
   },
   "sensorUi": {
     "connectionFailed": "Connessione impossibile ({{status}})."

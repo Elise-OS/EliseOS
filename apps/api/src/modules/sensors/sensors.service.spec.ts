@@ -484,7 +484,7 @@ describe('SensorsService physical device views', () => {
     const prisma = {
       home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
       $queryRaw: vi.fn().mockResolvedValue(latestReadings(device)),
-      device: { findFirst },
+      device: { findFirst, findMany: vi.fn().mockResolvedValue([]) },
       sensorOnboardingSession: {
         findFirst: vi.fn().mockResolvedValue(waitingSession),
         update: vi.fn().mockResolvedValue(foundSession),
@@ -1056,11 +1056,15 @@ describe('SensorsService physical device views', () => {
       home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
       $queryRaw: vi.fn().mockResolvedValue(latestReadings(detectedDevice())),
       sensorOnboardingSession: { findFirst: vi.fn().mockResolvedValue(session) },
-      device: { findFirst: vi.fn().mockResolvedValue(detectedDevice()) },
+      device: {
+        findFirst: vi.fn().mockResolvedValue(detectedDevice()),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
       equipmentSyncState: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     };
     const mqtt = {
       zigbeeStatus: vi.fn().mockReturnValue({ pairingError: null }),
+      zigbeeDevicesJoinedSince: vi.fn().mockReturnValue([]),
       setZigbeePairing: vi.fn(),
     };
     const service = new SensorsService(prisma as never, mqtt as never);
@@ -1111,7 +1115,12 @@ describe('SensorsService physical device views', () => {
       $queryRaw: vi.fn().mockResolvedValue(latestReadings(device)),
       sensorOnboardingSession: { findFirst: vi.fn().mockResolvedValue(session) },
       homePlan: { findUnique: vi.fn().mockResolvedValue(null) },
-      device: { findFirst: vi.fn().mockResolvedValue(device) },
+      device: {
+        // The installed device itself; no other device is waiting in this search.
+        findFirst: vi.fn(({ where }: { where: { id?: unknown } }) =>
+          Promise.resolve(where.id === device.id ? device : null),
+        ),
+      },
       $transaction: vi.fn(async (callback: (tx: unknown) => Promise<void>) =>
         callback({
           device: { update: transactionDeviceUpdate },
@@ -1123,7 +1132,10 @@ describe('SensorsService physical device views', () => {
         }),
       ),
     };
-    const mqtt = { setZigbeePairing: vi.fn() };
+    const mqtt = {
+      setZigbeePairing: vi.fn(),
+      zigbeeDevicesJoinedSince: vi.fn().mockReturnValue([]),
+    };
     const service = new SensorsService(prisma as never, mqtt as never);
 
     await expect(
@@ -1148,6 +1160,8 @@ describe('SensorsService physical device views', () => {
     expect(sessionUpdate.data).toMatchObject({ status: 'COMPLETED', step: 'COMPLETE' });
     expect(mqtt.setZigbeePairing).toHaveBeenCalledWith(false, 0);
     expect(result.sessionId).toBe(session.id);
+    // Nothing else joined during this search: no follow-up installation.
+    expect(result.nextSession).toBeNull();
 
     expect(transactionDeviceUpdate).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -1427,6 +1441,7 @@ describe('SensorsService pairing safeguards', () => {
     const prisma = {
       home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
       sensorOnboardingSession: { findFirst: vi.fn().mockResolvedValue(session), update },
+      device: { findFirst: vi.fn().mockResolvedValue(null) },
       equipmentSyncState: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     };
     const mqtt = {

@@ -361,11 +361,16 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
   }
 
   public zigbeeInterviewFailedSince(startedAt: Date): boolean {
+    return this.zigbeeInterviewFailedDevicesSince(startedAt).length > 0;
+  }
+
+  /** IEEE addresses of the devices whose interview failed since `startedAt`. */
+  public zigbeeInterviewFailedDevicesSince(startedAt: Date): string[] {
     const cutoff = startedAt.getTime();
     for (const [identifier, failedAt] of this.zigbeeInterviewFailures) {
       if (failedAt.getTime() < cutoff) this.zigbeeInterviewFailures.delete(identifier);
     }
-    return this.zigbeeInterviewFailures.size > 0;
+    return [...this.zigbeeInterviewFailures.keys()];
   }
 
   public executeHomeAssistantCommand(command: {

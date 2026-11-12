@@ -22,8 +22,10 @@ import {
   SENSOR_SEARCH_SECONDS,
   deviceLooksUnsupported,
   formatSearchCountdown,
+  pairingIntentApplies,
   pairingNameSuggestions,
   pairingProblems,
+  pendingDeviceCount,
   searchTimedOut,
   secondsUntil,
   type RoomSensorCategory,
@@ -63,8 +65,18 @@ type Session = {
   errorCode?: string | null;
   errorMessage?: string | null;
   detectedDevice?: (SensorUiDevice & { detectedType?: string }) | null;
+  /** Other devices found by the same search (absent from older boxes). */
+  pendingDevices?: Array<SensorUiDevice & { detectedType?: string }>;
   connection?: { online?: boolean; pairingOpen: boolean; deviceDetected?: boolean } | null;
 };
+
+/** Devices of one search are offered one after the other; see `pairingIntentApplies`. */
+type Queue = {
+  installed: number;
+  intentUsed: boolean;
+  previous: { name: string; room: string } | null;
+};
+const EMPTY_QUEUE: Queue = { installed: 0, intentUsed: false, previous: null };
 
 type Phase = 'LOADING' | 'PREPARE' | 'SEARCH' | 'FOUND' | 'DONE';
 type Failure = {
@@ -97,8 +109,8 @@ export function SensorPairingFlow({
   initialTarget,
   contactRole,
   bedOccupiedWhen = 'CLOSED',
-  category,
-  product,
+  category: categoryChoice,
+  product: productChoice,
   progress = { offset: 0, total: 3 },
   onBack,
   backLabel,
@@ -136,6 +148,7 @@ export function SensorPairingFlow({
   const startUnanswered = useRef(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [installed, setInstalled] = useState<{ name: string; room: string } | null>(null);
+  const [queue, setQueue] = useState<Queue>(EMPTY_QUEUE);
   const alive = useRef(true);
   const refresh = useRef(onInstalled);
   refresh.current = onInstalled;
@@ -145,15 +158,15 @@ export function SensorPairingFlow({
       setSession(next);
       if (next.connection?.deviceDetected) deviceSeen.current = true;
       if (next.status === 'DEVICE_FOUND' && next.detectedDevice) {
-        setName(product ? productTexts(product).name : next.detectedDevice.name);
-        if (category === 'bed' && isBedOccupancySensorModel(next.detectedDevice.model))
+        setName(productChoice ? productTexts(productChoice).name : next.detectedDevice.name);
+        if (categoryChoice === 'bed' && isBedOccupancySensorModel(next.detectedDevice.model))
           setOccupiedWhen('OPEN');
         setFailure(null);
         go('FOUND');
       } else if (ACTIVE.includes(next.status)) go('SEARCH');
     },
     // `go` only replaces state; the product and category are fixed for one flow.
-    [product, category],
+    [productChoice, categoryChoice],
   );
 
   useEffect(() => {
@@ -263,13 +276,14 @@ export function SensorPairingFlow({
     setError('');
     setFailure(null);
     setOffline(false);
+    setQueue(EMPTY_QUEUE);
     deviceSeen.current = false;
     try {
       // Starting a search replaces any earlier one on the hub as well.
       await cancelSession(session);
       startUnanswered.current = true;
       const next = await sensorRequest<Session>(SESSIONS, {
-        ...sensorJson('POST', { protocol: product?.protocol ?? 'zigbee' }),
+        ...sensorJson('POST', { protocol: productChoice?.protocol ?? 'zigbee' }),
         signal: AbortSignal.timeout(15_000),
       });
       startUnanswered.current = false;
@@ -309,10 +323,31 @@ export function SensorPairingFlow({
   useSheetControls({ busy, onClose: () => void close() });
 
   const device = session?.detectedDevice;
+  const pending = pendingDeviceCount(session);
+  // A search may find several devices: what the person chose goes to the one that fits it,
+  // the others are named and placed as plain sensors.
+  const intent =
+    !device ||
+    pairingIntentApplies(device, {
+      category: categoryChoice,
+      targetType: initialTarget?.type,
+      product: productChoice,
+      severalDevices: pending > 0 || queue.installed > 0,
+      intentUsed: queue.intentUsed,
+    });
+  const category = intent ? categoryChoice : undefined;
+  const product = intent ? productChoice : undefined;
+  const target = intent ? initialTarget : undefined;
+  useEffect(() => {
+    // The next device of the same search gets its own default name and opening type.
+    if (phase !== 'FOUND' || !device || queue.installed === 0) return;
+    setName(product ? productTexts(product).name : device.name);
+    setOpeningType(intent ? (contactRole ?? '') : '');
+  }, [phase, session?.id]);
   const room = rooms.find(({ id }) => id === roomId);
   const isContact = !!device && deviceSupportsCategory(device, 'contact') && category !== 'bed';
   const problems = device
-    ? pairingProblems(device, { category, targetType: initialTarget?.type })
+    ? pairingProblems(device, { category, targetType: target?.type })
     : { mismatch: false, wrongTarget: false };
   const { mismatch, wrongTarget } = problems;
   const unsupported = !!device && deviceLooksUnsupported(device);
@@ -331,13 +366,14 @@ export function SensorPairingFlow({
     setError('');
     const sessionUrl = `${SESSIONS}/${session.id}`;
     try {
+      let answer: { nextSession?: Session | null } | null = null;
       try {
-        await sensorRequest(`${sessionUrl}/complete`, {
+        answer = await sensorRequest<{ nextSession?: Session | null }>(`${sessionUrl}/complete`, {
           ...sensorJson('POST', {
             name: name.trim(),
             roomId,
             category,
-            target: initialTarget ?? null,
+            target: target ?? null,
             contactRole: openingType || undefined,
             bedOccupiedWhen: category === 'bed' ? occupiedWhen : undefined,
             buttonRole: 'ASSISTANCE',
@@ -352,7 +388,25 @@ export function SensorPairingFlow({
         }).catch(() => null);
         if (confirmed?.status !== 'COMPLETED') throw requestError;
       }
+      // Other devices of the same search come next. Older boxes answer without
+      // `nextSession`; after a lost answer, ask the box which installation is current.
+      const next = answer
+        ? (answer.nextSession ?? null)
+        : await sensorRequest<Session | null>(`${SESSIONS}/current`, {
+            signal: AbortSignal.timeout(8_000),
+          }).catch(() => null);
       if (!alive.current) return;
+      if (next && next.id !== session.id && ACTIVE.includes(next.status)) {
+        setQueue({
+          installed: queue.installed + 1,
+          intentUsed: queue.intentUsed || intent,
+          previous: { name: name.trim(), room: room?.name ?? '' },
+        });
+        deviceSeen.current = true;
+        adopt(next);
+        void refresh.current().catch(() => undefined);
+        return;
+      }
       setSession((current) => (current ? { ...current, status: 'COMPLETED' } : current));
       setInstalled({ name: name.trim(), room: room?.name ?? '' });
       go('DONE');
@@ -468,6 +522,16 @@ export function SensorPairingFlow({
             ))}
           </div>
         )}
+        {(queue.previous || pending > 0) && (
+          <SetupNotice>
+            {[
+              queue.previous ? t('sensorSetup.queue.previousInstalled', queue.previous) : '',
+              pending > 0 ? t('sensorSetup.queue.remaining', { count: pending }) : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          </SetupNotice>
+        )}
         {unsupported && (
           <SetupNotice tone="danger" title={t('sensorSetup.unsupportedTitle')}>
             {t('sensorSetup.unsupportedText')}
@@ -506,7 +570,7 @@ export function SensorPairingFlow({
 
         <SetupSection title={t('sensorSetup.finishInstallation')}>
           <div className="ss-form">
-            {initialRoomId && room ? (
+            {intent && initialRoomId && room ? (
               <SetupList>
                 <SetupRow
                   icon={<MapPin aria-hidden />}
