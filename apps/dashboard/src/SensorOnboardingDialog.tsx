@@ -525,7 +525,12 @@ export function SensorPairingFlow({
         {(queue.previous || pending > 0) && (
           <SetupNotice>
             {[
-              queue.previous ? t('sensorSetup.queue.previousInstalled', queue.previous) : '',
+              queue.previous
+                ? t('sensorSetup.queue.previousInstalled', {
+                    name: queue.previous.name,
+                    room: queue.previous.room,
+                  })
+                : '',
               pending > 0 ? t('sensorSetup.queue.remaining', { count: pending }) : '',
             ]
               .filter(Boolean)

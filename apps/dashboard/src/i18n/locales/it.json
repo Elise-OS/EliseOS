@@ -2665,6 +2665,7 @@
     "queue": {
       "previousInstalled": "{{name}} è installato in {{room}}. Ecco il dispositivo successivo trovato durante la stessa ricerca.",
       "remaining_one": "Ancora 1 altro dispositivo da nominare dopo questo.",
+      "remaining_many": "Ancora {{count}} altri dispositivi da nominare dopo questo.",
       "remaining_other": "Ancora {{count}} altri dispositivi da nominare dopo questo."
     }
   },
