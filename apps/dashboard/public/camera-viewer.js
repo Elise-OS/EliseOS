@@ -41,6 +41,16 @@ const TEXTS = {
     noCamera: 'Telecamera non disponibile',
     noMicrophone: 'Microfono o citofono non disponibile',
   },
+  pt: {
+    title: 'Câmara em direto Élise',
+    connecting: 'Ligação local…',
+    invalid: 'Sessão inválida',
+    live: 'Em direto',
+    liveTalk: 'Em direto · microfone ativo',
+    interrupted: 'Imagem interrompida',
+    noCamera: 'Câmara indisponível',
+    noMicrophone: 'Microfone ou intercomunicador indisponível',
+  },
 };
 const savedLanguage = () => {
   try {

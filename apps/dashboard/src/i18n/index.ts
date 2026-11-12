@@ -11,6 +11,7 @@ import en from './locales/en.json';
 import es from './locales/es.json';
 import fr from './locales/fr.json';
 import it from './locales/it.json';
+import pt from './locales/pt.json';
 
 export type { Language };
 export type Locale = Language;
@@ -32,7 +33,7 @@ function initialLanguage(): Language {
 }
 
 // One import per language: TypeScript flags a language of LANGUAGES without catalog here.
-const i18n = createI18n({ fr, en, es, it }, initialLanguage());
+const i18n = createI18n({ fr, en, es, it, pt }, initialLanguage());
 
 /**
  * Translated text for a key of locales/fr.json, in the current language.

@@ -20401,9 +20401,9 @@ textarea:focus-visible {
   }
 }
 
-/* Spanish and Italian dates keep their small words in lower case ("martes, 13 de octubre",
-   "martedì 13 ottobre"): only the first letter is raised, where the element allows it. */
-:is(:lang(es), :lang(it))
+/* Spanish, Italian and Portuguese dates keep their small words in lower case ("martes, 13 de
+   octubre", "martedì 13 ottobre", "terça-feira, 13 de outubro"): only the first letter is raised, where the element allows it. */
+:is(:lang(es), :lang(it), :lang(pt))
   :is(
     .tv-clock span,
     .tv-agenda li small,
@@ -20418,7 +20418,7 @@ textarea:focus-visible {
   ) {
   text-transform: none;
 }
-:is(:lang(es), :lang(it))
+:is(:lang(es), :lang(it), :lang(pt))
   :is(
     .tv-clock span,
     .tv-agenda li small,

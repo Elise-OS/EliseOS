@@ -43,4 +43,18 @@ export const FLAGS: Record<Language, readonly FlagShape[]> = {
     { kind: 'path', fill: '#009246', d: 'M0 0h213.3v480H0z' },
     { kind: 'path', fill: '#ce2b37', d: 'M426.7 0H640v480H426.7z' },
   ],
+  // Green and red in 2:3 bands, with a simplified coat of arms on the boundary: yellow
+  // sphere, red shield, white inner shield with the five blue quinas (readable when small).
+  pt: [
+    { kind: 'rect', width: 640, height: 480, fill: '#da291c' },
+    { kind: 'path', fill: '#046a38', d: 'M0 0h256v480H0z' },
+    { kind: 'path', fill: '#ffe000', d: 'M152 240a104 104 0 1 0 208 0a104 104 0 1 0 -208 0z' },
+    { kind: 'path', fill: '#da291c', d: 'M200 172h112v74a56 56 0 0 1 -112 0z' },
+    { kind: 'path', fill: '#fff', d: 'M216 188h80v58a40 40 0 0 1 -80 0z' },
+    {
+      kind: 'path',
+      fill: '#003399',
+      d: 'M247 198h18v18h-18zM247 222h18v18h-18zM247 246h18v18h-18zM223 222h18v18h-18zM271 222h18v18h-18z',
+    },
+  ],
 };
