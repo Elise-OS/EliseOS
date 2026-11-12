@@ -1,6 +1,9 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import {
+  ACTIVITY_CAPABILITIES as SHARED_ACTIVITY_CAPABILITIES,
   alertRuleSettingsSchema,
+  isReliableLifeActivity,
+  LIFE_ACTIVITY_CAPABILITIES,
   DEFAULT_ALERT_RULE_SETTINGS,
   homePlanSchema,
   liaisonMoodLabel,
@@ -17,21 +20,8 @@ import { activeMembership, rolesFor } from '../auth/access-policy';
 
 const HOME_EDIT_ROLES = rolesFor('configuration:manage');
 
-const ACTIVITY_CAPABILITIES = [
-  'motion',
-  'occupancy',
-  'person_presence',
-  'contact',
-  'dry_contact',
-  'button',
-];
-const LIFE_CAPABILITIES = new Set([
-  'motion',
-  'occupancy',
-  'person_presence',
-  'contact',
-  'dry_contact',
-]);
+const ACTIVITY_CAPABILITIES: readonly string[] = SHARED_ACTIVITY_CAPABILITIES;
+const LIFE_CAPABILITIES: ReadonlySet<string> = new Set(LIFE_ACTIVITY_CAPABILITIES);
 const ENVIRONMENT_CAPABILITIES = new Set([
   'temperature',
   'humidity',
@@ -399,8 +389,15 @@ export class ActivityService {
     const [currentUser, lastEvent, openAlerts, sensors, recent, nextVisit, nextAppointment] =
       await Promise.all([
         this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+        // Same rule as the dashboard "last reliable activity": plug measures,
+        // battery or link quality updates are not activity of the person.
         this.prisma.observationEvent.findFirst({
-          where: { homeId: home.id, sensor: { analysisEnabled: true } },
+          where: {
+            homeId: home.id,
+            capability: { in: [...LIFE_ACTIVITY_CAPABILITIES] },
+            quality: 'good',
+            sensor: { analysisEnabled: true },
+          },
           orderBy: { occurredAt: 'desc' },
           include: { sensor: { include: { room: true } } },
         }),
@@ -935,7 +932,7 @@ export class ActivityService {
       })
       .reverse();
     const reliableActivity = normalizedEvents
-      .filter(({ capability, quality }) => LIFE_CAPABILITIES.has(capability) && quality === 'good')
+      .filter((event) => isReliableLifeActivity(event))
       .at(-1);
     const windowSeconds = Math.max(0, Math.round((to.getTime() - from.getTime()) / 1_000));
     return {
