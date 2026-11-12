@@ -1,4 +1,6 @@
 import { deviceSupportsCategory, type RoomSensorCategory } from './room-equipment.js';
+import { productMatchesDetectedModel } from './sensor-products.js';
+import type { SensorProduct } from './room-equipment.js';
 
 /**
  * Rules of the "add a sensor" flow shared by the web dashboard and the mobile app,
@@ -102,3 +104,38 @@ export const sensorErrorCode = (value: unknown): SensorErrorCode | null =>
   typeof value === 'string' && (SENSOR_ERROR_CODES as readonly string[]).includes(value)
     ? (value as SensorErrorCode)
     : null;
+
+/**
+ * Several devices can join during one search. The hub offers them one after the other:
+ * `pendingDevices` lists those still waiting after the one shown, and the completion
+ * answer carries the session of the next one.
+ */
+export const pendingDeviceCount = (
+  session: { pendingDevices?: unknown[] | null | undefined } | null | undefined,
+) => session?.pendingDevices?.length ?? 0;
+
+/**
+ * The person came for one kind of sensor (a category, a precise target, a product): that
+ * intent belongs to the first device of the search that fits it. Every other device found
+ * by the same search is named and placed as a plain sensor, so another model joined at the
+ * same time never blocks the queue. With a single device, the intent always applies (and a
+ * mismatch is reported as before).
+ */
+export function pairingIntentApplies(
+  device: DeviceLike,
+  options: {
+    category?: RoomSensorCategory | undefined;
+    targetType?: 'OPENING' | 'STAIR' | undefined;
+    product?: SensorProduct | undefined;
+    /** The search found more than this device (some still waiting, or already installed). */
+    severalDevices: boolean;
+    /** An earlier device of the same search already took the intent. */
+    intentUsed: boolean;
+  },
+) {
+  if (options.intentUsed) return false;
+  if (!options.severalDevices) return true;
+  const { mismatch, wrongTarget } = pairingProblems(device, options);
+  if (mismatch || wrongTarget) return false;
+  return !options.product || productMatchesDetectedModel(options.product, device.model) !== false;
+}

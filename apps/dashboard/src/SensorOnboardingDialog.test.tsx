@@ -247,6 +247,77 @@ describe('sensor installation confirmation', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it('offers every device joined in the same search, whatever the kind the person chose', async () => {
+    const contact = {
+      id: 'device-contact',
+      name: 'Capteur d’ouverture',
+      manufacturer: 'SONOFF',
+      model: 'SNZB-04P',
+      capabilities: [
+        { sensorId: 'contact-1', capability: 'contact', label: 'Ouverture', primary: true },
+      ],
+    };
+    const first = { ...session, detectedDevice: contact, pendingDevices: [session.detectedDevice] };
+    const second = { ...session, id: 'session-2', pendingDevices: [] };
+    const answers = [
+      { sessionId: 'session-1', nextSession: second },
+      { sessionId: 'session-2', nextSession: null },
+    ];
+    const fetchMock = vi.fn().mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(url.endsWith('/complete') ? answers.shift() : first),
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const onInstalled = vi.fn().mockResolvedValue(undefined);
+    await act(async () => {
+      root.render(
+        <SensorOnboardingDialog
+          open
+          locale="fr"
+          rooms={[{ id: 'salon', name: 'Salon', kind: 'LIVING_ROOM' }]}
+          initialRoomId="salon"
+          category="motion"
+          onClose={() => undefined}
+          onInstalled={onInstalled}
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    // The contact sensor joined with the motion sensor: it is offered, not refused.
+    expect(document.body.textContent).toContain('Encore 1 autre appareil à nommer après celui-ci.');
+    expect(document.body.textContent).not.toContain('Cet appareil ne fournit pas');
+    const fridge = Array.from(document.body.querySelectorAll('[role="radio"]')).find((item) =>
+      item.textContent?.includes('Frigo'),
+    ) as HTMLButtonElement;
+    act(() => fridge.click());
+    await install();
+
+    expect(document.body.textContent).toContain(
+      'Capteur d’ouverture est installé dans Salon. Voici l’appareil suivant',
+    );
+    expect(document.body.textContent).toContain('Détecteur de mouvement');
+    expect(document.body.textContent).not.toContain('Capteur installé');
+    await install();
+
+    expect(document.body.textContent).toContain('Capteur installé');
+    const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
+    const bodies = calls
+      .filter(([url]) => url.endsWith('/complete'))
+      .map(([url, init]) => ({
+        url,
+        body: JSON.parse(init.body as string) as Record<string, unknown>,
+      }));
+    expect(bodies.map(({ url }) => url.split('/').at(-2))).toEqual(['session-1', 'session-2']);
+    // The kind the person chose goes to the device that provides it.
+    expect(bodies[0]!.body).toMatchObject({ contactRole: 'FRIDGE', roomId: 'salon' });
+    expect(bodies[0]!.body.category).toBeUndefined();
+    expect(bodies[1]!.body).toMatchObject({ category: 'motion', roomId: 'salon' });
+    expect(onInstalled).toHaveBeenCalledTimes(2);
+  });
+
   it('recognizes a completed installation when its confirmation response is lost', async () => {
     const onClose = vi.fn();
     const onInstalled = vi.fn().mockResolvedValue(undefined);
