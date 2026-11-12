@@ -6,7 +6,9 @@ import {
   deviceLooksUnsupported,
   formatSearchCountdown,
   isActiveOnboardingStatus,
+  pairingIntentApplies,
   pairingNameSuggestions,
+  pendingDeviceCount,
   pairingProblems,
   productMatchesDetectedModel,
   productsForCategory,
@@ -87,4 +89,45 @@ test('the catalogue and the usage groups cover every category once', () => {
   const door = SENSOR_PRODUCTS.find(({ model }) => model === '3RDS17BZ');
   assert.equal(productMatchesDetectedModel(door, 'Door sensor'), true);
   assert.equal(productMatchesDetectedModel(door, null), null);
+});
+
+test('counts the other devices of the search, zero for boxes without the queue', () => {
+  assert.equal(pendingDeviceCount(null), 0);
+  assert.equal(pendingDeviceCount({}), 0);
+  assert.equal(pendingDeviceCount({ pendingDevices: [device('contact'), device('motion')] }), 2);
+});
+
+test('the chosen kind goes to the device of the search that provides it', () => {
+  const contact = device('contact');
+  const motion = device('motion');
+  const alone = { category: 'motion', severalDevices: false, intentUsed: false };
+  // A single device keeps the choice, so its mismatch is still reported.
+  assert.equal(pairingIntentApplies(contact, alone), true);
+  const several = { ...alone, severalDevices: true };
+  assert.equal(pairingIntentApplies(contact, several), false);
+  assert.equal(pairingIntentApplies(motion, several), true);
+  // Once given to one device, the choice is not reused for the next ones.
+  assert.equal(pairingIntentApplies(motion, { ...several, intentUsed: true }), false);
+  // A stair target needs movement or presence.
+  assert.equal(
+    pairingIntentApplies(contact, { targetType: 'STAIR', severalDevices: true, intentUsed: false }),
+    false,
+  );
+  // Another model than the chosen product, joined at the same time.
+  const product = SENSOR_PRODUCTS.find(({ model }) => model === '3RMS16BZ');
+  assert.ok(product);
+  assert.equal(
+    pairingIntentApplies(
+      { model: 'SNZB-02P', capabilities: [{ capability: 'motion' }] },
+      { product, severalDevices: true, intentUsed: false },
+    ),
+    false,
+  );
+  assert.equal(
+    pairingIntentApplies(
+      { model: '3RMS16BZ', capabilities: [{ capability: 'motion' }] },
+      { product, severalDevices: true, intentUsed: false },
+    ),
+    true,
+  );
 });

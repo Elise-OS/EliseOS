@@ -5,7 +5,9 @@ import {
   deviceSupportsCategory,
   formatSearchCountdown,
   isBedOccupancySensorModel,
+  pairingIntentApplies,
   pairingNameSuggestions,
+  pendingDeviceCount,
   pairingProblems,
   productMatchesDetectedModel,
   sensorDevicePhoto,
@@ -158,8 +160,8 @@ export function SensorPairingFlow({
   initialTarget,
   contactRole,
   bedOccupiedWhen = 'CLOSED',
-  category,
-  product,
+  category: categoryChoice,
+  product: productChoice,
   progress = { offset: 0, total: 3 },
   onBack,
   backLabel,
@@ -212,10 +214,26 @@ export function SensorPairingFlow({
 
   const device = state.session?.detectedDevice ?? null;
   const sessionId = state.session?.id;
+  const pending = pendingDeviceCount(state.session);
+  // A search may find several devices: what the person chose goes to the one that fits it,
+  // the others are named and placed as plain sensors.
+  const intent =
+    !device ||
+    pairingIntentApplies(device, {
+      category: categoryChoice,
+      targetType: initialTarget?.type,
+      product: productChoice,
+      severalDevices: pending > 0 || state.queue.installed > 0,
+      intentUsed: state.queue.intentUsed,
+    });
+  const category = intent ? categoryChoice : undefined;
+  const product = intent ? productChoice : undefined;
+  const target = intent ? initialTarget : undefined;
   useEffect(() => {
     if (state.phase !== 'FOUND' || !device) return;
     setName(product ? productTexts(product).name : device.name);
     if (category === 'bed' && isBedOccupancySensorModel(device.model)) setOccupiedWhen('OPEN');
+    if (state.queue.installed > 0) setOpeningType(intent ? (contactRole ?? '') : '');
     // One default name per detected sensor, not per refresh of the session.
   }, [state.phase, sessionId]);
 
@@ -232,7 +250,7 @@ export function SensorPairingFlow({
   const room = rooms.find(({ id }) => id === roomId);
   const isContact = !!device && deviceSupportsCategory(device, 'contact') && category !== 'bed';
   const { mismatch, wrongTarget } = device
-    ? pairingProblems(device, { category, targetType: initialTarget?.type })
+    ? pairingProblems(device, { category, targetType: target?.type })
     : { mismatch: false, wrongTarget: false };
   const unsupported = !!device && deviceLooksUnsupported(device);
   const canFinish =
@@ -252,12 +270,13 @@ export function SensorPairingFlow({
           name: name.trim(),
           roomId,
           ...(category ? { category } : {}),
-          target: initialTarget ?? null,
+          target: target ?? null,
           ...(openingType ? { contactRole: openingType } : {}),
           ...(category === 'bed' ? { bedOccupiedWhen: occupiedWhen } : {}),
           buttonRole: 'ASSISTANCE',
         },
         room?.name ?? '',
+        intent,
       )
       .then(() => {
         if (controller.getState().phase === 'DONE') void Promise.resolve(refresh.current());
@@ -351,7 +370,9 @@ export function SensorPairingFlow({
                 label={t('sensorSetup.retrySearch')}
                 disabled={busy}
                 icon={<RefreshCw size={18} color={ss.ink} />}
-                onPress={() => void controller.start(product?.protocol ?? 'zigbee', product?.model)}
+                onPress={() =>
+                  void controller.start(productChoice?.protocol ?? 'zigbee', productChoice?.model)
+                }
               />
             ) : null}
           </>
@@ -374,6 +395,18 @@ export function SensorPairingFlow({
               </Tag>
             ))}
           </View>
+        ) : null}
+        {state.queue.previous || pending > 0 ? (
+          <SetupNotice>
+            {[
+              state.queue.previous
+                ? t('sensorSetup.queue.previousInstalled', state.queue.previous)
+                : '',
+              pending > 0 ? t('sensorSetup.queue.remaining', { count: pending }) : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          </SetupNotice>
         ) : null}
         {unsupported ? (
           <SetupNotice tone="danger" title={t('sensorSetup.unsupportedTitle')}>
@@ -413,7 +446,7 @@ export function SensorPairingFlow({
 
         <SetupSection title={t('sensorSetup.finishInstallation')}>
           <View style={styles.form}>
-            {initialRoomId && room ? (
+            {intent && initialRoomId && room ? (
               <SetupList>
                 <SetupRow
                   first
@@ -525,7 +558,9 @@ export function SensorPairingFlow({
               label={t('sensorSetup.retrySearch')}
               busy={busy}
               icon={<RefreshCw size={20} color="#fff" />}
-              onPress={() => void controller.start(product?.protocol ?? 'zigbee', product?.model)}
+              onPress={() =>
+                void controller.start(productChoice?.protocol ?? 'zigbee', productChoice?.model)
+              }
             />
           }
         >
@@ -653,7 +688,7 @@ export function SensorPairingFlow({
           icon={<Radio size={20} color="#fff" />}
           onPress={() => {
             setMoved('forward');
-            void controller.start(product?.protocol ?? 'zigbee', product?.model);
+            void controller.start(productChoice?.protocol ?? 'zigbee', productChoice?.model);
           }}
         />
       }

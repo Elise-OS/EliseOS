@@ -5,6 +5,7 @@ import {
   searchTimedOut,
   secondsUntil,
   type SensorErrorCode,
+  type SensorOnboardingCompletionResult,
   type SensorOnboardingSession,
 } from '@elise/contracts';
 import type { SensorOnboardingCompletionRequest } from '../api';
@@ -47,6 +48,16 @@ export type PairingState = {
   busy: boolean;
   secondsLeft: number;
   installed: { name: string; room: string } | null;
+  /**
+   * Several devices can join during one search: they are offered one after the other.
+   * `previous` is the device of the same search installed just before the one shown.
+   */
+  queue: {
+    installed: number;
+    /** The category/target/product the person chose was already given to a device. */
+    intentUsed: boolean;
+    previous: { name: string; room: string } | null;
+  };
 };
 
 export type PairingOptions = {
@@ -66,6 +77,7 @@ const initialState: PairingState = {
   busy: false,
   secondsLeft: 0,
   installed: null,
+  queue: { installed: 0, intentUsed: false, previous: null },
 };
 
 export class PairingController {
@@ -199,7 +211,13 @@ export class PairingController {
   public async start(protocol = 'zigbee', model?: string) {
     if (this.state.busy) return;
     this.deviceSeen = false;
-    this.set({ busy: true, error: null, failure: null, offline: false });
+    this.set({
+      busy: true,
+      error: null,
+      failure: null,
+      offline: false,
+      queue: initialState.queue,
+    });
     try {
       // Starting a search replaces any earlier one on the hub as well.
       await this.cancelSession(this.state.session);
@@ -236,20 +254,43 @@ export class PairingController {
     return true;
   }
 
-  public async finish(body: SensorOnboardingCompletionRequest, roomName: string) {
+  /**
+   * Installs the device shown. `intentApplied` tells whether the category/target the person
+   * chose was given to it. When the same search found other devices, the next one is shown.
+   */
+  public async finish(
+    body: SensorOnboardingCompletionRequest,
+    roomName: string,
+    intentApplied = true,
+  ) {
     const { session } = this.state;
     if (!session || this.state.busy) return;
     this.set({ busy: true, error: null });
     try {
+      let answer: unknown = null;
       try {
-        await this.options.api.complete(session.id, body);
+        answer = await this.options.api.complete(session.id, body);
       } catch (requestError) {
         // A lost response can follow a committed installation. Check the session
         // before offering another attempt, which would report a false failure.
         const confirmed = await this.options.api.get(session.id).catch(() => null);
         if (confirmed?.status !== 'COMPLETED') throw requestError;
       }
+      const next = await this.nextOfSearch(session, answer);
       if (this.disposed) return;
+      if (next) {
+        const { queue } = this.state;
+        this.deviceSeen = true;
+        this.set({
+          queue: {
+            installed: queue.installed + 1,
+            intentUsed: queue.intentUsed || intentApplied,
+            previous: { name: body.name ?? '', room: roomName },
+          },
+        });
+        this.adopt(next);
+        return;
+      }
       this.set({
         session: { ...session, status: 'COMPLETED' },
         installed: { name: body.name ?? '', room: roomName },
@@ -260,6 +301,20 @@ export class PairingController {
     } finally {
       this.set({ busy: false });
     }
+  }
+
+  /** The session of the next device found by the same search, if any. */
+  private async nextOfSearch(
+    installed: PairingSession,
+    answer: unknown,
+  ): Promise<PairingSession | null> {
+    const next =
+      answer && typeof answer === 'object'
+        ? // Boxes older than the queue answer without `nextSession`: nothing follows.
+          ((answer as SensorOnboardingCompletionResult).nextSession ?? null)
+        : // The answer was lost: ask the box which installation is current now.
+          await this.options.api.current().catch(() => null);
+    return next && next.id !== installed.id && isActiveOnboardingStatus(next.status) ? next : null;
   }
 
   /** The screen disappeared without a clean close (app killed, swipe back): best effort stop. */

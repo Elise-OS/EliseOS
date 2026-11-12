@@ -1188,6 +1188,11 @@ export const sensorOnboardingSessionSchema = z.object({
     })
     .nullable(),
   detectedDevice: detectedSensorDeviceSchema.nullable(),
+  /**
+   * Other devices found by the same search, in the order they joined, offered one after
+   * the other once `detectedDevice` is installed. Absent from boxes older than v0.1.31.
+   */
+  pendingDevices: z.array(detectedSensorDeviceSchema).optional(),
 });
 
 export const sensorOnboardingCompletionSchema = z.object({
@@ -1229,6 +1234,12 @@ export type SensorDevice = z.infer<typeof sensorDeviceSchema>;
 export type DetectedSensorType = z.infer<typeof detectedSensorTypeSchema>;
 export type DetectedSensorDevice = z.infer<typeof detectedSensorDeviceSchema>;
 export type SensorOnboardingSession = z.infer<typeof sensorOnboardingSessionSchema>;
+/** Answer to the completion of an installation; `nextSession` is absent from older boxes. */
+export type SensorOnboardingCompletionResult = {
+  sessionId: string;
+  device: SensorDevice;
+  nextSession?: SensorOnboardingSession | null;
+};
 export type SensorOnboardingCompletion = z.infer<typeof sensorOnboardingCompletionSchema>;
 export type SensorVerificationSession = z.infer<typeof sensorVerificationSessionSchema>;
 export type EquipmentAction = z.infer<typeof equipmentActionSchema>;

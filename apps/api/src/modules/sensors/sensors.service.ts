@@ -324,7 +324,9 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
       return this.sessionView({ ...expired, deviceId: null });
     }
     const zigbee = this.mqtt.zigbeeStatus();
+    const searching = ['PENDING', 'WAITING_FOR_DEVICE'].includes(session.status);
     if (
+      searching &&
       session.protocol === 'zigbee' &&
       zigbee.pairingError &&
       zigbee.pairingResponseAt &&
@@ -341,57 +343,15 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
       });
       return this.sessionView(failed);
     }
-    if (
-      session.protocol === 'zigbee' &&
-      this.mqtt.zigbeeInterviewFailedSince?.(session.createdAt)
-    ) {
-      await this.closeZigbeePairing(home.id);
-      const failed = await this.prisma.sensorOnboardingSession.update({
-        where: { id },
-        data: {
-          status: 'FAILED',
-          errorCode: 'INTERVIEW_FAILED',
-          // The clients already localize their simple "pairing rejected" guidance.
-          errorMessage: null,
-        },
-      });
-      return this.sessionView(failed);
-    }
     if (session.status === 'WAITING_FOR_DEVICE') {
       const pairedIdentifiers =
         session.protocol === 'zigbee' ? this.mqtt.zigbeeDevicesJoinedSince(session.createdAt) : [];
       const device = await this.prisma.device.findFirst({
-        where: {
-          homeId: home.id,
-          AND: [
-            { OR: [{ protocol: session.protocol }, { protocol: null }] },
-            {
-              OR: [
-                { createdAt: { gte: session.createdAt } },
-                ...(pairedIdentifiers.length > 0
-                  ? [{ networkIdentifier: { in: pairedIdentifiers } }]
-                  : []),
-              ],
-            },
-          ],
-          // A sensor that only reports its battery or signal is not usable yet: wait for
-          // the interview to expose a real measurement before offering it.
-          sensors: {
-            some: {
-              removedAt: null,
-              capability: { notIn: [...UNUSABLE_ALONE] },
-              lastSeenAt: { gte: session.createdAt },
-            },
-          },
-          NOT: {
-            sensors: {
-              some: { entityId: { contains: 'zigbee2mqtt_bridge' } },
-            },
-          },
-        },
+        where: this.searchDeviceWhere(home.id, session, pairedIdentifiers),
         orderBy: { createdAt: 'desc' },
       });
       if (device) {
+        // Several devices can join during one search: the others wait in `pendingDevices`.
         if (session.protocol === 'zigbee') await this.closeZigbeePairing(home.id);
         const found = await this.prisma.sensorOnboardingSession.update({
           where: { id },
@@ -403,6 +363,23 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
           },
         });
         return this.sessionView(found);
+      }
+      if (
+        session.protocol === 'zigbee' &&
+        this.mqtt.zigbeeInterviewFailedSince?.(session.createdAt) &&
+        !(await this.zigbeeDevicesStillInterviewing(home.id, session, pairedIdentifiers)).length
+      ) {
+        await this.closeZigbeePairing(home.id);
+        const failed = await this.prisma.sensorOnboardingSession.update({
+          where: { id },
+          data: {
+            status: 'FAILED',
+            errorCode: 'INTERVIEW_FAILED',
+            // The clients already localize their simple "pairing rejected" guidance.
+            errorMessage: null,
+          },
+        });
+        return this.sessionView(failed);
       }
     }
     return this.sessionView(session);
@@ -636,7 +613,13 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
     });
     if (session.protocol === 'zigbee') this.mqtt.setZigbeePairing(false, 0);
     const device = await this.deviceById(home.id, session.device.id);
-    return { sessionId: session.id, device: this.deviceView(device) };
+    // Other devices joined during the same search are offered one after the other.
+    const next = await this.nextSearchSession(home.id, userId, session);
+    return {
+      sessionId: session.id,
+      device: this.deviceView(device),
+      nextSession: next ? await this.sessionView(next) : null,
+    };
   }
 
   public async update(userId: string, id: string, body: unknown) {
@@ -1060,6 +1043,178 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
     return { ...sensor, events: event ? [event] : [] };
   }
 
+  /**
+   * Devices that joined during the search `session` belongs to and expose a real
+   * measurement. A follow-up session keeps the `createdAt` of the search it comes from,
+   * so every session of one search sees the same devices; the ones already installed,
+   * abandoned or refused during that search are left out.
+   */
+  private searchDeviceWhere(
+    homeId: string,
+    session: Pick<SensorOnboardingSession, 'protocol' | 'createdAt'>,
+    pairedIdentifiers: string[],
+  ) {
+    return {
+      homeId,
+      AND: [
+        { OR: [{ protocol: session.protocol }, { protocol: null }] },
+        {
+          OR: [
+            { createdAt: { gte: session.createdAt } },
+            ...(pairedIdentifiers.length > 0
+              ? [{ networkIdentifier: { in: pairedIdentifiers } }]
+              : []),
+          ],
+        },
+      ],
+      // A sensor that only reports its battery or signal is not usable yet: wait for
+      // the interview to expose a real measurement before offering it.
+      sensors: {
+        some: {
+          removedAt: null,
+          capability: { notIn: [...UNUSABLE_ALONE] },
+          lastSeenAt: { gte: session.createdAt },
+        },
+      },
+      NOT: {
+        sensors: {
+          some: { entityId: { contains: 'zigbee2mqtt_bridge' } },
+        },
+      },
+      onboardingSessions: {
+        none: {
+          createdAt: { gte: session.createdAt },
+          status: { in: ['COMPLETED', 'CANCELLED', 'EXPIRED', 'FAILED'] },
+        },
+      },
+    } satisfies Prisma.DeviceWhereInput;
+  }
+
+  /** The other new devices of the search, in the order they joined, waiting to be named. */
+  private async pendingSearchDevices(session: SensorOnboardingSession) {
+    if (session.status !== 'DEVICE_FOUND' || !session.deviceId) return [];
+    const devices = await this.prisma.device.findMany({
+      where: {
+        ...this.searchDeviceWhere(
+          session.homeId,
+          session,
+          session.protocol === 'zigbee'
+            ? this.mqtt.zigbeeDevicesJoinedSince(session.createdAt)
+            : [],
+        ),
+        // An installed device that rejoins keeps its place: it is never queued again.
+        roomId: null,
+        id: { not: session.deviceId },
+      },
+      include: {
+        room: true,
+        sensors: { where: { removedAt: null }, orderBy: { sourceName: 'asc' } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (devices.length === 0) return [];
+    const latest = await this.latestEvents(
+      devices.flatMap((device) => device.sensors.map((sensor) => sensor.id)),
+    );
+    return devices.map((device) => ({
+      ...this.deviceView({
+        ...device,
+        sensors: device.sensors.map((sensor) => this.withLatestEvent(sensor, latest)),
+      }),
+      detectedType: this.detectedType(
+        device.sensors.map(({ capability }) => capability),
+        device.model,
+      ),
+    }));
+  }
+
+  /** Zigbee devices of the search that neither failed their interview nor got installed. */
+  private async zigbeeDevicesStillInterviewing(
+    homeId: string,
+    session: Pick<SensorOnboardingSession, 'createdAt'>,
+    pairedIdentifiers: string[],
+  ) {
+    const failed = this.mqtt.zigbeeInterviewFailedDevicesSince?.(session.createdAt);
+    // Older bridges only say that "an" interview failed: nothing else can be awaited.
+    if (!failed) return [];
+    const candidates = pairedIdentifiers.filter((identifier) => !failed.includes(identifier));
+    if (candidates.length === 0) return [];
+    const settled = await this.prisma.device.findMany({
+      where: {
+        homeId,
+        networkIdentifier: { in: candidates },
+        OR: [
+          { roomId: { not: null } },
+          {
+            onboardingSessions: {
+              some: {
+                createdAt: { gte: session.createdAt },
+                status: { in: ['COMPLETED', 'CANCELLED', 'EXPIRED', 'FAILED'] },
+              },
+            },
+          },
+        ],
+      },
+      select: { networkIdentifier: true },
+    });
+    const done = new Set(settled.map(({ networkIdentifier }) => networkIdentifier?.toLowerCase()));
+    return candidates.filter((identifier) => !done.has(identifier.toLowerCase()));
+  }
+
+  /**
+   * After one device of a search is installed, the next one is offered in a follow-up
+   * session of the same search (same `createdAt`), already found or still finishing its
+   * interview. Pairing stays closed: nothing new can join.
+   */
+  private async nextSearchSession(
+    homeId: string,
+    userId: string,
+    completed: SensorOnboardingSession,
+  ): Promise<SensorOnboardingSession | null> {
+    const joined =
+      completed.protocol === 'zigbee'
+        ? this.mqtt.zigbeeDevicesJoinedSince(completed.createdAt)
+        : [];
+    const next = await this.prisma.device.findFirst({
+      where: {
+        ...this.searchDeviceWhere(homeId, completed, joined),
+        roomId: null,
+        ...(completed.deviceId ? { id: { not: completed.deviceId } } : {}),
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    const base = {
+      homeId,
+      requestedById: userId,
+      protocol: completed.protocol,
+      createdAt: completed.createdAt,
+    };
+    if (next)
+      return this.prisma.sensorOnboardingSession.create({
+        data: {
+          ...base,
+          deviceId: next.id,
+          status: 'DEVICE_FOUND',
+          step: 'CLASSIFICATION',
+          expiresAt: new Date(Date.now() + 15 * 60_000),
+        },
+      });
+    if (completed.protocol !== 'zigbee') return null;
+    const latestJoin = this.mqtt.zigbeeLatestJoinAt?.();
+    if (!latestJoin || Date.now() - latestJoin.getTime() >= 120_000) return null;
+    const interviewing = await this.zigbeeDevicesStillInterviewing(homeId, completed, joined);
+    if (interviewing.length === 0) return null;
+    // A device joined in the same search but is still describing itself.
+    return this.prisma.sensorOnboardingSession.create({
+      data: {
+        ...base,
+        status: 'WAITING_FOR_DEVICE',
+        step: 'PAIRING',
+        expiresAt: new Date(latestJoin.getTime() + 120_000),
+      },
+    });
+  }
+
   private async closeZigbeePairing(homeId: string) {
     this.mqtt.setZigbeePairing(false, 0);
     await this.prisma.equipmentSyncState.updateMany({
@@ -1373,6 +1528,9 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
           }
         : null,
       detectedDevice,
+      // Added next to `detectedDevice` (kept for older apps): the other devices found by
+      // the same search, offered once this one is installed.
+      pendingDevices: await this.pendingSearchDevices(session),
     };
   }
 
