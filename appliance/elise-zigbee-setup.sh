@@ -7,7 +7,9 @@ set -euo pipefail
 ELISE_ROOT_DIR="${ELISE_ROOT_DIR:-/opt/elise}"
 ELISE_CONFIG_FILE="${ELISE_CONFIG_FILE:-/etc/elise/elise.env}"
 STATE_DIR="${ELISE_ZIGBEE_STATE_DIR:-/var/lib/elise/zigbee}"
-SERIAL_DIR="${ELISE_SERIAL_BY_ID_DIR:-/dev/serial/by-id}"
+SERIAL_DIR="${ELISE_SERIAL_BY_ID_DIR:-${ELISE_DEV_ROOT:-/dev}/serial/by-id}"
+ZIGBEE_AGENT="${ELISE_ZIGBEE_AGENT:-/usr/lib/elise/elise-zigbee-agent.py}"
+ZIGBEE_MODELS_FILE="${ELISE_ZIGBEE_MODELS_FILE:-/usr/lib/elise/elise-zigbee-adapters.json}"
 CACHE_FILE="$STATE_DIR/adapters"
 STATUS_FILE="$STATE_DIR/status.json"
 TRY_SECONDS="${ELISE_ZIGBEE_TRY_SECONDS:-75}"
@@ -17,12 +19,23 @@ DRIVERS=(ember zstack zigate deconz zboss)
 [[ -L "$ELISE_ROOT_DIR/current" && -f "$ELISE_CONFIG_FILE" ]] || exit 0
 release_dir="$(readlink -f "$ELISE_ROOT_DIR/current")"
 
+serial_snapshot() { find "$SERIAL_DIR" -mindepth 1 -maxdepth 1 -type l 2>/dev/null | sort | tr '\n' ' '; }
+
 # The Zigbee agent recognises the key from its USB identity (and a read-only probe when two
-# technologies share one chip), then installs it with a backup and a rollback. The loop below,
-# which tries every driver through Zigbee2MQTT, only remains for a box without the agent.
-zigbee_agent=/usr/lib/elise/elise-zigbee-agent.py
-if [[ -x "$zigbee_agent" && -f /usr/lib/elise/elise-zigbee-adapters.json ]] && "$zigbee_agent" auto; then
-  exit 0
+# technologies share one chip), then installs it with a backup and a rollback, and starts
+# Zigbee2MQTT again when the configured key comes back. The loop further below, which tries
+# every driver through Zigbee2MQTT, only remains for a box without the agent.
+if [[ -x "$ZIGBEE_AGENT" && -f "$ZIGBEE_MODELS_FILE" ]]; then
+  udevadm settle --timeout=10 2>/dev/null || true
+  # udev starts this unit for every add and remove: a key unplugged and plugged back while
+  # it still runs merges into the running job, so a change seen meanwhile gets another pass.
+  agent_ok=true
+  for _ in 1 2 3; do
+    before="$(serial_snapshot)"
+    "$ZIGBEE_AGENT" auto || { agent_ok=false; break; }
+    [[ "$(serial_snapshot)" == "$before" ]] && break
+  done
+  [[ "$agent_ok" != true ]] || exit 0
 fi
 install -d -m 0755 "$STATE_DIR"
 exec 9>"$STATE_DIR/.lock"
@@ -55,8 +68,6 @@ remember_driver() {
   { grep -v "^$1=" "$CACHE_FILE" 2>/dev/null || true; printf '%s=%s\n' "$1" "$2"; } > "$cache_tmp"
   mv "$cache_tmp" "$CACHE_FILE"
 }
-serial_snapshot() { find "$SERIAL_DIR" -mindepth 1 -maxdepth 1 -type l 2>/dev/null | sort | tr '\n' ' '; }
-
 compose=(
   docker compose --project-name elise-os --env-file "$ELISE_CONFIG_FILE"
   -f "$release_dir/compose.yaml" -f "$release_dir/compose.release.yaml"
@@ -106,7 +117,7 @@ detect_once() {
   fi
   adapter="$(env_value ZIGBEE_ADAPTER)"
   driver="$(env_value ZIGBEE_ADAPTER_TYPE)"
-  if [[ -z "$adapter" || "$adapter" == /dev/null ]]; then
+  if [[ -z "$adapter" || "$adapter" == /dev/null || ! -e "$adapter" ]]; then
     # Without a coordinator Zigbee2MQTT would only restart in a loop.
     "${compose[@]}" stop zigbee2mqtt >/dev/null 2>&1 || true
     write_status none "Aucune clé Zigbee branchée." "" ""
