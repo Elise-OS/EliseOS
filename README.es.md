@@ -17,7 +17,7 @@ y conecta al familiar mayor con su familia a través del televisor del salón �
 ![100 % local](https://img.shields.io/badge/datos-100%20%25%20locales-2e7d32)
 [![Apoyar en Buy Me a Coffee](https://img.shields.io/badge/apoyar-Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/drsamourai)
 
-[🇫🇷 Français](README.md) · [🇬🇧 English](README.en.md) · **🇪🇸 Español** · [🇮🇹 Italiano](README.it.md)
+[🇫🇷 Français](README.md) · [🇬🇧 English](README.en.md) · **🇪🇸 Español** · [🇮🇹 Italiano](README.it.md) · [🇵🇹 Português](README.pt.md)
 
 [Demo en línea](https://eliseos.paulbreton.dev/demo/?lang=es) · [Sitio y documentación](https://eliseos.paulbreton.dev/es/) · [Descargar](https://github.com/Elise-OS/EliseOS/releases/latest) · [☕ Apoyar el proyecto](https://buymeacoffee.com/drsamourai)
 
@@ -94,7 +94,7 @@ Una pantalla tranquila, legible a distancia: mensaje del día, hora, tiempo, cit
 | :-------------------------------------------------------------------------------------: | :-------------------------------------------------------------------: |
 | <img src="docs/images/es/mobile-accueil.jpg" alt="Inicio en el teléfono" width="260" /> | <img src="docs/images/es/accueil.jpg" alt="Inicio en el ordenador" /> |
 
-La interfaz es totalmente adaptable a cualquier pantalla y está disponible en francés, inglés, español e italiano.
+La interfaz es totalmente adaptable a cualquier pantalla y está disponible en francés, inglés, español, italiano y portugués.
 
 ---
 

@@ -1,0 +1,26 @@
+Élise OS – Companion é a app para iPhone dos familiares e dos cuidadores que acompanham uma pessoa que vive sozinha em sua casa. Liga-se ao servidor Élise OS instalado em casa da pessoa e informa-o do que foge ao habitual, sem vigilância contínua.
+
+Élise assenta em sensores discretos (movimento, presença, abertura de portas, cama, temperatura, fumo, fuga de água, queda…) e aprende os hábitos da casa. Quando surge uma situação invulgar, recebe um alerta.
+
+O QUE PODE FAZER
+• Ver num relance se o dia em casa decorre normalmente.
+• Receber uma notificação em caso de possível queda, fumo, fuga de água, monóxido de carbono, acionamento do botão de assistência ou inatividade prolongada.
+• Escolher as notificações que deseja receber.
+• Acompanhar um alerta, assumi-lo e ver as medições que o originaram.
+• Comunicar com a família e com os profissionais através do caderno de ligação: mensagens, estado de espírito, atividades e visitas.
+• Consultar a agenda partilhada: compromissos, consultas e lembretes.
+• Fazer uma videochamada à pessoa na sua televisão e enviar-lhe fotografias e mensagens.
+• Ver em direto as câmaras da casa, apenas se tiverem sido instaladas com o consentimento da pessoa.
+• Instalar e posicionar os sensores divisão a divisão graças à planta da habitação.
+
+OS SEUS DADOS FICAM EM CASA
+O Élise OS funciona localmente: os dados dos sensores e a análise dos hábitos ficam no servidor instalado em casa, e não na nuvem de um fabricante. A partir do exterior, a app liga-se através de um acesso privado e cifrado. As câmaras são facultativas, podem ser colocadas em modo de privacidade a qualquer momento e as suas imagens nunca são usadas para analisar o comportamento.
+
+SOFTWARE LIVRE
+O Élise OS é um software livre e de código aberto (licença AGPL-3.0).
+
+REQUISITOS
+Esta app requer um servidor Élise OS instalado em casa (Raspberry Pi ou servidor Ubuntu) e uma conta criada pelo administrador desse servidor. Não funciona sozinha.
+
+IMPORTANTE
+O Élise OS é uma ferramenta de bem-estar e de tranquilidade. Não é um dispositivo médico, nem um serviço de teleassistência, nem um serviço de emergência. Em caso de emergência, ligue 112.

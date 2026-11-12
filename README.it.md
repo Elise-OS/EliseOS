@@ -17,7 +17,7 @@ e collega il familiare anziano alla sua famiglia attraverso il televisore del sa
 ![100 % local](https://img.shields.io/badge/dati-100%20%25%20locali-2e7d32)
 [![Sostieni su Buy Me a Coffee](https://img.shields.io/badge/sostieni-Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/drsamourai)
 
-[🇫🇷 Français](README.md) · [🇬🇧 English](README.en.md) · [🇪🇸 Español](README.es.md) · **🇮🇹 Italiano**
+[🇫🇷 Français](README.md) · [🇬🇧 English](README.en.md) · [🇪🇸 Español](README.es.md) · **🇮🇹 Italiano** · [🇵🇹 Português](README.pt.md)
 
 [Demo online](https://eliseos.paulbreton.dev/demo/?lang=it) · [Sito e documentazione](https://eliseos.paulbreton.dev/it/) · [Scarica](https://github.com/Elise-OS/EliseOS/releases/latest) · [☕ Sostieni il progetto](https://buymeacoffee.com/drsamourai)
 
@@ -94,7 +94,7 @@ Uno schermo tranquillo, leggibile da lontano: messaggio del giorno, ora, meteo, 
 | :-------------------------------------------------------------------------------------: | :--------------------------------------------------------------: |
 | <img src="docs/images/it/mobile-accueil.jpg" alt="Home sullo smartphone" width="260" /> | <img src="docs/images/it/accueil.jpg" alt="Home sul computer" /> |
 
-L'interfaccia è completamente adattabile a qualsiasi schermo ed è disponibile in francese, inglese, spagnolo e italiano.
+L'interfaccia è completamente adattabile a qualsiasi schermo ed è disponibile in francese, inglese, spagnolo, italiano e portoghese.
 
 ---
 

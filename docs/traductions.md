@@ -10,7 +10,7 @@ Les textes d’Élise sont écrits en français, puis traduits. Chaque bloc a un
 
 Pour faire traduire par une personne ou un agent : **[traductions-agents.md](traductions-agents.md)** (un fichier par bloc, `pnpm i18n:export` puis `pnpm i18n:import`).
 
-**Langues disponibles** : français (source), anglais, espagnol (`es`, espagnol d’Espagne) et italien (`it`, registre « Lei »), chacun dans les trois blocs, la documentation du site, la fiche App Store et le README. Les textes de sécurité espagnols et italiens attendent la relecture d’une personne de langue maternelle : **[traductions-es-relecture.md](traductions-es-relecture.md)**, **[traductions-it-relecture.md](traductions-it-relecture.md)**.
+**Langues disponibles** : français (source), anglais, espagnol (`es`, espagnol d’Espagne), italien (`it`, registre « Lei ») et portugais (`pt`, portugais du Portugal, registre de politesse à la 3e personne), chacun dans les trois blocs, la documentation du site, la fiche App Store et le README. Les textes de sécurité espagnols, italiens et portugais attendent la relecture d’une personne de langue maternelle : **[traductions-es-relecture.md](traductions-es-relecture.md)**, **[traductions-it-relecture.md](traductions-it-relecture.md)**, **[traductions-pt-relecture.md](traductions-pt-relecture.md)**.
 
 ## Les trois blocs
 
@@ -32,7 +32,7 @@ Les données partagées (catégories de capteurs, types de contact, humeurs, pic
 2. Dans `packages/i18n/src/flags.ts`, ajouter son drapeau (TypeScript le réclame).
 3. `pnpm i18n:export es`, faire traduire `translations/es/mobile.json` et `web.json`, puis `pnpm i18n:import es`.
 4. Importer `es.json` dans `apps/mobile/src/i18n/index.ts` et `apps/dashboard/src/i18n/index.ts` (`createI18n({ fr, en, es })`).
-5. Pour l’App Store : `apps/mobile/fastlane/metadata/es-ES/` (`it/` pour l’italien), puis les captures (voir plus bas).
+5. Pour l’App Store : `apps/mobile/fastlane/metadata/es-ES/` (`it/` pour l’italien, `pt-PT/` pour le portugais), puis les captures (voir plus bas).
 
 **Landing**
 
