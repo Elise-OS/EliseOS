@@ -52,10 +52,17 @@ grep -qF -- 'until host_files_current; do' "$root/install/install-elise.sh"
 for host_file in appliance/elise-zigbee-agent.py appliance/systemd/elise-zigbee-agent.service \
   appliance/elise-zigbee-adapters.json appliance/elise-update-agent.py appliance/elise_install_state.py \
   appliance/elise_install_texts.py appliance/elise_language.py appliance/elise-preparation.py \
-  appliance/systemd/elise-preparation.service; do
+  appliance/systemd/elise-preparation.service appliance/elise-zigbee-setup.sh \
+  appliance/systemd/elise-zigbee-setup.service appliance/udev/90-elise-zigbee.rules; do
   grep -qF -- " $host_file " "$root/install/install-elise.sh" \
     || { echo "$host_file manque dans la liste des fichiers système." >&2; exit 1; }
 done
+# Plugging any Zigbee key back in (Pi and mini PC alike) must run the detection that restarts
+# Zigbee2MQTT, and an update must start the stack even when the configured key is unplugged.
+grep -qF -- 'KERNEL=="ttyUSB[0-9]*|ttyACM[0-9]*"' "$root/appliance/udev/90-elise-zigbee.rules"
+grep -qF -- 'start elise-zigbee-setup.service' "$root/appliance/udev/90-elise-zigbee.rules"
+grep -qF -- 'systemctl enable elise-zigbee-setup.service' "$root/install/install-elise.sh"
+grep -qF -- 'if ! "${compose[@]}" "${stack_up[@]}"; then' "$root/install/install-elise.sh"
 # cloud-final.service is ordered after multi-user.target: depending on it from the
 # first-boot unit creates an ordering cycle that systemd breaks by dropping a job.
 if grep -Eq '^(After|Wants|Requires)=.*cloud-final' "$root/appliance/systemd/elise-firstboot.service"; then
