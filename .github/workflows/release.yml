@@ -216,6 +216,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           .github/scripts/install-cosign.sh
+          export PATH="$HOME/.cosign:$PATH"
           file="dist/elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso"
           cosign sign-blob --yes --bundle "$file.sigstore.json" "$file"
           (cd dist && sha256sum -c "elise-os-${RELEASE_VERSION}-minipc-amd64-installer.iso.sha256")
