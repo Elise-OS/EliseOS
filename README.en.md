@@ -10,7 +10,7 @@
 and connects an older relative to their family through the living-room TV — without ever sending their data to the cloud.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0--only-12385f)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.1.28-12385f)
+![Version](https://img.shields.io/badge/version-0.1.29-12385f)
 ![Raspberry Pi 4/5](https://img.shields.io/badge/Raspberry%20Pi-4%20%7C%205-c51a4a)
 ![Ubuntu 24.04](https://img.shields.io/badge/Ubuntu-24.04-e95420)
 ![iOS and Android](https://img.shields.io/badge/app-iPhone%20%C2%B7%20iPad%20%C2%B7%20Android-555)
