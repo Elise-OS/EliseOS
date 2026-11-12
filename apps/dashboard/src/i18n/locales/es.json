@@ -1801,6 +1801,7 @@
     "waterLeakDetectorNotResponding": "El detector de fugas de agua no responde"
   },
   "screenPanel": {
+    "radio": "Radio",
     "aCallIsAlreadyIn": "Ya hay una llamada en curso.",
     "actionsToday": "acciones hoy",
     "activityTracking": "Seguimiento de la actividad",
@@ -2865,6 +2866,7 @@
     "whatsNew": "Novedades"
   },
   "welcomePage": {
+    "radio": "Radio",
     "aDepartureWasNoticedAt": "Se ha registrado una salida a las {{at}}.",
     "aSignalNeedsYourAttention": " Una señal requiere su atención.",
     "aVisitToTheToilet": "Se ha detectado un paso por el aseo.",

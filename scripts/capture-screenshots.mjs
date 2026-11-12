@@ -29,8 +29,8 @@ const [{ chromium }, { default: sharp }] = await Promise.all([
   dependency('sharp', 'dist/index.mjs'),
 ]);
 
-const supportedLanguages = ['fr', 'en', 'es', 'it'];
-const localeByLanguage = { fr: 'fr-FR', en: 'en-GB', es: 'es-ES', it: 'it-IT' };
+const supportedLanguages = ['fr', 'en', 'es', 'it', 'pt'];
+const localeByLanguage = { fr: 'fr-FR', en: 'en-GB', es: 'es-ES', it: 'it-IT', pt: 'pt-PT' };
 const args = process.argv.slice(2);
 const option = (name) => {
   const item = args.find((argument) => argument.startsWith(`${name}=`));

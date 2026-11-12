@@ -1801,6 +1801,7 @@
     "waterLeakDetectorNotResponding": "Rilevatore di perdita d’acqua non risponde più"
   },
   "screenPanel": {
+    "radio": "Radio",
     "aCallIsAlreadyIn": "Una chiamata è già in corso.",
     "actionsToday": "azioni oggi",
     "activityTracking": "Monitoraggio dell’attività",
@@ -2870,6 +2871,7 @@
     "whatsNew": "Novità"
   },
   "welcomePage": {
+    "radio": "Radio",
     "aDepartureWasNoticedAt": "È stata notata un’uscita alle {{at}}.",
     "aSignalNeedsYourAttention": " Un segnale richiede la Sua attenzione.",
     "aVisitToTheToilet": "È stato rilevato un passaggio al WC.",

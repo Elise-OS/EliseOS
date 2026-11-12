@@ -1782,6 +1782,7 @@
     "waterLeakDetectorNotResponding": "Water leak detector not responding"
   },
   "screenPanel": {
+    "radio": "Radio",
     "aCallIsAlreadyIn": "A call is already in progress.",
     "actionsToday": "actions today",
     "activityTracking": "Activity tracking",
@@ -2833,6 +2834,7 @@
     "whatsNew": "What’s new"
   },
   "welcomePage": {
+    "radio": "Radio",
     "aDepartureWasNoticedAt": "A departure was noticed at {{at}}.",
     "aSignalNeedsYourAttention": " A signal needs your attention.",
     "aVisitToTheToilet": "A visit to the toilet was detected.",

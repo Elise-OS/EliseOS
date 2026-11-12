@@ -802,7 +802,7 @@ export function ScreenPanel({
         ? activeMedia.title
         : activeMedia?.kind === 'podcast'
           ? 'Podcast'
-          : 'Radio';
+          : t('screenPanel.radio');
   const activePodcastQueue =
     activeMedia?.kind === 'podcast'
       ? state.media
@@ -1789,7 +1789,7 @@ export function ScreenPanel({
                     [
                       ['youtube', 'YouTube', Youtube],
                       ['tv', t('screenPanel.liveTv'), Tv],
-                      ['stream', 'Radio', Radio],
+                      ['stream', t('screenPanel.radio'), Radio],
                       ['podcast', 'Podcasts', Headphones],
                     ] as const
                   ).map(([kind, label, Icon]) => (

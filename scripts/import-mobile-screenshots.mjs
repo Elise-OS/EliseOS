@@ -3,7 +3,7 @@
 // (fastlane layout: <dir>/<store-locale>/<iphone|ipad>-NN-<localized-name>.png)
 // into the landing assets: eliselanding/public/screenshots/<lang>/mobile/<view>.webp + @2x.webp.
 //
-// Usage: node scripts/import-mobile-screenshots.mjs --from=<dir> [--languages=fr,en,es,it]
+// Usage: node scripts/import-mobile-screenshots.mjs --from=<dir> [--languages=fr,en,es,it,pt]
 // The views keep the same file names in every language (the French names), so the landing
 // resolves them like the desktop views: /screenshots/<lang>/mobile/<view>.webp.
 
@@ -26,7 +26,7 @@ try {
 }
 const { default: sharp } = await import(pathToFileURL(sharpEntry).href);
 
-const storeLocale = { fr: 'fr-FR', en: 'en-US', es: 'es-ES', it: 'it' };
+const storeLocale = { fr: 'fr-FR', en: 'en-US', es: 'es-ES', it: 'it', pt: 'pt-PT' };
 // Canonical view names (used by the landing), by device and number.
 const views = {
   iphone: {
@@ -56,7 +56,7 @@ const option = (name) =>
     ?.slice(name.length + 1);
 const from = option('--from');
 if (!from)
-  throw new Error('Usage: import-mobile-screenshots.mjs --from=<dir> [--languages=fr,en,es,it]');
+  throw new Error('Usage: import-mobile-screenshots.mjs --from=<dir> [--languages=fr,en,es,it,pt]');
 const languages = (option('--languages') ?? Object.keys(storeLocale).join(','))
   .split(',')
   .filter(Boolean);

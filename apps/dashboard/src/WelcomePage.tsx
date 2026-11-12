@@ -899,7 +899,7 @@ export function WelcomePage({
   const screenMediaType = !activeScreenMedia
     ? ''
     : activeScreenMedia.kind === 'stream'
-      ? 'Radio'
+      ? t('welcomePage.radio')
       : activeScreenMedia.kind === 'tv'
         ? t('welcomePage.tv')
         : activeScreenMedia.kind === 'youtube'
