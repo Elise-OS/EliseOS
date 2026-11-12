@@ -114,6 +114,7 @@ def device_model(model: str | None, model_id: str | None) -> str | None:
 # device, ``binary_sensor.<name>_smoke`` (unique_id ``<ieee>_smoke_<base_topic>``) and a
 # diagnostic ``binary_sensor.<name>_test`` (unique_id ``<ieee>_test_<base_topic>``).
 _Z2M_SMOKE_UNIQUE_ID = re.compile(r"^(0x[0-9a-fA-F]{16})_smoke_(.+)$")
+_Z2M_TEST_UNIQUE_ID = re.compile(r"^(0x[0-9a-fA-F]{16})_test_(.+)$")
 
 
 def smoke_test_unique_id(smoke_unique_id: str | None) -> str | None:
@@ -122,11 +123,33 @@ def smoke_test_unique_id(smoke_unique_id: str | None) -> str | None:
     return f"{match.group(1)}_test_{match.group(2)}" if match else None
 
 
+def smoke_unique_id(test_unique_id: str | None) -> str | None:
+    """unique_id of the Zigbee2MQTT ``smoke`` entity next to a ``test`` entity."""
+    match = _Z2M_TEST_UNIQUE_ID.match(test_unique_id or "")
+    return f"{match.group(1)}_smoke_{match.group(2)}" if match else None
+
+
 def smoke_test_entity_id(smoke_entity_id: str) -> str | None:
     """Default entity_id of the ``test`` entity, used when the unique_id is unknown."""
     if smoke_entity_id.startswith("binary_sensor.") and smoke_entity_id.endswith("_smoke"):
         return f"{smoke_entity_id[: -len('_smoke')]}_test"
     return None
+
+
+def smoke_entity_id(test_entity_id: str) -> str | None:
+    """Default entity_id of the ``smoke`` entity, used when the unique_id is unknown."""
+    if test_entity_id.startswith("binary_sensor.") and test_entity_id.endswith("_test"):
+        return f"{test_entity_id[: -len('_test')]}_smoke"
+    return None
+
+
+def smoke_remains_after_test(test_old_state: Any, test_state: Any, smoke_state: Any) -> bool:
+    """A test ended while smoke stayed active: it must now be treated as real smoke.
+
+    This closes the safety gap where the smoke bit does not change between a detector test
+    and real smoke, so Home Assistant emits only the sibling ``test`` state change.
+    """
+    return test_old_state == "on" and test_state == "off" and smoke_state == "on"
 
 
 def with_smoke_test(event_payload: dict[str, Any], test_state: Any) -> dict[str, Any]:
