@@ -210,3 +210,28 @@ export function offlineReporterByDevice(
   }
   return new Map([...reporters].map(([deviceId, { id }]) => [deviceId, id]));
 }
+
+/** Zigbee2MQTT `battery_low` reaches Élise as `{ value: 0 | 100, low: boolean }`. */
+export function isBatteryLowFlag(payload: unknown): boolean {
+  return (
+    typeof payload === 'object' &&
+    payload !== null &&
+    typeof (payload as { low?: unknown }).low === 'boolean'
+  );
+}
+
+export function devicesWithBatteryPercentage(
+  sensors: Array<{ deviceId: string | null; capability: string; payload: unknown }>,
+): Set<string> {
+  return new Set(
+    sensors
+      .filter(
+        (sensor) =>
+          sensor.deviceId &&
+          sensor.capability === 'battery' &&
+          numericPayload(sensor.payload) !== null &&
+          !isBatteryLowFlag(sensor.payload),
+      )
+      .map((sensor) => sensor.deviceId!),
+  );
+}

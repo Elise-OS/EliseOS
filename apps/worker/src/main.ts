@@ -17,6 +17,8 @@ import {
   countCurrentNightActivity,
   isDoorOpenTooLong,
   isUnavailableLongEnough,
+  devicesWithBatteryPercentage,
+  isBatteryLowFlag,
   numericPayload,
   offlineReporterByDevice,
   persistentTemperatureViolation,
@@ -726,6 +728,7 @@ async function evaluateSensorRules(): Promise<void> {
       [home.homeId],
     );
     const offlineReporters = offlineReporterByDevice(sensors.rows);
+    const devicesWithBatteryLevel = devicesWithBatteryPercentage(sensors.rows);
     for (const sensor of sensors.rows) {
       evaluatedSensorKeys.add(`sensor-offline:${sensor.id}`);
       // Motion sensors can legitimately remain silent for hours. Home Assistant's
@@ -772,6 +775,8 @@ async function evaluateSensorRules(): Promise<void> {
       if (sensor.capability === 'battery') {
         evaluatedSensorKeys.add(`low-battery:${sensor.id}`);
         const battery = numericPayload(sensor.payload);
+        // Zigbee battery_low only says "low"; the percentage of the same device already alerts.
+        const lowFlagOnly = isBatteryLowFlag(sensor.payload);
         await syncAlert({
           homeId: home.homeId,
           roomId: sensor.roomId,
@@ -780,6 +785,7 @@ async function evaluateSensorRules(): Promise<void> {
           severity: 'INFO',
           active:
             rules.lowBattery.enabled &&
+            !(lowFlagOnly && sensor.deviceId && devicesWithBatteryLevel.has(sensor.deviceId)) &&
             sensor.available &&
             sensor.status === 'ONLINE' &&
             battery !== null &&
@@ -789,7 +795,9 @@ async function evaluateSensorRules(): Promise<void> {
           explanation:
             battery === null
               ? 'Le niveau de batterie est momentanément indisponible.'
-              : `La batterie indique ${battery} %. Son remplacement peut être planifié.`,
+              : lowFlagOnly
+                ? 'Le capteur signale une batterie faible. Son remplacement peut être planifié.'
+                : `La batterie indique ${battery} %. Son remplacement peut être planifié.`,
         });
       }
     }

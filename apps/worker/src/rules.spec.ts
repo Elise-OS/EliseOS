@@ -7,6 +7,8 @@ import {
   isInMinuteWindow,
   isStale,
   isUnavailableLongEnough,
+  devicesWithBatteryPercentage,
+  isBatteryLowFlag,
   numericPayload,
   offlineReporterByDevice,
   persistentTemperatureViolation,
@@ -163,5 +165,17 @@ describe('deterministic alert rules', () => {
     expect(reporters.get('snzb-02p')).toBe('s-humidity');
     expect(reporters.get('snzb-04p')).toBe('z-contact');
     expect(reporters.has('standalone')).toBe(false);
+  });
+
+  it('lets the battery percentage alert for a SNZB-04P that also reports battery_low', () => {
+    const lowFlag = { value: 0, low: true, unit: '%' };
+    expect(isBatteryLowFlag(lowFlag)).toBe(true);
+    expect(isBatteryLowFlag({ value: 8, unit: '%' })).toBe(false);
+    const devices = devicesWithBatteryPercentage([
+      { deviceId: 'snzb-04p', capability: 'battery', payload: lowFlag },
+      { deviceId: 'snzb-04p', capability: 'battery', payload: { value: 8, unit: '%' } },
+      { deviceId: 'hs1sa-e', capability: 'battery', payload: lowFlag },
+    ]);
+    expect([...devices]).toEqual(['snzb-04p']);
   });
 });
