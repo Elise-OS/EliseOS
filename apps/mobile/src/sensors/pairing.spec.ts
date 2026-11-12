@@ -386,7 +386,11 @@ describe('pairing controller: several sensors found by one search', () => {
       phase: 'DONE',
       installed: { name: 'Motion', room: 'Hall' },
     });
-    expect(complete.mock.calls.map(([id]) => id)).toEqual(['session-1', 'session-2', 'session-3']);
+    expect(complete.mock.calls.map(([id]) => String(id))).toEqual([
+      'session-1',
+      'session-2',
+      'session-3',
+    ]);
     // Leaving at the end never cancels an installed device.
     await controller.close();
     expect(api.cancel).not.toHaveBeenCalled();
