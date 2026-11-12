@@ -2,7 +2,7 @@
  * Shared rule for "the last activity of the person".
  *
  * Only signals produced by the person count: motion, presence, door/window
- * contacts. Smart plug measurements (power, energy), battery or link quality
+ * contacts and button presses. Smart plug measurements (power, energy), battery or link quality
  * updates and other environment readings are not activity of the person.
  * The dashboard ("last reliable activity") and the mobile home screen
  * ("last activity") use this same rule.
@@ -13,10 +13,11 @@ export const LIFE_ACTIVITY_CAPABILITIES = [
   'person_presence',
   'contact',
   'dry_contact',
+  'button',
 ] as const;
 
-/** Activity counted in the activity charts: life signals plus a button press. */
-export const ACTIVITY_CAPABILITIES = [...LIFE_ACTIVITY_CAPABILITIES, 'button'] as const;
+/** Activity counted in the activity charts uses the same person-generated signals. */
+export const ACTIVITY_CAPABILITIES = [...LIFE_ACTIVITY_CAPABILITIES] as const;
 
 const lifeActivityCapabilities: ReadonlySet<string> = new Set(LIFE_ACTIVITY_CAPABILITIES);
 

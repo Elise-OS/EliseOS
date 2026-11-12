@@ -82,6 +82,20 @@ class RealZigbeePayloadTests(unittest.TestCase):
             "binary_sensor.detecteur_fumee_cuisine_test",
         )
         self.assertIsNone(mapping.smoke_test_entity_id("binary_sensor.cuisine_fumee"))
+        self.assertEqual(
+            mapping.smoke_unique_id("0x00124b0029a1b2c3_test_zigbee2mqtt"),
+            "0x00124b0029a1b2c3_smoke_zigbee2mqtt",
+        )
+        self.assertEqual(
+            mapping.smoke_entity_id("binary_sensor.detecteur_fumee_cuisine_test"),
+            "binary_sensor.detecteur_fumee_cuisine_smoke",
+        )
+
+    def test_real_smoke_that_remains_when_a_test_ends_is_not_lost(self):
+        self.assertTrue(mapping.smoke_remains_after_test("on", "off", "on"))
+        self.assertFalse(mapping.smoke_remains_after_test("on", "off", "off"))
+        self.assertFalse(mapping.smoke_remains_after_test("unavailable", "off", "on"))
+        self.assertFalse(mapping.smoke_remains_after_test("off", "off", "on"))
 
     def test_numeric_and_binary_low_battery(self):
         self.assertEqual(mapping.payload("battery", 9, {"unit_of_measurement": "%"})["value"], 9.0)

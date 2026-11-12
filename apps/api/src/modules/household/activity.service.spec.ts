@@ -469,7 +469,7 @@ describe('ActivityService analytics', () => {
     ).where;
     expect(where.quality).toBe('good');
     expect([...where.capability.in].sort()).toEqual(
-      ['contact', 'dry_contact', 'motion', 'occupancy', 'person_presence'].sort(),
+      ['button', 'contact', 'dry_contact', 'motion', 'occupancy', 'person_presence'].sort(),
     );
     for (const ignored of ['power', 'energy', 'battery', 'signal_strength']) {
       expect(where.capability.in).not.toContain(ignored);

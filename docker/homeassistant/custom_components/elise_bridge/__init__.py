@@ -1,6 +1,7 @@
 """Home Assistant event bridge for Élise OS."""
 from __future__ import annotations
 
+import asyncio
 import json
 import hashlib
 import logging
@@ -23,6 +24,9 @@ from .mapping import (
     device_model,
     is_new_button_press,
     payload as sensor_payload,
+    smoke_entity_id,
+    smoke_remains_after_test,
+    smoke_unique_id,
     smoke_test_entity_id,
     smoke_test_unique_id,
     with_smoke_test,
@@ -30,6 +34,7 @@ from .mapping import (
 
 DOMAIN = "elise_bridge"
 _LOGGER = logging.getLogger(__name__)
+SMOKE_PAIR_SETTLE_SECONDS = 0.1
 EVENT_TOPIC = "elise/v1/events"
 ENTITY_STATE_TOPIC = "elise/v1/entity-states"
 INVENTORY_TOPIC = "elise/v1/inventory"
@@ -518,6 +523,53 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     client.connect_async(os.getenv("MQTT_HOST", "mosquitto"), int(os.getenv("MQTT_PORT", "1883")))
     client.loop_start()
 
+    def smoke_test_state(entity_entry: Any, entity_id: str) -> Any:
+        test_entity_id = None
+        test_unique_id = smoke_test_unique_id(entity_entry.unique_id if entity_entry else None)
+        if test_unique_id:
+            test_entity_id = er.async_get(hass).async_get_entity_id("binary_sensor", "mqtt", test_unique_id)
+        test_entity_id = test_entity_id or smoke_test_entity_id(entity_id)
+        test_state = hass.states.get(test_entity_id) if test_entity_id else None
+        return test_state.state if test_state is not None else None
+
+    def smoke_state_for_test(entity_entry: Any, entity_id: str) -> tuple[Any, Any]:
+        smoke_id = None
+        unique_id = smoke_unique_id(entity_entry.unique_id if entity_entry else None)
+        if unique_id:
+            smoke_id = er.async_get(hass).async_get_entity_id("binary_sensor", "mqtt", unique_id)
+        smoke_id = smoke_id or smoke_entity_id(entity_id)
+        return smoke_id, hass.states.get(smoke_id) if smoke_id else None
+
+    def publish_sensor_event(
+        state: Any,
+        entity_entry: Any,
+        capability: str,
+        occurred_at: str,
+        event_id: str,
+    ) -> None:
+        device = dr.async_get(hass).async_get(entity_entry.device_id) if entity_entry and entity_entry.device_id else None
+        payload = {
+            "schemaVersion": "1.0",
+            "eventId": event_id,
+            "occurredAt": occurred_at,
+            "receivedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "homeId": home_id,
+            "source": {
+                "platform": "home-assistant",
+                "entityId": state.entity_id,
+                "deviceId": entity_entry.device_id if entity_entry else None,
+                "name": (entity_entry.name or entity_entry.original_name) if entity_entry else None,
+                "manufacturer": device.manufacturer if device else None,
+                "model": device_model(device.model, getattr(device, "model_id", None)) if device else None,
+            },
+            "capability": capability,
+            "quality": "good" if state.state not in {"unknown", "unavailable"} else "degraded",
+            "payload": _payload(capability, state),
+        }
+        if capability == "smoke":
+            payload["payload"] = with_smoke_test(payload["payload"], smoke_test_state(entity_entry, state.entity_id))
+        client.publish(EVENT_TOPIC, json.dumps(payload, separators=(",", ":")), qos=1)
+
     async def state_changed(event: Event) -> None:
         state = event.data.get("new_state")
         if state is None:
@@ -555,6 +607,23 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         if state.state in {"unknown", "unavailable"}:
             return
         if capability is None:
+            # If real smoke starts while the detector is still in test mode, the smoke bit
+            # remains on and Home Assistant emits no second smoke state change. When the test
+            # bit clears, re-read its sibling after the shared MQTT state has settled and emit
+            # the real smoke report if it stayed active.
+            old_state = event.data.get("old_state")
+            if domain == "binary_sensor" and old_state is not None and old_state.state == "on" and state.state == "off":
+                await asyncio.sleep(SMOKE_PAIR_SETTLE_SECONDS)
+                smoke_id, smoke_state = smoke_state_for_test(entity_entry, state.entity_id)
+                if smoke_state is not None and smoke_remains_after_test(old_state.state, state.state, smoke_state.state):
+                    smoke_entry = er.async_get(hass).async_get(smoke_id)
+                    publish_sensor_event(
+                        smoke_state,
+                        smoke_entry,
+                        "smoke",
+                        occurred_at,
+                        f"{event_id}-smoke-after-test",
+                    )
             return
         if domain == "event":
             old_state = event.data.get("old_state")
@@ -564,39 +633,11 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
                 datetime.now(UTC),
             ):
                 return
-        device = dr.async_get(hass).async_get(entity_entry.device_id) if entity_entry and entity_entry.device_id else None
-        payload = {
-            "schemaVersion": "1.0",
-            "eventId": event_id,
-            "occurredAt": occurred_at,
-            "receivedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-            "homeId": home_id,
-            "source": {
-                "platform": "home-assistant",
-                "entityId": state.entity_id,
-                "deviceId": entity_entry.device_id if entity_entry else None,
-                "name": (entity_entry.name or entity_entry.original_name) if entity_entry else None,
-                "manufacturer": device.manufacturer if device else None,
-                "model": device_model(device.model, getattr(device, "model_id", None)) if device else None,
-            },
-            "capability": capability,
-            "quality": "good" if state.state not in {"unknown", "unavailable"} else "degraded",
-            "payload": _payload(capability, state),
-        }
-        if capability == "smoke":
-            payload["payload"] = with_smoke_test(payload["payload"], smoke_test_state(entity_entry, state.entity_id))
-        client.publish(EVENT_TOPIC, json.dumps(payload, separators=(",", ":")), qos=1)
-
-    def smoke_test_state(entity_entry: Any, entity_id: str) -> Any:
-        # Both HS1SA-E entities come from one Zigbee2MQTT MQTT message; Home Assistant
-        # updates them in the same loop iteration, before this listener task runs.
-        test_entity_id = None
-        test_unique_id = smoke_test_unique_id(entity_entry.unique_id if entity_entry else None)
-        if test_unique_id:
-            test_entity_id = er.async_get(hass).async_get_entity_id("binary_sensor", "mqtt", test_unique_id)
-        test_entity_id = test_entity_id or smoke_test_entity_id(entity_id)
-        test_state = hass.states.get(test_entity_id) if test_entity_id else None
-        return test_state.state if test_state is not None else None
+        # The sibling smoke/test entities come from one Z2M state. Give Home Assistant a
+        # short turn to update both before deciding whether this is a detector test.
+        if capability == "smoke" and state.state == "on":
+            await asyncio.sleep(SMOKE_PAIR_SETTLE_SECONDS)
+        publish_sensor_event(state, entity_entry, capability, occurred_at, event_id)
 
     async def inventory_changed(_event: Event) -> None:
         await publish_inventory()
