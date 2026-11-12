@@ -57,3 +57,9 @@ Cette option est en plus du total du panier pilote ci-dessus. Vérifier la réf�
 - Décision : **les trois appuis déclenchent un SOS**. Ni le convertisseur ni la documentation SONOFF ne donnent au double appui un sens d’annulation ou de test, et une personne âgée en détresse peut appuyer deux fois par panique ou tremblement. Un SOS manqué est bien plus grave qu’un faux SOS.
 - La liste nommée est `SNZB_01P_SOS_ACTIONS` dans `apps/api/src/modules/sensing/assistance-button.ts`. Toute autre valeur d’appui d’un bouton d’assistance déclenche aussi un SOS ; seul `release` est ignoré.
 - Un bouton sans le rôle « assistance » garde son comportement : seule une action explicite `sos` déclenche un SOS.
+
+### Détecteur de fumée HEIMAN HS1SA-E et bouton test
+
+- Zigbee2MQTT 2.13 (zigbee-herdsman-converters 26.90.0) décode le HS1SA-E avec `ias_smoke_alarm_1` : `smoke` correspond au bit 0 du `zoneStatus` IAS et `test` au bit 8. Les deux sont exposés (`smoke`, `battery_low`, `battery`, `test`) ; Home Assistant crée `binary_sensor.<nom>_smoke` et une entité de diagnostic `binary_sensor.<nom>_test`.
+- Quand le pont Élise reçoit `smoke` actif alors que l’entité `test` du même appareil est active, il ajoute `test: true` à l’événement. L’API l’enregistre comme observation (visible dans l’activité) sans ouvrir d’alerte fumée urgente, et sans fermer une alerte déjà ouverte.
+- Si le détecteur remonte un appui test sous la forme d’un simple `smoke: true`, sans le bit test, l’appui reste indiscernable d’une vraie fumée : l’alerte urgente est alors conservée. La sécurité passe avant le confort.

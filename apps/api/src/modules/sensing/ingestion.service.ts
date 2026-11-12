@@ -305,6 +305,12 @@ export class IngestionService {
               : event.capability === 'button' && isSosButtonEvent(event.payload.action, role)
                 ? 'SOS'
                 : null;
+      // HEIMAN HS1SA-E test button: Zigbee2MQTT reports `test: true` (IAS zoneStatus bit 8)
+      // next to `smoke: true`; the bridge forwards it as payload.test. The press stays an
+      // observation (visible in the activity) but is not an urgent smoke alarm, and it
+      // neither opens nor clears an alert. A smoke report without that flag always alerts.
+      if (securityType === 'SMOKE' && event.payload.test === true)
+        return { accepted: true, id: saved.id };
       const alertType = event.capability === 'fall_detection' ? 'FALL_DETECTION' : securityType;
       if (event.capability === 'fall_detection' && typeof event.payload.active !== 'boolean')
         return { accepted: true, id: saved.id };
