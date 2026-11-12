@@ -1177,7 +1177,13 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
           : sensor.capability;
       return this.capabilityView(sensor, networkDisconnected, displayCapability);
     });
-    const batterySensor = userSensors.find((sensor) => sensor.capability === 'battery');
+    // Zigbee battery_low reaches Élise as 0/100 with a `low` flag: show the real percentage first.
+    const batterySensors = userSensors.filter((sensor) => sensor.capability === 'battery');
+    const batterySensor =
+      batterySensors.find((sensor) => {
+        const payload = sensor.events[0]?.payload;
+        return !(payload && typeof payload === 'object' && 'low' in payload);
+      }) ?? batterySensors[0];
     const batteryPayload = batterySensor?.events[0]?.payload;
     const battery = this.recordValue(batteryPayload);
     const lastSeen = device.sensors.reduce(

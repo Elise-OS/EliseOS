@@ -709,6 +709,109 @@ describe('SensorsService physical device views', () => {
     ).toBe(false);
   });
 
+  it('shows the real battery percentage of a SNZB-04P that also reports battery_low', async () => {
+    const now = new Date('2026-08-17T12:00:00.000Z');
+    const latestQuery = vi.fn().mockResolvedValue([
+      { sensorId: 'temperature', payload: { value: 21.5 }, occurredAt: now },
+      { sensorId: 'battery-low', payload: { value: 100, low: false, unit: '%' }, occurredAt: now },
+      { sensorId: 'battery', payload: { value: 82 }, occurredAt: now },
+    ]);
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      $queryRaw: latestQuery,
+      device: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'device-1',
+            name: 'Air sensor',
+            displayName: null,
+            manufacturer: 'Vendor',
+            model: 'A1',
+            protocol: 'zigbee',
+            integration: 'zigbee2mqtt',
+            installationStatus: 'OPERATIONAL',
+            enabled: true,
+            placementConfirmedAt: now,
+            room: { id: 'room-1', name: 'Salon', kind: 'LIVING_ROOM' },
+            sensors: [
+              {
+                id: 'temperature',
+                entityId: 'sensor.air_temperature',
+                capability: 'temperature',
+                sourceName: 'Temperature',
+                status: 'ONLINE',
+                available: true,
+                unit: '°C',
+                lastSeenAt: now,
+                analysisEnabled: true,
+                classificationSource: 'METADATA',
+                classificationConfidence: 1,
+                classificationReason: 'device class',
+                classificationConfirmedAt: null,
+                events: [{ payload: { value: 21.5 } }],
+              },
+              {
+                id: 'battery-low',
+                entityId: 'binary_sensor.air_battery_low',
+                capability: 'battery',
+                sourceName: 'Battery low',
+                status: 'ONLINE',
+                available: true,
+                unit: '%',
+                lastSeenAt: now,
+                analysisEnabled: true,
+                classificationSource: 'METADATA',
+                classificationConfidence: 1,
+                classificationReason: 'device class',
+                classificationConfirmedAt: null,
+                events: [{ payload: { value: 100, low: false, unit: '%' } }],
+              },
+              {
+                id: 'battery',
+                entityId: 'sensor.air_battery',
+                capability: 'battery',
+                sourceName: 'Battery',
+                status: 'ONLINE',
+                available: true,
+                unit: '%',
+                lastSeenAt: now,
+                analysisEnabled: true,
+                classificationSource: 'METADATA',
+                classificationConfidence: 1,
+                classificationReason: 'device class',
+                classificationConfirmedAt: null,
+                events: [{ payload: { value: 82 } }],
+              },
+              {
+                id: 'tvoc-alert-enable',
+                entityId: 'switch.air_tvoc_alert_enable',
+                capability: 'switch',
+                sourceName: 'TVOC alert enable',
+                status: 'OFFLINE',
+                unit: null,
+                lastSeenAt: now,
+                analysisEnabled: true,
+                classificationSource: 'METADATA',
+                classificationConfidence: 1,
+                classificationReason: 'domain',
+                classificationConfirmedAt: null,
+                events: [],
+              },
+            ],
+          },
+        ]),
+      },
+      sensor: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    const service = new SensorsService(prisma as never, {} as never);
+
+    const result = await service.list('user-1');
+
+    expect(result).toHaveLength(1);
+    expect(latestQuery).toHaveBeenCalledTimes(1);
+    expect(result[0]).toMatchObject({ name: 'Air sensor', batteryPercent: 82 });
+  });
+
   it('starts a short verification and asks the bridge for a fresh inventory', async () => {
     const now = Date.now();
     const create = vi
