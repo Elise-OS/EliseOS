@@ -1626,16 +1626,26 @@ def auto() -> int:
         except (OSError, subprocess.SubprocessError):
             pass
         config = current_config()
-        if config["mode"] == "manual" and config["port"]:
-            # The family chose this key: a new one is proposed in the app, never installed behind their back.
-            return 0
-        recover_interrupted()
+        # The family chose this key: a new one is proposed in the app, never installed behind their
+        # back. The chosen key itself must still bring Zigbee2MQTT back when it is plugged in again.
+        chosen = config["mode"] == "manual" and bool(config["port"])
+        if not chosen:
+            recover_interrupted()
         status = build_status()
         candidates = [c for c in status["candidates"] if c["kind"] == "usb" and not c["isCurrent"]]
         current = status["current"]
         if current and current["present"]:
+            # Docker cannot restart a container whose key was unplugged: it is created again.
             if current["z2m"]["container"] != "running":
                 start_z2m()
+            return 0
+        if current and current["z2m"]["container"] in ("running", "restarting"):
+            # The configured key is unplugged: no restart loop until it comes back.
+            try:
+                stop_z2m()
+            except (OSError, subprocess.SubprocessError, RuntimeError):
+                pass
+        if chosen:
             return 0
         if len(candidates) != 1:
             if not candidates and not current:

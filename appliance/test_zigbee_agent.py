@@ -215,6 +215,8 @@ class FakeTree:
 
 
 DONGLE = {"vid": "10c4", "pid": "ea60", "manufacturer": "ITead", "product": "Sonoff Zigbee 3.0 USB Dongle Plus V2", "serial": "abc"}
+DONGLE_P = {"vid": "10c4", "pid": "ea60", "manufacturer": "ITead", "product": "Sonoff Zigbee 3.0 USB Dongle Plus", "serial": "e8b1"}
+DONGLE_P_BY_ID = "usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_e8b1d2c3a4f5ed11a2b3c4d5e6f70809-if00-port0"
 
 
 class UsbScanTests(unittest.TestCase):
@@ -929,6 +931,219 @@ class AutoTests(unittest.TestCase):
                 env.write_text("ZIGBEE_ADAPTER_MODE=manual\nZIGBEE_ADAPTER=/dev/serial/by-id/usb-old\n")
                 agent.auto()
                 self.assertEqual(ran, [])
+
+
+    def run_auto(self, env_text, container, plug=True, by_id=DONGLE_P_BY_ID, descriptor=DONGLE_P):
+        """auto() with a fake tree and Docker; returns the Zigbee2MQTT actions it took."""
+        actions = []
+        with tempfile.TemporaryDirectory() as folder, FakeTree(Path(folder)) as tree:
+            root = Path(folder)
+            if plug:
+                tree.plug("ttyUSB0", by_id, descriptor)
+            port = str(tree.dev / "serial" / "by-id" / by_id)
+            env = self.setup_auto(tree, root, env_text.format(port=port))
+            with patch.object(agent, "ENV_FILE", env), patch.object(agent, "ROOT_DIR", root), patch.object(
+                agent, "STATE_DIR", root / "state"
+            ), patch.object(agent, "container_id", return_value="abc"), patch.object(
+                agent, "container_state", return_value=container
+            ), patch.object(agent, "read_bridge", return_value={"state": "offline", "coordinator": None, "deviceCount": None}), patch.object(
+                agent, "start_z2m", side_effect=lambda: actions.append("start")
+            ), patch.object(agent, "stop_z2m", side_effect=lambda: actions.append("stop")), patch.object(
+                agent, "run_install", side_effect=lambda target: actions.append("install")
+            ), patch.object(agent.subprocess, "run"):
+                self.assertEqual(agent.auto(), 0)
+        return actions
+
+    def test_a_key_chosen_in_the_app_restarts_zigbee2mqtt_when_plugged_back(self):
+        # ZBDongle-P (zstack) and ZBDongle-E (ember) installed from the app are in manual mode.
+        chosen = "ZIGBEE_ADAPTER_MODE=manual\nZIGBEE_ADAPTER={port}\nZIGBEE_ADAPTER_TYPE=%s\n"
+        for technology, by_id, descriptor in (
+            ("zstack", DONGLE_P_BY_ID, DONGLE_P),
+            ("ember", "usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_abc-if00-port0", DONGLE),
+        ):
+            with self.subTest(technology):
+                for container in ("stopped", "missing", "restarting"):
+                    self.assertEqual(self.run_auto(chosen % technology, container, by_id=by_id, descriptor=descriptor), ["start"])
+                self.assertEqual(self.run_auto(chosen % technology, "running", by_id=by_id, descriptor=descriptor), [])
+
+    def test_a_key_chosen_at_installation_restarts_zigbee2mqtt_when_plugged_back(self):
+        automatic = "ZIGBEE_ADAPTER_MODE=auto\nZIGBEE_ADAPTER={port}\nZIGBEE_ADAPTER_TYPE=zstack\n"
+        self.assertEqual(self.run_auto(automatic, "stopped"), ["start"])
+
+    def test_an_unplugged_key_stops_zigbee2mqtt_instead_of_a_restart_loop(self):
+        for mode in ("manual", "auto"):
+            env = f"ZIGBEE_ADAPTER_MODE={mode}\nZIGBEE_ADAPTER={{port}}\nZIGBEE_ADAPTER_TYPE=zstack\n"
+            with self.subTest(mode):
+                self.assertEqual(self.run_auto(env, "restarting", plug=False), ["stop"])
+                self.assertEqual(self.run_auto(env, "stopped", plug=False), [])
+
+    def test_no_key_ever_configured_starts_nothing(self):
+        env = "ZIGBEE_ADAPTER_MODE=auto\nZIGBEE_ADAPTER=/dev/null\nZIGBEE_ADAPTER_TYPE=auto\n"
+        self.assertEqual(self.run_auto(env, "missing", plug=False), ["stop"])
+
+
+FAKE_DOCKER = r"""#!/usr/bin/env bash
+# Records every call and behaves like Docker for the Zigbee2MQTT container only.
+d="$FAKE_DOCKER_DIR"
+printf '%s\n' "$*" >> "$d/calls"
+args=("$@")
+env_file=""
+for ((i = 0; i < ${#args[@]}; i++)); do
+  [[ "${args[i]}" == --env-file ]] && env_file="${args[i + 1]}"
+done
+case " $* " in
+  *" ps -a -q zigbee2mqtt "* | *" ps -q zigbee2mqtt "*) [[ ! -f "$d/state" ]] || echo z2m ;;
+  *" inspect -f {{.State.Status}} z2m "*) [[ ! -f "$d/state" ]] || cat "$d/state" ;;
+  *" up "*)
+    adapter="$(sed -n 's/^ZIGBEE_ADAPTER=//p' "$env_file" | tail -n 1)"
+    if [[ " $* " == *" --scale zigbee2mqtt=0 "* ]]; then
+      rm -f "$d/state"
+    elif [[ -n "$adapter" && "$adapter" != /dev/null && ! -e "$adapter" ]]; then
+      echo "Error response from daemon: error gathering device information while adding custom device \"$adapter\": no such file or directory" >&2
+      exit 1
+    else
+      echo running > "$d/state"
+    fi
+    ;;
+  *" stop zigbee2mqtt "*) [[ ! -f "$d/state" ]] || echo exited > "$d/state" ;;
+esac
+exit 0
+"""
+
+
+def fake_bin(folder: Path) -> Path:
+    bin_dir = folder / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "docker").write_text(FAKE_DOCKER)
+    (bin_dir / "udevadm").write_text("#!/bin/sh\nexit 0\n")
+    (bin_dir / "elise-zigbee-agent").write_text(f'#!/bin/sh\nexec python3 "{HERE / "elise-zigbee-agent.py"}" "$@"\n')
+    for item in bin_dir.iterdir():
+        item.chmod(0o755)
+    return bin_dir
+
+
+class UdevReplugTests(unittest.TestCase):
+    """Runs the very script udev starts (elise-zigbee-setup) with the real agent and a fake Docker."""
+
+    def replug(self, env_text, by_id, descriptor):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            tree = FakeTree(root)
+            (root / "releases" / "v1").mkdir(parents=True)
+            (root / "current").symlink_to(root / "releases" / "v1")
+            docker = root / "docker"
+            docker.mkdir()
+            env = root / "elise.env"
+            port = tree.dev / "serial" / "by-id" / by_id
+            env.write_text("ELISE_VERSION=v1\n" + env_text.format(port=port))
+            bin_dir = fake_bin(root)
+            environment = {
+                **os.environ,
+                "PATH": f"{bin_dir}:{os.environ['PATH']}",
+                "FAKE_DOCKER_DIR": str(docker),
+                "ELISE_ROOT_DIR": str(root),
+                "ELISE_CONFIG_FILE": str(env),
+                "ELISE_ZIGBEE_STATE_DIR": str(root / "state"),
+                "ELISE_DEV_ROOT": str(tree.dev),
+                "ELISE_SYS_ROOT": str(tree.sys),
+                "ELISE_PROC_ROOT": str(tree.proc),
+                "ELISE_ZIGBEE_AGENT": str(bin_dir / "elise-zigbee-agent"),
+                "ELISE_ZIGBEE_MODELS_FILE": str(HERE / "elise-zigbee-adapters.json"),
+            }
+
+            def udev_event():
+                (docker / "calls").write_text("")
+                subprocess.run(["bash", str(HERE / "elise-zigbee-setup.sh")], env=environment, check=True, timeout=60)
+                return (docker / "calls").read_text()
+
+            # Running with the key, then unplugged: Zigbee2MQTT crashes and Docker restarts it in a loop.
+            (docker / "state").write_text("restarting\n")
+            self.assertIn("stop zigbee2mqtt", udev_event())
+            self.assertEqual((docker / "state").read_text().strip(), "exited")
+            # Plugged back in: the container is created again on the key.
+            tree.plug("ttyUSB0", by_id, descriptor)
+            self.assertIn("up -d --no-deps --force-recreate zigbee2mqtt", udev_event())
+            self.assertEqual((docker / "state").read_text().strip(), "running")
+            # Another event while it runs changes nothing.
+            self.assertNotIn(" up ", udev_event())
+            self.assertEqual(agent.read_env(env)["ZIGBEE_ADAPTER"], str(port))
+
+    def test_zbdongle_p_chosen_in_the_app(self):
+        self.replug(
+            "ZIGBEE_ADAPTER_MODE=manual\nZIGBEE_ADAPTER={port}\nZIGBEE_ADAPTER_TYPE=zstack\nZIGBEE_BAUDRATE=115200\n",
+            DONGLE_P_BY_ID,
+            DONGLE_P,
+        )
+
+    def test_zbdongle_e_chosen_in_the_app(self):
+        self.replug(
+            "ZIGBEE_ADAPTER_MODE=manual\nZIGBEE_ADAPTER={port}\nZIGBEE_ADAPTER_TYPE=ember\n",
+            "usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_abc-if00-port0",
+            DONGLE,
+        )
+
+    def test_key_chosen_at_installation(self):
+        self.replug(
+            "ZIGBEE_ADAPTER_MODE=auto\nZIGBEE_ADAPTER={port}\nZIGBEE_ADAPTER_TYPE=zstack\n",
+            DONGLE_P_BY_ID,
+            DONGLE_P,
+        )
+
+
+INSTALLER = HERE.parent / "install" / "install-elise.sh"
+
+
+class UpdateWithUnpluggedKeyTests(unittest.TestCase):
+    """`elise update` starts the stack through install-elise.sh: an unplugged key must not cancel it."""
+
+    def start_stack(self, env_text):
+        source = INSTALLER.read_text(encoding="utf-8")
+        function = re.search(r"^zigbee_key_unplugged\(\) \{\n.*?^\}\n", source, re.S | re.M).group(0)
+        block = re.search(r"^stack_up=\(up -d\)\n.*?^fi\n", source, re.S | re.M).group(0)
+        self.assertIn('if ! "${compose[@]}" "${stack_up[@]}"; then', source)
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            env = root / "elise.env"
+            env.write_text(env_text.format(missing=root / "serial" / "by-id" / "usb-gone"))
+            docker = root / "docker"
+            docker.mkdir()
+            (docker / "state").write_text("exited\n")
+            bin_dir = fake_bin(root)
+            script = (
+                "set -euo pipefail\n" + function + f'ELISE_CONFIG="{root}"\n' + block
+                + f'compose=(docker compose --project-name elise-os --env-file "{env}")\n'
+                + '"${compose[@]}" "${stack_up[@]}"\n'
+            )
+            result = subprocess.run(
+                ["bash", "-c", script],
+                env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "FAKE_DOCKER_DIR": str(docker)},
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            return result, (docker / "calls").read_text()
+
+    def test_unplugged_key_leaves_zigbee2mqtt_stopped_and_starts_the_rest(self):
+        result, calls = self.start_stack("ZIGBEE_ADAPTER_MODE=manual\nZIGBEE_ADAPTER={missing}\nZIGBEE_ADAPTER_TYPE=zstack\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("up -d --scale zigbee2mqtt=0", calls)
+
+    def test_no_key_or_a_network_key_starts_everything(self):
+        for env in (
+            "ZIGBEE_ADAPTER_MODE=auto\nZIGBEE_ADAPTER=/dev/null\nZIGBEE_ADAPTER_TYPE=auto\n",
+            "ZIGBEE_ADAPTER_TYPE=auto\n",
+            "ZIGBEE_ADAPTER_MODE=manual\nZIGBEE_ADAPTER=/dev/null\nZIGBEE_SERIAL_PORT=tcp://10.0.0.5:6638\n",
+        ):
+            with self.subTest(env):
+                result, calls = self.start_stack(env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertNotIn("--scale", calls)
+
+    def test_rollback_also_tolerates_an_unplugged_key(self):
+        source = INSTALLER.read_text(encoding="utf-8")
+        restore = re.search(r"^restore_previous\(\) \{\n.*?^\}\n", source, re.S | re.M).group(0)
+        self.assertIn('zigbee_key_unplugged "$previous_env"', restore)
+        self.assertNotRegex(source, r'compose\[@\]\}" up -d\n')
 
 
 class ServiceFilesTests(unittest.TestCase):

@@ -342,6 +342,15 @@ install_host_files() {
   udevadm control --reload-rules 2>/dev/null || true
 }
 
+# A USB Zigbee key unplugged during an update must not cancel it: Docker refuses to create a
+# container whose device is missing. Zigbee2MQTT then stays stopped while the rest of the stack
+# starts, and elise-zigbee-setup (started by udev) runs it again when the key is plugged back in.
+zigbee_key_unplugged() {
+  local adapter
+  adapter="$(sed -n 's/^ZIGBEE_ADAPTER=//p' "$1" 2>/dev/null | tail -n 1)"
+  [[ -n "$adapter" && "$adapter" != /dev/null && "$adapter" != tcp://* && ! -e "$adapter" ]]
+}
+
 restore_previous_files() {
   restore_on_exit=false
   [[ -n "$previous" ]] || return 0
@@ -366,7 +375,9 @@ restore_previous() {
       echo "La restauration de la base doit être vérifiée manuellement : $rollback_dump" >&2
     fi
   fi
-  "${old_compose[@]}" up -d
+  local old_up=(up -d)
+  ! zigbee_key_unplugged "$previous_env" || old_up+=(--scale zigbee2mqtt=0)
+  "${old_compose[@]}" "${old_up[@]}"
 }
 
 install_host_files "$release_dir"
@@ -436,10 +447,15 @@ elif [[ -n "$GITHUB_TOKEN" ]]; then
     || fail "authentification GHCR impossible avec le compte bot"
   export DOCKER_CONFIG="$docker_config_dir"
 fi
+stack_up=(up -d)
+if zigbee_key_unplugged "$ELISE_CONFIG/elise.env"; then
+  echo "→ Clé Zigbee débranchée : Zigbee repartira dès qu’elle sera rebranchée"
+  stack_up+=(--scale zigbee2mqtt=0)
+fi
 if [[ "$VERSION" == dev ]]; then
   progress "Construction des composants Élise"
   containers_changed=true
-  pull_or_build=(up -d --build)
+  pull_or_build=("${stack_up[@]}" --build)
 else
   progress "Téléchargement des composants Élise"
   pull_or_build=(pull)
@@ -466,7 +482,7 @@ docker ps -a --format '{{.Names}}' \
   | grep -E '^[0-9a-f]{12}_elise-os-' \
   | xargs -r docker rm -f >/dev/null || true
 containers_changed=true
-if ! "${compose[@]}" up -d; then
+if ! "${compose[@]}" "${stack_up[@]}"; then
   "${compose[@]}" down || true
   restore_previous
   fail "le démarrage a échoué ; la version précédente a été restaurée"
