@@ -1713,6 +1713,7 @@
     "queue": {
       "previousInstalled": "{{name}} está instalado en {{room}}. Este es el siguiente dispositivo encontrado en la misma búsqueda.",
       "remaining_one": "Queda 1 dispositivo más por nombrar después de este.",
+      "remaining_many": "Quedan {{count}} dispositivos más por nombrar después de este.",
       "remaining_other": "Quedan {{count}} dispositivos más por nombrar después de este."
     }
   },

@@ -1899,7 +1899,13 @@
     "whereWillYouInstallIt": "Onde pretende instalá-lo?",
     "whichRoom": "Em que divisão?",
     "wrongTarget": "Este dispositivo não é adequado à localização escolhida. Escolha um sensor adequado e repita a pesquisa.",
-    "yourSensorIsReady": "O seu sensor está pronto"
+    "yourSensorIsReady": "O seu sensor está pronto",
+    "queue": {
+      "previousInstalled": "{{name}} está instalado em {{room}}. Eis o aparelho seguinte encontrado na mesma pesquisa.",
+      "remaining_one": "Falta dar nome a mais 1 aparelho depois deste.",
+      "remaining_many": "Falta dar nome a mais {{count}} aparelhos depois deste.",
+      "remaining_other": "Falta dar nome a mais {{count}} aparelhos depois deste."
+    }
   },
   "service": {
     "localNetworkDiscoveryIsUnavailable": "A deteção na rede local não está disponível neste dispositivo."
