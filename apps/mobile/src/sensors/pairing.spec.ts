@@ -342,3 +342,104 @@ describe('pairing controller: installing', () => {
     expect(controller.getState().phase).toBe('DONE');
   });
 });
+
+describe('pairing controller: several sensors found by one search', () => {
+  const other = (id: string, name: string) => ({ ...detected, id, name }) as never;
+  const sessionFor = (id: string, deviceId: string, name: string, pending: string[]) =>
+    session({
+      id,
+      status: 'DEVICE_FOUND',
+      detectedDevice: other(deviceId, name),
+      pendingDevices: pending.map((pendingId) => other(pendingId, pendingId)),
+    });
+
+  it('offers every device of the search one after the other, then ends', async () => {
+    const first = sessionFor('session-1', 'device-1', 'Door', ['device-2', 'device-3']);
+    const second = sessionFor('session-2', 'device-2', 'Window', ['device-3']);
+    const third = sessionFor('session-3', 'device-3', 'Motion', []);
+    const complete = vi
+      .fn()
+      .mockResolvedValueOnce({ sessionId: 'session-1', nextSession: second })
+      .mockResolvedValueOnce({ sessionId: 'session-2', nextSession: third })
+      .mockResolvedValueOnce({ sessionId: 'session-3', nextSession: null });
+    const { controller, api } = setup({ start: vi.fn().mockResolvedValue(first), complete });
+    await controller.init();
+    await controller.start();
+    expect(controller.getState().session?.pendingDevices).toHaveLength(2);
+
+    await controller.finish({ name: 'Door', roomId: 'hall' }, 'Hall', true);
+    expect(controller.getState()).toMatchObject({
+      phase: 'FOUND',
+      session: { id: 'session-2', detectedDevice: { id: 'device-2' } },
+      queue: { installed: 1, intentUsed: true, previous: { name: 'Door', room: 'Hall' } },
+    });
+
+    await controller.finish({ name: 'Window', roomId: 'hall' }, 'Hall', false);
+    expect(controller.getState()).toMatchObject({
+      phase: 'FOUND',
+      session: { id: 'session-3' },
+      queue: { installed: 2, intentUsed: true, previous: { name: 'Window' } },
+    });
+
+    await controller.finish({ name: 'Motion', roomId: 'hall' }, 'Hall', false);
+    expect(controller.getState()).toMatchObject({
+      phase: 'DONE',
+      installed: { name: 'Motion', room: 'Hall' },
+    });
+    expect(complete.mock.calls.map(([id]) => id)).toEqual(['session-1', 'session-2', 'session-3']);
+    // Leaving at the end never cancels an installed device.
+    await controller.close();
+    expect(api.cancel).not.toHaveBeenCalled();
+  });
+
+  it('waits for a device of the same search that is still finishing its interview', async () => {
+    const first = sessionFor('session-1', 'device-1', 'Door', []);
+    const waiting = session({
+      id: 'session-2',
+      connection: { online: true, pairingOpen: false, deviceDetected: true, updatedAt: null },
+    });
+    const { controller, api } = setup({
+      start: vi.fn().mockResolvedValue(first),
+      complete: vi.fn().mockResolvedValue({ nextSession: waiting }),
+      get: vi.fn().mockResolvedValue(sessionFor('session-2', 'device-2', 'Window', [])),
+    });
+    await controller.init();
+    await controller.start();
+    await controller.finish({ name: 'Door', roomId: 'hall' }, 'Hall');
+    expect(controller.getState()).toMatchObject({ phase: 'SEARCH', session: { id: 'session-2' } });
+    await advance(1300);
+    expect(api.get).toHaveBeenCalledWith('session-2', expect.anything());
+    expect(controller.getState()).toMatchObject({
+      phase: 'FOUND',
+      session: { detectedDevice: { id: 'device-2' } },
+      queue: { installed: 1 },
+    });
+  });
+
+  it('finds the next device after a lost answer by asking for the current installation', async () => {
+    const first = sessionFor('session-1', 'device-1', 'Door', ['device-2']);
+    const second = sessionFor('session-2', 'device-2', 'Window', []);
+    const { controller } = setup({
+      start: vi.fn().mockResolvedValue(first),
+      complete: vi.fn().mockRejectedValue(new Error('network')),
+      get: vi.fn().mockResolvedValue(session({ status: 'COMPLETED' })),
+      current: vi.fn().mockResolvedValueOnce(null).mockResolvedValue(second),
+    });
+    await controller.init();
+    await controller.start();
+    await controller.finish({ name: 'Door', roomId: 'hall' }, 'Hall');
+    expect(controller.getState()).toMatchObject({ phase: 'FOUND', session: { id: 'session-2' } });
+  });
+
+  it('ends as before with a box that does not know the queue', async () => {
+    const { controller, api } = setup({
+      start: vi.fn().mockResolvedValue(found()),
+      complete: vi.fn().mockResolvedValue({ sessionId: 'session-1', device: detected }),
+    });
+    await controller.init();
+    await controller.start();
+    await controller.finish({ name: 'Hall door', roomId: 'hall' }, 'Hall');
+    expect(controller.getState().phase).toBe('DONE');
+    expect(api.current).toHaveBeenCalledTimes(1); // only the initial check
+  });
+});
