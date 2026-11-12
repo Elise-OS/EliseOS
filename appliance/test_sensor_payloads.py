@@ -30,6 +30,17 @@ class RealZigbeePayloadTests(unittest.TestCase):
         for action in ("single", "double", "long"):
             self.assertEqual(mapping.payload("button", "2026-11-11T18:00:00Z", {"event_type": action}), {"action": action})
 
+    def test_sonoff_snzb_01p_event_entity_reports_every_press_type(self):
+        # Z2M 2.13 (zigbee-herdsman-converters 26.90.0, ewelinkAction) exposes exactly
+        # single/double/long; the API raises an SOS for all of them on an assistance button.
+        attributes = {"event_types": ["single", "double", "long"], "friendly_name": "Bouton salon Action"}
+        self.assertEqual(mapping.capability("event.bouton_salon_action", None), "button")
+        for action in attributes["event_types"]:
+            self.assertEqual(
+                mapping.payload("button", "2026-11-12T08:00:00.000+00:00", {**attributes, "event_type": action}),
+                {"action": action},
+            )
+
     def test_unrelated_home_assistant_event_is_not_a_button(self):
         self.assertIsNone(mapping.capability("event.calendar_reminder", None))
 
