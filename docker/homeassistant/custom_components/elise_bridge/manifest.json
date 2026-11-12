@@ -1,7 +1,7 @@
 {
   "domain": "elise_bridge",
   "name": "Élise Bridge",
-  "version": "0.1.29",
+  "version": "0.1.30",
   "documentation": "https://github.com/elise-os/elise-os",
   "iot_class": "local_push",
   "requirements": ["paho-mqtt==2.1.0"],
