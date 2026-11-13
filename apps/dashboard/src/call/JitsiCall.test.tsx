@@ -154,6 +154,34 @@ describe('Élise call screen driven by Jitsi', () => {
     expect(onHangup).toHaveBeenCalledTimes(1);
   });
 
+  it('never lets a room still opening join once the call was hung up', async () => {
+    vi.useFakeTimers();
+    try {
+      const onHangup = await open();
+      await step(() => button('Raccrocher').click());
+      expect(onHangup).toHaveBeenCalledTimes(1);
+      await step(() => vi.runOnlyPendingTimers());
+      expect(jitsi().disposed).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('leaves a joined room before closing Jitsi', async () => {
+    vi.useFakeTimers();
+    try {
+      await open();
+      await emit('videoConferenceJoined');
+      await step(() => button('Raccrocher').click());
+      await emit('readyToClose');
+      expect(jitsi().disposed).toBe(false);
+      await step(() => vi.advanceTimersByTime(2_000));
+      expect(jitsi().disposed).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('leaves the room quietly when the other side ended the call', async () => {
     const onHangup = await open();
     await emit('videoConferenceJoined');

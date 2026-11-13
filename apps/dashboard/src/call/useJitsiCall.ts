@@ -227,6 +227,23 @@ export function useJitsiCall({ join, host, devices, onHungUp }: JitsiCallOptions
     hungUp.current();
   }, [state.endedAt]);
 
+  // An ended call never stays in the room while "Call ended" is shown: a room still opening
+  // would otherwise join with the camera and microphone. A joined one gets time to leave.
+  useEffect(() => {
+    if (state.endedAt === null) return;
+    const timer = window.setTimeout(
+      () => {
+        api.current?.dispose();
+        api.current = undefined;
+      },
+      stateRef.current.joined ? HANGUP_GRACE_MS : 0,
+    );
+    return () => window.clearTimeout(timer);
+  }, [state.endedAt]);
+
+  const hangupTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(hangupTimer.current), []);
+
   const toggleAudio = useCallback(() => {
     if (stateRef.current.unavailable.microphone || !stateRef.current.joined) return;
     api.current?.executeCommand(ELISE_CALL_COMMANDS.toggleAudio);
@@ -245,7 +262,10 @@ export function useJitsiCall({ join, host, devices, onHungUp }: JitsiCallOptions
     dispatch({ type: 'hangup' });
     api.current.executeCommand(ELISE_CALL_COMMANDS.hangup);
     // Jitsi normally answers with videoConferenceLeft/readyToClose; never wait for it forever.
-    window.setTimeout(() => dispatch({ type: 'ended', at: Date.now() }), HANGUP_GRACE_MS);
+    hangupTimer.current = window.setTimeout(
+      () => dispatch({ type: 'ended', at: Date.now() }),
+      HANGUP_GRACE_MS,
+    );
   }, []);
   const retry = useCallback(() => {
     api.current?.dispose();
