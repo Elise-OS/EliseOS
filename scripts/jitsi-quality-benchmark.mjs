@@ -1,11 +1,18 @@
 import { chromium } from '@playwright/test';
+import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { createServer, request as httpRequest } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-import { eliseCallConfig } from '../packages/contracts/dist/index.js';
+import { promisify } from 'node:util';
+import {
+  callMediaAccessFromPermission,
+  eliseCallConfig,
+} from '../packages/contracts/dist/index.js';
+
+const execFileAsync = promisify(execFile);
 
 const option = (name, fallback) => {
   const index = process.argv.indexOf(`--${name}`);
@@ -18,6 +25,7 @@ const jitsiBackend = new URL(option('jitsi-backend', 'http://127.0.0.1:18183'));
 const tlsKey = option('tls-key');
 const tlsCert = option('tls-cert');
 const output = path.resolve(option('output', `test-results/jitsi-quality-${profile}.json`));
+const jvbPort = Number(process.env.JVB_PORT || 10000);
 const bundledChromium = chromium.executablePath();
 const cachedHeadlessShell =
   '/home/drsam/.cache/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell';
@@ -74,13 +82,27 @@ const config = profile === 'baseline' ? baselineCallConfig : eliseCallConfig;
 const room = `elisequality${Date.now()}`;
 const state = { participants: new Map() };
 
-const harness = (name) => `<!doctype html>
+const harness = (name, roomName) => `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
-<body><main id="meet"></main><script src="${jitsi.origin}/external_api.js"></script><script>
+<body><main id="meet"></main><script>
 const startedAt = Date.now();
 const events = [];
+const loadJitsi = () => new Promise((resolve, reject) => {
+  const script = document.createElement('script');
+  script.src = ${JSON.stringify(`${jitsi.origin}/external_api.js`)};
+  script.onload = resolve;
+  script.onerror = () => { script.remove(); reject(new Error('external_api.js failed')); };
+  document.head.append(script);
+});
+async function start() {
+for (let attempt = 0; attempt < 5 && !window.JitsiMeetExternalAPI; attempt += 1) {
+  try { await loadJitsi(); } catch (error) {
+    if (attempt === 4) throw error;
+    await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+  }
+}
 const api = new JitsiMeetExternalAPI(${JSON.stringify(jitsi.host)}, {
-  roomName: ${JSON.stringify(room)},
+  roomName: ${JSON.stringify(roomName)},
   parentNode: document.getElementById('meet'),
   width: 960,
   height: 540,
@@ -100,6 +122,11 @@ for (const event of ['videoConferenceJoined', 'participantJoined', 'participantL
   });
 }
 window.benchmark = { api, events, startedAt };
+}
+start().catch(error => {
+  document.body.dataset.benchmarkError = 'true';
+  console.error(error);
+});
 </script></body></html>`;
 
 if (!tlsKey || !tlsCert) throw new Error('--tls-key and --tls-cert are required');
@@ -126,12 +153,13 @@ await new Promise((resolve) => proxy.listen(Number(jitsi.port), jitsi.hostname, 
 const server = createServer((request, response) => {
   const url = new URL(request.url || '/', 'http://127.0.0.1');
   const name = url.searchParams.get('name') || 'participant';
+  const roomName = url.searchParams.get('room') || room;
   response.writeHead(200, {
     'content-type': 'text/html; charset=utf-8',
     'permissions-policy': `camera=(self "${jitsi.origin}"), microphone=(self "${jitsi.origin}")`,
     'cache-control': 'no-store',
   });
-  response.end(harness(name));
+  response.end(harness(name, roomName));
 });
 
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -193,7 +221,8 @@ const statsSnapshot = async (page) => {
     const peers = window.__elisePeerConnections || [];
     const records = [];
     for (const peer of peers) {
-      for (const report of (await peer.getStats()).values()) {
+      const stats = await peer.getStats();
+      for (const report of stats.values()) {
         if (report.type === 'inbound-rtp' && report.kind === 'video' && !report.isRemote) {
           records.push({
             direction: 'inbound',
@@ -221,10 +250,20 @@ const statsSnapshot = async (page) => {
           });
         }
         if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.nominated) {
+          const local = stats.get(report.localCandidateId);
+          const remote = stats.get(report.remoteCandidateId);
           records.push({
             direction: 'transport',
+            bytes: (report.bytesReceived || 0) + (report.bytesSent || 0),
             currentRoundTripTime: report.currentRoundTripTime || 0,
             availableOutgoingBitrate: report.availableOutgoingBitrate || 0,
+            localCandidateType: local?.candidateType || 'unknown',
+            localAddress: local?.address || local?.ip || 'unknown',
+            localPort: local?.port || 0,
+            remoteCandidateType: remote?.candidateType || 'unknown',
+            remoteAddress: remote?.address || remote?.ip || 'unknown',
+            remotePort: remote?.port || 0,
+            protocol: report.protocol || local?.protocol || remote?.protocol || 'unknown',
           });
         }
       }
@@ -319,8 +358,156 @@ const summarize = (name) => {
     outboundResolution: `${outgoingAfter?.width || 0}x${outgoingAfter?.height || 0}`,
     qualityLimitationReason: outgoingAfter?.qualityLimitationReason || 'unknown',
     roundTripMs: Math.round((transport?.currentRoundTripTime || 0) * 1000),
+    transport: transport?.remotePort === jvbPort ? 'jvb' : 'p2p',
+    localCandidate: `${transport?.localCandidateType || 'unknown'}:${transport?.localAddress || 'unknown'}:${transport?.localPort || 0}`,
+    remoteCandidate: `${transport?.remoteCandidateType || 'unknown'}:${transport?.remoteAddress || 'unknown'}:${transport?.remotePort || 0}`,
   };
 };
+
+const onlineStats = await statsSnapshot(second.page);
+const onlineBytes = active(onlineStats, 'inbound')?.bytes || 0;
+const networkTransport = active(onlineStats, 'transport');
+const nftTable = process.env.ELISE_BENCH_NFT_TABLE;
+if (!nftTable || networkTransport?.protocol !== 'udp' || !networkTransport.localPort)
+  throw new Error('cannot isolate the active ICE transport for the network-cut test');
+const nft = (...args) => execFileAsync('sudo', ['-n', 'nft', ...args]);
+await nft(
+  'add',
+  'rule',
+  'inet',
+  nftTable,
+  'bench_output',
+  'udp',
+  'sport',
+  String(networkTransport.localPort),
+  'drop',
+);
+await nft(
+  'add',
+  'rule',
+  'inet',
+  nftTable,
+  'bench_input',
+  'udp',
+  'dport',
+  String(networkTransport.localPort),
+  'drop',
+);
+let offlineStats;
+try {
+  await second.context.setOffline(true);
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+  offlineStats = await statsSnapshot(second.page);
+} finally {
+  await Promise.all([
+    nft('flush', 'chain', 'inet', nftTable, 'bench_output'),
+    nft('flush', 'chain', 'inet', nftTable, 'bench_input'),
+  ]);
+  await second.context.setOffline(false);
+}
+const offlineBytes = active(offlineStats, 'inbound')?.bytes || 0;
+const mediaBytesDuringOfflineWindow = Math.max(0, offlineBytes - onlineBytes);
+if (mediaBytesDuringOfflineWindow > 50_000)
+  throw new Error(`network cut still carried ${mediaBytesDuringOfflineWindow} media bytes`);
+const restoredAt = Date.now();
+let networkRecoveryMs = null;
+while (Date.now() - restoredAt < 45_000) {
+  try {
+    const recovered = active(await statsSnapshot(second.page), 'inbound');
+    if (recovered && recovered.bytes > offlineBytes + 10_000) {
+      networkRecoveryMs = Date.now() - restoredAt;
+      break;
+    }
+  } catch {
+    // A forced Jitsi reload briefly removes the iframe; keep measuring until it comes back.
+  }
+  await new Promise((resolve) => setTimeout(resolve, 250));
+}
+if (networkRecoveryMs === null) throw new Error('media did not recover after the network cut');
+
+const hangupAt = Date.now();
+await second.page.evaluate(() => window.benchmark.api.executeCommand('hangup'));
+await first.page.waitForFunction(
+  (after) =>
+    window.benchmark.events.some((event) => event.event === 'participantLeft' && event.at >= after),
+  hangupAt,
+  { timeout: 15_000 },
+);
+const remoteHangupEventMs = Date.now() - hangupAt;
+
+for (const participant of state.participants.values()) await participant.context.close();
+state.participants.clear();
+
+const deniedBrowser = await chromium.launch({
+  executablePath: chromiumPath,
+  headless: true,
+  args: [
+    '--use-fake-device-for-media-stream',
+    '--autoplay-policy=no-user-gesture-required',
+    '--no-sandbox',
+  ],
+});
+const denyMediaPermission = async (permission) => {
+  const context = await deniedBrowser.newContext({
+    viewport: { width: 1280, height: 720 },
+    ignoreHTTPSErrors: true,
+  });
+  const allowed = permission === 'camera' ? 'microphone' : 'camera';
+  await context.grantPermissions([allowed], { origin: harnessOrigin });
+  await context.grantPermissions([allowed], { origin: jitsi.origin });
+  const page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
+  for (const origin of [harnessOrigin, jitsi.origin])
+    await cdp.send('Browser.setPermission', {
+      permission: { name: permission },
+      setting: 'denied',
+      origin,
+    });
+  await page.goto(
+    `${harnessOrigin}/?name=${permission}-denied&room=${encodeURIComponent(`${room}${permission}`)}`,
+  );
+  const browserError = await page.evaluate(async (denied) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: denied === 'camera',
+        audio: denied === 'microphone',
+      });
+      stream.getTracks().forEach((track) => track.stop());
+      return null;
+    } catch (error) {
+      return { name: error.name, message: error.message };
+    }
+  }, permission);
+  const permissionState = await page.evaluate(
+    (denied) => navigator.permissions.query({ name: denied }).then((status) => status.state),
+    permission,
+  );
+  if (permissionState !== 'denied')
+    throw new Error(`${permission} permission state is ${permissionState}, expected denied`);
+  const eventName = permission === 'camera' ? 'cameraError' : 'micError';
+  await page.waitForFunction(
+    (expected) => window.benchmark.events.some((event) => event.event === expected),
+    eventName,
+    { timeout: 30_000 },
+  );
+  const event = await page.evaluate(
+    (expected) => window.benchmark.events.find((item) => item.event === expected),
+    eventName,
+  );
+  await context.close();
+  return {
+    permission,
+    permissionState,
+    browserError,
+    runtimeAccess: callMediaAccessFromPermission(permissionState, browserError),
+    event: event.event,
+    payload: event.payload,
+  };
+};
+const permissionEvents = [];
+for (const permission of ['camera', 'microphone'])
+  permissionEvents.push(await denyMediaPermission(permission));
+await deniedBrowser.close();
 
 const result = {
   generatedAt: new Date().toISOString(),
@@ -341,13 +528,18 @@ const result = {
     resident: summarize('resident'),
     caregiver: summarize('caregiver'),
   },
+  reliability: {
+    mediaBytesDuringOfflineWindow,
+    networkRecoveryMs,
+    remoteHangupEventMs,
+    permissionEvents,
+  },
 };
 
 await mkdir(path.dirname(output), { recursive: true });
 await writeFile(output, `${JSON.stringify(result, null, 2)}\n`);
 process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 
-for (const participant of state.participants.values()) await participant.context.close();
 await browser.close();
 await new Promise((resolve) => server.close(resolve));
 await new Promise((resolve) => proxy.close(resolve));

@@ -66,6 +66,16 @@ export function callMediaAccessFromError(error: unknown): EliseCallMediaAccess {
   return /denied|notallowed|permission|security/i.test(value) ? 'denied' : 'unavailable';
 }
 
+/** Permission API state takes precedence because Jitsi may wrap denials as a generic GUM error. */
+export function callMediaAccessFromPermission(
+  permission: 'granted' | 'prompt' | 'denied' | 'unsupported',
+  error?: unknown,
+): EliseCallMediaAccess {
+  if (permission === 'denied') return 'denied';
+  if (permission === 'granted' && error === undefined) return 'available';
+  return error === undefined ? 'unknown' : callMediaAccessFromError(error);
+}
+
 export function eliseCallReconnectDelay(attempt: number): number | null {
   return ELISE_CALL_RECONNECT_DELAYS_MS[attempt] ?? null;
 }
