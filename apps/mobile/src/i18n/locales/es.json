@@ -400,7 +400,13 @@
     "connectionTimeout": "La conexión a la videollamada tarda demasiado. Compruebe la red del teléfono y vuelva a intentarlo.",
     "noAnswer": "La pantalla de {{residentName}} no se ha unido a la llamada. Compruebe que está encendida y vuelva a intentarlo.",
     "connectionLost": "La conexión se perdió durante demasiado tiempo. Puede volver a llamar.",
-    "videoStopped": "El vídeo se detuvo de forma inesperada. Vuelva a intentarlo."
+    "videoStopped": "El vídeo se detuvo de forma inesperada. Vuelva a intentarlo.",
+    "speaker": "Altavoz",
+    "earpiece": "Auricular",
+    "useSpeaker": "Poner el sonido en el altavoz",
+    "useEarpiece": "Poner el sonido en el auricular",
+    "unableToSwitchSpeaker": "No se puede cambiar",
+    "theSoundCouldNotBe": "No se pudo cambiar la salida del sonido. Sigue en la salida actual."
   },
   "mobileDateTimePicker": {
     "chooseTheDate": "Elegir la fecha",

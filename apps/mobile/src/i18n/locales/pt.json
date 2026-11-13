@@ -408,7 +408,13 @@
     "videoCall": "VIDEOCHAMADA",
     "videoStopped": "O vídeo parou inesperadamente. Tente novamente.",
     "waitingDetail": "O ecrã vai atender dentro de instantes.",
-    "waitingFor": "À espera de {{residentName}}…"
+    "waitingFor": "À espera de {{residentName}}…",
+    "speaker": "Altifalante",
+    "earpiece": "Auscultador",
+    "useSpeaker": "Pôr o som no altifalante",
+    "useEarpiece": "Pôr o som no auscultador",
+    "unableToSwitchSpeaker": "Não foi possível mudar",
+    "theSoundCouldNotBe": "Não foi possível mudar a saída do som. Continua na saída atual."
   },
   "mobileDateTimePicker": {
     "chooseTheDate": "Escolher a data",

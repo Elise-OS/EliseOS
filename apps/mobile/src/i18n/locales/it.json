@@ -400,7 +400,13 @@
     "connectionTimeout": "Il collegamento alla videochiamata richiede troppo tempo. Controlli la rete del telefono, poi riprovi.",
     "noAnswer": "Lo schermo di {{residentName}} non è entrato nella chiamata. Controlli che sia acceso, poi riprovi.",
     "connectionLost": "La connessione è stata persa troppo a lungo. Può richiamare.",
-    "videoStopped": "Il video si è interrotto in modo imprevisto. Riprovi."
+    "videoStopped": "Il video si è interrotto in modo imprevisto. Riprovi.",
+    "speaker": "Vivavoce",
+    "earpiece": "Auricolare",
+    "useSpeaker": "Metti il suono in vivavoce",
+    "useEarpiece": "Metti il suono nell’auricolare",
+    "unableToSwitchSpeaker": "Cambio non riuscito",
+    "theSoundCouldNotBe": "Non è stato possibile cambiare l’uscita del suono. Resta su quella attuale."
   },
   "mobileDateTimePicker": {
     "chooseTheDate": "Scelga la data",

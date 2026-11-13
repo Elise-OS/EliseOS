@@ -27,6 +27,9 @@ export type CallMessage =
   | { type: 'participant-left'; id: string }
   | { type: 'camera-switch'; available: boolean }
   | { type: 'camera-switch-error' }
+  /** More than one sound output (loudspeaker, earpiece…); speaker is null when unknown. */
+  | { type: 'audio-output'; available: boolean; speaker: boolean | null }
+  | { type: 'audio-output-error' }
   | { type: 'device-error'; kind: DeviceKind; problem: DeviceProblem }
   | { type: 'interrupted' }
   | { type: 'restored' }
@@ -54,6 +57,7 @@ export function parseCallMessage(data: string): CallMessage | null {
     case 'joined':
     case 'left':
     case 'camera-switch-error':
+    case 'audio-output-error':
     case 'interrupted':
     case 'restored':
     case 'failed':
@@ -87,6 +91,10 @@ export function parseCallMessage(data: string): CallMessage | null {
     case 'camera-switch':
       return isBool(message.available)
         ? { type: 'camera-switch', available: message.available }
+        : null;
+    case 'audio-output':
+      return isBool(message.available) && (message.speaker === null || isBool(message.speaker))
+        ? { type: 'audio-output', available: message.available, speaker: message.speaker }
         : null;
     case 'device-error':
       return (message.kind === 'camera' || message.kind === 'microphone') &&
@@ -133,6 +141,10 @@ export interface CallState {
   audioAvailable: boolean;
   videoAvailable: boolean;
   cameraSwitch: boolean;
+  /** The loudspeaker/earpiece button is offered (the WebView lists several sound outputs). */
+  speakerSwitch: boolean;
+  /** Sound on the loudspeaker (true), the earpiece (false) or unknown (null). */
+  speaker: boolean | null;
   /** Jitsi lost its media/signalling connection and is reconnecting. */
   interrupted: boolean;
   /** The phone has no network at all (NetInfo). */
@@ -157,6 +169,8 @@ export const initialCallState: CallState = {
   audioAvailable: true,
   videoAvailable: true,
   cameraSwitch: false,
+  speakerSwitch: false,
+  speaker: null,
   interrupted: false,
   offline: false,
   interruptedAt: null,
@@ -219,7 +233,14 @@ export function reduceCall(state: CallState, action: CallAction, now: number): C
     case 'camera-switch':
       return { ...state, cameraSwitch: action.available };
     case 'camera-switch-error':
+    case 'audio-output-error':
       return state;
+    case 'audio-output':
+      return {
+        ...state,
+        speakerSwitch: action.available,
+        speaker: action.available ? action.speaker : null,
+      };
     case 'device-error':
       if (action.kind === 'microphone')
         return {
@@ -354,6 +375,19 @@ export const SELF_VIEW = {
   portrait: { width: 104, height: 144 },
   landscape: { width: 148, height: 104 },
 };
+export const CONTROL_WIDTH = 80;
+export const CONTROL_GAP = 6;
+/** Never smaller than this: big enough for unsteady fingers. */
+export const MIN_CONTROL_CIRCLE = 56;
+
+/** Width of each control and of its circle so that every control fits on one row. */
+export function controlSizes(availableWidth: number, count: number) {
+  // Bar margins (12 + 12) and padding (12 + 12), gaps between controls.
+  const room = availableWidth - 48 - CONTROL_GAP * (count - 1);
+  const width = Math.max(MIN_CONTROL_CIRCLE, Math.min(CONTROL_WIDTH, Math.floor(room / count)));
+  return { width, circle: Math.max(MIN_CONTROL_CIRCLE, Math.min(62, width - 4)) };
+}
+
 /** Stage left free for the other person's video, in px from each edge of the screen. */
 export function callStage({
   width,

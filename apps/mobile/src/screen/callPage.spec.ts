@@ -53,12 +53,15 @@ describe('callPage', () => {
       'toggleAudio',
       'toggleVideo',
       'switchCamera',
+      'switchSpeaker',
       'hangup',
       'layout',
       'sync',
     ])
       expect(page.html).toContain(`${command}:`);
     expect(page.html).toContain("api.executeCommand('hangup')");
+    expect(page.html).toContain('api.setAudioOutputDevice(');
+    expect(page.html).toContain("'audio-output'");
     for (const event of [
       'videoConferenceJoined',
       'videoConferenceLeft',

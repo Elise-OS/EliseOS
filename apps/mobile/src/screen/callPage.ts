@@ -304,8 +304,46 @@ export function callPage(join: ScreenJoin) {
               var cameras=devices && devices.videoInput || [];
               send('camera-switch', {available:cameras.length > 1});
             }
+            // Loudspeaker or earpiece: only offered when the WebView names both kinds of output
+            // (a list of anonymous outputs says nothing about where the sound would go).
+            var SPEAKER=/speaker|haut-parleur|altavoz|altoparlante|altifalante/i;
+            var EARPIECE=/earpiece|receiver|handset|écouteur|auricular|auricolare|auscultador/i;
+            function isSpeaker(output){
+              var label=output && output.label || '';
+              return SPEAKER.test(label) ? true : EARPIECE.test(label) ? false : null;
+            }
+            function phoneOutputs(devices){
+              return (devices && devices.audioOutput || []).filter(function(output){ return isSpeaker(output)!==null; });
+            }
+            function reportOutputs(devices, current){
+              var outputs=phoneOutputs(devices);
+              var available=outputs.some(isSpeaker) && outputs.some(function(output){ return isSpeaker(output)===false; });
+              var speaker=available ? isSpeaker(current) : null;
+              // The default output of a phone is its loudspeaker during a video call.
+              if(available && speaker===null) speaker=true;
+              sendChanged('audio-output', {available:available, speaker:speaker});
+            }
             function refreshCameras(){
               api.getAvailableDevices().then(reportCameras).catch(function(){ send('camera-switch', {available:false}); });
+              refreshOutputs();
+            }
+            function refreshOutputs(){
+              Promise.all([api.getAvailableDevices(), api.getCurrentDevices()]).then(function(results){
+                reportOutputs(results[0], results[1] && results[1].audioOutput);
+              }).catch(function(){ sendChanged('audio-output', {available:false, speaker:null}); });
+            }
+            var switchingOutput=false;
+            function switchSpeaker(){
+              if(!api || switchingOutput) return;
+              switchingOutput=true;
+              Promise.all([api.getAvailableDevices(), api.getCurrentDevices()]).then(function(results){
+                var current=results[1] && results[1].audioOutput || {};
+                var wantSpeaker=isSpeaker(current)===false;
+                var next=phoneOutputs(results[0]).filter(function(output){ return isSpeaker(output)===wantSpeaker; })[0];
+                if(!next){ reportOutputs(results[0], current); return; }
+                return api.setAudioOutputDevice(next.label, next.deviceId);
+              }).catch(function(){ send('audio-output-error'); })
+                .then(function(){ switchingOutput=false; refreshOutputs(); });
             }
             var switchingCamera=false;
             function switchCamera(){
@@ -334,6 +372,7 @@ export function callPage(join: ScreenJoin) {
               toggleAudio:function(){ if(api) api.executeCommand('toggleAudio'); },
               toggleVideo:function(){ if(api) api.executeCommand('toggleVideo'); },
               switchCamera:switchCamera,
+              switchSpeaker:switchSpeaker,
               hangup:function(){
                 if(!api || !joined){ send('left'); return; }
                 try { api.executeCommand('hangup'); } catch (error) { send('left'); }
@@ -415,7 +454,7 @@ export function callPage(join: ScreenJoin) {
               api.addEventListener('errorOccurred', function(event){
                 if(event && event.error && event.error.isFatal) send('failed');
               });
-              api.addEventListener('deviceListChanged', function(event){ reportCameras(event && event.devices); });
+              api.addEventListener('deviceListChanged', function(event){ reportCameras(event && event.devices); refreshOutputs(); });
             };
             document.head.appendChild(script);
           })();

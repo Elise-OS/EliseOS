@@ -395,7 +395,13 @@
     "connectionTimeout": "Connecting to the video call is taking too long. Check the phone’s network, then try again.",
     "noAnswer": "{{residentName}}’s screen did not join the call. Check that it is switched on, then try again.",
     "connectionLost": "The connection was lost for too long. You can call again.",
-    "videoStopped": "The video stopped unexpectedly. Please try again."
+    "videoStopped": "The video stopped unexpectedly. Please try again.",
+    "speaker": "Speaker",
+    "earpiece": "Earpiece",
+    "useSpeaker": "Play the sound on the speaker",
+    "useEarpiece": "Play the sound on the earpiece",
+    "unableToSwitchSpeaker": "Unable to switch",
+    "theSoundCouldNotBe": "The sound could not be moved. It stays on the current output."
   },
   "mobileDateTimePicker": {
     "chooseTheDate": "Choose the date",

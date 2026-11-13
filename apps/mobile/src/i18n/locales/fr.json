@@ -400,7 +400,13 @@
     "connectionTimeout": "La connexion à la visio prend trop de temps. Vérifiez le réseau du téléphone, puis réessayez.",
     "noAnswer": "L’écran de {{residentName}} n’a pas rejoint l’appel. Vérifiez qu’il est allumé, puis réessayez.",
     "connectionLost": "La connexion a été perdue trop longtemps. Vous pouvez rappeler.",
-    "videoStopped": "La vidéo s’est arrêtée de façon inattendue. Réessayez."
+    "videoStopped": "La vidéo s’est arrêtée de façon inattendue. Réessayez.",
+    "speaker": "Haut-parleur",
+    "earpiece": "Écouteur",
+    "useSpeaker": "Mettre le son sur le haut-parleur",
+    "useEarpiece": "Mettre le son sur l’écouteur",
+    "unableToSwitchSpeaker": "Changement impossible",
+    "theSoundCouldNotBe": "Le son n’a pas pu changer de sortie. Il reste sur la sortie actuelle."
   },
   "mobileDateTimePicker": {
     "chooseTheDate": "Choisir la date",

@@ -35,8 +35,11 @@ import {
   type CallFailure,
   type CallPhase,
   type CallState,
+  CONTROL_GAP,
+  CONTROL_WIDTH,
   callPhase,
   callStage,
+  controlSizes,
   SELF_VIEW,
   failureMessageKey,
   formatCallDuration,
@@ -63,6 +66,7 @@ interface MobileCallOverlayProps {
 }
 
 const CONTROLS_HIDE_MS = 5000;
+
 const ENDED_CLOSE_MS = 2600;
 const HANGUP_TIMEOUT_MS = 2000;
 
@@ -299,6 +303,11 @@ export function MobileCallOverlay({
         t('mobileCallOverlay.unableToSwitchCamera'),
         t('mobileCallOverlay.theCameraCouldNotBe'),
       );
+    if (message.type === 'audio-output-error')
+      Alert.alert(
+        t('mobileCallOverlay.unableToSwitchSpeaker'),
+        t('mobileCallOverlay.theSoundCouldNotBe'),
+      );
     dispatch(message);
   };
 
@@ -309,7 +318,7 @@ export function MobileCallOverlay({
     else resetSession(true);
   };
 
-  const command = (name: 'toggleAudio' | 'toggleVideo' | 'switchCamera') => {
+  const command = (name: 'toggleAudio' | 'toggleVideo' | 'switchCamera' | 'switchSpeaker') => {
     touchControls();
     inject(webViewRef.current, `window.__eliseCall&&window.__eliseCall.${name}();`);
   };
@@ -349,6 +358,9 @@ export function MobileCallOverlay({
     right: insets.right + (landscape ? SELF_VIEW.landscape.width + 28 : 16),
   };
   const chromePointer = controlsShown ? 'box-none' : 'none';
+  const showFlip = call.cameraSwitch && !call.cameraProblem;
+  const controlCount = 3 + (showFlip ? 1 : 0) + (call.speakerSwitch ? 1 : 0);
+  const controlSize = controlSizes(width - insets.left - insets.right, controlCount);
 
   return (
     <Modal
@@ -587,6 +599,7 @@ export function MobileCallOverlay({
                     }
                     off={call.audioMuted === true}
                     disabled={call.audioMuted === null || !call.audioAvailable}
+                    size={controlSize}
                     onPress={() => command('toggleAudio')}
                   />
                   <CallControl
@@ -607,16 +620,35 @@ export function MobileCallOverlay({
                       !call.videoAvailable ||
                       Boolean(call.cameraProblem)
                     }
+                    size={controlSize}
                     onPress={() => command('toggleVideo')}
                   />
-                  {call.cameraSwitch && !call.cameraProblem ? (
+                  {showFlip ? (
                     <CallControl
                       icon="camera-reverse"
                       label={t('mobileCallOverlay.flip')}
                       accessibilityLabel={t('mobileCallOverlay.switchCamera')}
                       accessibilityHint={t('mobileCallOverlay.switchesBetweenTheFrontAnd')}
                       disabled={call.videoMuted !== false}
+                      size={controlSize}
                       onPress={() => command('switchCamera')}
+                    />
+                  ) : null}
+                  {call.speakerSwitch ? (
+                    <CallControl
+                      icon={call.speaker === false ? 'ear' : 'volume-high'}
+                      label={
+                        call.speaker === false
+                          ? t('mobileCallOverlay.earpiece')
+                          : t('mobileCallOverlay.speaker')
+                      }
+                      accessibilityLabel={
+                        call.speaker === false
+                          ? t('mobileCallOverlay.useSpeaker')
+                          : t('mobileCallOverlay.useEarpiece')
+                      }
+                      size={controlSize}
+                      onPress={() => command('switchSpeaker')}
                     />
                   ) : null}
                   <CallControl
@@ -624,6 +656,7 @@ export function MobileCallOverlay({
                     label={t('mobileCallOverlay.hangUp')}
                     accessibilityLabel={t('mobileCallOverlay.hangUp')}
                     danger
+                    size={controlSize}
                     onPress={hangUp}
                   />
                 </View>
@@ -882,6 +915,7 @@ function CallControl({
   off = false,
   danger = false,
   disabled = false,
+  size,
   onPress,
 }: {
   icon: ComponentProps<typeof Ionicons>['name'];
@@ -891,6 +925,7 @@ function CallControl({
   off?: boolean;
   danger?: boolean;
   disabled?: boolean;
+  size: { width: number; circle: number };
   onPress: () => void;
 }) {
   return (
@@ -904,6 +939,7 @@ function CallControl({
       hitSlop={6}
       style={({ pressed }) => [
         styles.control,
+        { width: size.width },
         disabled && styles.disabled,
         pressed && styles.pressed,
       ]}
@@ -911,6 +947,7 @@ function CallControl({
       <View
         style={[
           styles.controlCircle,
+          { width: size.circle, height: size.circle, borderRadius: size.circle / 2 },
           danger ? styles.controlDanger : off ? styles.controlOff : styles.controlOn,
         ]}
       >
@@ -921,7 +958,12 @@ function CallControl({
           style={danger ? styles.hangupIcon : undefined}
         />
       </View>
-      <Text style={styles.controlLabel} numberOfLines={1}>
+      <Text
+        style={styles.controlLabel}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+      >
         {label}
       </Text>
     </Pressable>
@@ -1025,14 +1067,14 @@ const styles = StyleSheet.create({
   controls: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 6,
+    gap: CONTROL_GAP,
     paddingHorizontal: 12,
     paddingTop: 14,
     paddingBottom: 10,
     borderRadius: 36,
     backgroundColor: PANEL,
   },
-  control: { width: 80, alignItems: 'center', gap: 7 },
+  control: { width: CONTROL_WIDTH, alignItems: 'center', gap: 7 },
   controlCircle: {
     width: 62,
     height: 62,

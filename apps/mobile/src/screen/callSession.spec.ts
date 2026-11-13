@@ -4,6 +4,8 @@ import {
   type CallAction,
   callPhase,
   callStage,
+  controlSizes,
+  MIN_CONTROL_CIRCLE,
   type CallState,
   failureMessageKey,
   formatCallDuration,
@@ -232,8 +234,53 @@ describe('helpers', () => {
   });
 });
 
+describe('loudspeaker', () => {
+  it('reads the sound outputs the page reports', () => {
+    expect(parseCallMessage('{"type":"audio-output","available":true,"speaker":false}')).toEqual({
+      type: 'audio-output',
+      available: true,
+      speaker: false,
+    });
+    expect(parseCallMessage('{"type":"audio-output","available":true,"speaker":null}')).toEqual({
+      type: 'audio-output',
+      available: true,
+      speaker: null,
+    });
+    expect(parseCallMessage('{"type":"audio-output","available":"yes","speaker":true}')).toBeNull();
+    expect(parseCallMessage('{"type":"audio-output-error"}')).toEqual({
+      type: 'audio-output-error',
+    });
+  });
+
+  it('offers the button only when there is somewhere else to send the sound', () => {
+    expect(initialCallState.speakerSwitch).toBe(false);
+    const both = run([[{ type: 'audio-output', available: true, speaker: true }, 1]]);
+    expect(both.speakerSwitch).toBe(true);
+    expect(both.speaker).toBe(true);
+    const earpiece = run([[{ type: 'audio-output', available: true, speaker: false }, 2]], both);
+    expect(earpiece.speaker).toBe(false);
+    const single = run([[{ type: 'audio-output', available: false, speaker: true }, 3]], earpiece);
+    expect(single.speakerSwitch).toBe(false);
+    expect(single.speaker).toBeNull();
+    // A failed switch changes nothing: the button keeps showing where the sound really is.
+    expect(run([[{ type: 'audio-output-error' }, 4]], earpiece)).toBe(earpiece);
+  });
+});
+
 describe('call screen layout', () => {
   const iphone = { top: 59, right: 0, bottom: 34, left: 0 };
+
+  it('keeps every control on one row and never below the minimum touch size', () => {
+    for (const width of [320, 360, 390, 430, 844])
+      for (const count of [3, 4, 5]) {
+        const size = controlSizes(width, count);
+        expect(size.circle).toBeGreaterThanOrEqual(MIN_CONTROL_CIRCLE);
+        expect(size.width).toBeGreaterThanOrEqual(size.circle);
+        if (width >= 360)
+          expect(48 + count * size.width + 6 * (count - 1)).toBeLessThanOrEqual(width);
+      }
+    expect(controlSizes(390, 3)).toEqual({ width: 80, circle: 62 });
+  });
 
   it('puts the video between the self-view and the control bar when upright', () => {
     const stage = callStage({ width: 390, height: 844, insets: iphone, barHeight: 160 });
