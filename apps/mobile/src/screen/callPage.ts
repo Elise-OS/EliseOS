@@ -63,10 +63,39 @@ const HIDDEN_JITSI_UI = [
   '#largeVideoBackground',
 ];
 
+/**
+ * Where the other person's video goes inside the stage (the part of the screen left free by the
+ * app's top pill, self-view and control bar): it fills the stage like a cover, but never loses
+ * more than a third of the picture on either side (a TV filming a room in landscape, seen on a
+ * phone held upright, would otherwise be cut down to the middle third). Plain JavaScript in a
+ * string: the page runs it as is and the tests evaluate the very same code.
+ */
+export const FIT_VIDEO_JS = `function fitVideo(stageWidth, stageHeight, videoWidth, videoHeight){
+  var w=Math.max(1, stageWidth), h=Math.max(1, stageHeight);
+  if(!(videoWidth > 0 && videoHeight > 0)) return {left:0, top:0, width:w, height:h};
+  var ratio=videoWidth / videoHeight, keep=${2 / 3};
+  var width=Math.min(Math.max(w, h * ratio), w / keep, (h * ratio) / keep);
+  var height=width / ratio;
+  return {left:(w - width) / 2, top:(h - height) / 2, width:width, height:height};
+}`;
+
+/** Stage left free for the video, in px from each edge of the WebView (pushed by the app). */
+export interface CallStage {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
 /** CSS injected into the Jitsi frame. --elise-top/--elise-right come from the app's safe areas. */
 export const JITSI_FRAME_CSS = `${HIDDEN_JITSI_UI.join(',')}{display:none!important}
-html,body,#videoconference_page,#videospace,#largeVideoContainer,#largeVideoWrapper{background:#06192D!important}
-html.elise-alone #largeVideoWrapper,html.elise-alone #largeVideo{visibility:hidden!important}
+html,body,#videoconference_page,#videospace{background:#06192D!important}
+#largeVideoContainer{background:transparent!important}
+#elise-ambient{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .6s;pointer-events:none}
+#elise-ambient.on{opacity:.4}
+#largeVideoWrapper{position:fixed!important;left:var(--elise-stage-left,0px)!important;top:var(--elise-stage-top,0px)!important;width:var(--elise-stage-width,100%)!important;height:var(--elise-stage-height,100%)!important;margin:0!important;transform:none!important;overflow:hidden!important;background:transparent!important}
+#largeVideo{position:absolute!important;left:var(--elise-video-left,0px)!important;top:var(--elise-video-top,0px)!important;width:var(--elise-video-width,100%)!important;height:var(--elise-video-height,100%)!important;max-width:none!important;max-height:none!important;object-fit:cover!important;margin:0!important}
+html.elise-alone #largeVideoWrapper,html.elise-alone #largeVideo,html.elise-alone #elise-ambient,html.elise-novideo #elise-ambient{visibility:hidden!important}
 #elise-self{position:fixed;z-index:2147483000;top:calc(var(--elise-top,0px) + 12px);right:calc(var(--elise-right,0px) + 14px);width:104px;height:144px;border-radius:20px;overflow:hidden;background:#173B5C;box-shadow:0 10px 28px rgba(0,0,0,.45),0 0 0 1.5px rgba(255,255,255,.34);transition:opacity .25s;pointer-events:none}
 @media (orientation:landscape){#elise-self{width:148px;height:104px}}
 #elise-self video{width:100%;height:100%;object-fit:cover;display:block;background:#173B5C}
@@ -93,7 +122,8 @@ export function callPage(join: ScreenJoin) {
           (function(){
             var CSS=${inlineJson(JITSI_FRAME_CSS)};
             var OFF_ICON=${inlineJson(CAMERA_OFF_ICON)};
-            var api=null, joined=false, everJoined=false, layout={}, sent={}, selfTrack=null;
+            ${FIT_VIDEO_JS}
+            var api=null, joined=false, everJoined=false, layout={}, stage=null, sent={}, selfTrack=null;
             var media={audioMuted:false, videoMuted:false};
             function send(type, data){
               var message=data || {};
@@ -118,7 +148,44 @@ export function callPage(join: ScreenJoin) {
               var win=frameWindow();
               if(!win) return;
               for(var key in layout) win.document.documentElement.style.setProperty('--elise-'+key, layout[key]+'px');
+              fitLarge();
             }
+            // The other person's video fills the free stage (see FIT_VIDEO_JS), never under the
+            // app's bars; a dimmed, blurred copy of it fills the rest of the screen.
+            function fitLarge(){
+              var win=frameWindow();
+              if(!win) return;
+              var doc=win.document, root=doc.documentElement;
+              var large=doc.getElementById('largeVideo');
+              var free=stage || {top:0, right:0, bottom:0, left:0};
+              var width=Math.max(1, win.innerWidth-free.left-free.right);
+              var height=Math.max(1, win.innerHeight-free.top-free.bottom);
+              var fit=fitVideo(width, height, large && large.videoWidth, large && large.videoHeight);
+              var values={'stage-left':free.left, 'stage-top':free.top, 'stage-width':width, 'stage-height':height,
+                'video-left':fit.left, 'video-top':fit.top, 'video-width':fit.width, 'video-height':fit.height};
+              for(var name in values) root.style.setProperty('--elise-'+name, Math.round(values[name])+'px');
+              var container=doc.getElementById('largeVideoContainer');
+              if(container && !doc.getElementById('elise-ambient')){
+                var canvas=doc.createElement('canvas');
+                canvas.id='elise-ambient';
+                container.insertBefore(canvas, container.firstChild);
+              }
+            }
+            function paintAmbient(){
+              var win=frameWindow();
+              var doc=win && win.document;
+              var canvas=doc && doc.getElementById('elise-ambient');
+              var large=doc && doc.getElementById('largeVideo');
+              if(!canvas) return;
+              var ready=!!(large && large.videoWidth > 0 && large.readyState >= 2);
+              canvas.classList.toggle('on', ready);
+              if(!ready) return;
+              // A few pixels stretched to the whole screen: a soft glow of the picture's colours.
+              canvas.width=24;
+              canvas.height=Math.max(8, Math.round(24*large.videoHeight/large.videoWidth));
+              try { canvas.getContext('2d').drawImage(large, 0, 0, canvas.width, canvas.height); } catch (error) {}
+            }
+            setInterval(paintAmbient, 700);
             function decorate(){
               var win=frameWindow();
               if(!win || !win.document.head || !win.document.body) return;
@@ -173,9 +240,13 @@ export function callPage(join: ScreenJoin) {
               var large=win && win.document.getElementById('largeVideo');
               if(large && !large.__elise){
                 large.__elise=true;
-                ['loadeddata', 'playing', 'resize', 'emptied'].forEach(function(name){ large.addEventListener(name, scheduleSync); });
+                ['loadeddata', 'playing', 'resize', 'emptied'].forEach(function(name){ large.addEventListener(name, scheduleSync); large.addEventListener(name, fitLarge); });
               }
-              if(win) win.document.documentElement.classList.toggle('elise-alone', ids.length===0);
+              if(win){
+                win.document.documentElement.classList.toggle('elise-alone', ids.length===0);
+                // Camera switched off: no glow of the last picture behind the app's notice.
+                win.document.documentElement.classList.toggle('elise-novideo', ids.length>0 && !videoOn);
+              }
               // Camera on but no picture yet: the app shows a calm placeholder, not a black screen.
               var pending=ids.length>0 && videoOn && !(large && large.videoWidth > 0);
               sendChanged('remote', {ids:ids, audioMuted:ids.length>0 && !audioOn, videoMuted:ids.length>0 && !videoOn, videoPending:pending});
@@ -267,7 +338,15 @@ export function callPage(join: ScreenJoin) {
                 if(!api || !joined){ send('left'); return; }
                 try { api.executeCommand('hangup'); } catch (error) { send('left'); }
               },
-              layout:function(values){ layout=values || {}; applyLayout(); },
+              layout:function(values){
+                layout={};
+                stage=null;
+                for(var key in values || {}){
+                  if(key==='stage' && values.stage) stage=values.stage;
+                  else if(typeof values[key]==='number') layout[key]=values[key];
+                }
+                applyLayout();
+              },
               // After the app comes back to the foreground: report the real state again.
               sync:function(){
                 sent={};
@@ -290,6 +369,8 @@ export function callPage(join: ScreenJoin) {
               options.parentNode=document.getElementById('meet');
               api=new window.JitsiMeetExternalAPI(${inlineJson(jitsi.host)}, options);
               api.getIFrame().addEventListener('load', decorate);
+              // Rotation: the stage changes size, the video follows.
+              window.addEventListener('resize', function(){ setTimeout(fitLarge, 50); });
               api.addEventListener('videoConferenceJoined', function(){
                 joined=true;
                 everJoined=true;

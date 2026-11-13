@@ -3,6 +3,7 @@ import {
   ANSWER_TIMEOUT_MS,
   type CallAction,
   callPhase,
+  callStage,
   type CallState,
   failureMessageKey,
   formatCallDuration,
@@ -228,5 +229,27 @@ describe('helpers', () => {
     expect(failureMessageKey('unreachable', true)).toBe('turnOnTailscale');
     expect(failureMessageKey('unreachable', false)).toBe('theVideoCallIsTemporarily');
     expect(failureMessageKey('microphone-permission', false)).toBe('microphonePermission');
+  });
+});
+
+describe('call screen layout', () => {
+  const iphone = { top: 59, right: 0, bottom: 34, left: 0 };
+
+  it('puts the video between the self-view and the control bar when upright', () => {
+    const stage = callStage({ width: 390, height: 844, insets: iphone, barHeight: 160 });
+    // Self-view: 12 px under the safe area, 144 px high, then 12 px of air.
+    expect(stage).toEqual({ top: 59 + 168, right: 0, bottom: 168, left: 0 });
+    // Before the bar has been measured the home indicator is still kept free.
+    expect(callStage({ width: 390, height: 844, insets: iphone, barHeight: 0 }).bottom).toBe(42);
+  });
+
+  it('keeps the self-view column free when sideways', () => {
+    const insets = { top: 0, right: 59, bottom: 21, left: 59 };
+    expect(callStage({ width: 844, height: 390, insets, barHeight: 120 })).toEqual({
+      top: 0,
+      right: 59 + 148 + 28,
+      bottom: 0,
+      left: 59,
+    });
   });
 });

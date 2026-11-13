@@ -348,3 +348,36 @@ export function failureMessageKey(failure: CallFailure | null, privateVideoServe
       return 'theVideoCallIsTemporarily';
   }
 }
+
+/** Self-view drawn by the WebView in the top-right corner (callPage.ts JITSI_FRAME_CSS). */
+export const SELF_VIEW = {
+  portrait: { width: 104, height: 144 },
+  landscape: { width: 148, height: 104 },
+};
+/** Stage left free for the other person's video, in px from each edge of the screen. */
+export function callStage({
+  width,
+  height,
+  insets,
+  barHeight,
+}: {
+  width: number;
+  height: number;
+  insets: { top: number; right: number; bottom: number; left: number };
+  barHeight: number;
+}) {
+  if (width > height)
+    return {
+      top: insets.top,
+      right: insets.right + SELF_VIEW.landscape.width + 28,
+      // The home indicator may sit over the picture (the bar fades out over it too).
+      bottom: 0,
+      left: insets.left,
+    };
+  return {
+    top: insets.top + 12 + SELF_VIEW.portrait.height + 12,
+    right: insets.right,
+    bottom: Math.max(barHeight, insets.bottom) + 8,
+    left: insets.left,
+  };
+}

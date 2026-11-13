@@ -1,7 +1,7 @@
 import { Script } from 'node:vm';
 import { eliseMobileCallConfig } from '@elise/contracts';
 import { describe, expect, it } from 'vitest';
-import { callPage, JITSI_FRAME_CSS, mobileCallOptions } from './callPage';
+import { callPage, FIT_VIDEO_JS, JITSI_FRAME_CSS, mobileCallOptions } from './callPage';
 
 const join = {
   url: 'https://box.tail1234.ts.net:8444',
@@ -79,5 +79,50 @@ describe('callPage', () => {
   it('keeps the page script valid JavaScript', () => {
     const script = page.html.split('<script>')[1]?.split('</script>')[0] ?? '';
     expect(() => new Script(script)).not.toThrow();
+  });
+});
+
+type Fit = { left: number; top: number; width: number; height: number };
+// The very code the page runs, evaluated on its own.
+const fitVideo = new Script(`${FIT_VIDEO_JS}; fitVideo;`).runInNewContext() as (
+  stageWidth: number,
+  stageHeight: number,
+  videoWidth: number,
+  videoHeight: number,
+) => Fit;
+
+describe('fitVideo', () => {
+  it('fills the stage when the picture has about the same shape', () => {
+    const fit = fitVideo(390, 450, 480, 640);
+    expect(fit.width).toBeGreaterThanOrEqual(390);
+    expect(fit.height).toBeGreaterThanOrEqual(450);
+    expect(fit.left).toBeLessThanOrEqual(0);
+    expect(fit.top).toBeLessThanOrEqual(0);
+  });
+
+  it('never cuts more than a third of a landscape TV picture on an upright phone', () => {
+    for (const [videoWidth, videoHeight] of [
+      [640, 480],
+      [1280, 720],
+    ] as const) {
+      const fit = fitVideo(390, 460, videoWidth, videoHeight);
+      expect(fit.width / fit.height).toBeCloseTo(videoWidth / videoHeight, 5);
+      expect(390 / fit.width).toBeGreaterThanOrEqual(2 / 3 - 1e-9);
+      expect(fit.height).toBeLessThanOrEqual(460);
+      // Wider than a letterbox: the picture is zoomed in, centred.
+      expect(fit.width).toBeGreaterThan(390);
+      expect(fit.left).toBeCloseTo((390 - fit.width) / 2, 5);
+      expect(fit.top).toBeCloseTo((460 - fit.height) / 2, 5);
+    }
+  });
+
+  it('fills the stage until the size of the picture is known', () => {
+    expect(fitVideo(400, 300, 0, 0)).toEqual({ left: 0, top: 0, width: 400, height: 300 });
+  });
+
+  it('keeps the video inside the stage drawn by the app', () => {
+    expect(JITSI_FRAME_CSS).toContain('#largeVideoWrapper{position:fixed!important');
+    expect(JITSI_FRAME_CSS).toContain('overflow:hidden!important');
+    expect(JITSI_FRAME_CSS).toContain('#elise-ambient');
   });
 });

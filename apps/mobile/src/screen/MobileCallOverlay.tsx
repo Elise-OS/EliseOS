@@ -36,6 +36,8 @@ import {
   type CallPhase,
   type CallState,
   callPhase,
+  callStage,
+  SELF_VIEW,
   failureMessageKey,
   formatCallDuration,
   initialCallState,
@@ -104,6 +106,7 @@ export function MobileCallOverlay({
   const [controlsShown, setControlsShown] = useState(true);
   const [controlsTouch, setControlsTouch] = useState(0);
   const [screenReader, setScreenReader] = useState(false);
+  const [barHeight, setBarHeight] = useState(0);
   const ended = useRef(false);
   const hangingUpRef = useRef(false);
   const crashes = useRef(0);
@@ -171,17 +174,6 @@ export function MobileCallOverlay({
     });
   }, [dispatch, visible]);
 
-  // Back from the background: the page reports Jitsi's real state again.
-  useEffect(() => {
-    if (!visible) return;
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') return;
-      inject(webViewRef.current, 'window.__eliseCall&&window.__eliseCall.sync();');
-      setControlsShown(true);
-    });
-    return () => subscription.remove();
-  }, [visible]);
-
   useEffect(() => {
     let mounted = true;
     void AccessibilityInfo.isScreenReaderEnabled().then((enabled) => {
@@ -234,17 +226,33 @@ export function MobileCallOverlay({
     return () => clearTimeout(timer);
   }, [finish, hangingUp]);
 
-  // Safe areas for the self-view drawn inside the WebView.
+  // Safe areas for the self-view, and the stage left free for the other person's video: below the
+  // self-view and above the control bar in portrait, beside the self-view in landscape (where the
+  // bar fades out over the picture).
   const pushLayout = useCallback(() => {
     inject(
       webViewRef.current,
       `window.__eliseCall&&window.__eliseCall.layout(${JSON.stringify({
         top: insets.top,
         right: insets.right,
+        stage: callStage({ width, height, insets, barHeight }),
       })});`,
     );
-  }, [insets.right, insets.top]);
-  useEffect(pushLayout, [pushLayout, width, height]);
+  }, [barHeight, height, insets, width]);
+  useEffect(pushLayout, [pushLayout]);
+
+  // Back from the background (another app, a phone call taking over the sound, the phone turned
+  // while away): the page reports Jitsi's real state again and the video takes the new stage.
+  useEffect(() => {
+    if (!visible) return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      inject(webViewRef.current, 'window.__eliseCall&&window.__eliseCall.sync();');
+      pushLayout();
+      setControlsShown(true);
+    });
+    return () => subscription.remove();
+  }, [pushLayout, visible]);
 
   // The control bar fades out during the conversation and comes back on a tap.
   const autoHide = phase === 'in-call' && !screenReader && !call.cameraProblem && !hangingUp;
@@ -338,7 +346,7 @@ export function MobileCallOverlay({
   const bannerFrame = {
     top: insets.top + (landscape ? 76 : 172),
     left: insets.left + 16,
-    right: insets.right + (landscape ? 148 + 28 : 16),
+    right: insets.right + (landscape ? SELF_VIEW.landscape.width + 28 : 16),
   };
   const chromePointer = controlsShown ? 'box-none' : 'none';
 
@@ -477,7 +485,10 @@ export function MobileCallOverlay({
                     top: insets.top + 12,
                     left: insets.left + 14,
                     // The self-view sits in the top-right corner (drawn by the WebView).
-                    right: insets.right + (landscape ? 148 : 104) + 28,
+                    right:
+                      insets.right +
+                      (landscape ? SELF_VIEW.landscape : SELF_VIEW.portrait).width +
+                      28,
                   },
                   chromeStyle,
                 ]}
@@ -549,6 +560,7 @@ export function MobileCallOverlay({
 
             <Animated.View
               pointerEvents={chromePointer}
+              onLayout={(event) => setBarHeight(Math.round(event.nativeEvent.layout.height))}
               style={[
                 styles.bottomArea,
                 {
