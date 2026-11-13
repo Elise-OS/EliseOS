@@ -62,7 +62,11 @@ export function callMediaAccessFromError(error: unknown): EliseCallMediaAccess {
   const value =
     typeof error === 'object' && error !== null
       ? `${'type' in error ? String(error.type) : ''} ${'message' in error ? String(error.message) : ''}`
-      : String(error ?? '');
+      : typeof error === 'string'
+        ? error
+        : typeof error === 'number' || typeof error === 'boolean' || typeof error === 'bigint'
+          ? error.toString()
+          : '';
   return /denied|notallowed|permission|security/i.test(value) ? 'denied' : 'unavailable';
 }
 
