@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   callMediaAccessFromError,
+  callMediaAccessFromPermission,
   eliseCallEventFromJitsi,
   eliseCallEventFromNetwork,
   eliseCallReconnectDelay,
@@ -27,6 +28,11 @@ test('exposes denied camera and microphone independently while keeping receive-o
 test('distinguishes missing hardware from refused permission', () => {
   assert.equal(callMediaAccessFromError({ type: 'DEVICE_NOT_FOUND' }), 'unavailable');
   assert.equal(callMediaAccessFromError({ message: 'Permission denied' }), 'denied');
+  assert.equal(
+    callMediaAccessFromPermission('denied', { type: 'gum.general', message: 'Not supported' }),
+    'denied',
+  );
+  assert.equal(callMediaAccessFromPermission('granted'), 'available');
 });
 
 test('exposes the remote participant hanging up', () => {
