@@ -108,7 +108,7 @@ describe('Élise call screen driven by Jitsi', () => {
       conferenceInfo: { alwaysVisible: [], autoHide: [] },
       // Quality settings still come from call-quality.ts.
       p2p: expect.objectContaining({ enabled: true }) as unknown,
-      disableSimulcast: true,
+      disableSimulcast: false,
     });
     expect(options.interfaceConfigOverwrite).toMatchObject({ VIDEO_LAYOUT_FIT: 'nocrop' });
     expect(jitsi().frame.tabIndex).toBe(-1);

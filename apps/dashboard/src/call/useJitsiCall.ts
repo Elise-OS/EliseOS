@@ -6,6 +6,7 @@ import {
   type ScreenJoin,
 } from '@elise/contracts';
 import { useCallback, useEffect, useReducer, useRef, useState, type RefObject } from 'react';
+import { preloadJitsiScript } from '../jitsi-preload';
 import {
   callPhase,
   callReducer,
@@ -39,33 +40,6 @@ export const JOIN_TIMEOUT_MS = 30_000;
 export const RECONNECT_TIMEOUT_MS = 60_000;
 /** A hang-up waits this long for Jitsi to confirm it left the room. */
 export const HANGUP_GRACE_MS = 2_000;
-
-let script: Promise<void> | undefined;
-function loadExternalApi(origin: string): Promise<void> {
-  // One Jitsi server per home: its External API is loaded once.
-  if (window.JitsiMeetExternalAPI) return Promise.resolve();
-  if (script) return script;
-  script = new Promise<void>((resolve, reject) => {
-    const element = document.createElement('script');
-    element.src = `${origin}/external_api.js`;
-    element.async = true;
-    const timer = window.setTimeout(() => fail(), SCRIPT_TIMEOUT_MS);
-    const fail = () => {
-      window.clearTimeout(timer);
-      element.remove();
-      script = undefined;
-      reject(new Error('unreachable'));
-    };
-    element.onload = () => {
-      window.clearTimeout(timer);
-      if (window.JitsiMeetExternalAPI) resolve();
-      else fail();
-    };
-    element.onerror = fail;
-    document.head.append(element);
-  });
-  return script;
-}
 
 const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
@@ -157,7 +131,7 @@ export function useJitsiCall({ join, host, devices, onHungUp }: JitsiCallOptions
     const joinTimer = window.setTimeout(() => {
       if (!stateRef.current.joined) fail('timeout');
     }, JOIN_TIMEOUT_MS);
-    loadExternalApi(url.origin)
+    preloadJitsiScript(url.origin, SCRIPT_TIMEOUT_MS)
       .then(() => {
         if (disposed || !host.current || !window.JitsiMeetExternalAPI) return;
         dispatch({ type: 'scriptLoaded' });

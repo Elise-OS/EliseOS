@@ -11,6 +11,7 @@ describe('Jitsi preloading', () => {
 
     expect(scripts).toHaveLength(1);
     expect(scripts[0]?.src).toBe('https://box.example:8444/external_api.js');
+    Object.assign(window, { JitsiMeetExternalAPI: class {} });
     scripts[0]?.onload?.(new Event('load'));
     await expect(Promise.all([first, second])).resolves.toEqual([undefined, undefined]);
   });
