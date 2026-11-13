@@ -8,7 +8,7 @@ import { MobileHomePlanPanel } from './MobileHomePlanPanel';
 import { AddSensorSheet } from '../sensors/AddSensorFlow';
 import { sensorFlowApiFor } from '../sensors/pairingApi';
 import { AppleLiquidGlassBackground } from './AppleLiquidGlassBackground';
-import { MobileCallOverlay } from '../screen/MobileCallOverlay';
+import { type MobileCallEnd, MobileCallOverlay } from '../screen/MobileCallOverlay';
 import { Ionicons } from '@expo/vector-icons';
 import { Sofa } from 'lucide-react-native';
 import { configuredHomeDevicesForCategory } from '@elise/contracts';
@@ -231,6 +231,7 @@ export function DashboardApp({
   const [mobileCallId, setMobileCallId] = useState<string | null>(null);
   const [mobileCallJoin, setMobileCallJoin] = useState<ScreenJoin | null>(null);
   const [mobileCallJoinError, setMobileCallJoinError] = useState('');
+  const [mobileCallJoinAttempt, setMobileCallJoinAttempt] = useState(0);
   const mobileCallJoinRequested = useRef<string | null>(null);
   const mobileCallStarting = useRef(false);
   const demoMode = isDemoServer(server);
@@ -371,6 +372,7 @@ export function DashboardApp({
   }, [
     currentUser.data?.id,
     mobileCallId,
+    mobileCallJoinAttempt,
     screen.data?.state.call?.acceptedAt,
     screen.data?.state.call?.id,
     screen.data?.state.call?.userId,
@@ -378,7 +380,7 @@ export function DashboardApp({
     token,
   ]);
 
-  const endMobileCall = async () => {
+  const endMobileCall = async (reason: MobileCallEnd = 'hangup') => {
     const callId = mobileCallId;
     setMobileCallId(null);
     setMobileCallJoin(null);
@@ -388,10 +390,20 @@ export function DashboardApp({
     try {
       await mobileApi.screenEndCall(server, token, callId);
     } catch {
-      Alert.alert(t('dashboardApp.callEnded'), t('dashboardApp.theHomeScreenCouldNot'));
+      // The TV already ended the call on its side: nothing to warn about.
+      if (reason !== 'remote-ended')
+        Alert.alert(t('dashboardApp.callEnded'), t('dashboardApp.theHomeScreenCouldNot'));
     } finally {
       void queryClient.invalidateQueries({ queryKey: [...rootKey, 'screen'] });
     }
+  };
+
+  // "Retry" on the call screen after a failed join: ask for a new seat in the same call.
+  const retryMobileCallJoin = () => {
+    mobileCallJoinRequested.current = null;
+    setMobileCallJoin(null);
+    setMobileCallJoinError('');
+    setMobileCallJoinAttempt((attempt) => attempt + 1);
   };
 
   // Reopens the call screen for a call this user started and left (app closed, failed join).
@@ -822,6 +834,7 @@ export function DashboardApp({
         join={mobileCallJoin}
         error={mobileCallJoinError}
         onEnd={endMobileCall}
+        onRetry={retryMobileCallJoin}
       />
       <View
         style={[
