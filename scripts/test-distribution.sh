@@ -148,12 +148,15 @@ if grep -Eq -- '/api/v1/(equipment|sensor-devices)/' "$root/docker/dashboard/Cad
   exit 1
 fi
 # Logs stay bounded on SD cards: every container and the system journal have a size limit.
-services_count="$(docker compose --env-file "$root/.env.example" -f "$root/compose.yaml" -f "$root/compose.release.yaml" -f "$root/compose.raspberry.yaml" -f "$root/compose.raspberry.release.yaml" config --services | wc -l)"
-limited_count="$(docker compose --env-file "$root/.env.example" -f "$root/compose.yaml" -f "$root/compose.release.yaml" -f "$root/compose.raspberry.yaml" -f "$root/compose.raspberry.release.yaml" config | grep -c 'max-size: 10m')"
-if [ "$services_count" -ne "$limited_count" ]; then
-  echo "Every compose service must limit its logs ($limited_count of $services_count do)." >&2
-  exit 1
-fi
+docker compose --env-file "$root/.env.example" -f "$root/compose.yaml" -f "$root/compose.release.yaml" -f "$root/compose.raspberry.yaml" -f "$root/compose.raspberry.release.yaml" config --format json \
+  | python3 -c '
+import json, sys
+services = json.load(sys.stdin)["services"]
+unbounded = sorted(name for name, service in services.items()
+                   if not service.get("logging", {}).get("options", {}).get("max-size"))
+if unbounded:
+    sys.exit("Every compose service must limit its logs; unbounded: " + ", ".join(unbounded))
+'
 grep -q 'SystemMaxUse=' "$root/appliance/journald/90-elise.conf"
 grep -q 'journald/90-elise.conf' "$root/appliance/build-raspberry-image.sh"
 grep -q 'journald/90-elise.conf' "$root/appliance/build-minipc-installer.sh"
