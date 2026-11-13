@@ -1,9 +1,11 @@
+import { eliseCallConfig } from './call-quality.js';
+
 /**
- * Jitsi user interface settings for Élise calls: Élise draws its own single call bar (resident
- * TV, caregiver web window), so every piece of Jitsi's interface is switched off and the iframe
- * only shows the other person's video.
+ * Jitsi user interface settings for Élise calls, the single source for every client: Élise draws
+ * its own single call bar (resident TV, caregiver web window, mobile), so every piece of Jitsi's
+ * interface is switched off and Jitsi only shows the other person's video.
  *
- * Only interface keys live here; network and video quality settings stay in `call-quality.ts`.
+ * Only interface keys are defined here; network and video quality settings stay in `call-quality.ts`.
  * Checked against the pinned Jitsi web image (stable-10978): each key below is accepted in the
  * External API overrides and hides what its comment says. The Jitsi watermark and app promo
  * cannot be overridden by the External API on that version: the server switches them off
@@ -59,6 +61,39 @@ export const eliseCallUiInterfaceConfig = {
   SHOW_BRAND_WATERMARK: false,
   SHOW_POWERED_BY: false,
   MOBILE_APP_PROMO: false,
+} as const;
+
+/**
+ * Mobile: the shared quality settings plus the shared UI settings above. The app also draws its
+ * own self-view, and what config cannot hide (the "jitsi" watermark, which ignores
+ * SHOW_JITSI_WATERMARK on stable-10978) is hidden by CSS injected in the mobile WebView.
+ */
+export const eliseMobileCallConfig = {
+  ...eliseCallConfig,
+  ...eliseCallUiConfig,
+  toolbarConfig: { ...eliseCallUiConfig.toolbarConfig, autoHideWhileChatIsOpen: true },
+  disabledSounds: [
+    'ASKED_TO_UNMUTE_SOUND',
+    'INCOMING_MSG_SOUND',
+    'KNOCKING_PARTICIPANT_SOUND',
+    'NO_AUDIO_SIGNAL_SOUND',
+    'NOISY_AUDIO_INPUT_SOUND',
+    'OUTGOING_CALL_EXPIRED_SOUND',
+    'OUTGOING_CALL_REJECTED_SOUND',
+    'OUTGOING_CALL_RINGING_SOUND',
+    'OUTGOING_CALL_START_SOUND',
+    'PARTICIPANT_JOINED_SOUND',
+    'PARTICIPANT_LEFT_SOUND',
+    'RAISE_HAND_SOUND',
+    'REACTION_SOUND',
+    'TALK_WHILE_MUTED_SOUND',
+  ],
+} as const;
+
+export const eliseMobileCallInterfaceConfig = {
+  ...eliseCallUiInterfaceConfig,
+  HIDE_INVITE_MORE_HEADER: true,
+  TILE_VIEW_MAX_COLUMNS: 1,
 } as const;
 
 /** Commands Élise sends to the Jitsi iframe (`api.executeCommand`). */

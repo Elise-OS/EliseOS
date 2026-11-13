@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import {
   callNetworkLevel,
   eliseCallConfig,
+  eliseCallUiConfig,
+  eliseCallUiInterfaceConfig,
   eliseMobileCallConfig,
   eliseMobileCallInterfaceConfig,
 } from '../dist/index.js';
@@ -38,6 +40,20 @@ test('mobile call hides every piece of Jitsi UI the app redraws itself', () => {
   assert.equal(eliseMobileCallConfig.connectionIndicators.disabled, true);
   assert.equal(eliseMobileCallConfig.disableTileView, true);
   assert.equal(eliseMobileCallInterfaceConfig.VIDEO_LAYOUT_FIT, 'nocrop');
+});
+
+test('mobile and TV/web hide Jitsi with the same single set of UI keys', () => {
+  for (const [key, value] of Object.entries(eliseCallUiConfig)) {
+    if (key === 'toolbarConfig') continue;
+    assert.deepEqual(eliseMobileCallConfig[key], value, key);
+  }
+  assert.deepEqual(eliseMobileCallConfig.toolbarConfig, {
+    ...eliseCallUiConfig.toolbarConfig,
+    autoHideWhileChatIsOpen: true,
+  });
+  for (const [key, value] of Object.entries(eliseCallUiInterfaceConfig)) {
+    assert.deepEqual(eliseMobileCallInterfaceConfig[key], value, key);
+  }
 });
 
 test('mobile UI keys leave the shared network and video settings untouched', () => {
