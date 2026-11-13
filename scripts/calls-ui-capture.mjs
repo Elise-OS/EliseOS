@@ -206,6 +206,28 @@ const usbWebcamLabels = () => {
     }));
 };
 
+// A phone's WebView names its sound outputs (loudspeaker, earpiece): the fake ones get those names
+// so the call screen offers its loudspeaker button like on a phone (mobile only).
+const phoneAudioRoutes = () => {
+  const original = navigator.mediaDevices?.enumerateDevices?.bind(navigator.mediaDevices);
+  if (!original) return;
+  const names = ['Speakerphone', 'Earpiece'];
+  navigator.mediaDevices.enumerateDevices = async () => {
+    let output = 0;
+    return (await original())
+      .filter((device) => device.kind !== 'audiooutput' || output < names.length)
+      .map((device) => ({
+        deviceId: device.deviceId,
+        groupId: device.groupId,
+        kind: device.kind,
+        label: device.kind === 'audiooutput' ? names[output++] : device.label,
+        toJSON() {
+          return this;
+        },
+      }));
+  };
+};
+
 // Each participant films a labelled card (colour + name + clock) instead of the identical Chromium
 // test pattern, so the captures show whose video ends up where.
 const labelledCamera = ({ label, color }) => {
@@ -280,6 +302,9 @@ const icon = (name) =>
     'camera-reverse':
       '<rect x="2" y="6" width="20" height="14" rx="3"/><path d="M8 13a4 4 0 0 1 7-2m1 2a4 4 0 0 1-7 2"/>',
     call: '<path d="M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
+    'volume-high':
+      '<path d="M11 5L6 9H3v6h3l5 4zM15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
+    ear: '<path d="M7 9a5 5 0 0 1 10 0c0 3-3 4-3 7a3 3 0 0 1-6 0M10 9a2 2 0 0 1 4 0"/>',
   })[name];
 const mobileShell = ({ landscape }) => {
   const inset = landscape
@@ -337,20 +362,21 @@ const mobileShell = ({ landscape }) => {
   <div style="min-width:0"><div class="name">Jeanne Martin</div><div class="status"><span class="duration" id="duration">0:00</span><span class="bars" id="bars"><i style="height:6px"></i><i style="height:10px"></i><i style="height:14px"></i></span><span id="remoteMic"></span></div></div></div></div>
 <div id="banner"></div>
 <div id="bottom" class="fade">
-  <div class="controls" id="controls">${control('mic', 'mic', 'on')}${control('cam', 'videocam', 'on')}${control('flip', 'camera-reverse', 'on')}${control('hangup', 'call', 'danger')}</div>
+  <div class="controls" id="controls">${control('mic', 'mic', 'on')}${control('cam', 'videocam', 'on')}${control('flip', 'camera-reverse', 'on')}${control('speaker', 'volume-high', 'on')}${control('hangup', 'call', 'danger')}</div>
   <button class="wide" id="wide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon('call')}</svg><span>${callTexts.hangUp}</span></button>
 </div>
 <div id="ended"><span class="halo" style="width:${landscape ? 84 : 154}px;height:${landscape ? 84 : 154}px"><span class="avatar" style="width:${landscape ? 84 : 120}px;height:${landscape ? 84 : 120}px;font-size:${landscape ? 30 : 43}px">JM</span></span>
   <div class="copy"><div class="t">${callTexts.callEnded}</div><div class="d" id="endedDetail"></div><button>${callTexts.close}</button></div></div>
 <script>
   const T = ${JSON.stringify(callTexts)};
-  const svg = ${JSON.stringify({ mic: icon('mic'), 'mic-off': icon('mic-off'), videocam: icon('videocam'), 'videocam-off': icon('videocam-off') })};
+  const svg = ${JSON.stringify({ mic: icon('mic'), 'mic-off': icon('mic-off'), videocam: icon('videocam'), 'videocam-off': icon('videocam-off'), 'volume-high': icon('volume-high'), ear: icon('ear') })};
+  const inset = ${JSON.stringify(inset)};
   const name = 'Jeanne Martin';
   const fill = (text) => text.replace(/{{residentName}}/g, name);
   const webview = document.getElementById('webview');
   const $ = (id) => document.getElementById(id);
   const s = { joined:false, remote:[], connectedAt:null, leftAt:null, audioMuted:null, videoMuted:null,
-    remoteAudioMuted:false, remoteVideoMuted:false, remoteVideoPending:false, camSwitch:false, interrupted:false, quality:null, messages:[],
+    remoteAudioMuted:false, remoteVideoMuted:false, remoteVideoPending:false, camSwitch:false, speakerSwitch:false, speaker:null, interrupted:false, quality:null, messages:[],
     shown:true, touchedAt:Date.now(), endedAt:null };
   window.__eliseShell = s;
   const fmt = (sec) => { sec=Math.max(0,Math.floor(sec)); return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); };
@@ -402,14 +428,37 @@ const mobileShell = ({ landscape }) => {
     set('cam',s.videoMuted===true,'videocam','videocam-off',T.camera,T.cameraOff);
     $('flip').style.display = s.camSwitch ? 'flex' : 'none';
     document.querySelector('#flip .label').textContent = T.flip;
+    $('speaker').style.display = s.speakerSwitch ? 'flex' : 'none';
+    document.querySelector('#speaker .circle svg').innerHTML = svg[s.speaker===false ? 'ear' : 'volume-high'];
+    document.querySelector('#speaker .label').textContent = s.speaker===false ? T.earpiece : T.speaker;
     document.querySelector('#hangup .label').textContent = T.hangUp;
+    // controlSizes() of callSession.ts: every control on one row, circles never under 56 px.
+    const count = 3 + (s.camSwitch ? 1 : 0) + (s.speakerSwitch ? 1 : 0);
+    const width = Math.max(56, Math.min(80, Math.floor((innerWidth - inset.left - inset.right - 48 - 6 * (count - 1)) / count)));
+    const circle = Math.max(56, Math.min(62, width - 4));
+    document.querySelectorAll('.control').forEach((c)=>{ c.style.width = width+'px'; const k=c.querySelector('.circle'); k.style.width=k.style.height=circle+'px'; k.style.borderRadius=circle/2+'px'; });
+    pushLayout();
+  }
+  // callStage() of callSession.ts: the video stage below the self-view and above the bar (upright),
+  // beside the self-view (sideways).
+  let lastLayout = '';
+  function pushLayout(){
+    const sideways = innerWidth > innerHeight;
+    const barHeight = $('bottom').offsetHeight;
+    const stage = sideways
+      ? { top: inset.top, right: inset.right + 148 + 28, bottom: 0, left: inset.left }
+      : { top: inset.top + 168, right: inset.right, bottom: Math.max(barHeight, inset.bottom) + 8, left: inset.left };
+    const value = JSON.stringify({ top: inset.top, right: inset.right, stage });
+    if (value === lastLayout || !webview.contentWindow.__eliseCall) return;
+    lastLayout = value;
+    call('layout', JSON.parse(value));
   }
   setInterval(paint, 250);
   window.addEventListener('message',(e)=>{
     if(!e.data||typeof e.data.elise!=='string')return;
     let m; try { m = JSON.parse(e.data.elise); } catch { return; }
     s.messages.push(m.type);
-    if(m.type==='joined') s.joined=true;
+    if(m.type==='joined') { s.joined=true; s.joinedAt=s.joinedAt||Date.now(); }
     if(m.type==='left') { s.joined=false; if(s.connectedAt) s.leftAt=s.leftAt||Date.now(); }
     if(m.type==='media'){ s.audioMuted=m.audioMuted; s.videoMuted=m.videoMuted; }
     if(m.type==='remote'){ s.remote=m.ids; s.remoteAudioMuted=m.audioMuted; s.remoteVideoMuted=m.videoMuted; s.remoteVideoPending=!!m.videoPending;
@@ -417,17 +466,19 @@ const mobileShell = ({ landscape }) => {
     if(m.type==='participant-joined' && !s.remote.includes(m.id)){ s.remote=[...s.remote,m.id]; s.connectedAt=s.connectedAt||Date.now(); s.leftAt=null; }
     if(m.type==='participant-left'){ s.remote=s.remote.filter((id)=>id!==m.id); if(!s.remote.length&&s.connectedAt) s.leftAt=s.leftAt||Date.now(); }
     if(m.type==='camera-switch') s.camSwitch=m.available;
+    if(m.type==='audio-output'){ s.speakerSwitch=m.available; s.speaker=m.available?m.speaker:null; }
     if(m.type==='interrupted') s.interrupted=true; if(m.type==='restored') s.interrupted=false;
     if(m.type==='quality') s.quality=m.quality;
     paint();
   });
   // Same calls as webViewRef.injectJavaScript(...) in MobileCallOverlay.
   const call = (name, arg) => webview.contentWindow.__eliseCall && webview.contentWindow.__eliseCall[name](arg);
-  webview.addEventListener('load', () => call('layout', { top: ${inset.top}, right: ${inset.right} }));
+  webview.addEventListener('load', () => { lastLayout = ''; pushLayout(); });
   const touch = () => { s.touchedAt = Date.now(); };
   $('mic').onclick=()=>{ touch(); call('toggleAudio'); };
   $('cam').onclick=()=>{ touch(); call('toggleVideo'); };
   $('flip').onclick=()=>{ touch(); call('switchCamera'); };
+  $('speaker').onclick=()=>{ touch(); call('switchSpeaker'); };
   $('hangup').onclick=()=>call('hangup');
   $('wide').onclick=()=>call('hangup');
   $('tap').onclick=()=>{ s.shown = phase()==='in-call' ? !s.shown : true; touch(); paint(); };
@@ -885,6 +936,93 @@ const runVariant = async (variant) => {
     return remote;
   };
 
+  // Runs fn inside the Jitsi frame of the mobile WebView document (same origin).
+  const inJitsi = (page, fn, arg) =>
+    page
+      .frames()
+      .find((frame) => frame.url().includes('/__elise/webview'))
+      ?.evaluate(
+        ({ source, value }) => {
+          const inner = document.querySelector('#meet iframe')?.contentWindow;
+          return inner
+            ? new Function('win', 'arg', `return (${source})(win, arg);`)(inner, value)
+            : null;
+        },
+        { source: fn.toString(), value: arg },
+      );
+  // Media statistics of the active peer connection (P2P or bridge), two samples `ms` apart.
+  const callStats = async (page, ms = 5000) => {
+    const sample = () =>
+      inJitsi(page, async (win) => {
+        const room = win.APP?.conference?._room;
+        const tpc = room?.getActivePeerConnection?.();
+        const pc = tpc?.peerconnection;
+        if (!pc) return null;
+        const result = {
+          at: performance.now(),
+          p2p: room.isP2PActive?.() ?? null,
+          inbound: {},
+          outbound: {},
+        };
+        (await pc.getStats()).forEach((report) => {
+          if (report.type === 'inbound-rtp' && report.kind)
+            result.inbound[report.kind] = {
+              bytes: report.bytesReceived,
+              packets: report.packetsReceived,
+              lost: report.packetsLost,
+              fps: report.framesPerSecond ?? null,
+              width: report.frameWidth ?? null,
+              height: report.frameHeight ?? null,
+              jitter: report.jitter ?? null,
+            };
+          if (report.type === 'outbound-rtp' && report.kind)
+            result.outbound[report.kind] = { bytes: report.bytesSent, packets: report.packetsSent };
+          if (report.type === 'candidate-pair' && report.nominated && report.state === 'succeeded')
+            result.rtt = report.currentRoundTripTime ?? null;
+        });
+        return result;
+      });
+    const first = await sample();
+    await pause(ms);
+    const second = await sample();
+    if (!first || !second) return null;
+    const seconds = (second.at - first.at) / 1000;
+    const kbps = (a, b) => (a && b ? Math.round(((b.bytes - a.bytes) * 8) / seconds / 1000) : null);
+    const loss = (a, b) => {
+      if (!a || !b) return null;
+      const lost = (b.lost ?? 0) - (a.lost ?? 0);
+      const received = b.packets - a.packets;
+      return received + lost > 0 ? Math.round((lost / (received + lost)) * 10000) / 100 : 0;
+    };
+    return {
+      p2p: second.p2p,
+      rttMs: second.rtt == null ? null : Math.round(second.rtt * 1000),
+      videoInKbps: kbps(first.inbound.video, second.inbound.video),
+      audioInKbps: kbps(first.inbound.audio, second.inbound.audio),
+      videoOutKbps: kbps(first.outbound.video, second.outbound.video),
+      videoLossPercent: loss(first.inbound.video, second.inbound.video),
+      audioLossPercent: loss(first.inbound.audio, second.inbound.audio),
+      videoFps: second.inbound.video?.fps ?? null,
+      videoSize: second.inbound.video?.width
+        ? `${second.inbound.video.width}x${second.inbound.video.height}`
+        : null,
+      jitterMs:
+        second.inbound.video?.jitter == null
+          ? null
+          : Math.round(second.inbound.video.jitter * 1000),
+    };
+  };
+  const firstRemoteFrame = (page) =>
+    inJitsi(page, (win) => {
+      const video = win.document.getElementById('largeVideo');
+      return (
+        !win.document.documentElement.classList.contains('elise-alone') &&
+        !!video &&
+        video.videoWidth > 0 &&
+        video.readyState >= 2
+      );
+    });
+
   const mobileRun = async (landscape) => {
     const tag = landscape ? 'mobile-landscape' : 'mobile-portrait';
     const context = await newContext(
@@ -898,22 +1036,36 @@ const runVariant = async (variant) => {
       overrides,
       { label: 'Téléphone - Paul', color: '#2b6a8a' },
     );
+    await context.addInitScript(phoneAudioRoutes);
     const page = await context.newPage();
     page.on('pageerror', (error) => process.stderr.write(`[${tag}] ${error.message}\n`));
     let step = 0;
     const capture = (name) =>
       shot(page, `${tag}-${String(++step).padStart(2, '0')}-${name}`, variant);
+    const metrics = { phase, tag };
     await page.goto(`${jitsiOrigin}/__elise/mobile${landscape ? '?landscape=1' : ''}`);
     await pause(2500);
     await capture('connecting');
     if (!(await waitJoined(page))) process.stderr.write(`[${tag}] never joined\n`);
+    // From opening the call screen to this phone being in the Jitsi room.
+    metrics.joinMs = await page.evaluate(() =>
+      Math.round(window.__eliseShell.joinedAt - performance.timeOrigin),
+    );
     let remote = null;
     if (!tv) {
       await pause(4000);
       await capture('waiting');
       remote = await joinRemote();
     }
+    const otherJoiningAt = Date.now();
     await waitParticipants(page, 2);
+    metrics.otherSeenMs = Date.now() - otherJoiningAt;
+    // Time to the other person's first picture on the phone (from the moment they join).
+    for (let tries = 0; tries < 100 && !metrics.firstFrameMs; tries += 1) {
+      if (await firstRemoteFrame(page).catch(() => false))
+        metrics.firstFrameMs = Date.now() - otherJoiningAt;
+      else await pause(100);
+    }
     await pause(1200);
     if (!tv) await capture('video-arriving');
     await pause(4000);
@@ -926,6 +1078,10 @@ const runVariant = async (variant) => {
     await reveal();
     await pause(400);
     await capture('in-call');
+    metrics.stats = await callStats(page).catch((error) => ({ error: String(error) }));
+    report[`${phase}-${tag}-metrics`] = metrics;
+    process.stdout.write(`metrics ${tag} ${JSON.stringify(metrics)}\n`);
+    await reveal();
     // The WebView document is served from the Jitsi origin (baseUrl), like the External API
     // iframe: check whether it can reach the conference directly (APP, DOM, CSS).
     report[`${phase}-${tag}-webview-same-origin`] = await page
@@ -965,6 +1121,18 @@ const runVariant = async (variant) => {
     await page.touchscreen.tap(page.viewportSize().width / 2, page.viewportSize().height / 2);
     await pause(700);
     await capture('after-tap');
+    // Loudspeaker -> earpiece -> loudspeaker (setAudioOutputDevice through the External API).
+    if (await page.isVisible('#speaker')) {
+      await reveal();
+      await page.click('#speaker');
+      await pause(1500);
+      report[`${phase}-${tag}-speaker-after-switch`] = await page.evaluate(
+        () => window.__eliseShell.speaker,
+      );
+      await capture('earpiece');
+      await page.click('#speaker');
+      await pause(1500);
+    }
     if (remote) {
       await remote.evaluate(() => window.APP?.conference?.muteVideo?.(true));
       await remote.evaluate(() => window.APP?.conference?.muteAudio?.(true));
