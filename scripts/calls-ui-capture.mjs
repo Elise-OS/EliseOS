@@ -17,14 +17,15 @@
  * CHROMIUM_PATH overrides the browser (defaults to Playwright's, else its cached headless shell).
  *
  * What is real and what is reproduced:
- * - TV: the real dashboard ResidentScreen + JitsiFrame (Vite dev server); only the Elise API is
+ * - TV: the real dashboard ResidentScreen + JitsiCall (Vite dev server); only the Elise API is
  *   mocked (heartbeat snapshot with an incoming then accepted call, join answer).
- * - Mobile: the WebView document is the real `callPage()` of
- *   apps/mobile/src/screen/MobileCallOverlay.tsx (extracted from the source and evaluated with
- *   the built @elise/contracts configs), served from the Jitsi origin like the WebView baseUrl.
- *   The React Native chrome around it (safe areas, header, rounded stage, 4 controls) is an HTML
- *   copy of the StyleSheet in that file: update `mobileShell()` below when the RN layout changes.
+ * - Mobile: the WebView document is the real `callPage()` of apps/mobile/src/screen/callPage.ts
+ *   (imported directly, Node strips its types), served from the Jitsi origin like the WebView
+ *   baseUrl. The React Native chrome around it (full-screen video, top pill, one control bar) is
+ *   an HTML copy of MobileCallOverlay.tsx: update `mobileShell()` below when the RN layout changes.
  *   The browser identifies as an Android WebView (Chromium) so Jitsi takes its mobile code path.
+ *   With --only mobile, a plain Jitsi page filming "TV - Jeanne" plays the other person (waiting,
+ *   in call, camera off, hang-up states).
  * - Fake camera/microphone (Chromium fake devices); the TV's fake devices are relabelled as a USB
  *   webcam so ResidentScreen detects a physical microphone like on the appliance.
  * - Jitsi runs as guests (no JWT, no Elise guard) with the production web settings.
@@ -68,25 +69,13 @@ const contracts = await import(
 ).catch(() => {
   throw new Error('Build @elise/contracts first (see the header of this file).');
 });
-const { eliseMobileCallConfig, eliseMobileCallInterfaceConfig, initialScreenState } = contracts;
+const { initialScreenState } = contracts;
 
-// ---------------------------------------------------------------------------------------------
-// Mobile WebView document: the real callPage() from MobileCallOverlay.tsx.
-const overlaySource = readFileSync(
-  path.join(root, 'apps/mobile/src/screen/MobileCallOverlay.tsx'),
-  'utf8',
+// Mobile WebView document: the real callPage() of apps/mobile/src/screen/callPage.ts (Node strips
+// its types; it imports the built @elise/contracts).
+const { callPage } = await import(
+  new URL('../apps/mobile/src/screen/callPage.ts', import.meta.url).href
 );
-const callPageSource = overlaySource.match(
-  /const callPage = \(join(?:: ScreenJoin)?\) => \{[\s\S]*?\n\};\n/,
-)?.[0];
-if (!callPageSource) throw new Error('callPage() not found in MobileCallOverlay.tsx');
-const callPage = new Function(
-  'eliseMobileCallConfig',
-  'eliseMobileCallInterfaceConfig',
-  `const inlineJson = (value) => JSON.stringify(value).replace(/</g, '\\\\u003c');
-   ${callPageSource.replace('(join: ScreenJoin)', '(join)')}
-   return callPage;`,
-)(eliseMobileCallConfig, eliseMobileCallInterfaceConfig);
 
 // Settings probed to hide every piece of Jitsi UI (variant "probe").
 const probe = {
@@ -274,7 +263,12 @@ const labelledCamera = ({ label, color }) => {
 };
 
 // ---------------------------------------------------------------------------------------------
-// React Native chrome of MobileCallOverlay (StyleSheet copied 1:1, safe areas of an iPhone 15).
+// React Native chrome of MobileCallOverlay, copied in HTML (StyleSheet values 1:1, texts from the
+// French catalog, safe areas of an iPhone 15): full-screen video, Élise pill on top, one control
+// bar at the bottom that fades out after 5 s and comes back on a tap. Update with the RN layout.
+const callTexts = JSON.parse(
+  readFileSync(path.join(root, 'apps/mobile/src/i18n/locales/fr.json'), 'utf8'),
+).mobileCallOverlay;
 const icon = (name) =>
   ({
     mic: '<path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/>',
@@ -291,68 +285,152 @@ const mobileShell = ({ landscape }) => {
   const inset = landscape
     ? { top: 0, right: 59, bottom: 21, left: 59 }
     : { top: 59, right: 0, bottom: 34, left: 0 };
-  const control = (id, iconName, label, cls, extra = '') =>
-    `<button id="${id}" class="control ${extra}"><span class="circle ${cls}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon(iconName)}</svg></span><span class="label">${label}</span></button>`;
+  const selfWidth = landscape ? 148 : 104;
+  const control = (id, iconName, cls) =>
+    `<button id="${id}" class="control"><span class="circle ${cls}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon(iconName)}</svg></span><span class="label"></span></button>`;
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  html,body{margin:0;height:100%;background:#0B2948;font-family:-apple-system,"SF Pro Text",Roboto,system-ui,sans-serif;overflow:hidden}
-  .shell{position:absolute;inset:0;box-sizing:border-box;display:flex;flex-direction:column;background:#0B2948;
-    padding:${inset.top}px ${inset.right}px ${inset.bottom}px ${inset.left}px}
-  .header{min-height:60px;box-sizing:border-box;padding:8px 20px;display:flex;align-items:center;gap:12px;background:#0B2948}
-  .headerCopy{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
-  .title{color:#fff;font-size:20px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .eyebrow{color:#AFCDD1;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
-  .dot{width:10px;height:10px;border-radius:5px;background:#4E7188}.dot.on{background:#5FB98A}
-  .stage{flex:1;margin:0 10px;border-radius:22px;overflow:hidden;background:#06192D;min-height:0}
-  .stage iframe{border:0;width:100%;height:100%;display:block;background:#06192D}
-  .controls{display:flex;flex-direction:row;justify-content:space-around;align-items:flex-start;padding:16px 12px 10px;background:#0B2948}
-  .control{width:76px;display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:0;padding:0;cursor:pointer}
-  .control.disabled{opacity:.4}
-  .circle{width:60px;height:60px;border-radius:30px;display:flex;align-items:center;justify-content:center}
-  .circle svg{width:26px;height:26px}
-  .on{background:#24527A;color:#fff}.off{background:#F5F0E8;color:#0B2948}.danger{background:#C8443F;color:#fff}
-  .danger svg{transform:rotate(135deg)}
-  .label{color:#D0E0E3;font-size:12px;font-weight:700}
-  .marker{position:fixed;left:0;right:0;pointer-events:none;outline:1px dashed rgba(255,80,80,.0)}
+  html,body{margin:0;height:100%;background:#06192D;font-family:-apple-system,"SF Pro Text",Roboto,system-ui,sans-serif;overflow:hidden}
+  #webview{position:absolute;inset:0;border:0;width:100%;height:100%;display:block;background:#06192D}
+  #tap{position:absolute;inset:0}
+  .fade{transition:opacity .3s}.fade.hidden{opacity:0;pointer-events:none}
+  .avatar{display:flex;align-items:center;justify-content:center;border-radius:50%;background:#DCE9E5;color:#12385F;font-weight:800}
+  .halo{display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(36,82,122,.55)}
+  #center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:${landscape ? 0 : inset.top + 160}px 32px ${landscape ? 130 : 150}px;box-sizing:border-box;pointer-events:none;text-align:center}
+  #center .title{margin-top:${landscape ? 16 : 26}px;color:#fff;font-size:${landscape ? 22 : 25}px;font-weight:800;text-shadow:0 0 8px rgba(0,0,0,.35)}
+  #center .detail{max-width:${landscape ? 460 : 340}px;margin-top:${landscape ? 6 : 10}px;color:#D7E6E9;font-size:${landscape ? 15 : 17}px;line-height:${landscape ? 21 : 25}px}
+  #center .notice{margin-top:18px;padding:8px 16px;border-radius:18px;color:#fff;font-size:16px;font-weight:700;background:rgba(8,27,48,.84)}
+  .spinner{margin-top:24px;width:30px;height:30px;border-radius:50%;border:3px solid rgba(215,232,232,.25);border-top-color:#D7E8E8;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #top{position:absolute;top:${inset.top + 12}px;left:${inset.left + 14}px;right:${inset.right + selfWidth + 28}px;display:flex}
+  .identity{display:flex;align-items:center;gap:12px;padding:6px 18px 6px 6px;border-radius:30px;background:rgba(8,27,48,.84);min-width:0}
+  .identity .name{color:#fff;font-size:18px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .identity .status{display:flex;align-items:center;gap:10px;margin-top:1px}
+  .duration{color:#D7E6E9;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+  .bars{display:flex;align-items:flex-end;gap:2px;height:14px}.bars i{width:4px;border-radius:2px;background:rgba(255,255,255,.28)}
+  #banner{position:absolute;top:${inset.top + (landscape ? 76 : 172)}px;left:${inset.left + 16}px;right:${inset.right + (landscape ? selfWidth + 28 : 16)}px;display:flex;justify-content:center;pointer-events:none}
+  #banner>div{max-width:520px;min-height:48px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:24px;background:#F5F0E8;color:#0B2948;font-size:15px;font-weight:700;line-height:20px}
+  #bottom{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;
+    padding:0 ${inset.right + 12}px ${Math.max(inset.bottom, 12) + (landscape ? 4 : 12)}px ${inset.left + 12}px}
+  .controls{display:flex;align-items:flex-start;gap:6px;padding:14px 12px 10px;border-radius:36px;background:rgba(8,27,48,.84)}
+  .control{width:80px;display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:0;padding:0;cursor:pointer}
+  .control.disabled{opacity:.45}
+  .circle{width:62px;height:62px;border-radius:31px;display:flex;align-items:center;justify-content:center}
+  .circle svg{width:28px;height:28px}
+  .on{background:rgba(255,255,255,.17);color:#fff}.off{background:#F5F0E8;color:#0B2948}.danger{background:#C8443F;color:#fff}
+  .danger svg,.wide svg{transform:rotate(135deg)}
+  .label{color:#F1F6F7;font-size:13px;font-weight:700;white-space:nowrap}
+  .wide{min-height:62px;min-width:230px;padding:0 28px;border-radius:31px;border:0;display:flex;align-items:center;justify-content:center;gap:12px;background:#C8443F;color:#fff;font-size:18px;font-weight:800}
+  .wide svg{width:24px;height:24px}
+  #ended{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:0 ${landscape ? 64 : 32}px;background:#0B2948;
+    flex-direction:${landscape ? 'row' : 'column'};gap:${landscape ? 36 : 0}px}
+  #ended .copy{display:flex;flex-direction:column;align-items:${landscape ? 'flex-start' : 'center'};margin-top:${landscape ? 0 : 28}px;max-width:360px}
+  #ended .t{color:#fff;font-size:25px;font-weight:800}
+  #ended .d{margin-top:10px;color:#D7E6E9;font-size:17px;line-height:25px}
+  #ended button{margin-top:26px;min-height:56px;min-width:150px;padding:0 24px;border-radius:28px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:17px;font-weight:800}
 </style></head><body>
-<div class="shell">
-  <div class="header"><div class="headerCopy"><div class="title">Jeanne Martin</div>
-    <div class="eyebrow" id="eyebrow">Connexion à la visioconférence…</div></div><div class="dot" id="dot"></div></div>
-  <div class="stage"><iframe id="webview" src="/__elise/webview" allow="camera; microphone; autoplay; display-capture"></iframe></div>
-  <div class="controls">
-    ${control('mic', 'mic', 'Micro', 'on')}
-    ${control('cam', 'videocam', 'Caméra', 'on')}
-    ${control('flip', 'camera-reverse', 'Retourner', 'on', 'disabled')}
-    ${control('hangup', 'call', 'Raccrocher', 'danger')}
-  </div>
+<iframe id="webview" src="/__elise/webview" allow="camera; microphone; autoplay; display-capture"></iframe>
+<div id="tap"></div>
+<div id="center"></div>
+<div id="top" class="fade"><div class="identity"><span class="avatar" style="width:44px;height:44px;font-size:16px">JM</span>
+  <div style="min-width:0"><div class="name">Jeanne Martin</div><div class="status"><span class="duration" id="duration">0:00</span><span class="bars" id="bars"><i style="height:6px"></i><i style="height:10px"></i><i style="height:14px"></i></span><span id="remoteMic"></span></div></div></div></div>
+<div id="banner"></div>
+<div id="bottom" class="fade">
+  <div class="controls" id="controls">${control('mic', 'mic', 'on')}${control('cam', 'videocam', 'on')}${control('flip', 'camera-reverse', 'on')}${control('hangup', 'call', 'danger')}</div>
+  <button class="wide" id="wide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icon('call')}</svg><span>${callTexts.hangUp}</span></button>
 </div>
+<div id="ended"><span class="halo" style="width:${landscape ? 84 : 154}px;height:${landscape ? 84 : 154}px"><span class="avatar" style="width:${landscape ? 84 : 120}px;height:${landscape ? 84 : 120}px;font-size:${landscape ? 30 : 43}px">JM</span></span>
+  <div class="copy"><div class="t">${callTexts.callEnded}</div><div class="d" id="endedDetail"></div><button>${callTexts.close}</button></div></div>
 <script>
-  const webview = document.getElementById('webview');
-  const state = { audioMuted:false, videoMuted:false, joinedAt:null, messages:[] };
-  window.__eliseShell = state;
+  const T = ${JSON.stringify(callTexts)};
   const svg = ${JSON.stringify({ mic: icon('mic'), 'mic-off': icon('mic-off'), videocam: icon('videocam'), 'videocam-off': icon('videocam-off') })};
-  function paint(){
-    const set=(id,on,iconOn,iconOff)=>{const c=document.querySelector('#'+id+' .circle');c.className='circle '+(on?'on':'off');c.querySelector('svg').innerHTML=svg[on?iconOn:iconOff];};
-    set('mic',!state.audioMuted,'mic','mic-off');
-    set('cam',!state.videoMuted,'videocam','videocam-off');
-    document.getElementById('dot').className='dot'+(state.joinedAt?' on':'');
-    if(state.joinedAt){const s=Math.floor((Date.now()-state.joinedAt)/1000);document.getElementById('eyebrow').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+  const name = 'Jeanne Martin';
+  const fill = (text) => text.replace(/{{residentName}}/g, name);
+  const webview = document.getElementById('webview');
+  const $ = (id) => document.getElementById(id);
+  const s = { joined:false, remote:[], connectedAt:null, leftAt:null, audioMuted:null, videoMuted:null,
+    remoteAudioMuted:false, remoteVideoMuted:false, remoteVideoPending:false, camSwitch:false, interrupted:false, quality:null, messages:[],
+    shown:true, touchedAt:Date.now(), endedAt:null };
+  window.__eliseShell = s;
+  const fmt = (sec) => { sec=Math.max(0,Math.floor(sec)); return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); };
+  function phase(){
+    if (s.leftAt && Date.now()-s.leftAt >= 4000) return 'ended';
+    if (s.interrupted || s.leftAt) return 'reconnecting';
+    if (!s.joined) return 'connecting';
+    return s.remote.length ? 'in-call' : 'waiting';
   }
-  setInterval(paint,1000);
+  function avatarBlock(size, halo){
+    const a='<span class="avatar" style="width:'+size+'px;height:'+size+'px;font-size:'+Math.round(size*.36)+'px">JM</span>';
+    if(!halo) return a; const h=Math.round(size*1.28);
+    return '<span class="halo" style="width:'+h+'px;height:'+h+'px">'+a+'</span>';
+  }
+  function paint(){
+    const p = phase();
+    const landscape = innerWidth > innerHeight;
+    if (p === 'ended') { if(!s.endedAt) s.endedAt=s.leftAt; $('ended').style.display='flex';
+      $('endedDetail').textContent = 'Avec '+name+' · '+fmt((s.endedAt-s.connectedAt)/1000); webview.style.visibility='hidden'; return; }
+    const trouble = s.interrupted;
+    const autoHide = p === 'in-call';
+    if (!autoHide) s.shown = true;
+    else if (s.shown && Date.now()-s.touchedAt > 5000) s.shown = false;
+    $('top').classList.toggle('hidden', !s.shown);
+    $('bottom').classList.toggle('hidden', !s.shown);
+    $('top').style.display = p === 'in-call' || (p === 'reconnecting' && s.connectedAt) ? 'flex' : 'none';
+    $('duration').textContent = p === 'reconnecting' && trouble ? T.reconnecting : s.connectedAt ? fmt((Date.now()-s.connectedAt)/1000) : '0:00';
+    const level = s.quality == null ? null : s.quality < 10 ? 'poor' : s.quality < 30 ? 'fair' : 'good';
+    const colors = { good:'#6FD39B', fair:'#F2B45C', poor:'#F0827C' };
+    $('bars').style.display = level && p === 'in-call' ? 'flex' : 'none';
+    [...$('bars').children].forEach((bar,i)=>{ bar.style.background = level && i < ({good:3,fair:2,poor:1})[level] ? colors[level] : 'rgba(255,255,255,.28)'; });
+    $('remoteMic').innerHTML = s.remoteAudioMuted ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5C9A3" stroke-width="2.4" stroke-linecap="round">'+svg['mic-off']+'</svg>' : '';
+    let center = '';
+    if (p === 'in-call') { if (s.remoteVideoMuted) center = avatarBlock(landscape?72:120,false)+'<div class="notice">'+fill(T.remoteCameraOff)+'</div>';
+      else if (s.remoteVideoPending) center = avatarBlock(landscape?72:120,false)+'<div class="spinner"></div>'; }
+    else {
+      const title = p === 'waiting' || (p === 'reconnecting' && !trouble) ? fill(T.waitingFor) : p === 'reconnecting' ? T.reconnecting : fill(T.callWith);
+      const detail = p === 'reconnecting' && !trouble ? '' : p === 'waiting' ? T.waitingDetail : p === 'reconnecting' ? T.reconnectingDetail : T.connectingToTheVideoCall;
+      center = avatarBlock(landscape?72:132,!landscape)+'<div class="title">'+title+'</div>'+(detail?'<div class="detail">'+detail+'</div>':'')+(landscape?'':'<div class="spinner"></div>');
+    }
+    if ($('center').dataset.html !== center) { $('center').innerHTML = center; $('center').dataset.html = center; }
+    $('banner').innerHTML = p === 'reconnecting' && s.interrupted ? '<div>'+T.connectionLostBanner+'</div>' : '';
+    $('controls').style.display = s.joined ? 'flex' : 'none';
+    $('wide').style.display = s.joined ? 'none' : 'flex';
+    const set=(id,off,iconOn,iconOff,label,offLabel)=>{ const c=document.querySelector('#'+id+' .circle'); c.className='circle '+(off?'off':'on');
+      c.querySelector('svg').innerHTML=svg[off?iconOff:iconOn]; document.querySelector('#'+id+' .label').textContent=off?offLabel:label;
+      document.getElementById(id).classList.toggle('disabled', (id==='mic'?s.audioMuted:s.videoMuted)===null); };
+    set('mic',s.audioMuted===true,'mic','mic-off',T.microphone,T.microphoneOff);
+    set('cam',s.videoMuted===true,'videocam','videocam-off',T.camera,T.cameraOff);
+    $('flip').style.display = s.camSwitch ? 'flex' : 'none';
+    document.querySelector('#flip .label').textContent = T.flip;
+    document.querySelector('#hangup .label').textContent = T.hangUp;
+  }
+  setInterval(paint, 250);
   window.addEventListener('message',(e)=>{
     if(!e.data||typeof e.data.elise!=='string')return;
-    const v=e.data.elise; state.messages.push(v);
-    if(v==='joined')state.joinedAt=Date.now();
-    if(v==='audio-muted')state.audioMuted=true; if(v==='audio-on')state.audioMuted=false;
-    if(v==='video-muted')state.videoMuted=true; if(v==='video-on')state.videoMuted=false;
-    if(v==='camera-switch-available')document.getElementById('flip').classList.remove('disabled');
+    let m; try { m = JSON.parse(e.data.elise); } catch { return; }
+    s.messages.push(m.type);
+    if(m.type==='joined') s.joined=true;
+    if(m.type==='left') { s.joined=false; if(s.connectedAt) s.leftAt=s.leftAt||Date.now(); }
+    if(m.type==='media'){ s.audioMuted=m.audioMuted; s.videoMuted=m.videoMuted; }
+    if(m.type==='remote'){ s.remote=m.ids; s.remoteAudioMuted=m.audioMuted; s.remoteVideoMuted=m.videoMuted; s.remoteVideoPending=!!m.videoPending;
+      if(m.ids.length){ s.connectedAt=s.connectedAt||Date.now(); s.leftAt=null; } else if(s.connectedAt) s.leftAt=s.leftAt||Date.now(); }
+    if(m.type==='participant-joined' && !s.remote.includes(m.id)){ s.remote=[...s.remote,m.id]; s.connectedAt=s.connectedAt||Date.now(); s.leftAt=null; }
+    if(m.type==='participant-left'){ s.remote=s.remote.filter((id)=>id!==m.id); if(!s.remote.length&&s.connectedAt) s.leftAt=s.leftAt||Date.now(); }
+    if(m.type==='camera-switch') s.camSwitch=m.available;
+    if(m.type==='interrupted') s.interrupted=true; if(m.type==='restored') s.interrupted=false;
+    if(m.type==='quality') s.quality=m.quality;
     paint();
   });
   // Same calls as webViewRef.injectJavaScript(...) in MobileCallOverlay.
-  document.getElementById('mic').onclick=()=>webview.contentWindow.__eliseCall&&webview.contentWindow.__eliseCall.toggleAudio();
-  document.getElementById('cam').onclick=()=>webview.contentWindow.__eliseCall&&webview.contentWindow.__eliseCall.toggleVideo();
-  document.getElementById('flip').onclick=()=>webview.contentWindow.__eliseToggleCamera&&webview.contentWindow.__eliseToggleCamera();
+  const call = (name, arg) => webview.contentWindow.__eliseCall && webview.contentWindow.__eliseCall[name](arg);
+  webview.addEventListener('load', () => call('layout', { top: ${inset.top}, right: ${inset.right} }));
+  const touch = () => { s.touchedAt = Date.now(); };
+  $('mic').onclick=()=>{ touch(); call('toggleAudio'); };
+  $('cam').onclick=()=>{ touch(); call('toggleVideo'); };
+  $('flip').onclick=()=>{ touch(); call('switchCamera'); };
+  $('hangup').onclick=()=>call('hangup');
+  $('wide').onclick=()=>call('hangup');
+  $('tap').onclick=()=>{ s.shown = phase()==='in-call' ? !s.shown : true; touch(); paint(); };
 </script></body></html>`;
 };
 
@@ -438,7 +516,7 @@ await new Promise((resolve) => proxy.listen(tlsPort, '127.0.0.1', resolve));
 // Dashboard (Vite dev server) unless --dashboard is given.
 let vite;
 let dashboard = option('dashboard', '');
-if (!dashboard) {
+if (!dashboard && only !== 'mobile') {
   dashboard = `http://127.0.0.1:${dashboardPort}`;
   vite = spawn(
     'corepack',
@@ -652,6 +730,15 @@ const waitJoined = async (page, timeout = 45000) => {
   }
   return false;
 };
+const waitJoinedTop = async (page, timeout = 45000) => {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await page.evaluate(() => !!window.APP?.conference?.isJoined?.()).catch(() => false))
+      return true;
+    await pause(500);
+  }
+  return false;
+};
 const waitParticipants = async (page, count, timeout = 30000) => {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
@@ -762,7 +849,7 @@ const runVariant = async (variant) => {
     await pause(1200);
     if (variant === 'current') await shot(tv, 'tv-01-incoming', variant);
     call.current = { ...call.current, acceptedAt: Date.now() };
-    await tv.waitForFunction(() => document.querySelector('.elise-call iframe'), null, {
+    await tv.waitForFunction(() => document.querySelector('.call__jitsi iframe'), null, {
       timeout: 20000,
     });
     await pause(2500);
@@ -771,6 +858,32 @@ const runVariant = async (variant) => {
     await pause(4000);
     await shot(tv, 'tv-03-alone', variant);
   }
+
+  // Stand-in for the TV when the dashboard is not run (--only mobile): plain Jitsi page.
+  const joinRemote = async () => {
+    const context = await newContext({ viewport: { width: 1280, height: 720 } }, null, {
+      label: 'TV - Jeanne',
+      color: '#8a5a2b',
+    });
+    const remote = await context.newPage();
+    const hash = [
+      'config.prejoinConfig.enabled=false',
+      'config.startWithAudioMuted=false',
+      'config.startWithVideoMuted=false',
+      // Like the TV (eliseCallConfig): direct peer-to-peer link between the two participants.
+      'config.p2p.enabled=true',
+      `config.p2p.stunServers=${encodeURIComponent('[]')}`,
+      `userInfo.displayName=${encodeURIComponent('"Écran de Jeanne"')}`,
+    ].join('&');
+    await remote.goto(`${jitsiOrigin}/${mobileState.join.room}#${hash}`);
+    if (!(await waitJoinedTop(remote))) process.stderr.write('[remote] never joined\n');
+    // A page opened without any user gesture joins muted: switch both on like the TV does.
+    await remote.evaluate(() => {
+      window.APP.conference.muteAudio(false);
+      window.APP.conference.muteVideo(false);
+    });
+    return remote;
+  };
 
   const mobileRun = async (landscape) => {
     const tag = landscape ? 'mobile-landscape' : 'mobile-portrait';
@@ -787,13 +900,32 @@ const runVariant = async (variant) => {
     );
     const page = await context.newPage();
     page.on('pageerror', (error) => process.stderr.write(`[${tag}] ${error.message}\n`));
+    let step = 0;
+    const capture = (name) =>
+      shot(page, `${tag}-${String(++step).padStart(2, '0')}-${name}`, variant);
     await page.goto(`${jitsiOrigin}/__elise/mobile${landscape ? '?landscape=1' : ''}`);
     await pause(2500);
-    await shot(page, `${tag}-01-connecting`, variant);
+    await capture('connecting');
     if (!(await waitJoined(page))) process.stderr.write(`[${tag}] never joined\n`);
-    if (tv) await waitParticipants(page, 2);
-    await pause(5000);
-    await shot(page, `${tag}-02-in-call`, variant);
+    let remote = null;
+    if (!tv) {
+      await pause(4000);
+      await capture('waiting');
+      remote = await joinRemote();
+    }
+    await waitParticipants(page, 2);
+    await pause(1200);
+    if (!tv) await capture('video-arriving');
+    await pause(4000);
+    // Like a tap: the bar may already have faded out while the other person was joining.
+    const reveal = () =>
+      page.evaluate(() => {
+        window.__eliseShell.shown = true;
+        window.__eliseShell.touchedAt = Date.now();
+      });
+    await reveal();
+    await pause(400);
+    await capture('in-call');
     // The WebView document is served from the Jitsi origin (baseUrl), like the External API
     // iframe: check whether it can reach the conference directly (APP, DOM, CSS).
     report[`${phase}-${tag}-webview-same-origin`] = await page
@@ -805,26 +937,46 @@ const runVariant = async (variant) => {
           return {
             app: !!inner.APP,
             joined: inner.APP.conference.isJoined(),
-            canInjectCss: !!inner.document.head.appendChild(inner.document.createElement('style')),
+            canInjectCss: !!inner.document.getElementById('elise-ui'),
+            selfView: !!inner.document.querySelector('#elise-self video')?.srcObject,
+            tracks: (inner.APP.store.getState()['features/base/tracks'] || []).map((track) => ({
+              local: track.local,
+              mediaType: track.mediaType,
+              muted: track.muted,
+              participantId: track.participantId,
+            })),
           };
         } catch (error) {
           return { error: String(error) };
         }
       });
+    report[`${phase}-${tag}-shell`] = await page.evaluate(() => window.__eliseShell?.messages);
     if (tv && !landscape) await shot(tv, 'tv-04-in-call', variant);
+    await reveal();
     await page.click('#mic');
-    await pause(2500);
-    await shot(page, `${tag}-03-mic-muted`, variant);
+    await pause(2000);
+    await capture('mic-muted');
     if (tv && !landscape) await shot(tv, 'tv-05-caller-muted', variant);
+    await reveal();
     await page.click('#mic');
-    // A tap on the video wakes Jitsi's own mobile toolbox if it exists.
-    const stage = await page.$('.stage');
-    const box = await stage.boundingBox();
-    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    await pause(6500);
+    await capture('controls-hidden');
+    // A tap on the video brings the Élise bar back (and must not wake any Jitsi toolbox).
+    await page.touchscreen.tap(page.viewportSize().width / 2, page.viewportSize().height / 2);
     await pause(700);
-    await shot(page, `${tag}-04-after-tap`, variant);
-    await pause(8000);
-    await shot(page, `${tag}-05-idle`, variant);
+    await capture('after-tap');
+    if (remote) {
+      await remote.evaluate(() => window.APP?.conference?.muteVideo?.(true));
+      await remote.evaluate(() => window.APP?.conference?.muteAudio?.(true));
+      await pause(2500);
+      await capture('remote-camera-off');
+      await remote.evaluate(() => window.APP?.conference?.hangup?.(false));
+      await pause(1500);
+      await capture('remote-left');
+      await pause(4000);
+      await capture('ended');
+      await remote.context().close();
+    }
     await context.close();
     await pause(3000);
   };
