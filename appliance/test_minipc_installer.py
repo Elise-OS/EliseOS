@@ -369,13 +369,71 @@ class ProgressMonitorTest(unittest.TestCase):
         progress.feed("start: subiquity/Shutdown/copy_logs_to_target: ", 3)
         self.assertEqual(progress.key, "restart")
 
+    def test_bios_without_nx_is_refused_before_any_disk_is_touched(self):
+        """JGINYUE B350I with NX Mode off: no EFI variables, so GRUB could never be installed."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            efi, cpuinfo = root / "efi", root / "cpuinfo"
+            (efi / "efivars").mkdir(parents=True)
+            cpuinfo.write_text("processor\t: 0\nflags\t\t: fpu vme de pse sse2 svm\n", encoding="ascii")
+            self.assertEqual(target.firmware_problem(efi, cpuinfo), "no-efi-variables nx=missing")
+            cpuinfo.write_text("flags\t\t: fpu nx sse2\n", encoding="ascii")
+            self.assertEqual(target.firmware_problem(efi, cpuinfo), "no-efi-variables")
+            (efi / "efivars" / "BootOrder-8be4df61").write_bytes(b"\0")
+            self.assertIsNone(target.firmware_problem(efi, cpuinfo))
+            self.assertIsNone(target.firmware_problem(root / "legacy-bios", cpuinfo))
+
+    def test_failure_detail_names_the_failed_step_and_its_error(self):
+        spec = importlib.util.spec_from_file_location("elise_report", MODULE_PATH.parent / "report-failure.py")
+        report = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(report)
+        log = (
+            "start: cmd-install/stage-curthooks/builtin/cmd-curthooks/install-grub: installing grub\n"
+            "finish: cmd-install/stage-curthooks/builtin/cmd-curthooks/install-grub: FAIL: installing grub to target devices\n"
+            "finish: cmd-install/stage-curthooks/builtin/cmd-curthooks: FAIL: curtin command curthooks\n"
+            "Stdout: ''\n"
+            "Stderr: EFI variables are not supported on this system.\n"
+        )
+        self.assertEqual(
+            report.failure_detail(log),
+            "install-grub: installing grub to target devices — EFI variables are not supported on this system.",
+        )
+        self.assertEqual(report.failure_detail(""), "")
+
+    def test_the_app_link_follows_the_chosen_language(self):
+        from installer_ui import app_link
+
+        self.assertEqual(app_link("fr"), "https://eliseos.paulbreton.dev/application/")
+        self.assertEqual(app_link("it"), "https://eliseos.paulbreton.dev/it/app/")
+
+    def test_keys_come_straight_from_the_keyboard_whatever_the_console(self):
+        """HP G4 Mini: the picture stayed while the console with the keys was another one."""
+        from installer_ui.keyboard import EVENT, Keyboards, is_keyboard
+
+        self.assertTrue(is_keyboard("10000 7 ff9f207ac14057ff febeffdfffefffff fffffffffffffffe"))
+        self.assertFalse(is_keyboard("4 0 0 0 0 0"))  # a power button: no Enter, no arrows
+        read, write = os.pipe()
+        keyboards = Keyboards()
+        keyboards.open["event3"] = read
+        os.write(write, b"".join(EVENT.pack(0, 0, 1, code, value) for code, value in (
+            (108, 1), (108, 0), (108, 2), (30, 1), (28, 1),  # down, release, repeat, "a", Enter
+        )))
+        self.assertEqual([keyboards.read(None, lambda: "tty") for _ in range(3)], ["down", "down", "enter"])
+        keyboards.close()
+        os.close(write)
+        tty_read, tty_write = os.pipe()
+        os.write(tty_write, b"x")
+        self.assertEqual(Keyboards().read(tty_read, lambda: "from-tty"), "from-tty")  # no keyboard: the terminal
+        os.close(tty_read)
+        os.close(tty_write)
+
     def test_language_cards_carry_their_flags(self):
         if graphics is None:
             self.skipTest("Pillow absent")
         for code in LANGUAGES:
             image, mask = graphics.flag_image(code, 72, 48)
             self.assertEqual(image.size, (72, 48))
-            self.assertGreater(len(set(image.getdata())), 1, code)
+            self.assertGreater(len(image.getcolors(maxcolors=1 << 16) or ()), 1, code)
         # Portugal: green at the hoist, red at the fly, the yellow sphere on the boundary.
         image, _mask = graphics.flag_image("pt", 72, 48)
         green, red, sphere = image.getpixel((6, 24)), image.getpixel((66, 24)), image.getpixel((29, 38))

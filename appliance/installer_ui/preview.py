@@ -10,7 +10,8 @@ from pathlib import Path
 from . import LANGUAGES, Disk, TEXT, TextUI
 
 
-STATES = ("language", "ethernet", "disk", "confirmation", "progress", "cancelled", "no-disk", "error")
+STATES = ("language", "ethernet", "disk", "confirmation", "progress", "progress-app", "cancelled", "no-disk",
+          "firmware", "error")
 SAMPLE_DISKS = [
     Disk("/dev/nvme0n1", "Samsung SSD 980 PRO 1TB", 1_000_204_886_016, True),
     Disk("/dev/sda", "", 128_035_676_160, False),
@@ -29,9 +30,9 @@ def render(state: str, language: str = "fr") -> str:
         ui.disk_screen(SAMPLE_DISKS)
     elif state == "confirmation":
         ui.confirmation_screen(SAMPLE_DISKS[0])
-    elif state == "progress":
+    elif state in ("progress", "progress-app"):
         ui.progress_screen("copy", 27)
-    elif state in ("cancelled", "no-disk"):
+    elif state in ("cancelled", "no-disk", "firmware"):
         ui.error_screen("", kind=state.replace("-", "_"))
     elif state == "error":
         ui.error_screen(SAMPLE_ERROR)
@@ -48,6 +49,7 @@ def sample(state: str, language: str = "fr") -> dict:
         "disk": {"disks": tuple(SAMPLE_DISKS), "selected": 0},
         "confirmation": {"disk": SAMPLE_DISKS[0], "selected": 0},
         "progress": {"step": "copy", "percent": 27},
+        "progress-app": {"step": "updates", "percent": 71, "panel": "app"},
         "error": {"message": SAMPLE_ERROR},
     }.get(state, {})
 
@@ -55,7 +57,9 @@ def sample(state: str, language: str = "fr") -> dict:
 def picture(state: str, language: str = "fr", size=(1920, 1080), **overrides):
     from .graphics import render as draw
 
-    return draw(state, language, size, version="v0.1.28", **{**sample(state, language), **overrides})
+    values = {**sample(state, language), **overrides}
+    state = "progress" if state == "progress-app" else state
+    return draw(state, language, size, version="v0.1.28", **values)
 
 
 def main() -> int:

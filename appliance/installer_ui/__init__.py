@@ -30,6 +30,14 @@ LANGUAGES = {
 }
 
 
+# The QR code during the install: the app's page on the site, in the chosen language.
+APP_LINKS = {"fr": "https://eliseos.paulbreton.dev/application/"}
+
+
+def app_link(language: str) -> str:
+    return APP_LINKS.get(language) or f"https://eliseos.paulbreton.dev/{language}/app/"
+
+
 @dataclass(frozen=True)
 class Disk:
     path: str
@@ -118,8 +126,18 @@ class TextUI:
             return "escape"
         return first.decode("utf-8", errors="ignore").lower()
 
+    keyboards = None  # installer_ui.keyboard.Keyboards while a choice is made on the real console
+
     def read_key(self) -> str:
-        return self.key_reader() if self.key_reader else self._terminal_key()
+        if self.key_reader:
+            return self.key_reader()
+        if self.keyboards is not None:
+            try:
+                tty = self.console.fileno()
+            except (AttributeError, OSError, io.UnsupportedOperation):
+                tty = None
+            return self.keyboards.read(tty, self._terminal_key)
+        return self._terminal_key()
 
     def choose(self, count: int, default: int, show: Callable[[int], None]) -> int:
         """Moves the selection with the arrows (all four: a list or a row of buttons) until Enter."""
@@ -135,6 +153,10 @@ class TextUI:
                 termios.tcsetattr(self.console.fileno(), termios.TCSANOW, settings)
             except (AttributeError, OSError, termios.error, io.UnsupportedOperation):
                 pass
+            if self.key_reader is None and os.path.isdir("/dev/input"):
+                from .keyboard import Keyboards
+
+                self.keyboards = Keyboards().__enter__()
             while True:
                 show(selected)
                 key = self.read_key()
@@ -145,6 +167,9 @@ class TextUI:
                 elif key == "enter":
                     return selected
         finally:
+            if self.keyboards is not None:
+                self.keyboards.close()
+                self.keyboards = None
             if old_settings is not None:
                 try:
                     termios.tcsetattr(self.console.fileno(), termios.TCSANOW, old_settings)
@@ -178,17 +203,18 @@ class TextUI:
             lines.append(text["ethernet_hint_internet" if state == "no-internet" else "ethernet_hint_cable"])
         self.render("ethernet", text["ethernet_title"], lines)
 
-    def progress_screen(self, step: str = "disk", percent: int | None = None) -> None:
+    def progress_screen(self, step: str = "disk", percent: int | None = None, panel: str = "steps") -> None:
         text = self.text
         key = step if step in STEP_IDS else STEP_IDS[0]
         lines = [text["steps"][key], text["reassure"], text["keep_usb"]]
         if percent is not None:
             lines.append(text["percent"].format(percent=max(0, min(100, percent))))
+        lines.extend(["", f"{text['app_title']} — {app_link(self.language)}"])
         self.render(f"progress:{step}", text["progress_eyebrow"].capitalize(), lines)
 
     def error_screen(self, message: str, *, kind: str = "error") -> None:
         text = self.text
-        kind = kind if kind in ("cancelled", "no_disk") else "error"
+        kind = kind if kind in ("cancelled", "no_disk", "firmware") else "error"
         lines = [text[f"{kind}_body"], *text[f"{kind}_steps"]]
         if kind == "error" and message:
             lines.append(text["detail"].format(message=message))

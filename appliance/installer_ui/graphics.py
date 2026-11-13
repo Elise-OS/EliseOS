@@ -15,7 +15,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import LANGUAGES, STEP_IDS, TEXT, Disk, TextUI, ui_language
+from . import LANGUAGES, STEP_IDS, TEXT, Disk, TextUI, app_link, ui_language
 
 HERE = Path(__file__).resolve().parent
 VENDOR = HERE.parent / "vendor"
@@ -53,7 +53,7 @@ CARD_LEFT = 1060  # the right column, to RIGHT
 TOP, BOTTOM = 232, 912  # between the header and the footer rule
 MIDDLE = 560
 STAGE = {"language": 0, "ethernet": 1, "disk": 2, "confirmation": 2, "progress": 3}
-KIND = {"no_disk": "no-disk", "no-disk": "no-disk", "cancelled": "cancelled"}
+KIND = {"no_disk": "no-disk", "no-disk": "no-disk", "cancelled": "cancelled", "firmware": "firmware"}
 
 
 def read_version() -> str | None:
@@ -585,6 +585,24 @@ def steps_card(paint, t, current):
                    anchor="lm", width=right - 52 - (left + 124))
 
 
+def app_card(paint, t, language):
+    """The app's QR code, which takes turns with the steps during the long install."""
+    left, top, right, bottom = CARD_LEFT, TOP, RIGHT, BOTTOM
+    paint.rounded((left, top, right, bottom), 36, CREAM)
+    x, width = left + 56, right - left - 112
+    paint.text(x, top + 66, t["app_eyebrow"], "bold", 24, BLUE, anchor="lm", width=width)
+    paint.text(x, top + 128, t["app_title"], "serif", 54, NAVY, anchor="lm", width=width)
+    paint.paragraph(x, top + 172, t["app_body"], "sans", 28, NAVY, width, max_lines=2, minimum=22)
+    size = 300
+    qr_top = top + 278
+    center = (left + right) / 2
+    link = app_link(language)
+    if paint.qr(center - size / 2, qr_top, size, link):
+        paint.text(center, qr_top + size + 56, t["app_scan"], "bold", 28, NAVY, anchor="ms", width=width)
+    else:
+        paint.text(center, qr_top + size / 2, link.removeprefix("https://"), "bold", 30, BLUE, anchor="mm", width=width)
+
+
 def draw_progress(paint, t, data):
     step = data.get("step")
     current = STEP_IDS.index(step) if step in STEP_IDS else 0
@@ -596,13 +614,17 @@ def draw_progress(paint, t, data):
     E.progress_bar(paint, LEFT, 820, 860, percent, SKY)
     paint.text(LEFT, 880, t["step_of"].format(n=current + 1, total=len(STEP_IDS)), "bold", 28, CREAM, anchor="ls", width=860)
     paint.text(LEFT, 924, t["reassure"], "sans", 26, MUTED, anchor="ls", width=860)
-    steps_card(paint, t, current)
+    if data.get("panel") == "app":
+        app_card(paint, t, data["language"])
+    else:
+        steps_card(paint, t, current)
     return {"left": t["keep_usb"]}
 
 
 OUTCOMES = {
     "cancelled": ("cancelled", GREEN, "check", "power_off"),
     "no-disk": ("no_disk", AMBER, "alert", "nothing_changed"),
+    "firmware": ("firmware", AMBER, "alert", "nothing_changed"),
     "error": ("error", CORAL, "alert", "power_off"),
 }
 
@@ -638,8 +660,10 @@ def draw_outcome(paint, t, data):
 SCREENS = {
     "language": draw_language, "ethernet": draw_ethernet, "disk": draw_disk, "confirmation": draw_confirmation,
     "progress": draw_progress, "cancelled": draw_outcome, "no-disk": draw_outcome, "error": draw_outcome,
+    "firmware": draw_outcome,
 }
-ACCENTS = {"ethernet": AMBER, "confirmation": CORAL, "cancelled": GREEN, "no-disk": AMBER, "error": CORAL}
+ACCENTS = {"ethernet": AMBER, "confirmation": CORAL, "cancelled": GREEN, "no-disk": AMBER, "error": CORAL,
+           "firmware": AMBER}
 
 
 def render(state: str, language: str = "fr", size=(1920, 1080), *, version: str | None = None, **data):
@@ -737,10 +761,10 @@ class GraphicUI(TextUI):
         if not self.draw("ethernet", retry=retry, network=state):
             super().ethernet_screen(retry, state)
 
-    def progress_screen(self, step: str = "disk", percent: int | None = None) -> None:
+    def progress_screen(self, step: str = "disk", percent: int | None = None, panel: str = "steps") -> None:
         shown = step if step in STEP_IDS else STEP_IDS[0]
-        if not self.draw("progress", logged=f"progress:{step}", step=shown, percent=percent or 0):
-            super().progress_screen(step, percent)
+        if not self.draw("progress", logged=f"progress:{step}", step=shown, percent=percent or 0, panel=panel):
+            super().progress_screen(step, percent, panel)
 
     def error_screen(self, message: str, *, kind: str = "error") -> None:
         state = KIND.get(kind, "error")

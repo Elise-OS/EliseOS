@@ -17,6 +17,11 @@ PILLOW_WHEEL="pillow-10.2.0-cp312-cp312-manylinux_2_28_x86_64.whl"
 PILLOW_URL="https://files.pythonhosted.org/packages/5c/c6/5b6b1f7362267494a423b45af684d604491565e81436e3ebeefee68f78fd/$PILLOW_WHEEL"
 PILLOW_SHA256="127cee571038f252a552760076407f9cff79761c3d436a12af6000cd182a9d04"
 PILLOW_CACHE="${ELISE_PILLOW_WHEEL_CACHE:-$BUILD_ROOT/$PILLOW_WHEEL}"
+# The app's QR code during the install: pure-Python qrcode, no dependency, also SHA-256 pinned.
+QRCODE_WHEEL="qrcode-8.2-py3-none-any.whl"
+QRCODE_URL="https://files.pythonhosted.org/packages/dd/b8/d2d6d731733f51684bbf76bf34dab3b70a9148e8f2cef2bb544fccec681a/$QRCODE_WHEEL"
+QRCODE_SHA256="16e64e0716c14960108e85d853062c9e8bba5ca8252c0b4d0231b9df4060ff4f"
+QRCODE_CACHE="${ELISE_QRCODE_WHEEL_CACHE:-$BUILD_ROOT/$QRCODE_WHEEL}"
 
 for command in curl gpgv sha256sum xorriso rsync tar python3; do
   command -v "$command" >/dev/null || { echo "Missing build dependency: $command" >&2; exit 1; }
@@ -89,6 +94,7 @@ install -m 0644 "$ROOT_DIR/appliance/minipc-installer/user-data" "$payload/noclo
 install -m 0644 "$ROOT_DIR/appliance/minipc-installer/meta-data" "$payload/nocloud/meta-data"
 install -m 0755 "$ROOT_DIR/appliance/minipc-installer/select-target.py" "$payload/nocloud/select-target.py"
 install -m 0755 "$ROOT_DIR/appliance/minipc-installer/install-target.sh" "$payload/nocloud/install-target.sh"
+install -m 0755 "$ROOT_DIR/appliance/minipc-installer/report-failure.py" "$payload/nocloud/report-failure.py"
 rsync -a --exclude='__pycache__' --exclude='*.pyc' "$ROOT_DIR/appliance/installer_ui" "$payload/nocloud/"
 printf '%s\n' "$VERSION" > "$payload/nocloud/installer_ui/VERSION"
 
@@ -108,6 +114,14 @@ fi
 echo "$PILLOW_SHA256  $PILLOW_CACHE" | sha256sum -c -
 mkdir -p "$payload/nocloud/vendor"
 python3 -m zipfile -e "$PILLOW_CACHE" "$payload/nocloud/vendor/"
+if [[ ! -f "$QRCODE_CACHE" ]] || ! echo "$QRCODE_SHA256  $QRCODE_CACHE" | sha256sum -c - >/dev/null 2>&1; then
+  rm -f -- "$QRCODE_CACHE.part"
+  curl -fL --retry 3 "$QRCODE_URL" -o "$QRCODE_CACHE.part"
+  echo "$QRCODE_SHA256  $QRCODE_CACHE.part" | sha256sum -c -
+  mv "$QRCODE_CACHE.part" "$QRCODE_CACHE"
+fi
+echo "$QRCODE_SHA256  $QRCODE_CACHE" | sha256sum -c -
+python3 -m zipfile -e "$QRCODE_CACHE" "$payload/nocloud/vendor/"
 
 echo "→ Adding automatic NoCloud boot parameters"
 for config in grub.cfg loopback.cfg; do
@@ -122,7 +136,10 @@ changed = 0
 for line in text.splitlines(keepends=True):
     if re.match(r"^\s*linux\s+", line) and "autoinstall" not in line:
         marker = " ---"
-        argument = r" autoinstall ds=nocloud\;s=/cdrom/nocloud/ console=tty0 console=ttyS0,115200n8"
+        # nomodeset: the installer keeps the firmware's picture from start to finish. Without it the
+        # graphics driver changes the mode a few seconds in, and a TV behind a DisplayPort adapter
+        # (HP G4 Mini) loses the signal until the cable is replugged. Only the USB stick boots so.
+        argument = r" autoinstall ds=nocloud\;s=/cdrom/nocloud/ nomodeset console=tty0 console=ttyS0,115200n8"
         line = line.replace(marker, argument + marker, 1) if marker in line else line.rstrip("\n") + argument + "\n"
         changed += 1
     if re.match(r"^\s*set\s+timeout=", line):

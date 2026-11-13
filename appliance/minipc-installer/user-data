@@ -36,6 +36,9 @@ autoinstall:
   shutdown: reboot
   error-commands:
     # The progress screen (installer_ui.monitor) turns into the error screen on this mark.
+    # First the failed step and its error, for the error screen and a report on the USB stick;
+    # then the bare mark, should that script be unable to run.
+    - env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 /usr/bin/python3 -E /cdrom/nocloud/report-failure.py || true
     - sh -c 'mkdir -p /run/elise-installer && touch /run/elise-installer/failed || true'
     - >-
       sh -c 'echo "ELISE_INSTALLER: ERROR — installation stopped; no automatic retry" |

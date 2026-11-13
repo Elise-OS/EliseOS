@@ -35,6 +35,7 @@ SPANS = {
     "disk": (0, 6, 30), "copy": (6, 40, 150), "configure": (40, 62, 150),
     "updates": (62, 88, 240), "elise": (88, 96, 40), "restart": (96, 100, 10),
 }
+PANEL_SECONDS = 20
 FAILED = Path(os.environ.get("ELISE_INSTALLER_STATE_DIR", "/run/elise-installer")) / "failed"
 
 
@@ -72,7 +73,8 @@ def journal():
 
 
 def run(ui, clock=time.monotonic) -> int:
-    progress = Progress(clock())
+    started = clock()
+    progress = Progress(started)
     source = journal()
     shown = None
     while True:
@@ -94,7 +96,9 @@ def run(ui, clock=time.monotonic) -> int:
                     source = None
         else:
             time.sleep(1.0)
-        state = (progress.key, progress.percent(clock()))
+        now = clock()
+        # The steps and the app's QR code take turns, the steps first.
+        state = (progress.key, progress.percent(now), "app" if int((now - started) / PANEL_SECONDS) % 2 else "steps")
         if state != shown:
             ui.progress_screen(*state)
             shown = state

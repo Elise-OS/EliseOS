@@ -190,6 +190,29 @@ def ethernet_ready(sys_class_net: Path = Path("/sys/class/net")) -> bool:
     return network_state(sys_class_net) == "online"
 
 
+def firmware_problem(sys_firmware: Path = Path("/sys/firmware/efi"), cpuinfo: Path = Path("/proc/cpuinfo")) -> str | None:
+    """Why the bootloader could not be installed, checked before any disk is touched.
+
+    Booted in UEFI mode, GRUB must write an EFI boot entry. Seen on a JGINYUE B350I (AMI BIOS):
+    with "NX Mode" off in the BIOS, the kernel cannot map the EFI runtime services, efivars stays
+    empty and curtin fails at install-grub ("EFI variables are not supported on this system").
+    """
+    if not sys_firmware.is_dir():
+        return None  # Legacy BIOS boot: no EFI variables to write.
+    try:
+        has_variables = any((sys_firmware / "efivars").iterdir())
+    except OSError:
+        has_variables = False
+    if has_variables:
+        return None
+    try:
+        flags = next((line for line in cpuinfo.read_text(encoding="ascii", errors="replace").splitlines()
+                      if line.startswith("flags")), "")
+    except OSError:
+        flags = ""
+    return "no-efi-variables nx=missing" if " nx " not in f" {flags.split(':', 1)[-1]} " else "no-efi-variables"
+
+
 def configure_autoinstall(path: str, language: str) -> None:
     config = LANGUAGES[language]
     autoinstall = Path(os.environ.get("ELISE_AUTOINSTALL_PATH", "/autoinstall.yaml"))
@@ -251,6 +274,12 @@ def main() -> int:
         language = choose_language(ui)
         save_language(language)
         serial(f"LANGUAGE selected={language}")
+
+        problem = firmware_problem()
+        if problem:
+            show_error(ui, "", kind="firmware")
+            serial(f"REFUSED firmware {problem}; nothing erased")
+            return 1
 
         wait_for_ethernet(ui, network_state)
         serial("ETHERNET online")
