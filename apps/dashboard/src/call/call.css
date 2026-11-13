@@ -1,0 +1,602 @@
+/*
+ * The single Élise call screen (resident TV, caregiver web window, demo).
+ * Night-teal palette shared with the incoming call screen; every text meets WCAG AA on it.
+ */
+.call {
+  --call-ink: #f7f2e9;
+  --call-ink-soft: #c5d8da;
+  --call-night: #08171e;
+  --call-deep: #0d222b;
+  --call-teal: #5fb3a6;
+  --call-red: #c8333b;
+  --call-red-hover: #ad252e;
+  --call-focus: #ffd27a;
+  --call-gap: clamp(14px, 1.3vw, 26px);
+  --call-radius: clamp(18px, 1.6vw, 30px);
+  --call-button: clamp(60px, 4.8vw, 92px);
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--call-gap);
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: var(--call-gap);
+  overflow: hidden;
+  color: var(--call-ink);
+  background:
+    radial-gradient(circle at 50% 120%, rgba(95, 179, 166, 0.16), transparent 52%),
+    linear-gradient(180deg, #0b1d25 0%, var(--call-night) 100%);
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  isolation: isolate;
+}
+.call *,
+.call *::before,
+.call *::after {
+  box-sizing: border-box;
+}
+.call button {
+  font: inherit;
+}
+
+/* ---- Stage: the other person's whole picture, never cropped, on black ---- */
+.call__stage {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--call-radius);
+  background: #000;
+  box-shadow:
+    0 0 0 1px rgba(197, 216, 218, 0.08),
+    0 24px 70px rgba(0, 0, 0, 0.35);
+}
+.call__video,
+.call__jitsi,
+.call__jitsi > iframe {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0;
+}
+.call__video {
+  opacity: 0;
+  transition: opacity 420ms ease;
+}
+.call__video.is-visible {
+  opacity: 1;
+}
+.call--tv .call__jitsi > iframe {
+  /* Nothing to click inside Jitsi on the TV: the remote drives Élise's bar. */
+  pointer-events: none;
+}
+.call__self {
+  position: absolute;
+  top: clamp(14px, 1.4vw, 26px);
+  right: clamp(14px, 1.4vw, 26px);
+  z-index: 2;
+  width: clamp(168px, 14vw, 288px);
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 3px solid rgba(247, 242, 233, 0.92);
+  border-radius: clamp(14px, 1.1vw, 20px);
+  background: #10262f;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+.call__self video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+.call__self video.is-ready {
+  opacity: 1;
+}
+.call__banner {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(16px, 1.6vw, 30px);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  width: max-content;
+  max-width: calc(100% - 40px);
+  margin: 0;
+  padding: 0.62em 1.15em;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  color: #10262f;
+  background: rgba(247, 242, 233, 0.96);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+  font-size: clamp(16px, 1.45vw, 30px);
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
+.call__banner svg {
+  flex: none;
+  width: 1.2em;
+  height: 1.2em;
+  color: var(--call-red);
+}
+
+/* ---- Messages instead of the video: connecting, waiting, reconnecting, ended, failed ---- */
+.call-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: clamp(24px, 4vw, 80px);
+  overflow: hidden;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 36%, rgba(95, 179, 166, 0.3), transparent 46%),
+    linear-gradient(160deg, #123540 0%, #0c222b 55%, #08171e 100%);
+  animation: call-fade-in 360ms ease both;
+}
+.call-veil__glow {
+  position: absolute;
+  top: 36%;
+  left: 50%;
+  width: clamp(320px, 42vw, 820px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(197, 216, 218, 0.1);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 clamp(40px, 5vw, 96px) rgba(95, 179, 166, 0.05),
+    0 0 0 clamp(80px, 10vw, 192px) rgba(95, 179, 166, 0.03);
+  pointer-events: none;
+}
+.call-veil__content {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  max-width: min(100%, 1100px);
+}
+.call-veil h2 {
+  margin: clamp(18px, 2.6vh, 36px) 0 0;
+  color: var(--call-ink);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: clamp(30px, 4.2vw, 84px);
+  font-weight: 650;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.call-veil p {
+  margin: clamp(10px, 1.6vh, 20px) 0 0;
+  color: var(--call-ink-soft);
+  font-size: clamp(17px, 1.9vw, 38px);
+  font-weight: 600;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+.call-veil .call-veil__note {
+  margin-top: clamp(18px, 2.6vh, 34px);
+  padding: 0.5em 1.1em;
+  border-radius: 999px;
+  color: var(--call-ink);
+  background: rgba(247, 242, 233, 0.1);
+  font-size: clamp(15px, 1.4vw, 28px);
+}
+.call-veil__icon {
+  display: grid;
+  place-items: center;
+  width: clamp(96px, 9vw, 168px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  color: #ffd9a8;
+  background: rgba(255, 210, 122, 0.12);
+  box-shadow: 0 0 0 clamp(10px, 1vw, 18px) rgba(255, 210, 122, 0.06);
+}
+.call-veil__icon svg {
+  width: 44%;
+  height: 44%;
+}
+.call-veil__dots {
+  display: flex;
+  gap: clamp(8px, 0.7vw, 14px);
+  margin-top: clamp(20px, 3vh, 40px);
+}
+.call-veil__dots i {
+  width: clamp(10px, 0.8vw, 16px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--call-teal);
+  animation: call-dot 1.4s ease-in-out infinite;
+}
+.call-veil__dots i:nth-child(2) {
+  animation-delay: 160ms;
+}
+.call-veil__dots i:nth-child(3) {
+  animation-delay: 320ms;
+}
+.call-veil__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--call-gap);
+  margin-top: clamp(24px, 3.6vh, 48px);
+}
+.call--ended .call-veil {
+  background:
+    radial-gradient(circle at 50% 36%, rgba(197, 216, 218, 0.16), transparent 46%),
+    linear-gradient(160deg, #1a2f38 0%, #0f2129 55%, #08171e 100%);
+}
+.call--ended .call-avatar {
+  filter: saturate(0.4);
+}
+
+/* ---- Avatar with initials ---- */
+.call-avatar {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: clamp(120px, 11vw, 210px);
+  aspect-ratio: 1;
+  border: clamp(5px, 0.45vw, 9px) solid rgba(247, 242, 233, 0.9);
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(145deg, #57a096, #23646b);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
+}
+.call-avatar span {
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: clamp(46px, 4.4vw, 88px);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.call-avatar--pulse::before,
+.call-avatar--pulse::after {
+  position: absolute;
+  inset: -12%;
+  border: 2px solid rgba(95, 179, 166, 0.55);
+  border-radius: 50%;
+  content: '';
+  animation: call-ring 2.6s ease-out infinite;
+}
+.call-avatar--pulse::after {
+  animation-delay: 1.3s;
+}
+
+/* ---- The single control bar ---- */
+.call__bar {
+  /* Reset the dashboard's generic footer (border, margin). */
+  margin: 0;
+  border: 0;
+  background: none;
+  display: flex;
+  align-items: center;
+  gap: var(--call-gap);
+  min-height: calc(var(--call-button) + 16px);
+  padding: 0 clamp(4px, 0.6vw, 12px);
+}
+.call__who {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 1vw, 20px);
+  flex: 1;
+  min-width: 0;
+}
+.call__who .call-avatar {
+  width: var(--call-button);
+  border-width: clamp(3px, 0.2vw, 4px);
+  box-shadow: none;
+}
+.call__who .call-avatar span {
+  font-size: calc(var(--call-button) * 0.4);
+}
+.call__who > div {
+  display: grid;
+  gap: 0.2em;
+  min-width: 0;
+}
+.call__who strong {
+  overflow: hidden;
+  color: var(--call-ink);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: clamp(24px, 2.3vw, 46px);
+  font-weight: 650;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.call__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  color: var(--call-ink-soft);
+  font-size: clamp(15px, 1.35vw, 27px);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.call__status i {
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  background: #8aa3a9;
+}
+.call__status--live i {
+  background: #6ad6a4;
+  box-shadow: 0 0 0 0.3em rgba(106, 214, 164, 0.16);
+}
+.call__status--reconnecting i,
+.call__status--failed i {
+  background: #ffc46b;
+}
+.call__controls {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 0.9vw, 18px);
+}
+.call-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55em;
+  min-width: var(--call-button);
+  min-height: var(--call-button);
+  padding: 0 clamp(18px, 1.5vw, 32px);
+  border: 2px solid rgba(197, 216, 218, 0.22);
+  border-radius: 999px;
+  color: var(--call-ink);
+  background: rgba(197, 216, 218, 0.12);
+  font-size: clamp(16px, 1.45vw, 29px);
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+.call-button svg {
+  flex: none;
+  width: 1.3em;
+  height: 1.3em;
+}
+.call-button:hover:not(:disabled) {
+  background: rgba(197, 216, 218, 0.2);
+}
+.call-button.is-off {
+  border-color: #f7f2e9;
+  color: #0b2433;
+  background: #f7f2e9;
+}
+.call-button.is-off:hover:not(:disabled) {
+  background: #fff;
+}
+.call-button.is-off svg {
+  color: var(--call-red);
+}
+.call-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.call-button.is-off:disabled {
+  border-color: rgba(197, 216, 218, 0.22);
+  color: var(--call-ink-soft);
+  background: transparent;
+  opacity: 0.8;
+}
+.call-button.is-off:disabled svg {
+  color: inherit;
+}
+.call-button--hangup {
+  min-width: calc(var(--call-button) * 2.6);
+  border-color: #e0545b;
+  color: #fff;
+  background: var(--call-red);
+  box-shadow: 0 12px 34px rgba(200, 51, 59, 0.38);
+}
+.call-button--hangup:hover:not(:disabled) {
+  background: var(--call-red-hover);
+}
+.call-button--retry {
+  border-color: var(--call-ink);
+  color: #0b2433;
+  background: var(--call-ink);
+}
+.call-button--retry:hover:not(:disabled) {
+  background: #fff;
+}
+.call-button:focus-visible,
+.call--tv .call-button:focus {
+  outline: clamp(3px, 0.28vw, 6px) solid var(--call-focus);
+  outline-offset: clamp(3px, 0.28vw, 6px);
+}
+.call-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ---- Network quality (web) ---- */
+.call-quality {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.45em 0.85em;
+  border-radius: 999px;
+  color: var(--call-ink-soft);
+  background: rgba(197, 216, 218, 0.08);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.call-quality svg {
+  width: 1.15em;
+  height: 1.15em;
+  color: #ffc46b;
+}
+.call-quality__bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.call-quality__bars i {
+  width: 4px;
+  border-radius: 2px;
+  background: rgba(197, 216, 218, 0.3);
+}
+.call-quality__bars i:nth-child(1) {
+  height: 40%;
+}
+.call-quality__bars i:nth-child(2) {
+  height: 70%;
+}
+.call-quality__bars i:nth-child(3) {
+  height: 100%;
+}
+.call-quality--good .call-quality__bars i {
+  background: #6ad6a4;
+}
+.call-quality--fair .call-quality__bars i:nth-child(-n + 2) {
+  background: #ffc46b;
+}
+
+/* ---- Resident TV: big and calm, readable from the sofa ---- */
+.call--tv {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  --call-button: clamp(72px, 6vw, 112px);
+  --call-gap: clamp(16px, 1.5vw, 30px);
+}
+.call--tv .call-button {
+  font-size: clamp(20px, 1.75vw, 34px);
+}
+.call--tv .call-button--hangup {
+  min-width: calc(var(--call-button) * 3.1);
+}
+.call--tv.call--ended,
+.call--tv.call--failed {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* ---- Caregiver web window ---- */
+.call--web {
+  --call-button: 56px;
+  --call-gap: 14px;
+  border-radius: 22px;
+}
+.call--web .call__stage {
+  border-radius: 16px;
+}
+.call--web .call__who strong {
+  font-size: 24px;
+}
+.call--web .call__status {
+  font-size: 14px;
+}
+.call--web .call-button {
+  font-size: 15px;
+}
+.call--web .call-button--hangup {
+  min-width: 150px;
+}
+.call--web .call-veil h2 {
+  font-size: clamp(28px, 3.4vw, 52px);
+}
+.call--web .call-veil p {
+  font-size: clamp(16px, 1.5vw, 22px);
+}
+.call--web .call-avatar {
+  width: clamp(96px, 9vw, 150px);
+}
+.call--web .call-avatar span {
+  font-size: clamp(38px, 3.6vw, 60px);
+}
+.call--web .call__who .call-avatar {
+  width: 56px;
+}
+.call--web .call__who .call-avatar span {
+  font-size: 22px;
+}
+.call--web .call__self {
+  width: clamp(132px, 15vw, 220px);
+}
+.call--web .call__banner {
+  font-size: 15px;
+}
+.call--web.is-fullscreen {
+  border-radius: 0;
+}
+@media (max-width: 760px) {
+  .call--web {
+    --call-button: 52px;
+    --call-gap: 10px;
+    border-radius: 16px;
+  }
+  .call--web .call__bar {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .call--web .call__who {
+    flex-basis: 100%;
+  }
+  .call--web .call-quality {
+    display: none;
+  }
+  .call--web .call-button span {
+    display: none;
+  }
+  .call--web .call-button {
+    padding: 0;
+  }
+  .call--web .call-button--hangup {
+    min-width: 96px;
+  }
+}
+
+@keyframes call-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes call-ring {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+@keyframes call-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-35%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .call-veil,
+  .call-avatar--pulse::before,
+  .call-avatar--pulse::after,
+  .call-veil__dots i {
+    animation: none;
+  }
+}

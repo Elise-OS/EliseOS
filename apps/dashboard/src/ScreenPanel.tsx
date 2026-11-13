@@ -1,6 +1,5 @@
 import {
   TV_CHANNELS,
-  eliseCallConfig,
   toggleTvChannel,
   tvChannelById,
   tvChannelByUrl,
@@ -20,6 +19,8 @@ import { isLocale, type Locale, t, textBlock } from './i18n';
 import { dateLocale } from './screen-locale';
 import { DEMO_SHOW_TV_EVENT, residentScreenHref } from './resident-screen-link';
 import { createId } from './lib/createId';
+import { JitsiCall } from './call/JitsiCall';
+import { useCallSession, type CallSession } from './call/useCallSession';
 import type {
   ScreenPodcastEpisode,
   ScreenPodcastSearchResult,
@@ -58,7 +59,6 @@ import {
   Timer,
   Clock3,
   Upload,
-  Video,
   Volume2,
   Wifi,
   WifiOff,
@@ -308,127 +308,31 @@ export async function startResidentScreenCall(): Promise<void> {
   if (snapshot.state.call) throw new Error(t('screenPanel.aCallIsAlreadyIn'));
   await screenRequest('screen/calls');
 }
-type JitsiInstance = {
-  dispose: () => void;
-  addEventListener: (event: string, cb: () => void) => void;
-};
-declare global {
-  interface Window {
-    JitsiMeetExternalAPI?: new (domain: string, options: Record<string, unknown>) => JitsiInstance;
-  }
-}
-let jitsiScript: Promise<void> | undefined;
-export function JitsiFrame({
-  join,
-  onEnd,
-  devices = { camera: true, microphone: true },
-  dashboard = false,
-}: {
-  join: ScreenJoin;
-  onEnd: () => void;
-  devices?: { camera: boolean; microphone: boolean };
-  dashboard?: boolean;
-}) {
-  const host = useRef<HTMLDivElement>(null);
-  const end = useRef(onEnd);
-  end.current = onEnd;
-  const [error, setError] = useState('');
-  useEffect(() => {
-    let disposed = false;
-    let api: JitsiInstance | undefined;
-    const url = new URL(join.url);
-    jitsiScript ??= new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = `${url.origin}/external_api.js`;
-      script.onload = () => resolve();
-      script.onerror = () => {
-        jitsiScript = undefined;
-        reject(new Error(t('screenPanel.jitsiIsUnreachable')));
-      };
-      document.head.append(script);
-    });
-    void jitsiScript
-      .then(() => {
-        if (disposed || !host.current || !window.JitsiMeetExternalAPI) return;
-        api = new window.JitsiMeetExternalAPI(url.host, {
-          roomName: join.room,
-          jwt: join.jwt,
-          parentNode: host.current,
-          width: '100%',
-          height: '100%',
-          userInfo: { displayName: join.name },
-          configOverwrite: {
-            ...eliseCallConfig,
-            startWithAudioMuted: !devices.microphone,
-            startWithVideoMuted: !devices.camera,
-            toolbarButtons: [
-              ...(devices.microphone ? ['microphone'] : []),
-              ...(devices.camera ? ['camera'] : []),
-              'hangup',
-            ],
-          },
-        });
-        api.addEventListener('readyToClose', () => end.current());
-        api.addEventListener('videoConferenceLeft', () => end.current());
-      })
-      .catch((e) => setError(String(e)));
-    return () => {
-      disposed = true;
-      api?.dispose();
-    };
-  }, [join.room, join.jwt, join.url, join.name, devices.camera, devices.microphone]);
-  return (
-    <div className={`elise-call${dashboard ? ' elise-call--dashboard' : ''}`}>
-      <div ref={host} />
-      {error && <p role="alert">{error}</p>}
-      <button onClick={onEnd}>{t('screenPanel.hangUp')}</button>
-    </div>
-  );
-}
-
+/** The caregiver's call window: the shared Élise call screen over the dashboard. */
 function DashboardCallWindow({
-  join,
+  session,
   resident,
-  onEnd,
+  onRetryJoin,
+  onHangup,
 }: {
-  join: ScreenJoin;
+  session: CallSession;
   resident: string;
-  onEnd: () => void;
+  onRetryJoin: () => void;
+  onHangup: () => void;
 }) {
   return createPortal(
     <div className="screen-call-window">
-      <section
-        className="screen-call-window__panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('screenPanel.videoCallWith', { resident })}
-      >
-        <header className="screen-call-window__header">
-          <div className="screen-call-window__identity">
-            <span className="screen-call-window__icon" aria-hidden="true">
-              <Video />
-            </span>
-            <div>
-              <p>{t('screenPanel.liveVideoCall')}</p>
-              <h2>{t('screenPanel.callWith', { resident })}</h2>
-              <span>{t('screenPanel.youAreJoiningAs', { name: join.name })}</span>
-            </div>
-          </div>
-          <span className="screen-call-window__status">
-            <i aria-hidden="true" /> {t('screenPanel.callInProgress')}
-          </span>
-          <button
-            type="button"
-            className="screen-call-window__hangup"
-            onClick={onEnd}
-            aria-label={t('screenPanel.hangUpTheCallWith', { resident })}
-          >
-            <Phone aria-hidden="true" />
-            {t('screenPanel.hangUp')}
-          </button>
-        </header>
-        <JitsiFrame join={join} onEnd={onEnd} dashboard />
-      </section>
+      <div className="screen-call-window__panel">
+        <JitsiCall
+          variant="web"
+          join={session.join}
+          peerName={resident}
+          ended={!!session.ended}
+          joinFailed={!!session.joinFailed}
+          onRetryJoin={onRetryJoin}
+          onHangup={onHangup}
+        />
+      </div>
     </div>,
     document.body,
   );
@@ -473,7 +377,6 @@ export function ScreenPanel({
       ),
     );
   const [settings, setSettings] = useState<ScreenSettings>();
-  const [join, setJoin] = useState<ScreenJoin>();
   const [photo, setPhoto] = useState<File>();
   const [photoCaption, setPhotoCaption] = useState('');
   const [photoScheduleAt, setPhotoScheduleAt] = useState('');
@@ -646,14 +549,21 @@ export function ScreenPanel({
     }
   };
   const call = snapshot?.state.call;
-  useEffect(() => {
-    if (call?.client === 'mobile') setJoin(undefined);
-    else if (call?.acceptedAt && call.userId === snapshot?.userId && !join)
-      void screenRequest<ScreenJoin>(`screen/calls/${call.id}/join`)
-        .then(setJoin)
-        .catch((e) => setError(String(e)));
-    if (!call) setJoin(undefined);
-  }, [call?.id, call?.acceptedAt, snapshot?.userId, join]);
+  const fetchCallJoin = useCallback(
+    (id: string) => screenRequest<ScreenJoin>(`screen/calls/${id}/join`),
+    [],
+  );
+  // The window opens once the TV answers a call made from this browser (not from the phone).
+  const {
+    session: callSession,
+    retryJoin,
+    end: endCall,
+  } = useCallSession({
+    callId: call?.id ?? null,
+    active: !!call?.acceptedAt && call.client !== 'mobile' && call.userId === snapshot?.userId,
+    fetchJoin: fetchCallJoin,
+    lingerMs: 3_000,
+  });
   const command = (action: string, extra: Record<string, unknown> = {}) =>
     run(() => screenRequest('screen/commands', { action, ...extra }));
   const changeVolume = (value: number) => {
@@ -1352,13 +1262,16 @@ export function ScreenPanel({
           )}
         </section>
       )}
-      {join ? (
+      {callSession ? (
         <DashboardCallWindow
-          join={join}
+          key={callSession.callId}
+          session={callSession}
           resident={snapshot.resident}
-          onEnd={() => {
-            void run(() => screenRequest(`screen/calls/${call?.id}`, undefined, 'DELETE'));
-            setJoin(undefined);
+          onRetryJoin={retryJoin}
+          onHangup={() => {
+            const id = callSession.callId;
+            endCall();
+            void run(() => screenRequest(`screen/calls/${id}`, undefined, 'DELETE'));
           }}
         />
       ) : (

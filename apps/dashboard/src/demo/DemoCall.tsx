@@ -1,28 +1,36 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { CallScreen } from '../call/CallScreen';
+import type { CallPhase } from '../call/call-state';
 import { textBlock } from '../i18n';
 
 /** Sent by the demo API when the caregiver space starts a call to the resident's TV. */
 export const DEMO_CALL_EVENT = 'elise-demo-call';
 
-const clock = (seconds: number) =>
-  `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+/** Demo timings: the room opens, Jeanne's TV rings and answers on its own. */
+const OPEN_MS = 900;
+const ANSWER_MS = 2600;
+const CLOSE_MS = 2600;
 
-/** A pretend call: it rings, Jeanne's TV answers on its own, and the visitor can hang up. */
+/**
+ * A pretend call with the real Élise call screen: same window, same bar, same states as a real
+ * call, but no camera, microphone or network is used.
+ */
 export function DemoCall() {
   const t = textBlock('demoCall.copy');
   const [open, setOpen] = useState(false);
-  const [connected, setConnected] = useState(false);
-  const [seconds, setSeconds] = useState(0);
-  const [muted, setMuted] = useState(false);
-  const [cameraOff, setCameraOff] = useState(false);
-  const hangUpButton = useRef<HTMLButtonElement>(null);
+  const [phase, setPhase] = useState<CallPhase>('connecting');
+  const [connectedAt, setConnectedAt] = useState<number | null>(null);
+  const [endedAt, setEndedAt] = useState<number | null>(null);
+  const [audioMuted, setAudioMuted] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(false);
 
   useEffect(() => {
     const start = () => {
-      setConnected(false);
-      setSeconds(0);
-      setMuted(false);
-      setCameraOff(false);
+      setPhase('connecting');
+      setConnectedAt(null);
+      setEndedAt(null);
+      setAudioMuted(false);
+      setVideoMuted(false);
       setOpen(true);
     };
     window.addEventListener(DEMO_CALL_EVENT, start);
@@ -31,73 +39,63 @@ export function DemoCall() {
 
   useEffect(() => {
     if (!open) return;
-    hangUpButton.current?.focus();
-    const answer = window.setTimeout(() => setConnected(true), 2600);
+    const timers = [
+      window.setTimeout(() => setPhase((p) => (p === 'connecting' ? 'waiting' : p)), OPEN_MS),
+      window.setTimeout(() => {
+        setPhase((p) => (p === 'waiting' ? 'live' : p));
+        setConnectedAt((at) => at ?? Date.now());
+      }, OPEN_MS + ANSWER_MS),
+    ];
     const close = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
     };
     window.addEventListener('keydown', close);
     return () => {
-      window.clearTimeout(answer);
+      timers.forEach((timer) => window.clearTimeout(timer));
       window.removeEventListener('keydown', close);
     };
   }, [open]);
 
   useEffect(() => {
-    if (!open || !connected) return;
-    const tick = window.setInterval(() => setSeconds((value) => value + 1), 1000);
-    return () => window.clearInterval(tick);
-  }, [open, connected]);
+    if (phase !== 'ended') return;
+    const timer = window.setTimeout(() => setOpen(false), CLOSE_MS);
+    return () => window.clearTimeout(timer);
+  }, [phase]);
 
   if (!open) return null;
+  const hangUp = () => {
+    setEndedAt(Date.now());
+    setPhase('ended');
+  };
   return (
-    <div className="demo-call-backdrop">
-      <div className="demo-call" role="dialog" aria-modal="true" aria-labelledby="demo-call-title">
-        <header>
-          <h2 id="demo-call-title">{t.title}</h2>
-          <span className={`demo-call-state ${connected ? 'is-live' : ''}`} role="status">
-            {connected ? `${t.connected} · ${clock(seconds)}` : t.ringing}
-          </span>
-        </header>
-
-        <div className={`demo-call-stage ${connected ? 'is-live' : 'is-ringing'}`}>
-          <img src="/welcome-home.jpg" alt="" />
-          <span className="demo-call-avatar" aria-hidden="true">
-            JM
-          </span>
-          <strong>Jeanne Martin</strong>
-          <span className="demo-call-self" aria-label={t.you}>
-            {cameraOff ? '—' : t.you}
-          </span>
-        </div>
-
-        <div className="demo-call-controls">
-          <button type="button" aria-pressed={muted} onClick={() => setMuted((value) => !value)}>
-            {muted ? t.unmute : t.mute}
-          </button>
-          <button
-            type="button"
-            aria-pressed={cameraOff}
-            onClick={() => setCameraOff((value) => !value)}
-          >
-            {cameraOff ? t.cameraOn : t.cameraOff}
-          </button>
-          <button
-            ref={hangUpButton}
-            type="button"
-            className="demo-call-hangup"
-            onClick={() => setOpen(false)}
-          >
-            {t.hangUp}
-          </button>
-        </div>
-
-        <aside className="demo-call-how">
-          <strong>{t.howTitle}</strong>
-          <p>{t.how}</p>
-          <small>{t.simulated}</small>
-        </aside>
+    <div className="screen-call-window demo-call-window">
+      <div className="screen-call-window__panel">
+        <CallScreen
+          variant="web"
+          peerName="Jeanne Martin"
+          phase={phase}
+          audioMuted={audioMuted}
+          videoMuted={videoMuted}
+          unavailable={{}}
+          connectedAt={connectedAt}
+          endedAt={endedAt}
+          quality="good"
+          stage={
+            <div className="demo-call-picture">
+              <img src="/welcome-home.jpg" alt="" />
+            </div>
+          }
+          selfView={<span className="demo-call-self" aria-hidden="true" />}
+          onToggleAudio={() => setAudioMuted((value) => !value)}
+          onToggleVideo={() => setVideoMuted((value) => !value)}
+          onHangup={hangUp}
+        />
       </div>
+      <aside className="demo-call-how">
+        <strong>{t.howTitle}</strong>
+        <p>{t.how}</p>
+        <small>{t.simulated}</small>
+      </aside>
     </div>
   );
 }

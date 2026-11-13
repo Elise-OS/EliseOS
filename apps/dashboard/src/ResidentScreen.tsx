@@ -31,7 +31,9 @@ import type {
   ScreenJoin,
   ScreenMedia,
 } from '@elise/contracts';
-import { JitsiFrame, screenRequest } from './ScreenPanel';
+import { screenRequest } from './ScreenPanel';
+import { JitsiCall } from './call/JitsiCall';
+import { useCallSession } from './call/useCallSession';
 import './screen.css';
 import { t } from './i18n';
 import { appointmentPictogramLabel } from './i18n/data';
@@ -423,7 +425,6 @@ export function ResidentScreen() {
   const [error, setError] = useState('');
   const [online, setOnline] = useState(false);
   const [now, setNow] = useState(new Date());
-  const [join, setJoin] = useState<ScreenJoin>();
   const [source, setSource] = useState('');
   const [mediaStatus, setMediaStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [capabilities, setCapabilities] = useState<Record<string, boolean>>({
@@ -479,6 +480,27 @@ export function ResidentScreen() {
     }, 2000);
     return () => clearInterval(timer);
   }, [refresh]);
+  const latestCall = snapshot?.state.call ?? null;
+  const fetchJoin = useCallback(
+    (id: string) =>
+      screenRequest<ScreenJoin>(`screen-device/calls/${id}/join`, undefined, 'POST', token),
+    [token],
+  );
+  // While Élise is unreachable the call carries on: Jitsi shows its own reconnection.
+  const {
+    session: callSession,
+    retryJoin,
+    end: endCall,
+  } = useCallSession({
+    callId: latestCall?.id ?? null,
+    active: !!token && !!latestCall?.acceptedAt,
+    known: online,
+    fetchJoin,
+  });
+  // Media stays paused while "Call ended" is still on screen.
+  const inCall = (online && !!latestCall) || !!callSession;
+  const callerName = useRef('');
+  if (latestCall) callerName.current = latestCall.name;
   const button = useCallback(async () => {
     if (!token) return;
     if (!online) {
@@ -494,12 +516,12 @@ export function ResidentScreen() {
             }
           : s,
       );
-      setJoin(undefined);
+      endCall();
       return;
     }
     await screenRequest('screen-device/button', undefined, 'POST', token);
     await refresh();
-  }, [token, online, refresh]);
+  }, [token, online, refresh, endCall]);
   useEffect(() => {
     const listener = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
@@ -512,18 +534,6 @@ export function ResidentScreen() {
     return () => window.removeEventListener('keydown', listener);
   }, [button]);
   const call = online ? snapshot?.state.call : null;
-  useEffect(() => {
-    if (token && call?.acceptedAt && !join)
-      void screenRequest<ScreenJoin>(
-        `screen-device/calls/${call.id}/join`,
-        undefined,
-        'POST',
-        token,
-      )
-        .then(setJoin)
-        .catch((e) => setError(String(e)));
-    if (!call) setJoin(undefined);
-  }, [call?.id, call?.acceptedAt, join, token]);
   // A kiosk stays open across deployments: fetch the new shell before reloading its assets.
   useEffect(() => {
     if (!token || !online || snapshot?.state.call) return;
@@ -578,7 +588,7 @@ export function ResidentScreen() {
     currentVideoStatus === 'ready' &&
     !state?.playback.paused &&
     !state?.playback.asleep &&
-    !call;
+    !inCall;
   useEffect(() => {
     setCapabilities((current) =>
       current.videoPlaying === videoPlaying ? current : { ...current, videoPlaying },
@@ -594,7 +604,7 @@ export function ResidentScreen() {
       photos.length < 2 ||
       state?.playback.paused ||
       state?.playback.asleep ||
-      call ||
+      inCall ||
       activeVideo
     )
       return;
@@ -608,7 +618,7 @@ export function ResidentScreen() {
     state?.playback.paused,
     state?.playback.asleep,
     state?.settings.slideshowSeconds,
-    call?.id,
+    inCall,
     activeVideo?.id,
   ]);
   useEffect(() => {
@@ -640,14 +650,14 @@ export function ResidentScreen() {
     if (!player || !activeAudio) return;
     // The appliance controls the real HDMI sink so Jitsi, speech and media share one volume.
     player.volume = snapshot?.capabilities.host ? 1 : (state?.playback.volume ?? 30) / 100;
-    if (state?.playback.paused || state?.playback.asleep || call) player.pause();
+    if (state?.playback.paused || state?.playback.asleep || inCall) player.pause();
     else void player.play().catch(() => setRadioStatus('error'));
   }, [
     activeAudio?.id,
     state?.playback.asleep,
     state?.playback.paused,
     state?.playback.volume,
-    call?.id,
+    inCall,
     snapshot?.capabilities.host,
   ]);
   // Keep a local copy of all uploaded media for an Internet outage.
@@ -744,34 +754,38 @@ export function ResidentScreen() {
       {!state?.playback.asleep && state && !call && (
         <FamilyMessageBanner state={state} now={now.getTime()} />
       )}
-      {join && (
-        <JitsiFrame
-          join={join}
-          devices={{
-            camera: !!capabilities.camera,
-            microphone: !!capabilities.microphone,
-          }}
-          onEnd={() => {
-            void screenRequest(`screen-device/calls/${call?.id}`, undefined, 'DELETE', token).then(
-              refresh,
-            );
-            setJoin(undefined);
+      {callSession && !(call && call.id !== callSession.callId) && (
+        <JitsiCall
+          key={callSession.callId}
+          variant="tv"
+          join={callSession.join}
+          peerName={callerName.current}
+          ended={!!callSession.ended}
+          joinFailed={!!callSession.joinFailed}
+          onRetryJoin={retryJoin}
+          devices={{ camera: !!capabilities.camera, microphone: !!capabilities.microphone }}
+          onHangup={() => {
+            const id = callSession.callId;
+            endCall();
+            void screenRequest(`screen-device/calls/${id}`, undefined, 'DELETE', token)
+              .catch(() => undefined)
+              .then(refresh);
           }}
         />
       )}
-      {call && !join && (
+      {call && (!callSession || callSession.callId !== call.id) && (
         <IncomingCallOverlay callId={call.id} callerName={call.name} automatic={call.automatic} />
       )}
       <div
         className={`resident-program ${activeAudio ? 'has-radio' : ''}`}
-        style={{ display: call || state?.playback.asleep ? 'none' : 'grid' }}
+        style={{ display: inCall || state?.playback.asleep ? 'none' : 'grid' }}
       >
         {activeVideo && (
           <>
             <ResidentVideo
               key={activeVideoKey}
               media={activeVideo}
-              paused={state.playback.paused || state.playback.asleep || !!call}
+              paused={state.playback.paused || state.playback.asleep || inCall}
               volume={snapshot.capabilities.host ? 100 : state.playback.volume}
               nextCommandId={
                 [...state.commands]
