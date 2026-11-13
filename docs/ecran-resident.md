@@ -28,6 +28,22 @@ Recueillir l’accord pour la visio, l’enregistrer dans les réglages, puis d�
 
 Un appel automatique est annoncé cinq secondes avant ouverture par un écran calme en plein écran et une courte mélodie dont le volume augmente progressivement. Un appel manuel attend trente secondes. Le bouton à l’écran ou un bouton USB émettant `Espace` ou `F13` accepte/refuse/raccroche selon le contexte. Aucun enregistrement de visio n’est effectué.
 
+### Qualité et états techniques des appels
+
+Les appels à deux participants essaient d’abord une liaison directe P2P par les adresses privées Tailscale ou du réseau local. Aucun serveur STUN/TURN public n’est contacté. Si la liaison directe n’est pas possible, le pont Jitsi privé de la box prend le relais sur l’adresse Tailscale et le port UDP 10000. La vidéo est plafonnée à 1280×720 et 24 images/s ; le pont peut sélectionner les niveaux 360p, 480p ou 720p selon la bande passante. Le simulcast est réservé au repli par le pont et n’ajoute pas de flux en P2P. Le traitement audio du navigateur conserve l’annulation d’écho, la réduction de bruit et le gain automatique, mais les analyseurs continus de niveau et de microphone bruyant sont désactivés.
+
+La logique partagée expose dans `packages/contracts/src/call-runtime.ts` un état stable, indépendant de l’interface :
+
+- `phase` : `idle`, `connecting`, `connected`, `reconnecting`, `ended` ou `failed` ;
+- `camera` et `microphone` : `unknown`, `available`, `denied` si l’autorisation est refusée, ou `unavailable` si le périphérique manque ou échoue ;
+- `network` : `online`, `offline` ou `recovering`, avec `reconnectAttempt` et `nextReconnectAt` pour les reprises bornées ;
+- `remote` et `endReason` distinguent un interlocuteur encore attendu, connecté ou parti, un raccrochage local/distant, une conférence terminée, un serveur inaccessible et l’épuisement des reprises ;
+- `concurrentIncoming: rejected-busy` signale qu’un nouvel appel a été refusé sans remplacer l’appel actif.
+
+Les événements iframe Jitsi (`videoConferenceJoined`, `participantJoined`, `participantLeft`, `cameraError`, `micError`, `peerConnectionFailure`, `errorOccurred`, `readyToClose`, `videoConferenceLeft`) sont convertis vers ce contrat. Les changements `online`/`offline` du navigateur ont le même adaptateur. Jitsi reprend automatiquement sa session média après une brève coupure Wi-Fi/4G ; la logique planifie des délais de 1, 2, 5, 10 puis 20 secondes si l’interface doit recréer l’iframe. Le motif de fin réel est conservé lorsque Jitsi envoie ensuite ses événements de fermeture tardifs.
+
+Le script `external_api.js` est préchargé dès que l’URL Jitsi privée apparaît dans l’état de l’écran. Sur mobile, une requête HTTPS anticipe la résolution DNS, la connexion TLS et la mise en cache avant l’acceptation de l’appel.
+
 Les proches peuvent enregistrer jusqu’à 20 messages de 1 000 caractères dans « Message sur la TV ». Les textes se succèdent en boucle dans le grand bandeau supérieur ; la durée de chaque message se règle entre 5 et 600 secondes. Un seul message reste affiché en permanence. Les textes longs défilent automatiquement pour rester lisibles. Les rendez-vous permettent de choisir un pictogramme (soins, coiffeur, famille, repas, activité, promenade ou transport) et de modifier celui d’un rendez-vous existant.
 
 Les proches peuvent envoyer des messages, déposer des photos/audio/vidéos (100 Mo par fichier), ajouter des liens YouTube et flux HTTPS lisibles par le navigateur, régler le volume et construire le planning. Le calendrier des visites existant alimente les repères de l’écran.

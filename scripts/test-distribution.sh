@@ -44,6 +44,12 @@ grep -q -- 'api dashboard' "$root/appliance/elise-screen-setup.sh"
 grep -q -- 'install -d -m 0750 -o 100 -g 102' "$root/scripts/install-jitsi.sh"
 grep -qF -- 'chown -R 100:102 "$state/config/prosody/config/data"' "$root/scripts/install-jitsi.sh"
 grep -q -- 'up -d --force-recreate jvb' "$root/scripts/install-jitsi.sh"
+grep -q -- "ENABLE_P2P='1'" "$root/scripts/install-jitsi.sh"
+grep -q -- "DISABLE_AUDIO_LEVELS='1'" "$root/scripts/install-jitsi.sh"
+grep -q -- "ENABLE_SIMULCAST='1'" "$root/scripts/install-jitsi.sh"
+grep -q -- "ENABLE_LOBBY='0'" "$root/scripts/install-jitsi.sh"
+grep -q -- "ENABLE_CODEC_AV1='0'" "$root/scripts/install-jitsi.sh"
+grep -q -- "RESOLUTION='720'" "$root/scripts/install-jitsi.sh"
 # An update from the app runs the previous release's installer: it must hand over to the
 # new one, and the new release must refuse to finish while its host files are missing.
 grep -qF -- 'ELISE_INSTALLER_HANDOFF=true ELISE_UPDATE_LOCK_HELD=true' "$root/install/install-elise.sh"

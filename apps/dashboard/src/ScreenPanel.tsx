@@ -20,6 +20,7 @@ import { isLocale, type Locale, t, textBlock } from './i18n';
 import { dateLocale } from './screen-locale';
 import { DEMO_SHOW_TV_EVENT, residentScreenHref } from './resident-screen-link';
 import { createId } from './lib/createId';
+import { preloadJitsiScript } from './jitsi-preload';
 import type {
   ScreenPodcastEpisode,
   ScreenPodcastSearchResult,
@@ -317,7 +318,6 @@ declare global {
     JitsiMeetExternalAPI?: new (domain: string, options: Record<string, unknown>) => JitsiInstance;
   }
 }
-let jitsiScript: Promise<void> | undefined;
 export function JitsiFrame({
   join,
   onEnd,
@@ -337,17 +337,7 @@ export function JitsiFrame({
     let disposed = false;
     let api: JitsiInstance | undefined;
     const url = new URL(join.url);
-    jitsiScript ??= new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = `${url.origin}/external_api.js`;
-      script.onload = () => resolve();
-      script.onerror = () => {
-        jitsiScript = undefined;
-        reject(new Error(t('screenPanel.jitsiIsUnreachable')));
-      };
-      document.head.append(script);
-    });
-    void jitsiScript
+    void preloadJitsiScript(join.url)
       .then(() => {
         if (disposed || !host.current || !window.JitsiMeetExternalAPI) return;
         api = new window.JitsiMeetExternalAPI(url.host, {
@@ -371,7 +361,7 @@ export function JitsiFrame({
         api.addEventListener('readyToClose', () => end.current());
         api.addEventListener('videoConferenceLeft', () => end.current());
       })
-      .catch((e) => setError(String(e)));
+      .catch(() => setError(t('screenPanel.jitsiIsUnreachable')));
     return () => {
       disposed = true;
       api?.dispose();
@@ -442,6 +432,9 @@ export function ScreenPanel({
   locale?: Locale;
 } = {}) {
   const [snapshot, setSnapshot] = useState<ScreenSnapshot>();
+  useEffect(() => {
+    if (snapshot?.jitsiUrl) void preloadJitsiScript(snapshot.jitsiUrl).catch(() => undefined);
+  }, [snapshot?.jitsiUrl]);
   const initialSectionOpened = useRef(false);
   useEffect(() => {
     if (!snapshot || initialSectionOpened.current) return;
