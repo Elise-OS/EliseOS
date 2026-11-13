@@ -13,9 +13,23 @@ install -d -m 0755 "$TARGET/var/lib/elise"
 install -m 0644 /run/elise-installer/language.json "$TARGET/var/lib/elise/language.json"
 
 # These small packages make the TV and local preparation page available from the first boot.
-curtin in-target --target="$TARGET" -- env DEBIAN_FRONTEND=noninteractive \
-  apt-get -o DPkg::Lock::Timeout=900 install -y --no-install-recommends \
-  avahi-daemon python3-pil python3-qrcode
+# They come from the Ubuntu mirror: a brief network loss is retried, and a longer one must not
+# fail an installation whose disk is already written. The signed installer installs the same
+# packages at first boot; until then the TV screen retries and elise.local is not announced.
+target_packages_installed=false
+for attempt in 1 2 3 4; do
+  if curtin in-target --target="$TARGET" -- env DEBIAN_FRONTEND=noninteractive \
+    apt-get -o DPkg::Lock::Timeout=900 install -y --no-install-recommends \
+    avahi-daemon python3-pil python3-qrcode; then
+    target_packages_installed=true
+    break
+  fi
+  echo "ELISE_INSTALLER: TV packages unavailable (attempt $attempt/4), retrying"
+  sleep $((attempt * 15))
+  curtin in-target --target="$TARGET" -- apt-get -o DPkg::Lock::Timeout=900 update || true
+done
+[[ "$target_packages_installed" == true ]] \
+  || echo "ELISE_INSTALLER: TV packages deferred to first boot (Ubuntu mirror unreachable)"
 
 curtin in-target --target="$TARGET" -- groupadd --system --force elise-agent
 agent_gid="$(curtin in-target --target="$TARGET" -- getent group elise-agent | cut -d: -f3)"

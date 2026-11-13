@@ -41,6 +41,16 @@ for _ in $(seq 1 24); do
   [[ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" == yes ]] && break
   sleep 5
 done
+# Some home and office networks block NTP. The saved clock is close to the image build date,
+# close enough for HTTPS: take the real time from GitHub's answer, never moving it backwards.
+if [[ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" != yes ]]; then
+  web_date="$(curl -fsSI --max-time 15 https://github.com 2>/dev/null | sed -n 's/^[Dd]ate: //p' | tr -d '\r' | head -1)" || web_date=""
+  web_seconds=""
+  [[ -z "$web_date" ]] || web_seconds="$(date -u -d "$web_date" +%s 2>/dev/null)" || web_seconds=""
+  if [[ -n "$web_seconds" ]] && (( web_seconds > $(date -u +%s) + 60 )); then
+    date -u -s "@$web_seconds" >/dev/null || true
+  fi
+fi
 
 # The FAT boot partition is the only one editable from Windows or macOS after flashing.
 for candidate in /boot/firmware/elise-github-auth /boot/firmware/elise-github-auth.txt; do

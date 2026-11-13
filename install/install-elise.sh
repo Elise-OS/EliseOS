@@ -13,8 +13,13 @@ GITHUB_USERNAME=""
 GITHUB_TOKEN=""
 docker_config_dir=""
 UPDATE_LOCK_FILE="${ELISE_UPDATE_LOCK_FILE:-/run/elise-update/update.lock}"
+# Present from the moment a first installation points `current` at its release until that
+# release is confirmed healthy: a retry after a failed first attempt is still a first install,
+# with no earlier release to save or restore and the installation screens to close at the end.
+INSTALL_PENDING="$ELISE_STATE/.install-pending"
 ELISE_FRESH_INSTALL=false
 [[ -e "$ELISE_ROOT/current" || -L "$ELISE_ROOT/current" ]] || ELISE_FRESH_INSTALL=true
+[[ ! -f "$INSTALL_PENDING" ]] || ELISE_FRESH_INSTALL=true
 installation_tv_started=false
 
 preparation_status() {
@@ -40,11 +45,15 @@ if [[ -f "$GITHUB_AUTH_FILE" ]]; then
   GITHUB_TOKEN="$(sed -n 's/^token=//p' "$GITHUB_AUTH_FILE" | tail -1)"
 fi
 
+# Home connections drop and stall: retry each download (curl backs off 1, 2, 4, 8, 16 s) and
+# give up on a transfer stuck below 1 kB/s for a minute instead of waiting on it forever.
+CURL_RESILIENT=(--retry 5 --retry-all-errors --connect-timeout 20 --speed-limit 1024 --speed-time 60)
+
 github_get() {
   # A public repository needs no account; the bot only unlocks a private one.
   local auth=()
   [[ -z "$GITHUB_TOKEN" ]] || auth=(-H "Authorization: Bearer $GITHUB_TOKEN")
-  curl -fsSL \
+  curl -fsSL "${CURL_RESILIENT[@]}" \
     -H "Accept: ${GITHUB_ACCEPT:-application/vnd.github+json}" \
     "${auth[@]}" \
     -H 'X-GitHub-Api-Version: 2022-11-28' \
@@ -61,18 +70,26 @@ download_release_asset() {
   local release_json="$1"
   local asset_name="$2"
   local destination="$3"
-  local asset_id
-  asset_id="$(python3 - "$release_json" "$asset_name" <<'PY'
+  local asset_id asset_url
+  read -r asset_id asset_url < <(python3 - "$release_json" "$asset_name" <<'PY'
 import json, sys
 release = json.load(open(sys.argv[1], encoding='utf-8'))
 for asset in release.get('assets', []):
     if asset.get('name') == sys.argv[2] and asset.get('state') == 'uploaded':
-        print(asset['id'])
+        print(asset['id'], asset.get('browser_download_url', ''))
         break
-else:
-    raise SystemExit(f'asset absent: {sys.argv[2]}')
 PY
-)" || fail "asset GitHub absent : $asset_name"
+) || true
+  [[ -n "${asset_id:-}" ]] || fail "asset GitHub absent : $asset_name"
+  # Anonymous API calls are limited to 60 an hour per address, which an install retried every
+  # minute would exhaust: a public release downloads from github.com, outside that quota.
+  # Its integrity comes from the SHA-256 and cosign checks below, not from the URL.
+  if [[ -z "$GITHUB_TOKEN" && "${asset_url:-}" == https://github.com/* ]]; then
+    curl -fsSL "${CURL_RESILIENT[@]}" -H 'User-Agent: elise-os-installer' "$asset_url" -o "$destination" \
+      || fail "téléchargement impossible : $asset_name"
+    return 0
+  fi
+  # A private release needs the bot account, which only the API accepts.
   # GitHub honours only the first Accept header: a second one returns the asset's JSON.
   GITHUB_ACCEPT=application/octet-stream github_get \
     "$GITHUB_API/repos/$REPOSITORY/releases/assets/$asset_id" -o "$destination" \
@@ -91,7 +108,9 @@ os_release="$(. /etc/os-release && printf '%s %s' "${ID:-}" "${VERSION_ID:-}")"
 [[ "$os_release" == "ubuntu 24.04" ]] || fail "Ubuntu Server 24.04 LTS est requis"
 case "$(dpkg --print-architecture)" in amd64|arm64) ;; *) fail "architecture non prise en charge" ;; esac
 (( $(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo) >= 3500 )) || fail "4 Go de mémoire sont requis"
-(( $(df -Pm / | awk 'NR==2 {print $2}') >= 28672 )) || fail "un stockage de 32 Go minimum est requis"
+# 27 Gio: the root filesystem of the smallest "32 Go" SD card or disk, once the boot partition
+# and ext4's own tables are taken out; a 16 Go medium stays well below.
+(( $(df -Pm / | awk 'NR==2 {print $2}') >= 27648 )) || fail "un stockage de 32 Go minimum est requis"
 if [[ -L "$ELISE_ROOT/current" ]]; then
   # An update only adds one release and its images next to the running one.
   (( $(df -Pm / | awk 'NR==2 {print $4}') >= 4096 )) || fail "au moins 4 Go libres sont requis pour la mise à jour"
@@ -104,7 +123,8 @@ getent hosts github.com >/dev/null || fail "connexion Internet indisponible"
 # that very page before this script so the family sees progress immediately; it is the only
 # existing listener that may legitimately own port 80.
 preparation_owns_port() {
-  [[ "${ELISE_FIRST_BOOT:-false}" == true ]] \
+  # A first attempt that failed leaves its own preparation page running for the retry.
+  [[ "${ELISE_FIRST_BOOT:-false}" == true || -f "$INSTALL_PENDING" ]] \
     && systemctl is-active --quiet elise-preparation.service
 }
 if [[ "$ELISE_FRESH_INSTALL" == true ]] \
@@ -140,9 +160,17 @@ if [[ "${ELISE_SKIP_SYSTEM_PACKAGES:-false}" != true ]]; then
   fi
   "${apt[@]}" install -y -qq "${system_packages[@]}"
   install -d -m 0755 /usr/share/keyrings
-  if [[ ! -f /usr/share/keyrings/tailscale-archive-keyring.gpg ]]; then
-    curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg -o /usr/share/keyrings/tailscale-archive-keyring.gpg
-    curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list -o /etc/apt/sources.list.d/tailscale.list
+  # Both files are needed: a connection lost between or during the two downloads must not leave
+  # one of them behind, or every later attempt would skip this block and never find tailscale.
+  tailscale_keyring=/usr/share/keyrings/tailscale-archive-keyring.gpg
+  tailscale_list=/etc/apt/sources.list.d/tailscale.list
+  if [[ ! -s "$tailscale_keyring" || ! -s "$tailscale_list" ]]; then
+    curl -fsSL "${CURL_RESILIENT[@]}" https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg -o "$tailscale_keyring.download" \
+      || fail "téléchargement de la clé Tailscale impossible"
+    curl -fsSL "${CURL_RESILIENT[@]}" https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list -o "$tailscale_list.download" \
+      || { rm -f -- "$tailscale_keyring.download"; fail "téléchargement du dépôt Tailscale impossible"; }
+    mv "$tailscale_keyring.download" "$tailscale_keyring"
+    mv "$tailscale_list.download" "$tailscale_list"
     "${apt[@]}" update -qq
   fi
   "${apt[@]}" install -y -qq tailscale
@@ -156,7 +184,7 @@ if ! command -v cosign >/dev/null; then
     amd64) cosign_sha256=783b5d6c74105401c63946c68d9b2a4e1aab3c8abce043e06b8510b02b623ec9 ;;
     arm64) cosign_sha256=bffabe4cf183122b7de3111257a863c99e7dc6cf1093bfd7bf961de1795589b8 ;;
   esac
-  curl -fsSL "https://github.com/sigstore/cosign/releases/download/v2.5.3/cosign-linux-${cosign_arch}" -o /usr/local/bin/cosign.download \
+  curl -fsSL "${CURL_RESILIENT[@]}" "https://github.com/sigstore/cosign/releases/download/v2.5.3/cosign-linux-${cosign_arch}" -o /usr/local/bin/cosign.download \
     || fail "téléchargement de cosign impossible"
   echo "$cosign_sha256  /usr/local/bin/cosign.download" | sha256sum -c - >/dev/null \
     || { rm -f /usr/local/bin/cosign.download; fail "cosign téléchargé non valide"; }
@@ -279,7 +307,8 @@ if [[ ! -d "$release_dir" ]]; then
   mv "$work_dir/runtime" "$release_dir"
 fi
 # readlink -f resolves a missing link to its own path: only a real link is a previous install.
-if [[ -L "$ELISE_ROOT/current" && -d "$ELISE_ROOT/current" ]]; then
+# A release left by a failed first attempt was never confirmed: there is nothing to go back to.
+if [[ "$ELISE_FRESH_INSTALL" != true && -L "$ELISE_ROOT/current" && -d "$ELISE_ROOT/current" ]]; then
   previous="$(readlink -f "$ELISE_ROOT/current")"
 fi
 previous_env="$ELISE_STATE/previous.env"
@@ -295,6 +324,7 @@ if [[ -n "$previous" ]]; then
   "${old_compose[@]}" exec -T postgres pg_dump -U elise --format=custom elise > "$rollback_dump" \
     || { rm -f -- "$rollback_dump"; fail "impossible de sauvegarder la base avant la mise à jour"; }
 fi
+[[ "$ELISE_FRESH_INSTALL" != true ]] || touch "$INSTALL_PENDING"
 ln -sfn "$release_dir" "$ELISE_ROOT/current"
 [[ -z "$previous" ]] || restore_on_exit=true
 
@@ -531,6 +561,7 @@ until host_files_current; do
 done
 
 restore_on_exit=false
+rm -f -- "$INSTALL_PENDING"
 if [[ -n "$rollback_dump" ]]; then rm -f -- "$rollback_dump"; fi
 rollback_dump=""
 

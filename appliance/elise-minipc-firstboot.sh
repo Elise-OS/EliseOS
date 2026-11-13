@@ -14,7 +14,9 @@ status_message() {
 }
 
 failed() {
-  status_message "La préparation a rencontré un problème. Élise réessaiera automatiquement dans une minute."
+  # Keep the installer's own explanation when it wrote one.
+  grep -q '"error":true' "$STATUS" 2>/dev/null \
+    || status_message "La préparation a rencontré un problème. Élise réessaiera automatiquement dans une minute."
   systemctl start elise-preparation.service || true
 }
 
