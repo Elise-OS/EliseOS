@@ -44,6 +44,9 @@ grep -q -- 'api dashboard' "$root/appliance/elise-screen-setup.sh"
 grep -q -- 'install -d -m 0750 -o 100 -g 102' "$root/scripts/install-jitsi.sh"
 grep -qF -- 'chown -R 100:102 "$state/config/prosody/config/data"' "$root/scripts/install-jitsi.sh"
 grep -q -- 'up -d --force-recreate jvb' "$root/scripts/install-jitsi.sh"
+# Élise draws its own call screen: the Jitsi watermark is switched off by the web container.
+grep -qF -- './custom-interface_config.js:/config/custom-interface_config.js:ro' "$root/docker/jitsi/compose.yaml"
+grep -q -- 'SHOW_JITSI_WATERMARK = false' "$root/docker/jitsi/custom-interface_config.js"
 # An update from the app runs the previous release's installer: it must hand over to the
 # new one, and the new release must refuse to finish while its host files are missing.
 grep -qF -- 'ELISE_INSTALLER_HANDOFF=true ELISE_UPDATE_LOCK_HELD=true' "$root/install/install-elise.sh"
