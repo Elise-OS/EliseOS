@@ -119,6 +119,8 @@ ln -sf ../elise-preparation.service "$work_dir/root/etc/systemd/system/multi-use
 ln -sf ../elise-firstboot.service "$work_dir/root/etc/systemd/system/multi-user.target.wants/elise-firstboot.service"
 ln -sf ../elise-install-screen.service "$work_dir/root/etc/systemd/system/multi-user.target.wants/elise-install-screen.service"
 
+install -D -m 0644 "$ROOT_DIR/appliance/journald/90-elise.conf" "$work_dir/root/etc/systemd/journald.conf.d/90-elise.conf"
+
 # Ubuntu's cloud-init datasource and growpart configuration are deliberately
 # retained so Raspberry Pi Imager can apply hostname, user, SSH, locale and Wi-Fi.
 install -m 0644 "$ROOT_DIR/appliance/cloud-init.cfg" "$work_dir/root/etc/cloud/cloud.cfg.d/99-elise.cfg"

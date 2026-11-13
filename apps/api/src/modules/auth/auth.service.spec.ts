@@ -201,3 +201,21 @@ describe('AuthService mobile login options', () => {
     );
   });
 });
+
+describe('AuthService expired sessions', () => {
+  it('purges only sessions whose expiry has passed', async () => {
+    const deleteMany = vi.fn().mockResolvedValue({ count: 3 });
+    const service = new AuthService({ session: { deleteMany } } as never);
+
+    await expect(service.purgeExpiredSessions()).resolves.toBe(3);
+    const [query] = deleteMany.mock.calls[0] as [{ where: { expiresAt: { lt: Date } } }];
+    expect(query.where.expiresAt.lt).toBeInstanceOf(Date);
+  });
+
+  it('keeps running when the database is unavailable', async () => {
+    const deleteMany = vi.fn().mockRejectedValue(new Error('database down'));
+    const service = new AuthService({ session: { deleteMany } } as never);
+
+    await expect(service.purgeExpiredSessions()).resolves.toBe(0);
+  });
+});

@@ -13,6 +13,7 @@ import { AlertsController } from './modules/alerts/alerts.controller';
 import { AlertsService } from './modules/alerts/alerts.service';
 import { AuthController } from './modules/auth/auth.controller';
 import { AuthService } from './modules/auth/auth.service';
+import { LoginThrottle } from './modules/auth/login-throttle';
 import { SessionGuard } from './modules/auth/session.guard';
 import { DiscoveryController } from './modules/discovery/discovery.controller';
 import { DiscoveryService } from './modules/discovery/discovery.service';
@@ -85,6 +86,7 @@ import { ZigbeeAgentClient } from './modules/zigbee/zigbee-agent.client';
     PrismaService,
     SeedService,
     AuthService,
+    LoginThrottle,
     SessionGuard,
     DiscoveryService,
     ActivityService,

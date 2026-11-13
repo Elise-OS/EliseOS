@@ -3,6 +3,9 @@
 // out. Room, people and device names typed by the family are never in this list.
 
 const EXACT: Record<string, string> = {
+  // Sign-in
+  'Trop de tentatives de connexion. Réessayez dans quelques minutes.':
+    'Too many sign-in attempts. Try again in a few minutes.',
   // Alerts and cameras
   'Cette alerte a déjà changé de statut.': 'This alert has already changed status.',
   'La découverte caméra accepte uniquement des plages privées de 256 adresses maximum.':

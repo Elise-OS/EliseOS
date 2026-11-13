@@ -2,6 +2,9 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
+  type OnModuleDestroy,
+  type OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import { hash, verify } from '@node-rs/argon2';
@@ -30,9 +33,40 @@ interface AuthenticatedSession {
   residentId?: string;
 }
 
+const SESSION_PURGE_INTERVAL_MS = 6 * 3_600_000;
+
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(AuthService.name);
+  private purgeTimer: NodeJS.Timeout | undefined;
+
   public constructor(private readonly prisma: PrismaService) {}
+
+  public onModuleInit(): void {
+    void this.purgeExpiredSessions();
+    this.purgeTimer = setInterval(
+      () => void this.purgeExpiredSessions(),
+      SESSION_PURGE_INTERVAL_MS,
+    );
+    this.purgeTimer.unref();
+  }
+
+  public onModuleDestroy(): void {
+    if (this.purgeTimer) clearInterval(this.purgeTimer);
+  }
+
+  /** Expired sessions no longer open anything: drop them so the table stays small. */
+  public async purgeExpiredSessions(): Promise<number> {
+    try {
+      const { count } = await this.prisma.session.deleteMany({
+        where: { expiresAt: { lt: new Date() } },
+      });
+      return count;
+    } catch (error) {
+      this.logger.warn(`Expired sessions could not be purged: ${String(error)}`);
+      return 0;
+    }
+  }
 
   public async setupState(): Promise<{ setupRequired: boolean; systemReady: true }> {
     return { setupRequired: (await this.prisma.user.count()) === 0, systemReady: true };

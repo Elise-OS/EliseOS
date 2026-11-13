@@ -1,8 +1,5 @@
 import { LiaisonPage } from './LiaisonPage';
-import { JournalPage } from './JournalPage';
-import { CalendarPage } from './CalendarPage';
 import { WelcomePage } from './WelcomePage';
-import { ScreenPanel, startResidentScreenCall } from './ScreenPanel';
 import { AlertsPage, type SafetyCategory } from './AlertsPage';
 import { AlertRulesPanel } from './AlertRulesPanel';
 import { Button, Card, StatusPill } from '@elise/ui';
@@ -52,7 +49,7 @@ import {
   X,
   Usb,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   currentLanguage,
   dashboardLanguages,
@@ -63,7 +60,6 @@ import {
   textBlock,
 } from './i18n';
 import { resizeResidentPhoto, Setup } from './Setup';
-import { HomePlanEditor } from './HomePlanEditor';
 import { HomeOverview, homeRealtimeEventAction } from './HomeOverview';
 import { GuidedTour, type GuidedTourMode } from './GuidedTour';
 import { DataLoadingScreen } from './DataLoadingScreen';
@@ -71,9 +67,27 @@ import { FlagIcon } from './FlagIcons';
 import { RemoteAccessCard } from './RemoteAccessCard';
 import { ActivityPage } from './ActivityPage';
 import { UpdateCard } from './UpdateCard';
-import { ZigbeeKeyPanel } from './ZigbeeKeyPanel';
 import type { UpdateStatus } from '@elise/contracts';
 import { createId } from './lib/createId';
+
+// Pages a caregiver opens now and then load on first visit: the first screen stays light.
+const HomePlanEditor = lazy(() =>
+  import('./HomePlanEditor').then((module) => ({ default: module.HomePlanEditor })),
+);
+const ScreenPanel = lazy(() =>
+  import('./ScreenPanel').then((module) => ({ default: module.ScreenPanel })),
+);
+const ZigbeeKeyPanel = lazy(() =>
+  import('./ZigbeeKeyPanel').then((module) => ({ default: module.ZigbeeKeyPanel })),
+);
+const CalendarPage = lazy(() =>
+  import('./CalendarPage').then((module) => ({ default: module.CalendarPage })),
+);
+const JournalPage = lazy(() =>
+  import('./JournalPage').then((module) => ({ default: module.JournalPage })),
+);
+const startResidentScreenCall = async () =>
+  (await import('./ScreenPanel')).startResidentScreenCall();
 
 interface Overview {
   onboardingRequired: boolean;
@@ -2533,662 +2547,664 @@ export function App() {
           </div>
         )}
 
-        {active === 1 ? (
-          <ActivityPage
-            locale={locale}
-            homeName={household?.home.name ?? overview.home?.name ?? 'Élise'}
-            timeZone={household?.home.timezone ?? 'Europe/Paris'}
-            residentName={residentName}
-            reassurance={overview.reassurance ?? 'INSUFFICIENT_DATA'}
-            openAlerts={overview.openAlerts ?? 0}
-            canManage={currentAccess.role === 'OWNER' || currentAccess.role === 'ADMINISTRATOR'}
-            onOpenAlerts={() => setActive(2)}
-            onOpenRoom={(roomId) => {
-              setHomeEditorRoomId(roomId);
-              setHomeEditorStairId(null);
-              setHomeSection('EDITOR');
-              setActive(3);
-            }}
-            onOpenStair={(stairId) => {
-              setHomeEditorRoomId(null);
-              setHomeEditorStairId(stairId);
-              setHomeSection('EDITOR');
-              setActive(3);
-            }}
-          />
-        ) : active === 2 ? (
-          <AlertsPage
-            locale={locale}
-            canManage={currentAccess.capabilities.includes('alerts:manage')}
-            residentName={residentName}
-            timezone={household?.home.timezone ?? 'Europe/Paris'}
-            onSettings={() => {
-              setSettingsTab('rules');
-              setActive(8);
-            }}
-            onOpenHomeCategory={(category) => {
-              setHomeSection('OVERVIEW');
-              setHomeSensorCategory(category);
-              setActive(3);
-            }}
-            onCall={async () => {
-              await startResidentScreenCall();
-              setScreenSection('call');
-              setActive(10);
-            }}
-            onChanged={refresh}
-          />
-        ) : active === 3 ? (
-          homeSection === 'OVERVIEW' ? (
-            <HomeOverview
+        <Suspense fallback={<DataLoadingScreen locale={locale} />}>
+          {active === 1 ? (
+            <ActivityPage
               locale={locale}
-              home={household?.home}
-              cameras={cameras}
-              initialSensorCategory={homeSensorCategory}
-              onSensorCategoryOpened={clearHomeSensorCategory}
+              homeName={household?.home.name ?? overview.home?.name ?? 'Élise'}
+              timeZone={household?.home.timezone ?? 'Europe/Paris'}
+              residentName={residentName}
+              reassurance={overview.reassurance ?? 'INSUFFICIENT_DATA'}
+              openAlerts={overview.openAlerts ?? 0}
               canManage={currentAccess.role === 'OWNER' || currentAccess.role === 'ADMINISTRATOR'}
-              onManage={(roomId) => {
-                setHomeEditorRoomId(roomId ?? null);
+              onOpenAlerts={() => setActive(2)}
+              onOpenRoom={(roomId) => {
+                setHomeEditorRoomId(roomId);
                 setHomeEditorStairId(null);
                 setHomeSection('EDITOR');
+                setActive(3);
               }}
-              onManageStair={(stairId) => {
+              onOpenStair={(stairId) => {
                 setHomeEditorRoomId(null);
                 setHomeEditorStairId(stairId);
                 setHomeSection('EDITOR');
+                setActive(3);
               }}
             />
-          ) : (
-            <HomePlanEditor
-              key={homeSetupPreview ? 'setup-preview' : 'home-plan'}
+          ) : active === 2 ? (
+            <AlertsPage
               locale={locale}
-              home={household?.home}
-              sensors={[
-                ...(household?.unassignedSensors ?? []),
-                ...(household?.rooms.flatMap((room) => room.sensors) ?? []),
-              ]}
-              cameras={cameras}
-              initialRoomId={homeSection === 'EDITOR' ? homeEditorRoomId : null}
-              initialStairId={homeSection === 'EDITOR' ? homeEditorStairId : null}
-              setupPreview={homeSetupPreview}
-              onSetupPreviewClose={() => {
-                setHomeSetupPreview(false);
-                setHomeEditorRoomId(null);
-                setHomeEditorStairId(null);
-                setHomeSection('OVERVIEW');
-                setActive(tourReturnActive.current);
+              canManage={currentAccess.capabilities.includes('alerts:manage')}
+              residentName={residentName}
+              timezone={household?.home.timezone ?? 'Europe/Paris'}
+              onSettings={() => {
+                setSettingsTab('rules');
+                setActive(8);
               }}
-              onBack={() => {
-                setHomeEditorRoomId(null);
-                setHomeEditorStairId(null);
+              onOpenHomeCategory={(category) => {
                 setHomeSection('OVERVIEW');
+                setHomeSensorCategory(category);
+                setActive(3);
               }}
-              onSaved={() => void refresh()}
+              onCall={async () => {
+                await startResidentScreenCall();
+                setScreenSection('call');
+                setActive(10);
+              }}
+              onChanged={refresh}
             />
-          )
-        ) : active === 5 ? (
-          <MedicationPanel
-            locale={locale}
-            medications={medications}
-            doses={medicationDoses}
-            submitting={savingMedication}
-            notice={medicationNotice}
-            onCreate={createMedication}
-            onConfirm={(doseId) => void confirmMedicationDose(doseId, 'TAKEN')}
-            onSkip={(doseId) => void confirmMedicationDose(doseId, 'SKIPPED')}
-          />
-        ) : active === 12 ? (
-          <CalendarPage locale={locale} onBack={() => setActive(11)} />
-        ) : active === 11 ? (
-          <LiaisonPage
-            locale={locale}
-            pendingMedication={
-              nextPendingDose
-                ? {
-                    name: nextPendingDose.schedule.medication.name,
-                    dosage: nextPendingDose.schedule.medication.dosage,
-                    scheduledFor: nextPendingDose.scheduledFor,
-                  }
-                : null
-            }
-            attention={liaisonAttention ?? null}
-            onMedication={() => setActive(5)}
-            onAttention={() => setActive(2)}
-            onJournal={() => setActive(6)}
-            onCalendar={() => setActive(12)}
-          />
-        ) : active === 6 ? (
-          <JournalPage
-            locale={locale}
-            items={journal}
-            timezone={household?.home.timezone ?? 'Europe/Paris'}
-            residentName={residentName}
-            onBack={() => setActive(11)}
-          />
-        ) : active === 7 ? (
-          <PeoplePanel locale={locale} currentRole={currentAccess.role} />
-        ) : active === 9 ? (
-          <CamerasPanel
-            locale={locale}
-            cameras={cameras}
-            recordings={cameraRecordings}
-            session={cameraSession}
-            notice={cameraNotice}
-            onOpen={(cameraId) => void openCamera(cameraId)}
-            onClose={() => {
-              cameraSessionRequest.current += 1;
-              setCameraSession(null);
-            }}
-          />
-        ) : active === 10 ? (
-          <ScreenPanel initialSection={screenSection} locale={locale} />
-        ) : active === 11 ? (
-          <section className="section-view resident-page">
-            <header className="page-hero resident-hero">
-              <div className="page-hero__copy">
-                <span className="page-hero__eyebrow">{i18nT('app.supportProfile')}</span>
-                <h2 className="page-hero__title">
-                  {i18nT('app.residentProfileTitle', {
-                    name: resident?.preferredName ?? resident?.displayName ?? residentName,
-                  })}
-                </h2>
-                <p className="page-hero__text">
-                  {i18nT('app.essentialContextForAttentivePersonal')}
-                </p>
-              </div>
-              <Button className="button-secondary resident-back" onClick={() => setActive(0)}>
-                <ChevronRight aria-hidden="true" />
-                {i18nT('app.backToHome')}
-              </Button>
-            </header>
-
-            {resident ? (
-              <div className="resident-profile-layout">
-                <Card className="resident-profile-card">
-                  <div className="resident-profile-photo">
-                    {resident.photoUrl ? (
-                      <img
-                        src={resident.photoUrl}
-                        alt={i18nT('app.residentPortrait', { name: resident.displayName })}
-                      />
-                    ) : (
-                      <div className="resident-photo-fallback">
-                        {(resident.preferredName ?? resident.firstName ?? '?')[0]}
-                      </div>
-                    )}
-                    {canEditResident && (
-                      <label className="resident-photo-upload" title={i18nT('app.changePhoto')}>
-                        <Camera aria-hidden="true" />
-                        <span className="sr-only">{i18nT('app.changePhoto')}</span>
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            if (file) void replaceResidentPhoto(file);
-                          }}
-                        />
-                      </label>
-                    )}
-                  </div>
-
-                  <div className="resident-profile-intro">
-                    <span className="resident-primary-pill">
-                      <i />
-                      {i18nT('app.resident')}
-                    </span>
-                    <h3>
-                      {resident.firstName} {resident.lastName}
-                    </h3>
-                    <p>
-                      {resident.formOfAddress
-                        ? `${resident.formOfAddress} · ${resident.preferredName || resident.firstName}`
-                        : i18nT('app.preferredName', {
-                            value: resident.preferredName || resident.firstName || '—',
-                          })}
-                    </p>
-                  </div>
-
-                  <div className="resident-facts">
-                    <div>
-                      <span className="resident-fact-icon resident-fact-icon--date">
-                        <CalendarDays aria-hidden="true" />
-                      </span>
-                      <p>
-                        <small>{i18nT('app.born')}</small>
-                        <strong>
-                          {resident.birthDate
-                            ? new Date(resident.birthDate).toLocaleDateString(locale, {
-                                day: 'numeric',
-                                month: 'long',
-                                year: 'numeric',
-                              })
-                            : '—'}
-                        </strong>
-                        {residentAge(resident.birthDate) && (
-                          <span>{residentAge(resident.birthDate)}</span>
-                        )}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="resident-fact-icon resident-fact-icon--language">
-                        <BookOpen aria-hidden="true" />
-                      </span>
-                      <p>
-                        <small>{i18nT('app.spokenLanguage')}</small>
-                        <strong>{resident.spokenLanguage || '—'}</strong>
-                      </p>
-                    </div>
-                  </div>
-
-                  {canEditResident && resident.photoUrl && (
-                    <button
-                      className="resident-remove-photo"
-                      type="button"
-                      onClick={() => void removeResidentPhoto()}
-                    >
-                      <Trash2 aria-hidden="true" />
-                      {i18nT('app.removePhoto')}
-                    </button>
-                  )}
-                </Card>
-
-                <div className="resident-content-grid">
-                  <Card className="resident-info-card resident-context-card">
-                    <header>
-                      <span className="resident-section-icon resident-section-icon--home">
-                        <Home aria-hidden="true" />
-                      </span>
-                      <div>
-                        <span className="eyebrow">{i18nT('app.livingContext')}</span>
-                        <h3>{i18nT('app.dailyLife')}</h3>
-                      </div>
-                    </header>
-                    {resident.context ? (
-                      <div className="resident-context-list">
-                        <div className="resident-context-item resident-context-item--wide">
-                          {resident.context.livesAlone === null ? (
-                            <CircleHelp aria-hidden="true" />
-                          ) : resident.context.livesAlone ? (
-                            <Home aria-hidden="true" />
-                          ) : (
-                            <UsersRound aria-hidden="true" />
-                          )}
-                          <span>
-                            {resident.context.livesAlone === null
-                              ? i18nT('app.livingSituationNotProvided')
-                              : resident.context.livesAlone
-                                ? i18nT('app.livesAloneAtHome')
-                                : i18nT('app.livesWithSomeoneAtHome')}
-                          </span>
-                        </div>
-                        {resident.context.livesWithPartner && (
-                          <div className="resident-context-item">
-                            <HeartHandshake aria-hidden="true" />
-                            <span>{i18nT('app.withAPartner')}</span>
-                          </div>
-                        )}
-                        {resident.context.livesWithRelative && (
-                          <div className="resident-context-item">
-                            <UsersRound aria-hidden="true" />
-                            <span>{i18nT('app.withARelative')}</span>
-                          </div>
-                        )}
-                        {resident.context.receivesHomeHelp && (
-                          <div className="resident-context-item">
-                            <Accessibility aria-hidden="true" />
-                            <span>{i18nT('app.homeHelp')}</span>
-                          </div>
-                        )}
-                        {resident.context.receivesVisits && (
-                          <div className="resident-context-item">
-                            <CalendarDays aria-hidden="true" />
-                            <span>{i18nT('app.regularVisits')}</span>
-                          </div>
-                        )}
-                        {resident.context.hasPet && (
-                          <div className="resident-context-item">
-                            <PawPrint aria-hidden="true" />
-                            <span>{i18nT('app.livesWithAPet')}</span>
-                          </div>
-                        )}
-                        <div className="resident-context-item resident-context-item--wide">
-                          <Footprints aria-hidden="true" />
-                          <span>{residentMobilityLabel(resident.context.mobility)}</span>
-                        </div>
-                        {resident.context.visualDifficulty && (
-                          <div className="resident-context-item resident-context-item--attention">
-                            <Eye aria-hidden="true" />
-                            <span>{i18nT('app.visualDifficulty')}</span>
-                          </div>
-                        )}
-                        {resident.context.hearingDifficulty && (
-                          <div className="resident-context-item resident-context-item--attention">
-                            <Ear aria-hidden="true" />
-                            <span>{i18nT('app.hearingDifficulty')}</span>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="resident-empty-state">
-                        <Home aria-hidden="true" />
-                        <p>{i18nT('app.noContextRecorded')}</p>
-                      </div>
-                    )}
-                  </Card>
-
-                  <Card className="resident-info-card resident-support-card">
-                    <header>
-                      <span className="resident-section-icon resident-section-icon--support">
-                        <HeartHandshake aria-hidden="true" />
-                      </span>
-                      <div>
-                        <span className="eyebrow">{i18nT('app.support')}</span>
-                        <h3>{i18nT('app.keyConsiderations')}</h3>
-                      </div>
-                      <span className="resident-card-count">{resident.supportNeeds.length}</span>
-                    </header>
-                    {resident.supportNeeds.length ? (
-                      <div className="resident-support-list">
-                        {resident.supportNeeds.map((need) => (
-                          <article key={need.id}>
-                            <span>
-                              {need.kind === 'VISION' ? (
-                                <Eye aria-hidden="true" />
-                              ) : need.kind === 'HEARING' ? (
-                                <Ear aria-hidden="true" />
-                              ) : need.kind === 'FALL_RISK' || need.kind === 'PARKINSON' ? (
-                                <Footprints aria-hidden="true" />
-                              ) : (
-                                <HeartHandshake aria-hidden="true" />
-                              )}
-                            </span>
-                            <div>
-                              <strong>{supportNeedLabel(need.kind)}</strong>
-                              {need.note && <p>{need.note}</p>}
-                            </div>
-                          </article>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="resident-empty-state resident-empty-state--positive">
-                        <CircleCheck aria-hidden="true" />
-                        <p>{i18nT('app.noParticularSupportNeedRecorded')}</p>
-                      </div>
-                    )}
-                  </Card>
-
-                  <Card className="resident-info-card resident-habits-card">
-                    <header>
-                      <span className="resident-section-icon resident-section-icon--habits">
-                        <Clock3 aria-hidden="true" />
-                      </span>
-                      <div>
-                        <span className="eyebrow">{i18nT('app.habits')}</span>
-                        <h3>{i18nT('app.dailyRoutines')}</h3>
-                      </div>
-                      <span className="resident-card-count">{resident.habits.length}</span>
-                    </header>
-                    {resident.habits.length ? (
-                      <div className="resident-routine-list">
-                        {resident.habits.map((habit) => (
-                          <article key={habit.id}>
-                            <span className="resident-routine-dot" />
-                            <div>
-                              <strong>{habitLabel(habit.kind)}</strong>
-                              <small>
-                                {habit.status === 'UNKNOWN'
-                                  ? i18nT('app.eliseIsLearningThisRoutine')
-                                  : `${formatMinute(habit.startMinute)} – ${formatMinute(habit.endMinute)}`}
-                              </small>
-                            </div>
-                            <span
-                              className={`resident-routine-status status-${habit.status.toLowerCase()}`}
-                            >
-                              {habit.status === 'UNKNOWN'
-                                ? i18nT('app.toLearn')
-                                : i18nT('app.recorded')}
-                            </span>
-                          </article>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="resident-empty-state">
-                        <Clock3 aria-hidden="true" />
-                        <p>{i18nT('app.eliseWillLearnRoutinesProgressively')}</p>
-                      </div>
-                    )}
-                  </Card>
-                </div>
-              </div>
+          ) : active === 3 ? (
+            homeSection === 'OVERVIEW' ? (
+              <HomeOverview
+                locale={locale}
+                home={household?.home}
+                cameras={cameras}
+                initialSensorCategory={homeSensorCategory}
+                onSensorCategoryOpened={clearHomeSensorCategory}
+                canManage={currentAccess.role === 'OWNER' || currentAccess.role === 'ADMINISTRATOR'}
+                onManage={(roomId) => {
+                  setHomeEditorRoomId(roomId ?? null);
+                  setHomeEditorStairId(null);
+                  setHomeSection('EDITOR');
+                }}
+                onManageStair={(stairId) => {
+                  setHomeEditorRoomId(null);
+                  setHomeEditorStairId(stairId);
+                  setHomeSection('EDITOR');
+                }}
+              />
             ) : (
-              <Card className="resident-empty-profile">
-                <UserRound aria-hidden="true" />
-                <h3>{i18nT('app.noResidentConfigured')}</h3>
-                <p>{i18nT('app.theProfileWillAppearHere')}</p>
-              </Card>
-            )}
-          </section>
-        ) : active === 8 ? (
-          <section className="section-view settings-page">
-            <header className="page-hero settings-hero">
-              <div className="page-hero__copy settings-hero-copy">
-                <span className="page-hero__eyebrow">Élise OS</span>
-                <h2 className="page-hero__title">{t.nav[8]}</h2>
-                <p className="page-hero__text">{i18nT('app.adaptEliseToYourDaily')}</p>
-              </div>
-              <span className="settings-hero-icon" aria-hidden="true">
-                <Settings />
-              </span>
-            </header>
+              <HomePlanEditor
+                key={homeSetupPreview ? 'setup-preview' : 'home-plan'}
+                locale={locale}
+                home={household?.home}
+                sensors={[
+                  ...(household?.unassignedSensors ?? []),
+                  ...(household?.rooms.flatMap((room) => room.sensors) ?? []),
+                ]}
+                cameras={cameras}
+                initialRoomId={homeSection === 'EDITOR' ? homeEditorRoomId : null}
+                initialStairId={homeSection === 'EDITOR' ? homeEditorStairId : null}
+                setupPreview={homeSetupPreview}
+                onSetupPreviewClose={() => {
+                  setHomeSetupPreview(false);
+                  setHomeEditorRoomId(null);
+                  setHomeEditorStairId(null);
+                  setHomeSection('OVERVIEW');
+                  setActive(tourReturnActive.current);
+                }}
+                onBack={() => {
+                  setHomeEditorRoomId(null);
+                  setHomeEditorStairId(null);
+                  setHomeSection('OVERVIEW');
+                }}
+                onSaved={() => void refresh()}
+              />
+            )
+          ) : active === 5 ? (
+            <MedicationPanel
+              locale={locale}
+              medications={medications}
+              doses={medicationDoses}
+              submitting={savingMedication}
+              notice={medicationNotice}
+              onCreate={createMedication}
+              onConfirm={(doseId) => void confirmMedicationDose(doseId, 'TAKEN')}
+              onSkip={(doseId) => void confirmMedicationDose(doseId, 'SKIPPED')}
+            />
+          ) : active === 12 ? (
+            <CalendarPage locale={locale} onBack={() => setActive(11)} />
+          ) : active === 11 ? (
+            <LiaisonPage
+              locale={locale}
+              pendingMedication={
+                nextPendingDose
+                  ? {
+                      name: nextPendingDose.schedule.medication.name,
+                      dosage: nextPendingDose.schedule.medication.dosage,
+                      scheduledFor: nextPendingDose.scheduledFor,
+                    }
+                  : null
+              }
+              attention={liaisonAttention ?? null}
+              onMedication={() => setActive(5)}
+              onAttention={() => setActive(2)}
+              onJournal={() => setActive(6)}
+              onCalendar={() => setActive(12)}
+            />
+          ) : active === 6 ? (
+            <JournalPage
+              locale={locale}
+              items={journal}
+              timezone={household?.home.timezone ?? 'Europe/Paris'}
+              residentName={residentName}
+              onBack={() => setActive(11)}
+            />
+          ) : active === 7 ? (
+            <PeoplePanel locale={locale} currentRole={currentAccess.role} />
+          ) : active === 9 ? (
+            <CamerasPanel
+              locale={locale}
+              cameras={cameras}
+              recordings={cameraRecordings}
+              session={cameraSession}
+              notice={cameraNotice}
+              onOpen={(cameraId) => void openCamera(cameraId)}
+              onClose={() => {
+                cameraSessionRequest.current += 1;
+                setCameraSession(null);
+              }}
+            />
+          ) : active === 10 ? (
+            <ScreenPanel initialSection={screenSection} locale={locale} />
+          ) : active === 11 ? (
+            <section className="section-view resident-page">
+              <header className="page-hero resident-hero">
+                <div className="page-hero__copy">
+                  <span className="page-hero__eyebrow">{i18nT('app.supportProfile')}</span>
+                  <h2 className="page-hero__title">
+                    {i18nT('app.residentProfileTitle', {
+                      name: resident?.preferredName ?? resident?.displayName ?? residentName,
+                    })}
+                  </h2>
+                  <p className="page-hero__text">
+                    {i18nT('app.essentialContextForAttentivePersonal')}
+                  </p>
+                </div>
+                <Button className="button-secondary resident-back" onClick={() => setActive(0)}>
+                  <ChevronRight aria-hidden="true" />
+                  {i18nT('app.backToHome')}
+                </Button>
+              </header>
 
-            <nav className="settings-tabs" aria-label={i18nT('app.settingsSections')}>
-              <button
-                type="button"
-                className={settingsTab === 'general' ? 'is-selected' : ''}
-                aria-selected={settingsTab === 'general'}
-                onClick={() => setSettingsTab('general')}
-              >
-                <Settings aria-hidden="true" /> {i18nT('app.general')}
-              </button>
-              {currentAccess.capabilities.includes('configuration:manage') && (
+              {resident ? (
+                <div className="resident-profile-layout">
+                  <Card className="resident-profile-card">
+                    <div className="resident-profile-photo">
+                      {resident.photoUrl ? (
+                        <img
+                          src={resident.photoUrl}
+                          alt={i18nT('app.residentPortrait', { name: resident.displayName })}
+                        />
+                      ) : (
+                        <div className="resident-photo-fallback">
+                          {(resident.preferredName ?? resident.firstName ?? '?')[0]}
+                        </div>
+                      )}
+                      {canEditResident && (
+                        <label className="resident-photo-upload" title={i18nT('app.changePhoto')}>
+                          <Camera aria-hidden="true" />
+                          <span className="sr-only">{i18nT('app.changePhoto')}</span>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              if (file) void replaceResidentPhoto(file);
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    <div className="resident-profile-intro">
+                      <span className="resident-primary-pill">
+                        <i />
+                        {i18nT('app.resident')}
+                      </span>
+                      <h3>
+                        {resident.firstName} {resident.lastName}
+                      </h3>
+                      <p>
+                        {resident.formOfAddress
+                          ? `${resident.formOfAddress} · ${resident.preferredName || resident.firstName}`
+                          : i18nT('app.preferredName', {
+                              value: resident.preferredName || resident.firstName || '—',
+                            })}
+                      </p>
+                    </div>
+
+                    <div className="resident-facts">
+                      <div>
+                        <span className="resident-fact-icon resident-fact-icon--date">
+                          <CalendarDays aria-hidden="true" />
+                        </span>
+                        <p>
+                          <small>{i18nT('app.born')}</small>
+                          <strong>
+                            {resident.birthDate
+                              ? new Date(resident.birthDate).toLocaleDateString(locale, {
+                                  day: 'numeric',
+                                  month: 'long',
+                                  year: 'numeric',
+                                })
+                              : '—'}
+                          </strong>
+                          {residentAge(resident.birthDate) && (
+                            <span>{residentAge(resident.birthDate)}</span>
+                          )}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="resident-fact-icon resident-fact-icon--language">
+                          <BookOpen aria-hidden="true" />
+                        </span>
+                        <p>
+                          <small>{i18nT('app.spokenLanguage')}</small>
+                          <strong>{resident.spokenLanguage || '—'}</strong>
+                        </p>
+                      </div>
+                    </div>
+
+                    {canEditResident && resident.photoUrl && (
+                      <button
+                        className="resident-remove-photo"
+                        type="button"
+                        onClick={() => void removeResidentPhoto()}
+                      >
+                        <Trash2 aria-hidden="true" />
+                        {i18nT('app.removePhoto')}
+                      </button>
+                    )}
+                  </Card>
+
+                  <div className="resident-content-grid">
+                    <Card className="resident-info-card resident-context-card">
+                      <header>
+                        <span className="resident-section-icon resident-section-icon--home">
+                          <Home aria-hidden="true" />
+                        </span>
+                        <div>
+                          <span className="eyebrow">{i18nT('app.livingContext')}</span>
+                          <h3>{i18nT('app.dailyLife')}</h3>
+                        </div>
+                      </header>
+                      {resident.context ? (
+                        <div className="resident-context-list">
+                          <div className="resident-context-item resident-context-item--wide">
+                            {resident.context.livesAlone === null ? (
+                              <CircleHelp aria-hidden="true" />
+                            ) : resident.context.livesAlone ? (
+                              <Home aria-hidden="true" />
+                            ) : (
+                              <UsersRound aria-hidden="true" />
+                            )}
+                            <span>
+                              {resident.context.livesAlone === null
+                                ? i18nT('app.livingSituationNotProvided')
+                                : resident.context.livesAlone
+                                  ? i18nT('app.livesAloneAtHome')
+                                  : i18nT('app.livesWithSomeoneAtHome')}
+                            </span>
+                          </div>
+                          {resident.context.livesWithPartner && (
+                            <div className="resident-context-item">
+                              <HeartHandshake aria-hidden="true" />
+                              <span>{i18nT('app.withAPartner')}</span>
+                            </div>
+                          )}
+                          {resident.context.livesWithRelative && (
+                            <div className="resident-context-item">
+                              <UsersRound aria-hidden="true" />
+                              <span>{i18nT('app.withARelative')}</span>
+                            </div>
+                          )}
+                          {resident.context.receivesHomeHelp && (
+                            <div className="resident-context-item">
+                              <Accessibility aria-hidden="true" />
+                              <span>{i18nT('app.homeHelp')}</span>
+                            </div>
+                          )}
+                          {resident.context.receivesVisits && (
+                            <div className="resident-context-item">
+                              <CalendarDays aria-hidden="true" />
+                              <span>{i18nT('app.regularVisits')}</span>
+                            </div>
+                          )}
+                          {resident.context.hasPet && (
+                            <div className="resident-context-item">
+                              <PawPrint aria-hidden="true" />
+                              <span>{i18nT('app.livesWithAPet')}</span>
+                            </div>
+                          )}
+                          <div className="resident-context-item resident-context-item--wide">
+                            <Footprints aria-hidden="true" />
+                            <span>{residentMobilityLabel(resident.context.mobility)}</span>
+                          </div>
+                          {resident.context.visualDifficulty && (
+                            <div className="resident-context-item resident-context-item--attention">
+                              <Eye aria-hidden="true" />
+                              <span>{i18nT('app.visualDifficulty')}</span>
+                            </div>
+                          )}
+                          {resident.context.hearingDifficulty && (
+                            <div className="resident-context-item resident-context-item--attention">
+                              <Ear aria-hidden="true" />
+                              <span>{i18nT('app.hearingDifficulty')}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="resident-empty-state">
+                          <Home aria-hidden="true" />
+                          <p>{i18nT('app.noContextRecorded')}</p>
+                        </div>
+                      )}
+                    </Card>
+
+                    <Card className="resident-info-card resident-support-card">
+                      <header>
+                        <span className="resident-section-icon resident-section-icon--support">
+                          <HeartHandshake aria-hidden="true" />
+                        </span>
+                        <div>
+                          <span className="eyebrow">{i18nT('app.support')}</span>
+                          <h3>{i18nT('app.keyConsiderations')}</h3>
+                        </div>
+                        <span className="resident-card-count">{resident.supportNeeds.length}</span>
+                      </header>
+                      {resident.supportNeeds.length ? (
+                        <div className="resident-support-list">
+                          {resident.supportNeeds.map((need) => (
+                            <article key={need.id}>
+                              <span>
+                                {need.kind === 'VISION' ? (
+                                  <Eye aria-hidden="true" />
+                                ) : need.kind === 'HEARING' ? (
+                                  <Ear aria-hidden="true" />
+                                ) : need.kind === 'FALL_RISK' || need.kind === 'PARKINSON' ? (
+                                  <Footprints aria-hidden="true" />
+                                ) : (
+                                  <HeartHandshake aria-hidden="true" />
+                                )}
+                              </span>
+                              <div>
+                                <strong>{supportNeedLabel(need.kind)}</strong>
+                                {need.note && <p>{need.note}</p>}
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="resident-empty-state resident-empty-state--positive">
+                          <CircleCheck aria-hidden="true" />
+                          <p>{i18nT('app.noParticularSupportNeedRecorded')}</p>
+                        </div>
+                      )}
+                    </Card>
+
+                    <Card className="resident-info-card resident-habits-card">
+                      <header>
+                        <span className="resident-section-icon resident-section-icon--habits">
+                          <Clock3 aria-hidden="true" />
+                        </span>
+                        <div>
+                          <span className="eyebrow">{i18nT('app.habits')}</span>
+                          <h3>{i18nT('app.dailyRoutines')}</h3>
+                        </div>
+                        <span className="resident-card-count">{resident.habits.length}</span>
+                      </header>
+                      {resident.habits.length ? (
+                        <div className="resident-routine-list">
+                          {resident.habits.map((habit) => (
+                            <article key={habit.id}>
+                              <span className="resident-routine-dot" />
+                              <div>
+                                <strong>{habitLabel(habit.kind)}</strong>
+                                <small>
+                                  {habit.status === 'UNKNOWN'
+                                    ? i18nT('app.eliseIsLearningThisRoutine')
+                                    : `${formatMinute(habit.startMinute)} – ${formatMinute(habit.endMinute)}`}
+                                </small>
+                              </div>
+                              <span
+                                className={`resident-routine-status status-${habit.status.toLowerCase()}`}
+                              >
+                                {habit.status === 'UNKNOWN'
+                                  ? i18nT('app.toLearn')
+                                  : i18nT('app.recorded')}
+                              </span>
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="resident-empty-state">
+                          <Clock3 aria-hidden="true" />
+                          <p>{i18nT('app.eliseWillLearnRoutinesProgressively')}</p>
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+                </div>
+              ) : (
+                <Card className="resident-empty-profile">
+                  <UserRound aria-hidden="true" />
+                  <h3>{i18nT('app.noResidentConfigured')}</h3>
+                  <p>{i18nT('app.theProfileWillAppearHere')}</p>
+                </Card>
+              )}
+            </section>
+          ) : active === 8 ? (
+            <section className="section-view settings-page">
+              <header className="page-hero settings-hero">
+                <div className="page-hero__copy settings-hero-copy">
+                  <span className="page-hero__eyebrow">Élise OS</span>
+                  <h2 className="page-hero__title">{t.nav[8]}</h2>
+                  <p className="page-hero__text">{i18nT('app.adaptEliseToYourDaily')}</p>
+                </div>
+                <span className="settings-hero-icon" aria-hidden="true">
+                  <Settings />
+                </span>
+              </header>
+
+              <nav className="settings-tabs" aria-label={i18nT('app.settingsSections')}>
                 <button
                   type="button"
-                  className={settingsTab === 'zigbee' ? 'is-selected' : ''}
-                  aria-selected={settingsTab === 'zigbee'}
-                  onClick={() => setSettingsTab('zigbee')}
+                  className={settingsTab === 'general' ? 'is-selected' : ''}
+                  aria-selected={settingsTab === 'general'}
+                  onClick={() => setSettingsTab('general')}
                 >
-                  <Usb aria-hidden="true" /> {i18nT('zigbeeKey.tab')}
+                  <Settings aria-hidden="true" /> {i18nT('app.general')}
                 </button>
-              )}
-              <button
-                type="button"
-                className={settingsTab === 'rules' ? 'is-selected' : ''}
-                aria-selected={settingsTab === 'rules'}
-                onClick={() => setSettingsTab('rules')}
-              >
-                <Bell aria-hidden="true" /> {i18nT('app.rules')}
-              </button>
-            </nav>
+                {currentAccess.capabilities.includes('configuration:manage') && (
+                  <button
+                    type="button"
+                    className={settingsTab === 'zigbee' ? 'is-selected' : ''}
+                    aria-selected={settingsTab === 'zigbee'}
+                    onClick={() => setSettingsTab('zigbee')}
+                  >
+                    <Usb aria-hidden="true" /> {i18nT('zigbeeKey.tab')}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={settingsTab === 'rules' ? 'is-selected' : ''}
+                  aria-selected={settingsTab === 'rules'}
+                  onClick={() => setSettingsTab('rules')}
+                >
+                  <Bell aria-hidden="true" /> {i18nT('app.rules')}
+                </button>
+              </nav>
 
-            {settingsTab === 'general' && (
-              <details className="elise-card settings-section-card settings-disclosure settings-general-card">
-                <summary className="settings-section-heading">
-                  <span className="settings-section-icon">
-                    <Settings />
-                  </span>
-                  <div>
-                    <span className="eyebrow">{i18nT('app.applicationPreferences')}</span>
-                    <h2>{i18nT('app.general')}</h2>
-                    <p>{i18nT('app.essentialSettingsForThisDevice')}</p>
-                  </div>
-                  <span className="settings-disclosure-chevron" aria-hidden="true">
-                    <ChevronRight />
-                  </span>
-                </summary>
+              {settingsTab === 'general' && (
+                <details className="elise-card settings-section-card settings-disclosure settings-general-card">
+                  <summary className="settings-section-heading">
+                    <span className="settings-section-icon">
+                      <Settings />
+                    </span>
+                    <div>
+                      <span className="eyebrow">{i18nT('app.applicationPreferences')}</span>
+                      <h2>{i18nT('app.general')}</h2>
+                      <p>{i18nT('app.essentialSettingsForThisDevice')}</p>
+                    </div>
+                    <span className="settings-disclosure-chevron" aria-hidden="true">
+                      <ChevronRight />
+                    </span>
+                  </summary>
 
-                <div className="settings-option-list">
-                  <article className="settings-option-row settings-language-row">
-                    <div className="settings-option-copy">
-                      <span className="settings-option-icon settings-option-icon--sage">
-                        <Languages />
-                      </span>
-                      <div>
-                        <h3>{i18nT('app.interfaceLanguage')}</h3>
-                        <p>{i18nT('app.chooseTheLanguageEliseUses')}</p>
+                  <div className="settings-option-list">
+                    <article className="settings-option-row settings-language-row">
+                      <div className="settings-option-copy">
+                        <span className="settings-option-icon settings-option-icon--sage">
+                          <Languages />
+                        </span>
+                        <div>
+                          <h3>{i18nT('app.interfaceLanguage')}</h3>
+                          <p>{i18nT('app.chooseTheLanguageEliseUses')}</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="settings-language-options" role="group" aria-label="Language">
-                      {dashboardLanguages.map((language) => (
-                        <button
-                          key={language.code}
-                          className={locale === language.code ? 'is-selected' : ''}
-                          onClick={() => changeLocale(language.code)}
-                          aria-pressed={locale === language.code}
-                        >
-                          <FlagIcon language={language.code} />
-                          <strong>{language.name}</strong>
-                          {locale === language.code && <CircleCheck />}
-                        </button>
-                      ))}
-                    </div>
-                  </article>
-
-                  <SidebarBehaviorSetting
-                    locale={locale}
-                    enabled={sidebarAutoHide}
-                    disabled={sidebarAutoHideLocked}
-                    onChange={changeSidebarAutoHide}
-                  />
-
-                  <article className="settings-option-row guided-tour-settings">
-                    <div className="settings-option-copy">
-                      <span className="settings-option-icon settings-option-icon--amber">
-                        <Sparkles />
-                      </span>
-                      <div>
-                        <h3>{i18nT('app.guidedTour')}</h3>
-                        <p>{i18nT('app.rediscoverTheEssentialAreasOf')}</p>
+                      <div className="settings-language-options" role="group" aria-label="Language">
+                        {dashboardLanguages.map((language) => (
+                          <button
+                            key={language.code}
+                            className={locale === language.code ? 'is-selected' : ''}
+                            onClick={() => changeLocale(language.code)}
+                            aria-pressed={locale === language.code}
+                          >
+                            <FlagIcon language={language.code} />
+                            <strong>{language.name}</strong>
+                            {locale === language.code && <CircleCheck />}
+                          </button>
+                        ))}
                       </div>
-                    </div>
-                    <Button
-                      className="button-secondary"
-                      onClick={() => {
-                        tourReturnActive.current = active;
-                        setHomeSetupPreview(false);
-                        setTourMode('replay');
-                      }}
-                    >
-                      {i18nT('app.replayTheTour')}
-                    </Button>
-                  </article>
+                    </article>
 
-                  {simulationScenarios.length > 0 && (
-                    <SimulationPanel
-                      scenarios={simulationScenarios}
-                      running={runningSimulation}
-                      notice={simulationNotice}
-                      onRun={(scenario) => void runSimulation(scenario)}
+                    <SidebarBehaviorSetting
                       locale={locale}
+                      enabled={sidebarAutoHide}
+                      disabled={sidebarAutoHideLocked}
+                      onChange={changeSidebarAutoHide}
                     />
-                  )}
-                </div>
-              </details>
-            )}
-            {settingsTab === 'general' &&
-              currentAccess.capabilities.includes('configuration:manage') && (
-                <RemoteAccessCard locale={locale} />
+
+                    <article className="settings-option-row guided-tour-settings">
+                      <div className="settings-option-copy">
+                        <span className="settings-option-icon settings-option-icon--amber">
+                          <Sparkles />
+                        </span>
+                        <div>
+                          <h3>{i18nT('app.guidedTour')}</h3>
+                          <p>{i18nT('app.rediscoverTheEssentialAreasOf')}</p>
+                        </div>
+                      </div>
+                      <Button
+                        className="button-secondary"
+                        onClick={() => {
+                          tourReturnActive.current = active;
+                          setHomeSetupPreview(false);
+                          setTourMode('replay');
+                        }}
+                      >
+                        {i18nT('app.replayTheTour')}
+                      </Button>
+                    </article>
+
+                    {simulationScenarios.length > 0 && (
+                      <SimulationPanel
+                        scenarios={simulationScenarios}
+                        running={runningSimulation}
+                        notice={simulationNotice}
+                        onRun={(scenario) => void runSimulation(scenario)}
+                        locale={locale}
+                      />
+                    )}
+                  </div>
+                </details>
               )}
-            {settingsTab === 'general' &&
-              currentAccess.capabilities.includes('configuration:manage') && (
-                <UpdateCard
+              {settingsTab === 'general' &&
+                currentAccess.capabilities.includes('configuration:manage') && (
+                  <RemoteAccessCard locale={locale} />
+                )}
+              {settingsTab === 'general' &&
+                currentAccess.capabilities.includes('configuration:manage') && (
+                  <UpdateCard
+                    locale={locale}
+                    status={updateStatus}
+                    busy={updateBusy}
+                    onCheck={() => void checkForUpdate()}
+                    onSaveCredentials={(username, token) =>
+                      void saveUpdateCredentials(username, token)
+                    }
+                    onDeleteCredentials={() => void deleteUpdateCredentials()}
+                    onInstall={(version) => void installUpdate(version)}
+                  />
+                )}
+              {settingsTab === 'zigbee' &&
+                currentAccess.capabilities.includes('configuration:manage') && <ZigbeeKeyPanel />}
+              {settingsTab === 'rules' && alertRules && (
+                <AlertRulesPanel
+                  rules={alertRules}
                   locale={locale}
-                  status={updateStatus}
-                  busy={updateBusy}
-                  onCheck={() => void checkForUpdate()}
-                  onSaveCredentials={(username, token) =>
-                    void saveUpdateCredentials(username, token)
-                  }
-                  onDeleteCredentials={() => void deleteUpdateCredentials()}
-                  onInstall={(version) => void installUpdate(version)}
+                  saving={savingRules}
+                  notice={ruleNotice}
+                  onChange={setAlertRules}
+                  onSave={saveAlertRules}
                 />
               )}
-            {settingsTab === 'zigbee' &&
-              currentAccess.capabilities.includes('configuration:manage') && <ZigbeeKeyPanel />}
-            {settingsTab === 'rules' && alertRules && (
-              <AlertRulesPanel
-                rules={alertRules}
-                locale={locale}
-                saving={savingRules}
-                notice={ruleNotice}
-                onChange={setAlertRules}
-                onSave={saveAlertRules}
-              />
-            )}
-          </section>
-        ) : active !== 0 ? (
-          <section className="placeholder-view">
-            <Card>
-              <div className="placeholder-icon">
-                {(() => {
-                  const Icon = navIcons[active]!;
-                  return <Icon />;
-                })()}
-              </div>
-              <h2>{t.nav[active]}</h2>
-              <p>{i18nT('app.thisSectionAlreadyUsesThe')}</p>
-              <Button onClick={() => setActive(0)}>{t.nav[0]}</Button>
-            </Card>
-          </section>
-        ) : (
-          <WelcomePage
-            locale={locale}
-            caregiverFirstName={overview.currentUser?.firstName ?? ''}
-            residentName={residentName}
-            nextSchedule={overview.nextSchedule}
-            reassurance={overview.reassurance ?? 'INSUFFICIENT_DATA'}
-            events={(overview.activity ?? []).map((event) => ({
-              id: event.id,
-              occurredAt: event.occurredAt,
-              capability: event.capability,
-              label: `${activityDescription(event)}${event.room ? ` · ${event.room}` : ''}`,
-            }))}
-            reminders={[
-              ...medicationDoses
-                .filter((dose) => dose.status === 'PENDING')
-                .map((dose) => ({
-                  title: i18nT('app.medication'),
-                  at: dose.scheduledFor,
-                  medication: true,
-                })),
-              ...(overview.nextSchedule
-                ? [
-                    {
-                      title: overview.nextSchedule.title,
-                      at: overview.nextSchedule.startsAt,
-                      medication: false,
-                    },
-                  ]
-                : []),
-            ]}
-            onActivity={() => setActive(1)}
-            onSensors={() => {
-              setHomeSection('OVERVIEW');
-              setActive(3);
-            }}
-            onPlanning={(medication) => {
-              if (medication) setActive(5);
-              else setActive(12);
-            }}
-            onAlerts={() => setActive(2)}
-            onOpenRoom={(roomId) => {
-              setHomeEditorRoomId(roomId);
-              setHomeEditorStairId(null);
-              setHomeSection('EDITOR');
-              setActive(3);
-            }}
-          />
-        )}
+            </section>
+          ) : active !== 0 ? (
+            <section className="placeholder-view">
+              <Card>
+                <div className="placeholder-icon">
+                  {(() => {
+                    const Icon = navIcons[active]!;
+                    return <Icon />;
+                  })()}
+                </div>
+                <h2>{t.nav[active]}</h2>
+                <p>{i18nT('app.thisSectionAlreadyUsesThe')}</p>
+                <Button onClick={() => setActive(0)}>{t.nav[0]}</Button>
+              </Card>
+            </section>
+          ) : (
+            <WelcomePage
+              locale={locale}
+              caregiverFirstName={overview.currentUser?.firstName ?? ''}
+              residentName={residentName}
+              nextSchedule={overview.nextSchedule}
+              reassurance={overview.reassurance ?? 'INSUFFICIENT_DATA'}
+              events={(overview.activity ?? []).map((event) => ({
+                id: event.id,
+                occurredAt: event.occurredAt,
+                capability: event.capability,
+                label: `${activityDescription(event)}${event.room ? ` · ${event.room}` : ''}`,
+              }))}
+              reminders={[
+                ...medicationDoses
+                  .filter((dose) => dose.status === 'PENDING')
+                  .map((dose) => ({
+                    title: i18nT('app.medication'),
+                    at: dose.scheduledFor,
+                    medication: true,
+                  })),
+                ...(overview.nextSchedule
+                  ? [
+                      {
+                        title: overview.nextSchedule.title,
+                        at: overview.nextSchedule.startsAt,
+                        medication: false,
+                      },
+                    ]
+                  : []),
+              ]}
+              onActivity={() => setActive(1)}
+              onSensors={() => {
+                setHomeSection('OVERVIEW');
+                setActive(3);
+              }}
+              onPlanning={(medication) => {
+                if (medication) setActive(5);
+                else setActive(12);
+              }}
+              onAlerts={() => setActive(2)}
+              onOpenRoom={(roomId) => {
+                setHomeEditorRoomId(roomId);
+                setHomeEditorStairId(null);
+                setHomeSection('EDITOR');
+                setActive(3);
+              }}
+            />
+          )}
+        </Suspense>
       </main>
       {tourMode && (
         <GuidedTour

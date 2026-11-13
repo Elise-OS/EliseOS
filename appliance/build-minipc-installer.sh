@@ -85,6 +85,7 @@ install -m 0644 "$ROOT_DIR/appliance/elise_install_state.py" "$bootstrap/usr/lib
 install -m 0644 "$ROOT_DIR/appliance/elise_install_texts.py" "$bootstrap/usr/lib/elise/"
 install -m 0644 "$ROOT_DIR/appliance/elise_language.py" "$bootstrap/usr/lib/elise/"
 install -m 0644 "$ROOT_DIR/appliance/systemd/elise-minipc-firstboot.service" "$bootstrap/etc/systemd/system/"
+install -D -m 0644 "$ROOT_DIR/appliance/journald/90-elise.conf" "$bootstrap/etc/systemd/journald.conf.d/90-elise.conf"
 install -m 0644 "$ROOT_DIR/appliance/systemd/elise-preparation.service" "$bootstrap/etc/systemd/system/"
 install -m 0644 "$ROOT_DIR/appliance/systemd/elise-install-screen.service" "$bootstrap/etc/systemd/system/"
 

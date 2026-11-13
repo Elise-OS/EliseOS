@@ -7,3 +7,6 @@ apps/api/src/generated
 apps/mobile/ios/Pods
 docker/*/data
 eliselanding
+e2e-dist
+test-results
+playwright-report

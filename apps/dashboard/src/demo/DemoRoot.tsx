@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, Minus, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { App } from '../App';
 import { ResidentScreen } from '../ResidentScreen';
@@ -99,11 +99,14 @@ export function DemoRoot() {
         <aside className="demo-bar" aria-label={t.badge}>
           <div className="demo-bar-copy">
             <span className="demo-bar-badge">{t.badge}</span>
-            <span>
-              <strong>{t.home}</strong>
-              <span className="demo-bar-frozen">{t.frozen}</span>
+            <span className="demo-bar-info">
+              <strong title={t.home}>{t.home}</strong>
+              <span className="demo-bar-frozen" title={t.frozen}>
+                {t.frozen}
+              </span>
             </span>
           </div>
+          <span className="demo-bar-sep" aria-hidden="true" />
           <div className="demo-bar-views" role="group" aria-label={t.viewsLabel}>
             {(['aidant', 'tv'] as const).map((item) => (
               <button
@@ -116,6 +119,7 @@ export function DemoRoot() {
               </button>
             ))}
           </div>
+          <span className="demo-bar-sep" aria-hidden="true" />
           <div className="demo-bar-lang" role="group" aria-label={t.language}>
             {dashboardLanguages.map(({ code: item, name }) => (
               <button
@@ -127,22 +131,33 @@ export function DemoRoot() {
                 aria-pressed={lang === item}
                 onClick={() => item !== lang && switchLang(item)}
               >
-                <FlagIcon language={item} /> {item.toUpperCase()}
+                <FlagIcon language={item} />
               </button>
             ))}
           </div>
+          <span className="demo-bar-sep" aria-hidden="true" />
           <div className="demo-bar-actions">
-            <button type="button" onClick={() => window.location.reload()}>
-              {t.restart}
+            <button
+              type="button"
+              className="demo-bar-action"
+              title={t.restart}
+              onClick={() => window.location.reload()}
+            >
+              <RotateCcw aria-hidden="true" />
+              <span>{t.restart}</span>
             </button>
-            <a href={i18nT('demoRoot.exitUrl')}>{t.exit}</a>
+            <a className="demo-bar-action demo-bar-exit" href={i18nT('demoRoot.exitUrl')}>
+              <span>{t.exit}</span>
+              <ArrowUpRight aria-hidden="true" />
+            </a>
             <button
               type="button"
               className="demo-bar-hide"
               onClick={() => setCollapsed(true)}
               aria-label={t.hide}
+              title={t.hide}
             >
-              ×
+              <Minus aria-hidden="true" />
             </button>
           </div>
         </aside>

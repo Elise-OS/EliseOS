@@ -15,12 +15,10 @@ python3 - <<PY
 for path in ("$root/appliance/remote-access-agent.py", "$root/appliance/elise-update-agent.py", "$root/appliance/elise-zigbee-agent.py", "$root/appliance/elise-preparation.py", "$root/appliance/elise_install_state.py", "$root/appliance/elise_install_texts.py", "$root/appliance/elise_language.py", "$root/appliance/elise-install-screen.py", "$root/appliance/installer_ui/__init__.py", "$root/appliance/installer_ui/preview.py", "$root/appliance/installer_ui/texts.py", "$root/appliance/installer_ui/graphics.py", "$root/appliance/installer_ui/monitor.py", "$root/appliance/minipc-installer/select-target.py"):
     compile(open(path, encoding="utf-8").read(), path, "exec")
 PY
-python3 "$root/appliance/test_remote_access_agent.py"
-python3 "$root/appliance/test_update_agent.py"
-python3 "$root/appliance/test_zigbee_agent.py"
-python3 "$root/appliance/test_screen_agent.py"
-python3 "$root/appliance/test_install_screen.py"
-python3 "$root/appliance/test_minipc_installer.py"
+# Every appliance test runs: a new test_*.py file is picked up without editing this list.
+for test_file in "$root"/appliance/test_*.py; do
+  python3 "$test_file"
+done
 docker compose --env-file "$root/.env.example" -f "$root/compose.yaml" -f "$root/compose.release.yaml" config --quiet
 docker compose --env-file "$root/.env.example" -f "$root/compose.yaml" -f "$root/compose.release.yaml" -f "$root/compose.raspberry.yaml" -f "$root/compose.raspberry.release.yaml" config --quiet
 if grep -R -nE --exclude-dir=node_modules --exclude-dir=dist \
@@ -149,4 +147,14 @@ if grep -Eq -- '/api/v1/(equipment|sensor-devices)/' "$root/docker/dashboard/Cad
   echo "The private gateway must leave equipment and sensor routes to application role checks." >&2
   exit 1
 fi
+# Logs stay bounded on SD cards: every container and the system journal have a size limit.
+services_count="$(docker compose --env-file "$root/.env.example" -f "$root/compose.yaml" -f "$root/compose.release.yaml" -f "$root/compose.raspberry.yaml" -f "$root/compose.raspberry.release.yaml" config --services | wc -l)"
+limited_count="$(docker compose --env-file "$root/.env.example" -f "$root/compose.yaml" -f "$root/compose.release.yaml" -f "$root/compose.raspberry.yaml" -f "$root/compose.raspberry.release.yaml" config | grep -c 'max-size: 10m')"
+if [ "$services_count" -ne "$limited_count" ]; then
+  echo "Every compose service must limit its logs ($limited_count of $services_count do)." >&2
+  exit 1
+fi
+grep -q 'SystemMaxUse=' "$root/appliance/journald/90-elise.conf"
+grep -q 'journald/90-elise.conf' "$root/appliance/build-raspberry-image.sh"
+grep -q 'journald/90-elise.conf' "$root/appliance/build-minipc-installer.sh"
 echo "Distribution checks passed."

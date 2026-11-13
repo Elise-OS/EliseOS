@@ -22,6 +22,10 @@
     "@elise/contracts#test": {
       "dependsOn": ["build"],
       "outputs": []
+    },
+    "@elise/i18n#test": {
+      "dependsOn": ["build"],
+      "outputs": []
     }
   }
 }

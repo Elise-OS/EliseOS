@@ -1,6 +1,15 @@
 name: elise-os
 
+# Every container keeps at most 30 MB of logs: the box runs for years, often on an SD card.
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '3'
+
 x-node-common: &node-common
+  <<: *logging
   restart: unless-stopped
   volumes:
     - elise_secrets:/run/elise-secrets:ro
@@ -18,6 +27,7 @@ x-node-common: &node-common
 
 services:
   screen-bootstrap:
+    <<: *logging
     image: alpine:3.22
     restart: 'no'
     volumes:
@@ -29,6 +39,7 @@ services:
         'mkdir -p /media/screen /media/residents && chown -R 10001:10001 /media && chmod 0750 /media /media/screen /media/residents',
       ]
   bootstrap:
+    <<: *logging
     image: alpine:3.22
     restart: 'no'
     volumes:
@@ -57,6 +68,7 @@ services:
         fi
 
   postgres:
+    <<: *logging
     image: postgres:18-bookworm
     restart: unless-stopped
     depends_on:
@@ -80,6 +92,7 @@ services:
       retries: 20
 
   mosquitto:
+    <<: *logging
     image: eclipse-mosquitto:2.0.22
     restart: unless-stopped
     depends_on:
@@ -105,6 +118,7 @@ services:
       retries: 10
 
   zigbee2mqtt:
+    <<: *logging
     image: ghcr.io/koenkk/zigbee2mqtt:2.13.0
     restart: unless-stopped
     depends_on:
@@ -127,6 +141,7 @@ services:
       - ${ZIGBEE_ADAPTER:-/dev/null}:/dev/ttyACM0
 
   homeassistant:
+    <<: *logging
     image: ghcr.io/home-assistant/home-assistant:2026.7.4
     restart: unless-stopped
     network_mode: host
@@ -156,6 +171,7 @@ services:
     entrypoint: ['/bin/bash', '/usr/local/bin/elise-ha-entrypoint']
 
   go2rtc:
+    <<: *logging
     image: ghcr.io/alexxit/go2rtc:1.9.14
     restart: unless-stopped
     depends_on:
@@ -173,6 +189,7 @@ services:
       retries: 10
 
   ai:
+    <<: *logging
     build:
       context: .
       dockerfile: docker/Dockerfile.ai
@@ -311,6 +328,7 @@ services:
       - camera_media:/var/lib/elise/camera-media
 
   dashboard:
+    <<: *logging
     build:
       context: .
       dockerfile: docker/Dockerfile.node

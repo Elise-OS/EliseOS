@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
@@ -6,6 +16,7 @@ import { installationSchema } from '@elise/contracts';
 import { parseRequest } from '../../platform/zod-validation';
 import type { AuthenticatedRequest } from './authenticated-request';
 import { AuthService } from './auth.service';
+import { LoginThrottle } from './login-throttle';
 import { SessionGuard } from './session.guard';
 
 const loginSchema = z.object({
@@ -27,7 +38,10 @@ const changePasswordSchema = z.object({
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  public constructor(private readonly auth: AuthService) {}
+  public constructor(
+    private readonly auth: AuthService,
+    private readonly throttle: LoginThrottle,
+  ) {}
 
   @Get('setup-state')
   public setupState() {
@@ -55,16 +69,16 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const input = parseRequest(loginSchema, body);
-    const result = await this.auth.login(input.identifier, input.password);
+    const result = await this.throttledLogin(input.identifier, input.password, request);
     this.setSessionCookie(request, response, result.token);
     return { user: result.user };
   }
 
   @Post('mobile-login')
   @HttpCode(200)
-  public async mobileLogin(@Body() body: unknown) {
+  public async mobileLogin(@Body() body: unknown, @Req() request: Request) {
     const input = parseRequest(loginSchema, body);
-    const result = await this.auth.login(input.identifier, input.password);
+    const result = await this.throttledLogin(input.identifier, input.password, request);
     return { accessToken: result.token, user: result.user };
   }
 
@@ -108,6 +122,19 @@ export class AuthController {
   ): Promise<void> {
     await this.auth.logout(request.sessionId);
     response.clearCookie('elise_session', { path: '/' });
+  }
+
+  private async throttledLogin(identifier: string, password: string, request: Request) {
+    const address = request.ip;
+    this.throttle.assertAllowed(identifier, address);
+    try {
+      const result = await this.auth.login(identifier, password);
+      this.throttle.recordSuccess(identifier);
+      return result;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) this.throttle.recordFailure(identifier, address);
+      throw error;
+    }
   }
 
   private setSessionCookie(request: Request, response: Response, token: string): void {

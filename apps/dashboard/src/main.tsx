@@ -1,8 +1,5 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App';
-import { ScreenPanel } from './ScreenPanel';
-import { ResidentScreen } from './ResidentScreen';
 import { uiLocale } from './screen-locale';
 import './styles.css';
 
@@ -20,14 +17,26 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
   return baseFetch(input, { ...init, headers });
 };
 
+// Each address loads only its own screen: the TV of the resident never downloads the
+// caregiver app, and the caregiver app never downloads the TV.
+const App = lazy(() => import('./App').then((module) => ({ default: module.App })));
+const ScreenPanel = lazy(() =>
+  import('./ScreenPanel').then((module) => ({ default: module.ScreenPanel })),
+);
+const ResidentScreen = lazy(() =>
+  import('./ResidentScreen').then((module) => ({ default: module.ResidentScreen })),
+);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {location.pathname === '/resident-screen' ? (
-      <ResidentScreen />
-    ) : location.pathname === '/screen-control' ? (
-      <ScreenPanel />
-    ) : (
-      <App />
-    )}
+    <Suspense fallback={null}>
+      {location.pathname === '/resident-screen' ? (
+        <ResidentScreen />
+      ) : location.pathname === '/screen-control' ? (
+        <ScreenPanel />
+      ) : (
+        <App />
+      )}
+    </Suspense>
   </StrictMode>,
 );
