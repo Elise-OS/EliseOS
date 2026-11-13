@@ -47,6 +47,12 @@ grep -q -- 'up -d --force-recreate jvb' "$root/scripts/install-jitsi.sh"
 # Élise draws its own call screen: the Jitsi watermark is switched off by the web container.
 grep -qF -- './custom-interface_config.js:/config/custom-interface_config.js:ro' "$root/docker/jitsi/compose.yaml"
 grep -q -- 'SHOW_JITSI_WATERMARK = false' "$root/docker/jitsi/custom-interface_config.js"
+grep -q -- "ENABLE_P2P='1'" "$root/scripts/install-jitsi.sh"
+grep -q -- "DISABLE_AUDIO_LEVELS='1'" "$root/scripts/install-jitsi.sh"
+grep -q -- "ENABLE_SIMULCAST='1'" "$root/scripts/install-jitsi.sh"
+grep -q -- "ENABLE_LOBBY='0'" "$root/scripts/install-jitsi.sh"
+grep -q -- "ENABLE_CODEC_AV1='0'" "$root/scripts/install-jitsi.sh"
+grep -q -- "RESOLUTION='720'" "$root/scripts/install-jitsi.sh"
 # An update from the app runs the previous release's installer: it must hand over to the
 # new one, and the new release must refuse to finish while its host files are missing.
 grep -qF -- 'ELISE_INSTALLER_HANDOFF=true ELISE_UPDATE_LOCK_HELD=true' "$root/install/install-elise.sh"

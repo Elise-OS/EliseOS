@@ -21,6 +21,7 @@ import { DEMO_SHOW_TV_EVENT, residentScreenHref } from './resident-screen-link';
 import { createId } from './lib/createId';
 import { JitsiCall } from './call/JitsiCall';
 import { useCallSession, type CallSession } from './call/useCallSession';
+import { preloadJitsiScript } from './jitsi-preload';
 import type {
   ScreenPodcastEpisode,
   ScreenPodcastSearchResult,
@@ -346,6 +347,9 @@ export function ScreenPanel({
   locale?: Locale;
 } = {}) {
   const [snapshot, setSnapshot] = useState<ScreenSnapshot>();
+  useEffect(() => {
+    if (snapshot?.jitsiUrl) void preloadJitsiScript(snapshot.jitsiUrl).catch(() => undefined);
+  }, [snapshot?.jitsiUrl]);
   const initialSectionOpened = useRef(false);
   useEffect(() => {
     if (!snapshot || initialSectionOpened.current) return;

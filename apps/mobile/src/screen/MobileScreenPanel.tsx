@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { tvChannelByUrl, type ScreenCommand, type ScreenSnapshot } from '@elise/contracts';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { mobileApi, type ScreenTvStatus } from '../api';
 import type { SavedServer } from '../discovery/types';
@@ -9,6 +9,7 @@ import { MobileScreenTabs } from './MobileScreenTabs';
 import { TvChannelLogo } from './TvChannelLogo';
 import { dateLocale } from '../i18n';
 import { t } from '../i18n';
+import { preloadMobileJitsi } from './jitsi-preload';
 
 const c = {
   navy: '#0B2948',
@@ -40,6 +41,9 @@ export function MobileScreenPanel({
   const [statusOpen, setStatusOpen] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (snapshot?.jitsiUrl) void preloadMobileJitsi(snapshot.jitsiUrl);
+  }, [snapshot?.jitsiUrl]);
   const tvStatusQuery = useQuery<ScreenTvStatus>({
     queryKey: ['elise', server.id, 'screen-tv'],
     queryFn: () => mobileApi.screenTvStatus(server, token),
