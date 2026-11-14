@@ -27,6 +27,8 @@ export const boxHealthReportSchema = z.object({
   verdict: boxHealthVerdictSchema,
   checkedAt: z.iso.datetime(),
   groups: z.array(boxHealthGroupSchema),
+  backup: z.object({ running: z.boolean() }).optional(),
+  technical: z.unknown().optional(),
 });
 
 export type BoxHealthAction = z.infer<typeof boxHealthActionSchema>;
