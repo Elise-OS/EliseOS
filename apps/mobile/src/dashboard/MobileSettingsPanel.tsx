@@ -12,6 +12,7 @@ import {
   Alert,
   Linking as NativeLinking,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -28,11 +29,14 @@ import { activeServerUrl } from '../discovery/helpers';
 import { MobilePartnerRibbon } from './MobilePartnerRibbon';
 import { MobileWeatherCard } from './MobileWeatherCard';
 import { MobileZigbeeKeyPanel } from './MobileZigbeeKeyPanel';
+import { MobileBoxHealthPanel, type BoxHealthPlace } from './MobileBoxHealthPanel';
+import { canManageBox } from './box-health-view';
 import { dateLocale, type Language, t } from '../i18n';
 import { LanguageList } from '../i18n/LanguagePicker';
 import { useTabBarPadding } from './tabBarSpace';
 
-type SettingsSection = 'general' | 'zigbee' | 'rules' | 'notifications' | 'about' | 'legal';
+type SettingsSection =
+  'general' | 'zigbee' | 'health' | 'rules' | 'notifications' | 'about' | 'legal';
 type Locale = Language;
 
 const c = {
@@ -62,6 +66,8 @@ function defaultRules(): AlertRuleSettings {
     behavioral: { enabled: false },
   };
 }
+
+const HEALTH_PLACES: BoxHealthPlace[] = ['zigbee', 'sensors', 'remote-access'];
 
 const timeText = (minute: number) =>
   `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
@@ -99,7 +105,7 @@ export function MobileSettingsPanel({
   const demoMode = isDemoServer(server);
   const appVersion = Constants.expoConfig?.version ?? '—';
   const privacyPolicyUrl = t('mobileSettingsPanel.privacyPolicyUrl');
-  const canManage = role === 'OWNER' || role === 'ADMINISTRATOR';
+  const canManage = canManageBox(role);
   const activeUrl = activeServerUrl(server);
   const localGateway = (() => {
     try {
@@ -130,27 +136,33 @@ export function MobileSettingsPanel({
   const [pushBusy, setPushBusy] = useState(false);
   const [pushNotice, setPushNotice] = useState('');
   const [pushStatus, setPushStatus] = useState<PushRegistrationStatus | null>(null);
+  const [healthRefreshSignal, setHealthRefreshSignal] = useState(0);
+  const [healthRefreshing, setHealthRefreshing] = useState(false);
 
   const sectionTitle =
     section === 'zigbee'
       ? t('zigbeeKey.tab')
-      : section === 'notifications'
-        ? 'Notifications'
-        : section === 'about'
-          ? t('mobileSettingsPanel.about')
-          : section === 'legal'
-            ? t('mobileSettingsPanel.legalInformation')
-            : t('mobileSettingsPanel.settings');
+      : section === 'health'
+        ? t('boxHealth.title')
+        : section === 'notifications'
+          ? 'Notifications'
+          : section === 'about'
+            ? t('mobileSettingsPanel.about')
+            : section === 'legal'
+              ? t('mobileSettingsPanel.legalInformation')
+              : t('mobileSettingsPanel.settings');
   const sectionSubtitle =
     section === 'zigbee'
       ? t('zigbeeKey.intro')
-      : section === 'notifications'
-        ? t('mobileSettingsPanel.chooseWhichPushNotificationsYou')
-        : section === 'about'
-          ? t('mobileSettingsPanel.learnMoreAboutEliseAnd')
-          : section === 'legal'
-            ? t('mobileSettingsPanel.projectPublisherSoftwareLicenceAnd')
-            : t('mobileSettingsPanel.adaptEliseToYourDaily');
+      : section === 'health'
+        ? t('boxHealth.intro')
+        : section === 'notifications'
+          ? t('mobileSettingsPanel.chooseWhichPushNotificationsYou')
+          : section === 'about'
+            ? t('mobileSettingsPanel.learnMoreAboutEliseAnd')
+            : section === 'legal'
+              ? t('mobileSettingsPanel.projectPublisherSoftwareLicenceAnd')
+              : t('mobileSettingsPanel.adaptEliseToYourDaily');
 
   useEffect(() => setSection(initialSection), [initialSection]);
 
@@ -314,12 +326,33 @@ export function MobileSettingsPanel({
     }
   };
 
+  // Box health buttons lead to the nearest place of the app: the Zigbee key, the home and its
+  // sensors, or the private access card of the general settings.
+  const openHealthPlace = (place: BoxHealthPlace) => {
+    if (place === 'zigbee') setSection('zigbee');
+    else if (place === 'sensors') onOpenPage('house');
+    else {
+      setRemoteExpanded(true);
+      setSection('general');
+    }
+  };
+
   return (
     <>
       <ScrollView
         key={section}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[s.scroll, tabBarPadding]}
+        refreshControl={
+          section === 'health' && canManage ? (
+            <RefreshControl
+              refreshing={healthRefreshing}
+              onRefresh={() => setHealthRefreshSignal((signal) => signal + 1)}
+              tintColor={c.blue}
+              colors={[c.blue]}
+            />
+          ) : undefined
+        }
       >
         <View style={s.hero}>
           <View style={s.heroHeadingRow}>
@@ -388,6 +421,25 @@ export function MobileSettingsPanel({
                   <Text style={s.eyebrow}>{t('zigbeeKey.eyebrow')}</Text>
                   <Text style={s.cardTitle}>{t('zigbeeKey.tab')}</Text>
                   <Text style={s.body}>{t('zigbeeKey.intro')}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={19} color={c.muted} />
+              </Pressable>
+            ) : null}
+            {canManage ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('boxHealth.settingsRow.title')}
+                accessibilityHint={t('boxHealth.settingsRow.body')}
+                style={s.settingsNavRow}
+                onPress={() => setSection('health')}
+              >
+                <View style={[s.cardIcon, s.healthSettingsIcon]}>
+                  <Ionicons name="pulse-outline" size={19} color={c.green} />
+                </View>
+                <View style={s.flex}>
+                  <Text style={s.eyebrow}>{t('boxHealth.settingsRow.eyebrow')}</Text>
+                  <Text style={s.cardTitle}>{t('boxHealth.settingsRow.title')}</Text>
+                  <Text style={s.body}>{t('boxHealth.settingsRow.body')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={19} color={c.muted} />
               </Pressable>
@@ -597,6 +649,27 @@ export function MobileSettingsPanel({
               <Text style={s.settingsBackLabel}>{t('mobileSettingsPanel.backToSettings')}</Text>
             </Pressable>
             <MobileZigbeeKeyPanel server={server} token={token} />
+          </>
+        ) : null}
+
+        {section === 'health' && canManage ? (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              style={s.settingsBack}
+              onPress={() => setSection('general')}
+            >
+              <Ionicons name="chevron-back" size={18} color={c.blue} />
+              <Text style={s.settingsBackLabel}>{t('mobileSettingsPanel.backToSettings')}</Text>
+            </Pressable>
+            <MobileBoxHealthPanel
+              server={server}
+              token={token}
+              refreshSignal={healthRefreshSignal}
+              onRefreshingChange={setHealthRefreshing}
+              places={HEALTH_PLACES}
+              onOpenPlace={openHealthPlace}
+            />
           </>
         ) : null}
 
@@ -1328,6 +1401,7 @@ const s = StyleSheet.create({
   peopleSettingsIcon: { backgroundColor: c.paleGreen },
   homeLandmarksIcon: { backgroundColor: c.paleAmber },
   notificationSettingsIcon: { backgroundColor: '#E8F0F3' },
+  healthSettingsIcon: { backgroundColor: c.paleGreen },
   settingsBack: {
     alignSelf: 'flex-start',
     paddingVertical: 6,
