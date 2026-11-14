@@ -32,6 +32,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { currentLanguage, dateLocale, type Locale, t } from './i18n';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import './alerts-page.css';
+import { subscribeRealtime } from './realtime';
 
 type AlertStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED';
 type AlertSeverity = 'INFO' | 'ATTENTION' | 'URGENT';
@@ -354,11 +355,10 @@ export function AlertsPage({
   }, [locale]);
   useEffect(() => {
     void refresh();
-    const stream = new EventSource('/api/v1/events');
-    stream.onmessage = (message: MessageEvent<string>) => {
+    const unsubscribe = subscribeRealtime((data) => {
       let type = '';
       try {
-        type = (JSON.parse(message.data) as { type?: string }).type ?? '';
+        type = (JSON.parse(data) as { type?: string }).type ?? '';
       } catch {
         void refresh();
         return;
@@ -377,9 +377,9 @@ export function AlertsPage({
           void refreshSafety();
         }, 300);
       }
-    };
+    });
     return () => {
-      stream.close();
+      unsubscribe();
       if (safetyRefreshTimerRef.current) clearTimeout(safetyRefreshTimerRef.current);
       safetyRequestRef.current?.abort();
     };

@@ -30,6 +30,7 @@ import { DataLoadingScreen } from './DataLoadingScreen';
 import { roomIcon, roomKindLabel } from './home-visuals';
 import { type Locale, t, textBlock } from './i18n';
 import { coverageFamilyLabel } from './i18n/data';
+import { subscribeRealtime } from './realtime';
 
 export { roomIconKey } from './home-visuals';
 
@@ -517,13 +518,11 @@ export function HomeOverview({
 
   useEffect(() => void refresh(true), [refresh]);
   useEffect(() => {
-    const events = new EventSource('/api/v1/events');
-    events.onmessage = (event) => {
-      const action = homeRealtimeEventAction(String(event.data));
+    return subscribeRealtime((data) => {
+      const action = homeRealtimeEventAction(data);
       if (action === 'PRESENCE') void refreshPresence();
       if (action === 'REFRESH') void refresh();
-    };
-    return () => events.close();
+    });
   }, [refresh, refreshPresence]);
 
   const savedFloor = plan?.levels.find(({ id }) => id === floorId) ?? plan?.levels[0] ?? null;
