@@ -1,5 +1,6 @@
 import type {
   AlertRuleSettings,
+  BoxHealthReport,
   ContactRole,
   RoomSensorCategory,
   CreatePerson,
@@ -359,6 +360,8 @@ const request = async <T>(
     );
   }
   if (response.status === 204) return undefined as T;
+  // Accepted jobs (box backup…) may answer without a body.
+  if (response.status === 202) return response.json().catch(() => undefined) as Promise<T>;
   return response.json() as Promise<T>;
 };
 
@@ -789,6 +792,11 @@ export const mobileApi = {
     }),
   removeGoogleSettings: (server: SavedServer, token: string) =>
     request<void>(server, '/screen/google', token, { method: 'DELETE' }),
+  getBoxHealth: (server: SavedServer, token: string) =>
+    request<BoxHealthReport>(server, '/system/box-health', token),
+  /** Answers 202: the backup carries on in the box, `getBoxHealth` tells when it is over. */
+  runBoxHealthBackup: (server: SavedServer, token: string) =>
+    request<unknown>(server, '/system/box-health/backup', token, { method: 'POST' }),
   remoteAccessStatus: (server: SavedServer, token: string) =>
     request<RemoteAccessStatus>(server, '/remote-access/status', token),
   remoteAccessAction: (

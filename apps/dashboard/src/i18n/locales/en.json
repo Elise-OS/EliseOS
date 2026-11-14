@@ -682,6 +682,270 @@
     "transport": "Transport",
     "walk": "Walk"
   },
+  "boxHealth": {
+    "action": {
+      "openRemoteAccess": "See remote access",
+      "openSensors": "See the sensors",
+      "openZigbee": "See the Zigbee key",
+      "runBackup": "Back up"
+    },
+    "autoRefresh": "updates automatically every minute",
+    "backupDone": "Backup complete.",
+    "backupEndedFailed": "The backup did not complete. Try again in a few minutes.",
+    "backupFailed": "The backup could not start. Try again in a few minutes.",
+    "backupNow": "Back up now",
+    "backupRunning": "Backing up…",
+    "backupStarted": "The backup has started. You can leave this page: it carries on by itself.",
+    "backupTimeout": "The backup is taking longer than expected. Its result will show here once it is done.",
+    "check": {
+      "backup": {
+        "critical": "No successful backup for {{duration}}: start one as soon as you can.",
+        "criticalShort": "No recent backup: start one as soon as you can.",
+        "failed": "The last backup, {{duration}} ago, did not complete. Start another one.",
+        "failedShort": "The last backup did not complete. Start another one.",
+        "label": "Backup",
+        "never": "No backup has been made yet. Start the first one whenever you like.",
+        "ok": "Last successful backup {{duration}} ago.",
+        "okShort": "The home data is backed up regularly.",
+        "unknown": "Unable to tell when the last backup took place.",
+        "warning": "The last backup was {{duration}} ago. Start one whenever you like.",
+        "warningShort": "The last backup is getting old. Start one whenever you like."
+      },
+      "containers": {
+        "criticalShort": "Some box services have stopped.",
+        "critical_one": "{{count}} box service stopped for lack of memory.",
+        "critical_other": "{{count}} box services stopped for lack of memory.",
+        "label": "Box services",
+        "ok": "All the box’s services are running normally.",
+        "unknown": "Unable to check the box’s services.",
+        "warningShort": "A box service restarted recently.",
+        "warning_one": "{{count}} box service restarted recently.",
+        "warning_other": "{{count}} box services restarted recently."
+      },
+      "database": {
+        "critical": "The home data is not answering normally.",
+        "label": "Home data",
+        "ok": "The home data is in order ({{size}}).",
+        "okShort": "The home data is in order.",
+        "unknown": "Unable to read the home data.",
+        "warning": "The home data is growing fast ({{size}}).",
+        "warningShort": "The home data is growing fast."
+      },
+      "disk": {
+        "critical": "The box is almost full ({{percent}}% used): it may stop recording anything.",
+        "criticalShort": "The box is almost full: it may stop recording anything.",
+        "label": "Storage space",
+        "ok": "There is room left on the box ({{percent}}% used).",
+        "okShort": "There is room left on the box.",
+        "unknown": "Unable to read the space left on the box.",
+        "warning": "The box is starting to run out of room ({{percent}}% used).",
+        "warningShort": "The box is starting to run out of room."
+      },
+      "disk-errors": {
+        "criticalShort": "The storage shows signs of wear: make a backup and plan to replace it.",
+        "critical_one": "{{count}} read or write error in the last 24 hours: make a backup and plan to replace the storage.",
+        "critical_other": "{{count}} read or write errors in the last 24 hours: make a backup and plan to replace the storage.",
+        "label": "Storage medium",
+        "ok": "No read or write error in the last 24 hours.",
+        "unknown": "Unable to read the state of the storage.",
+        "warningShort": "A few read errors were found. Keep a recent backup.",
+        "warning_one": "{{count}} read error in the last 24 hours. Keep a recent backup.",
+        "warning_other": "{{count}} read errors in the last 24 hours. Keep a recent backup."
+      },
+      "notifications": {
+        "criticalShort": "Alerts are no longer going out: check the phones.",
+        "critical_one": "{{count}} alert could not be sent in the last 24 hours: check the phones.",
+        "critical_other": "{{count}} alerts could not be sent in the last 24 hours: check the phones.",
+        "label": "Alerts sent",
+        "ok": "Every alert of the last 24 hours went out.",
+        "unknown": "Unable to tell whether alerts are going out.",
+        "warningShort": "A few alerts could not be sent in the last 24 hours.",
+        "warning_one": "{{count}} alert could not be sent in the last 24 hours.",
+        "warning_other": "{{count}} alerts could not be sent in the last 24 hours."
+      },
+      "outbox": {
+        "criticalShort": "Messages are stuck and no longer going out.",
+        "critical_one": "{{count}} message is stuck and no longer going out.",
+        "critical_other": "{{count}} messages are stuck and no longer going out.",
+        "label": "Waiting messages",
+        "ok": "No message is stuck.",
+        "unknown": "Unable to tell whether messages are waiting.",
+        "warningShort": "Some messages could not be sent.",
+        "warning_one": "{{count}} message could not be sent.",
+        "warning_other": "{{count}} messages could not be sent."
+      },
+      "remote-access": {
+        "critical": "Remote access no longer works: the app only reaches Élise at home.",
+        "label": "Remote access",
+        "ok": "The remote access service is answering normally.",
+        "unknown": "Unable to check remote access.",
+        "warning": "Remote access is worth a look: it may not work away from home."
+      },
+      "sensors": {
+        "critical": "Important sensors are no longer checking in.",
+        "label": "Sensors",
+        "none": "No sensor is installed yet.",
+        "okShort": "The sensors are properly registered.",
+        "ok_one": "{{count}} sensor is connected to Élise.",
+        "ok_other": "{{count}} sensors are connected to Élise.",
+        "unknown": "Unable to count the sensors.",
+        "warning": "Some sensors are worth a look."
+      },
+      "swap": {
+        "critical": "The box’s memory is full ({{percent}}% of backup memory): it may slow down a lot.",
+        "criticalShort": "The box’s memory is full: it may slow down a lot.",
+        "label": "Backup memory",
+        "ok": "The box has enough memory to work (backup memory {{percent}}% used).",
+        "okShort": "The box has enough memory to work.",
+        "unknown": "Unable to read the box’s memory.",
+        "warning": "The box is drawing on its backup memory ({{percent}}%): it may slow down a little.",
+        "warningShort": "The box is drawing on its backup memory: it may slow down a little."
+      },
+      "temperature": {
+        "critical": "The box is very hot ({{celsius}} °C): move it away from any heat source and clear its vents.",
+        "criticalShort": "The box is very hot: move it away from any heat source and clear its vents.",
+        "label": "Box temperature",
+        "ok": "The box is at a good temperature ({{celsius}} °C).",
+        "okShort": "The box is at a good temperature.",
+        "unknown": "Unable to read the box’s temperature.",
+        "warning": "The box is getting a little warm ({{celsius}} °C). Leave some air around it.",
+        "warningShort": "The box is getting a little warm. Leave some air around it."
+      },
+      "throttling": {
+        "critical": "The box is slowing down to protect itself: its power supply or cooling may not be enough.",
+        "label": "Power and speed",
+        "ok": "The box is running at full speed and its power supply is steady.",
+        "unknown": "Unable to tell whether the box is slowing down. This is normal on some models.",
+        "warning": "The box slowed down recently to protect itself (heat or a slightly weak power supply)."
+      },
+      "worker": {
+        "critical": "Monitoring has been stopped for {{duration}}: alerts are no longer sent.",
+        "criticalShort": "Monitoring is stopped: alerts are not being sent for now.",
+        "failing_one": "{{count}} automatic check is failing right now: its alert may not go out.",
+        "failing_other": "{{count}} automatic checks are failing right now: some alerts may not go out.",
+        "label": "Continuous monitoring",
+        "ok": "Élise is watching over the home without interruption.",
+        "unknown": "Unable to tell whether monitoring is running right now.",
+        "warning": "Monitoring has not checked in for {{duration}}. It usually restarts on its own.",
+        "warningShort": "Monitoring is running a little behind. It usually catches up on its own."
+      },
+      "zigbee": {
+        "critical": "The Zigbee key no longer answers: wireless sensors are no longer received.",
+        "label": "Zigbee key",
+        "ok": "The Zigbee key is answering normally.",
+        "unknown": "Unable to reach the Zigbee key.",
+        "warning": "The Zigbee key is not answering well. A look at its settings may help."
+      }
+    },
+    "checkNow": "Check now",
+    "checkedAt": "Last check: {{when}}",
+    "checking": "Checking…",
+    "count": {
+      "critical_one": "{{count}} needs action",
+      "critical_other": "{{count}} need action",
+      "ok_one": "{{count}} point in order",
+      "ok_other": "{{count}} points in order",
+      "unknown_one": "{{count}} unable to check",
+      "unknown_other": "{{count}} unable to check",
+      "warning_one": "{{count}} worth a look",
+      "warning_other": "{{count}} worth a look"
+    },
+    "duration": {
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes"
+    },
+    "error": {
+      "forbidden": "Only the owner and administrators can see the box health.",
+      "network": "The box did not answer: it may be switched off, restarting, or the network may be down. This does not mean everything is fine.",
+      "unavailable": "The box cannot run this check right now. If this lasts, update Élise OS and try again."
+    },
+    "eyebrow": "Élise box",
+    "generic": {
+      "critical": "{{label}}: needs your attention.",
+      "ok": "{{label}}: all in order.",
+      "unknown": "{{label}}: unable to check for now.",
+      "warning": "{{label}}: worth a look, no rush."
+    },
+    "group": {
+      "access": {
+        "hint": "Reaching Élise from outside",
+        "title": "Access"
+      },
+      "box": {
+        "hint": "The device itself",
+        "title": "Box"
+      },
+      "data": {
+        "hint": "The home’s data",
+        "title": "Data"
+      },
+      "home": {
+        "hint": "Sensors and Zigbee key",
+        "title": "Home"
+      },
+      "notifications": {
+        "hint": "Are alerts going out?",
+        "title": "Notifications"
+      },
+      "other": "Other points",
+      "surveillance": {
+        "hint": "Is Élise watching properly?",
+        "title": "Monitoring"
+      }
+    },
+    "intro": "A regular check of everything that lets Élise watch over the home: sensors, alerts, the device and backups.",
+    "lastKnown": "Last known results: {{when}}",
+    "level": {
+      "critical": "Needs action",
+      "ok": "In order",
+      "unknown": "Unable to check",
+      "warning": "Worth a look"
+    },
+    "loading": "Checking the box…",
+    "neverChecked": "No successful check yet",
+    "size": {
+      "gb": "{{value}} GB",
+      "kb": "{{value}} kB",
+      "mb": "{{value}} MB"
+    },
+    "staleLabel": "Last known results, possibly out of date",
+    "summary": "Check summary",
+    "tab": "Box health",
+    "technical": {
+      "hint": "Raw values, for the person helping you remotely",
+      "shownAs": "shown as: {{level}}",
+      "title": "Technical details"
+    },
+    "title": "Box health",
+    "verdict": {
+      "critical": {
+        "text_one": "{{count}} point needs a look as soon as possible. Start with the ones marked “Needs action”.",
+        "text_other": "{{count}} points need a look as soon as possible. Start with the ones marked “Needs action”.",
+        "title": "Your attention is needed"
+      },
+      "ok": {
+        "text": "Every point checked is in order. Nothing to do on your side.",
+        "title": "All is well"
+      },
+      "unverifiable": {
+        "title": "Unable to check"
+      },
+      "warning": {
+        "text_one": "{{count}} point is worth a look, no rush.",
+        "text_other": "{{count}} points are worth a look, no rush.",
+        "title": "Worth a look"
+      },
+      "warningUnknown": {
+        "text_one": "{{count}} point could not be checked. That does not mean something is wrong, nor that all is well.",
+        "text_other": "{{count}} points could not be checked. That does not mean something is wrong, nor that all is well.",
+        "title": "Worth a look"
+      }
+    }
+  },
   "calendarPage": {
     "addAnAppointment": "Add an appointment",
     "addAnAppointmentForThe": "Add an appointment for the home.",

@@ -2196,5 +2196,254 @@
     "useKey": "Usar esta llave",
     "useKeyInstead": "Usar esta llave en su lugar",
     "watching": "Una llave conectada o encendida aparece sola mientras esta pantalla esté abierta."
+  },
+  "boxHealth": {
+    "actions": {
+      "open-remote-access": "Ver el acceso remoto",
+      "open-sensors": "Ver los sensores",
+      "open-zigbee": "Ver la llave Zigbee",
+      "run-backup": "Hacer copia"
+    },
+    "backupDone": "Copia de seguridad terminada.",
+    "backupEndedFailed": "La copia de seguridad no se completó. Inténtelo de nuevo en unos minutos.",
+    "backupFailed": "No se pudo iniciar la copia de seguridad. Inténtelo de nuevo en un momento.",
+    "backupNow": "Hacer copia ahora",
+    "backupRunning": "Copia de seguridad en curso…",
+    "backupRunningHint": "Puede salir de esta pantalla, la copia de seguridad continúa en la caja.",
+    "backupStarting": "Iniciando…",
+    "backupTimeout": "La copia de seguridad tarda más de lo previsto. El resultado aparecerá aquí en cuanto termine.",
+    "banner": {
+      "critical": {
+        "body": "Uno o varios puntos impiden que Élise vele bien. Siga los consejos de abajo.",
+        "title": "Necesitamos su atención"
+      },
+      "ok": {
+        "body": "La caja y la vigilancia funcionan con normalidad.",
+        "title": "Todo va bien"
+      },
+      "unavailable": {
+        "body": "Élise no ha podido consultar la caja. Eso no significa que todo vaya bien: inténtelo de nuevo en un momento.",
+        "title": "No se puede comprobar"
+      },
+      "unchecked": {
+        "body": "Algunos puntos no se han podido comprobar. Eso no significa que haya un problema, ni que todo vaya bien.",
+        "title": "Para vigilar"
+      },
+      "warning": {
+        "body": "Algunos puntos merecen un vistazo, sin urgencia.",
+        "title": "Para vigilar"
+      }
+    },
+    "checkNow": "Comprobar ahora",
+    "checkedAt": "Comprobado a las {{time}}",
+    "checkedOn": "Comprobado el {{date}} a las {{time}}",
+    "checking": "Comprobando…",
+    "checks": {
+      "backup": {
+        "critical": "No hay ninguna copia de seguridad reciente: haga una cuanto antes.",
+        "criticalMeasured": "Ninguna copia de seguridad correcta desde hace {{duration}}: haga una cuanto antes.",
+        "failed": "La última copia de seguridad no se completó. Haga otra.",
+        "failedMeasured": "La última copia de seguridad, hace {{duration}}, no se completó. Haga otra.",
+        "label": "Copia de seguridad",
+        "never": "Todavía no se ha hecho ninguna copia de seguridad. Haga la primera cuando quiera.",
+        "ok": "Los datos de la casa se guardan con regularidad.",
+        "okMeasured": "Última copia de seguridad correcta hace {{duration}}.",
+        "unknown": "No se puede saber cuándo se hizo la última copia de seguridad.",
+        "warning": "La última copia de seguridad empieza a ser antigua. Haga una cuando quiera.",
+        "warningMeasured": "La última copia de seguridad es de hace {{duration}}. Haga una cuando quiera."
+      },
+      "containers": {
+        "critical": "Algunos servicios de la caja se han detenido.",
+        "criticalMeasured_many": "{{count}} servicios de la caja se han detenido por falta de memoria.",
+        "criticalMeasured_one": "{{count}} servicio de la caja se ha detenido por falta de memoria.",
+        "criticalMeasured_other": "{{count}} servicios de la caja se han detenido por falta de memoria.",
+        "label": "Servicios de la caja",
+        "ok": "Todos los servicios de la caja funcionan con normalidad.",
+        "unknown": "No se pueden comprobar los servicios de la caja.",
+        "warning": "Un servicio de la caja se ha reiniciado hace poco.",
+        "warningMeasured_many": "{{count}} servicios de la caja se han reiniciado hace poco.",
+        "warningMeasured_one": "{{count}} servicio de la caja se ha reiniciado hace poco.",
+        "warningMeasured_other": "{{count}} servicios de la caja se han reiniciado hace poco."
+      },
+      "database": {
+        "critical": "Los datos de la casa no responden con normalidad.",
+        "label": "Datos de la casa",
+        "ok": "Los datos de la casa están en orden.",
+        "okMeasured": "Los datos de la casa están en orden ({{size}}).",
+        "unknown": "No se pueden leer los datos de la casa.",
+        "warning": "Los datos de la casa crecen deprisa.",
+        "warningMeasured": "Los datos de la casa crecen deprisa ({{size}})."
+      },
+      "disk": {
+        "critical": "La caja está casi llena: podría dejar de guardar datos.",
+        "criticalMeasured": "La caja está casi llena ({{percent}} % utilizado): podría dejar de guardar datos.",
+        "label": "Espacio de almacenamiento",
+        "ok": "Queda espacio en la caja.",
+        "okMeasured": "Queda espacio en la caja ({{percent}} % utilizado).",
+        "unknown": "No se puede leer el espacio que queda en la caja.",
+        "warning": "A la caja le empieza a faltar espacio.",
+        "warningMeasured": "A la caja le empieza a faltar espacio ({{percent}} % utilizado)."
+      },
+      "disk-errors": {
+        "critical": "El soporte de almacenamiento muestra signos de desgaste: haga una copia de seguridad y prevea sustituirlo.",
+        "criticalMeasured_many": "{{count}} errores de lectura o escritura en 24 h: haga una copia de seguridad y prevea sustituir el soporte.",
+        "criticalMeasured_one": "{{count}} error de lectura o escritura en 24 h: haga una copia de seguridad y prevea sustituir el soporte.",
+        "criticalMeasured_other": "{{count}} errores de lectura o escritura en 24 h: haga una copia de seguridad y prevea sustituir el soporte.",
+        "label": "Soporte de almacenamiento",
+        "ok": "Ningún error de lectura o escritura en las últimas 24 h.",
+        "unknown": "No se puede leer el estado del soporte de almacenamiento.",
+        "warning": "Se han detectado algunos errores de lectura. Conserve una copia de seguridad reciente.",
+        "warningMeasured_many": "{{count}} errores de lectura detectados en 24 h. Conserve una copia de seguridad reciente.",
+        "warningMeasured_one": "{{count}} error de lectura detectado en 24 h. Conserve una copia de seguridad reciente.",
+        "warningMeasured_other": "{{count}} errores de lectura detectados en 24 h. Conserve una copia de seguridad reciente."
+      },
+      "notifications": {
+        "critical": "Las alertas ya no salen: revise los teléfonos.",
+        "criticalMeasured_many": "{{count}} alertas no se pudieron enviar en las últimas 24 h: revise los teléfonos.",
+        "criticalMeasured_one": "{{count}} alerta no se pudo enviar en las últimas 24 h: revise los teléfonos.",
+        "criticalMeasured_other": "{{count}} alertas no se pudieron enviar en las últimas 24 h: revise los teléfonos.",
+        "label": "Alertas enviadas",
+        "ok": "Todas las alertas de las últimas 24 h han salido correctamente.",
+        "unknown": "No se puede saber si las alertas salen correctamente.",
+        "warning": "Algunas alertas no se pudieron enviar en las últimas 24 h.",
+        "warningMeasured_many": "{{count}} alertas no se pudieron enviar en las últimas 24 h.",
+        "warningMeasured_one": "{{count}} alerta no se pudo enviar en las últimas 24 h.",
+        "warningMeasured_other": "{{count}} alertas no se pudieron enviar en las últimas 24 h."
+      },
+      "outbox": {
+        "critical": "Hay mensajes bloqueados que ya no salen.",
+        "criticalMeasured_many": "{{count}} mensajes están bloqueados y ya no salen.",
+        "criticalMeasured_one": "{{count}} mensaje está bloqueado y ya no sale.",
+        "criticalMeasured_other": "{{count}} mensajes están bloqueados y ya no salen.",
+        "label": "Mensajes pendientes",
+        "ok": "Ningún mensaje está bloqueado.",
+        "unknown": "No se puede saber si hay mensajes pendientes.",
+        "warning": "Algunos mensajes no se pudieron enviar.",
+        "warningMeasured_many": "{{count}} mensajes no se pudieron enviar.",
+        "warningMeasured_one": "{{count}} mensaje no se pudo enviar.",
+        "warningMeasured_other": "{{count}} mensajes no se pudieron enviar."
+      },
+      "remote-access": {
+        "critical": "El acceso remoto ya no funciona: la aplicación solo contacta con Élise en casa.",
+        "label": "Acceso remoto",
+        "ok": "El servicio de acceso remoto responde con normalidad.",
+        "unknown": "No se puede comprobar el acceso remoto.",
+        "warning": "El acceso remoto merece un vistazo: puede que no funcione fuera de casa."
+      },
+      "sensors": {
+        "critical": "Sensores importantes han dejado de dar señales.",
+        "label": "Sensores",
+        "none": "Todavía no hay ningún sensor instalado.",
+        "ok": "Los sensores están bien registrados.",
+        "okMeasured_many": "{{count}} sensores están conectados a Élise.",
+        "okMeasured_one": "{{count}} sensor está conectado a Élise.",
+        "okMeasured_other": "{{count}} sensores están conectados a Élise.",
+        "unknown": "No se pueden contar los sensores.",
+        "warning": "Algunos sensores merecen un vistazo."
+      },
+      "swap": {
+        "critical": "La memoria de la caja está saturada: puede ir mucho más lenta.",
+        "criticalMeasured": "La memoria de la caja está saturada ({{percent}} % de la memoria de reserva): puede ir mucho más lenta.",
+        "label": "Memoria de reserva",
+        "ok": "La caja tiene memoria suficiente para trabajar.",
+        "okMeasured": "La caja tiene memoria suficiente para trabajar (memoria de reserva utilizada al {{percent}} %).",
+        "unknown": "No se puede leer la memoria de la caja.",
+        "warning": "La caja recurre a su memoria de reserva: puede ir algo más lenta.",
+        "warningMeasured": "La caja recurre a su memoria de reserva ({{percent}} %): puede ir algo más lenta."
+      },
+      "temperature": {
+        "critical": "La caja está muy caliente: aléjela de cualquier fuente de calor y despeje sus ventilaciones.",
+        "criticalMeasured": "La caja está muy caliente ({{celsius}} °C): aléjela de cualquier fuente de calor y despeje sus ventilaciones.",
+        "label": "Temperatura de la caja",
+        "ok": "La caja tiene una buena temperatura.",
+        "okMeasured": "La caja tiene una buena temperatura ({{celsius}} °C).",
+        "unknown": "No se puede leer la temperatura de la caja.",
+        "warning": "La caja se calienta un poco. Deje aire a su alrededor.",
+        "warningMeasured": "La caja se calienta un poco ({{celsius}} °C). Deje aire a su alrededor."
+      },
+      "throttling": {
+        "critical": "La caja va más lenta para protegerse: quizá su alimentación o su ventilación no sean suficientes.",
+        "label": "Alimentación y velocidad",
+        "ok": "La caja funciona a plena velocidad y su alimentación es estable.",
+        "unknown": "No se puede saber si la caja va más lenta. Es normal en algunos modelos.",
+        "warning": "La caja ha reducido su velocidad hace poco para protegerse (calor o alimentación algo baja)."
+      },
+      "worker": {
+        "critical": "La vigilancia está detenida: por ahora las alertas no salen.",
+        "criticalMeasured": "La vigilancia está detenida desde hace {{duration}}: las alertas ya no salen.",
+        "failingMeasured_many": "{{count}} comprobaciones automáticas fallan ahora mismo: puede que algunas alertas no salgan.",
+        "failingMeasured_one": "{{count}} comprobación automática falla ahora mismo: puede que la alerta correspondiente no salga.",
+        "failingMeasured_other": "{{count}} comprobaciones automáticas fallan ahora mismo: puede que algunas alertas no salgan.",
+        "label": "Vigilancia continua",
+        "ok": "Élise vela por la casa sin interrupción.",
+        "unknown": "No se puede saber si la vigilancia está funcionando ahora mismo.",
+        "warning": "La vigilancia se ha retrasado un poco. Normalmente se pone al día sola.",
+        "warningMeasured": "La vigilancia no da señales desde hace {{duration}}. Normalmente se recupera sola."
+      },
+      "zigbee": {
+        "critical": "La llave Zigbee ya no responde: no se reciben los sensores inalámbricos.",
+        "label": "Llave Zigbee",
+        "ok": "La llave Zigbee responde con normalidad.",
+        "unknown": "No se puede contactar con la llave Zigbee.",
+        "warning": "La llave Zigbee responde mal. Conviene echar un vistazo a su configuración."
+      }
+    },
+    "duration": {
+      "days_many": "{{count}} días",
+      "days_one": "{{count}} día",
+      "days_other": "{{count}} días",
+      "hours_many": "{{count}} horas",
+      "hours_one": "{{count}} hora",
+      "hours_other": "{{count}} horas",
+      "minutes_many": "{{count}} minutos",
+      "minutes_one": "{{count}} minuto",
+      "minutes_other": "{{count}} minutos"
+    },
+    "generic": {
+      "critical": "Este punto necesita su atención.",
+      "ok": "Este punto está en orden.",
+      "unknown": "No se puede comprobar este punto.",
+      "warning": "Este punto merece un vistazo."
+    },
+    "groupSummary": {
+      "critical": "Por resolver",
+      "ok": "En orden",
+      "warning": "Para vigilar"
+    },
+    "groups": {
+      "access": "Acceso",
+      "box": "Caja",
+      "data": "Datos",
+      "home": "Casa",
+      "notifications": "Notificaciones",
+      "other": "Otros puntos",
+      "surveillance": "Vigilancia"
+    },
+    "intro": "Compruebe de un vistazo que la caja y la vigilancia funcionan bien.",
+    "level": {
+      "critical": "Por resolver",
+      "ok": "En orden",
+      "unknown": "No se puede comprobar",
+      "warning": "Para vigilar"
+    },
+    "loading": "Comprobando la caja",
+    "retry": "Reintentar",
+    "settingsRow": {
+      "body": "Vigilancia, sensores, notificaciones y copias de seguridad, de un vistazo.",
+      "eyebrow": "Caja",
+      "title": "Salud de la caja"
+    },
+    "size": {
+      "gb": "{{value}} GB",
+      "kb": "{{value}} kB",
+      "mb": "{{value}} MB"
+    },
+    "technical": {
+      "hide": "Ocultar el detalle técnico",
+      "hint": "Valores en bruto, para la persona que se ocupa de la caja.",
+      "show": "Mostrar el detalle técnico",
+      "title": "Detalle técnico"
+    },
+    "title": "Salud de la caja"
   }
 }

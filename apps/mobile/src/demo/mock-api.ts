@@ -35,6 +35,7 @@ import type {
 import type { SavedServer } from '../discovery/types';
 import { appLocale } from '../locale';
 import { t } from '../i18n';
+import { boxHealthDemoAnswer, boxHealthDemoState, isBoxHealthDemoState } from './box-health';
 
 // The demo home follows the app language; it is rebuilt when the language changes.
 // EXPO_PUBLIC_ZIGBEE_DEMO=empty (or none, new, missing) starts the Zigbee key in another situation.
@@ -42,6 +43,15 @@ const zigbeeScenario = isZigbeeDemoScenario(process.env.EXPO_PUBLIC_ZIGBEE_DEMO)
   ? process.env.EXPO_PUBLIC_ZIGBEE_DEMO
   : 'ready';
 let zigbeeDemo = createZigbeeDemo({ scenario: zigbeeScenario });
+
+// EXPO_PUBLIC_BOX_HEALTH_DEMO=ok|warning|critical|unknown|loading|error|backup (or ?boxHealth= on the
+// web build) forces the state of the box health screen for screenshots; see ./box-health.ts.
+const demoBoxHealthState = () => {
+  const fromEnv: unknown = process.env.EXPO_PUBLIC_BOX_HEALTH_DEMO;
+  if (isBoxHealthDemoState(fromEnv)) return fromEnv;
+  const search = typeof window !== 'undefined' && window.location ? window.location.search : '';
+  return boxHealthDemoState(search ?? '');
+};
 
 export const DEMO_SERVER_ID = 'elise-demo';
 export const DEMO_TOKEN = 'elise-demo-session';
@@ -2435,6 +2445,10 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
     );
     return { accepted: 2, duplicates: 0 } as T;
   }
+  const boxHealth = boxHealthDemoAnswer(method, pathname, demoBoxHealthState());
+  if (boxHealth === 'pending') return new Promise<never>(() => undefined) as T;
+  if (boxHealth && boxHealth.status >= 400) throw new Error('Box health unavailable');
+  if (boxHealth) return boxHealth.body as T;
   if (pathname === '/remote-access/status') return DEMO_REMOTE_STATUS as T;
   if (pathname.startsWith('/remote-access/')) return DEMO_REMOTE_STATUS as T;
 

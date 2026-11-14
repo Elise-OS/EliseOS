@@ -1,6 +1,7 @@
 import { ZIGBEE_DEMO_SEARCH_MS } from '@elise/contracts';
 import { isLocale, t } from '../i18n';
 import { uiLocale } from '../screen-locale';
+import { boxHealthDemoState } from './box-health';
 import { DEMO_CALL_EVENT } from './DemoCall';
 import { handleDemoRequest } from './router';
 
@@ -35,6 +36,13 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   await pause(
     path.startsWith('/zigbee/adapter/scan') ? ZIGBEE_DEMO_SEARCH_MS : method === 'GET' ? 90 : 180,
   );
+  // Box health: ?boxHealth=ok|warning|critical|unknown|loading|error|backup in the address forces
+  // a state for screenshots (see ./box-health.ts); `loading` never answers.
+  if (
+    url.pathname.startsWith(`${API_PREFIX}/system/box-health`) &&
+    boxHealthDemoState(window.location.search) === 'loading'
+  )
+    return new Promise<Response>(() => undefined);
   const answer = handleDemoRequest(
     method,
     path,

@@ -18,6 +18,7 @@ import {
   Eye,
   Footprints,
   HeartHandshake,
+  HeartPulse,
   Home,
   Languages,
   LoaderCircle,
@@ -59,6 +60,7 @@ import { ActivityPage } from './ActivityPage';
 import { UpdateCard } from './UpdateCard';
 import type { UpdateStatus } from '@elise/contracts';
 import { createId } from './lib/createId';
+import { visibleSettingsTabs, type SettingsTab } from './box-health-view';
 import { subscribeRealtime } from './realtime';
 import type {
   Overview,
@@ -101,6 +103,9 @@ const ScreenPanel = lazy(() =>
 const ZigbeeKeyPanel = lazy(() =>
   import('./ZigbeeKeyPanel').then((module) => ({ default: module.ZigbeeKeyPanel })),
 );
+const BoxHealthPanel = lazy(() =>
+  import('./BoxHealthPanel').then((module) => ({ default: module.BoxHealthPanel })),
+);
 const CalendarPage = lazy(() =>
   import('./CalendarPage').then((module) => ({ default: module.CalendarPage })),
 );
@@ -124,6 +129,16 @@ const navIcons = [
   Tv,
   BookOpen,
 ];
+const settingsTabIcons = { general: Settings, zigbee: Usb, health: HeartPulse, rules: Bell };
+const settingsTabLabel = (tab: SettingsTab) =>
+  tab === 'general'
+    ? i18nT('app.general')
+    : tab === 'zigbee'
+      ? i18nT('zigbeeKey.tab')
+      : tab === 'health'
+        ? i18nT('boxHealth.tab')
+        : i18nT('app.rules');
+
 export const sidebarHiddenNavIndexes = new Set([4, 5, 6, 9]);
 export const sidebarNavOrder = [0, 1, 2, 11, 9, 10, 3, 7, 8] as const;
 export function SidebarNavigation({
@@ -427,7 +442,18 @@ export function App() {
   const [homeSection, setHomeSection] = useState<'OVERVIEW' | 'EDITOR'>('OVERVIEW');
   const [homeSensorCategory, setHomeSensorCategory] = useState<SafetyCategory | null>(null);
   const clearHomeSensorCategory = useCallback(() => setHomeSensorCategory(null), []);
-  const [settingsTab, setSettingsTab] = useState<'general' | 'zigbee' | 'rules'>('general');
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('general');
+  // The remote access card sits in the general tab: open it and bring it into view.
+  const openRemoteAccess = useCallback(() => {
+    setSettingsTab('general');
+    window.requestAnimationFrame(() => {
+      const card = document.querySelector<HTMLElement>('.settings-page > .remote-access-card');
+      if (!card) return;
+      if (card instanceof HTMLDetailsElement) card.open = true;
+      const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      card.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
+    });
+  }, []);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
   const [homeEditorRoomId, setHomeEditorRoomId] = useState<string | null>(null);
@@ -1520,32 +1546,20 @@ export function App() {
               </header>
 
               <nav className="settings-tabs" aria-label={i18nT('app.settingsSections')}>
-                <button
-                  type="button"
-                  className={settingsTab === 'general' ? 'is-selected' : ''}
-                  aria-selected={settingsTab === 'general'}
-                  onClick={() => setSettingsTab('general')}
-                >
-                  <Settings aria-hidden="true" /> {i18nT('app.general')}
-                </button>
-                {currentAccess.capabilities.includes('configuration:manage') && (
-                  <button
-                    type="button"
-                    className={settingsTab === 'zigbee' ? 'is-selected' : ''}
-                    aria-selected={settingsTab === 'zigbee'}
-                    onClick={() => setSettingsTab('zigbee')}
-                  >
-                    <Usb aria-hidden="true" /> {i18nT('zigbeeKey.tab')}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className={settingsTab === 'rules' ? 'is-selected' : ''}
-                  aria-selected={settingsTab === 'rules'}
-                  onClick={() => setSettingsTab('rules')}
-                >
-                  <Bell aria-hidden="true" /> {i18nT('app.rules')}
-                </button>
+                {visibleSettingsTabs(currentAccess.capabilities).map((tab) => {
+                  const Icon = settingsTabIcons[tab];
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      className={settingsTab === tab ? 'is-selected' : ''}
+                      aria-selected={settingsTab === tab}
+                      onClick={() => setSettingsTab(tab)}
+                    >
+                      <Icon aria-hidden="true" /> {settingsTabLabel(tab)}
+                    </button>
+                  );
+                })}
               </nav>
 
               {settingsTab === 'general' && (
@@ -1652,6 +1666,18 @@ export function App() {
                 )}
               {settingsTab === 'zigbee' &&
                 currentAccess.capabilities.includes('configuration:manage') && <ZigbeeKeyPanel />}
+              {settingsTab === 'health' &&
+                currentAccess.capabilities.includes('configuration:manage') && (
+                  <BoxHealthPanel
+                    onOpenZigbee={() => setSettingsTab('zigbee')}
+                    onOpenSensors={() => {
+                      setHomeSensorCategory(null);
+                      setHomeSection('OVERVIEW');
+                      setActive(3);
+                    }}
+                    onOpenRemoteAccess={openRemoteAccess}
+                  />
+                )}
               {settingsTab === 'rules' && alertRules && (
                 <AlertRulesPanel
                   rules={alertRules}

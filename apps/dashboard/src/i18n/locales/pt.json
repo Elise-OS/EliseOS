@@ -689,6 +689,290 @@
     "transport": "Transporte",
     "walk": "Passeio"
   },
+  "boxHealth": {
+    "action": {
+      "openRemoteAccess": "Ver o acesso remoto",
+      "openSensors": "Ver os sensores",
+      "openZigbee": "Ver o adaptador Zigbee",
+      "runBackup": "Fazer cópia"
+    },
+    "autoRefresh": "atualização automática a cada minuto",
+    "backupDone": "Cópia de segurança concluída.",
+    "backupEndedFailed": "A cópia de segurança não foi concluída. Tente novamente dentro de alguns minutos.",
+    "backupFailed": "Não foi possível iniciar a cópia de segurança. Tente novamente dentro de alguns minutos.",
+    "backupNow": "Fazer cópia agora",
+    "backupRunning": "Cópia de segurança em curso…",
+    "backupStarted": "A cópia de segurança começou. Pode sair desta página: continua sozinha.",
+    "backupTimeout": "A cópia de segurança está a demorar mais do que o previsto. O resultado aparecerá aqui assim que terminar.",
+    "check": {
+      "backup": {
+        "critical": "Nenhuma cópia de segurança bem-sucedida há {{duration}}: faça uma o mais depressa possível.",
+        "criticalShort": "Nenhuma cópia de segurança recente: faça uma o mais depressa possível.",
+        "failed": "A última cópia de segurança, há {{duration}}, não foi concluída. Faça outra.",
+        "failedShort": "A última cópia de segurança não foi concluída. Faça outra.",
+        "label": "Cópia de segurança",
+        "never": "Ainda não foi feita nenhuma cópia de segurança. Faça a primeira quando quiser.",
+        "ok": "Última cópia de segurança bem-sucedida há {{duration}}.",
+        "okShort": "Os dados da casa são guardados regularmente.",
+        "unknown": "Impossível saber quando foi feita a última cópia de segurança.",
+        "warning": "A última cópia de segurança foi há {{duration}}. Faça uma quando quiser.",
+        "warningShort": "A última cópia de segurança começa a ser antiga. Faça uma quando quiser."
+      },
+      "containers": {
+        "criticalShort": "Alguns serviços da caixa pararam.",
+        "critical_many": "{{count}} serviços da caixa pararam por falta de memória.",
+        "critical_one": "{{count}} serviço da caixa parou por falta de memória.",
+        "critical_other": "{{count}} serviços da caixa pararam por falta de memória.",
+        "label": "Serviços da caixa",
+        "ok": "Todos os serviços da caixa funcionam normalmente.",
+        "unknown": "Impossível verificar os serviços da caixa.",
+        "warningShort": "Um serviço da caixa reiniciou recentemente.",
+        "warning_many": "{{count}} serviços da caixa reiniciaram recentemente.",
+        "warning_one": "{{count}} serviço da caixa reiniciou recentemente.",
+        "warning_other": "{{count}} serviços da caixa reiniciaram recentemente."
+      },
+      "database": {
+        "critical": "Os dados da casa não respondem normalmente.",
+        "label": "Dados da casa",
+        "ok": "Os dados da casa estão em ordem ({{size}}).",
+        "okShort": "Os dados da casa estão em ordem.",
+        "unknown": "Impossível ler os dados da casa.",
+        "warning": "Os dados da casa estão a crescer depressa ({{size}}).",
+        "warningShort": "Os dados da casa estão a crescer depressa."
+      },
+      "disk": {
+        "critical": "A caixa está quase cheia ({{percent}} % utilizado): pode deixar de guardar dados.",
+        "criticalShort": "A caixa está quase cheia: pode deixar de guardar dados.",
+        "label": "Espaço de armazenamento",
+        "ok": "Ainda há espaço na caixa ({{percent}} % utilizado).",
+        "okShort": "Ainda há espaço na caixa.",
+        "unknown": "Impossível ler o espaço que resta na caixa.",
+        "warning": "A caixa começa a ter pouco espaço ({{percent}} % utilizado).",
+        "warningShort": "A caixa começa a ter pouco espaço."
+      },
+      "disk-errors": {
+        "criticalShort": "O suporte de armazenamento mostra sinais de desgaste: faça uma cópia de segurança e preveja substituí-lo.",
+        "critical_many": "{{count}} erros de leitura ou de escrita em 24 h: faça uma cópia de segurança e preveja substituir o suporte.",
+        "critical_one": "{{count}} erro de leitura ou de escrita em 24 h: faça uma cópia de segurança e preveja substituir o suporte.",
+        "critical_other": "{{count}} erros de leitura ou de escrita em 24 h: faça uma cópia de segurança e preveja substituir o suporte.",
+        "label": "Suporte de armazenamento",
+        "ok": "Nenhum erro de leitura ou de escrita nas últimas 24 h.",
+        "unknown": "Impossível ler o estado do suporte de armazenamento.",
+        "warningShort": "Foram detetados alguns erros de leitura. Mantenha uma cópia de segurança recente.",
+        "warning_many": "{{count}} erros de leitura detetados em 24 h. Mantenha uma cópia de segurança recente.",
+        "warning_one": "{{count}} erro de leitura detetado em 24 h. Mantenha uma cópia de segurança recente.",
+        "warning_other": "{{count}} erros de leitura detetados em 24 h. Mantenha uma cópia de segurança recente."
+      },
+      "notifications": {
+        "criticalShort": "Os alertas já não são enviados: verifique os telemóveis.",
+        "critical_many": "{{count}} alertas não puderam ser enviados nas últimas 24 h: verifique os telemóveis.",
+        "critical_one": "{{count}} alerta não pôde ser enviado nas últimas 24 h: verifique os telemóveis.",
+        "critical_other": "{{count}} alertas não puderam ser enviados nas últimas 24 h: verifique os telemóveis.",
+        "label": "Alertas enviados",
+        "ok": "Todos os alertas das últimas 24 h foram enviados.",
+        "unknown": "Impossível saber se os alertas estão a ser enviados.",
+        "warningShort": "Alguns alertas não puderam ser enviados nas últimas 24 h.",
+        "warning_many": "{{count}} alertas não puderam ser enviados nas últimas 24 h.",
+        "warning_one": "{{count}} alerta não pôde ser enviado nas últimas 24 h.",
+        "warning_other": "{{count}} alertas não puderam ser enviados nas últimas 24 h."
+      },
+      "outbox": {
+        "criticalShort": "Há mensagens bloqueadas que já não são enviadas.",
+        "critical_many": "{{count}} mensagens estão bloqueadas e já não são enviadas.",
+        "critical_one": "{{count}} mensagem está bloqueada e já não é enviada.",
+        "critical_other": "{{count}} mensagens estão bloqueadas e já não são enviadas.",
+        "label": "Mensagens em espera",
+        "ok": "Nenhuma mensagem está bloqueada.",
+        "unknown": "Impossível saber se há mensagens em espera.",
+        "warningShort": "Algumas mensagens não puderam ser enviadas.",
+        "warning_many": "{{count}} mensagens não puderam ser enviadas.",
+        "warning_one": "{{count}} mensagem não pôde ser enviada.",
+        "warning_other": "{{count}} mensagens não puderam ser enviadas."
+      },
+      "remote-access": {
+        "critical": "O acesso remoto já não funciona: a aplicação só contacta a Élise em casa.",
+        "label": "Acesso remoto",
+        "ok": "O serviço de acesso remoto responde normalmente.",
+        "unknown": "Impossível verificar o acesso remoto.",
+        "warning": "O acesso remoto merece uma vista de olhos: pode não funcionar fora de casa."
+      },
+      "sensors": {
+        "critical": "Sensores importantes deixaram de dar sinal.",
+        "label": "Sensores",
+        "none": "Ainda não há nenhum sensor instalado.",
+        "okShort": "Os sensores estão bem registados.",
+        "ok_many": "{{count}} sensores estão ligados à Élise.",
+        "ok_one": "{{count}} sensor está ligado à Élise.",
+        "ok_other": "{{count}} sensores estão ligados à Élise.",
+        "unknown": "Impossível contar os sensores.",
+        "warning": "Alguns sensores merecem uma vista de olhos."
+      },
+      "swap": {
+        "critical": "A memória da caixa está saturada ({{percent}} % da memória de reserva): pode ficar muito mais lenta.",
+        "criticalShort": "A memória da caixa está saturada: pode ficar muito mais lenta.",
+        "label": "Memória de reserva",
+        "ok": "A caixa tem memória suficiente para trabalhar (memória de reserva utilizada a {{percent}} %).",
+        "okShort": "A caixa tem memória suficiente para trabalhar.",
+        "unknown": "Impossível ler a memória da caixa.",
+        "warning": "A caixa está a recorrer à memória de reserva ({{percent}} %): pode ficar um pouco mais lenta.",
+        "warningShort": "A caixa está a recorrer à memória de reserva: pode ficar um pouco mais lenta."
+      },
+      "temperature": {
+        "critical": "A caixa está muito quente ({{celsius}} °C): afaste-a de qualquer fonte de calor e desimpeça as suas aberturas de ventilação.",
+        "criticalShort": "A caixa está muito quente: afaste-a de qualquer fonte de calor e desimpeça as suas aberturas de ventilação.",
+        "label": "Temperatura da caixa",
+        "ok": "A caixa está a uma boa temperatura ({{celsius}} °C).",
+        "okShort": "A caixa está a uma boa temperatura.",
+        "unknown": "Impossível ler a temperatura da caixa.",
+        "warning": "A caixa está a aquecer um pouco ({{celsius}} °C). Deixe ar à sua volta.",
+        "warningShort": "A caixa está a aquecer um pouco. Deixe ar à sua volta."
+      },
+      "throttling": {
+        "critical": "A caixa está a abrandar para se proteger: a alimentação ou a ventilação podem ser insuficientes.",
+        "label": "Alimentação e velocidade",
+        "ok": "A caixa funciona à velocidade máxima e a alimentação está estável.",
+        "unknown": "Impossível saber se a caixa está a abrandar. É normal em alguns modelos.",
+        "warning": "A caixa abrandou recentemente para se proteger (calor ou alimentação um pouco fraca)."
+      },
+      "worker": {
+        "critical": "A vigilância está parada há {{duration}}: os alertas já não são enviados.",
+        "criticalShort": "A vigilância está parada: neste momento os alertas não são enviados.",
+        "failing_many": "{{count}} verificações automáticas estão a falhar neste momento: alguns alertas podem não ser enviados.",
+        "failing_one": "{{count}} verificação automática está a falhar neste momento: o alerta correspondente pode não ser enviado.",
+        "failing_other": "{{count}} verificações automáticas estão a falhar neste momento: alguns alertas podem não ser enviados.",
+        "label": "Vigilância contínua",
+        "ok": "A Élise zela pela casa sem interrupção.",
+        "unknown": "Impossível saber se a vigilância está a funcionar neste momento.",
+        "warning": "A vigilância não dá sinal há {{duration}}. Normalmente retoma sozinha.",
+        "warningShort": "A vigilância atrasou-se um pouco. Normalmente recupera sozinha."
+      },
+      "zigbee": {
+        "critical": "O adaptador Zigbee já não responde: os sensores sem fios já não são recebidos.",
+        "label": "Adaptador Zigbee",
+        "ok": "O adaptador Zigbee responde normalmente.",
+        "unknown": "Impossível contactar o adaptador Zigbee.",
+        "warning": "O adaptador Zigbee responde mal. Pode ajudar ver a sua configuração."
+      }
+    },
+    "checkNow": "Verificar agora",
+    "checkedAt": "Última verificação: {{when}}",
+    "checking": "A verificar…",
+    "count": {
+      "critical_many": "{{count}} a resolver",
+      "critical_one": "{{count}} a resolver",
+      "critical_other": "{{count}} a resolver",
+      "ok_many": "{{count}} pontos em ordem",
+      "ok_one": "{{count}} ponto em ordem",
+      "ok_other": "{{count}} pontos em ordem",
+      "unknown_many": "{{count}} impossíveis de verificar",
+      "unknown_one": "{{count}} impossível de verificar",
+      "unknown_other": "{{count}} impossíveis de verificar",
+      "warning_many": "{{count}} a vigiar",
+      "warning_one": "{{count}} a vigiar",
+      "warning_other": "{{count}} a vigiar"
+    },
+    "duration": {
+      "days_many": "{{count}} dias",
+      "days_one": "{{count}} dia",
+      "days_other": "{{count}} dias",
+      "hours_many": "{{count}} horas",
+      "hours_one": "{{count}} hora",
+      "hours_other": "{{count}} horas",
+      "minutes_many": "{{count}} minutos",
+      "minutes_one": "{{count}} minuto",
+      "minutes_other": "{{count}} minutos"
+    },
+    "error": {
+      "forbidden": "Só o proprietário e os administradores podem consultar o estado da caixa.",
+      "network": "A caixa não respondeu: pode estar desligada, a reiniciar ou sem ligação à rede. Isso não quer dizer que esteja tudo bem.",
+      "unavailable": "A caixa não consegue fazer esta verificação neste momento. Se continuar assim, atualize o Élise OS e tente novamente."
+    },
+    "eyebrow": "Caixa Élise",
+    "generic": {
+      "critical": "{{label}}: precisa da sua atenção.",
+      "ok": "{{label}}: está tudo em ordem.",
+      "unknown": "{{label}}: impossível verificar neste momento.",
+      "warning": "{{label}}: a vigiar, sem urgência."
+    },
+    "group": {
+      "access": {
+        "hint": "Contactar a Élise a partir de fora",
+        "title": "Acesso"
+      },
+      "box": {
+        "hint": "O próprio aparelho",
+        "title": "Caixa"
+      },
+      "data": {
+        "hint": "Os dados da casa",
+        "title": "Dados"
+      },
+      "home": {
+        "hint": "Sensores e adaptador Zigbee",
+        "title": "Casa"
+      },
+      "notifications": {
+        "hint": "Os alertas estão a ser enviados?",
+        "title": "Notificações"
+      },
+      "other": "Outros pontos",
+      "surveillance": {
+        "hint": "A Élise está a zelar como deve?",
+        "title": "Vigilância"
+      }
+    },
+    "intro": "Uma verificação regular de tudo o que permite à Élise zelar pela casa: sensores, alertas, aparelho e cópias de segurança.",
+    "lastKnown": "Últimos resultados conhecidos: {{when}}",
+    "level": {
+      "critical": "A resolver",
+      "ok": "Em ordem",
+      "unknown": "Impossível verificar",
+      "warning": "A vigiar"
+    },
+    "loading": "A verificar a caixa…",
+    "neverChecked": "Ainda não houve nenhuma verificação bem-sucedida",
+    "size": {
+      "gb": "{{value}} GB",
+      "kb": "{{value}} kB",
+      "mb": "{{value}} MB"
+    },
+    "staleLabel": "Últimos resultados conhecidos, possivelmente desatualizados",
+    "summary": "Resumo da verificação",
+    "tab": "Estado da caixa",
+    "technical": {
+      "hint": "Valores em bruto, para a pessoa que o ajuda à distância",
+      "shownAs": "apresentado: {{level}}",
+      "title": "Detalhes técnicos"
+    },
+    "title": "Estado da caixa",
+    "verdict": {
+      "critical": {
+        "text_many": "{{count}} pontos devem ser vistos o mais depressa possível. Comece pelos marcados como «A resolver».",
+        "text_one": "{{count}} ponto deve ser visto o mais depressa possível. Comece pelos marcados como «A resolver».",
+        "text_other": "{{count}} pontos devem ser vistos o mais depressa possível. Comece pelos marcados como «A resolver».",
+        "title": "Precisamos da sua atenção"
+      },
+      "ok": {
+        "text": "Todos os pontos verificados estão em ordem. Não tem nada a fazer.",
+        "title": "Está tudo bem"
+      },
+      "unverifiable": {
+        "title": "Impossível verificar"
+      },
+      "warning": {
+        "text_many": "{{count}} pontos merecem uma vista de olhos, sem urgência.",
+        "text_one": "{{count}} ponto merece uma vista de olhos, sem urgência.",
+        "text_other": "{{count}} pontos merecem uma vista de olhos, sem urgência.",
+        "title": "A vigiar"
+      },
+      "warningUnknown": {
+        "text_many": "{{count}} pontos não puderam ser verificados. Isso não quer dizer que haja um problema, nem que esteja tudo bem.",
+        "text_one": "{{count}} ponto não pôde ser verificado. Isso não quer dizer que haja um problema, nem que esteja tudo bem.",
+        "text_other": "{{count}} pontos não puderam ser verificados. Isso não quer dizer que haja um problema, nem que esteja tudo bem.",
+        "title": "A vigiar"
+      }
+    }
+  },
   "calendarPage": {
     "addAnAppointment": "Adicionar compromisso",
     "addAnAppointmentForThe": "Adicione um compromisso para a casa.",

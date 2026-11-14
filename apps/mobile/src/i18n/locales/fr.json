@@ -2200,5 +2200,254 @@
     "useKey": "Utiliser cette clé",
     "useKeyInstead": "Utiliser cette clé à la place",
     "watching": "Une clé branchée ou allumée apparaît toute seule tant que cet écran est ouvert."
+  },
+  "boxHealth": {
+    "actions": {
+      "open-remote-access": "Voir l’accès à distance",
+      "open-sensors": "Voir les capteurs",
+      "open-zigbee": "Voir la clé Zigbee",
+      "run-backup": "Sauvegarder"
+    },
+    "backupDone": "Sauvegarde terminée.",
+    "backupEndedFailed": "La sauvegarde n’a pas abouti. Réessayez dans quelques minutes.",
+    "backupFailed": "La sauvegarde n’a pas pu démarrer. Réessayez dans un instant.",
+    "backupNow": "Sauvegarder maintenant",
+    "backupRunning": "Sauvegarde en cours…",
+    "backupRunningHint": "Vous pouvez quitter cet écran, la sauvegarde continue sur la box.",
+    "backupStarting": "Démarrage…",
+    "backupTimeout": "La sauvegarde prend plus de temps que prévu. Son résultat apparaîtra ici dès qu’elle sera finie.",
+    "banner": {
+      "critical": {
+        "body": "Un ou plusieurs points empêchent Élise de bien veiller. Suivez les conseils ci-dessous.",
+        "title": "Votre attention est nécessaire"
+      },
+      "ok": {
+        "body": "La box et la surveillance fonctionnent normalement.",
+        "title": "Tout va bien"
+      },
+      "unavailable": {
+        "body": "Élise n’a pas pu interroger la box. Cela ne veut pas dire que tout va bien : réessayez dans un instant.",
+        "title": "Impossible de vérifier"
+      },
+      "unchecked": {
+        "body": "Certains points n’ont pas pu être vérifiés. Cela ne veut pas dire qu’il y a un problème, ni que tout va bien.",
+        "title": "À surveiller"
+      },
+      "warning": {
+        "body": "Certains points méritent un coup d’œil, sans urgence.",
+        "title": "À surveiller"
+      }
+    },
+    "checkNow": "Vérifier maintenant",
+    "checkedAt": "Vérifié à {{time}}",
+    "checkedOn": "Vérifié le {{date}} à {{time}}",
+    "checking": "Vérification…",
+    "checks": {
+      "backup": {
+        "critical": "Aucune sauvegarde récente : lancez-en une dès que possible.",
+        "criticalMeasured": "Aucune sauvegarde réussie depuis {{duration}} : lancez-en une dès que possible.",
+        "failed": "La dernière sauvegarde n’a pas abouti. Relancez-en une.",
+        "failedMeasured": "La dernière sauvegarde, il y a {{duration}}, n’a pas abouti. Relancez-en une.",
+        "label": "Sauvegarde",
+        "never": "Aucune sauvegarde n’a encore été faite. Lancez la première quand vous voulez.",
+        "ok": "Les données de la maison sont sauvegardées régulièrement.",
+        "okMeasured": "Dernière sauvegarde réussie il y a {{duration}}.",
+        "unknown": "Impossible de savoir quand a eu lieu la dernière sauvegarde.",
+        "warning": "La dernière sauvegarde commence à dater. Lancez-en une quand vous voulez.",
+        "warningMeasured": "La dernière sauvegarde date d’il y a {{duration}}. Lancez-en une quand vous voulez."
+      },
+      "containers": {
+        "critical": "Des services de la box se sont arrêtés.",
+        "criticalMeasured_many": "{{count}} services de la box se sont arrêtés faute de mémoire.",
+        "criticalMeasured_one": "{{count}} service de la box s’est arrêté faute de mémoire.",
+        "criticalMeasured_other": "{{count}} services de la box se sont arrêtés faute de mémoire.",
+        "label": "Services de la box",
+        "ok": "Tous les services de la box tournent normalement.",
+        "unknown": "Impossible de vérifier les services de la box.",
+        "warning": "Un service de la box a redémarré récemment.",
+        "warningMeasured_many": "{{count}} services de la box ont redémarré récemment.",
+        "warningMeasured_one": "{{count}} service de la box a redémarré récemment.",
+        "warningMeasured_other": "{{count}} services de la box ont redémarré récemment."
+      },
+      "database": {
+        "critical": "Les données de la maison ne répondent pas normalement.",
+        "label": "Données de la maison",
+        "ok": "Les données de la maison sont en ordre.",
+        "okMeasured": "Les données de la maison sont en ordre ({{size}}).",
+        "unknown": "Impossible de lire les données de la maison.",
+        "warning": "Les données de la maison grossissent vite.",
+        "warningMeasured": "Les données de la maison grossissent vite ({{size}})."
+      },
+      "disk": {
+        "critical": "La box est presque pleine : elle risque de ne plus rien enregistrer.",
+        "criticalMeasured": "La box est presque pleine ({{percent}} % utilisés) : elle risque de ne plus rien enregistrer.",
+        "label": "Espace de stockage",
+        "ok": "Il reste de la place sur la box.",
+        "okMeasured": "Il reste de la place sur la box ({{percent}} % utilisés).",
+        "unknown": "Impossible de lire l’espace restant sur la box.",
+        "warning": "La box commence à manquer de place.",
+        "warningMeasured": "La box commence à manquer de place ({{percent}} % utilisés)."
+      },
+      "disk-errors": {
+        "critical": "Le support de stockage montre des signes d’usure : faites une sauvegarde et prévoyez son remplacement.",
+        "criticalMeasured_many": "{{count}} erreurs de lecture ou d’écriture en 24 h : faites une sauvegarde et prévoyez de remplacer le support.",
+        "criticalMeasured_one": "{{count}} erreur de lecture ou d’écriture en 24 h : faites une sauvegarde et prévoyez de remplacer le support.",
+        "criticalMeasured_other": "{{count}} erreurs de lecture ou d’écriture en 24 h : faites une sauvegarde et prévoyez de remplacer le support.",
+        "label": "Support de stockage",
+        "ok": "Aucune erreur de lecture ou d’écriture depuis 24 h.",
+        "unknown": "Impossible de lire l’état du support de stockage.",
+        "warning": "Quelques erreurs de lecture ont été relevées. Gardez une sauvegarde récente.",
+        "warningMeasured_many": "{{count}} erreurs de lecture relevées en 24 h. Gardez une sauvegarde récente.",
+        "warningMeasured_one": "{{count}} erreur de lecture relevée en 24 h. Gardez une sauvegarde récente.",
+        "warningMeasured_other": "{{count}} erreurs de lecture relevées en 24 h. Gardez une sauvegarde récente."
+      },
+      "notifications": {
+        "critical": "Les alertes ne partent plus : vérifiez les téléphones.",
+        "criticalMeasured_many": "{{count}} alertes n’ont pas pu être envoyées ces dernières 24 h : vérifiez les téléphones.",
+        "criticalMeasured_one": "{{count}} alerte n’a pas pu être envoyée ces dernières 24 h : vérifiez les téléphones.",
+        "criticalMeasured_other": "{{count}} alertes n’ont pas pu être envoyées ces dernières 24 h : vérifiez les téléphones.",
+        "label": "Alertes envoyées",
+        "ok": "Toutes les alertes des dernières 24 h sont bien parties.",
+        "unknown": "Impossible de savoir si les alertes partent bien.",
+        "warning": "Quelques alertes n’ont pas pu être envoyées ces dernières 24 h.",
+        "warningMeasured_many": "{{count}} alertes n’ont pas pu être envoyées ces dernières 24 h.",
+        "warningMeasured_one": "{{count}} alerte n’a pas pu être envoyée ces dernières 24 h.",
+        "warningMeasured_other": "{{count}} alertes n’ont pas pu être envoyées ces dernières 24 h."
+      },
+      "outbox": {
+        "critical": "Des messages sont bloqués et ne partent plus.",
+        "criticalMeasured_many": "{{count}} messages sont bloqués et ne partent plus.",
+        "criticalMeasured_one": "{{count}} message est bloqué et ne part plus.",
+        "criticalMeasured_other": "{{count}} messages sont bloqués et ne partent plus.",
+        "label": "Messages en attente",
+        "ok": "Aucun message n’est bloqué.",
+        "unknown": "Impossible de savoir si des messages sont en attente.",
+        "warning": "Des messages n’ont pas pu être envoyés.",
+        "warningMeasured_many": "{{count}} messages n’ont pas pu être envoyés.",
+        "warningMeasured_one": "{{count}} message n’a pas pu être envoyé.",
+        "warningMeasured_other": "{{count}} messages n’ont pas pu être envoyés."
+      },
+      "remote-access": {
+        "critical": "L’accès à distance ne fonctionne plus : l’application ne joint Élise qu’à la maison.",
+        "label": "Accès à distance",
+        "ok": "Le service d’accès à distance répond normalement.",
+        "unknown": "Impossible de vérifier l’accès à distance.",
+        "warning": "L’accès à distance demande un coup d’œil : il peut ne pas fonctionner hors de la maison."
+      },
+      "sensors": {
+        "critical": "Des capteurs importants ne donnent plus de nouvelles.",
+        "label": "Capteurs",
+        "none": "Aucun capteur n’est encore installé.",
+        "ok": "Les capteurs sont bien enregistrés.",
+        "okMeasured_many": "{{count}} capteurs sont reliés à Élise.",
+        "okMeasured_one": "{{count}} capteur est relié à Élise.",
+        "okMeasured_other": "{{count}} capteurs sont reliés à Élise.",
+        "unknown": "Impossible de compter les capteurs.",
+        "warning": "Certains capteurs méritent un coup d’œil."
+      },
+      "swap": {
+        "critical": "La mémoire de la box est saturée : elle peut ralentir fortement.",
+        "criticalMeasured": "La mémoire de la box est saturée ({{percent}} % de la mémoire de secours) : elle peut ralentir fortement.",
+        "label": "Mémoire de secours",
+        "ok": "La box a assez de mémoire pour travailler.",
+        "okMeasured": "La box a assez de mémoire pour travailler (mémoire de secours utilisée à {{percent}} %).",
+        "unknown": "Impossible de lire la mémoire de la box.",
+        "warning": "La box puise dans sa mémoire de secours : elle peut ralentir un peu.",
+        "warningMeasured": "La box puise dans sa mémoire de secours ({{percent}} %) : elle peut ralentir un peu."
+      },
+      "temperature": {
+        "critical": "La box est très chaude : éloignez-la de toute source de chaleur et dégagez ses aérations.",
+        "criticalMeasured": "La box est très chaude ({{celsius}} °C) : éloignez-la de toute source de chaleur et dégagez ses aérations.",
+        "label": "Température de la box",
+        "ok": "La box est à bonne température.",
+        "okMeasured": "La box est à bonne température ({{celsius}} °C).",
+        "unknown": "Impossible de lire la température de la box.",
+        "warning": "La box chauffe un peu. Laissez-lui de l’air autour.",
+        "warningMeasured": "La box chauffe un peu ({{celsius}} °C). Laissez-lui de l’air autour."
+      },
+      "throttling": {
+        "critical": "La box ralentit pour se protéger : son alimentation ou sa ventilation est peut-être insuffisante.",
+        "label": "Alimentation et vitesse",
+        "ok": "La box tourne à pleine vitesse et son alimentation est stable.",
+        "unknown": "Impossible de savoir si la box ralentit. C’est normal sur certains modèles.",
+        "warning": "La box a ralenti récemment pour se protéger (chaleur ou alimentation un peu faible)."
+      },
+      "worker": {
+        "critical": "La surveillance est à l’arrêt : les alertes ne partent plus pour le moment.",
+        "criticalMeasured": "La surveillance est à l’arrêt depuis {{duration}} : les alertes ne partent plus.",
+        "failingMeasured_many": "{{count}} vérifications automatiques échouent en ce moment : certaines alertes peuvent ne pas partir.",
+        "failingMeasured_one": "{{count}} vérification automatique échoue en ce moment : l’alerte correspondante peut ne pas partir.",
+        "failingMeasured_other": "{{count}} vérifications automatiques échouent en ce moment : certaines alertes peuvent ne pas partir.",
+        "label": "Surveillance en continu",
+        "ok": "Élise veille sur la maison sans interruption.",
+        "unknown": "Impossible de savoir si la surveillance tourne en ce moment.",
+        "warning": "La surveillance a pris un peu de retard. Elle se rattrape normalement d’elle-même.",
+        "warningMeasured": "La surveillance n’a pas donné de nouvelles depuis {{duration}}. Elle repart normalement d’elle-même."
+      },
+      "zigbee": {
+        "critical": "La clé Zigbee ne répond plus : les capteurs sans fil ne sont plus reçus.",
+        "label": "Clé Zigbee",
+        "ok": "La clé Zigbee répond normalement.",
+        "unknown": "Impossible de joindre la clé Zigbee.",
+        "warning": "La clé Zigbee répond mal. Un coup d’œil à son réglage peut aider."
+      }
+    },
+    "duration": {
+      "days_many": "{{count}} jours",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours",
+      "hours_many": "{{count}} heures",
+      "hours_one": "{{count}} heure",
+      "hours_other": "{{count}} heures",
+      "minutes_many": "{{count}} minutes",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes"
+    },
+    "generic": {
+      "critical": "Ce point demande votre attention.",
+      "ok": "Ce point est en ordre.",
+      "unknown": "Impossible de vérifier ce point.",
+      "warning": "Ce point mérite un coup d’œil."
+    },
+    "groupSummary": {
+      "critical": "À traiter",
+      "ok": "En ordre",
+      "warning": "À surveiller"
+    },
+    "groups": {
+      "access": "Accès",
+      "box": "Box",
+      "data": "Données",
+      "home": "Maison",
+      "notifications": "Notifications",
+      "other": "Autres points",
+      "surveillance": "Surveillance"
+    },
+    "intro": "Vérifiez d’un coup d’œil que la box et la surveillance fonctionnent bien.",
+    "level": {
+      "critical": "À traiter",
+      "ok": "En ordre",
+      "unknown": "Impossible de vérifier",
+      "warning": "À surveiller"
+    },
+    "loading": "Vérification de la box en cours",
+    "retry": "Réessayer",
+    "settingsRow": {
+      "body": "Surveillance, capteurs, notifications et sauvegardes, en un coup d’œil.",
+      "eyebrow": "Box",
+      "title": "Santé de la box"
+    },
+    "size": {
+      "gb": "{{value}} Go",
+      "kb": "{{value}} ko",
+      "mb": "{{value}} Mo"
+    },
+    "technical": {
+      "hide": "Masquer le détail technique",
+      "hint": "Valeurs brutes, pour la personne qui s’occupe de la box.",
+      "show": "Afficher le détail technique",
+      "title": "Détail technique"
+    },
+    "title": "Santé de la box"
   }
 }
