@@ -35,6 +35,7 @@ import type {
 import type { SavedServer } from '../discovery/types';
 import { appLocale } from '../locale';
 import { t } from '../i18n';
+import { boxHealthDemoAnswer, boxHealthDemoState, isBoxHealthDemoState } from './box-health';
 
 // The demo home follows the app language; it is rebuilt when the language changes.
 // EXPO_PUBLIC_ZIGBEE_DEMO=empty (or none, new, missing) starts the Zigbee key in another situation.
@@ -42,6 +43,15 @@ const zigbeeScenario = isZigbeeDemoScenario(process.env.EXPO_PUBLIC_ZIGBEE_DEMO)
   ? process.env.EXPO_PUBLIC_ZIGBEE_DEMO
   : 'ready';
 let zigbeeDemo = createZigbeeDemo({ scenario: zigbeeScenario });
+
+// EXPO_PUBLIC_BOX_HEALTH_DEMO=ok|warning|critical|unknown|loading|error|backup (or ?boxHealth= on the
+// web build) forces the state of the box health screen for screenshots; see ./box-health.ts.
+const demoBoxHealthState = () => {
+  const fromEnv: unknown = process.env.EXPO_PUBLIC_BOX_HEALTH_DEMO;
+  if (isBoxHealthDemoState(fromEnv)) return fromEnv;
+  const search = typeof window !== 'undefined' && window.location ? window.location.search : '';
+  return boxHealthDemoState(search ?? '');
+};
 
 export const DEMO_SERVER_ID = 'elise-demo';
 export const DEMO_TOKEN = 'elise-demo-session';
@@ -2435,11 +2445,10 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
     );
     return { accepted: 2, duplicates: 0 } as T;
   }
-  if (pathname === '/system/box-health/backup' && method === 'POST') {
-    demoBackupStartedAt = Date.now();
-    return { accepted: true } as T;
-  }
-  if (pathname === '/system/box-health') return demoBoxHealth() as T;
+  const boxHealth = boxHealthDemoAnswer(method, pathname, demoBoxHealthState());
+  if (boxHealth === 'pending') return new Promise<never>(() => undefined) as T;
+  if (boxHealth && boxHealth.status >= 400) throw new Error('Box health unavailable');
+  if (boxHealth) return boxHealth.body as T;
   if (pathname === '/remote-access/status') return DEMO_REMOTE_STATUS as T;
   if (pathname.startsWith('/remote-access/')) return DEMO_REMOTE_STATUS as T;
 
@@ -2582,84 +2591,6 @@ const DEMO_SCENARIOS = (): SimulationScenario[] => [
     description: t('mockApi.littleMovementObservedAtThe'),
   },
 ];
-
-// The demo box backs up in a few seconds, so the "backup in progress" state can be seen.
-let demoBackupStartedAt = 0;
-const DEMO_BACKUP_MS = 8000;
-function demoBoxHealth() {
-  const running = Date.now() - demoBackupStartedAt < DEMO_BACKUP_MS;
-  const backedUp = demoBackupStartedAt > 0 && !running;
-  return {
-    verdict: 'warning',
-    checkedAt: iso(),
-    backup: { running },
-    groups: [
-      {
-        id: 'monitoring',
-        checks: [
-          { id: 'worker', level: 'ok', params: {} },
-          { id: 'last-event', level: 'ok', params: { minutes: 3 } },
-          { id: 'coverage', level: 'ok', params: { percent: 100 } },
-        ],
-      },
-      {
-        id: 'home',
-        checks: [
-          { id: 'home-assistant', level: 'ok', params: {} },
-          { id: 'zigbee', level: 'ok', params: {}, action: 'open-zigbee' },
-          { id: 'sensors-offline', level: 'ok', params: { count: 0 } },
-          {
-            id: 'sensors-battery',
-            level: 'warning',
-            params: { count: 1 },
-            detail: 'Entrée — porte : batterie 12 %',
-            action: 'open-sensors',
-          },
-        ],
-      },
-      {
-        id: 'notifications',
-        checks: [
-          { id: 'deliveries', level: 'ok', params: { failed: 0, total: 42 } },
-          { id: 'outbox', level: 'ok', params: { count: 0 } },
-        ],
-      },
-      {
-        id: 'box',
-        checks: [
-          { id: 'disk', level: 'ok', params: { percent: 38 } },
-          { id: 'memory', level: 'ok', params: { percent: 54 } },
-          { id: 'temperature', level: 'ok', params: { celsius: 51 } },
-          { id: 'throttling', level: 'unknown', params: {}, detail: 'vcgencmd unavailable' },
-          { id: 'containers', level: 'ok', params: { count: 0, total: 7 } },
-          { id: 'storage-errors', level: 'ok', params: { count: 0 } },
-        ],
-      },
-      {
-        id: 'data',
-        checks: [
-          {
-            id: 'backup',
-            level: backedUp ? 'ok' : 'warning',
-            params: backedUp ? { minutes: 1 } : { days: 9 },
-            action: 'run-backup',
-          },
-          { id: 'db-size', level: 'ok', params: {} },
-        ],
-      },
-      {
-        id: 'access',
-        checks: [{ id: 'remote-access', level: 'ok', params: {}, action: 'open-remote-access' }],
-      },
-    ],
-    technical: {
-      disk: { usedGb: 11.4, totalGb: 29.8 },
-      temperatureC: 51.2,
-      containers: ['api: running', 'worker: running', 'homeassistant: running'],
-      lastErrors: [],
-    },
-  };
-}
 
 const DEMO_REMOTE_STATUS = {
   state: 'READY',

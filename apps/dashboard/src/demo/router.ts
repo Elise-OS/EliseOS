@@ -1,3 +1,4 @@
+import { boxHealthDemoAnswer, boxHealthDemoState } from './box-health';
 import {
   createZigbeeDemo,
   isZigbeeDemoScenario,
@@ -495,6 +496,13 @@ export function handleDemoRequest(method: string, path: string, rawBody?: string
 
   const zigbeeAnswer = zigbee.handle(method, pathname, rawBody);
   if (zigbeeAnswer) return zigbeeAnswer;
+  // `loading` (a request that never ends) is answered by install.ts before reaching the router.
+  const boxHealth = boxHealthDemoAnswer(
+    method,
+    pathname,
+    boxHealthDemoState(typeof window === 'undefined' ? '' : window.location.search),
+  );
+  if (boxHealth && boxHealth !== 'pending') return boxHealth;
 
   if (pathname === '/auth/setup-state')
     return { status: 200, body: { setupRequired: false, systemReady: true } };
