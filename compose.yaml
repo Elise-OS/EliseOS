@@ -271,6 +271,7 @@ services:
       NODE_OPTIONS: --max-old-space-size=448
       ELISE_UPDATE_AGENT_SOCKET: /run/elise-update/agent.sock
       ELISE_ZIGBEE_AGENT_SOCKET: /run/elise-zigbee/agent.sock
+      ELISE_HEALTH_AGENT_SOCKET: /run/elise-health/agent.sock
       ELISE_JITSI_URL: ${ELISE_JITSI_URL:-}
       ELISE_JITSI_SECRET: ${ELISE_JITSI_SECRET:-}
       MEDIA_ROOT: /var/lib/elise/media
@@ -291,6 +292,7 @@ services:
       - ${ELISE_AGENT_RUN_DIR:-/run/elise-remote-access}:/run/elise-remote-access
       - ${ELISE_UPDATE_AGENT_RUN_DIR:-/run/elise-update}:/run/elise-update
       - ${ELISE_ZIGBEE_AGENT_RUN_DIR:-/run/elise-zigbee}:/run/elise-zigbee
+      - ${ELISE_HEALTH_AGENT_RUN_DIR:-/run/elise-health}:/run/elise-health
     group_add:
       - ${ELISE_AGENT_GID:-995}
     command:

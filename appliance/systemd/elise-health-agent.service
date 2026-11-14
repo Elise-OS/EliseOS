@@ -1,0 +1,26 @@
+[Unit]
+Description=Élise host health agent
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/elise/elise-health-agent.py
+Environment=ELISE_HEALTH_AGENT_SOCKET=/run/elise-health/agent.sock
+Environment=ELISE_BACKUP_SCRIPT=/usr/lib/elise/elise-backup.sh
+RuntimeDirectory=elise-health
+RuntimeDirectoryMode=0755
+User=root
+Group=elise-agent
+UMask=0007
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadOnlyPaths=/proc /sys
+ReadWritePaths=/run/elise-health /var/lib/elise/backups
+
+[Install]
+WantedBy=multi-user.target

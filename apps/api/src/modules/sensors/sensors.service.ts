@@ -27,6 +27,7 @@ import {
 } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../../platform/prisma.service';
+import { batteryPercentFromSensors } from '@elise/shared';
 import { MqttIngestionService } from '../sensing/mqtt-ingestion.service';
 import { rolesFor } from '../auth/access-policy';
 import { capabilityLabel, placementGuide } from './sensor-guidance';
@@ -1333,14 +1334,7 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
       return this.capabilityView(sensor, networkDisconnected, displayCapability);
     });
     // Zigbee battery_low reaches Élise as 0/100 with a `low` flag: show the real percentage first.
-    const batterySensors = userSensors.filter((sensor) => sensor.capability === 'battery');
-    const batterySensor =
-      batterySensors.find((sensor) => {
-        const payload = sensor.events[0]?.payload;
-        return !(payload && typeof payload === 'object' && 'low' in payload);
-      }) ?? batterySensors[0];
-    const batteryPayload = batterySensor?.events[0]?.payload;
-    const battery = this.recordValue(batteryPayload);
+    const batteryPercent = batteryPercentFromSensors(userSensors);
     const lastSeen = device.sensors.reduce(
       (latest: Date | null, sensor) =>
         !latest || (sensor.lastSeenAt && sensor.lastSeenAt > latest) ? sensor.lastSeenAt : latest,
@@ -1392,13 +1386,7 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
       placementConfirmedAt: device.placementConfirmedAt?.toISOString() ?? null,
       placementNote: device.placementNote ?? null,
       lastSeenAt: lastSeen?.toISOString() ?? null,
-      batteryPercent:
-        !networkDisconnected &&
-        batterySensor?.available &&
-        batterySensor.status !== 'OFFLINE' &&
-        typeof battery?.value === 'number'
-          ? battery.value
-          : null,
+      batteryPercent: networkDisconnected ? null : batteryPercent,
       capabilities,
       action: this.actionFor(status, Boolean(device.room)),
     };

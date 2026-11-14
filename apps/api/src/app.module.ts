@@ -53,6 +53,9 @@ import { CalendarService } from './modules/calendar/calendar.service';
 import { UpdateAgentClient } from './modules/system/update-agent.client';
 import { ZigbeeController } from './modules/zigbee/zigbee.controller';
 import { ZigbeeAgentClient } from './modules/zigbee/zigbee-agent.client';
+import { BoxHealthController } from './modules/box-health/box-health.controller';
+import { BoxHealthService } from './modules/box-health/box-health.service';
+import { HealthAgentClient } from './modules/box-health/health-agent.client';
 
 @Module({
   controllers: [
@@ -80,6 +83,7 @@ import { ZigbeeAgentClient } from './modules/zigbee/zigbee-agent.client';
     RemoteAccessController,
     CalendarController,
     ZigbeeController,
+    BoxHealthController,
   ],
   providers: [
     LiaisonService,
@@ -111,6 +115,8 @@ import { ZigbeeAgentClient } from './modules/zigbee/zigbee-agent.client';
     UpdateAgentClient,
     ZigbeeAgentClient,
     WorkerWatchdogService,
+    BoxHealthService,
+    HealthAgentClient,
   ],
 })
 export class AppModule {}

@@ -345,6 +345,11 @@ HOST_FILES="$(cat <<'FILES'
 0644 appliance/elise-zigbee-adapters.json /usr/lib/elise/elise-zigbee-adapters.json
 0644 appliance/systemd/elise-zigbee-agent.service /etc/systemd/system/
 0644 appliance/systemd/elise-zigbee-setup.service /etc/systemd/system/
+0755 appliance/elise-health-agent.py /usr/lib/elise/elise-health-agent.py
+0755 appliance/elise-backup.sh /usr/lib/elise/elise-backup.sh
+0644 appliance/systemd/elise-health-agent.service /etc/systemd/system/
+0644 appliance/systemd/elise-backup.service /etc/systemd/system/
+0644 appliance/systemd/elise-backup.timer /etc/systemd/system/
 0644 appliance/udev/90-elise-zigbee.rules /etc/udev/rules.d/
 0644 appliance/elise_install_state.py /usr/lib/elise/elise_install_state.py
 0644 appliance/elise_install_texts.py /usr/lib/elise/elise_install_texts.py
@@ -452,6 +457,8 @@ if [[ "$ELISE_FRESH_INSTALL" == true ]]; then
   fi
 fi
 systemctl enable --now elise-remote-access-agent.service elise-update-agent.service elise-tailscale-firewall.service
+systemctl daemon-reload
+systemctl enable --now elise-health-agent.service elise-backup.timer
 # A oneshot unit already active is not run again by `enable --now`: apply this release's rules.
 systemctl restart elise-tailscale-firewall.service
 [[ ! -f /etc/systemd/system/elise-zigbee-setup.service ]] || systemctl enable elise-zigbee-setup.service

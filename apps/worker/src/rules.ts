@@ -31,16 +31,8 @@ export function clearanceConfirmed(
   return conditionClearedAt !== null && elapsedMinutes(conditionClearedAt, now) >= minutes;
 }
 
-export type SensorCoverageState = 'UNCONFIGURED' | 'OUTAGE' | 'READY';
-
-export function sensorCoverageState(
-  configuredSensors: number,
-  activeSensors: number,
-): SensorCoverageState {
-  if (configuredSensors <= 0) return 'UNCONFIGURED';
-  // A partial outage is not reliable coverage for an inactivity conclusion.
-  return activeSensors < configuredSensors ? 'OUTAGE' : 'READY';
-}
+export { sensorCoverageState } from '@elise/shared';
+export type { SensorCoverageState } from '@elise/shared';
 
 export function shouldOpenInactivityAlert(
   lastActivity: Date | null,

@@ -1,0 +1,9 @@
+[Unit]
+Description=Élise database backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/elise/elise-backup.sh
+EnvironmentFile=-/etc/elise/agent.env
