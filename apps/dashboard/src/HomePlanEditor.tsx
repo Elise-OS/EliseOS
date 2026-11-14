@@ -63,6 +63,7 @@ import { connectionBoundary, connectionCurve } from './plan-connections';
 import './plan-connections.css';
 import { type Locale, t } from './i18n';
 import { createId } from './lib/createId';
+import { subscribeRealtime } from './realtime';
 
 type Sensor = {
   id: string;
@@ -741,9 +742,7 @@ export function HomePlanEditor({
   useEffect(() => void load(), [load]);
   useEffect(() => {
     if (setupPreview) return;
-    const events = new EventSource('/api/v1/events');
-    events.onmessage = () => void refreshDeviceData();
-    return () => events.close();
+    return subscribeRealtime(() => void refreshDeviceData());
   }, [refreshDeviceData, setupPreview]);
   const currentFloor = plan?.levels.find((level) => level.id === floorId) ?? plan?.levels[0];
   const selectedRoom = currentFloor?.rooms.find((room) => room.id === selectedRoomId) ?? null;

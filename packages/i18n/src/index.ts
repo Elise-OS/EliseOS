@@ -43,13 +43,19 @@ export function matchLanguage(tags: readonly (string | null | undefined)[]): Lan
   return FALLBACK_LANGUAGE;
 }
 
-/** A ready, synchronous i18next instance: every catalog is bundled with the app. */
+/**
+ * A ready, synchronous i18next instance. An app that bundles every catalog passes them all;
+ * an app that downloads them on demand passes none and adds each one with `addCatalog`.
+ */
 export function createI18n(
-  catalogs: Record<Language, Record<string, unknown>>,
+  catalogs: Partial<Record<Language, Record<string, unknown>>>,
   language: Language = SOURCE_LANGUAGE,
 ): i18n {
   const resources: Resource = {};
-  for (const code of LANGUAGE_CODES) resources[code] = { translation: catalogs[code] };
+  for (const code of LANGUAGE_CODES) {
+    const catalog = catalogs[code];
+    if (catalog) resources[code] = { translation: catalog };
+  }
   const instance = i18next.createInstance();
   void instance.init({
     resources,
@@ -62,6 +68,15 @@ export function createI18n(
     interpolation: { escapeValue: false },
   });
   return instance;
+}
+
+/** Adds (or replaces) the catalog of one language in a running instance. */
+export function addCatalog(
+  instance: i18n,
+  language: Language,
+  catalog: Record<string, unknown>,
+): void {
+  instance.addResourceBundle(language, 'translation', catalog, true, true);
 }
 
 /** Type of the value at a dotted path of a catalog ("screen.copy.hero"). */

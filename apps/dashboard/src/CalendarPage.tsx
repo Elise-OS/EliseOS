@@ -18,6 +18,7 @@ import {
 import { dateLocale, type Locale, t } from './i18n';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import './calendar-page.css';
+import { subscribeRealtime } from './realtime';
 
 const isoLocal = (value: Date) => {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -79,9 +80,7 @@ export function CalendarPage({ locale = 'fr', onBack }: { locale?: Locale; onBac
   }, [fr, range]);
   useEffect(() => {
     void load();
-    const stream = new EventSource('/api/v1/events');
-    stream.onmessage = () => void load();
-    return () => stream.close();
+    return subscribeRealtime(() => void load());
   }, [load]);
   const events = data?.items ?? [];
   const monthEvents = events.filter((event) => {

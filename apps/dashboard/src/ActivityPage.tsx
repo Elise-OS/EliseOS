@@ -37,6 +37,7 @@ import { DataLoadingScreen } from './DataLoadingScreen';
 import { presenceText } from './WelcomePage';
 import './activity-page.css';
 import { dateLocale, type Locale, t } from './i18n';
+import { subscribeRealtime } from './realtime';
 
 type ActivityPageProps = {
   locale: Locale;
@@ -307,20 +308,19 @@ export function ActivityPage({ locale, timeZone }: ActivityPageProps) {
     };
   }, [comparisonDate, isComparing]);
   useEffect(() => {
-    const events = new EventSource('/api/v1/events');
     const refreshInterval = setInterval(() => void refresh(false), 60_000);
-    events.onmessage = (event) => {
+    const unsubscribe = subscribeRealtime((data) => {
       try {
-        const type = (JSON.parse(String(event.data)) as { type?: string }).type;
+        const type = (JSON.parse(data) as { type?: string }).type;
         if (!['activity', 'presence', 'household', 'alerts'].includes(type ?? '')) return;
       } catch {
         // Unknown events are treated as potentially relevant.
       }
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
       refreshTimer.current = setTimeout(() => void refresh(false), 450);
-    };
+    });
     return () => {
-      events.close();
+      unsubscribe();
       if (refreshTimer.current) clearTimeout(refreshTimer.current);
       clearInterval(refreshInterval);
     };

@@ -1,5 +1,6 @@
 import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
+import { currentLanguage, loadLanguage } from './i18n';
 import { uiLocale } from './screen-locale';
 import './styles.css';
 
@@ -27,16 +28,19 @@ const ResidentScreen = lazy(() =>
   import('./ResidentScreen').then((module) => ({ default: module.ResidentScreen })),
 );
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <Suspense fallback={null}>
-      {location.pathname === '/resident-screen' ? (
-        <ResidentScreen />
-      ) : location.pathname === '/screen-control' ? (
-        <ScreenPanel />
-      ) : (
-        <App />
-      )}
-    </Suspense>
-  </StrictMode>,
+// Only the catalog of the language of this device is downloaded, before the first screen.
+void loadLanguage(currentLanguage()).then(() =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <Suspense fallback={null}>
+        {location.pathname === '/resident-screen' ? (
+          <ResidentScreen />
+        ) : location.pathname === '/screen-control' ? (
+          <ScreenPanel />
+        ) : (
+          <App />
+        )}
+      </Suspense>
+    </StrictMode>,
+  ),
 );

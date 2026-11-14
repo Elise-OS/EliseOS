@@ -34,6 +34,7 @@ import { type Locale, t } from './i18n';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import './liaison.css';
 import { moodLabel } from './i18n/data';
+import { subscribeRealtime } from './realtime';
 
 interface PendingMedication {
   name: string;
@@ -170,22 +171,19 @@ export function LiaisonPage({
   useEffect(() => {
     setData(null);
     void load();
-    const stream = new EventSource('/api/v1/events');
-    stream.onmessage = (message) => {
+    const unsubscribe = subscribeRealtime((data) => {
       try {
-        const event = JSON.parse(typeof message.data === 'string' ? message.data : '{}') as {
-          type: string;
-        };
+        const event = JSON.parse(data) as { type: string };
         if (['liaison', 'schedule', 'household', 'connected'].includes(event.type)) void load();
       } catch {
         /* Periodic refresh recovers missed events. */
       }
-    };
+    });
     const refreshTimer = window.setInterval(() => void load(), 30_000);
     const clockTimer = window.setInterval(() => setNow(new Date()), 30_000);
     return () => {
       ++sequence.current;
-      stream.close();
+      unsubscribe();
       window.clearInterval(refreshTimer);
       window.clearInterval(clockTimer);
     };

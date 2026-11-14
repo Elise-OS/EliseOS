@@ -60,6 +60,7 @@ type WeatherCity = {
 import { currentLanguage, dateLocale, type Locale, t } from './i18n';
 import { subscribeScreenEvents } from './screen-events';
 import './welcome-page.css';
+import { subscribeRealtime } from './realtime';
 
 export function homeCardText(card: HomeSummary['cards'][number], locale: Locale, timezone: string) {
   const at = card.lastObservedAt
@@ -748,13 +749,12 @@ export function WelcomePage({
       }
     }
     void refresh();
-    const events = new EventSource('/api/v1/events');
     let debounce: ReturnType<typeof setTimeout>;
-    events.onmessage = () => {
+    // The "connected" event of a (re)opened connection also lands here and refreshes the page.
+    const unsubscribe = subscribeRealtime(() => {
       clearTimeout(debounce);
       debounce = setTimeout(() => void refresh(), 500);
-    };
-    events.onopen = () => void refresh();
+    });
     const visible = () => {
       if (document.visibilityState === 'visible') void refresh();
     };
@@ -764,7 +764,7 @@ export function WelcomePage({
     return () => {
       alive = false;
       controller.abort();
-      events.close();
+      unsubscribe();
       clearTimeout(debounce);
       clearInterval(timer);
       document.removeEventListener('visibilitychange', visible);

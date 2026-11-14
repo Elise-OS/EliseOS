@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import Hls from 'hls.js';
+import type Hls from 'hls.js';
 import { youtubeVideoId, type ScreenMedia } from '@elise/contracts';
 import { t } from './i18n';
 export type VideoStatus = 'loading' | 'ready' | 'error';
@@ -146,32 +146,44 @@ export function ResidentVideo({
       const element = video.current!;
       element.volume = controls.current.volume / 100;
       if (element.canPlayType('application/vnd.apple.mpegurl')) element.src = media.url;
-      else if (Hls.isSupported()) {
-        hls = new Hls({
-          capLevelToPlayerSize: true,
-          maxBufferLength: 15,
-          maxMaxBufferLength: 30,
-          manifestLoadingMaxRetry: 4,
-          manifestLoadingRetryDelay: 1000,
-          manifestLoadingMaxRetryTimeout: 12_000,
-          levelLoadingMaxRetry: 5,
-          levelLoadingRetryDelay: 1000,
-          levelLoadingMaxRetryTimeout: 15_000,
-          fragLoadingMaxRetry: 8,
-          fragLoadingRetryDelay: 1000,
-          fragLoadingMaxRetryTimeout: 15_000,
-        });
-        hls.loadSource(media.url);
-        hls.attachMedia(element);
-        hls.on(Hls.Events.ERROR, (_event, data) => {
-          if (data.fatal) scheduleRecovery(data.type);
-        });
-        hls.on(Hls.Events.FRAG_BUFFERED, () => {
-          recoveryAttempts = 0;
-          if (recoveryTimer !== undefined) window.clearTimeout(recoveryTimer);
-          recoveryTimer = undefined;
-        });
-      } else onStatus('error');
+      else {
+        // hls.js is heavy and only needed to play a TV channel: it is downloaded on demand.
+        void import('hls.js')
+          .then(({ default: HlsPlayer }) => {
+            if (disposed) return;
+            if (!HlsPlayer.isSupported()) {
+              onStatus('error');
+              return;
+            }
+            hls = new HlsPlayer({
+              capLevelToPlayerSize: true,
+              maxBufferLength: 15,
+              maxMaxBufferLength: 30,
+              manifestLoadingMaxRetry: 4,
+              manifestLoadingRetryDelay: 1000,
+              manifestLoadingMaxRetryTimeout: 12_000,
+              levelLoadingMaxRetry: 5,
+              levelLoadingRetryDelay: 1000,
+              levelLoadingMaxRetryTimeout: 15_000,
+              fragLoadingMaxRetry: 8,
+              fragLoadingRetryDelay: 1000,
+              fragLoadingMaxRetryTimeout: 15_000,
+            });
+            hls.loadSource(media.url);
+            hls.attachMedia(element);
+            hls.on(HlsPlayer.Events.ERROR, (_event, data) => {
+              if (data.fatal) scheduleRecovery(data.type);
+            });
+            hls.on(HlsPlayer.Events.FRAG_BUFFERED, () => {
+              recoveryAttempts = 0;
+              if (recoveryTimer !== undefined) window.clearTimeout(recoveryTimer);
+              recoveryTimer = undefined;
+            });
+          })
+          .catch(() => {
+            if (!disposed) onStatus('error');
+          });
+      }
     } else {
       void loadYoutube()
         .then((api) => {
