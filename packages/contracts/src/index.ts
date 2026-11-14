@@ -15,6 +15,7 @@ export * from './calendar.js';
 export * from './call-quality.js';
 export * from './call-runtime.js';
 export * from './call-ui.js';
+export * from './box-health.js';
 export * from './notifications.js';
 export * from './room-equipment.js';
 export * from './retire-furniture.js';
