@@ -31,7 +31,7 @@ test.describe('caregiver space (demo build)', () => {
     await expect(page.getByText('Calendrier partagé')).toBeVisible();
 
     // Settings, Zigbee key tab: ZigbeeKeyPanel is its own chunk.
-    await nav(page, 8).click();
+    await nav(page, 8).evaluate((button) => (button as HTMLButtonElement).click());
     await page.getByRole('button', { name: 'Clé Zigbee', exact: true }).click();
     await expect(page.locator('main')).not.toContainText('Chargement');
 
@@ -41,7 +41,7 @@ test.describe('caregiver space (demo build)', () => {
   test('switches the interface language', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto(DEMO_URL);
-    await nav(page, 8).click();
+    await nav(page, 8).evaluate((button) => (button as HTMLButtonElement).click());
     await page.getByRole('button', { name: 'English', exact: true }).click();
     await expect(nav(page, 0)).toHaveText(/Home/);
     expect(errors).toEqual([]);
@@ -49,6 +49,116 @@ test.describe('caregiver space (demo build)', () => {
 });
 
 test.describe('production build', () => {
+  const mockSignedInDashboard = async (page: import('@playwright/test').Page, role: string) => {
+    await page.route('**/api/v1/**', async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path === '/api/v1/auth/setup-state') {
+        return route.fulfill({ json: { setupRequired: false, systemReady: true } });
+      }
+      if (path === '/api/v1/overview') {
+        return route.fulfill({
+          json: {
+            onboardingRequired: false,
+            currentUser: { id: 'test-user', displayName: 'Camille Test', firstName: 'Camille' },
+            home: { id: 'test-home', name: 'Maison test', type: 'HOUSE', resident: 'Louise' },
+            resident: null,
+            openAlerts: 0,
+            sensors: { total: 0, online: 0, degraded: 0, offline: 0 },
+            rooms: [],
+            activity: [],
+          },
+        });
+      }
+      if (path === '/api/v1/auth/me') {
+        return route.fulfill({
+          json: {
+            id: 'test-user',
+            displayName: 'Camille Test',
+            firstName: 'Camille',
+            role,
+            capabilities: role === 'ADMINISTRATOR' ? ['configuration:manage'] : [],
+            mustChangePassword: false,
+          },
+        });
+      }
+      if (path === '/api/v1/household') {
+        return route.fulfill({
+          json: {
+            home: {
+              id: 'test-home',
+              name: 'Maison test',
+              timezone: 'Europe/Paris',
+              type: 'HOUSE',
+              address: null,
+              floorCount: 1,
+              installationStatus: 'READY',
+              learningStartedAt: null,
+            },
+            residents: [],
+            trustedContacts: [],
+            rooms: [],
+            unassignedSensors: [],
+          },
+        });
+      }
+      if (path === '/api/v1/system/box-health') {
+        return route.fulfill({ status: 503, json: { message: 'Agent indisponible' } });
+      }
+      if (path === '/api/v1/screen' || path === '/api/v1/home-summary') {
+        return route.fulfill({ status: 503, json: { message: 'Unavailable in this access test' } });
+      }
+      if (path === '/api/v1/remote-access/status') {
+        return route.fulfill({ status: 503, json: { message: 'Unavailable in this access test' } });
+      }
+      if (path === '/api/v1/system/update' || path === '/api/v1/system/update/check') {
+        return route.fulfill({ json: {} });
+      }
+      return route.fulfill({ json: [] });
+    });
+  };
+
+  test('shows the box health tab to an administrator and an unreadable state when opened', async ({
+    page,
+  }) => {
+    const errors = watchErrors(page);
+    await mockSignedInDashboard(page, 'ADMINISTRATOR');
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.addInitScript(() => window.localStorage.setItem('elise_sidebar_auto_hide', 'false'));
+    const accessLoaded = page.waitForResponse((response) =>
+      response.url().endsWith('/api/v1/auth/me'),
+    );
+    await page.goto(APP_URL);
+    await accessLoaded;
+    await page.waitForTimeout(250);
+    await expect(nav(page, 8)).toBeVisible();
+    await nav(page, 8).click({ force: true });
+    await expect(page.locator('.settings-page')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Santé de la box', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Santé de la box', exact: true }).click();
+    await expect(page.getByText('Impossible de vérifier').first()).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test('hides the box health tab from a caregiver without configuration access', async ({
+    page,
+  }) => {
+    const errors = watchErrors(page);
+    await mockSignedInDashboard(page, 'CAREGIVER');
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.addInitScript(() => window.localStorage.setItem('elise_sidebar_auto_hide', 'false'));
+    const accessLoaded = page.waitForResponse((response) =>
+      response.url().endsWith('/api/v1/auth/me'),
+    );
+    await page.goto(APP_URL);
+    await accessLoaded;
+    await page.waitForTimeout(250);
+    await expect(nav(page, 8)).toBeVisible();
+    await nav(page, 8).click({ force: true });
+    await expect(page.locator('.settings-page')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Santé de la box', exact: true })).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
   test('the resident TV loads its own screen, not the caregiver app', async ({ page }) => {
     const scripts: string[] = [];
     page.on('request', (request) => {

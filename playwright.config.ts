@@ -14,7 +14,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
-  use: { trace: 'retain-on-failure', locale: 'fr-FR', timezoneId: 'Europe/Paris' },
+  use: { trace: 'off', locale: 'fr-FR', timezoneId: 'Europe/Paris' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {

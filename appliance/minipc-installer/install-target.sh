@@ -68,6 +68,15 @@ chmod 0600 "$TARGET/etc/netplan/60-elise-ethernet.yaml"
 install -d -m 0755 "$TARGET/etc/default/grub.d"
 printf 'GRUB_CMDLINE_LINUX="$GRUB_CMDLINE_LINUX console=tty0 console=ttyS0,115200n8"\n' \
   > "$TARGET/etc/default/grub.d/60-elise-serial.cfg"
-curtin in-target --target="$TARGET" -- update-grub
+# grub-probe needs the target's view of devices and the kernel interfaces while generating GRUB.
+mount --bind /dev "$TARGET/dev"
+mount --bind /dev/pts "$TARGET/dev/pts"
+mount -t proc proc "$TARGET/proc"
+mount -t sysfs sys "$TARGET/sys"
+chroot "$TARGET" /usr/sbin/update-grub
+umount "$TARGET/dev/pts"
+umount "$TARGET/dev"
+umount "$TARGET/proc"
+umount "$TARGET/sys"
 
 echo "ELISE_INSTALLER: target bootstrap installed"
