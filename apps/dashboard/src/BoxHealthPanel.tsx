@@ -416,47 +416,77 @@ export function BoxHealthPanel({
           className={`box-health-groups${failed ? ' is-stale' : ''}`}
           aria-label={failed ? t('boxHealth.staleLabel') : undefined}
         >
-          {orderedGroups(report).map((group) => {
-            const key = groupKey(group.id);
-            const GroupIcon = (key && groupIcons[key]) || Activity;
-            const level = worstLevel(group.checks);
-            return (
-              <section
-                key={group.id}
-                className={`box-health-group is-${level}`}
-                aria-labelledby={`box-health-group-${group.id}`}
-              >
-                <header>
-                  <span className="box-health-group-icon" aria-hidden="true">
-                    <GroupIcon />
-                  </span>
-                  <div>
-                    <h3 id={`box-health-group-${group.id}`}>
-                      {key ? tr(`boxHealth.group.${key}.title`) : t('boxHealth.group.other')}
-                    </h3>
-                    {key && <p>{tr(`boxHealth.group.${key}.hint`)}</p>}
-                  </div>
-                  <LevelPill level={level} />
-                </header>
-                <ul>
-                  {group.checks.map((check, index) => (
-                    <CheckRow
-                      key={`${check.id}-${index}`}
-                      check={check}
-                      busy={check.action === 'run-backup' && backupRunning}
-                      onAction={runAction}
-                    />
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
+          {balancedColumns(orderedGroups(report)).map((column, columnIndex) => (
+            <div key={columnIndex} className="box-health-column">
+              {column.map(({ group, order }) => {
+                const key = groupKey(group.id);
+                const GroupIcon = (key && groupIcons[key]) || Activity;
+                const level = worstLevel(group.checks);
+                return (
+                  <section
+                    key={group.id}
+                    style={{ order }}
+                    className={`box-health-group is-${level}`}
+                    aria-labelledby={`box-health-group-${group.id}`}
+                  >
+                    <header>
+                      <span className="box-health-group-icon" aria-hidden="true">
+                        <GroupIcon />
+                      </span>
+                      <div>
+                        <h3 id={`box-health-group-${group.id}`}>
+                          {key ? tr(`boxHealth.group.${key}.title`) : t('boxHealth.group.other')}
+                        </h3>
+                        {key && <p>{tr(`boxHealth.group.${key}.hint`)}</p>}
+                      </div>
+                      <LevelPill level={level} />
+                    </header>
+                    <ul>
+                      {group.checks.map((check, index) => (
+                        <CheckRow
+                          key={`${check.id}-${index}`}
+                          check={check}
+                          busy={check.action === 'run-backup' && backupRunning}
+                          onAction={runAction}
+                        />
+                      ))}
+                    </ul>
+                  </section>
+                );
+              })}
+            </div>
+          ))}
         </div>
       )}
 
       {report && <TechnicalDetails report={report} raw={rawReport ?? report} />}
     </section>
   );
+}
+
+type Group = BoxHealthReport['groups'][number];
+
+/**
+ * Two columns filled by height (each group goes under the shorter one), so short cards never
+ * leave holes. On narrow screens the columns melt away and `order` keeps the reading order.
+ */
+function balancedColumns(groups: Group[]): { group: Group; order: number }[][] {
+  const left: { group: Group; order: number }[] = [];
+  const right: { group: Group; order: number }[] = [];
+  let leftHeight = 0;
+  let rightHeight = 0;
+  groups.forEach((group, order) => {
+    const height =
+      1.6 + group.checks.reduce((sum, check) => sum + (showsAction(check) ? 1.5 : 1), 0);
+    if (rightHeight < leftHeight) {
+      right.push({ group, order });
+      rightHeight += height;
+    } else {
+      left.push({ group, order });
+      leftHeight += height;
+    }
+  });
+  return [left, right].filter((column) => column.length > 0);
 }
 
 function LevelPill({ level }: { level: BoxHealthLevel }) {
@@ -490,10 +520,12 @@ function CheckRow({
         </span>
       </span>
       <div className="box-health-row-copy">
-        <strong>{checkLabel(check.id)}</strong>
+        <div className="box-health-row-head">
+          <strong>{checkLabel(check.id)}</strong>
+          <span className="box-health-row-level">{t(`boxHealth.level.${check.level}`)}</span>
+        </div>
         <p>{checkSentence(check)}</p>
       </div>
-      <span className="box-health-row-level">{t(`boxHealth.level.${check.level}`)}</span>
       {action && (
         <button
           type="button"
@@ -513,13 +545,14 @@ function CheckRow({
 function BoxHealthSkeleton() {
   return (
     <div className="box-health-skeleton" role="status">
-      <span className="box-health-sr">{t('boxHealth.loading')}</span>
-      <div className="box-health-skeleton-banner" aria-hidden="true">
-        <span />
+      <div className="box-health-skeleton-banner">
+        <span className="box-health-skeleton-icon" aria-hidden="true">
+          <LoaderCircle className="box-health-spin" />
+        </span>
         <div>
-          <i />
-          <i />
-          <i />
+          <p className="box-health-skeleton-label">{t('boxHealth.loading')}</p>
+          <i aria-hidden="true" />
+          <i aria-hidden="true" />
         </div>
       </div>
       <div className="box-health-skeleton-groups" aria-hidden="true">

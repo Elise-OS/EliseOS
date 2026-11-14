@@ -338,13 +338,13 @@ export function MobileBoxHealthPanel({
       {report ? (
         <View style={styles.toolbar}>
           <ToolbarButton
+            primary
             label={checking ? t('boxHealth.checking') : t('boxHealth.checkNow')}
             busy={checking}
             onPress={() => void load('manual')}
-            icon={<RefreshCw size={18} color={colors.blue} strokeWidth={2.2} />}
+            icon={<RefreshCw size={18} color="#FFFFFF" strokeWidth={2.2} />}
           />
           <ToolbarButton
-            primary
             label={
               backupBusy
                 ? t('boxHealth.backupStarting')
@@ -354,7 +354,7 @@ export function MobileBoxHealthPanel({
             }
             busy={running}
             onPress={() => void startBackup()}
-            icon={<DatabaseBackup size={18} color="#FFFFFF" strokeWidth={2.2} />}
+            icon={<DatabaseBackup size={18} color={colors.blue} strokeWidth={2.2} />}
           />
         </View>
       ) : null}
@@ -530,7 +530,8 @@ function CheckRow({
   actionBusy: boolean;
   onAction: (destination: BoxHealthDestination) => void;
 }) {
-  const tone = tones[toneOf(check.level)];
+  // A point that could not be read stays neutral: it is neither good news nor a problem.
+  const tone = check.level === 'unknown' ? tones.unavailable : tones[toneOf(check.level)];
   const Icon = iconFor(check);
   const sentence = checkSentence(check);
   const label = checkLabel(check);
@@ -725,9 +726,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.blue,
   },
   retryText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
-  toolbar: { flexDirection: 'row', gap: 10 },
+  toolbar: { gap: 10 },
   toolbarButton: {
-    flex: 1,
     minHeight: 52,
     paddingHorizontal: 14,
     paddingVertical: 10,

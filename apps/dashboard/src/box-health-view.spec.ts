@@ -114,7 +114,7 @@ describe('box health sentences', () => {
   it('speaks plainly, with the figures of the box', () => {
     setLanguage('fr');
     expect(checkSentence(check('temperature', 'warning', { celsius: [71.6, 64] }), NOW)).toBe(
-      'La box chauffe un peu (72 °C). Laissez-lui de l’air autour.',
+      'La box chauffe un peu (72\u202f°C). Laissez-lui de l’air autour.',
     );
     expect(
       checkSentence(

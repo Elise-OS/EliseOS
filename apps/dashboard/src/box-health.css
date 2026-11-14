@@ -24,6 +24,7 @@
   gap: 22px;
   margin-top: 4px;
   color: var(--bh-ink);
+  container: box-health / inline-size;
 }
 .box-health h2,
 .box-health h3,
@@ -143,13 +144,14 @@
 .box-health-verdict::before {
   content: '';
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 5px;
+  inset: 26px auto 26px 0;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
   background: var(--bh-tone);
-  opacity: 0.85;
+  opacity: 0.8;
 }
 .box-health-verdict.is-unverifiable::before {
-  background: repeating-linear-gradient(180deg, #b0773a 0 10px, transparent 10px 16px);
+  background: repeating-linear-gradient(180deg, var(--bh-tone) 0 8px, transparent 8px 14px);
 }
 .box-health-verdict-icon {
   width: 60px;
@@ -183,12 +185,12 @@
   font-size: 15px;
   line-height: 1.55;
 }
-.box-health-verdict-meta {
+.box-health .box-health-verdict-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin-top: 12px;
+  margin-top: 10px;
   color: var(--bh-ink-2);
   font-size: 12.5px;
   font-weight: 600;
@@ -197,11 +199,11 @@
   width: 14px;
   height: 14px;
 }
-.box-health-counts {
+.box-health .box-health-counts {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 18px;
 }
 .box-health-counts li {
   display: inline-flex;
@@ -223,8 +225,10 @@
   background: var(--bh-tone);
 }
 .box-health-counts li.is-unknown > span {
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--bh-tone);
   background: transparent;
-  border: 2px dashed #b0773a;
 }
 .box-health-verdict-actions {
   display: grid;
@@ -308,11 +312,24 @@
 
 /* Groups */
 .box-health-groups {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 18px;
-  align-items: start;
   transition: opacity 200ms ease;
+}
+.box-health-column {
+  display: contents;
+}
+@container box-health (min-width: 900px) {
+  .box-health-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+  .box-health-column {
+    display: grid;
+    gap: 18px;
+  }
 }
 .box-health-groups.is-stale {
   opacity: 0.6;
@@ -384,8 +401,9 @@
 
 /* Rows */
 .box-health-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-columns: 44px minmax(0, 1fr);
   column-gap: 14px;
   row-gap: 10px;
   align-items: start;
@@ -426,12 +444,17 @@
 .box-health-row.is-unknown .box-health-row-badge {
   background: #8a6a3c;
 }
+.box-health-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+}
 .box-health-row-copy strong {
-  display: block;
   color: var(--bh-ink-2);
   font-size: 12.5px;
   font-weight: 700;
-  letter-spacing: 0.01em;
 }
 .box-health-row-copy p {
   margin-top: 3px;
@@ -440,7 +463,6 @@
   line-height: 1.5;
 }
 .box-health-row-level {
-  padding-top: 2px;
   color: var(--bh-tone);
   font-size: 12px;
   font-weight: 800;
@@ -455,7 +477,7 @@
   clip: rect(0 0 0 0);
 }
 .box-health-row-action {
-  grid-column: 2 / -1;
+  grid-column: 2;
   justify-self: start;
   display: inline-flex;
   align-items: center;
@@ -635,21 +657,37 @@
   gap: 22px;
   padding: 28px;
 }
-.box-health-skeleton-banner > span {
+.box-health-skeleton-icon {
   width: 60px;
   height: 60px;
+  display: grid;
+  place-items: center;
   flex: none;
+  border: 1px solid #e3e9ec;
   border-radius: 20px;
+  color: #6f8496;
+  background: #f6f8f9;
+}
+.box-health-skeleton-icon svg {
+  width: 24px;
+  height: 24px;
 }
 .box-health-skeleton-banner > div {
   display: grid;
   flex: 1;
   gap: 12px;
-  align-content: start;
+  align-content: center;
+}
+.box-health .box-health-skeleton-label {
+  color: var(--bh-ink-2);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 .box-health-skeleton-groups {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   gap: 18px;
 }
 .box-health-skeleton-groups > div {
@@ -657,8 +695,7 @@
   gap: 14px;
   padding: 24px;
 }
-.box-health-skeleton i,
-.box-health-skeleton-banner > span {
+.box-health-skeleton i {
   display: block;
   height: 12px;
   border-radius: 8px;
@@ -666,15 +703,11 @@
   background-size: 220% 100%;
   animation: box-health-shimmer 1.4s ease-in-out infinite;
 }
-.box-health-skeleton-banner i:nth-child(1) {
-  width: 42%;
-  height: 22px;
+.box-health-skeleton-banner i:nth-of-type(1) {
+  width: min(78%, 620px);
 }
-.box-health-skeleton-banner i:nth-child(2) {
-  width: 78%;
-}
-.box-health-skeleton-banner i:nth-child(3) {
-  width: 30%;
+.box-health-skeleton-banner i:nth-of-type(2) {
+  width: min(40%, 300px);
 }
 .box-health-skeleton-groups i:nth-child(1) {
   width: 38%;
@@ -711,10 +744,11 @@
   }
 }
 
-@media (max-width: 760px) {
+@container box-health (max-width: 760px) {
   .box-health-verdict {
-    grid-template-columns: auto minmax(0, 1fr);
-    padding: 22px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 22px 22px 22px 26px;
   }
   .box-health-verdict-actions {
     grid-column: 1 / -1;
@@ -722,8 +756,42 @@
     min-width: 0;
   }
   .box-health-verdict-icon {
-    width: 52px;
-    height: 52px;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+  }
+  .box-health-verdict-icon svg {
+    width: 23px;
+    height: 23px;
+  }
+  .box-health-group > header {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: start;
+  }
+  .box-health-group > header .box-health-pill {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: -4px;
+  }
+  .box-health .box-health-verdict-meta > span[aria-hidden='true'] {
+    display: none;
+  }
+  .box-health .box-health-verdict-meta > span:last-child {
+    flex-basis: 100%;
+    padding-left: 20px;
+    font-weight: 500;
+  }
+  .box-health-intro {
+    align-items: flex-start;
+  }
+  .box-health-intro-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 17px;
+  }
+  .box-health-intro h2 {
+    font-size: 24px;
   }
   .box-health-verdict-copy h3 {
     font-size: 23px;
@@ -740,8 +808,7 @@
   .box-health-verdict,
   .box-health-notice,
   .box-health-group,
-  .box-health-skeleton i,
-  .box-health-skeleton-banner > span {
+  .box-health-skeleton i {
     animation: none;
   }
   .box-health-spin {

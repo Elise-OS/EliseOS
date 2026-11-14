@@ -236,7 +236,7 @@ describe('box health copy', () => {
   it('uses the figures the box gave, and plainer words without them', () => {
     setLanguage('fr');
     expect(sentence(check('disk', 'warning', { usedPercent: 91.4 }))).toBe(
-      'La box commence à manquer de place (91 % utilisés).',
+      'La box commence à manquer de place (91\u202f% utilisés).',
     );
     expect(sentence(check('disk', 'warning', { usedPercent: null }))).toBe(
       'La box commence à manquer de place.',
@@ -248,7 +248,7 @@ describe('box health copy', () => {
       'Aucune sauvegarde n’a encore été faite. Lancez la première quand vous voulez.',
     );
     expect(sentence(check('notifications', 'warning', { failed24h: 1 }))).toBe(
-      '1 alerte n’a pas pu être envoyée ces dernières 24 h.',
+      '1 alerte n’a pas pu être envoyée ces dernières 24\u202fh.',
     );
     expect(sentence(check('mystery', 'critical'))).toBe('Ce point demande votre attention.');
   });

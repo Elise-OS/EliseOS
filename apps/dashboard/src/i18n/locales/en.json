@@ -802,13 +802,13 @@
         "warningShort": "The box is drawing on its backup memory: it may slow down a little."
       },
       "temperature": {
-        "critical": "The box is very hot ({{celsius}} °C): move it away from any heat source and clear its vents.",
+        "critical": "The box is very hot ({{celsius}} °C): move it away from any heat source and clear its vents.",
         "criticalShort": "The box is very hot: move it away from any heat source and clear its vents.",
         "label": "Box temperature",
-        "ok": "The box is at a good temperature ({{celsius}} °C).",
+        "ok": "The box is at a good temperature ({{celsius}} °C).",
         "okShort": "The box is at a good temperature.",
         "unknown": "Unable to read the box’s temperature.",
-        "warning": "The box is getting a little warm ({{celsius}} °C). Leave some air around it.",
+        "warning": "The box is getting a little warm ({{celsius}} °C). Leave some air around it.",
         "warningShort": "The box is getting a little warm. Leave some air around it."
       },
       "throttling": {
@@ -908,9 +908,9 @@
     "loading": "Checking the box…",
     "neverChecked": "No successful check yet",
     "size": {
-      "gb": "{{value}} GB",
-      "kb": "{{value}} kB",
-      "mb": "{{value}} MB"
+      "gb": "{{value}} GB",
+      "kb": "{{value}} kB",
+      "mb": "{{value}} MB"
     },
     "staleLabel": "Last known results, possibly out of date",
     "summary": "Check summary",

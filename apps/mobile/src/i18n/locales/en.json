@@ -2317,13 +2317,13 @@
       },
       "temperature": {
         "critical": "The box is very hot: move it away from any heat source and clear its vents.",
-        "criticalMeasured": "The box is very hot ({{celsius}} °C): move it away from any heat source and clear its vents.",
+        "criticalMeasured": "The box is very hot ({{celsius}} °C): move it away from any heat source and clear its vents.",
         "label": "Box temperature",
         "ok": "The box is at a good temperature.",
-        "okMeasured": "The box is at a good temperature ({{celsius}} °C).",
+        "okMeasured": "The box is at a good temperature ({{celsius}} °C).",
         "unknown": "Unable to read the box’s temperature.",
         "warning": "The box is getting a little warm. Leave some air around it.",
-        "warningMeasured": "The box is getting a little warm ({{celsius}} °C). Leave some air around it."
+        "warningMeasured": "The box is getting a little warm ({{celsius}} °C). Leave some air around it."
       },
       "throttling": {
         "critical": "The box is slowing down to protect itself: its power supply or cooling may not be enough.",
@@ -2394,9 +2394,9 @@
       "title": "Box health"
     },
     "size": {
-      "gb": "{{value}} GB",
-      "kb": "{{value}} kB",
-      "mb": "{{value}} MB"
+      "gb": "{{value}} GB",
+      "kb": "{{value}} kB",
+      "mb": "{{value}} MB"
     },
     "technical": {
       "hide": "Hide technical details",

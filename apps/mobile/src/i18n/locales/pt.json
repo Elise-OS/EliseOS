@@ -2279,39 +2279,39 @@
       },
       "disk": {
         "critical": "A caixa está quase cheia: pode deixar de guardar dados.",
-        "criticalMeasured": "A caixa está quase cheia ({{percent}} % utilizado): pode deixar de guardar dados.",
+        "criticalMeasured": "A caixa está quase cheia ({{percent}} % utilizado): pode deixar de guardar dados.",
         "label": "Espaço de armazenamento",
         "ok": "Ainda há espaço na caixa.",
-        "okMeasured": "Ainda há espaço na caixa ({{percent}} % utilizado).",
+        "okMeasured": "Ainda há espaço na caixa ({{percent}} % utilizado).",
         "unknown": "Impossível ler o espaço que resta na caixa.",
         "warning": "A caixa começa a ter pouco espaço.",
-        "warningMeasured": "A caixa começa a ter pouco espaço ({{percent}} % utilizado)."
+        "warningMeasured": "A caixa começa a ter pouco espaço ({{percent}} % utilizado)."
       },
       "disk-errors": {
         "critical": "O suporte de armazenamento mostra sinais de desgaste: faça uma cópia de segurança e preveja substituí-lo.",
-        "criticalMeasured_many": "{{count}} erros de leitura ou de escrita em 24 h: faça uma cópia de segurança e preveja substituir o suporte.",
-        "criticalMeasured_one": "{{count}} erro de leitura ou de escrita em 24 h: faça uma cópia de segurança e preveja substituir o suporte.",
-        "criticalMeasured_other": "{{count}} erros de leitura ou de escrita em 24 h: faça uma cópia de segurança e preveja substituir o suporte.",
+        "criticalMeasured_many": "{{count}} erros de leitura ou de escrita em 24 h: faça uma cópia de segurança e preveja substituir o suporte.",
+        "criticalMeasured_one": "{{count}} erro de leitura ou de escrita em 24 h: faça uma cópia de segurança e preveja substituir o suporte.",
+        "criticalMeasured_other": "{{count}} erros de leitura ou de escrita em 24 h: faça uma cópia de segurança e preveja substituir o suporte.",
         "label": "Suporte de armazenamento",
-        "ok": "Nenhum erro de leitura ou de escrita nas últimas 24 h.",
+        "ok": "Nenhum erro de leitura ou de escrita nas últimas 24 h.",
         "unknown": "Impossível ler o estado do suporte de armazenamento.",
         "warning": "Foram detetados alguns erros de leitura. Mantenha uma cópia de segurança recente.",
-        "warningMeasured_many": "{{count}} erros de leitura detetados em 24 h. Mantenha uma cópia de segurança recente.",
-        "warningMeasured_one": "{{count}} erro de leitura detetado em 24 h. Mantenha uma cópia de segurança recente.",
-        "warningMeasured_other": "{{count}} erros de leitura detetados em 24 h. Mantenha uma cópia de segurança recente."
+        "warningMeasured_many": "{{count}} erros de leitura detetados em 24 h. Mantenha uma cópia de segurança recente.",
+        "warningMeasured_one": "{{count}} erro de leitura detetado em 24 h. Mantenha uma cópia de segurança recente.",
+        "warningMeasured_other": "{{count}} erros de leitura detetados em 24 h. Mantenha uma cópia de segurança recente."
       },
       "notifications": {
         "critical": "Os alertas já não são enviados: verifique os telemóveis.",
-        "criticalMeasured_many": "{{count}} alertas não puderam ser enviados nas últimas 24 h: verifique os telemóveis.",
-        "criticalMeasured_one": "{{count}} alerta não pôde ser enviado nas últimas 24 h: verifique os telemóveis.",
-        "criticalMeasured_other": "{{count}} alertas não puderam ser enviados nas últimas 24 h: verifique os telemóveis.",
+        "criticalMeasured_many": "{{count}} alertas não puderam ser enviados nas últimas 24 h: verifique os telemóveis.",
+        "criticalMeasured_one": "{{count}} alerta não pôde ser enviado nas últimas 24 h: verifique os telemóveis.",
+        "criticalMeasured_other": "{{count}} alertas não puderam ser enviados nas últimas 24 h: verifique os telemóveis.",
         "label": "Alertas enviados",
-        "ok": "Todos os alertas das últimas 24 h foram enviados.",
+        "ok": "Todos os alertas das últimas 24 h foram enviados.",
         "unknown": "Impossível saber se os alertas estão a ser enviados.",
-        "warning": "Alguns alertas não puderam ser enviados nas últimas 24 h.",
-        "warningMeasured_many": "{{count}} alertas não puderam ser enviados nas últimas 24 h.",
-        "warningMeasured_one": "{{count}} alerta não pôde ser enviado nas últimas 24 h.",
-        "warningMeasured_other": "{{count}} alertas não puderam ser enviados nas últimas 24 h."
+        "warning": "Alguns alertas não puderam ser enviados nas últimas 24 h.",
+        "warningMeasured_many": "{{count}} alertas não puderam ser enviados nas últimas 24 h.",
+        "warningMeasured_one": "{{count}} alerta não pôde ser enviado nas últimas 24 h.",
+        "warningMeasured_other": "{{count}} alertas não puderam ser enviados nas últimas 24 h."
       },
       "outbox": {
         "critical": "Há mensagens bloqueadas que já não são enviadas.",
@@ -2346,23 +2346,23 @@
       },
       "swap": {
         "critical": "A memória da caixa está saturada: pode ficar muito mais lenta.",
-        "criticalMeasured": "A memória da caixa está saturada ({{percent}} % da memória de reserva): pode ficar muito mais lenta.",
+        "criticalMeasured": "A memória da caixa está saturada ({{percent}} % da memória de reserva): pode ficar muito mais lenta.",
         "label": "Memória de reserva",
         "ok": "A caixa tem memória suficiente para trabalhar.",
-        "okMeasured": "A caixa tem memória suficiente para trabalhar (memória de reserva utilizada a {{percent}} %).",
+        "okMeasured": "A caixa tem memória suficiente para trabalhar (memória de reserva utilizada a {{percent}} %).",
         "unknown": "Impossível ler a memória da caixa.",
         "warning": "A caixa está a recorrer à memória de reserva: pode ficar um pouco mais lenta.",
-        "warningMeasured": "A caixa está a recorrer à memória de reserva ({{percent}} %): pode ficar um pouco mais lenta."
+        "warningMeasured": "A caixa está a recorrer à memória de reserva ({{percent}} %): pode ficar um pouco mais lenta."
       },
       "temperature": {
         "critical": "A caixa está muito quente: afaste-a de qualquer fonte de calor e desimpeça as suas aberturas de ventilação.",
-        "criticalMeasured": "A caixa está muito quente ({{celsius}} °C): afaste-a de qualquer fonte de calor e desimpeça as suas aberturas de ventilação.",
+        "criticalMeasured": "A caixa está muito quente ({{celsius}} °C): afaste-a de qualquer fonte de calor e desimpeça as suas aberturas de ventilação.",
         "label": "Temperatura da caixa",
         "ok": "A caixa está a uma boa temperatura.",
-        "okMeasured": "A caixa está a uma boa temperatura ({{celsius}} °C).",
+        "okMeasured": "A caixa está a uma boa temperatura ({{celsius}} °C).",
         "unknown": "Impossível ler a temperatura da caixa.",
         "warning": "A caixa está a aquecer um pouco. Deixe ar à sua volta.",
-        "warningMeasured": "A caixa está a aquecer um pouco ({{celsius}} °C). Deixe ar à sua volta."
+        "warningMeasured": "A caixa está a aquecer um pouco ({{celsius}} °C). Deixe ar à sua volta."
       },
       "throttling": {
         "critical": "A caixa está a abrandar para se proteger: a alimentação ou a ventilação podem ser insuficientes.",
@@ -2437,9 +2437,9 @@
       "title": "Estado da caixa"
     },
     "size": {
-      "gb": "{{value}} GB",
-      "kb": "{{value}} kB",
-      "mb": "{{value}} MB"
+      "gb": "{{value}} GB",
+      "kb": "{{value}} kB",
+      "mb": "{{value}} MB"
     },
     "technical": {
       "hide": "Ocultar o detalhe técnico",

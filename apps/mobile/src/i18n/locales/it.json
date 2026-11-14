@@ -2281,39 +2281,39 @@
       },
       "disk": {
         "critical": "Il box è quasi pieno: rischia di non salvare più nulla.",
-        "criticalMeasured": "Il box è quasi pieno ({{percent}} % utilizzato): rischia di non salvare più nulla.",
+        "criticalMeasured": "Il box è quasi pieno ({{percent}} % utilizzato): rischia di non salvare più nulla.",
         "label": "Spazio di archiviazione",
         "ok": "C’è ancora spazio sul box.",
-        "okMeasured": "C’è ancora spazio sul box ({{percent}} % utilizzato).",
+        "okMeasured": "C’è ancora spazio sul box ({{percent}} % utilizzato).",
         "unknown": "Impossibile leggere lo spazio rimasto sul box.",
         "warning": "Il box inizia a restare a corto di spazio.",
-        "warningMeasured": "Il box inizia a restare a corto di spazio ({{percent}} % utilizzato)."
+        "warningMeasured": "Il box inizia a restare a corto di spazio ({{percent}} % utilizzato)."
       },
       "disk-errors": {
         "critical": "Il supporto di archiviazione mostra segni di usura: faccia un backup e preveda di sostituirlo.",
-        "criticalMeasured_many": "{{count}} errori di lettura o scrittura in 24 h: faccia un backup e preveda di sostituire il supporto.",
-        "criticalMeasured_one": "{{count}} errore di lettura o scrittura in 24 h: faccia un backup e preveda di sostituire il supporto.",
-        "criticalMeasured_other": "{{count}} errori di lettura o scrittura in 24 h: faccia un backup e preveda di sostituire il supporto.",
+        "criticalMeasured_many": "{{count}} errori di lettura o scrittura in 24 h: faccia un backup e preveda di sostituire il supporto.",
+        "criticalMeasured_one": "{{count}} errore di lettura o scrittura in 24 h: faccia un backup e preveda di sostituire il supporto.",
+        "criticalMeasured_other": "{{count}} errori di lettura o scrittura in 24 h: faccia un backup e preveda di sostituire il supporto.",
         "label": "Supporto di archiviazione",
-        "ok": "Nessun errore di lettura o scrittura nelle ultime 24 h.",
+        "ok": "Nessun errore di lettura o scrittura nelle ultime 24 h.",
         "unknown": "Impossibile leggere lo stato del supporto di archiviazione.",
         "warning": "Sono stati rilevati alcuni errori di lettura. Conservi un backup recente.",
-        "warningMeasured_many": "{{count}} errori di lettura rilevati in 24 h. Conservi un backup recente.",
-        "warningMeasured_one": "{{count}} errore di lettura rilevato in 24 h. Conservi un backup recente.",
-        "warningMeasured_other": "{{count}} errori di lettura rilevati in 24 h. Conservi un backup recente."
+        "warningMeasured_many": "{{count}} errori di lettura rilevati in 24 h. Conservi un backup recente.",
+        "warningMeasured_one": "{{count}} errore di lettura rilevato in 24 h. Conservi un backup recente.",
+        "warningMeasured_other": "{{count}} errori di lettura rilevati in 24 h. Conservi un backup recente."
       },
       "notifications": {
         "critical": "Gli avvisi non vengono più inviati: controlli i telefoni.",
-        "criticalMeasured_many": "{{count}} avvisi non è stato possibile inviarli nelle ultime 24 h: controlli i telefoni.",
-        "criticalMeasured_one": "{{count}} avviso non è stato possibile inviarlo nelle ultime 24 h: controlli i telefoni.",
-        "criticalMeasured_other": "{{count}} avvisi non è stato possibile inviarli nelle ultime 24 h: controlli i telefoni.",
+        "criticalMeasured_many": "{{count}} avvisi non è stato possibile inviarli nelle ultime 24 h: controlli i telefoni.",
+        "criticalMeasured_one": "{{count}} avviso non è stato possibile inviarlo nelle ultime 24 h: controlli i telefoni.",
+        "criticalMeasured_other": "{{count}} avvisi non è stato possibile inviarli nelle ultime 24 h: controlli i telefoni.",
         "label": "Avvisi inviati",
-        "ok": "Tutti gli avvisi delle ultime 24 h sono stati inviati.",
+        "ok": "Tutti gli avvisi delle ultime 24 h sono stati inviati.",
         "unknown": "Impossibile sapere se gli avvisi vengono inviati correttamente.",
-        "warning": "Alcuni avvisi non è stato possibile inviarli nelle ultime 24 h.",
-        "warningMeasured_many": "{{count}} avvisi non è stato possibile inviarli nelle ultime 24 h.",
-        "warningMeasured_one": "{{count}} avviso non è stato possibile inviarlo nelle ultime 24 h.",
-        "warningMeasured_other": "{{count}} avvisi non è stato possibile inviarli nelle ultime 24 h."
+        "warning": "Alcuni avvisi non è stato possibile inviarli nelle ultime 24 h.",
+        "warningMeasured_many": "{{count}} avvisi non è stato possibile inviarli nelle ultime 24 h.",
+        "warningMeasured_one": "{{count}} avviso non è stato possibile inviarlo nelle ultime 24 h.",
+        "warningMeasured_other": "{{count}} avvisi non è stato possibile inviarli nelle ultime 24 h."
       },
       "outbox": {
         "critical": "Alcuni messaggi sono bloccati e non partono più.",
@@ -2348,23 +2348,23 @@
       },
       "swap": {
         "critical": "La memoria del box è satura: potrebbe rallentare molto.",
-        "criticalMeasured": "La memoria del box è satura ({{percent}} % della memoria di riserva): potrebbe rallentare molto.",
+        "criticalMeasured": "La memoria del box è satura ({{percent}} % della memoria di riserva): potrebbe rallentare molto.",
         "label": "Memoria di riserva",
         "ok": "Il box ha memoria sufficiente per lavorare.",
-        "okMeasured": "Il box ha memoria sufficiente per lavorare (memoria di riserva usata al {{percent}} %).",
+        "okMeasured": "Il box ha memoria sufficiente per lavorare (memoria di riserva usata al {{percent}} %).",
         "unknown": "Impossibile leggere la memoria del box.",
         "warning": "Il box sta usando la memoria di riserva: potrebbe rallentare un po’.",
-        "warningMeasured": "Il box sta usando la memoria di riserva ({{percent}} %): potrebbe rallentare un po’."
+        "warningMeasured": "Il box sta usando la memoria di riserva ({{percent}} %): potrebbe rallentare un po’."
       },
       "temperature": {
         "critical": "Il box è molto caldo: lo allontani da ogni fonte di calore e liberi le aperture di ventilazione.",
-        "criticalMeasured": "Il box è molto caldo ({{celsius}} °C): lo allontani da ogni fonte di calore e liberi le aperture di ventilazione.",
+        "criticalMeasured": "Il box è molto caldo ({{celsius}} °C): lo allontani da ogni fonte di calore e liberi le aperture di ventilazione.",
         "label": "Temperatura del box",
         "ok": "Il box ha una buona temperatura.",
-        "okMeasured": "Il box ha una buona temperatura ({{celsius}} °C).",
+        "okMeasured": "Il box ha una buona temperatura ({{celsius}} °C).",
         "unknown": "Impossibile leggere la temperatura del box.",
         "warning": "Il box si scalda un po’. Lasci dell’aria intorno.",
-        "warningMeasured": "Il box si scalda un po’ ({{celsius}} °C). Lasci dell’aria intorno."
+        "warningMeasured": "Il box si scalda un po’ ({{celsius}} °C). Lasci dell’aria intorno."
       },
       "throttling": {
         "critical": "Il box rallenta per proteggersi: forse l’alimentazione o la ventilazione non sono sufficienti.",
@@ -2439,9 +2439,9 @@
       "title": "Stato del box"
     },
     "size": {
-      "gb": "{{value}} GB",
-      "kb": "{{value}} kB",
-      "mb": "{{value}} MB"
+      "gb": "{{value}} GB",
+      "kb": "{{value}} kB",
+      "mb": "{{value}} MB"
     },
     "technical": {
       "hide": "Nascondi il dettaglio tecnico",
