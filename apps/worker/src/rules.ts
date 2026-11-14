@@ -1,3 +1,5 @@
+import type { SensorCoverageState } from '@elise/shared';
+
 export interface TimedValue {
   occurredAt: Date;
   value: number;

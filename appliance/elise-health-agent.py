@@ -45,7 +45,7 @@ def status() -> dict[str, Any]:
         except (ValueError, TypeError): pass
     uptime=read_text(os.path.join(PROC, 'uptime')); load=read_text(os.path.join(PROC, 'loadavg'))
     containers=[]
-    ids=command('docker','ps','-q','--no-trunc')
+    ids=command('docker','ps','--all','--filter','label=com.docker.compose.project=elise-os','-q','--no-trunc')
     if ids:
         for cid in ids.splitlines()[:50]:
             raw_info=command('docker','inspect',cid)
@@ -57,9 +57,11 @@ def status() -> dict[str, Any]:
     lines=[line for line in (errors or '').splitlines() if re.search(r'I/O error|mmc|EXT4-fs error|blk_update_request',line,re.I)]
     try: backup=json.load(open(BACKUP_META,encoding='utf-8'))
     except (OSError,ValueError): backup=None
-    throttled=command('vcgencmd','get_throttled')
+    model = read_text(os.path.join(SYS, 'firmware/devicetree/base/model')) or read_text(os.path.join(PROC, 'device-tree/model')) or ''
+    throttled_applicable = 'raspberry pi' in model.lower()
+    throttled=command('vcgencmd','get_throttled') if throttled_applicable else None
     match=re.search(r'0x([0-9a-fA-F]+)',throttled or '')
-    return {'checkedAt':datetime.now(timezone.utc).isoformat(), 'disk':{'root':disk('/'), 'docker':disk('/var/lib/docker')}, 'memory':mem, 'temperatureC':temps or None, 'throttled':int(match.group(1),16) if match else None, 'uptimeSeconds':float(uptime.split()[0]) if uptime else None, 'load':load.split()[:3] if load else None, 'containers':containers if ids is not None else None, 'diskErrors':{'count':len(lines),'recent':lines[-5:]}, 'backup':{'running':RUNNING,'last':backup}}
+    return {'checkedAt':datetime.now(timezone.utc).isoformat(), 'disk':{'root':disk('/'), 'docker':disk('/var/lib/docker')}, 'memory':mem, 'temperatureC':temps or None, 'throttled':int(match.group(1),16) if match else None, 'throttledApplicable':throttled_applicable, 'uptimeSeconds':float(uptime.split()[0]) if uptime else None, 'load':load.split()[:3] if load else None, 'containers':containers if ids is not None else None, 'diskErrors':{'count':len(lines) if errors is not None else None,'recent':lines[-5:]}, 'backup':{'running':RUNNING,'last':backup}}
 
 def run_backup() -> None:
     global RUNNING

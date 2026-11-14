@@ -57,6 +57,8 @@ grep -qF -- 'ELISE_INSTALLER_HANDOFF=true ELISE_UPDATE_LOCK_HELD=true' "$root/in
 grep -qF -- 'until host_files_current; do' "$root/install/install-elise.sh"
 # Every host file the app relies on must be in the installer's list.
 for host_file in appliance/elise-zigbee-agent.py appliance/systemd/elise-zigbee-agent.service \
+  appliance/elise-health-agent.py appliance/systemd/elise-health-agent.service appliance/elise-backup.sh \
+  appliance/systemd/elise-backup.service appliance/systemd/elise-backup.timer \
   appliance/elise-zigbee-adapters.json appliance/elise-update-agent.py appliance/elise_install_state.py \
   appliance/elise_install_texts.py appliance/elise_language.py appliance/elise-preparation.py \
   appliance/systemd/elise-preparation.service appliance/elise-zigbee-setup.sh \
@@ -64,6 +66,12 @@ for host_file in appliance/elise-zigbee-agent.py appliance/systemd/elise-zigbee-
   grep -qF -- " $host_file " "$root/install/install-elise.sh" \
     || { echo "$host_file manque dans la liste des fichiers système." >&2; exit 1; }
 done
+bash -n "$root/appliance/elise-backup.sh"
+# Pi images include the appliance tree; mini-PC images carry its first-boot helper and install
+# the host files from the signed runtime archive assembled by release.yml.
+grep -qF -- "--include='/appliance/***'" "$root/appliance/build-raspberry-image.sh"
+grep -qF -- '"$ROOT_DIR/appliance/" "$bootstrap/usr/share/elise/runtime/appliance/"' "$root/appliance/build-minipc-installer.sh"
+grep -qF -- 'scripts appliance install runtime/' "$root/.github/workflows/release.yml"
 # Plugging any Zigbee key back in (Pi and mini PC alike) must run the detection that restarts
 # Zigbee2MQTT, and an update must start the stack even when the configured key is unplugged.
 grep -qF -- 'KERNEL=="ttyUSB[0-9]*|ttyACM[0-9]*"' "$root/appliance/udev/90-elise-zigbee.rules"

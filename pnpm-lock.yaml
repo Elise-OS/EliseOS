@@ -68,6 +68,9 @@ importers:
       '@elise/mqtt':
         specifier: workspace:*
         version: link:../../packages/mqtt
+      '@elise/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@nestjs/common':
         specifier: ^11.1.6
         version: 11.1.28(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -344,6 +347,9 @@ importers:
       '@elise/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@elise/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       pg:
         specifier: ^8.16.3
         version: 8.22.0

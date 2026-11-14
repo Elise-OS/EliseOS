@@ -14,6 +14,8 @@ def load_agent(monkeypatch, tmp_path):
     docker = bin_dir / 'docker'
     docker.write_text('#!/bin/sh\nif [ "$1" = ps ]; then echo container-id; else echo \'[{"Name":"/api","RestartCount":0,"State":{"Status":"running","OOMKilled":false,"Health":{"Status":"healthy"}}}]\'; fi\n')
     docker.chmod(0o755)
+    (bin_dir / 'journalctl').write_text('#!/bin/sh\nexit 0\n')
+    (bin_dir / 'journalctl').chmod(0o755)
     monkeypatch.setenv('PROC_ROOT', str(proc)); monkeypatch.setenv('SYS_ROOT', str(sysroot)); monkeypatch.setenv('PATH', f'{bin_dir}:{os.environ["PATH"]}')
     monkeypatch.setenv('ELISE_BACKUP_META', str(tmp_path / 'last.json'))
     spec = importlib.util.spec_from_file_location('elise_health_agent', MODULE_PATH)
