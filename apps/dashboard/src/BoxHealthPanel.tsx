@@ -1,7 +1,6 @@
 import { boxHealthReportSchema, type BoxHealthAction, type BoxHealthCheck } from '@elise/contracts';
 import {
   Activity,
-  BatteryLow,
   BellRing,
   Boxes,
   CircleCheck,
@@ -29,32 +28,40 @@ import {
   Thermometer,
   TriangleAlert,
   Usb,
-  WifiOff,
   Workflow,
+  ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ACTION_KEYS,
   allChecks,
+  backupProgress,
   bannerMessage,
   bannerTone,
   countLevels,
+  groupKey,
   isKnownCheck,
-  isKnownGroup,
   isUsableSentence,
   orderedGroups,
+  readCheck,
+  readReport,
   refreshDelay,
-  sentenceParams,
+  sentenceKeys,
+  showsAction,
+  watchBackup,
   worstLevel,
-  withExtras,
+  type BackupWatch,
   type BoxHealthLevel,
   type BoxHealthReport,
   type BoxHealthTone,
 } from './box-health-view';
 import { dateLocale, t } from './i18n';
+import './box-health.css';
 
 type LoadError = 'unavailable' | 'forbidden' | 'network';
+type Notice =
+  'backupStarted' | 'backupDone' | 'backupEndedFailed' | 'backupFailed' | 'backupTimeout';
 
 class RequestFailure extends Error {
   public constructor(
@@ -84,7 +91,8 @@ async function boxHealthRequest(path: string, method = 'GET'): Promise<unknown> 
   if (response.ok) return payload;
   const raw = payload?.message ?? payload?.error;
   const message = typeof raw === 'string' ? raw : '';
-  if (response.status === 403) throw new RequestFailure('forbidden', message);
+  if (response.status === 401 || response.status === 403)
+    throw new RequestFailure('forbidden', message);
   if (response.status === 404 || response.status === 501 || response.status === 503)
     throw new RequestFailure('unavailable', message);
   // A backup already on its way is not a failure for the family.
@@ -96,7 +104,7 @@ async function boxHealthRequest(path: string, method = 'GET'): Promise<unknown> 
 const tr = t as unknown as (key: string, options?: Record<string, unknown>) => string;
 
 const groupIcons: Record<string, LucideIcon> = {
-  monitoring: Eye,
+  surveillance: Eye,
   home: House,
   notifications: BellRing,
   box: Cpu,
@@ -106,22 +114,18 @@ const groupIcons: Record<string, LucideIcon> = {
 
 const checkIcons: Record<string, LucideIcon> = {
   worker: Workflow,
-  'last-event': Clock3,
-  coverage: Radar,
-  'home-assistant': House,
   zigbee: Usb,
-  'sensors-offline': WifiOff,
-  'sensors-battery': BatteryLow,
-  deliveries: Send,
+  sensors: Radar,
+  notifications: Send,
   outbox: Inbox,
   disk: HardDrive,
-  memory: MemoryStick,
+  swap: MemoryStick,
   temperature: Thermometer,
   throttling: Gauge,
   containers: Boxes,
-  'storage-errors': TriangleAlert,
+  'disk-errors': TriangleAlert,
   backup: DatabaseBackup,
-  'db-size': Database,
+  database: Database,
   'remote-access': Globe,
 };
 
@@ -144,20 +148,25 @@ function checkLabel(id: string): string {
   return isKnownCheck(id) ? tr(`boxHealth.check.${id}.label`) : id;
 }
 
-/** A familiar sentence for a point; when a value it needs is missing, the generic one. */
-export function checkSentence(check: BoxHealthCheck): string {
-  const params = sentenceParams(check);
-  if (isKnownCheck(check.id)) {
-    // The full sentence inserts the box's values; the short one says the same without them.
-    for (const key of [
-      `boxHealth.check.${check.id}.${check.level}`,
-      `boxHealth.check.${check.id}.${check.level}Short`,
-    ]) {
-      const text = tr(key, params);
-      if (isUsableSentence(text, key)) return text;
-    }
+/** A familiar sentence for a point; when a value it needs is missing, a plainer one. */
+export function checkSentence(check: BoxHealthCheck, now = Date.now()): string {
+  const reading = readCheck(check, now);
+  const values: Record<string, unknown> = { ...reading.values };
+  if (reading.duration)
+    values.duration = tr(`boxHealth.duration.${reading.duration.unit}`, {
+      count: reading.duration.count,
+    });
+  if (reading.size)
+    values.size = tr(`boxHealth.size.${reading.size.unit}`, {
+      value: new Intl.NumberFormat(dateLocale(), { maximumFractionDigits: 1 }).format(
+        reading.size.value,
+      ),
+    });
+  for (const key of sentenceKeys(check, reading)) {
+    const text = tr(key, values);
+    if (isUsableSentence(text, key)) return text;
   }
-  return tr(`boxHealth.generic.${check.level}`, { label: checkLabel(check.id) });
+  return tr(`boxHealth.generic.${reading.level}`, { label: checkLabel(check.id) });
 }
 
 function formatWhen(iso: string): string {
@@ -183,28 +192,28 @@ export function BoxHealthPanel({
   onOpenSensors,
   onOpenRemoteAccess,
 }: BoxHealthPanelProps) {
-  const [report, setReport] = useState<BoxHealthReport | null>(null);
+  const [rawReport, setRawReport] = useState<BoxHealthReport | null>(null);
   const [loadError, setLoadError] = useState<LoadError | null>(null);
   const [checking, setChecking] = useState(false);
   const [backupSending, setBackupSending] = useState(false);
-  const [notice, setNotice] = useState<'backupStarted' | 'backupDone' | 'backupFailed' | null>(
-    null,
-  );
+  const [backupWatch, setBackupWatch] = useState<BackupWatch | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const alive = useRef(true);
   const lastFetch = useRef(0);
   const inFlight = useRef<Promise<void> | null>(null);
-  const backupWatched = useRef(false);
-  const backupRunning = backupSending || report?.backup?.running === true;
+  const report = useMemo(() => (rawReport ? readReport(rawReport) : null), [rawReport]);
+  const backupRunning = backupSending || backupWatch !== null;
 
   const refresh = useCallback((): Promise<void> => {
     // One question at a time: a click during an automatic check waits for the same answer.
     if (inFlight.current) return inFlight.current;
     const pending = (async () => {
       try {
-        const raw = await boxHealthRequest('');
-        const next = withExtras(boxHealthReportSchema.parse(raw), raw);
+        const parsed = boxHealthReportSchema.safeParse(await boxHealthRequest(''));
+        // An answer the screen cannot read is not a good answer.
+        if (!parsed.success) throw new RequestFailure('network');
         if (!alive.current) return;
-        setReport(next);
+        setRawReport(parsed.data);
         setLoadError(null);
       } catch (error) {
         if (!alive.current) return;
@@ -245,18 +254,24 @@ export function BoxHealthPanel({
     };
   }, [backupRunning, refresh]);
 
-  // The family hears when the backup they started is over.
+  // The family hears when the backup they started is over (or taking longer than expected).
   useEffect(() => {
-    if (report?.backup?.running) backupWatched.current = true;
-    else if (backupWatched.current && !backupSending && report) {
-      backupWatched.current = false;
-      setNotice('backupDone');
-    }
-  }, [report, backupSending]);
+    if (!backupWatch || backupSending) return;
+    const progress = backupProgress(backupWatch, rawReport);
+    if (progress === 'running') return;
+    setBackupWatch(null);
+    setNotice(
+      progress === 'done'
+        ? 'backupDone'
+        : progress === 'failed'
+          ? 'backupEndedFailed'
+          : 'backupTimeout',
+    );
+  }, [rawReport, backupWatch, backupSending]);
 
   const checkNow = async () => {
     setChecking(true);
-    setNotice(null);
+    if (!backupRunning) setNotice(null);
     await refresh();
     if (alive.current) setChecking(false);
   };
@@ -265,15 +280,15 @@ export function BoxHealthPanel({
     if (backupRunning) return;
     setBackupSending(true);
     setNotice(null);
+    const watch = watchBackup(rawReport);
     try {
       await boxHealthRequest('/backup', 'POST');
       if (!alive.current) return;
-      backupWatched.current = true;
+      setBackupWatch(watch);
       setNotice('backupStarted');
     } catch {
       if (alive.current) setNotice('backupFailed');
     }
-    await refresh();
     if (alive.current) setBackupSending(false);
   };
 
@@ -291,6 +306,7 @@ export function BoxHealthPanel({
   const BannerIcon = bannerIcons[tone];
   const counts = report ? countLevels(report) : null;
   const when = report ? formatWhen(report.checkedAt) : '';
+  const attention = (counts?.warning ?? 0) + (counts?.critical ?? 0) + (counts?.unknown ?? 0);
 
   return (
     <section className="box-health" aria-labelledby="box-health-title" aria-busy={loading}>
@@ -317,24 +333,23 @@ export function BoxHealthPanel({
             <p>
               {failed
                 ? t(`boxHealth.error.${loadError ?? 'network'}`)
-                : tr(`boxHealth.verdict.${message}.text`, {
-                    count:
-                      (counts?.warning ?? 0) + (counts?.critical ?? 0) + (counts?.unknown ?? 0),
-                  })}
+                : tr(`boxHealth.verdict.${message}.text`, { count: attention })}
             </p>
             <p className="box-health-verdict-meta">
               <Clock3 aria-hidden="true" />
-              {failed
-                ? report
-                  ? t('boxHealth.lastKnown', { when })
-                  : t('boxHealth.neverChecked')
-                : t('boxHealth.checkedAt', { when })}
+              <span>
+                {failed
+                  ? report
+                    ? t('boxHealth.lastKnown', { when })
+                    : t('boxHealth.neverChecked')
+                  : t('boxHealth.checkedAt', { when })}
+              </span>
               <span aria-hidden="true">·</span>
-              {t('boxHealth.autoRefresh')}
+              <span>{t('boxHealth.autoRefresh')}</span>
             </p>
             {counts && !failed && (
               <ul className="box-health-counts" aria-label={t('boxHealth.summary')}>
-                {(['ok', 'warning', 'critical', 'unknown'] as const)
+                {(['critical', 'warning', 'unknown', 'ok'] as const)
                   .filter((level) => counts[level] > 0)
                   .map((level) => (
                     <li key={level} className={`is-${level}`}>
@@ -378,25 +393,32 @@ export function BoxHealthPanel({
 
       {notice && (
         <p
-          className={`box-health-notice${notice === 'backupFailed' ? ' is-error' : ''}`}
-          role={notice === 'backupFailed' ? 'alert' : 'status'}
+          className={`box-health-notice${
+            notice === 'backupFailed' || notice === 'backupEndedFailed' ? ' is-error' : ''
+          }${notice === 'backupDone' ? ' is-done' : ''}`}
+          role={notice === 'backupFailed' || notice === 'backupEndedFailed' ? 'alert' : 'status'}
         >
-          {notice === 'backupFailed' ? (
+          {notice === 'backupFailed' || notice === 'backupEndedFailed' ? (
             <TriangleAlert aria-hidden="true" />
           ) : notice === 'backupDone' ? (
             <CircleCheck aria-hidden="true" />
+          ) : notice === 'backupTimeout' ? (
+            <Clock3 aria-hidden="true" />
           ) : (
             <LoaderCircle className="box-health-spin" aria-hidden="true" />
           )}
-          {t(`boxHealth.${notice}`)}
+          <span>{t(`boxHealth.${notice}`)}</span>
         </p>
       )}
 
       {report && (
-        <div className={`box-health-groups${failed ? ' is-stale' : ''}`}>
+        <div
+          className={`box-health-groups${failed ? ' is-stale' : ''}`}
+          aria-label={failed ? t('boxHealth.staleLabel') : undefined}
+        >
           {orderedGroups(report).map((group) => {
-            const known = isKnownGroup(group.id);
-            const GroupIcon = groupIcons[group.id] ?? Activity;
+            const key = groupKey(group.id);
+            const GroupIcon = (key && groupIcons[key]) || Activity;
             const level = worstLevel(group.checks);
             return (
               <section
@@ -410,16 +432,16 @@ export function BoxHealthPanel({
                   </span>
                   <div>
                     <h3 id={`box-health-group-${group.id}`}>
-                      {known ? tr(`boxHealth.group.${group.id}.title`) : t('boxHealth.group.other')}
+                      {key ? tr(`boxHealth.group.${key}.title`) : t('boxHealth.group.other')}
                     </h3>
-                    {known && <p>{tr(`boxHealth.group.${group.id}.hint`)}</p>}
+                    {key && <p>{tr(`boxHealth.group.${key}.hint`)}</p>}
                   </div>
                   <LevelPill level={level} />
                 </header>
                 <ul>
-                  {group.checks.map((check) => (
+                  {group.checks.map((check, index) => (
                     <CheckRow
-                      key={check.id}
+                      key={`${check.id}-${index}`}
                       check={check}
                       busy={check.action === 'run-backup' && backupRunning}
                       onAction={runAction}
@@ -432,15 +454,16 @@ export function BoxHealthPanel({
         </div>
       )}
 
-      {report && <TechnicalDetails report={report} />}
+      {report && <TechnicalDetails report={report} raw={rawReport ?? report} />}
     </section>
   );
 }
 
 function LevelPill({ level }: { level: BoxHealthLevel }) {
+  const Icon = levelIcons[level];
   return (
     <span className={`box-health-pill is-${level}`}>
-      <span aria-hidden="true" />
+      <Icon aria-hidden="true" />
       {t(`boxHealth.level.${level}`)}
     </span>
   );
@@ -457,6 +480,7 @@ function CheckRow({
 }) {
   const Icon = checkIcons[check.id] ?? ServerCog;
   const LevelIcon = levelIcons[check.level];
+  const action = showsAction(check) ? check.action : undefined;
   return (
     <li className={`box-health-row is-${check.level}`}>
       <span className="box-health-row-icon" aria-hidden="true">
@@ -470,17 +494,16 @@ function CheckRow({
         <p>{checkSentence(check)}</p>
       </div>
       <span className="box-health-row-level">{t(`boxHealth.level.${check.level}`)}</span>
-      {check.action && (
+      {action && (
         <button
           type="button"
           className="box-health-row-action"
-          onClick={() => onAction(check.action!)}
+          onClick={() => onAction(action)}
           disabled={busy}
         >
           {busy && <LoaderCircle className="box-health-spin" aria-hidden="true" />}
-          {busy
-            ? t('boxHealth.backupRunning')
-            : tr(`boxHealth.action.${ACTION_KEYS[check.action]}`)}
+          {busy ? t('boxHealth.backupRunning') : tr(`boxHealth.action.${ACTION_KEYS[action]}`)}
+          {!busy && action !== 'run-backup' && <ChevronRight aria-hidden="true" />}
         </button>
       )}
     </li>
@@ -513,14 +536,21 @@ function BoxHealthSkeleton() {
   );
 }
 
+const scalar = (value: unknown): string => {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
+    return String(value);
+  return JSON.stringify(value);
+};
+
 /** Raw values, shown as the box gives them: for the helper on the phone, not for the family. */
 function TechnicalValue({ value }: { value: unknown }) {
   if (value === null || value === undefined) return <span className="is-muted">—</span>;
-  if (typeof value !== 'object') return <span>{String(value)}</span>;
+  if (typeof value !== 'object') return <span>{scalar(value)}</span>;
   if (Array.isArray(value)) {
     if (!value.length) return <span className="is-muted">—</span>;
     if (value.every((item) => typeof item !== 'object' || item === null))
-      return <pre className="box-health-log">{value.map(String).join('\n')}</pre>;
+      return <pre className="box-health-log">{value.map(scalar).join('\n')}</pre>;
     const rows = value.filter(
       (item): item is Record<string, unknown> => typeof item === 'object' && item !== null,
     );
@@ -541,11 +571,7 @@ function TechnicalValue({ value }: { value: unknown }) {
             {rows.map((row, index) => (
               <tr key={index}>
                 {columns.map((column) => (
-                  <td key={column}>
-                    {typeof row[column] === 'object' && row[column] !== null
-                      ? JSON.stringify(row[column])
-                      : String(row[column] ?? '—')}
-                  </td>
+                  <td key={column}>{scalar(row[column])}</td>
                 ))}
               </tr>
             ))}
@@ -554,9 +580,11 @@ function TechnicalValue({ value }: { value: unknown }) {
       </div>
     );
   }
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (!entries.length) return <span className="is-muted">—</span>;
   return (
     <dl className="box-health-dl">
-      {Object.entries(value as Record<string, unknown>).map(([key, item]) => (
+      {entries.map(([key, item]) => (
         <div key={key}>
           <dt>{key}</dt>
           <dd>
@@ -568,9 +596,10 @@ function TechnicalValue({ value }: { value: unknown }) {
   );
 }
 
-function TechnicalDetails({ report }: { report: BoxHealthReport }) {
-  const technical = Object.entries(report.technical ?? {});
-  const checks = allChecks(report);
+/** Raw params of every check, as the box sent them (levels before the screen's reading). */
+function TechnicalDetails({ report, raw }: { report: BoxHealthReport; raw: BoxHealthReport }) {
+  const shown = allChecks(report);
+  const sent = allChecks(raw);
   return (
     <details className="box-health-technical">
       <summary>
@@ -579,46 +608,25 @@ function TechnicalDetails({ report }: { report: BoxHealthReport }) {
           <strong>{t('boxHealth.technical.title')}</strong>
           <small>{t('boxHealth.technical.hint')}</small>
         </span>
+        <ChevronRight className="box-health-technical-chevron" aria-hidden="true" />
       </summary>
       <div className="box-health-technical-body">
-        {technical.length > 0 ? (
-          technical.map(([key, value]) => (
-            <section key={key} className="box-health-technical-block">
-              <h4>{key}</h4>
-              <TechnicalValue value={value} />
-            </section>
-          ))
-        ) : (
-          <p className="is-muted">{t('boxHealth.technical.empty')}</p>
-        )}
-        <section className="box-health-technical-block">
-          <h4>{t('boxHealth.technical.checks')}</h4>
-          <div className="box-health-table-wrap">
-            <table className="box-health-table">
-              <tbody>
-                {checks.map((check) => (
-                  <tr key={check.id}>
-                    <th scope="row">
-                      <code>{check.id}</code>
-                    </th>
-                    <td>
-                      <span className={`box-health-pill is-${check.level}`}>
-                        <span aria-hidden="true" />
-                        {check.level}
-                      </span>
-                    </td>
-                    <td>
-                      {check.detail ??
-                        (Object.keys((check.params ?? {}) as object).length
-                          ? JSON.stringify(check.params)
-                          : '—')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        {sent.map((check, index) => (
+          <section key={`${check.id}-${index}`} className="box-health-technical-block">
+            <header>
+              <code>{check.id}</code>
+              <span className={`box-health-pill is-${check.level}`}>{check.level}</span>
+              {shown[index] && shown[index].level !== check.level && (
+                <span className={`box-health-pill is-${shown[index].level}`}>
+                  {t('boxHealth.technical.shownAs', { level: shown[index].level })}
+                </span>
+              )}
+              {check.action && <code className="is-muted">{check.action}</code>}
+            </header>
+            {check.detail && <p>{check.detail}</p>}
+            <TechnicalValue value={check.params} />
+          </section>
+        ))}
         <p className="box-health-technical-stamp">
           <code>checkedAt {report.checkedAt}</code>
         </p>

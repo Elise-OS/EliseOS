@@ -2171,263 +2171,239 @@
     "watching": "A key that is plugged in or switched on shows up by itself while this screen is open."
   },
   "boxHealth": {
-    "title": "Box health",
-    "intro": "Check at a glance that the box and the monitoring are working well.",
-    "settingsRow": {
-      "eyebrow": "Box",
-      "title": "Box health",
-      "body": "Monitoring, sensors, notifications and backups at a glance."
-    },
-    "banner": {
-      "ok": {
-        "title": "All is well",
-        "body": "The box and the monitoring are working normally."
-      },
-      "warning": {
-        "title": "Worth a look",
-        "body": "A few points deserve a look, nothing urgent."
-      },
-      "unchecked": {
-        "title": "Worth a look",
-        "body": "Some points could not be checked. That does not mean everything is fine."
-      },
-      "critical": {
-        "title": "Action needed",
-        "body": "One or more points stop Élise from watching over properly. Follow the advice below."
-      },
-      "unavailable": {
-        "title": "Unable to check",
-        "body": "Élise could not reach the box. That does not mean everything is fine: try again in a moment."
-      }
-    },
-    "checkedAt": "Checked at {{time}}",
-    "checkedOn": "Checked on {{date}} at {{time}}",
-    "level": {
-      "ok": "Fine",
-      "warning": "Worth a look",
-      "critical": "Action needed",
-      "unknown": "Unable to check"
-    },
-    "groups": {
-      "monitoring": "Monitoring",
-      "home": "Home",
-      "notifications": "Notifications",
-      "box": "Box",
-      "data": "Data",
-      "access": "Access",
-      "other": "Other points"
-    },
-    "groupSummary": {
-      "ok": "All fine",
-      "warning": "Worth a look",
-      "critical": "Action needed"
-    },
-    "checkNow": "Check now",
-    "checking": "Checking…",
-    "backupNow": "Back up now",
-    "backupStarting": "Starting…",
-    "backupRunning": "Backup in progress…",
-    "backupRunningHint": "You can leave this screen, the backup carries on in the box.",
-    "backupStarted": "The backup has started.",
-    "backupFailed": "The backup could not start. Try again in a moment.",
-    "retry": "Try again",
-    "loading": "Checking the box",
     "actions": {
-      "open-zigbee": "See the radio key",
-      "open-sensors": "See the sensors",
       "open-remote-access": "See remote access",
+      "open-sensors": "See the sensors",
+      "open-zigbee": "See the Zigbee key",
       "run-backup": "Back up"
     },
-    "technical": {
-      "title": "Technical details",
-      "show": "Show technical details",
-      "hide": "Hide technical details",
-      "hint": "For the person who looks after the box.",
-      "checks": "Points checked",
-      "raw": "Raw values",
-      "empty": "No technical details yet."
+    "backupDone": "Backup complete.",
+    "backupEndedFailed": "The backup did not complete. Try again in a few minutes.",
+    "backupFailed": "The backup could not start. Try again in a moment.",
+    "backupNow": "Back up now",
+    "backupRunning": "Backing up…",
+    "backupRunningHint": "You can leave this screen, the backup carries on in the box.",
+    "backupStarting": "Starting…",
+    "backupTimeout": "The backup is taking longer than expected. Its result will show here once it is done.",
+    "banner": {
+      "critical": {
+        "body": "One or more points keep Élise from watching properly. Follow the advice below.",
+        "title": "Your attention is needed"
+      },
+      "ok": {
+        "body": "The box and the monitoring are working normally.",
+        "title": "All is well"
+      },
+      "unavailable": {
+        "body": "Élise could not reach the box. This does not mean everything is fine: try again in a moment.",
+        "title": "Unable to check"
+      },
+      "unchecked": {
+        "body": "Some points could not be checked. That does not mean something is wrong, nor that all is well.",
+        "title": "Worth a look"
+      },
+      "warning": {
+        "body": "Some points are worth a look, no rush.",
+        "title": "Worth a look"
+      }
     },
-    "duration": {
-      "minutes_one": "{{count}} minute",
-      "minutes_other": "{{count}} minutes",
-      "hours_one": "{{count}} hour",
-      "hours_other": "{{count}} hours",
-      "days_one": "{{count}} day",
-      "days_other": "{{count}} days"
-    },
-    "generic": {
-      "ok": "This point is fine.",
-      "warning": "This point deserves a look.",
-      "critical": "This point needs action.",
-      "unknown": "Unable to check this point."
-    },
+    "checkNow": "Check now",
+    "checkedAt": "Checked at {{time}}",
+    "checkedOn": "Checked on {{date}} at {{time}}",
+    "checking": "Checking…",
     "checks": {
-      "worker": {
-        "label": "Monitoring",
-        "ok": "The monitoring is working normally.",
-        "warning": "The monitoring is running a little late.",
-        "critical": "The monitoring has stopped: alerts might not go out.",
-        "unknown": "Unable to check that the monitoring is working."
-      },
-      "last-event": {
-        "label": "Latest news from the sensors",
-        "ok": "The sensors are sending news as expected.",
-        "warning": "No news from the sensors for a while.",
-        "warningMeasured": "No news from the sensors for {{duration}}.",
-        "critical": "No news from the sensors for a long time.",
-        "criticalMeasured": "No news from the sensors for {{duration}}.",
-        "unknown": "Unable to tell when the sensors last sent news."
-      },
-      "coverage": {
-        "label": "Home coverage",
-        "ok": "The important rooms are well covered.",
-        "warning": "Some rooms are less well covered.",
-        "warningMeasured": "{{percent}}% of the rooms are covered: some less well.",
-        "critical": "A large part of the home is no longer covered.",
-        "criticalMeasured": "Only {{percent}}% of the rooms are still covered.",
-        "unknown": "Unable to check which rooms are covered."
-      },
-      "home-assistant": {
-        "label": "Home automation system",
-        "ok": "The home automation system is working.",
-        "warning": "The home automation system is slow to answer.",
-        "critical": "The home automation system no longer answers.",
-        "unknown": "Unable to check the home automation system."
-      },
-      "zigbee": {
-        "label": "Sensor radio key",
-        "ok": "The sensor radio key is working.",
-        "warning": "The sensor radio key is not working well.",
-        "critical": "The sensor radio key no longer answers.",
-        "unknown": "Unable to check the sensor radio key."
-      },
-      "sensors-offline": {
-        "label": "Reachable sensors",
-        "ok": "All sensors are answering.",
-        "warning": "Some sensors no longer answer.",
-        "warningMeasured_one": "{{count}} sensor no longer answers.",
-        "warningMeasured_other": "{{count}} sensors no longer answer.",
-        "critical": "Many sensors no longer answer.",
-        "criticalMeasured_one": "{{count}} sensor no longer answers.",
-        "criticalMeasured_other": "{{count}} sensors no longer answer.",
-        "unknown": "Unable to check whether the sensors answer."
-      },
-      "sensors-battery": {
-        "label": "Sensor batteries",
-        "ok": "The sensor batteries are in good shape.",
-        "warning": "Some batteries will soon need changing.",
-        "warningMeasured_one": "{{count}} sensor has an almost flat battery.",
-        "warningMeasured_other": "{{count}} sensors have an almost flat battery.",
-        "critical": "Some sensors have a flat battery.",
-        "criticalMeasured_one": "{{count}} sensor has a flat battery.",
-        "criticalMeasured_other": "{{count}} sensors have a flat battery.",
-        "unknown": "Unable to check the sensor batteries."
-      },
-      "deliveries": {
-        "label": "Notifications sent",
-        "ok": "Notifications are getting through.",
-        "warning": "Some notifications did not get through.",
-        "warningMeasured_one": "{{count}} notification out of {{total}} did not get through.",
-        "warningMeasured_other": "{{count}} notifications out of {{total}} did not get through.",
-        "critical": "Notifications are no longer getting through.",
-        "criticalMeasured_one": "{{count}} notification out of {{total}} did not get through.",
-        "criticalMeasured_other": "{{count}} notifications out of {{total}} did not get through.",
-        "unknown": "Unable to check that notifications get through."
-      },
-      "outbox": {
-        "label": "Waiting messages",
-        "ok": "No message is waiting to be sent.",
-        "warning": "Some messages are waiting to be sent.",
-        "warningMeasured_one": "{{count}} message is waiting to be sent.",
-        "warningMeasured_other": "{{count}} messages are waiting to be sent.",
-        "critical": "Some messages are stuck and no longer go out.",
-        "criticalMeasured_one": "{{count}} message is stuck and no longer goes out.",
-        "criticalMeasured_other": "{{count}} messages are stuck and no longer go out.",
-        "unknown": "Unable to check the waiting messages."
-      },
-      "disk": {
-        "label": "Storage space",
-        "ok": "There is room left on the box.",
-        "okMeasured": "The box is {{percent}}% full: there is room left.",
-        "warning": "Space is starting to run low on the box.",
-        "warningMeasured": "The box is {{percent}}% full: space is starting to run low.",
-        "critical": "The box is almost full.",
-        "criticalMeasured": "The box is {{percent}}% full: it is almost full.",
-        "unknown": "Unable to check the space left."
-      },
-      "memory": {
-        "label": "Memory",
-        "ok": "The box has enough memory.",
-        "okMeasured": "Memory is {{percent}}% used: that is normal.",
-        "warning": "The box is a little short of memory.",
-        "warningMeasured": "Memory is {{percent}}% used: the box is a little short.",
-        "critical": "The box is short of memory.",
-        "criticalMeasured": "Memory is {{percent}}% used: the box is short of it.",
-        "unknown": "Unable to check the box memory."
-      },
-      "temperature": {
-        "label": "Temperature",
-        "ok": "The box is at a good temperature.",
-        "okMeasured": "The box is at {{celsius}} °C: that is normal.",
-        "warning": "The box is getting a little warm.",
-        "warningMeasured": "The box is getting a little warm ({{celsius}} °C). Check that it has enough air.",
-        "critical": "The box is too hot.",
-        "criticalMeasured": "The box is too hot ({{celsius}} °C). Move it away from any heat source.",
-        "unknown": "Unable to read the box temperature."
-      },
-      "throttling": {
-        "label": "Box speed",
-        "ok": "The box is running at full speed.",
-        "warning": "The box slows down at times, often because of heat or power.",
-        "critical": "The box is slowing down a lot: check its power supply.",
-        "unknown": "Unable to check the box speed."
+      "backup": {
+        "critical": "No recent backup: start one as soon as you can.",
+        "criticalMeasured": "No successful backup for {{duration}}: start one as soon as you can.",
+        "failed": "The last backup did not complete. Start another one.",
+        "failedMeasured": "The last backup, {{duration}} ago, did not complete. Start another one.",
+        "label": "Backup",
+        "never": "No backup has been made yet. Start the first one whenever you like.",
+        "ok": "The home data is backed up regularly.",
+        "okMeasured": "Last successful backup {{duration}} ago.",
+        "unknown": "Unable to tell when the last backup took place.",
+        "warning": "The last backup is getting old. Start one whenever you like.",
+        "warningMeasured": "The last backup was {{duration}} ago. Start one whenever you like."
       },
       "containers": {
-        "label": "Box services",
-        "ok": "All box services are running.",
-        "warning": "A box service needs attention.",
-        "warningMeasured_one": "{{count}} box service needs attention.",
-        "warningMeasured_other": "{{count}} box services need attention.",
         "critical": "Some box services have stopped.",
-        "criticalMeasured_one": "{{count}} box service has stopped.",
-        "criticalMeasured_other": "{{count}} box services have stopped.",
-        "unknown": "Unable to check the box services."
+        "criticalMeasured_one": "{{count}} box service stopped for lack of memory.",
+        "criticalMeasured_other": "{{count}} box services stopped for lack of memory.",
+        "label": "Box services",
+        "ok": "All the box’s services are running normally.",
+        "unknown": "Unable to check the box’s services.",
+        "warning": "A box service restarted recently.",
+        "warningMeasured_one": "{{count}} box service restarted recently.",
+        "warningMeasured_other": "{{count}} box services restarted recently."
       },
-      "storage-errors": {
-        "label": "Storage condition",
-        "ok": "The box storage reports no errors.",
-        "warning": "The box storage reported a few errors.",
-        "warningMeasured_one": "The box storage reported {{count}} error.",
-        "warningMeasured_other": "The box storage reported {{count}} errors.",
-        "critical": "The box storage reports errors: consider backing up.",
-        "criticalMeasured_one": "The box storage reports {{count}} error: consider backing up.",
-        "criticalMeasured_other": "The box storage reports {{count}} errors: consider backing up.",
-        "unknown": "Unable to check the storage condition."
+      "database": {
+        "critical": "The home data is not answering normally.",
+        "label": "Home data",
+        "ok": "The home data is in order.",
+        "okMeasured": "The home data is in order ({{size}}).",
+        "unknown": "Unable to read the home data.",
+        "warning": "The home data is growing fast.",
+        "warningMeasured": "The home data is growing fast ({{size}})."
       },
-      "backup": {
-        "label": "Backup",
-        "ok": "The data is backed up.",
-        "okMeasured": "Last backup {{duration}} ago.",
-        "warning": "The last backup is getting old.",
-        "warningMeasured": "The last backup was {{duration}} ago.",
-        "critical": "No recent backup.",
-        "criticalMeasured": "No backup for {{duration}}.",
-        "unknown": "Unable to check the backups."
+      "disk": {
+        "critical": "The box is almost full: it may stop recording anything.",
+        "criticalMeasured": "The box is almost full ({{percent}}% used): it may stop recording anything.",
+        "label": "Storage space",
+        "ok": "There is room left on the box.",
+        "okMeasured": "There is room left on the box ({{percent}}% used).",
+        "unknown": "Unable to read the space left on the box.",
+        "warning": "The box is starting to run out of room.",
+        "warningMeasured": "The box is starting to run out of room ({{percent}}% used)."
       },
-      "db-size": {
-        "label": "Data size",
-        "ok": "The data size is normal.",
-        "warning": "The data is taking up a lot of space.",
-        "critical": "The data is taking up too much space.",
-        "unknown": "Unable to check the data size."
+      "disk-errors": {
+        "critical": "The storage shows signs of wear: make a backup and plan to replace it.",
+        "criticalMeasured_one": "{{count}} read or write error in the last 24 hours: make a backup and plan to replace the storage.",
+        "criticalMeasured_other": "{{count}} read or write errors in the last 24 hours: make a backup and plan to replace the storage.",
+        "label": "Storage medium",
+        "ok": "No read or write error in the last 24 hours.",
+        "unknown": "Unable to read the state of the storage.",
+        "warning": "A few read errors were found. Keep a recent backup.",
+        "warningMeasured_one": "{{count}} read error in the last 24 hours. Keep a recent backup.",
+        "warningMeasured_other": "{{count}} read errors in the last 24 hours. Keep a recent backup."
+      },
+      "notifications": {
+        "critical": "Alerts are no longer going out: check the phones.",
+        "criticalMeasured_one": "{{count}} alert could not be sent in the last 24 hours: check the phones.",
+        "criticalMeasured_other": "{{count}} alerts could not be sent in the last 24 hours: check the phones.",
+        "label": "Alerts sent",
+        "ok": "Every alert of the last 24 hours went out.",
+        "unknown": "Unable to tell whether alerts are going out.",
+        "warning": "A few alerts could not be sent in the last 24 hours.",
+        "warningMeasured_one": "{{count}} alert could not be sent in the last 24 hours.",
+        "warningMeasured_other": "{{count}} alerts could not be sent in the last 24 hours."
+      },
+      "outbox": {
+        "critical": "Messages are stuck and no longer going out.",
+        "criticalMeasured_one": "{{count}} message is stuck and no longer going out.",
+        "criticalMeasured_other": "{{count}} messages are stuck and no longer going out.",
+        "label": "Waiting messages",
+        "ok": "No message is stuck.",
+        "unknown": "Unable to tell whether messages are waiting.",
+        "warning": "Some messages could not be sent.",
+        "warningMeasured_one": "{{count}} message could not be sent.",
+        "warningMeasured_other": "{{count}} messages could not be sent."
       },
       "remote-access": {
+        "critical": "Remote access no longer works: the app only reaches Élise at home.",
         "label": "Remote access",
-        "ok": "Remote access is working.",
-        "warning": "Remote access needs your attention.",
-        "critical": "Remote access is no longer working.",
-        "unknown": "Unable to check remote access."
+        "ok": "The remote access service is answering normally.",
+        "unknown": "Unable to check remote access.",
+        "warning": "Remote access is worth a look: it may not work away from home."
+      },
+      "sensors": {
+        "critical": "Important sensors are no longer checking in.",
+        "label": "Sensors",
+        "none": "No sensor is installed yet.",
+        "ok": "The sensors are properly registered.",
+        "okMeasured_one": "{{count}} sensor is connected to Élise.",
+        "okMeasured_other": "{{count}} sensors are connected to Élise.",
+        "unknown": "Unable to count the sensors.",
+        "warning": "Some sensors are worth a look."
+      },
+      "swap": {
+        "critical": "The box’s memory is full: it may slow down a lot.",
+        "criticalMeasured": "The box’s memory is full ({{percent}}% of backup memory): it may slow down a lot.",
+        "label": "Backup memory",
+        "ok": "The box has enough memory to work.",
+        "okMeasured": "The box has enough memory to work (backup memory {{percent}}% used).",
+        "unknown": "Unable to read the box’s memory.",
+        "warning": "The box is drawing on its backup memory: it may slow down a little.",
+        "warningMeasured": "The box is drawing on its backup memory ({{percent}}%): it may slow down a little."
+      },
+      "temperature": {
+        "critical": "The box is very hot: move it away from any heat source and clear its vents.",
+        "criticalMeasured": "The box is very hot ({{celsius}} °C): move it away from any heat source and clear its vents.",
+        "label": "Box temperature",
+        "ok": "The box is at a good temperature.",
+        "okMeasured": "The box is at a good temperature ({{celsius}} °C).",
+        "unknown": "Unable to read the box’s temperature.",
+        "warning": "The box is getting a little warm. Leave some air around it.",
+        "warningMeasured": "The box is getting a little warm ({{celsius}} °C). Leave some air around it."
+      },
+      "throttling": {
+        "critical": "The box is slowing down to protect itself: its power supply or cooling may not be enough.",
+        "label": "Power and speed",
+        "ok": "The box is running at full speed and its power supply is steady.",
+        "unknown": "Unable to tell whether the box is slowing down. This is normal on some models.",
+        "warning": "The box slowed down recently to protect itself (heat or a slightly weak power supply)."
+      },
+      "worker": {
+        "critical": "Monitoring is stopped: alerts are not being sent for now.",
+        "criticalMeasured": "Monitoring has been stopped for {{duration}}: alerts are no longer sent.",
+        "failingMeasured_one": "{{count}} automatic check is failing right now: its alert may not go out.",
+        "failingMeasured_other": "{{count}} automatic checks are failing right now: some alerts may not go out.",
+        "label": "Continuous monitoring",
+        "ok": "Élise is watching over the home without interruption.",
+        "unknown": "Unable to tell whether monitoring is running right now.",
+        "warning": "Monitoring is running a little behind. It usually catches up on its own.",
+        "warningMeasured": "Monitoring has not checked in for {{duration}}. It usually restarts on its own."
+      },
+      "zigbee": {
+        "critical": "The Zigbee key no longer answers: wireless sensors are no longer received.",
+        "label": "Zigbee key",
+        "ok": "The Zigbee key is answering normally.",
+        "unknown": "Unable to reach the Zigbee key.",
+        "warning": "The Zigbee key is not answering well. A look at its settings may help."
       }
-    }
+    },
+    "duration": {
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes"
+    },
+    "generic": {
+      "critical": "This point needs your attention.",
+      "ok": "This point is in order.",
+      "unknown": "Unable to check this point.",
+      "warning": "This point is worth a look."
+    },
+    "groupSummary": {
+      "critical": "Needs action",
+      "ok": "In order",
+      "warning": "Worth a look"
+    },
+    "groups": {
+      "access": "Access",
+      "box": "Box",
+      "data": "Data",
+      "home": "Home",
+      "notifications": "Notifications",
+      "other": "Other points",
+      "surveillance": "Monitoring"
+    },
+    "intro": "Check at a glance that the box and the monitoring are working well.",
+    "level": {
+      "critical": "Needs action",
+      "ok": "In order",
+      "unknown": "Unable to check",
+      "warning": "Worth a look"
+    },
+    "loading": "Checking the box",
+    "retry": "Try again",
+    "settingsRow": {
+      "body": "Monitoring, sensors, notifications and backups, at a glance.",
+      "eyebrow": "Box",
+      "title": "Box health"
+    },
+    "size": {
+      "gb": "{{value}} GB",
+      "kb": "{{value}} kB",
+      "mb": "{{value}} MB"
+    },
+    "technical": {
+      "hide": "Hide technical details",
+      "hint": "Raw values, for the person who looks after the box.",
+      "show": "Show technical details",
+      "title": "Technical details"
+    },
+    "title": "Box health"
   }
 }

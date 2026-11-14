@@ -1,15 +1,18 @@
-import type { BoxHealthCheck, BoxHealthLevel, BoxHealthReport } from '@elise/contracts';
+import {
+  boxHealthReportSchema,
+  type BoxHealthCheck,
+  type BoxHealthCheckLevel,
+  type BoxHealthReport,
+} from '@elise/contracts';
 import {
   Activity,
   Archive,
-  BatteryLow,
   Bell,
   Boxes,
   ChevronDown,
   ChevronUp,
   CircleDashed,
   CircleQuestionMark,
-  Clock,
   CloudOff,
   Cpu,
   Database,
@@ -31,8 +34,6 @@ import {
   ShieldCheck,
   Thermometer,
   TriangleAlert,
-  Wifi,
-  WifiOff,
   Wrench,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -41,6 +42,7 @@ import {
   AccessibilityInfo,
   ActivityIndicator,
   Animated,
+  AppState,
   Easing,
   Platform,
   Pressable,
@@ -54,20 +56,28 @@ import { dateLocale, t } from '../i18n';
 import { colors } from '../theme';
 import {
   BACKUP_POLL_MS,
+  REFRESH_MS,
   actionDestination,
-  backupRunning,
+  backupProgress,
   bannerOf,
-  checkCopy,
+  groupKey,
   groupTone,
   isKnownCheck,
-  isKnownGroup,
+  isUsableSentence,
   orderedGroups,
+  readCheck,
+  readReport,
+  sentenceKeys,
   technicalLines,
   toneOf,
+  watchBackup,
+  type BackupWatch,
   type BoxHealthBanner,
   type BoxHealthDestination,
   type BoxHealthTone,
 } from './box-health-view';
+
+type BoxHealthLevel = BoxHealthCheckLevel;
 
 const MIN_TOUCH = 44;
 
@@ -100,7 +110,7 @@ const bannerIcon: Record<BoxHealthBanner, LucideIcon> = {
 };
 
 const groupIcon: Record<string, LucideIcon> = {
-  monitoring: Eye,
+  surveillance: Eye,
   home: House,
   notifications: Bell,
   box: Cpu,
@@ -110,40 +120,43 @@ const groupIcon: Record<string, LucideIcon> = {
 
 const checkIcon: Record<string, LucideIcon> = {
   worker: Activity,
-  'last-event': Clock,
-  coverage: Radar,
-  'home-assistant': House,
   zigbee: Radio,
-  'sensors-offline': WifiOff,
-  'sensors-battery': BatteryLow,
-  deliveries: Send,
+  sensors: Radar,
+  notifications: Send,
   outbox: Inbox,
   disk: HardDrive,
-  memory: MemoryStick,
+  swap: MemoryStick,
   temperature: Thermometer,
   throttling: Gauge,
   containers: Boxes,
-  'storage-errors': FileWarning,
+  'disk-errors': FileWarning,
   backup: DatabaseBackup,
-  'db-size': Archive,
+  database: Archive,
   'remote-access': Globe,
 };
 
-/** Checks the box reported as fine in the "reachable" family read better with a plain wifi icon. */
 const iconFor = (check: BoxHealthCheck) =>
-  check.id === 'sensors-offline' && check.level === 'ok'
-    ? Wifi
-    : (checkIcon[check.id] ?? (check.level === 'unknown' ? CircleDashed : Wrench));
+  checkIcon[check.id] ?? (check.level === 'unknown' ? CircleDashed : Wrench);
 
-function checkSentence(check: BoxHealthCheck) {
-  const copy = checkCopy(check);
-  const values: Record<string, string | number> = { ...copy.values };
-  if (copy.duration) {
-    values.duration = t(`boxHealth.duration.${copy.duration.unit}`, {
-      count: copy.duration.count,
+/** A familiar sentence for a point; when a value it needs is missing, a plainer one. */
+export function checkSentence(check: BoxHealthCheck, now = Date.now()) {
+  const reading = readCheck(check, now);
+  const values: Record<string, unknown> = { ...reading.values };
+  if (reading.duration)
+    values.duration = t(`boxHealth.duration.${reading.duration.unit}`, {
+      count: reading.duration.count,
     });
+  if (reading.size)
+    values.size = t(`boxHealth.size.${reading.size.unit}`, {
+      value: new Intl.NumberFormat(dateLocale(), { maximumFractionDigits: 1 }).format(
+        reading.size.value,
+      ),
+    });
+  for (const path of sentenceKeys(check, reading)) {
+    const text = t(`boxHealth.${path}` as never, values as never) as unknown as string;
+    if (isUsableSentence(text, `boxHealth.${path}`)) return text;
   }
-  return String(t(`boxHealth.${copy.path}` as never, values as never));
+  return t(`boxHealth.generic.${reading.level}`);
 }
 
 const checkLabel = (check: BoxHealthCheck) =>
@@ -199,16 +212,19 @@ export function MobileBoxHealthPanel({
   places?: BoxHealthPlace[];
   onOpenPlace?: (place: BoxHealthPlace) => void;
 }) {
-  const [report, setReport] = useState<BoxHealthReport | null>(null);
+  const [rawReport, setRawReport] = useState<BoxHealthReport | null>(null);
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
+  const [backupWatch, setBackupWatch] = useState<BackupWatch | null>(null);
   const [notice, setNotice] = useState<{ text: string; tone: BoxHealthTone } | null>(null);
   const [technicalOpen, setTechnicalOpen] = useState(false);
   const latest = useRef(0);
   const refreshingChange = useRef(onRefreshingChange);
   refreshingChange.current = onRefreshingChange;
+  const report = useMemo(() => (rawReport ? readReport(rawReport) : null), [rawReport]);
+  const running = backupBusy || backupWatch !== null;
 
   const load = useCallback(
     async (mode: 'initial' | 'manual' | 'pull' | 'silent') => {
@@ -216,15 +232,16 @@ export function MobileBoxHealthPanel({
       if (mode === 'manual') setChecking(true);
       if (mode === 'pull') refreshingChange.current?.(true);
       try {
-        const next = await mobileApi.getBoxHealth(server, token);
+        const parsed = boxHealthReportSchema.safeParse(await mobileApi.getBoxHealth(server, token));
         if (call !== latest.current) return;
-        if (!next || !Array.isArray(next.groups)) throw new Error('invalid-report');
-        setReport(next);
+        // An answer the screen cannot read is not a good answer.
+        if (!parsed.success) throw new Error('invalid-report');
+        setRawReport(parsed.data);
         setFailed(false);
       } catch {
         if (call !== latest.current) return;
         // Never keep old figures on screen once the box stops answering: they could reassure wrongly.
-        setReport(null);
+        setRawReport(null);
         setFailed(true);
       } finally {
         if (call === latest.current) {
@@ -248,21 +265,49 @@ export function MobileBoxHealthPanel({
     void load('pull');
   }, [refreshSignal, load]);
 
-  const running = backupRunning(report);
+  // Asked again every minute while the app is in front of someone, every 5 s during a backup.
   useEffect(() => {
-    if (!running) return;
-    const timer = setInterval(() => void load('silent'), BACKUP_POLL_MS);
-    return () => clearInterval(timer);
+    const delay = running ? BACKUP_POLL_MS : REFRESH_MS;
+    let lastAsked = Date.now();
+    const ask = () => {
+      lastAsked = Date.now();
+      void load('silent');
+    };
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') ask();
+    }, delay);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && Date.now() - lastAsked >= delay) ask();
+    });
+    return () => {
+      clearInterval(timer);
+      subscription.remove();
+    };
   }, [running, load]);
 
+  // The person hears when the backup they started is over (or taking longer than expected).
+  useEffect(() => {
+    if (!backupWatch || backupBusy) return;
+    const progress = backupProgress(backupWatch, rawReport);
+    if (progress === 'running') return;
+    setBackupWatch(null);
+    setNotice(
+      progress === 'done'
+        ? { text: t('boxHealth.backupDone'), tone: 'ok' }
+        : progress === 'failed'
+          ? { text: t('boxHealth.backupEndedFailed'), tone: 'warning' }
+          : { text: t('boxHealth.backupTimeout'), tone: 'warning' },
+    );
+  }, [rawReport, backupWatch, backupBusy]);
+
   const startBackup = async () => {
-    if (backupBusy || running) return;
+    if (running) return;
     setBackupBusy(true);
     setNotice(null);
+    const watch = watchBackup(rawReport);
     try {
       await mobileApi.runBoxHealthBackup(server, token);
-      setNotice({ text: t('boxHealth.backupStarted'), tone: 'ok' });
-      await load('silent');
+      setBackupWatch(watch);
     } catch {
       setNotice({ text: t('boxHealth.backupFailed'), tone: 'warning' });
     } finally {
@@ -301,20 +346,20 @@ export function MobileBoxHealthPanel({
           <ToolbarButton
             primary
             label={
-              running
-                ? t('boxHealth.backupRunning')
-                : backupBusy
-                  ? t('boxHealth.backupStarting')
+              backupBusy
+                ? t('boxHealth.backupStarting')
+                : running
+                  ? t('boxHealth.backupRunning')
                   : t('boxHealth.backupNow')
             }
-            busy={backupBusy || running}
+            busy={running}
             onPress={() => void startBackup()}
             icon={<DatabaseBackup size={18} color="#FFFFFF" strokeWidth={2.2} />}
           />
         </View>
       ) : null}
 
-      {running ? (
+      {backupWatch ? (
         <View
           style={[styles.notice, { backgroundColor: colors.paleBlue }]}
           accessibilityLiveRegion="polite"
@@ -338,10 +383,9 @@ export function MobileBoxHealthPanel({
 
       {groups.map((group) => {
         const tone = groupTone(group.checks);
-        const Icon = groupIcon[group.id] ?? Wrench;
-        const title = isKnownGroup(group.id)
-          ? t(`boxHealth.groups.${group.id}`)
-          : t('boxHealth.groups.other');
+        const key = groupKey(group.id);
+        const Icon = (key && groupIcon[key]) || Wrench;
+        const title = key ? t(`boxHealth.groups.${key}`) : t('boxHealth.groups.other');
         return (
           <View key={group.id} style={styles.groupCard}>
             <View style={styles.groupHeader} accessibilityRole="header">
@@ -361,8 +405,8 @@ export function MobileBoxHealthPanel({
                 key={`${check.id}-${index}`}
                 check={check}
                 first={index === 0}
-                destination={actionDestination(check.action, available)}
-                actionBusy={check.action === 'run-backup' && (backupBusy || running)}
+                destination={actionDestination(check, available)}
+                actionBusy={check.action === 'run-backup' && running}
                 onAction={onAction}
               />
             ))}
@@ -372,7 +416,7 @@ export function MobileBoxHealthPanel({
 
       {report ? (
         <TechnicalDetails
-          report={report}
+          report={rawReport ?? report}
           open={technicalOpen}
           onToggle={() => setTechnicalOpen((open) => !open)}
         />
@@ -542,7 +586,6 @@ function TechnicalDetails({
   onToggle: () => void;
 }) {
   const checks = report.groups.flatMap((group) => group.checks);
-  const raw = report.technical ? technicalLines(report.technical) : [];
   return (
     <View style={styles.technical}>
       <Pressable
@@ -564,28 +607,26 @@ function TechnicalDetails({
       </Pressable>
       {open ? (
         <View style={styles.technicalBody}>
-          <Text style={styles.technicalSection}>{t('boxHealth.technical.checks')}</Text>
           {checks.map((check, index) => (
-            <Text key={`${check.id}-${index}`} selectable style={styles.mono}>
-              {`${check.id} · ${check.level}${
-                Object.keys(check.params ?? {}).length
-                  ? ` · ${Object.entries(check.params ?? {})
-                      .map(([key, value]) => `${key}=${String(value)}`)
-                      .join(' ')}`
-                  : ''
-              }${check.detail ? `\n  ${check.detail}` : ''}`}
-            </Text>
-          ))}
-          <Text style={styles.technicalSection}>{t('boxHealth.technical.raw')}</Text>
-          {raw.length ? (
-            raw.map((line, index) => (
-              <Text key={index} selectable style={styles.mono}>
-                {line}
+            <View key={`${check.id}-${index}`} style={styles.technicalBlock}>
+              <Text selectable style={styles.technicalId}>
+                {`${check.id} · ${check.level}${check.action ? ` · ${check.action}` : ''}`}
               </Text>
-            ))
-          ) : (
-            <Text style={styles.technicalHint}>{t('boxHealth.technical.empty')}</Text>
-          )}
+              {check.detail ? (
+                <Text selectable style={styles.technicalHint}>
+                  {check.detail}
+                </Text>
+              ) : null}
+              {technicalLines(check.params).map((line, row) => (
+                <Text key={row} selectable style={styles.mono}>
+                  {line}
+                </Text>
+              ))}
+            </View>
+          ))}
+          <Text selectable style={[styles.mono, styles.technicalStamp]}>
+            {`checkedAt ${report.checkedAt}`}
+          </Text>
         </View>
       ) : null}
     </View>
@@ -792,14 +833,14 @@ const styles = StyleSheet.create({
   technicalTitle: { color: colors.navy, fontSize: 16, fontWeight: '800' },
   technicalHint: { marginTop: 2, color: colors.muted, fontSize: 13, lineHeight: 18 },
   technicalBody: { paddingHorizontal: 16, paddingBottom: 16, gap: 6 },
-  technicalSection: {
-    marginTop: 8,
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
+  technicalBlock: {
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+    gap: 3,
   },
+  technicalId: { color: colors.navy, fontSize: 13, fontWeight: '800' },
+  technicalStamp: { marginTop: 8, color: colors.muted },
   mono: {
     color: colors.navy,
     fontSize: 12,

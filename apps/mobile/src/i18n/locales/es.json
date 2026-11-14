@@ -2198,278 +2198,252 @@
     "watching": "Una llave conectada o encendida aparece sola mientras esta pantalla esté abierta."
   },
   "boxHealth": {
-    "title": "Box health",
-    "intro": "Check at a glance that the box and the monitoring are working well.",
-    "settingsRow": {
-      "eyebrow": "Box",
-      "title": "Box health",
-      "body": "Monitoring, sensors, notifications and backups at a glance."
+    "actions": {
+      "open-remote-access": "Ver el acceso remoto",
+      "open-sensors": "Ver los sensores",
+      "open-zigbee": "Ver la llave Zigbee",
+      "run-backup": "Hacer copia"
     },
+    "backupDone": "Copia de seguridad terminada.",
+    "backupEndedFailed": "La copia de seguridad no se completó. Inténtelo de nuevo en unos minutos.",
+    "backupFailed": "No se pudo iniciar la copia de seguridad. Inténtelo de nuevo en un momento.",
+    "backupNow": "Hacer copia ahora",
+    "backupRunning": "Copia de seguridad en curso…",
+    "backupRunningHint": "Puede salir de esta pantalla, la copia de seguridad continúa en la caja.",
+    "backupStarting": "Iniciando…",
+    "backupTimeout": "La copia de seguridad tarda más de lo previsto. El resultado aparecerá aquí en cuanto termine.",
     "banner": {
-      "ok": {
-        "title": "All is well",
-        "body": "The box and the monitoring are working normally."
-      },
-      "warning": {
-        "title": "Worth a look",
-        "body": "A few points deserve a look, nothing urgent."
-      },
-      "unchecked": {
-        "title": "Worth a look",
-        "body": "Some points could not be checked. That does not mean everything is fine."
-      },
       "critical": {
-        "title": "Action needed",
-        "body": "One or more points stop Élise from watching over properly. Follow the advice below."
+        "body": "Uno o varios puntos impiden que Élise vele bien. Siga los consejos de abajo.",
+        "title": "Necesitamos su atención"
+      },
+      "ok": {
+        "body": "La caja y la vigilancia funcionan con normalidad.",
+        "title": "Todo va bien"
       },
       "unavailable": {
-        "title": "Unable to check",
-        "body": "Élise could not reach the box. That does not mean everything is fine: try again in a moment."
+        "body": "Élise no ha podido consultar la caja. Eso no significa que todo vaya bien: inténtelo de nuevo en un momento.",
+        "title": "No se puede comprobar"
+      },
+      "unchecked": {
+        "body": "Algunos puntos no se han podido comprobar. Eso no significa que haya un problema, ni que todo vaya bien.",
+        "title": "Para vigilar"
+      },
+      "warning": {
+        "body": "Algunos puntos merecen un vistazo, sin urgencia.",
+        "title": "Para vigilar"
       }
     },
-    "checkedAt": "Checked at {{time}}",
-    "checkedOn": "Checked on {{date}} at {{time}}",
-    "level": {
-      "ok": "Fine",
-      "warning": "Worth a look",
-      "critical": "Action needed",
-      "unknown": "Unable to check"
-    },
-    "groups": {
-      "monitoring": "Monitoring",
-      "home": "Home",
-      "notifications": "Notifications",
-      "box": "Box",
-      "data": "Data",
-      "access": "Access",
-      "other": "Other points"
-    },
-    "groupSummary": {
-      "ok": "All fine",
-      "warning": "Worth a look",
-      "critical": "Action needed"
-    },
-    "checkNow": "Check now",
-    "checking": "Checking…",
-    "backupNow": "Back up now",
-    "backupStarting": "Starting…",
-    "backupRunning": "Backup in progress…",
-    "backupRunningHint": "You can leave this screen, the backup carries on in the box.",
-    "backupStarted": "The backup has started.",
-    "backupFailed": "The backup could not start. Try again in a moment.",
-    "retry": "Try again",
-    "loading": "Checking the box",
-    "actions": {
-      "open-zigbee": "See the radio key",
-      "open-sensors": "See the sensors",
-      "open-remote-access": "See remote access",
-      "run-backup": "Back up"
-    },
-    "technical": {
-      "title": "Technical details",
-      "show": "Show technical details",
-      "hide": "Hide technical details",
-      "hint": "For the person who looks after the box.",
-      "checks": "Points checked",
-      "raw": "Raw values",
-      "empty": "No technical details yet."
-    },
-    "duration": {
-      "minutes_one": "{{count}} minute",
-      "minutes_many": "{{count}} minutes",
-      "minutes_other": "{{count}} minutes",
-      "hours_one": "{{count}} hour",
-      "hours_many": "{{count}} hours",
-      "hours_other": "{{count}} hours",
-      "days_one": "{{count}} day",
-      "days_many": "{{count}} days",
-      "days_other": "{{count}} days"
-    },
-    "generic": {
-      "ok": "This point is fine.",
-      "warning": "This point deserves a look.",
-      "critical": "This point needs action.",
-      "unknown": "Unable to check this point."
-    },
+    "checkNow": "Comprobar ahora",
+    "checkedAt": "Comprobado a las {{time}}",
+    "checkedOn": "Comprobado el {{date}} a las {{time}}",
+    "checking": "Comprobando…",
     "checks": {
-      "worker": {
-        "label": "Monitoring",
-        "ok": "The monitoring is working normally.",
-        "warning": "The monitoring is running a little late.",
-        "critical": "The monitoring has stopped: alerts might not go out.",
-        "unknown": "Unable to check that the monitoring is working."
-      },
-      "last-event": {
-        "label": "Latest news from the sensors",
-        "ok": "The sensors are sending news as expected.",
-        "warning": "No news from the sensors for a while.",
-        "warningMeasured": "No news from the sensors for {{duration}}.",
-        "critical": "No news from the sensors for a long time.",
-        "criticalMeasured": "No news from the sensors for {{duration}}.",
-        "unknown": "Unable to tell when the sensors last sent news."
-      },
-      "coverage": {
-        "label": "Home coverage",
-        "ok": "The important rooms are well covered.",
-        "warning": "Some rooms are less well covered.",
-        "warningMeasured": "{{percent}}% of the rooms are covered: some less well.",
-        "critical": "A large part of the home is no longer covered.",
-        "criticalMeasured": "Only {{percent}}% of the rooms are still covered.",
-        "unknown": "Unable to check which rooms are covered."
-      },
-      "home-assistant": {
-        "label": "Home automation system",
-        "ok": "The home automation system is working.",
-        "warning": "The home automation system is slow to answer.",
-        "critical": "The home automation system no longer answers.",
-        "unknown": "Unable to check the home automation system."
-      },
-      "zigbee": {
-        "label": "Sensor radio key",
-        "ok": "The sensor radio key is working.",
-        "warning": "The sensor radio key is not working well.",
-        "critical": "The sensor radio key no longer answers.",
-        "unknown": "Unable to check the sensor radio key."
-      },
-      "sensors-offline": {
-        "label": "Reachable sensors",
-        "ok": "All sensors are answering.",
-        "warning": "Some sensors no longer answer.",
-        "warningMeasured_one": "{{count}} sensor no longer answers.",
-        "warningMeasured_many": "{{count}} sensors no longer answer.",
-        "warningMeasured_other": "{{count}} sensors no longer answer.",
-        "critical": "Many sensors no longer answer.",
-        "criticalMeasured_one": "{{count}} sensor no longer answers.",
-        "criticalMeasured_many": "{{count}} sensors no longer answer.",
-        "criticalMeasured_other": "{{count}} sensors no longer answer.",
-        "unknown": "Unable to check whether the sensors answer."
-      },
-      "sensors-battery": {
-        "label": "Sensor batteries",
-        "ok": "The sensor batteries are in good shape.",
-        "warning": "Some batteries will soon need changing.",
-        "warningMeasured_one": "{{count}} sensor has an almost flat battery.",
-        "warningMeasured_many": "{{count}} sensors have an almost flat battery.",
-        "warningMeasured_other": "{{count}} sensors have an almost flat battery.",
-        "critical": "Some sensors have a flat battery.",
-        "criticalMeasured_one": "{{count}} sensor has a flat battery.",
-        "criticalMeasured_many": "{{count}} sensors have a flat battery.",
-        "criticalMeasured_other": "{{count}} sensors have a flat battery.",
-        "unknown": "Unable to check the sensor batteries."
-      },
-      "deliveries": {
-        "label": "Notifications sent",
-        "ok": "Notifications are getting through.",
-        "warning": "Some notifications did not get through.",
-        "warningMeasured_one": "{{count}} notification out of {{total}} did not get through.",
-        "warningMeasured_many": "{{count}} notifications out of {{total}} did not get through.",
-        "warningMeasured_other": "{{count}} notifications out of {{total}} did not get through.",
-        "critical": "Notifications are no longer getting through.",
-        "criticalMeasured_one": "{{count}} notification out of {{total}} did not get through.",
-        "criticalMeasured_many": "{{count}} notifications out of {{total}} did not get through.",
-        "criticalMeasured_other": "{{count}} notifications out of {{total}} did not get through.",
-        "unknown": "Unable to check that notifications get through."
-      },
-      "outbox": {
-        "label": "Waiting messages",
-        "ok": "No message is waiting to be sent.",
-        "warning": "Some messages are waiting to be sent.",
-        "warningMeasured_one": "{{count}} message is waiting to be sent.",
-        "warningMeasured_many": "{{count}} messages are waiting to be sent.",
-        "warningMeasured_other": "{{count}} messages are waiting to be sent.",
-        "critical": "Some messages are stuck and no longer go out.",
-        "criticalMeasured_one": "{{count}} message is stuck and no longer goes out.",
-        "criticalMeasured_many": "{{count}} messages are stuck and no longer go out.",
-        "criticalMeasured_other": "{{count}} messages are stuck and no longer go out.",
-        "unknown": "Unable to check the waiting messages."
-      },
-      "disk": {
-        "label": "Storage space",
-        "ok": "There is room left on the box.",
-        "okMeasured": "The box is {{percent}}% full: there is room left.",
-        "warning": "Space is starting to run low on the box.",
-        "warningMeasured": "The box is {{percent}}% full: space is starting to run low.",
-        "critical": "The box is almost full.",
-        "criticalMeasured": "The box is {{percent}}% full: it is almost full.",
-        "unknown": "Unable to check the space left."
-      },
-      "memory": {
-        "label": "Memory",
-        "ok": "The box has enough memory.",
-        "okMeasured": "Memory is {{percent}}% used: that is normal.",
-        "warning": "The box is a little short of memory.",
-        "warningMeasured": "Memory is {{percent}}% used: the box is a little short.",
-        "critical": "The box is short of memory.",
-        "criticalMeasured": "Memory is {{percent}}% used: the box is short of it.",
-        "unknown": "Unable to check the box memory."
-      },
-      "temperature": {
-        "label": "Temperature",
-        "ok": "The box is at a good temperature.",
-        "okMeasured": "The box is at {{celsius}} °C: that is normal.",
-        "warning": "The box is getting a little warm.",
-        "warningMeasured": "The box is getting a little warm ({{celsius}} °C). Check that it has enough air.",
-        "critical": "The box is too hot.",
-        "criticalMeasured": "The box is too hot ({{celsius}} °C). Move it away from any heat source.",
-        "unknown": "Unable to read the box temperature."
-      },
-      "throttling": {
-        "label": "Box speed",
-        "ok": "The box is running at full speed.",
-        "warning": "The box slows down at times, often because of heat or power.",
-        "critical": "The box is slowing down a lot: check its power supply.",
-        "unknown": "Unable to check the box speed."
+      "backup": {
+        "critical": "No hay ninguna copia de seguridad reciente: haga una cuanto antes.",
+        "criticalMeasured": "Ninguna copia de seguridad correcta desde hace {{duration}}: haga una cuanto antes.",
+        "failed": "La última copia de seguridad no se completó. Haga otra.",
+        "failedMeasured": "La última copia de seguridad, hace {{duration}}, no se completó. Haga otra.",
+        "label": "Copia de seguridad",
+        "never": "Todavía no se ha hecho ninguna copia de seguridad. Haga la primera cuando quiera.",
+        "ok": "Los datos de la casa se guardan con regularidad.",
+        "okMeasured": "Última copia de seguridad correcta hace {{duration}}.",
+        "unknown": "No se puede saber cuándo se hizo la última copia de seguridad.",
+        "warning": "La última copia de seguridad empieza a ser antigua. Haga una cuando quiera.",
+        "warningMeasured": "La última copia de seguridad es de hace {{duration}}. Haga una cuando quiera."
       },
       "containers": {
-        "label": "Box services",
-        "ok": "All box services are running.",
-        "warning": "A box service needs attention.",
-        "warningMeasured_one": "{{count}} box service needs attention.",
-        "warningMeasured_many": "{{count}} box services need attention.",
-        "warningMeasured_other": "{{count}} box services need attention.",
-        "critical": "Some box services have stopped.",
-        "criticalMeasured_one": "{{count}} box service has stopped.",
-        "criticalMeasured_many": "{{count}} box services have stopped.",
-        "criticalMeasured_other": "{{count}} box services have stopped.",
-        "unknown": "Unable to check the box services."
+        "critical": "Algunos servicios de la caja se han detenido.",
+        "criticalMeasured_many": "{{count}} servicios de la caja se han detenido por falta de memoria.",
+        "criticalMeasured_one": "{{count}} servicio de la caja se ha detenido por falta de memoria.",
+        "criticalMeasured_other": "{{count}} servicios de la caja se han detenido por falta de memoria.",
+        "label": "Servicios de la caja",
+        "ok": "Todos los servicios de la caja funcionan con normalidad.",
+        "unknown": "No se pueden comprobar los servicios de la caja.",
+        "warning": "Un servicio de la caja se ha reiniciado hace poco.",
+        "warningMeasured_many": "{{count}} servicios de la caja se han reiniciado hace poco.",
+        "warningMeasured_one": "{{count}} servicio de la caja se ha reiniciado hace poco.",
+        "warningMeasured_other": "{{count}} servicios de la caja se han reiniciado hace poco."
       },
-      "storage-errors": {
-        "label": "Storage condition",
-        "ok": "The box storage reports no errors.",
-        "warning": "The box storage reported a few errors.",
-        "warningMeasured_one": "The box storage reported {{count}} error.",
-        "warningMeasured_many": "The box storage reported {{count}} errors.",
-        "warningMeasured_other": "The box storage reported {{count}} errors.",
-        "critical": "The box storage reports errors: consider backing up.",
-        "criticalMeasured_one": "The box storage reports {{count}} error: consider backing up.",
-        "criticalMeasured_many": "The box storage reports {{count}} errors: consider backing up.",
-        "criticalMeasured_other": "The box storage reports {{count}} errors: consider backing up.",
-        "unknown": "Unable to check the storage condition."
+      "database": {
+        "critical": "Los datos de la casa no responden con normalidad.",
+        "label": "Datos de la casa",
+        "ok": "Los datos de la casa están en orden.",
+        "okMeasured": "Los datos de la casa están en orden ({{size}}).",
+        "unknown": "No se pueden leer los datos de la casa.",
+        "warning": "Los datos de la casa crecen deprisa.",
+        "warningMeasured": "Los datos de la casa crecen deprisa ({{size}})."
       },
-      "backup": {
-        "label": "Backup",
-        "ok": "The data is backed up.",
-        "okMeasured": "Last backup {{duration}} ago.",
-        "warning": "The last backup is getting old.",
-        "warningMeasured": "The last backup was {{duration}} ago.",
-        "critical": "No recent backup.",
-        "criticalMeasured": "No backup for {{duration}}.",
-        "unknown": "Unable to check the backups."
+      "disk": {
+        "critical": "La caja está casi llena: podría dejar de guardar datos.",
+        "criticalMeasured": "La caja está casi llena ({{percent}} % utilizado): podría dejar de guardar datos.",
+        "label": "Espacio de almacenamiento",
+        "ok": "Queda espacio en la caja.",
+        "okMeasured": "Queda espacio en la caja ({{percent}} % utilizado).",
+        "unknown": "No se puede leer el espacio que queda en la caja.",
+        "warning": "A la caja le empieza a faltar espacio.",
+        "warningMeasured": "A la caja le empieza a faltar espacio ({{percent}} % utilizado)."
       },
-      "db-size": {
-        "label": "Data size",
-        "ok": "The data size is normal.",
-        "warning": "The data is taking up a lot of space.",
-        "critical": "The data is taking up too much space.",
-        "unknown": "Unable to check the data size."
+      "disk-errors": {
+        "critical": "El soporte de almacenamiento muestra signos de desgaste: haga una copia de seguridad y prevea sustituirlo.",
+        "criticalMeasured_many": "{{count}} errores de lectura o escritura en 24 h: haga una copia de seguridad y prevea sustituir el soporte.",
+        "criticalMeasured_one": "{{count}} error de lectura o escritura en 24 h: haga una copia de seguridad y prevea sustituir el soporte.",
+        "criticalMeasured_other": "{{count}} errores de lectura o escritura en 24 h: haga una copia de seguridad y prevea sustituir el soporte.",
+        "label": "Soporte de almacenamiento",
+        "ok": "Ningún error de lectura o escritura en las últimas 24 h.",
+        "unknown": "No se puede leer el estado del soporte de almacenamiento.",
+        "warning": "Se han detectado algunos errores de lectura. Conserve una copia de seguridad reciente.",
+        "warningMeasured_many": "{{count}} errores de lectura detectados en 24 h. Conserve una copia de seguridad reciente.",
+        "warningMeasured_one": "{{count}} error de lectura detectado en 24 h. Conserve una copia de seguridad reciente.",
+        "warningMeasured_other": "{{count}} errores de lectura detectados en 24 h. Conserve una copia de seguridad reciente."
+      },
+      "notifications": {
+        "critical": "Las alertas ya no salen: revise los teléfonos.",
+        "criticalMeasured_many": "{{count}} alertas no se pudieron enviar en las últimas 24 h: revise los teléfonos.",
+        "criticalMeasured_one": "{{count}} alerta no se pudo enviar en las últimas 24 h: revise los teléfonos.",
+        "criticalMeasured_other": "{{count}} alertas no se pudieron enviar en las últimas 24 h: revise los teléfonos.",
+        "label": "Alertas enviadas",
+        "ok": "Todas las alertas de las últimas 24 h han salido correctamente.",
+        "unknown": "No se puede saber si las alertas salen correctamente.",
+        "warning": "Algunas alertas no se pudieron enviar en las últimas 24 h.",
+        "warningMeasured_many": "{{count}} alertas no se pudieron enviar en las últimas 24 h.",
+        "warningMeasured_one": "{{count}} alerta no se pudo enviar en las últimas 24 h.",
+        "warningMeasured_other": "{{count}} alertas no se pudieron enviar en las últimas 24 h."
+      },
+      "outbox": {
+        "critical": "Hay mensajes bloqueados que ya no salen.",
+        "criticalMeasured_many": "{{count}} mensajes están bloqueados y ya no salen.",
+        "criticalMeasured_one": "{{count}} mensaje está bloqueado y ya no sale.",
+        "criticalMeasured_other": "{{count}} mensajes están bloqueados y ya no salen.",
+        "label": "Mensajes pendientes",
+        "ok": "Ningún mensaje está bloqueado.",
+        "unknown": "No se puede saber si hay mensajes pendientes.",
+        "warning": "Algunos mensajes no se pudieron enviar.",
+        "warningMeasured_many": "{{count}} mensajes no se pudieron enviar.",
+        "warningMeasured_one": "{{count}} mensaje no se pudo enviar.",
+        "warningMeasured_other": "{{count}} mensajes no se pudieron enviar."
       },
       "remote-access": {
-        "label": "Remote access",
-        "ok": "Remote access is working.",
-        "warning": "Remote access needs your attention.",
-        "critical": "Remote access is no longer working.",
-        "unknown": "Unable to check remote access."
+        "critical": "El acceso remoto ya no funciona: la aplicación solo contacta con Élise en casa.",
+        "label": "Acceso remoto",
+        "ok": "El servicio de acceso remoto responde con normalidad.",
+        "unknown": "No se puede comprobar el acceso remoto.",
+        "warning": "El acceso remoto merece un vistazo: puede que no funcione fuera de casa."
+      },
+      "sensors": {
+        "critical": "Sensores importantes han dejado de dar señales.",
+        "label": "Sensores",
+        "none": "Todavía no hay ningún sensor instalado.",
+        "ok": "Los sensores están bien registrados.",
+        "okMeasured_many": "{{count}} sensores están conectados a Élise.",
+        "okMeasured_one": "{{count}} sensor está conectado a Élise.",
+        "okMeasured_other": "{{count}} sensores están conectados a Élise.",
+        "unknown": "No se pueden contar los sensores.",
+        "warning": "Algunos sensores merecen un vistazo."
+      },
+      "swap": {
+        "critical": "La memoria de la caja está saturada: puede ir mucho más lenta.",
+        "criticalMeasured": "La memoria de la caja está saturada ({{percent}} % de la memoria de reserva): puede ir mucho más lenta.",
+        "label": "Memoria de reserva",
+        "ok": "La caja tiene memoria suficiente para trabajar.",
+        "okMeasured": "La caja tiene memoria suficiente para trabajar (memoria de reserva utilizada al {{percent}} %).",
+        "unknown": "No se puede leer la memoria de la caja.",
+        "warning": "La caja recurre a su memoria de reserva: puede ir algo más lenta.",
+        "warningMeasured": "La caja recurre a su memoria de reserva ({{percent}} %): puede ir algo más lenta."
+      },
+      "temperature": {
+        "critical": "La caja está muy caliente: aléjela de cualquier fuente de calor y despeje sus ventilaciones.",
+        "criticalMeasured": "La caja está muy caliente ({{celsius}} °C): aléjela de cualquier fuente de calor y despeje sus ventilaciones.",
+        "label": "Temperatura de la caja",
+        "ok": "La caja tiene una buena temperatura.",
+        "okMeasured": "La caja tiene una buena temperatura ({{celsius}} °C).",
+        "unknown": "No se puede leer la temperatura de la caja.",
+        "warning": "La caja se calienta un poco. Deje aire a su alrededor.",
+        "warningMeasured": "La caja se calienta un poco ({{celsius}} °C). Deje aire a su alrededor."
+      },
+      "throttling": {
+        "critical": "La caja va más lenta para protegerse: quizá su alimentación o su ventilación no sean suficientes.",
+        "label": "Alimentación y velocidad",
+        "ok": "La caja funciona a plena velocidad y su alimentación es estable.",
+        "unknown": "No se puede saber si la caja va más lenta. Es normal en algunos modelos.",
+        "warning": "La caja ha reducido su velocidad hace poco para protegerse (calor o alimentación algo baja)."
+      },
+      "worker": {
+        "critical": "La vigilancia está detenida: por ahora las alertas no salen.",
+        "criticalMeasured": "La vigilancia está detenida desde hace {{duration}}: las alertas ya no salen.",
+        "failingMeasured_many": "{{count}} comprobaciones automáticas fallan ahora mismo: puede que algunas alertas no salgan.",
+        "failingMeasured_one": "{{count}} comprobación automática falla ahora mismo: puede que la alerta correspondiente no salga.",
+        "failingMeasured_other": "{{count}} comprobaciones automáticas fallan ahora mismo: puede que algunas alertas no salgan.",
+        "label": "Vigilancia continua",
+        "ok": "Élise vela por la casa sin interrupción.",
+        "unknown": "No se puede saber si la vigilancia está funcionando ahora mismo.",
+        "warning": "La vigilancia se ha retrasado un poco. Normalmente se pone al día sola.",
+        "warningMeasured": "La vigilancia no da señales desde hace {{duration}}. Normalmente se recupera sola."
+      },
+      "zigbee": {
+        "critical": "La llave Zigbee ya no responde: no se reciben los sensores inalámbricos.",
+        "label": "Llave Zigbee",
+        "ok": "La llave Zigbee responde con normalidad.",
+        "unknown": "No se puede contactar con la llave Zigbee.",
+        "warning": "La llave Zigbee responde mal. Conviene echar un vistazo a su configuración."
       }
-    }
+    },
+    "duration": {
+      "days_many": "{{count}} días",
+      "days_one": "{{count}} día",
+      "days_other": "{{count}} días",
+      "hours_many": "{{count}} horas",
+      "hours_one": "{{count}} hora",
+      "hours_other": "{{count}} horas",
+      "minutes_many": "{{count}} minutos",
+      "minutes_one": "{{count}} minuto",
+      "minutes_other": "{{count}} minutos"
+    },
+    "generic": {
+      "critical": "Este punto necesita su atención.",
+      "ok": "Este punto está en orden.",
+      "unknown": "No se puede comprobar este punto.",
+      "warning": "Este punto merece un vistazo."
+    },
+    "groupSummary": {
+      "critical": "Por resolver",
+      "ok": "En orden",
+      "warning": "Para vigilar"
+    },
+    "groups": {
+      "access": "Acceso",
+      "box": "Caja",
+      "data": "Datos",
+      "home": "Casa",
+      "notifications": "Notificaciones",
+      "other": "Otros puntos",
+      "surveillance": "Vigilancia"
+    },
+    "intro": "Compruebe de un vistazo que la caja y la vigilancia funcionan bien.",
+    "level": {
+      "critical": "Por resolver",
+      "ok": "En orden",
+      "unknown": "No se puede comprobar",
+      "warning": "Para vigilar"
+    },
+    "loading": "Comprobando la caja",
+    "retry": "Reintentar",
+    "settingsRow": {
+      "body": "Vigilancia, sensores, notificaciones y copias de seguridad, de un vistazo.",
+      "eyebrow": "Caja",
+      "title": "Salud de la caja"
+    },
+    "size": {
+      "gb": "{{value}} GB",
+      "kb": "{{value}} kB",
+      "mb": "{{value}} MB"
+    },
+    "technical": {
+      "hide": "Ocultar el detalle técnico",
+      "hint": "Valores en bruto, para la persona que se ocupa de la caja.",
+      "show": "Mostrar el detalle técnico",
+      "title": "Detalle técnico"
+    },
+    "title": "Salud de la caja"
   }
 }
