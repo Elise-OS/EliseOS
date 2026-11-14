@@ -27,6 +27,7 @@ import { MqttIngestionService } from './modules/sensing/mqtt-ingestion.service';
 import { SimulationController } from './modules/sensing/simulation.controller';
 import { SimulationService } from './modules/sensing/simulation.service';
 import { SystemController } from './modules/system/system.controller';
+import { WorkerWatchdogService } from './modules/system/worker-watchdog.service';
 import { MedicationsController } from './modules/medications/medications.controller';
 import { MedicationsService } from './modules/medications/medications.service';
 import { EquipmentController } from './modules/equipment/equipment.controller';
@@ -109,6 +110,7 @@ import { ZigbeeAgentClient } from './modules/zigbee/zigbee-agent.client';
     CalendarService,
     UpdateAgentClient,
     ZigbeeAgentClient,
+    WorkerWatchdogService,
   ],
 })
 export class AppModule {}

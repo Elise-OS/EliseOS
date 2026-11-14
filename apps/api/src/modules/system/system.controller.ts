@@ -19,6 +19,7 @@ import { SessionGuard } from '../auth/session.guard';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
 import { parseRequest } from '../../platform/zod-validation';
 import { UpdateAgentClient } from './update-agent.client';
+import { WorkerWatchdogService } from './worker-watchdog.service';
 
 @ApiTags('system')
 @Controller('system')
@@ -26,6 +27,7 @@ export class SystemController {
   public constructor(
     private readonly prisma: PrismaService,
     private readonly updateAgent: UpdateAgentClient,
+    private readonly workerWatchdog: WorkerWatchdogService,
   ) {}
 
   @Get('health')
@@ -41,9 +43,13 @@ export class SystemController {
         deviceCount: true,
       },
     });
+    // The API stays "ok" when the worker is down: the worker's own state is reported apart,
+    // and the watchdog turns it into a system alert.
+    const worker = await this.workerWatchdog.state();
     return {
       status: 'ok',
       service: 'elise-core',
+      worker,
       version: process.env.ELISE_VERSION ?? 'dev',
       localOnly: true,
       integrations: {
