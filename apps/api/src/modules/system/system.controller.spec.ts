@@ -18,7 +18,7 @@ describe('SystemController update endpoints', () => {
       membership: { findFirst: vi.fn().mockResolvedValue({ id: 'membership' }) },
     };
     const updateAgent = { status: vi.fn().mockResolvedValue({ state: 'UP_TO_DATE' }) };
-    const controller = new SystemController(prisma as never, updateAgent as never);
+    const controller = new SystemController(prisma as never, updateAgent as never, {} as never);
 
     await expect(controller.updateStatus(request('local'))).resolves.toEqual({
       state: 'UP_TO_DATE',
@@ -31,7 +31,7 @@ describe('SystemController update endpoints', () => {
   it('refuses viewers and requests outside the two trusted gateways', async () => {
     const prisma = { membership: { findFirst: vi.fn().mockResolvedValue(null) } };
     const updateAgent = { status: vi.fn() };
-    const controller = new SystemController(prisma as never, updateAgent as never);
+    const controller = new SystemController(prisma as never, updateAgent as never, {} as never);
 
     await expect(controller.updateStatus(request('local'))).rejects.toBeInstanceOf(
       ForbiddenException,

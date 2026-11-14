@@ -58,6 +58,7 @@ The initial deployment is a modular monolith plus one isolated Python ML service
 8. A negative camera detection never proves absence. Only positive person detections contribute presence evidence.
 9. Camera credentials, stream URLs, images and audio never enter observation events, AI features, push payloads or logs.
 10. Camera access is authenticated and audited; microphone access is explicit push-to-talk.
+11. The worker cannot report its own death: it records a heartbeat, and the API opens an explicit system alert when the heartbeat stops or when one of its evaluations keeps failing. Each worker task runs in isolation and the outbox is drained first, so a failing evaluation never holds back a queued notification.
 
 ## Compatibility policy
 
