@@ -9,6 +9,7 @@ import { checkSentence } from './BoxHealthPanel';
 import {
   KNOWN_BOX_HEALTH_CHECKS,
   backupProgress,
+  backupRunningOnBox,
   bannerMessage,
   bannerTone,
   orderedGroups,
@@ -140,6 +141,20 @@ describe('box health backup', () => {
       'done',
     );
     expect(backupProgress(watch, before, NOW + 11 * 60_000)).toBe('timeout');
+  });
+
+  it('shows a backup the box says is running, even one started elsewhere', () => {
+    const idle = demoBoxHealthReport('warning', NOW);
+    const busy = demoBoxHealthReport('warning', NOW, null, true);
+    expect(backupRunningOnBox(null)).toBe(false);
+    expect(backupRunningOnBox(idle)).toBe(false);
+    expect(backupRunningOnBox({ ...idle, backup: undefined })).toBe(false);
+    expect(backupRunningOnBox(busy)).toBe(true);
+    // While the box is still working, a long backup is not called late.
+    expect(backupProgress(watchBackup(idle, NOW), busy, NOW + 11 * 60_000)).toBe('running');
+    expect(boxHealthDemoAnswer('GET', '/system/box-health', 'backup', NOW)).toMatchObject({
+      body: { backup: { running: true } },
+    });
   });
 });
 

@@ -12,6 +12,7 @@ import {
   BOX_HEALTH_CHECK_IDS,
   actionDestination,
   backupProgress,
+  backupRunningOnBox,
   bannerOf,
   canManageBox,
   durationParts,
@@ -290,6 +291,17 @@ describe('box health screen rules', () => {
       check('backup', 'critical', { last: { at: new Date(NOW + 1000).toISOString(), ok: false } }),
     ]);
     expect(backupProgress(watchBackup(null, NOW), failed, NOW + 2000)).toBe('failed');
+  });
+
+  it('shows a backup the box says is running, even one started elsewhere', () => {
+    const idle = demoBoxHealthReport('warning', NOW);
+    const busy = demoBoxHealthReport('warning', NOW, null, true);
+    expect(backupRunningOnBox(null)).toBe(false);
+    expect(backupRunningOnBox(idle)).toBe(false);
+    expect(backupRunningOnBox({ ...idle, backup: undefined })).toBe(false);
+    expect(backupRunningOnBox(busy)).toBe(true);
+    // While the box is still working, a long backup is not called late.
+    expect(backupProgress(watchBackup(idle, NOW), busy, NOW + BACKUP_WATCH_MS + 1)).toBe('running');
   });
 
   it('flattens the raw values of a check', () => {

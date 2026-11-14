@@ -13,7 +13,8 @@ import type { BoxHealthCheck, BoxHealthReport } from '@elise/contracts';
  *   unknown   the host agent does not answer: the box rows cannot be checked
  *   loading   the request never ends (skeleton)
  *   error     the API answers 503 (« Impossible de vérifier »)
- *   backup    like warning, but a backup started with « Sauvegarder maintenant » never ends
+ *   backup    like warning, but a backup is already running on the box (as if started from
+ *             another device) and never ends
  *             (« Sauvegarde en cours… » stays on screen)
  * Without the parameter (or with `warning`), a backup started from the page ends after 8 s.
  */
@@ -69,11 +70,15 @@ const verdictOf = (checks: BoxHealthCheck[]): BoxHealthReport['verdict'] =>
       ? 'warning'
       : 'ok';
 
-/** A report in the given state; `backupAt` is the time of a backup made from the demo page. */
+/**
+ * A report in the given state; `backupAt` is the time of a backup made from the demo page,
+ * `backupRunning` whether the box says a backup is on its way.
+ */
 export function demoBoxHealthReport(
   state: Exclude<BoxHealthDemoState, 'loading' | 'error'>,
   now: number,
   backupAt: number | null = null,
+  backupRunning = false,
 ): BoxHealthReport {
   const hostDown = state === 'unknown';
   const critical = state === 'critical';
@@ -169,6 +174,7 @@ export function demoBoxHealthReport(
     verdict: verdictOf(groups.flatMap((group) => group.checks)),
     checkedAt: new Date(now).toISOString(),
     groups,
+    backup: { running: backupRunning },
   };
 }
 
@@ -205,5 +211,6 @@ export function boxHealthDemoAnswer(
     lastDemoBackup = backupStartedAt + DEMO_BACKUP_MS;
     backupStartedAt = null;
   }
-  return { status: 200, body: demoBoxHealthReport(state, now, lastDemoBackup) };
+  const running = state === 'backup' || backupStartedAt !== null;
+  return { status: 200, body: demoBoxHealthReport(state, now, lastDemoBackup, running) };
 }

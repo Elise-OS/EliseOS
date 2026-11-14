@@ -37,6 +37,7 @@ import {
   ACTION_KEYS,
   allChecks,
   backupProgress,
+  backupRunningOnBox,
   bannerMessage,
   bannerTone,
   countLevels,
@@ -202,7 +203,8 @@ export function BoxHealthPanel({
   const lastFetch = useRef(0);
   const inFlight = useRef<Promise<void> | null>(null);
   const report = useMemo(() => (rawReport ? readReport(rawReport) : null), [rawReport]);
-  const backupRunning = backupSending || backupWatch !== null;
+  // A backup started elsewhere (other device, schedule) shows the same way as one started here.
+  const backupRunning = backupSending || backupWatch !== null || backupRunningOnBox(rawReport);
 
   const refresh = useCallback((): Promise<void> => {
     // One question at a time: a click during an automatic check waits for the same answer.

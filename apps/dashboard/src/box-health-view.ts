@@ -395,6 +395,10 @@ export interface BackupWatch {
   knownAt: number | null;
 }
 
+/** True when the box says a backup is running, wherever it was started (other device, schedule). */
+export const backupRunningOnBox = (report: BoxHealthReport | null) =>
+  report?.backup?.running === true;
+
 export const watchBackup = (report: BoxHealthReport | null, now = Date.now()): BackupWatch => ({
   startedAt: now,
   knownAt: lastBackup(report)?.at ?? null,
@@ -409,5 +413,7 @@ export function backupProgress(
   const last = lastBackup(report);
   if (last && (watch.knownAt === null || last.at > watch.knownAt))
     return last.ok ? 'done' : 'failed';
+  // The box still says it is working: keep waiting rather than calling it late.
+  if (backupRunningOnBox(report)) return 'running';
   return now - watch.startedAt > BOX_HEALTH_BACKUP_WATCH_MS ? 'timeout' : 'running';
 }

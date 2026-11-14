@@ -352,13 +352,17 @@ export function lastBackup(report: BoxHealthReport | null): LastBackup | null {
 }
 
 /**
- * The API does not say a backup is running: the screen remembers the button press and waits for
- * a report whose last backup is newer than the one it knew.
+ * The screen remembers the button press and waits for a report whose last backup is newer than the
+ * one it knew (older APIs do not send `backup.running`).
  */
 export interface BackupWatch {
   startedAt: number;
   knownAt: number | null;
 }
+
+/** True when the box says a backup is running, wherever it was started (other device, schedule). */
+export const backupRunningOnBox = (report: BoxHealthReport | null) =>
+  report?.backup?.running === true;
 
 export const watchBackup = (report: BoxHealthReport | null, now = Date.now()): BackupWatch => ({
   startedAt: now,
@@ -373,6 +377,8 @@ export function backupProgress(
   const last = lastBackup(report);
   if (last && (watch.knownAt === null || last.at > watch.knownAt))
     return last.ok ? 'done' : 'failed';
+  // The box still says it is working: keep waiting rather than calling it late.
+  if (backupRunningOnBox(report)) return 'running';
   return now - watch.startedAt > BACKUP_WATCH_MS ? 'timeout' : 'running';
 }
 

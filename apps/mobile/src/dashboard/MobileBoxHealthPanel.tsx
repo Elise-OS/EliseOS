@@ -59,6 +59,7 @@ import {
   REFRESH_MS,
   actionDestination,
   backupProgress,
+  backupRunningOnBox,
   bannerOf,
   groupKey,
   groupTone,
@@ -224,7 +225,8 @@ export function MobileBoxHealthPanel({
   const refreshingChange = useRef(onRefreshingChange);
   refreshingChange.current = onRefreshingChange;
   const report = useMemo(() => (rawReport ? readReport(rawReport) : null), [rawReport]);
-  const running = backupBusy || backupWatch !== null;
+  // A backup started elsewhere (other device, schedule) shows the same way as one started here.
+  const running = backupBusy || backupWatch !== null || backupRunningOnBox(rawReport);
 
   const load = useCallback(
     async (mode: 'initial' | 'manual' | 'pull' | 'silent') => {
