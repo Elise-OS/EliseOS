@@ -8,6 +8,8 @@ x-logging: &logging
       max-size: 10m
       max-file: '3'
 
+# Memory ceilings (mem_limit on each service) are far above normal use: they only stop a leak
+# in one service from exhausting the box and taking every other service down with it.
 x-node-common: &node-common
   <<: *logging
   restart: unless-stopped
@@ -69,6 +71,7 @@ services:
 
   postgres:
     <<: *logging
+    mem_limit: 512m
     image: postgres:18-bookworm
     restart: unless-stopped
     depends_on:
@@ -93,6 +96,7 @@ services:
 
   mosquitto:
     <<: *logging
+    mem_limit: 128m
     image: eclipse-mosquitto:2.0.22
     restart: unless-stopped
     depends_on:
@@ -119,6 +123,7 @@ services:
 
   zigbee2mqtt:
     <<: *logging
+    mem_limit: 384m
     image: ghcr.io/koenkk/zigbee2mqtt:2.13.0
     restart: unless-stopped
     depends_on:
@@ -142,6 +147,7 @@ services:
 
   homeassistant:
     <<: *logging
+    mem_limit: 1g
     image: ghcr.io/home-assistant/home-assistant:2026.7.4
     restart: unless-stopped
     network_mode: host
@@ -172,6 +178,7 @@ services:
 
   go2rtc:
     <<: *logging
+    mem_limit: 256m
     image: ghcr.io/alexxit/go2rtc:1.9.14
     restart: unless-stopped
     depends_on:
@@ -190,6 +197,7 @@ services:
 
   ai:
     <<: *logging
+    mem_limit: 768m
     build:
       context: .
       dockerfile: docker/Dockerfile.ai
@@ -218,6 +226,7 @@ services:
 
   api:
     <<: *node-common
+    mem_limit: 640m
     build:
       context: .
       dockerfile: docker/Dockerfile.node
@@ -259,6 +268,7 @@ services:
       ELISE_SCREEN_AGENT_SOCKET: /run/elise-screen/agent.sock
       ELISE_SCREEN_LOCAL_URL: http://127.0.0.1:${ELISE_HTTP_PORT:-8080}
       ELISE_REMOTE_AGENT_SOCKET: /run/elise-remote-access/agent.sock
+      NODE_OPTIONS: --max-old-space-size=448
       ELISE_UPDATE_AGENT_SOCKET: /run/elise-update/agent.sock
       ELISE_ZIGBEE_AGENT_SOCKET: /run/elise-zigbee/agent.sock
       ELISE_JITSI_URL: ${ELISE_JITSI_URL:-}
@@ -303,6 +313,7 @@ services:
 
   worker:
     <<: *node-common
+    mem_limit: 512m
     build:
       context: .
       dockerfile: docker/Dockerfile.node
@@ -317,6 +328,7 @@ services:
       POSTGRES_DB: elise
       POSTGRES_USER: elise
       AI_BASE_URL: http://ai:8000
+      NODE_OPTIONS: --max-old-space-size=352
       WEBHOOK_URL: ${WEBHOOK_URL:-}
       WEBHOOK_SECRET: ${WEBHOOK_SECRET:-}
       CAMERA_MEDIA_ROOT: /var/lib/elise/camera-media
@@ -326,9 +338,23 @@ services:
     volumes:
       - elise_secrets:/run/elise-secrets:ro
       - camera_media:/var/lib/elise/camera-media
+    # The worker touches this file on every cycle: a stalled loop turns the container unhealthy.
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "if(Date.now()-require('fs').statSync('/tmp/elise-worker-heartbeat').mtimeMs>300000)process.exit(1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
   dashboard:
     <<: *logging
+    mem_limit: 128m
     build:
       context: .
       dockerfile: docker/Dockerfile.node
