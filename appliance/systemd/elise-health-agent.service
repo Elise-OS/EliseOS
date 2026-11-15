@@ -20,7 +20,7 @@ PrivateTmp=true
 ProtectHome=true
 ProtectSystem=full
 ReadOnlyPaths=/proc /sys
-ReadWritePaths=/run/elise-health /var/lib/elise/backups
+ReadWritePaths=/run/elise-health
 
 [Install]
 WantedBy=multi-user.target
