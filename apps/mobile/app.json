@@ -31,7 +31,8 @@
         }
       ],
       "expo-font",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "./plugins/with-optional-hardware-features"
     ],
     "ios": {
       "supportsTablet": true,
