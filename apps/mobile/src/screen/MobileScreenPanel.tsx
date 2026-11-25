@@ -222,7 +222,8 @@ export function MobileScreenPanel({
           <View style={s.flex}>
             <Text style={s.cardTitle}>{t('mobileScreenPanel.onTheTvNow')}</Text>
             <Text style={s.detail}>
-              {snapshot?.state.tvControl?.name ?? t('mobileScreenPanel.tvNotPaired')} ·{' '}
+              {/* The name of the TV driven over the network, only when one is set up. */}
+              {snapshot?.state.tvControl?.name ? `${snapshot.state.tvControl.name} · ` : ''}
               {snapshot?.online ? t('mobileScreenPanel.online') : t('mobileScreenPanel.offline')}
             </Text>
           </View>
