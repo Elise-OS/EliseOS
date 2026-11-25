@@ -22,7 +22,7 @@ describe('Mobile family notebook API', () => {
   it('sends the session token, filter and encoded cursor when reading', async () => {
     const fetch = vi
       .fn()
-      .mockResolvedValue({ ok: true, json: () => Promise.resolve({ items: [] }) });
+      .mockResolvedValue({ ok: true, text: () => Promise.resolve(JSON.stringify({ items: [] })) });
     vi.stubGlobal('fetch', fetch);
     await mobileApi.liaison(server, 'test-session', 'OPEN', 'entry&cursor');
     expect(fetch).toHaveBeenCalledWith(
@@ -33,9 +33,10 @@ describe('Mobile family notebook API', () => {
     );
   });
   it('creates a task and confirms visits through the shared API', async () => {
-    const fetch = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: () => Promise.resolve({ id: 'entry' }) });
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(JSON.stringify({ id: 'entry' })),
+    });
     vi.stubGlobal('fetch', fetch);
     const task: LiaisonCreate = {
       kind: 'TASK',

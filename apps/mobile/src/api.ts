@@ -295,6 +295,15 @@ const fetchWithTimeout = async (
   }
 };
 
+/**
+ * The JSON of an answer. The API answers a null result (no sensor search in progress…) with 200
+ * and an empty body: that is null, not a broken answer. A body that is not JSON still throws.
+ */
+export const readJson = async (response: Pick<Response, 'text'>): Promise<unknown> => {
+  const text = await response.text();
+  return text.trim() === '' ? null : (JSON.parse(text) as unknown);
+};
+
 const request = async <T>(
   server: SavedServer,
   path: string,
@@ -362,8 +371,8 @@ const request = async <T>(
   }
   if (response.status === 204) return undefined as T;
   // Accepted jobs (box backup…) may answer without a body.
-  if (response.status === 202) return response.json().catch(() => undefined) as Promise<T>;
-  return response.json() as Promise<T>;
+  if (response.status === 202) return readJson(response).catch(() => undefined) as Promise<T>;
+  return readJson(response) as Promise<T>;
 };
 
 const query = (values: Record<string, string | undefined>) => {

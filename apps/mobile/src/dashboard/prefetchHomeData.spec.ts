@@ -23,7 +23,7 @@ const server = {
 const response = (data: unknown) => ({
   ok: true,
   status: 200,
-  json: () => Promise.resolve(data),
+  text: () => Promise.resolve(JSON.stringify(data)),
 });
 
 afterEach(() => vi.unstubAllGlobals());

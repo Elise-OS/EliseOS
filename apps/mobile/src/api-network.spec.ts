@@ -29,7 +29,7 @@ describe('mobile API connectivity', () => {
     const fetch = vi
       .fn()
       .mockRejectedValueOnce(new TypeError('Network request failed'))
-      .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve({}) });
+      .mockResolvedValueOnce({ ok: true, status: 200, text: () => Promise.resolve('{}') });
     vi.stubGlobal('fetch', fetch);
 
     await mobileApi.overview(server, 'session');
@@ -69,5 +69,23 @@ describe('mobile API connectivity', () => {
     expect(error).toBeInstanceOf(MobileApiError);
     expect(error).toMatchObject({ code: 'TIMEOUT' });
     expect(isMobileApiNetworkError(new MobileApiError('timeout', 'TIMEOUT'))).toBe(true);
+  });
+
+  it('reads the empty 200 the API sends for a null result as null, not as a lost box', async () => {
+    // NestJS answers `return null` with 200 and no body (no sensor search in progress).
+    const fetch = vi.fn().mockResolvedValue(new Response('', { status: 200 }));
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(
+      mobileApi.currentSensorOnboarding({ ...server, urls: [server.url] }, 'session'),
+    ).resolves.toBeNull();
+  });
+
+  it('still refuses a body that is not JSON', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>', { status: 200 })));
+
+    await expect(
+      mobileApi.currentSensorOnboarding({ ...server, urls: [server.url] }, 'session'),
+    ).rejects.toThrow(SyntaxError);
   });
 });

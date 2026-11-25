@@ -21,7 +21,8 @@ describe('Mobile calendar API', () => {
   it('loads a range with the authenticated session', async () => {
     const fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ items: [], timezone: 'Europe/Paris', canWrite: true }),
+      text: () =>
+        Promise.resolve(JSON.stringify({ items: [], timezone: 'Europe/Paris', canWrite: true })),
     });
     vi.stubGlobal('fetch', fetch);
     await mobileApi.calendar(server, 'session', '2026-09-01T00:00:00Z', '2026-10-01T00:00:00Z');
