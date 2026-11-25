@@ -125,6 +125,7 @@ L’interface est entièrement responsive et disponible en français, anglais, e
 - Jusqu’à 20 messages défilants, photos, audio, vidéos, liens YouTube et flux HTTPS.
 - Appels vidéo Jitsi auto-hébergés, décrochage automatique optionnel, bouton USB accepter/raccrocher.
 - Allumage automatique de la TV par HDMI-CEC, Wake-on-LAN ou Home Assistant en secours.
+- Programmes radio et TV : la TV s’allume pour l’émission choisie (chaque semaine ou à une date), puis revient à l’accueil.
 
 ### Maison et compatibilité
 

@@ -692,6 +692,25 @@
     "videoCallsAllowedHint": "I familiari autorizzati possono chiamare sulla televisione.",
     "videoCallsBlockedHint": "Le chiamate sono bloccate finché questa impostazione è disattivata."
   },
+  "mobileScreenPrograms": {
+    "add": "Programma",
+    "empty": "Ancora nessun programma. Per esempio: Rai Radio 1 dal lunedì al venerdì, dalle 9 alle 10.",
+    "end": "Fine",
+    "everyDay": "Tutti i giorni",
+    "everyWeek": "Ogni settimana",
+    "howItWorks": "All’ora di inizio, la TV si accende e avvia il programma. All’ora di fine, torna alla schermata iniziale, o va in standby durante le ore di riposo.",
+    "intro": "La TV di {{resident}} si accende da sola per il programma, poi torna alla schermata iniziale.",
+    "nothingToProgram": "Aggiungete prima una radio o un canale in Media",
+    "once": "Una sola volta",
+    "playingNow": "In corso",
+    "remove": "Elimina il programma {{title}}",
+    "start": "Inizio",
+    "tab": "Programmi",
+    "title": "Programmi radio e TV",
+    "weekdays": "Dal lunedì al venerdì",
+    "what": "Cosa ascoltare o guardare",
+    "when": "Quando"
+  },
   "mobileScreenTabs": {
     "add": "Aggiungi",
     "add2": "Aggiungi {{emoji}}",

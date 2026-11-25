@@ -1,6 +1,7 @@
 import {
   appointmentPictogramSchema,
   screenMessageSchema,
+  screenProgramInputSchema,
   screenScheduledContentInputSchema,
 } from '@elise/contracts';
 import {
@@ -158,6 +159,12 @@ export class ScreenController {
     @Param('id') id: string,
   ) {
     return this.screens.cancelScheduledContent(r.userId, id);
+  }
+  @Post('programs') addProgram(@Req() r: AuthenticatedRequest, @Body() b: unknown) {
+    return this.screens.addProgram(r.userId, parseRequest(screenProgramInputSchema, b));
+  }
+  @Delete('programs/:id') removeProgram(@Req() r: AuthenticatedRequest, @Param('id') id: string) {
+    return this.screens.removeProgram(r.userId, id);
   }
   @Get('appointments') appointments(@Req() r: AuthenticatedRequest) {
     return this.screens.appointments(r.userId);

@@ -123,6 +123,7 @@ A calm screen, readable from the sofa: message of the day, clock, weather, appoi
 - Up to 20 rotating messages, photos, audio, videos, YouTube links and HTTPS streams.
 - Self-hosted Jitsi video calls, optional auto-answer, USB button to accept or hang up.
 - Automatic TV power-on through HDMI-CEC, Wake-on-LAN, or Home Assistant as a fallback.
+- Radio and TV programs: the TV turns on for the chosen program (every week or on a date), then goes back to the home screen.
 
 ### Home and compatibility
 

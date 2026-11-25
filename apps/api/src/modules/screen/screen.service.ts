@@ -28,8 +28,13 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import {
+  advanceScreenPrograms,
   advanceScreenSchedule,
   initialScreenState,
+  screenProgramIsUpcoming,
+  screenProgramMediaKinds,
+  type ScreenProgramEvent,
+  type ScreenProgramInput,
   screenIsQuiet,
   screenLocalTime,
   screenCommandSchema,
@@ -537,6 +542,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
         s.settings.slideshowSeconds ??= 15;
         s.activity ??= [];
         s.scheduledContent ??= [];
+        s.programs ??= [];
         // Screens from before channels followed the language keep the French channels.
         s.tvChannels ??= {
           added: [...LEGACY_TV_CHANNEL_CHOICES.added],
@@ -670,6 +676,22 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
     }
     s.call = null;
     s.history = s.history.filter((h) => h.endedAt > Date.now() - 30 * 86400000).slice(-500);
+  }
+  private programActivity(s: ScreenState, events: ScreenProgramEvent[]) {
+    for (const event of events)
+      this.addActivity(s, {
+        id: randomUUID(),
+        kind: 'content',
+        title:
+          event.kind === 'started'
+            ? 'Programme lancé sur la TV'
+            : event.kind === 'ended'
+              ? 'Programme terminé'
+              : 'Programme introuvable',
+        detail: event.title,
+        actor: event.actor,
+        status: event.kind === 'missing' ? 'failed' : 'applied',
+      });
   }
   private addActivity(
     s: ScreenState,
@@ -1110,7 +1132,9 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       state.history = [];
       state.activity = [];
       state.scheduledContent = [];
+      state.programs = [];
     } else {
+      if (!grant.control) state.programs = [];
       state.scheduledContent = (state.scheduledContent ?? []).filter((item) =>
         item.kind === 'message' ? grant.message : grant.control,
       );
@@ -1294,6 +1318,70 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       throw new ForbiddenException('Droit écran insuffisant.');
     await this.mutate(home.id, (s) => {
       s.scheduledContent = (s.scheduledContent ?? []).filter((item) => item.id !== id);
+    });
+    return this.snapshot(userId);
+  }
+  async addProgram(userId: string, input: ScreenProgramInput) {
+    const { home } = await this.access(userId, 'control');
+    if (
+      input.repeat === 'once' &&
+      !screenProgramIsUpcoming({ ...input, repeat: 'once' }, new Date(), home.timezone)
+    )
+      throw new BadRequestException('Choisissez une date et une heure à venir.');
+    const actor = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { displayName: true },
+    });
+    await this.mutate(home.id, (s) => {
+      s.programs ??= [];
+      if (s.programs.length >= 50)
+        throw new BadRequestException('Trop de programmes sont déjà enregistrés.');
+      const media = s.media.find(
+        (item) => item.id === input.mediaId && screenProgramMediaKinds.includes(item.kind),
+      );
+      if (!media) throw new NotFoundException('Radio ou chaîne introuvable.');
+      s.programs.push({
+        id: randomUUID(),
+        repeat: input.repeat,
+        ...(input.repeat === 'weekly' ? { days: input.days } : { date: input.date }),
+        start: input.start,
+        end: input.end,
+        mediaId: media.id,
+        title: media.title,
+        createdAt: Date.now(),
+        actor: actor.displayName,
+      });
+      this.addActivity(s, {
+        id: randomUUID(),
+        kind: 'content',
+        title: 'Programme ajouté',
+        detail: `${media.title} · ${input.start} – ${input.end}`,
+        actor: actor.displayName,
+        status: 'applied',
+      });
+    });
+    return this.snapshot(userId);
+  }
+  async removeProgram(userId: string, id: string) {
+    const { home, state } = await this.access(userId, 'control');
+    const program = (state.programs ?? []).find((item) => item.id === id);
+    if (!program) throw new NotFoundException('Programme introuvable.');
+    const actor = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { displayName: true },
+    });
+    await this.mutate(home.id, (s) => {
+      s.programs = (s.programs ?? []).filter((item) => item.id !== id);
+      // A program removed while it plays stops at once, as if it had ended.
+      this.programActivity(s, advanceScreenPrograms(s, new Date(), home.timezone));
+      this.addActivity(s, {
+        id: randomUUID(),
+        kind: 'content',
+        title: 'Programme supprimé',
+        detail: program.title,
+        actor: actor.displayName,
+        status: 'applied',
+      });
     });
     return this.snapshot(userId);
   }
@@ -2335,6 +2423,7 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
       s.media = s.media.filter((m) => m.id !== id);
       s.settings.schedule = s.settings.schedule.filter((x) => x.mediaId !== id);
       s.scheduledContent = (s.scheduledContent ?? []).filter((x) => x.mediaId !== id);
+      s.programs = (s.programs ?? []).filter((x) => x.mediaId !== id);
       if (s.playback.mediaId === id) s.playback.mediaId = null;
       if (removed)
         this.addActivity(s, {
@@ -2524,7 +2613,12 @@ export class ScreenService implements OnModuleInit, OnModuleDestroy {
             if (c.previousPlayback && c.revision === s.playback.revision)
               s.playback = c.previousPlayback;
           }
-        if (advanceScreenSchedule(s, new Date(), home.timezone)) this.finish(s, 'quiet');
+        if (advanceScreenSchedule(s, new Date(), home.timezone)) {
+          // A program playing when the quiet hours start keeps going; the TV sleeps at its end.
+          if (s.programRun) s.playback.asleep = false;
+          else this.finish(s, 'quiet');
+        }
+        this.programActivity(s, advanceScreenPrograms(s, new Date(), home.timezone));
         s.scheduledContent ??= [];
         const due = s.scheduledContent.filter((item) => item.scheduledAt <= now);
         s.scheduledContent = s.scheduledContent.filter((item) => item.scheduledAt > now);

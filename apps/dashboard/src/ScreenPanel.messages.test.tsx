@@ -190,9 +190,38 @@ describe('TV message editor and display controls', () => {
     expect(requests.some((row) => row.url.endsWith('/screen/appointments'))).toBe(false);
   });
 
+  it('schedules a weekly program that turns the TV on, then back home', async () => {
+    await act(async () => {
+      host.querySelector<HTMLButtonElement>('#screen-main-tab-programs')!.click();
+      await Promise.resolve();
+    });
+    const panel = host.querySelector('#screen-main-panel-programs')!;
+    expect(panel.hasAttribute('hidden')).toBe(false);
+    expect(panel.textContent).toContain('Aucun programme pour l’instant');
+    const select = panel.querySelector<HTMLSelectElement>('select')!;
+    act(() => {
+      select.value = 'media:d108520f-6129-4b1b-b69d-a838471667f9';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => {
+      panel.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(requests.find((row) => row.url.endsWith('/screen/programs'))).toMatchObject({
+      method: 'POST',
+      body: {
+        repeat: 'weekly',
+        days: [1, 2, 3, 4, 5],
+        start: '09:00',
+        end: '10:00',
+        mediaId: 'd108520f-6129-4b1b-b69d-a838471667f9',
+      },
+    });
+  });
+
   it('keeps the current media and sound controls in the bar above the main tabs', async () => {
     const tabs = host.querySelectorAll('.screen-main-tabs [role="tab"]');
-    expect(tabs).toHaveLength(4);
+    expect(tabs).toHaveLength(5);
     expect(host.querySelector('.screen-playback-now')?.textContent).toContain('Concerts');
     expect(host.querySelector('.screen-playback-now input[type="range"]')).not.toBeNull();
     expect(host.querySelector('.screen-medias-player')).toBeNull();

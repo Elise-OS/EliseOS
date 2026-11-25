@@ -125,6 +125,7 @@ A interface adapta-se por completo a qualquer ecrã e está disponível em franc
 - Até 20 mensagens em rotação, fotografias, áudio, vídeo, ligações do YouTube e fluxos HTTPS.
 - Videochamadas Jitsi auto-alojadas, resposta automática facultativa, botão USB para aceitar ou terminar.
 - Ligação automática da televisão por HDMI-CEC, Wake-on-LAN ou, em alternativa, Home Assistant.
+- Programas de rádio e TV: a televisão liga-se para o programa escolhido (todas as semanas ou numa data) e depois volta ao ecrã inicial.
 
 ### Casa e compatibilidade
 

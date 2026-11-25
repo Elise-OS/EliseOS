@@ -3752,7 +3752,8 @@
 }
 .screen-panel > .screen-media-card,
 .screen-panel > .screen-message-card,
-.screen-panel > .screen-medias {
+.screen-panel > .screen-medias,
+.screen-panel > .screen-programs {
   grid-column: 1 / -1;
   order: 5;
 }
@@ -4564,7 +4565,9 @@
 /* Onglets de l’écran : repères clairs pour les espaces de contenu et l’activité. */
 .screen-main-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* One column per tab, whatever the rights of the person show. */
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
   align-items: stretch;
   gap: 10px;
   min-height: 0;
@@ -4648,6 +4651,7 @@
 @media (max-width: 760px) {
   .screen-main-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row;
     gap: 8px;
   }
 
@@ -5366,4 +5370,213 @@
   justify-content: center;
   gap: 8px;
   margin-top: 4px;
+}
+
+/* Radio and TV programs: the TV turns on for the program, then goes back home. */
+.screen-programs .screen-card__heading {
+  margin-bottom: 18px;
+}
+
+.screen-program-form {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) minmax(300px, 1.3fr) minmax(200px, 0.8fr);
+  gap: 14px 16px;
+  align-items: start;
+  padding: 16px;
+  border: 1px solid #dfe7e9;
+  border-radius: 18px;
+  background: #f8fbfb;
+}
+
+.screen-program-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: #174269;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.screen-program-field legend {
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.screen-program-field small {
+  color: #68788a;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.screen-program-field select,
+.screen-program-field input {
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
+}
+
+.screen-program-repeat {
+  gap: 8px;
+}
+
+.screen-program-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #d4dee3;
+  border-radius: 13px;
+  background: #fff;
+}
+
+.screen-program-toggle button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  color: #596b7e;
+  white-space: nowrap;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.screen-program-toggle button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.screen-program-toggle button.is-selected {
+  color: #fff;
+  background: #17456f;
+}
+
+.screen-program-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.screen-program-days button {
+  min-height: 38px;
+  padding: 0;
+  border: 1px solid #d4dee3;
+  border-radius: 10px;
+  color: #174269;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.screen-program-days button.is-selected {
+  border-color: #347d8b;
+  color: #fff;
+  background: #347d8b;
+}
+
+.screen-program-hours {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.screen-program-submit {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e1e7e8;
+}
+
+.screen-program-submit p {
+  max-width: 70ch;
+  margin: 0;
+  color: #68788a;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.screen-program-submit .screen-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.screen-program-submit .screen-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.screen-program-empty {
+  margin: 16px 0 0;
+}
+
+.screen-program-list {
+  margin-top: 16px;
+}
+
+.screen-program-list .screen-scheduled-kind {
+  overflow: hidden;
+}
+
+.screen-program-list .screen-scheduled-kind img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #fff;
+}
+
+.screen-program-list li.is-playing {
+  border-color: #9bc1cc;
+  background: #eef6f7;
+}
+
+.screen-program-list li > span:nth-child(2) small {
+  text-transform: none;
+}
+
+.screen-program-live {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #fff;
+  background: #347d8b;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  vertical-align: 2px;
+}
+
+@media (max-width: 1100px) {
+  .screen-program-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .screen-program-field--what {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .screen-program-form {
+    grid-template-columns: 1fr;
+  }
+
+  .screen-program-submit {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

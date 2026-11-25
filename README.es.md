@@ -125,6 +125,7 @@ La interfaz es totalmente adaptable a cualquier pantalla y está disponible en f
 - Hasta 20 mensajes en rotación, fotos, audio, vídeos, enlaces de YouTube y flujos HTTPS.
 - Videollamadas Jitsi autoalojadas, descuelgue automático opcional, botón USB para aceptar o colgar.
 - Encendido automático del televisor por HDMI-CEC, Wake-on-LAN o, como alternativa, Home Assistant.
+- Programas de radio y TV: el televisor se enciende para el programa elegido (cada semana o en una fecha) y luego vuelve a la pantalla de inicio.
 
 ### Casa y compatibilidad
 

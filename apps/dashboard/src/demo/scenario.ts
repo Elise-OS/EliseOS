@@ -1925,6 +1925,34 @@ function createScreenSnapshot(): ScreenSnapshot {
     })),
   ];
   state.playback = { mediaId, paused: false, asleep: false, volume: 32, revision: 12 };
+  // Radio and TV the TV turns on for by itself, then goes back home.
+  state.programs = [
+    {
+      id: 'b7c1f0e2-5d1a-4c3e-9a51-6f0d2c8e7a01',
+      repeat: 'weekly',
+      days: [1, 2, 3, 4, 5],
+      start: '09:00',
+      end: '10:00',
+      mediaId: 'a520632a-74d7-4d1a-9adf-381acd6af201',
+      title: DEMO_RADIOS[0]!.name,
+      createdAt: Date.now() - 6 * DAY,
+      actor: 'Claire Martin',
+    },
+    ...state.media
+      .filter((media) => media.kind === 'tv')
+      .slice(0, 1)
+      .map((media) => ({
+        id: 'b7c1f0e2-5d1a-4c3e-9a51-6f0d2c8e7a02',
+        repeat: 'weekly' as const,
+        days: [0, 1, 2, 3, 4, 5, 6],
+        start: '13:00',
+        end: '13:45',
+        mediaId: media.id,
+        title: media.title,
+        createdAt: Date.now() - 3 * DAY,
+        actor: 'Claire Martin',
+      })),
+  ];
   state.podcasts = DEMO_PODCASTS.map(({ id, title, author, episodeCount, genre, feedUrl }) => ({
     id,
     title,
@@ -2216,6 +2244,34 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
     state.screen.state.scheduledContent = (state.screen.state.scheduledContent ?? []).filter(
       (item) => item.id !== id,
     );
+    return state.screen as T;
+  }
+  if (pathname === '/screen/programs' && method === 'POST') {
+    const media = state.screen.state.media.find((item) => item.id === body.mediaId);
+    state.screen.state.programs = [
+      ...(state.screen.state.programs ?? []),
+      {
+        id: `demo-screen-program-${Date.now()}`,
+        repeat: body.repeat === 'once' ? 'once' : 'weekly',
+        ...(body.repeat === 'once'
+          ? { date: String(body.date) }
+          : { days: (body.days as number[] | undefined) ?? [] }),
+        start: String(body.start),
+        end: String(body.end),
+        mediaId: String(body.mediaId),
+        title: media?.title ?? '',
+        createdAt: Date.now(),
+        actor: 'Claire Martin',
+      },
+    ];
+    return state.screen as T;
+  }
+  if (pathname.startsWith('/screen/programs/') && method === 'DELETE') {
+    const id = pathname.split('/').at(-1);
+    state.screen.state.programs = (state.screen.state.programs ?? []).filter(
+      (item) => item.id !== id,
+    );
+    if (state.screen.state.programRun?.programId === id) state.screen.state.programRun = null;
     return state.screen as T;
   }
   if (pathname === '/screen/media' && method === 'POST') {

@@ -2365,6 +2365,33 @@
     "theCallHasEnded": "The call has ended.",
     "close": "Close"
   },
+  "screenPrograms": {
+    "add": "Schedule",
+    "addedBy": "added by {{name}}",
+    "count_one": "{{count}} program",
+    "count_other": "{{count}} programs",
+    "date": "Date",
+    "days": "Days of the week",
+    "empty": "No program yet. For example: BBC Radio 4 from Monday to Friday, 9 to 10 am.",
+    "end": "End",
+    "everyDay": "Every day",
+    "everyWeek": "Every week",
+    "howItWorks": "At the start time, the TV turns on and plays the program. At the end time, it goes back to the home screen, or to sleep during the quiet hours.",
+    "intro": "{{resident}}’s TV turns on by itself for the program, then goes back to the home screen.",
+    "nothingToProgram": "First add a radio or a channel in Media",
+    "once": "Just once",
+    "playingNow": "Playing",
+    "radios": "Favorite radios",
+    "remove": "Delete the program {{title}}",
+    "start": "Start",
+    "tab": "Programs",
+    "title": "Radio and TV programs",
+    "tvChannels": "TV channels",
+    "weekdays": "Monday to Friday",
+    "what": "What to listen to or watch",
+    "whatHelp": "Your favorite radios, the TV channels and your YouTube videos.",
+    "when": "When"
+  },
   "sensorCategories": {
     "air_quality": {
       "description": "CO₂, particles and air quality",

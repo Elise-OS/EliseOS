@@ -692,6 +692,25 @@
     "videoCallsAllowedHint": "Los familiares autorizados pueden llamar a la televisión.",
     "videoCallsBlockedHint": "Las llamadas están bloqueadas mientras este ajuste esté desactivado."
   },
+  "mobileScreenPrograms": {
+    "add": "Programar",
+    "empty": "Todavía no hay programas. Por ejemplo: RNE de lunes a viernes, de 9 a 10 h.",
+    "end": "Fin",
+    "everyDay": "Todos los días",
+    "everyWeek": "Cada semana",
+    "howItWorks": "A la hora de inicio, la tele se enciende y pone el programa. A la hora de fin, vuelve a la pantalla de inicio, o se pone en reposo durante las horas de descanso.",
+    "intro": "La tele de {{resident}} se enciende sola para su programa y luego vuelve a la pantalla de inicio.",
+    "nothingToProgram": "Añada primero una radio o un canal en Medios",
+    "once": "Una sola vez",
+    "playingNow": "En curso",
+    "remove": "Eliminar el programa {{title}}",
+    "start": "Inicio",
+    "tab": "Programas",
+    "title": "Programas de radio y TV",
+    "weekdays": "De lunes a viernes",
+    "what": "Qué escuchar o ver",
+    "when": "Cuándo"
+  },
   "mobileScreenTabs": {
     "add": "Añadir",
     "add2": "Añadir {{emoji}}",

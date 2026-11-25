@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import { TvChannelLogo } from './TvChannelLogo';
+import { ScreenProgramsPanel } from './ScreenProgramsPanel';
 import { isLocale, type Locale, t, textBlock } from './i18n';
 import { dateLocale } from './screen-locale';
 import { DEMO_SHOW_TV_EVENT, residentScreenHref } from './resident-screen-link';
@@ -222,7 +223,7 @@ type TvHostStatus = {
   };
   homeAssistantTv?: Partial<NetworkTv> | null;
 };
-type ScreenMainTab = 'album' | 'messages' | 'medias' | 'activity';
+type ScreenMainTab = 'album' | 'messages' | 'medias' | 'programs' | 'activity';
 const tvChannelTitle = (channel: TvChannel) => t('screenPanel.channelLive', { name: channel.name });
 const tvChannelDescription = (channel: TvChannel): string =>
   (textBlock('screenPanel.channelDescription') as Record<string, string>)[channel.id] ?? '';
@@ -852,6 +853,12 @@ export function ScreenPanel({
         allowed: grant.message,
       },
       { id: 'medias', label: t('screenPanel.media'), icon: Tv, allowed: grant.control },
+      {
+        id: 'programs',
+        label: t('screenPrograms.tab'),
+        icon: CalendarClock,
+        allowed: grant.control,
+      },
       {
         id: 'activity',
         label: t('screenPanel.activityTracking'),
@@ -2590,6 +2597,16 @@ export function ScreenPanel({
               </section>
             )}
           </section>
+
+          <ScreenProgramsPanel
+            snapshot={snapshot}
+            hidden={activeMainTab !== 'programs'}
+            busy={busy}
+            tvLineup={tvLineup}
+            tvChannelTitle={tvChannelTitle}
+            run={run}
+            request={screenRequest}
+          />
 
           <section
             id="screen-main-panel-album"

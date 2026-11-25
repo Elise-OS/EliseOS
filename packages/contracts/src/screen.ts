@@ -234,6 +234,48 @@ export const screenScheduledContentInputSchema = z.discriminatedUnion('kind', [
 ]);
 export type ScreenScheduledContentInput = z.infer<typeof screenScheduledContentInputSchema>;
 
+/** Radio, TV or other media the TV turns on for and stops on its own (weekly or once). */
+export const screenProgramMediaKinds: readonly ScreenMedia['kind'][] = ['stream', 'tv', 'youtube'];
+const isoDate = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/);
+const screenProgramTimes = {
+  mediaId: z.string().uuid(),
+  start: clock,
+  end: clock,
+};
+export const screenProgramInputSchema = z
+  .discriminatedUnion('repeat', [
+    z.object({
+      repeat: z.literal('weekly'),
+      days: z
+        .array(z.number().int().min(0).max(6))
+        .min(1)
+        .max(7)
+        .transform((days) => [...new Set(days)].sort()),
+      ...screenProgramTimes,
+    }),
+    z.object({ repeat: z.literal('once'), date: isoDate, ...screenProgramTimes }),
+  ])
+  .refine((input) => input.start !== input.end, {
+    path: ['end'],
+    message: 'L’heure de fin doit être différente de l’heure de début.',
+  });
+export type ScreenProgramInput = z.infer<typeof screenProgramInputSchema>;
+
+export interface ScreenProgram {
+  id: string;
+  repeat: 'weekly' | 'once';
+  /** Weekdays, 0 = Sunday, for weekly programs. */
+  days?: number[];
+  /** Local date YYYY-MM-DD, for one-time programs. */
+  date?: string;
+  start: string;
+  end: string;
+  mediaId: string;
+  title: string;
+  createdAt: number;
+  actor: string;
+}
+
 export interface ScreenScheduledContent {
   id: string;
   kind: 'message' | 'photo';
@@ -262,6 +304,12 @@ export interface ScreenState {
   history: Array<{ id: string; name: string; startedAt: number; endedAt: number; result: string }>;
   activity: ScreenActivity[];
   scheduledContent?: ScreenScheduledContent[];
+  /** Radio and TV programs the TV plays on its own, then stops. */
+  programs?: ScreenProgram[];
+  /** Occurrence currently playing, to stop it at its end time. */
+  programRun?: { key: string; programId: string; revision: number } | null;
+  /** Last occurrence started, so a program stopped by hand is not restarted. */
+  lastProgramKey?: string;
   /** Language the TV shows, reported by its heartbeats (fr, en, es…). */
   language?: string;
   /** Live TV channels the caregiver added to or removed from the default ones. */
@@ -339,6 +387,9 @@ export const initialScreenState = (): ScreenState => ({
   history: [],
   activity: [],
   scheduledContent: [],
+  programs: [],
+  programRun: null,
+  lastProgramKey: '',
   tvChannels: { added: [], removed: [] },
   commands: [],
 });
@@ -401,4 +452,115 @@ export function advanceScreenSchedule(state: ScreenState, now: Date, timezone: s
     state.playback.revision++;
   }
   return slot.action === 'sleep';
+}
+
+const clockMinutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+const shiftLocalDate = (date: string, days: number) => {
+  const shifted = new Date(`${date}T12:00:00Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString().slice(0, 10);
+};
+
+/** Length of a program in minutes; an end before the start means it ends the next day. */
+export function screenProgramMinutes(program: Pick<ScreenProgram, 'start' | 'end'>) {
+  return (clockMinutes(program.end) - clockMinutes(program.start) + 1440) % 1440;
+}
+
+/** The program playing at `now`; when two overlap, the one that started last wins. */
+export function activeScreenProgram(programs: ScreenProgram[], now: Date, timezone: string) {
+  const local = screenLocalTime(now, timezone);
+  const nowMinutes = clockMinutes(local.time);
+  let active: { program: ScreenProgram; key: string; elapsed: number } | null = null;
+  for (const program of programs) {
+    const duration = screenProgramMinutes(program);
+    for (let daysAgo = 0; daysAgo < 2; daysAgo++) {
+      const date = shiftLocalDate(local.date, -daysAgo);
+      const weekday = (local.day - daysAgo + 7) % 7;
+      const planned =
+        program.repeat === 'once' ? program.date === date : !!program.days?.includes(weekday);
+      if (!planned) continue;
+      const elapsed = daysAgo * 1440 + nowMinutes - clockMinutes(program.start);
+      if (elapsed < 0 || elapsed >= duration) continue;
+      if (!active || elapsed < active.elapsed)
+        active = { program, key: `${date}:${program.start}:${program.id}`, elapsed };
+    }
+  }
+  return active;
+}
+
+/** True when a one-time program is still to come (or playing) at `now`. */
+export function screenProgramIsUpcoming(
+  program: Pick<ScreenProgram, 'repeat' | 'date' | 'start' | 'end'>,
+  now: Date,
+  timezone: string,
+) {
+  if (program.repeat !== 'once' || !program.date) return true;
+  const local = screenLocalTime(now, timezone);
+  const crossesMidnight = clockMinutes(program.end) <= clockMinutes(program.start);
+  const endDate = crossesMidnight ? shiftLocalDate(program.date, 1) : program.date;
+  return `${endDate} ${program.end}` > `${local.date} ${local.time}`;
+}
+
+export interface ScreenProgramEvent {
+  kind: 'started' | 'ended' | 'missing';
+  title: string;
+  actor: string;
+}
+
+/**
+ * Turn the TV on for the program due now, and stop the one whose end time passed. At the end
+ * the TV goes back to the home screen, or to sleep during the quiet hours. A program someone
+ * changed or stopped by hand is left alone and not started again.
+ */
+export function advanceScreenPrograms(
+  state: ScreenState,
+  now: Date,
+  timezone: string,
+): ScreenProgramEvent[] {
+  const events: ScreenProgramEvent[] = [];
+  const programs = state.programs ?? [];
+  const active = activeScreenProgram(programs, now, timezone);
+  const run = state.programRun ?? null;
+  const startsNow =
+    !!active &&
+    active.key !== state.lastProgramKey &&
+    active.key !== run?.key &&
+    state.settings.consent &&
+    !state.call;
+  if (run && active?.key !== run.key) {
+    state.programRun = null;
+    const program = programs.find((item) => item.id === run.programId);
+    const untouched = state.playback.revision === run.revision && !state.playback.asleep;
+    if (untouched && !startsNow) {
+      state.playback.mediaId = null;
+      state.playback.paused = false;
+      if (!state.call && screenIsQuiet(state.settings, screenLocalTime(now, timezone).time))
+        state.playback.asleep = true;
+      state.playback.revision++;
+    }
+    if (untouched)
+      events.push({ kind: 'ended', title: program?.title ?? '', actor: program?.actor ?? '' });
+  }
+  if (active && startsNow) {
+    state.lastProgramKey = active.key;
+    const media = state.media.find((item) => item.id === active.program.mediaId);
+    if (media) {
+      state.playback.mediaId = media.id;
+      state.playback.paused = false;
+      state.playback.asleep = false;
+      state.playback.revision++;
+      state.programRun = {
+        key: active.key,
+        programId: active.program.id,
+        revision: state.playback.revision,
+      };
+      events.push({ kind: 'started', title: media.title, actor: active.program.actor });
+    } else
+      events.push({ kind: 'missing', title: active.program.title, actor: active.program.actor });
+  }
+  state.programs = programs.filter(
+    (program) =>
+      program.id === state.programRun?.programId || screenProgramIsUpcoming(program, now, timezone),
+  );
+  return events;
 }

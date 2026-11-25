@@ -31,6 +31,7 @@ import { MobileDateTimePicker } from '../MobileDateTimePicker';
 import { activeServerUrl } from '../discovery/helpers';
 import { dateLocale } from '../locale';
 import { t } from '../i18n';
+import { MobileScreenPrograms } from './MobileScreenPrograms';
 import { TvChannelLogo } from './TvChannelLogo';
 
 const c = {
@@ -69,7 +70,7 @@ const favoriteMessages = () => [
 ];
 const slideshowOptions = [5, 10, 15, 30, 60, 120];
 
-type MainTab = 'album' | 'messages' | 'medias';
+type MainTab = 'album' | 'messages' | 'medias' | 'programs';
 type MediaSource = 'tv' | 'radio' | 'podcasts' | 'youtube';
 type ScheduleTarget = 'photo' | 'message';
 type ScheduleMode = 'date' | 'time';
@@ -134,6 +135,12 @@ export function MobileScreenTabs({
       id: 'medias' as const,
       title: t('mobileScreenTabs.media'),
       icon: 'play-circle-outline' as const,
+      allowed: canControl,
+    },
+    {
+      id: 'programs' as const,
+      title: t('mobileScreenPrograms.tab'),
+      icon: 'alarm-outline' as const,
       allowed: canControl,
     },
   ].filter((tab) => tab.allowed);
@@ -485,7 +492,9 @@ export function MobileScreenTabs({
           >
             <Ionicons name={tab.icon} size={19} color={activeTab === tab.id ? '#fff' : c.muted} />
             <Text
-              numberOfLines={1}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
               style={[s.mainTabText, activeTab === tab.id && s.mainTabTextActive]}
             >
               {tab.title}
@@ -840,6 +849,18 @@ export function MobileScreenTabs({
             </Pressable>
           </View>
         </View>
+      ) : null}
+
+      {activeTab === 'programs' && snapshot ? (
+        <MobileScreenPrograms
+          server={server}
+          token={token}
+          snapshot={snapshot}
+          busy={busy}
+          liveChannels={liveChannels}
+          mediaIdForUrl={mediaIdForUrl}
+          run={run}
+        />
       ) : null}
 
       {activeTab === 'medias' ? (
@@ -1542,8 +1563,9 @@ const s = StyleSheet.create({
   },
   mainTab: {
     flex: 1,
+    minWidth: 0,
     minHeight: 56,
-    paddingHorizontal: 5,
+    paddingHorizontal: 2,
     paddingVertical: 7,
     borderRadius: 12,
     alignItems: 'center',
@@ -1551,7 +1573,7 @@ const s = StyleSheet.create({
     gap: 4,
   },
   mainTabActive: { backgroundColor: c.blue },
-  mainTabText: { color: c.muted, fontSize: 13, fontWeight: '800' },
+  mainTabText: { color: c.muted, fontSize: 12, fontWeight: '800', textAlign: 'center' },
   mainTabTextActive: { color: '#fff' },
   card: {
     padding: 13,

@@ -224,6 +224,15 @@ const EXACT: Record<string, string> = {
   'Message programmé affiché sur la TV': 'Scheduled message shown on the TV',
   'Photo programmée introuvable': 'Scheduled photo not found',
   'Photo programmée affichée': 'Scheduled photo shown',
+  'Programme ajouté': 'Program added',
+  'Programme supprimé': 'Program deleted',
+  'Programme lancé sur la TV': 'Program started on the TV',
+  'Programme terminé': 'Program ended',
+  'Programme introuvable': 'Program not found',
+  'Radio ou chaîne introuvable.': 'Radio or channel not found.',
+  'Trop de programmes sont déjà enregistrés.': 'Too many programs are already saved.',
+  'L’heure de fin doit être différente de l’heure de début.':
+    'The end time must be different from the start time.',
   'Remplacée par une commande plus récente.': 'Replaced by a more recent command.',
   'Lecture indisponible.': 'Playback unavailable.',
 

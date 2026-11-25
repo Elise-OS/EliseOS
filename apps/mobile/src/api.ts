@@ -18,6 +18,7 @@ import type {
   ScreenMessageInput,
   ScreenPodcastEpisode,
   ScreenPodcastSearchResult,
+  ScreenProgramInput,
   ScreenScheduledContentInput,
   ScreenSettings,
   ScreenSnapshot,
@@ -700,6 +701,15 @@ export const mobileApi = {
     }),
   cancelScheduledScreenContent: (server: SavedServer, token: string, id: string) =>
     request<ScreenSnapshot>(server, `/screen/scheduled-content/${encodeURIComponent(id)}`, token, {
+      method: 'DELETE',
+    }),
+  addScreenProgram: (server: SavedServer, token: string, input: ScreenProgramInput) =>
+    request<ScreenSnapshot>(server, '/screen/programs', token, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  removeScreenProgram: (server: SavedServer, token: string, id: string) =>
+    request<ScreenSnapshot>(server, `/screen/programs/${encodeURIComponent(id)}`, token, {
       method: 'DELETE',
     }),
   updateScreenSettings: (server: SavedServer, token: string, settings: ScreenSettings) =>

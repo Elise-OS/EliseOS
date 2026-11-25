@@ -412,6 +412,53 @@ describe('TV messages and appointment pictograms', () => {
     expect(state.playback.mediaId).toBe(photoId);
     expect(state.commands.at(-1)).toMatchObject({ action: 'play', status: 'pending' });
   });
+  it('saves radio programs, plays them on time and removes them with their radio', async () => {
+    const { service, state } = fixture();
+    const radioId = '550e8400-e29b-41d4-a716-446655440010';
+    state.settings.consent = true;
+    state.media.push({ id: radioId, title: 'France Inter', kind: 'stream', url: 'https://r.test' });
+    const local = screenLocalTime(new Date(), 'Europe/Paris');
+    const minutes = Number(local.time.slice(0, 2)) * 60 + Number(local.time.slice(3));
+    const clock = (value: number) =>
+      `${String(Math.floor(((value + 1440) % 1440) / 60)).padStart(2, '0')}:${String(
+        (value + 1440) % 60,
+      ).padStart(2, '0')}`;
+    await service.addProgram('user1', {
+      repeat: 'weekly',
+      days: [0, 1, 2, 3, 4, 5, 6],
+      start: clock(minutes - 1),
+      end: clock(minutes + 30),
+      mediaId: radioId,
+    });
+    expect(state.programs).toHaveLength(1);
+    expect(state.programs?.[0]).toMatchObject({ title: 'France Inter', actor: 'Paul' });
+    await expect(
+      service.addProgram('user1', {
+        repeat: 'once',
+        date: '2020-01-01',
+        start: '09:00',
+        end: '10:00',
+        mediaId: radioId,
+      }),
+    ).rejects.toThrow('Choisissez une date et une heure à venir.');
+    await expect(
+      service.addProgram('user1', {
+        repeat: 'weekly',
+        days: [1],
+        start: '09:00',
+        end: '10:00',
+        mediaId: '550e8400-e29b-41d4-a716-446655440011',
+      }),
+    ).rejects.toThrow('Radio ou chaîne introuvable.');
+
+    await (service as unknown as { tick: () => Promise<void> }).tick();
+    expect(state.playback.mediaId).toBe(radioId);
+    expect(state.activity.map((item) => item.title)).toContain('Programme lancé sur la TV');
+
+    await service.removeProgram('user1', state.programs![0]!.id);
+    expect(state.programs).toEqual([]);
+    expect(state.playback.mediaId).toBeNull();
+  });
   it('stores the chosen pictogram and includes it in the resident agenda', async () => {
     const { service, db } = fixture();
     const today = screenLocalTime(new Date(), 'Europe/Paris').date;

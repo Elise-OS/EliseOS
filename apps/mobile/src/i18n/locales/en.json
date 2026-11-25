@@ -682,6 +682,25 @@
     "videoCallsAllowedHint": "Authorized family members can call on the TV.",
     "videoCallsBlockedHint": "Calls are blocked while this setting is off."
   },
+  "mobileScreenPrograms": {
+    "add": "Schedule",
+    "empty": "No program yet. For example: BBC Radio 4 from Monday to Friday, 9 to 10 am.",
+    "end": "End",
+    "everyDay": "Every day",
+    "everyWeek": "Every week",
+    "howItWorks": "At the start time, the TV turns on and plays the program. At the end time, it goes back to the home screen, or to sleep during the quiet hours.",
+    "intro": "{{resident}}’s TV turns on by itself for the program, then goes back to the home screen.",
+    "nothingToProgram": "First add a radio or a channel in Media",
+    "once": "Just once",
+    "playingNow": "Playing",
+    "remove": "Delete the program {{title}}",
+    "start": "Start",
+    "tab": "Programs",
+    "title": "Radio and TV programs",
+    "weekdays": "Monday to Friday",
+    "what": "What to listen to or watch",
+    "when": "When"
+  },
   "mobileScreenTabs": {
     "add": "Add",
     "add2": "Add {{emoji}}",

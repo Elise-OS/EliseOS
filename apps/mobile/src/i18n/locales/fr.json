@@ -692,6 +692,25 @@
     "videoCallsAllowedHint": "Les proches autorisés peuvent appeler sur la télévision.",
     "videoCallsBlockedHint": "Les appels sont bloqués tant que ce réglage est désactivé."
   },
+  "mobileScreenPrograms": {
+    "add": "Programmer",
+    "empty": "Aucun programme pour l’instant. Exemple : France Inter du lundi au vendredi, de 9 h à 10 h.",
+    "end": "Fin",
+    "everyDay": "Tous les jours",
+    "everyWeek": "Chaque semaine",
+    "howItWorks": "À l’heure de début, la télé s’allume et lance l’émission. À l’heure de fin, elle revient à l’accueil, ou se met en veille pendant les heures de calme.",
+    "intro": "La télé de {{resident}} s’allume toute seule pour son émission, puis revient à l’accueil.",
+    "nothingToProgram": "Ajoutez d’abord une radio ou une chaîne dans Médias",
+    "once": "Une seule fois",
+    "playingNow": "En cours",
+    "remove": "Supprimer le programme {{title}}",
+    "start": "Début",
+    "tab": "Programmes",
+    "title": "Programmes radio et TV",
+    "weekdays": "Du lundi au vendredi",
+    "what": "Quoi écouter ou regarder",
+    "when": "Quand"
+  },
   "mobileScreenTabs": {
     "add": "Ajouter",
     "add2": "Ajouter {{emoji}}",
