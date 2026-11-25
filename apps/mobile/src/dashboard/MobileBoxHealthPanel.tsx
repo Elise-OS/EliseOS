@@ -7,10 +7,12 @@ import {
 import {
   Activity,
   Archive,
+  BatteryLow,
   Bell,
   Boxes,
   ChevronDown,
   ChevronUp,
+  Clock,
   CircleDashed,
   CircleQuestionMark,
   CloudOff,
@@ -23,6 +25,7 @@ import {
   Globe,
   HardDrive,
   House,
+  HousePlug,
   Inbox,
   KeyRound,
   MemoryStick,
@@ -34,6 +37,8 @@ import {
   ShieldCheck,
   Thermometer,
   TriangleAlert,
+  Unplug,
+  Waypoints,
   Wrench,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -61,9 +66,9 @@ import {
   backupProgress,
   backupRunningOnBox,
   bannerOf,
+  checkKey,
   groupKey,
   groupTone,
-  isKnownCheck,
   isUsableSentence,
   orderedGroups,
   readCheck,
@@ -134,10 +139,15 @@ const checkIcon: Record<string, LucideIcon> = {
   backup: DatabaseBackup,
   database: Archive,
   'remote-access': Globe,
+  'home-assistant': HousePlug,
+  'sensors-offline': Unplug,
+  'sensors-battery': BatteryLow,
+  coverage: Waypoints,
+  'last-event': Clock,
 };
 
 const iconFor = (check: BoxHealthCheck) =>
-  checkIcon[check.id] ?? (check.level === 'unknown' ? CircleDashed : Wrench);
+  checkIcon[checkKey(check.id) ?? check.id] ?? (check.level === 'unknown' ? CircleDashed : Wrench);
 
 /** A familiar sentence for a point; when a value it needs is missing, a plainer one. */
 export function checkSentence(check: BoxHealthCheck, now = Date.now()) {
@@ -160,8 +170,10 @@ export function checkSentence(check: BoxHealthCheck, now = Date.now()) {
   return t(`boxHealth.generic.${reading.level}`);
 }
 
-const checkLabel = (check: BoxHealthCheck) =>
-  isKnownCheck(check.id) ? t(`boxHealth.checks.${check.id}.label`) : check.id;
+const checkLabel = (check: BoxHealthCheck) => {
+  const key = checkKey(check.id);
+  return key ? t(`boxHealth.checks.${key}.label`) : check.id;
+};
 
 const levelLabel = (level: BoxHealthLevel) => t(`boxHealth.level.${level}`);
 

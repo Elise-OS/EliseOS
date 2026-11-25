@@ -2288,6 +2288,20 @@
         "warningMeasured_one": "{{count}} service de la box a redémarré récemment.",
         "warningMeasured_other": "{{count}} services de la box ont redémarré récemment."
       },
+      "coverage": {
+        "critical": "Les capteurs ne répondent plus : la maison n’est plus surveillée.",
+        "label": "Couverture de la maison",
+        "ok": "Les capteurs couvrent bien la maison.",
+        "okMeasured_many": "{{count}} capteurs sur {{total}} répondent.",
+        "okMeasured_one": "{{count}} capteur sur {{total}} répond.",
+        "okMeasured_other": "{{count}} capteurs sur {{total}} répondent.",
+        "silent": "Aucun capteur ne répond : la maison n’est plus surveillée.",
+        "unknown": "Impossible de vérifier la couverture des capteurs.",
+        "warning": "La plupart des capteurs ne répondent plus : la maison n’est plus bien surveillée.",
+        "warningMeasured_many": "Seuls {{count}} capteurs sur {{total}} répondent : la maison n’est plus bien surveillée.",
+        "warningMeasured_one": "Seul {{count}} capteur sur {{total}} répond : la maison n’est plus bien surveillée.",
+        "warningMeasured_other": "Seuls {{count}} capteurs sur {{total}} répondent : la maison n’est plus bien surveillée."
+      },
       "database": {
         "critical": "Les données de la maison ne répondent pas normalement.",
         "label": "Données de la maison",
@@ -2319,6 +2333,23 @@
         "warningMeasured_many": "{{count}} erreurs de lecture relevées en 24 h. Gardez une sauvegarde récente.",
         "warningMeasured_one": "{{count}} erreur de lecture relevée en 24 h. Gardez une sauvegarde récente.",
         "warningMeasured_other": "{{count}} erreurs de lecture relevées en 24 h. Gardez une sauvegarde récente."
+      },
+      "home-assistant": {
+        "critical": "Élise n’est plus reliée au système domotique : les capteurs ne remontent plus.",
+        "label": "Liaison domotique (Home Assistant)",
+        "ok": "Élise est bien reliée au système domotique de la maison.",
+        "unknown": "Impossible de vérifier la liaison avec le système domotique.",
+        "warning": "Élise n’est plus reliée au système domotique : les capteurs peuvent ne plus remonter."
+      },
+      "last-event": {
+        "critical": "Aucun signal des capteurs depuis plus de 12 heures : vérifiez que tout va bien.",
+        "criticalMeasured": "Aucun signal des capteurs depuis {{duration}} : vérifiez que tout va bien à la maison.",
+        "label": "Dernier signal des capteurs",
+        "ok": "Les capteurs envoient régulièrement des signaux.",
+        "okMeasured": "Dernier signal reçu des capteurs il y a {{duration}}.",
+        "unknown": "Impossible de savoir quand les capteurs ont envoyé leur dernier signal.",
+        "warning": "Aucun signal des capteurs depuis plus de 2 heures, en pleine journée.",
+        "warningMeasured": "Aucun signal des capteurs depuis {{duration}}, en pleine journée. Un coup d’œil peut rassurer."
       },
       "notifications": {
         "critical": "Les alertes ne partent plus : vérifiez les téléphones.",
@@ -2363,6 +2394,30 @@
         "okMeasured_other": "{{count}} capteurs sont reliés à Élise.",
         "unknown": "Impossible de compter les capteurs.",
         "warning": "Certains capteurs méritent un coup d’œil."
+      },
+      "sensors-battery": {
+        "critical": "Une pile de capteur est presque vide : changez-la dès que possible.",
+        "criticalMeasured": "Une pile de capteur est presque vide ({{percent}} %) : changez-la dès que possible.",
+        "label": "Piles des capteurs",
+        "ok": "Les piles des capteurs sont en bon état.",
+        "okMeasured": "Les piles des capteurs sont en bon état ({{percent}} %).",
+        "unknown": "Impossible de lire le niveau des piles des capteurs.",
+        "warning": "Une pile de capteur commence à faiblir : prévoyez de la changer.",
+        "warningMeasured": "Une pile de capteur commence à faiblir ({{percent}} %) : prévoyez de la changer."
+      },
+      "sensors-offline": {
+        "critical": "Un capteur important (porte d’entrée ou bouton d’urgence) ne donne plus de nouvelles.",
+        "criticalMeasured_many": "{{count}} capteurs ne donnent plus de nouvelles, dont un capteur important (porte d’entrée ou bouton d’urgence).",
+        "criticalMeasured_one": "{{count}} capteur ne donne plus de nouvelles : c’est un capteur important (porte d’entrée ou bouton d’urgence).",
+        "criticalMeasured_other": "{{count}} capteurs ne donnent plus de nouvelles, dont un capteur important (porte d’entrée ou bouton d’urgence).",
+        "label": "Capteurs qui répondent",
+        "none": "Aucun capteur n’est encore installé.",
+        "ok": "Tous les capteurs donnent des nouvelles.",
+        "unknown": "Impossible de savoir si les capteurs donnent des nouvelles.",
+        "warning": "Certains capteurs ne donnent plus de nouvelles.",
+        "warningMeasured_many": "{{count}} capteurs ne donnent plus de nouvelles.",
+        "warningMeasured_one": "{{count}} capteur ne donne plus de nouvelles.",
+        "warningMeasured_other": "{{count}} capteurs ne donnent plus de nouvelles."
       },
       "swap": {
         "critical": "La mémoire de la box est saturée : elle peut ralentir fortement.",

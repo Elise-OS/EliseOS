@@ -15,6 +15,7 @@ import {
   backupRunningOnBox,
   bannerOf,
   canManageBox,
+  checkKey,
   durationParts,
   groupTone,
   isUsableSentence,
@@ -82,6 +83,33 @@ const REAL_PARAMS: Record<string, Record<string, unknown>> = {
   backup: { last: { at: '2026-11-10T10:00:00.000Z', ok: true, sizeBytes: 1000 } },
   database: { sizeBytes: 152_436_736 },
   'remote-access': { available: true },
+  'home-assistant': { connected: true, lastSeenAt: '2026-11-14T09:59:00.000Z' },
+  'sensors-offline': { count: 2, total: 9, lastSeenAt: '2026-11-14T09:58:00.000Z' },
+  'sensors-battery': { percent: 18 },
+  coverage: { total: 9, count: 7 },
+  'last-event': { hours: 3, minutes: 180 },
+};
+
+/** Every check the API sends (apps/api/src/modules/box-health/box-health.service.ts), as sent. */
+const API_CHECKS: Record<string, Record<string, unknown>> = {
+  disk: { percent: 38.4, dockerPercent: 31.2 },
+  memory: { percent: 3.1, total: 2_097_148, kind: 'swap' },
+  temperature: { celsius: [51.6, 49.8] },
+  throttling: { flags: 0, applicable: true },
+  containers: { containers: [{ name: 'api', health: 'healthy', restartCount: 0 }] },
+  'storage-errors': { count: 0 },
+  backup: { last: { at: '2026-11-14T01:00:00.000Z', ok: true }, days: 0.4 },
+  worker: { state: { healthy: true, lastSeenAt: '2026-11-14T09:59:40.000Z', failingTasks: [] } },
+  'home-assistant': { connected: true, lastSeenAt: '2026-11-14T09:59:00.000Z' },
+  zigbee: { state: 'READY', issues: [] },
+  'remote-access': { state: 'READY' },
+  'sensors-offline': { count: 0, total: 9, lastSeenAt: '2026-11-14T09:58:00.000Z' },
+  'sensors-battery': { percent: 86 },
+  coverage: { total: 9, count: 9 },
+  deliveries: { failed: 0 },
+  outbox: { failed: 0, urgent: 0 },
+  'last-event': { hours: 0.05, minutes: 3 },
+  'db-size': { total: 152_436_736, percent: 1.2 },
 };
 
 afterEach(() => setLanguage('fr'));
@@ -185,6 +213,81 @@ describe('reading the values of the box', () => {
     expect(durationParts(9 * 1440)).toEqual({ unit: 'days', count: 9 });
     expect(sizeParts(2048)).toEqual({ unit: 'kb', value: 2 });
     expect(sizeParts(3 * 1024 ** 3)).toEqual({ unit: 'gb', value: 3 });
+  });
+});
+
+describe('the checks of the real API', () => {
+  it('gives every check of the API a name in every language, never its raw id', () => {
+    for (const language of ['fr', 'en', 'es', 'it', 'pt'] as const) {
+      setLanguage(language);
+      for (const id of Object.keys(API_CHECKS)) {
+        const key = checkKey(id);
+        expect(key, id).not.toBeNull();
+        const label = tr(`boxHealth.checks.${key}.label`);
+        expect(label, `${language} ${id}`).not.toContain('boxHealth.');
+        expect(label, `${language} ${id}`).not.toBe(id);
+      }
+    }
+  });
+
+  it('reads an ok report of the API as ok, with its own sentences', () => {
+    setLanguage('fr');
+    for (const [id, params] of Object.entries(API_CHECKS)) {
+      const item = check(id, 'ok', params);
+      expect(readCheck(item, NOW).level, id).toBe('ok');
+      expect(sentence(item), id).not.toBe('Ce point est en ordre.');
+    }
+  });
+
+  it('tells the new checks with their figures', () => {
+    setLanguage('fr');
+    expect(sentence(check('sensors-offline', 'warning', { count: 2, total: 9 }))).toBe(
+      '2 capteurs ne donnent plus de nouvelles.',
+    );
+    expect(sentence(check('sensors-offline', 'ok', { count: 0, total: 0 }))).toBe(
+      'Aucun capteur n’est encore installé.',
+    );
+    expect(sentence(check('coverage', 'ok', { total: 9, count: 9 }))).toBe(
+      '9 capteurs sur 9 répondent.',
+    );
+    expect(sentence(check('coverage', 'warning', { total: 9, count: 0 }))).toBe(
+      'Aucun capteur ne répond : la maison n’est plus surveillée.',
+    );
+    expect(sentence(check('last-event', 'critical', { hours: 13, minutes: 780 }))).toBe(
+      'Aucun signal des capteurs depuis 13 heures : vérifiez que tout va bien à la maison.',
+    );
+    expect(sentence(check('sensors-battery', 'warning', { percent: 18 }))).toBe(
+      'Une pile de capteur commence à faiblir (18\u202f%) : prévoyez de la changer.',
+    );
+    expect(sentence(check('memory', 'warning', { percent: 63.5, kind: 'swap' }))).toBe(
+      'La box puise dans sa mémoire de secours (64\u202f%) : elle peut ralentir un peu.',
+    );
+    expect(readCheck(check('db-size', 'ok', { total: 152_436_736 }), NOW).size).toEqual({
+      unit: 'mb',
+      value: 145.4,
+    });
+  });
+
+  it('never shows an unreadable value of the new checks as fine', () => {
+    for (const item of [
+      check('home-assistant', 'ok', { connected: null }),
+      check('sensors-offline', 'ok', { count: null }),
+      check('sensors-battery', 'ok', { percent: null }),
+      check('coverage', 'ok', { total: null, count: null }),
+      check('coverage', 'ok', { total: 3, count: 5 }),
+      check('last-event', 'ok', { hours: null, minutes: null }),
+      check('zigbee', 'ok', { state: null }),
+      check('db-size', 'ok', { total: null }),
+    ])
+      expect(readCheck(item, NOW).level, `${item.id} ${JSON.stringify(item.params)}`).toBe(
+        'unknown',
+      );
+  });
+
+  it('keeps an ok throttling on a box that has no throttling sensor', () => {
+    expect(
+      readCheck(check('throttling', 'ok', { flags: null, applicable: false }), NOW).level,
+    ).toBe('ok');
   });
 });
 

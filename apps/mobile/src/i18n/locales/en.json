@@ -2255,6 +2255,18 @@
         "warningMeasured_one": "{{count}} box service restarted recently.",
         "warningMeasured_other": "{{count}} box services restarted recently."
       },
+      "coverage": {
+        "critical": "The sensors are no longer responding: the home is no longer monitored.",
+        "label": "Home coverage",
+        "ok": "The sensors cover the home well.",
+        "okMeasured_one": "{{count}} sensor out of {{total}} is responding.",
+        "okMeasured_other": "{{count}} sensors out of {{total}} are responding.",
+        "silent": "No sensor is responding: the home is no longer monitored.",
+        "unknown": "Unable to check the sensor coverage.",
+        "warning": "Most sensors are no longer responding: the home is not well monitored.",
+        "warningMeasured_one": "Only {{count}} sensor out of {{total}} is responding: the home is not well monitored.",
+        "warningMeasured_other": "Only {{count}} sensors out of {{total}} are responding: the home is not well monitored."
+      },
       "database": {
         "critical": "The home data is not answering normally.",
         "label": "Home data",
@@ -2284,6 +2296,23 @@
         "warning": "A few read errors were found. Keep a recent backup.",
         "warningMeasured_one": "{{count}} read error in the last 24 hours. Keep a recent backup.",
         "warningMeasured_other": "{{count}} read errors in the last 24 hours. Keep a recent backup."
+      },
+      "home-assistant": {
+        "critical": "Élise is no longer connected to the home automation system: sensor readings no longer arrive.",
+        "label": "Home automation link (Home Assistant)",
+        "ok": "Élise is connected to the home automation system.",
+        "unknown": "Unable to check the link with the home automation system.",
+        "warning": "Élise is no longer connected to the home automation system: sensor readings may stop arriving."
+      },
+      "last-event": {
+        "critical": "No signal from the sensors for over 12 hours: make sure everything is fine.",
+        "criticalMeasured": "No signal from the sensors for {{duration}}: make sure everything is fine at home.",
+        "label": "Last sensor signal",
+        "ok": "The sensors send signals regularly.",
+        "okMeasured": "Last signal from the sensors {{duration}} ago.",
+        "unknown": "Unable to tell when the sensors last sent a signal.",
+        "warning": "No signal from the sensors for over 2 hours, in the middle of the day.",
+        "warningMeasured": "No signal from the sensors for {{duration}}, in the middle of the day. A quick check can reassure you."
       },
       "notifications": {
         "critical": "Alerts are no longer going out: check the phones.",
@@ -2323,6 +2352,28 @@
         "okMeasured_other": "{{count}} sensors are connected to Élise.",
         "unknown": "Unable to count the sensors.",
         "warning": "Some sensors are worth a look."
+      },
+      "sensors-battery": {
+        "critical": "A sensor battery is almost empty: replace it as soon as possible.",
+        "criticalMeasured": "A sensor battery is almost empty ({{percent}}%): replace it as soon as possible.",
+        "label": "Sensor batteries",
+        "ok": "The sensor batteries are in good shape.",
+        "okMeasured": "The sensor batteries are in good shape ({{percent}}%).",
+        "unknown": "Unable to read the sensor battery level.",
+        "warning": "A sensor battery is getting low: plan to replace it.",
+        "warningMeasured": "A sensor battery is getting low ({{percent}}%): plan to replace it."
+      },
+      "sensors-offline": {
+        "critical": "An important sensor (front door or emergency button) is no longer checking in.",
+        "criticalMeasured_one": "{{count}} sensor is no longer checking in: it is an important one (front door or emergency button).",
+        "criticalMeasured_other": "{{count}} sensors are no longer checking in, including an important one (front door or emergency button).",
+        "label": "Sensors checking in",
+        "none": "No sensor is installed yet.",
+        "ok": "All sensors are checking in.",
+        "unknown": "Unable to tell whether the sensors are checking in.",
+        "warning": "Some sensors are no longer checking in.",
+        "warningMeasured_one": "{{count}} sensor is no longer checking in.",
+        "warningMeasured_other": "{{count}} sensors are no longer checking in."
       },
       "swap": {
         "critical": "The box’s memory is full: it may slow down a lot.",

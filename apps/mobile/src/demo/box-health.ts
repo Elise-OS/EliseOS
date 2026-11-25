@@ -129,45 +129,68 @@ export function demoBoxHealthReport(
   const worker = check('worker', 'ok', {
     state: { healthy: true, lastSeenAt: new Date(now - 20_000).toISOString(), failingTasks: [] },
   });
-  const zigbee = check('zigbee', 'ok', { available: true }, 'open-zigbee');
-  const sensors = check('sensors', 'ok', { count: 9 }, 'open-sensors');
-  const notifications = check('notifications', calm || hostDown ? 'ok' : 'warning', {
-    failed24h: calm || hostDown ? 0 : 2,
+  const homeAssistant = check('home-assistant', 'ok', {
+    connected: true,
+    lastSeenAt: new Date(now - 40_000).toISOString(),
   });
-  const outbox = check('outbox', 'ok', { failed: 0 });
+  const zigbee = check('zigbee', 'ok', { state: 'READY', issues: [] }, 'open-zigbee');
+  const sensorsOffline = check(
+    'sensors-offline',
+    'ok',
+    { count: 0, total: 9, lastSeenAt: new Date(now - 3 * MINUTE).toISOString() },
+    'open-sensors',
+  );
+  const battery = check('sensors-battery', calm || hostDown ? 'ok' : 'warning', {
+    percent: calm || hostDown ? 86 : 18,
+  });
+  const coverage = check('coverage', 'ok', { total: 9, count: 9 });
+  const lastEvent = check('last-event', 'ok', { hours: 0.05, minutes: 3 });
+  const deliveries = check('deliveries', calm || hostDown ? 'ok' : 'warning', {
+    failed: calm || hostDown ? 0 : 2,
+  });
+  const outbox = check('outbox', 'ok', { failed: 0, urgent: 0 });
   const box = hostDown
     ? [
-        check('disk', 'unknown', { usedPercent: null }),
-        check('swap', 'unknown', { usedPercent: null }),
+        check('disk', 'unknown', { percent: null, dockerPercent: null }),
+        check('memory', 'unknown', { percent: null, total: null, kind: 'swap' }),
         check('temperature', 'unknown', { celsius: null }),
-        check('throttling', 'unknown', { flags: null }),
+        check('throttling', 'unknown', { flags: null, applicable: null }),
         check('containers', 'unknown', { containers: null }),
-        check('disk-errors', 'unknown', { count: null }, 'open-remote-access'),
+        check('storage-errors', 'unknown', { count: null }),
       ]
     : [
-        check('disk', critical ? 'critical' : 'ok', { usedPercent: critical ? 94.2 : 38.4 }),
-        check('swap', critical ? 'warning' : 'ok', { usedPercent: critical ? 63.5 : 3.1 }),
+        check('disk', critical ? 'critical' : 'ok', {
+          percent: critical ? 94.2 : 38.4,
+          dockerPercent: critical ? 88.1 : 31.2,
+        }),
+        check('memory', critical ? 'warning' : 'ok', {
+          percent: critical ? 63.5 : 3.1,
+          total: 2_097_148,
+          kind: 'swap',
+        }),
         check('temperature', 'ok', { celsius: critical ? [71.2, 68.9] : [51.6, 49.8] }),
         calm || critical
-          ? check('throttling', 'ok', { flags: 0 })
-          : check('throttling', 'unknown', { flags: null }),
+          ? check('throttling', 'ok', { flags: 0, applicable: true })
+          : check('throttling', 'unknown', { flags: null, applicable: null }),
         check('containers', critical ? 'critical' : 'ok', {
           containers: critical
             ? containers({ worker: { restartCount: 3, oomKilled: true } })
             : containers(),
         }),
-        check('disk-errors', 'ok', { count: 0 }, 'open-remote-access'),
+        check('storage-errors', 'ok', { count: 0 }),
       ];
-  const backup = check('backup', backupLevel, { last: lastBackup }, 'run-backup');
-  const database = check('database', 'ok', { sizeBytes: 152_436_736 });
-  const remote = check('remote-access', 'ok', { available: true }, 'open-remote-access');
+  const backupDays = lastBackup ? (now - Date.parse(lastBackup.at)) / DAY : null;
+  const backup = check('backup', backupLevel, { last: lastBackup, days: backupDays }, 'run-backup');
+  const database = check('db-size', 'ok', { total: 152_436_736, percent: 1.2 });
+  const remote = check('remote-access', 'ok', { state: 'READY' }, 'open-remote-access');
 
+  // Same groups, in the same order, as the API.
   const groups = [
-    { id: 'surveillance', checks: [worker] },
-    { id: 'home', checks: [zigbee, sensors] },
-    { id: 'notifications', checks: [notifications, outbox] },
-    { id: 'box', checks: [...box, backup] },
-    { id: 'data', checks: [database] },
+    { id: 'monitoring', checks: [worker, coverage, lastEvent] },
+    { id: 'home', checks: [homeAssistant, zigbee, sensorsOffline, battery] },
+    { id: 'notifications', checks: [deliveries, outbox] },
+    { id: 'box', checks: box },
+    { id: 'data', checks: [database, backup] },
     { id: 'access', checks: [remote] },
   ];
   return {

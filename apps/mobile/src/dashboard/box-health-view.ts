@@ -46,11 +46,29 @@ export const BOX_HEALTH_CHECK_IDS = [
   'backup',
   'database',
   'remote-access',
+  'home-assistant',
+  'sensors-offline',
+  'sensors-battery',
+  'coverage',
+  'last-event',
 ] as const;
 export type BoxHealthCheckId = (typeof BOX_HEALTH_CHECK_IDS)[number];
 
 export const isKnownCheck = (id: string): id is BoxHealthCheckId =>
   (BOX_HEALTH_CHECK_IDS as readonly string[]).includes(id);
+
+/** Names the API gives to checks the catalog already describes under another name. */
+const CHECK_ALIASES: Record<string, BoxHealthCheckId> = {
+  memory: 'swap',
+  'storage-errors': 'disk-errors',
+  'db-size': 'database',
+  deliveries: 'notifications',
+};
+
+/** Catalog key of a check, or null when the box speaks of a check the screen does not know. */
+export function checkKey(id: string): BoxHealthCheckId | null {
+  return isKnownCheck(id) ? id : (CHECK_ALIASES[id] ?? null);
+}
 
 /** How a level looks: 'unknown' looks like "to keep an eye on", never like "ok". */
 export type BoxHealthTone = 'ok' | 'warning' | 'critical';
@@ -152,7 +170,7 @@ const countMeasure = (value: unknown): Measure => {
 
 function measure(check: BoxHealthCheck, now: number): Measure {
   const params: Record<string, unknown> = isRecord(check.params) ? check.params : {};
-  switch (check.id) {
+  switch (checkKey(check.id)) {
     case 'disk':
     case 'swap':
       return percentMeasure(params);
@@ -163,7 +181,8 @@ function measure(check: BoxHealthCheck, now: number): Measure {
       return { readable: true, values: { celsius: Math.round(Math.max(...readings)) } };
     }
     case 'throttling':
-      return { readable: readNumber(params.flags) !== undefined };
+      // A box without throttling sensors (not a Raspberry Pi) has nothing to read, and says so.
+      return { readable: readNumber(params.flags) !== undefined || params.applicable === false };
     case 'containers': {
       if (!Array.isArray(params.containers)) return UNREADABLE;
       const items = params.containers.filter(isRecord);
@@ -188,14 +207,44 @@ function measure(check: BoxHealthCheck, now: number): Measure {
     case 'outbox':
       return countMeasure(params.failed ?? params.count);
     case 'database': {
-      const bytes = readNumber(params.sizeBytes);
+      const bytes = readNumber(params.sizeBytes) ?? readNumber(params.total);
       if (bytes === undefined || bytes < 0) return UNREADABLE;
       return { readable: true, size: sizeParts(bytes) };
     }
     case 'zigbee':
     case 'remote-access':
-      // The service answered: `available` must say so in so many words.
-      return { readable: params.available === true };
+      // The service answered: `available` says so in so many words, or the API gives its state.
+      return {
+        readable:
+          params.available === true || (typeof params.state === 'string' && params.state !== ''),
+      };
+    case 'home-assistant':
+      return { readable: typeof params.connected === 'boolean' };
+    case 'sensors-offline': {
+      const count = readCount(params.count);
+      if (count === undefined) return UNREADABLE;
+      const total = readCount(params.total);
+      return { readable: true, variant: total === 0 ? 'none' : undefined, values: { count } };
+    }
+    case 'sensors-battery':
+      return percentMeasure(params);
+    case 'coverage': {
+      const count = readCount(params.count);
+      const total = readCount(params.total);
+      if (count === undefined || total === undefined || total === 0 || count > total)
+        return UNREADABLE;
+      return {
+        readable: true,
+        variant: count === 0 && check.level !== 'ok' ? 'silent' : undefined,
+        values: { count, total },
+      };
+    }
+    case 'last-event': {
+      const hours = readNumber(params.hours);
+      const minutes = readNumber(params.minutes) ?? (hours === undefined ? undefined : hours * 60);
+      if (minutes === undefined || minutes < 0) return UNREADABLE;
+      return { readable: true, duration: durationParts(minutes) };
+    }
     case 'worker': {
       const state = params.state;
       if (!isRecord(state)) return UNREADABLE;
@@ -246,14 +295,15 @@ export function readCheck(check: BoxHealthCheck, now = Date.now()): CheckReading
  */
 export function sentenceKeys(check: BoxHealthCheck, reading: CheckReading): string[] {
   const generic = `generic.${reading.level}`;
-  if (!isKnownCheck(check.id)) return [generic];
+  const key = checkKey(check.id);
+  if (!key) return [generic];
   const keys = [
     `${reading.variant}Measured`,
     reading.variant,
     `${reading.level}Measured`,
     reading.level,
   ];
-  return [...new Set(keys)].map((key) => `checks.${check.id}.${key}`).concat(generic);
+  return [...new Set(keys)].map((part) => `checks.${key}.${part}`).concat(generic);
 }
 
 /** A sentence is unusable when a value it needs is missing or its key does not exist. */
