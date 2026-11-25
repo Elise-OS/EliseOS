@@ -53,7 +53,7 @@ describe('BoxHealthPanel', () => {
     expect(container.textContent).toContain('Espace de stockage');
     expect(container.textContent).toContain('Impossible de savoir si la box ralentit');
     expect(container.querySelector('details.box-health-technical')?.textContent).toContain(
-      'usedPercent',
+      'dockerPercent',
     );
   });
 

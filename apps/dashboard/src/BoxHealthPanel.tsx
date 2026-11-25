@@ -1,10 +1,12 @@
 import { boxHealthReportSchema, type BoxHealthAction, type BoxHealthCheck } from '@elise/contracts';
 import {
   Activity,
+  BatteryLow,
   BellRing,
   Boxes,
   CircleCheck,
   CircleHelp,
+  Clock,
   Clock3,
   Cpu,
   Database,
@@ -15,6 +17,7 @@ import {
   HardDrive,
   HeartPulse,
   House,
+  HousePlug,
   Inbox,
   KeyRound,
   LoaderCircle,
@@ -27,7 +30,9 @@ import {
   ShieldCheck,
   Thermometer,
   TriangleAlert,
+  Unplug,
   Usb,
+  Waypoints,
   Workflow,
   ChevronRight,
   type LucideIcon,
@@ -40,9 +45,9 @@ import {
   backupRunningOnBox,
   bannerMessage,
   bannerTone,
+  checkKey,
   countLevels,
   groupKey,
-  isKnownCheck,
   isUsableSentence,
   orderedGroups,
   readCheck,
@@ -128,6 +133,11 @@ const checkIcons: Record<string, LucideIcon> = {
   backup: DatabaseBackup,
   database: Database,
   'remote-access': Globe,
+  'home-assistant': HousePlug,
+  'sensors-offline': Unplug,
+  'sensors-battery': BatteryLow,
+  coverage: Waypoints,
+  'last-event': Clock,
 };
 
 const bannerIcons: Record<BoxHealthTone, LucideIcon> = {
@@ -146,7 +156,8 @@ const levelIcons: Record<BoxHealthLevel, LucideIcon> = {
 
 /** The label of a point, used by the generic sentence and the technical list. */
 function checkLabel(id: string): string {
-  return isKnownCheck(id) ? tr(`boxHealth.check.${id}.label`) : id;
+  const key = checkKey(id);
+  return key ? tr(`boxHealth.check.${key}.label`) : id;
 }
 
 /** A familiar sentence for a point; when a value it needs is missing, a plainer one. */
@@ -510,7 +521,7 @@ function CheckRow({
   busy: boolean;
   onAction: (action: BoxHealthAction) => void;
 }) {
-  const Icon = checkIcons[check.id] ?? ServerCog;
+  const Icon = checkIcons[checkKey(check.id) ?? check.id] ?? ServerCog;
   const LevelIcon = levelIcons[check.level];
   const action = showsAction(check) ? check.action : undefined;
   return (

@@ -731,6 +731,20 @@
         "warning_one": "{{count}} servicio de la caja se ha reiniciado hace poco.",
         "warning_other": "{{count}} servicios de la caja se han reiniciado hace poco."
       },
+      "coverage": {
+        "critical": "Los sensores ya no responden: la casa ya no está vigilada.",
+        "label": "Cobertura de la casa",
+        "okShort": "Los sensores cubren bien la casa.",
+        "ok_many": "{{count}} sensores de {{total}} responden.",
+        "ok_one": "{{count}} sensor de {{total}} responde.",
+        "ok_other": "{{count}} sensores de {{total}} responden.",
+        "silent": "Ningún sensor responde: la casa ya no está vigilada.",
+        "unknown": "No se puede comprobar la cobertura de los sensores.",
+        "warningShort": "La mayoría de los sensores ya no responden: la casa no está bien vigilada.",
+        "warning_many": "Solo {{count}} sensores de {{total}} responden: la casa no está bien vigilada.",
+        "warning_one": "Solo {{count}} sensor de {{total}} responde: la casa no está bien vigilada.",
+        "warning_other": "Solo {{count}} sensores de {{total}} responden: la casa no está bien vigilada."
+      },
       "database": {
         "critical": "Los datos de la casa no responden con normalidad.",
         "label": "Datos de la casa",
@@ -762,6 +776,23 @@
         "warning_many": "{{count}} errores de lectura detectados en 24 h. Conserve una copia de seguridad reciente.",
         "warning_one": "{{count}} error de lectura detectado en 24 h. Conserve una copia de seguridad reciente.",
         "warning_other": "{{count}} errores de lectura detectados en 24 h. Conserve una copia de seguridad reciente."
+      },
+      "home-assistant": {
+        "critical": "Élise ya no está conectada al sistema domótico: los sensores ya no envían datos.",
+        "label": "Enlace domótico (Home Assistant)",
+        "ok": "Élise está bien conectada al sistema domótico de la casa.",
+        "unknown": "No se puede comprobar el enlace con el sistema domótico.",
+        "warning": "Élise ya no está conectada al sistema domótico: puede que los sensores dejen de enviar datos."
+      },
+      "last-event": {
+        "critical": "Ninguna señal de los sensores desde hace {{duration}}: compruebe que todo va bien en casa.",
+        "criticalShort": "Ninguna señal de los sensores desde hace más de 12 horas: compruebe que todo va bien.",
+        "label": "Última señal de los sensores",
+        "ok": "Última señal de los sensores hace {{duration}}.",
+        "okShort": "Los sensores envían señales con regularidad.",
+        "unknown": "No se puede saber cuándo enviaron los sensores su última señal.",
+        "warning": "Ninguna señal de los sensores desde hace {{duration}}, en pleno día. Un vistazo puede tranquilizar.",
+        "warningShort": "Ninguna señal de los sensores desde hace más de 2 horas, en pleno día."
       },
       "notifications": {
         "criticalShort": "Las alertas ya no salen: revise los teléfonos.",
@@ -806,6 +837,30 @@
         "ok_other": "{{count}} sensores están conectados a Élise.",
         "unknown": "No se pueden contar los sensores.",
         "warning": "Algunos sensores merecen un vistazo."
+      },
+      "sensors-battery": {
+        "critical": "Una pila de sensor está casi vacía ({{percent}} %): cámbiela lo antes posible.",
+        "criticalShort": "Una pila de sensor está casi vacía: cámbiela lo antes posible.",
+        "label": "Pilas de los sensores",
+        "ok": "Las pilas de los sensores están en buen estado ({{percent}} %).",
+        "okShort": "Las pilas de los sensores están en buen estado.",
+        "unknown": "No se puede leer el nivel de las pilas de los sensores.",
+        "warning": "Una pila de sensor empieza a agotarse ({{percent}} %): prevea cambiarla.",
+        "warningShort": "Una pila de sensor empieza a agotarse: prevea cambiarla."
+      },
+      "sensors-offline": {
+        "criticalShort": "Un sensor importante (puerta de entrada o botón de emergencia) ha dejado de dar señales.",
+        "critical_many": "{{count}} sensores han dejado de dar señales, entre ellos uno importante (puerta de entrada o botón de emergencia).",
+        "critical_one": "{{count}} sensor ha dejado de dar señales: es un sensor importante (puerta de entrada o botón de emergencia).",
+        "critical_other": "{{count}} sensores han dejado de dar señales, entre ellos uno importante (puerta de entrada o botón de emergencia).",
+        "label": "Sensores que responden",
+        "none": "Todavía no hay ningún sensor instalado.",
+        "ok": "Todos los sensores dan señales.",
+        "unknown": "No se puede saber si los sensores dan señales.",
+        "warningShort": "Algunos sensores han dejado de dar señales.",
+        "warning_many": "{{count}} sensores han dejado de dar señales.",
+        "warning_one": "{{count}} sensor ha dejado de dar señales.",
+        "warning_other": "{{count}} sensores han dejado de dar señales."
       },
       "swap": {
         "critical": "La memoria de la caja está saturada ({{percent}} % de la memoria de reserva): puede ir mucho más lenta.",
