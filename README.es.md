@@ -116,9 +116,9 @@ La interfaz es totalmente adaptable a cualquier pantalla y está disponible en f
 
 ### Modo ola de calor
 
-- Se activa solo cuando una habitación se queda a 28 °C o más durante 30 min (sensores de temperatura) o cuando la previsión anuncia 33 °C o más para hoy o mañana (Open-Meteo, gratuito, sin cuenta), o a mano por la familia; se desactiva solo cuando baja el calor.
-- En la TV: una franja ámbar suave, un recordatorio «beber un vaso de agua» cada 2 h de 9:00 a 20:00 con una melodía discreta y un botón «Hecho» para el mando, y consejos según el momento (persianas por la mañana, refrescarse la cara durante el día, ventanas por la noche si fuera hace más fresco).
-- Para la familia: notificación al activarse, alerta si una habitación se queda a 31 °C o más durante 1 h, tarjeta «Modo ola de calor» en la página de inicio (web y móvil), ajustes de cada opción y recordatorio anual del registro de ola de calor del ayuntamiento. Todo funciona en la caja; no es un dispositivo médico. Véase [docs/mode-canicule.md](docs/mode-canicule.md) (en francés).
+- Se activa solo cuando una habitación se queda a 28 °C o más durante 30 min (sensores de temperatura, incluso sin Internet) o cuando la previsión anuncia 33 °C o más para hoy o mañana (Open-Meteo, gratuito, sin cuenta), o a mano por la familia; se desactiva solo cuando baja el calor.
+- En la TV: una franja ámbar suave, un recordatorio «beber un vaso de agua» cada 2 h de 9:00 a 20:00 con una melodía discreta, que desaparece solo, y consejos según el momento (persianas por la mañana, refrescarse la cara durante el día, ventanas por la noche si fuera hace más fresco). La persona no tiene nada que pulsar: la TV solo muestra recordatorios.
+- Para la familia: notificación al activarse, alerta si una habitación se queda a 31 °C o más durante 1 h, y una tarjeta **Ajustes → Ola de calor** (web y móvil) que explica el funcionamiento, muestra el estado y las cifras del día, permite activarlo a mano, ajustar cada opción y recuerda cada año el registro de ola de calor del ayuntamiento. Todo funciona en la caja; no es un dispositivo médico. Véase [docs/mode-canicule.md](docs/mode-canicule.md) (en francés).
 
 ### Coordinación de los cuidadores
 

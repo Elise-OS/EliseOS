@@ -116,9 +116,9 @@ A interface adapta-se por completo a qualquer ecrã e está disponível em franc
 
 ### Modo onda de calor
 
-- Ativa-se sozinho quando uma divisão fica a 28 °C ou mais durante 30 min (sensores de temperatura) ou quando a previsão anuncia 33 °C ou mais para hoje ou amanhã (Open-Meteo, gratuito, sem conta), ou à mão pela família; desliga-se sozinho quando o calor baixa.
-- Na TV: uma faixa âmbar suave, um lembrete «beber um copo de água» a cada 2 h das 9h às 20h com uma melodia discreta e um botão «Feito» para o comando, e conselhos conforme o momento (persianas de manhã, refrescar o rosto durante o dia, janelas à noite se lá fora estiver mais fresco).
-- Para a família: notificação na ativação, alerta se uma divisão ficar a 31 °C ou mais durante 1 h, cartão «Modo onda de calor» na página inicial (web e móvel), definições de cada opção e lembrete anual do registo de onda de calor da câmara municipal. Tudo funciona na caixa; não é um dispositivo médico. Ver [docs/mode-canicule.md](docs/mode-canicule.md) (em francês).
+- Ativa-se sozinho quando uma divisão fica a 28 °C ou mais durante 30 min (sensores de temperatura, mesmo sem Internet) ou quando a previsão anuncia 33 °C ou mais para hoje ou amanhã (Open-Meteo, gratuito, sem conta), ou à mão pela família; desliga-se sozinho quando o calor baixa.
+- Na TV: uma faixa âmbar suave, um lembrete «beber um copo de água» a cada 2 h das 9h às 20h com uma melodia discreta, que desaparece sozinho, e conselhos conforme o momento (persianas de manhã, refrescar o rosto durante o dia, janelas à noite se lá fora estiver mais fresco). A pessoa não tem nada para carregar: a TV mostra apenas lembretes.
+- Para a família: notificação na ativação, alerta se uma divisão ficar a 31 °C ou mais durante 1 h, e um cartão **Definições → Onda de calor** (web e móvel) que explica o funcionamento, mostra o estado e os números do dia, permite ativá-lo à mão, ajustar cada opção e lembra todos os anos o registo de onda de calor da câmara municipal. Tudo funciona na caixa; não é um dispositivo médico. Ver [docs/mode-canicule.md](docs/mode-canicule.md) (em francês).
 
 ### Coordenação dos cuidadores
 

@@ -114,9 +114,9 @@ A calm screen, readable from the sofa: message of the day, clock, weather, appoi
 
 ### Heatwave mode
 
-- Turns itself on when a room stays at 28 °C or more for 30 min (temperature sensors) or when the forecast announces 33 °C or more for today or tomorrow (Open-Meteo, free, no account), or by hand from the family; turns itself off when the heat drops.
-- On the TV: a soft amber banner, a "drink a glass of water" reminder every 2 h from 9:00 to 20:00 with a quiet chime and a "Done" button for the remote, and advice for the time of day (shutters in the morning, a fresh face during the day, windows in the evening when it is cooler outside).
-- For the family: a notification when it turns on, an alert if a room stays at 31 °C or more for 1 h, a "Heatwave mode" card on the home page (web and mobile), settings for each option and a yearly reminder about the town hall heatwave register. Everything runs on the box; it is not a medical device. See [docs/mode-canicule.md](docs/mode-canicule.md) (in French).
+- Turns itself on when a room stays at 28 °C or more for 30 min (temperature sensors, even without Internet) or when the forecast announces 33 °C or more for today or tomorrow (Open-Meteo, free, no account), or by hand from the family; turns itself off when the heat drops.
+- On the TV: a soft amber banner, a "drink a glass of water" reminder every 2 h from 9:00 to 20:00 with a quiet chime, which goes away by itself, and advice for the time of day (shutters in the morning, a fresh face during the day, windows in the evening when it is cooler outside). Your loved one has nothing to press: the TV only shows reminders.
+- For the family: a notification when it turns on, an alert if a room stays at 31 °C or more for 1 h, and a **Settings → Heatwave** card (web and mobile) that explains how it works, shows its state and today's figures, turns it on by hand, sets each option and reminds you each year about the town hall heatwave register. Everything runs on the box; it is not a medical device. See [docs/mode-canicule.md](docs/mode-canicule.md) (in French).
 
 ### Caregiver coordination
 

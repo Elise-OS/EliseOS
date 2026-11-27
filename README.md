@@ -116,9 +116,9 @@ L’interface est entièrement responsive et disponible en français, anglais, e
 
 ### Mode canicule
 
-- S’active tout seul quand une pièce reste à 28 °C ou plus pendant 30 min (capteurs de température) ou quand la météo annonce 33 °C ou plus pour aujourd’hui ou demain (Open-Meteo, gratuit, sans compte), ou à la main par la famille ; s’arrête tout seul quand la chaleur retombe.
-- À la TV : un bandeau ambré tout doux, un rappel « boire un verre d’eau » toutes les 2 h de 9 h à 20 h avec une petite mélodie et un bouton « C’est fait » pour la télécommande, et des conseils selon le moment (volets le matin, visage rafraîchi la journée, fenêtres le soir s’il fait plus frais dehors).
-- Pour la famille : notification à l’activation, alerte si une pièce reste à 31 °C ou plus pendant 1 h, carte « Mode canicule » sur l’accueil (web et mobile), réglages de chaque option et rappel annuel du registre canicule de la mairie. Tout tourne sur la box ; ce n’est pas un dispositif médical. Voir [docs/mode-canicule.md](docs/mode-canicule.md).
+- S’active tout seul quand une pièce reste à 28 °C ou plus pendant 30 min (capteurs de température, même sans Internet) ou quand la météo annonce 33 °C ou plus pour aujourd’hui ou demain (Open-Meteo, gratuit, sans compte), ou à la main par la famille ; s’arrête tout seul quand la chaleur retombe.
+- À la TV : un bandeau ambré tout doux, un rappel « boire un verre d’eau » toutes les 2 h de 9 h à 20 h avec une petite mélodie, qui s’efface tout seul, et des conseils selon le moment (volets le matin, visage rafraîchi la journée, fenêtres le soir s’il fait plus frais dehors). La personne n’a rien à appuyer : la TV affiche seulement des rappels.
+- Pour la famille : notification à l’activation, alerte si une pièce reste à 31 °C ou plus pendant 1 h, et une carte **Réglages → Canicule** (web et mobile) qui explique le fonctionnement, montre l’état et les chiffres du jour, permet de l’activer à la main, de régler chaque option, et rappelle chaque année le registre canicule de la mairie. Tout tourne sur la box ; ce n’est pas un dispositif médical. Voir [docs/mode-canicule.md](docs/mode-canicule.md).
 
 ### Coordination des aidants
 
