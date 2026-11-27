@@ -101,10 +101,12 @@ const adminRights: ScreenGrant = {
 };
 const mediaRoot = path.resolve(process.env.MEDIA_ROOT ?? '/var/lib/elise/media', 'screen');
 type CityWeather = ScreenSnapshot['weather'];
+/** The TV weather plus tomorrow's maximum, which the heatwave mode watches. */
+export type CityForecast = NonNullable<CityWeather> & { tomorrowMaximum: number | null };
 const weatherLogger = new Logger('ScreenWeather');
 const weatherCache = new Map<
   string,
-  { expiresAt: number; value: Promise<CityWeather>; reading: CityWeather }
+  { expiresAt: number; value: Promise<CityForecast | null>; reading: CityForecast | null }
 >();
 const podcastEpisodeCache = new Map<
   string,
@@ -193,7 +195,13 @@ export function cityFromAddress(address: string | null | undefined): string | nu
   return candidate && !/^\d/.test(candidate) ? candidate : null;
 }
 
-async function fetchCityWeather(address: string | null | undefined): Promise<CityWeather> {
+/**
+ * Weather of the TV city with today's and tomorrow's maxima, cached 15 minutes and shared by the
+ * TV and the heatwave mode. Without Internet the last successful reading is kept.
+ */
+export async function fetchCityForecast(
+  address: string | null | undefined,
+): Promise<CityForecast | null> {
   const requestedCity = cityFromAddress(address);
   if (!requestedCity) return null;
   const key = requestedCity.toLocaleLowerCase('fr-FR');
@@ -226,7 +234,7 @@ async function fetchCityWeather(address: string | null | undefined): Promise<Cit
       forecastUrl.searchParams.set('longitude', String(location.longitude));
       forecastUrl.searchParams.set('current', 'temperature_2m,weather_code');
       forecastUrl.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,weather_code');
-      forecastUrl.searchParams.set('forecast_days', '1');
+      forecastUrl.searchParams.set('forecast_days', '2');
       forecastUrl.searchParams.set('timezone', 'auto');
       const forecastResponse = await fetch(forecastUrl, { signal });
       if (!forecastResponse.ok)
@@ -247,6 +255,7 @@ async function fetchCityWeather(address: string | null | undefined): Promise<Cit
         throw new Error('Open-Meteo forecast returned no usable current reading');
       const minimum = Number(forecast.daily?.temperature_2m_min?.[0]);
       const maximum = Number(forecast.daily?.temperature_2m_max?.[0]);
+      const tomorrowMaximum = Number(forecast.daily?.temperature_2m_max?.[1]);
       return {
         city: location.name,
         temperature,
@@ -254,6 +263,7 @@ async function fetchCityWeather(address: string | null | undefined): Promise<Cit
         maximum: Number.isFinite(maximum) ? maximum : null,
         weatherCode,
         observedAt: forecast.current?.time ?? new Date().toISOString(),
+        tomorrowMaximum: Number.isFinite(tomorrowMaximum) ? tomorrowMaximum : null,
       };
     } catch (error) {
       weatherLogger.warn(
@@ -279,6 +289,15 @@ async function fetchCityWeather(address: string | null | undefined): Promise<Cit
   // after an API restart already contains weather. Later refreshes keep the
   // last successful reading and run in the background.
   return previousReading ?? value;
+}
+
+/** The TV shows today only: tomorrow's maximum stays inside the box. */
+async function fetchCityWeather(address: string | null | undefined): Promise<CityWeather> {
+  const forecast = await fetchCityForecast(address);
+  if (!forecast) return null;
+  const { tomorrowMaximum: _tomorrow, ...weather } = forecast;
+  void _tomorrow;
+  return weather;
 }
 
 export interface ScreenTvGuideProgramResult {

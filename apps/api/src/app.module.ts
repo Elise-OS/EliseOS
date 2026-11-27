@@ -56,6 +56,11 @@ import { ZigbeeAgentClient } from './modules/zigbee/zigbee-agent.client';
 import { BoxHealthController } from './modules/box-health/box-health.controller';
 import { BoxHealthService } from './modules/box-health/box-health.service';
 import { HealthAgentClient } from './modules/box-health/health-agent.client';
+import {
+  HeatwaveController,
+  HeatwaveScreenDeviceController,
+} from './modules/heatwave/heatwave.controller';
+import { HeatwaveService } from './modules/heatwave/heatwave.service';
 
 @Module({
   controllers: [
@@ -84,6 +89,8 @@ import { HealthAgentClient } from './modules/box-health/health-agent.client';
     CalendarController,
     ZigbeeController,
     BoxHealthController,
+    HeatwaveController,
+    HeatwaveScreenDeviceController,
   ],
   providers: [
     LiaisonService,
@@ -117,6 +124,7 @@ import { HealthAgentClient } from './modules/box-health/health-agent.client';
     WorkerWatchdogService,
     BoxHealthService,
     HealthAgentClient,
+    HeatwaveService,
   ],
 })
 export class AppModule {}

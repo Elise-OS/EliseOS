@@ -22,6 +22,8 @@ export * from './retire-furniture.js';
 export * from './zigbee.js';
 export * from './zigbee-demo.js';
 export * from './zigbee-view.js';
+export * from './heatwave.js';
+export * from './heatwave-demo.js';
 
 export const capabilitySchema = z.enum([
   'motion',
