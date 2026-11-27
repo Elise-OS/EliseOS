@@ -16,7 +16,8 @@ import { rolesFor } from '../auth/access-policy';
 import { IngestionService } from '../sensing/ingestion.service';
 
 const ADMIN_ROLES = rolesFor('configuration:manage');
-const SENSOR_ENTITY_DOMAINS = new Set(['binary_sensor', 'event', 'sensor', 'switch']);
+// `light` covers any Home Assistant light (Zigbee strip, bulb or night light) for the night path.
+const SENSOR_ENTITY_DOMAINS = new Set(['binary_sensor', 'event', 'sensor', 'switch', 'light']);
 const INTERNAL_HOME_ASSISTANT_INTEGRATIONS = new Set([
   'analytics',
   'backup',
@@ -205,6 +206,7 @@ export class EquipmentService {
             available: entity.available,
             state: entity.state ?? Prisma.JsonNull,
             actions: entity.actions,
+            lightFeatures: entity.lightFeatures ?? Prisma.JsonNull,
             lastSeenAt: new Date(fullInventory.generatedAt),
             removedAt: null,
           },
@@ -220,6 +222,7 @@ export class EquipmentService {
             available: entity.available,
             state: entity.state ?? Prisma.JsonNull,
             actions: entity.actions,
+            lightFeatures: entity.lightFeatures ?? Prisma.JsonNull,
             lastSeenAt: new Date(fullInventory.generatedAt),
           },
         });

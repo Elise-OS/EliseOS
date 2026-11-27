@@ -126,8 +126,9 @@ describe('documented sensor coverage', () => {
       host.remove();
     }
   });
-  it('exposes all 16 functions including the bed and types with no documented product', () => {
-    expect(COVERAGE_TYPES).toHaveLength(16);
+  it('exposes all 17 functions including the bed, lighting and types with no documented product', () => {
+    expect(COVERAGE_TYPES).toHaveLength(17);
+    expect(coverageProducts('light').map(({ model }) => model)).toEqual(['FL 230 C']);
     expect(coverageProducts('bed').map(({ model }) => model)).toEqual([
       'TS0601_bed_presence_sensor',
     ]);

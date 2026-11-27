@@ -23,6 +23,7 @@ from .mapping import (
     capability as sensor_capability,
     device_model,
     is_new_button_press,
+    light_features,
     payload as sensor_payload,
     smoke_entity_id,
     smoke_remains_after_test,
@@ -75,7 +76,7 @@ ACTION_FIELDS = {
     "send_message": ["message", "title"],
 }
 
-SENSOR_ENTITY_DOMAINS = {"binary_sensor", "event", "sensor", "switch", "camera"}
+SENSOR_ENTITY_DOMAINS = {"binary_sensor", "event", "sensor", "switch", "camera", "light"}
 INTERNAL_HOME_ASSISTANT_INTEGRATIONS = {
     "analytics",
     "backup",
@@ -257,6 +258,9 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
                     "actions": _actions_for(domain),
                     "capability": capability,
                     "compatibility": "RECOGNIZED" if capability else "UNSUPPORTED",
+                    "lightFeatures": (
+                        light_features(dict(state.attributes)) if domain == "light" and state else None
+                    ),
                 }
             )
         referenced_device_ids = {

@@ -75,6 +75,14 @@ export const SENSOR_PROFILES: SensorProfile[] = [
     targetTypes: ['ROOM'],
   },
   {
+    id: 'innr-fl230c',
+    label: 'Ruban LED Zigbee couleur 3 m',
+    manufacturer: 'Innr',
+    models: ['FL 230 C'],
+    capabilities: ['light'],
+    targetTypes: ['ROOM'],
+  },
+  {
     id: 'thirdreality-button',
     label: 'Zigbee Smart Button',
     manufacturer: 'Third Reality',

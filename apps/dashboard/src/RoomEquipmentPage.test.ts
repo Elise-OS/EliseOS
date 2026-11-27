@@ -175,6 +175,30 @@ describe('room equipment cards', () => {
     ).toMatchObject({ reading: 'Lumineux', detail: '420 lx' });
   });
 
+  it('shows any light as lighting, on or off, with its brightness', () => {
+    const strip = device([capability('light', { active: true, brightnessPercent: 25 })], {
+      manufacturer: 'Innr',
+      model: 'FL 230 C',
+      batteryPercent: null,
+    });
+    const bulb = device([capability('light', { active: false })], {
+      id: 'bulb',
+      manufacturer: 'Any vendor',
+      model: 'On/off bulb',
+      batteryPercent: null,
+    });
+    expect(roomCategoryDevices(plan, 'room', [strip, bulb], 'light')).toHaveLength(2);
+    expect(roomSensorReading(strip, 'light', true)).toMatchObject({
+      reading: 'Allumé',
+      detail: 'Intensité 25 %',
+    });
+    expect(roomSensorReading(bulb, 'light', true)).toMatchObject({
+      reading: 'Éteint',
+      detail: null,
+    });
+    expect(sensorDevicePhoto(strip)).toBe('/sensor-products/FL_230_C.png');
+  });
+
   it('counts a compatible connected sensor even when it is already in the selected room', () => {
     const assigned = device([capability('temperature')]);
     const elsewhere = device([capability('temperature')], {
@@ -358,6 +382,7 @@ describe('room equipment cards', () => {
       '3RWS18BZ',
       'SNZB-02P',
       '3RSPE01044BZ',
+      'FL 230 C',
       '3RSB22BZ',
       'SDO-4-1-00',
       'STPH-4-1-00',
@@ -367,7 +392,7 @@ describe('room equipment cards', () => {
       'HS2FD-EF1-3.0',
       'HS1SA-E',
     ]);
-    expect(TEST_HARDWARE_COUNT).toBe(20);
+    expect(TEST_HARDWARE_COUNT).toBe(22);
     expect(SENSOR_PRODUCTS.every(({ image }) => image.startsWith('/sensor-products/'))).toBe(true);
     expect(
       SENSOR_PRODUCTS.every(

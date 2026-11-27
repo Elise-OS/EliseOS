@@ -1464,3 +1464,49 @@ describe('SensorsService pairing safeguards', () => {
     expect(mqtt.setZigbeePairing).toHaveBeenCalledWith(false, 0);
   });
 });
+
+describe('SensorsService lights', () => {
+  const service = (sensors: Array<{ capability: string; entityId: string }>) => {
+    const prisma = {
+      home: { findFirst: vi.fn().mockResolvedValue(membershipHome) },
+      device: { findFirst: vi.fn().mockResolvedValue({ id: 'device-light', sensors }) },
+    };
+    const mqtt = { executeHomeAssistantCommand: vi.fn() };
+    return { sensors: new SensorsService(prisma as never, mqtt as never), mqtt };
+  };
+
+  it('recognises any light as a lighting device', () => {
+    const { sensors } = service([]);
+    const detected = (sensors as unknown as { detectedType: (values: string[]) => string })
+      .detectedType;
+    expect(detected(['light'])).toBe('LIGHT');
+    expect(detected(['light', 'signal_strength'])).toBe('LIGHT');
+    expect(detected(['switch', 'power'])).toBe('SMART_PLUG');
+  });
+
+  it('drives a light as a light, with brightness and colour temperature', async () => {
+    const { sensors, mqtt } = service([{ capability: 'light', entityId: 'light.ruban' }]);
+    await sensors.command('user', 'device-light', {
+      state: 'ON',
+      confirmed: true,
+      brightnessPercent: 20,
+      colorTemperatureKelvin: 2200,
+    });
+    expect(mqtt.executeHomeAssistantCommand).toHaveBeenCalledWith({
+      domain: 'light',
+      service: 'turn_on',
+      target: { entity_id: 'light.ruban' },
+      data: { brightness_pct: 20, color_temp_kelvin: 2200 },
+    });
+  });
+
+  it('keeps driving a plug as a switch', async () => {
+    const { sensors, mqtt } = service([{ capability: 'switch', entityId: 'switch.prise' }]);
+    await sensors.command('user', 'device-light', { state: 'OFF', confirmed: true });
+    expect(mqtt.executeHomeAssistantCommand).toHaveBeenCalledWith({
+      domain: 'switch',
+      service: 'turn_off',
+      target: { entity_id: 'switch.prise' },
+    });
+  });
+});

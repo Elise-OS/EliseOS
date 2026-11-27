@@ -2,6 +2,7 @@ import type {
   EquipmentCoverage,
   FloorLayout,
   HomePlan,
+  NightPathOverview,
   PlanRoom,
   PresenceEstimate,
   RoomSensorCategory,
@@ -16,6 +17,7 @@ import {
   ChevronUp,
   CircleDot,
   Home,
+  MoonStar,
   Plus,
   Radio,
   ShieldCheck,
@@ -23,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { HomeSensorOnboardingDialog } from './HomeSensorOnboardingDialog';
+import { NightPathDialog } from './NightPathDialog';
 import { COVERAGE_FAMILIES, coverageNeeds } from './coverage-model';
 import { SensorCoverageRecommendations } from './SensorCoverageRecommendations';
 import { sensorDeviceHealthStatus } from './sensor-ui';
@@ -424,11 +427,14 @@ export function HomeOverview({
   onSensorCategoryOpened,
   onManage,
   onManageStair,
+  residentName = '',
 }: {
   locale: Locale;
   home: HomeInfo | undefined;
   cameras: CameraItem[];
   canManage: boolean;
+  /** First name used in the night path sentences (« quand Jeanne bouge… »). */
+  residentName?: string;
   initialSensorCategory?: RoomSensorCategory | null;
   onSensorCategoryOpened?: () => void;
   onManage: (roomId?: string) => void;
@@ -449,6 +455,23 @@ export function HomeOverview({
   const [coverageOpen, setCoverageOpen] = useState(false);
   const [sensorFlowOpen, setSensorFlowOpen] = useState(false);
   const [sensorFlowCategory, setSensorFlowCategory] = useState<RoomSensorCategory | undefined>();
+  const [nightPathOpen, setNightPathOpen] = useState(false);
+  const [nightPaths, setNightPaths] = useState<NightPathOverview | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/v1/night-paths', { cache: 'no-store' })
+      .then(async (response) =>
+        response.ok ? ((await response.json()) as NightPathOverview) : null,
+      )
+      .then((next) => {
+        if (!cancelled && next && Array.isArray(next.paths)) setNightPaths(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!initialSensorCategory) return;
@@ -896,6 +919,33 @@ export function HomeOverview({
                   <ArrowRight />
                 </span>
               </button>
+
+              <button
+                className="home-overview-summary-card night-path-overview-card"
+                onClick={() => setNightPathOpen(true)}
+              >
+                <span className="night-path-overview-title">
+                  <span>
+                    <span className="eyebrow">{t('nightPath.cardEyebrow')}</span>
+                    <strong>{t('nightPath.title')}</strong>
+                  </span>
+                  <MoonStar aria-hidden="true" />
+                </span>
+                <p>
+                  {nightPaths && nightPaths.paths.length > 0
+                    ? t('nightPath.cardCount', {
+                        count: nightPaths.paths.length,
+                        enabled: nightPaths.paths.filter(({ enabled }) => enabled).length,
+                      })
+                    : t('nightPath.cardEmpty', {
+                        resident: residentName || t('nightPath.theResident'),
+                      })}
+                </p>
+                <span className="coverage-card-hint">
+                  {canManage ? t('nightPath.cardManage') : t('nightPath.cardView')}
+                  <ArrowRight />
+                </span>
+              </button>
             </div>
           </div>
         </>
@@ -908,6 +958,14 @@ export function HomeOverview({
           error={coverageError || (unavailable ? t('homeOverview.theAnalysisCouldNotBe') : '')}
           onRetry={() => void refresh(true)}
           onClose={() => setCoverageOpen(false)}
+        />
+      )}
+      {nightPathOpen && (
+        <NightPathDialog
+          resident={residentName}
+          canManage={canManage}
+          onClose={() => setNightPathOpen(false)}
+          onChanged={setNightPaths}
         />
       )}
       {sensorFlowOpen && plan && (

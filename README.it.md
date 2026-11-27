@@ -114,6 +114,12 @@ L'interfaccia è completamente adattabile a qualsiasi schermo ed è disponibile 
 - Il guasto di un sensore genera un **avviso di sistema esplicito**, mai una falsa conclusione di inattività.
 - Notifiche push con contenuto minimo; i dettagli restano dietro l'API autenticata.
 
+### Percorso luminoso notturno
+
+- Quando la persona si alza di notte, una luce soffusa e calda si accende lungo il tragitto (camera → corridoio → bagno), poi si spegne da sola dopo qualche minuto senza movimento.
+- Una o più stanze di partenza (movimento, presenza o uscita dal letto), fascia notturna che attraversa la mezzanotte, stanze da illuminare anche senza sensore, intensità, bianco caldo, ritardo di spegnimento e pulsante «Prova».
+- La striscia Innr FL 230 C è il modello documentato, ma funziona qualsiasi luce Zigbee compatibile con Zigbee2MQTT, senza il bridge del produttore. Luce di supporto: non è un dispositivo medico. Vedi [docs/chemin-lumineux.md](docs/chemin-lumineux.md) (in francese).
+
 ### Coordinamento dei caregiver
 
 - Diario di assistenza condiviso, calendario delle visite e degli appuntamenti, monitoraggio delle terapie.
@@ -220,6 +226,7 @@ Dettagli: [docs/privacy.md](docs/privacy.md) (in inglese). Questa politica favor
 | Archiviazione | Almeno 32 GB; si consiglia un SSD USB o NVMe (Pi 5)                                                                          |
 | Radio         | Adattatore Zigbee USB (Sonoff, SMLIGHT, ConBee, ZiGate…) — facoltativo                                                       |
 | Sensori       | Movimento, apertura, temperatura/umidità, perdita d'acqua, fumo, presa smart, pulsante SOS…                                  |
+| Illuminazione | Facoltativa: striscia o lampadina Zigbee per il percorso luminoso notturno (Innr FL 230 C documentata)                       |
 | Schermo       | Qualsiasi televisore tramite HDMI o DisplayPort; webcam USB con microfono per le chiamate nei due sensi                      |
 | Telecamere    | Facoltative: qualsiasi telecamera locale RTSP / ONVIF                                                                        |
 
@@ -412,6 +419,7 @@ Ogni push esegue `format:check`, `lint`, `typecheck`, `test` e `build` sull'inte
 | Sviluppo, segreti, backup (in inglese)               | [docs/development.md](docs/development.md)                      |
 | Privacy e conservazione (in inglese)                 | [docs/privacy.md](docs/privacy.md)                              |
 | Telecamere (in inglese)                              | [docs/cameras.md](docs/cameras.md)                              |
+| Percorso luminoso notturno (in francese)             | [docs/chemin-lumineux.md](docs/chemin-lumineux.md)              |
 | Deploy su NAS (in francese)                          | [README-NAS.md](README-NAS.md)                                  |
 | Documentazione utente completa                       | [eliseos.paulbreton.dev/it](https://eliseos.paulbreton.dev/it/) |
 

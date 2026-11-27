@@ -16,6 +16,7 @@ import {
   DoorOpen,
   Droplets,
   Flame,
+  Lightbulb,
   LoaderCircle,
   MapPin,
   Plug,
@@ -75,6 +76,7 @@ const categoryIcons: Record<RoomSensorCategory, typeof Thermometer> = {
   air_quality: Wind,
   illuminance: Sun,
   camera: Camera,
+  light: Lightbulb,
 };
 
 const categoryGroups = SENSOR_CATEGORY_GROUPS;

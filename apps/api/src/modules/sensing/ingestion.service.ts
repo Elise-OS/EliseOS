@@ -16,12 +16,38 @@ function zigbeeIdentifierFromEntityId(entityId: string): string | null {
   return entityId.toLowerCase().match(/0x[0-9a-f]{16}/)?.[0] ?? null;
 }
 
+/** A stored observation, handed to real-time features (night path) once it is committed. */
+export type IngestedObservation = {
+  homeId: string;
+  sensorId: string;
+  roomId: string | null;
+  capability: string;
+  quality: 'good' | 'degraded' | 'unknown';
+  payload: Record<string, unknown>;
+  role: string | null;
+  bedOccupiedWhen: 'CLOSED' | 'OPEN' | null;
+  model: string | null;
+  /** False when the sensor or its device was disabled by the family. */
+  enabled: boolean;
+  occurredAt: Date;
+};
+
 @Injectable()
 export class IngestionService {
   private readonly presenceSessions = new PresenceSessionService();
   private readonly presenceTracking = new PresenceTrackingService();
+  private readonly listeners: Array<(observation: IngestedObservation) => void> = [];
 
   public constructor(private readonly prisma: PrismaService) {}
+
+  /** Called after each new observation is committed, in ingestion order. */
+  public onIngested(listener: (observation: IngestedObservation) => void): () => void {
+    this.listeners.push(listener);
+    return () => {
+      const index = this.listeners.indexOf(listener);
+      if (index >= 0) this.listeners.splice(index, 1);
+    };
+  }
 
   public async ingest(unknownEvent: unknown): Promise<{ accepted: boolean; id?: string }> {
     const event = normalizedEventSchema.parse(unknownEvent);
@@ -29,6 +55,26 @@ export class IngestionService {
       where: { sourceEventId: event.eventId },
     });
     if (existing) return { accepted: false, id: existing.id };
+    let ingested: IngestedObservation | null = null;
+    const result = await this.store(event, (observation) => {
+      ingested = observation;
+    });
+    const committed = ingested as IngestedObservation | null;
+    if (result.accepted && committed)
+      for (const listener of [...this.listeners]) {
+        try {
+          listener(committed);
+        } catch {
+          // A real-time feature must never reject an observation that is already stored.
+        }
+      }
+    return result;
+  }
+
+  private store(
+    event: NormalizedEvent,
+    stored: (observation: IngestedObservation) => void,
+  ): Promise<{ accepted: boolean; id?: string }> {
     return this.prisma.$transaction(async (tx) => {
       const zigbeeIdentifier = zigbeeIdentifierFromEntityId(event.source.entityId);
       const device = event.source.deviceId
@@ -200,6 +246,22 @@ export class IngestionService {
           receivedAt: new Date(event.receivedAt),
         },
       });
+      stored({
+        homeId: event.homeId,
+        sensorId: sensor.id,
+        roomId: eventRoomId,
+        capability: event.capability,
+        quality: event.quality,
+        payload: event.payload,
+        role,
+        bedOccupiedWhen: 'bedOccupiedWhen' in context ? context.bedOccupiedWhen : null,
+        model: device?.model ?? event.source.model ?? null,
+        enabled: sensor.analysisEnabled && device?.enabled !== false,
+        occurredAt: new Date(event.occurredAt),
+      });
+      // A light reports its own state (on/off): it is shown in its room, never used as
+      // presence, behaviour or alert evidence.
+      if (event.capability === 'light') return { accepted: true, id: saved.id };
       if (doorOpenedNow && placement?.roomId) {
         const cameras = await tx.camera.findMany({
           where: {

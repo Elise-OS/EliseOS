@@ -16,6 +16,7 @@ export const roomSensorCategorySchema = z.enum([
   'air_quality',
   'illuminance',
   'camera',
+  'light',
 ]);
 export type RoomSensorCategory = z.infer<typeof roomSensorCategorySchema>;
 
@@ -150,6 +151,13 @@ export const ROOM_SENSOR_CATEGORIES: Array<{
     description: 'La lumière dans la pièce',
     descriptionEn: 'Light in the room',
   },
+  {
+    id: 'light',
+    label: 'Éclairage',
+    labelEn: 'Lighting',
+    description: 'Une lumière douce pilotée par Élise, par exemple pour le chemin de nuit',
+    descriptionEn: 'A soft light controlled by Élise, for example for the night path',
+  },
 ];
 
 export const ROOM_SENSOR_PRESETS: Record<string, readonly RoomSensorCategory[]> = {
@@ -171,12 +179,13 @@ export const ROOM_SENSOR_PRESETS: Record<string, readonly RoomSensorCategory[]> 
     'button',
     'contact',
     'bed',
+    'light',
   ],
   KITCHEN: ['temperature', 'humidity', 'motion', 'water_leak', 'contact'],
   BATHROOM: ['temperature', 'shower', 'presence', 'fall_detection', 'button', 'water_leak'],
-  TOILET: ['motion', 'presence', 'fall_detection', 'button', 'water_leak'],
+  TOILET: ['motion', 'presence', 'fall_detection', 'button', 'water_leak', 'light'],
   ENTRANCE: ['motion', 'contact', 'button'],
-  HALLWAY: ['motion', 'smoke'],
+  HALLWAY: ['motion', 'smoke', 'light'],
   DINING_ROOM: ['temperature', 'humidity', 'motion', 'presence', 'button'],
   GARAGE: ['temperature', 'motion', 'contact', 'water_leak'],
   GARDEN: ['temperature', 'motion', 'illuminance'],
@@ -185,8 +194,8 @@ export const ROOM_SENSOR_PRESETS: Record<string, readonly RoomSensorCategory[]> 
 };
 
 export const roomSensorPreferencesSchema = z.object({
-  added: z.array(roomSensorCategorySchema).max(14).default([]),
-  hidden: z.array(roomSensorCategorySchema).max(14).default([]),
+  added: z.array(roomSensorCategorySchema).max(16).default([]),
+  hidden: z.array(roomSensorCategorySchema).max(16).default([]),
 });
 export type RoomSensorPreferences = z.infer<typeof roomSensorPreferencesSchema>;
 
@@ -279,6 +288,9 @@ export function deviceSupportsCategory(
       (normalizedModel.includes('SDC4100') && values.has('contact')) ||
       (values.has('occupancy') && isBedOccupancySensorModel(model))
     );
+  // Any Home Assistant light entity (Zigbee strip, bulb or night light) qualifies:
+  // the night path never depends on a particular model.
+  if (category === 'light') return values.has('light');
   if (category === 'air_quality')
     return ['co2', 'voc', 'total_volatile_organic_compounds', 'pm25', 'air_quality'].some((value) =>
       values.has(value),
@@ -334,7 +346,7 @@ export type SensorProduct = {
   model: string;
   name: string;
   nameEn: string;
-  kind: 'ROOM_SENSOR' | 'SMART_PLUG' | 'ENERGY_MONITOR';
+  kind: 'ROOM_SENSOR' | 'SMART_PLUG' | 'ENERGY_MONITOR' | 'LIGHT';
   testQuantity: number;
   categories: RoomSensorCategory[];
   protocol: 'zigbee' | 'wifi' | 'esphome';

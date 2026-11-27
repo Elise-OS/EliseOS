@@ -114,6 +114,12 @@ A interface adapta-se por completo a qualquer ecrã e está disponível em franc
 - A avaria de um sensor gera um **alerta de sistema explícito**, nunca uma falsa conclusão de inatividade.
 - Notificações push com conteúdo mínimo; os detalhes ficam atrás da API autenticada.
 
+### Caminho iluminado noturno
+
+- Quando a pessoa se levanta durante a noite, uma luz suave e quente acende-se no percurso (quarto → corredor → casa de banho) e apaga-se sozinha após alguns minutos sem movimento.
+- Uma ou várias divisões de partida (movimento, presença ou saída da cama), horário noturno que passa a meia-noite, divisões a iluminar mesmo sem detetor, intensidade, branco quente, atraso para apagar e botão «Testar».
+- A fita Innr FL 230 C é o modelo documentado, mas funciona qualquer luz Zigbee compatível com o Zigbee2MQTT, sem a ponte do fabricante. Luz de apoio: não é um dispositivo médico. Ver [docs/chemin-lumineux.md](docs/chemin-lumineux.md) (em francês).
+
 ### Coordenação dos cuidadores
 
 - Caderno de ligação partilhado, calendário de visitas e compromissos, acompanhamento dos tratamentos.
@@ -220,6 +226,7 @@ Detalhes: [docs/privacy.md](docs/privacy.md) (em inglês). Esta política favore
 | Armazenamento | Pelo menos 32 GB; recomenda-se um SSD USB ou NVMe (Pi 5)                                                               |
 | Rádio         | Adaptador Zigbee USB (Sonoff, SMLIGHT, ConBee, ZiGate…) — facultativo                                                  |
 | Sensores      | Movimento, abertura, temperatura/humidade, fuga de água, fumo, tomada inteligente, botão SOS…                          |
+| Iluminação    | Opcional: fita ou lâmpada Zigbee para o caminho iluminado noturno (Innr FL 230 C documentada)                          |
 | Ecrã          | Qualquer televisão por HDMI ou DisplayPort; webcam USB com microfone para chamadas nos dois sentidos                   |
 | Câmaras       | Facultativas: qualquer câmara local RTSP / ONVIF                                                                       |
 
@@ -412,6 +419,7 @@ Cada push executa `format:check`, `lint`, `typecheck`, `test` e `build` em todo 
 | Desenvolvimento, segredos, cópias de segurança (em inglês) | [docs/development.md](docs/development.md)                      |
 | Privacidade e conservação (em inglês)                      | [docs/privacy.md](docs/privacy.md)                              |
 | Câmaras (em inglês)                                        | [docs/cameras.md](docs/cameras.md)                              |
+| Caminho iluminado noturno (em francês)                     | [docs/chemin-lumineux.md](docs/chemin-lumineux.md)              |
 | Deploy no NAS (em francês)                                 | [README-NAS.md](README-NAS.md)                                  |
 | Documentação completa do utilizador                        | [eliseos.paulbreton.dev/pt](https://eliseos.paulbreton.dev/pt/) |
 

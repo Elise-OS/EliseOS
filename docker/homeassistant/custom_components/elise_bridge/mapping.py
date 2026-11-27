@@ -38,7 +38,16 @@ CAPABILITIES = {
     ("sensor", "illuminance"): "illuminance",
     ("sensor", "signal_strength"): "signal_strength",
     ("switch", ""): "switch",
+    # Any Home Assistant light (Zigbee strip, bulb, night light…): the night path drives it.
+    ("light", ""): "light",
 }
+
+# Home Assistant LightEntityFeature.TRANSITION.
+LIGHT_FEATURE_TRANSITION = 32
+# Colour modes in which Home Assistant can render a colour temperature (it converts it for
+# colour-only lights). "onoff" and "brightness" lights cannot.
+_COLOR_TEMPERATURE_MODES = {"color_temp", "hs", "xy", "rgb", "rgbw", "rgbww"}
+_DIMMABLE_MODES = _COLOR_TEMPERATURE_MODES | {"brightness", "white"}
 
 
 def capability(entity_id: str, device_class: str | None) -> str | None:
@@ -68,6 +77,8 @@ def payload(capability: str, value: Any, attributes: dict[str, Any]) -> dict[str
         "vibration",
     }:
         return {"active": value == "on"}
+    if capability == "light":
+        return light_payload(value, attributes)
     if capability == "contact":
         return {"open": str(value).lower() in {"on", "open", "contact_open", "true"}}
     if capability == "button":
@@ -160,3 +171,31 @@ def with_smoke_test(event_payload: dict[str, Any], test_state: Any) -> dict[str,
     if event_payload.get("active") is True and test_state == "on":
         return {**event_payload, "test": True}
     return event_payload
+
+
+def light_payload(value: Any, attributes: dict[str, Any]) -> dict[str, Any]:
+    """On/off state of a light, with its brightness in percent when Home Assistant knows it."""
+    result: dict[str, Any] = {"active": str(value).lower() == "on"}
+    brightness = attributes.get("brightness")
+    if isinstance(brightness, (int, float)) and not isinstance(brightness, bool):
+        result["brightnessPercent"] = max(0, min(100, round(float(brightness) * 100 / 255)))
+    return result
+
+
+def light_features(attributes: dict[str, Any]) -> dict[str, Any]:
+    """What a light accepts, so that Élise never sends an on/off light a brightness."""
+    modes = {str(mode) for mode in attributes.get("supported_color_modes") or []}
+    features = attributes.get("supported_features")
+    features = features if isinstance(features, int) and not isinstance(features, bool) else 0
+
+    def kelvin(name: str) -> int | None:
+        value = attributes.get(name)
+        return int(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+    return {
+        "brightness": bool(modes & _DIMMABLE_MODES),
+        "colorTemperature": bool(modes & _COLOR_TEMPERATURE_MODES),
+        "transition": bool(features & LIGHT_FEATURE_TRANSITION),
+        "minKelvin": kelvin("min_color_temp_kelvin"),
+        "maxKelvin": kelvin("max_color_temp_kelvin"),
+    }

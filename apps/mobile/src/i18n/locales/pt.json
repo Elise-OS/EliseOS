@@ -1240,8 +1240,11 @@
     "avoidHeatSourcesAndMetal": "Evite fontes de calor e objetos metálicos.",
     "bathroom": "Casa de banho",
     "bathroomHumidity": "Humidade da casa de banho",
+    "bathroomStrip": "Fita da casa de banho",
     "batteryToReplaceSoon": "Pilha a substituir em breve",
     "bedroom": "Quarto",
+    "bedroomMotion": "Movimento quarto",
+    "bedroomStrip": "Fita debaixo da cama",
     "bedroomTemperature": "Temperatura do quarto",
     "behindMetalFurniture": "Atrás de um móvel metálico",
     "bringTheLatestResults": "Levar os últimos resultados.",
@@ -1305,9 +1308,11 @@
     "kitchen": "Cozinha",
     "kitchenMotion": "Movimento na cozinha",
     "lesPiedsSurTerre": "Les Pieds sur terre",
+    "lighting": "Iluminação",
     "littleMovementObservedAtThe": "Poucos movimentos observados no início do dia.",
     "livingRoom": "Sala",
     "livingRoomMotion": "Movimento na sala",
+    "livingRoomStrip": "Fita da sala",
     "livingRoomTemperature": "Temperatura da sala",
     "livingRoomTemperature2": "Temperatura sala",
     "livingRoomTv": "Televisão da sala",
@@ -1322,6 +1327,7 @@
     "movementInTheBathroom": "Passagem pela casa de banho",
     "movementNoticed": "Passagem registada",
     "newDetector": "Novo detetor",
+    "nightPathName": "Quarto → casa de banho",
     "noRecentMovement": "Nenhum movimento recente",
     "opening": "Abertura",
     "photoShown": "Fotografia apresentada",
@@ -1502,6 +1508,10 @@
     "water_leak": {
       "description": "Os pontos de água a vigiar",
       "label": "Fuga de água"
+    },
+    "light": {
+      "description": "Uma luz suave controlada pela Élise, por exemplo para o caminho noturno",
+      "label": "Iluminação"
     }
   },
   "sensorProductCard": {
@@ -1527,7 +1537,7 @@
         "O vendedor indica o produto HS2FD-E; o Zigbee2MQTT documenta a variante HS2FD-EF1-3.0. Peça a confirmação desta referência exata antes da compra.",
         "Ligue o sensor a uma alimentação de 5 V / 2 A, perto da box Élise.",
         "No Élise OS, escolha «Instalar este sensor» e depois Zigbee. Coloque o sensor em modo de emparelhamento seguindo o manual: não é necessário nenhum hub nem conta Heiman.",
-        "Após a instalação, verifique a receção de um alerta de queda com o modo de teste indicado pelo fabricante. Este modelo ainda não foi testado fisicamente com a Élise."
+        "Após a instalação, verifique a receção de um alerta de queda com o modo de teste indicado pelo fabricante."
       ]
     },
     "heiman-smoke-detector": {
@@ -1551,6 +1561,28 @@
         "Mantenha o detetor ativo premindo o botão a cada 2 segundos até ao fim do emparelhamento.",
         "Após a instalação, teste a sirene de acordo com o manual e verifique o estado do detetor e da bateria na Élise. O Zigbee2MQTT indica que alguns firmwares podem enviar falsos estados de fumo repetidos; acompanhe o comportamento do detetor após o emparelhamento.",
         "A sirene local funciona no próprio detetor. As notificações da Élise complementam a vigilância e ainda não foram validadas num dispositivo físico."
+      ]
+    },
+    "innr-flex-light-colour-fl230c": {
+      "advice": "Cole-a rente ao chão ou debaixo da cama, ao longo do percurso noturno (quarto, corredor, casa de banho). Oriente a luz para o chão para iluminar os passos sem encandear a pessoa. Apenas para interior; mantenha o transformador e o controlador secos e acessíveis.",
+      "features": [
+        "Ligar / desligar, intensidade regulável de 0,1 a 100 %",
+        "Branco quente a frio e cores",
+        "Acender e apagar progressivos",
+        "Fita de 3 m recortável, com verso adesivo",
+        "Liga-se diretamente à chave Zigbee da Élise, sem ponte Innr"
+      ],
+      "name": "Fita LED Zigbee de cor de 3 m",
+      "placement": [
+        "Cole-a rente ao chão ou debaixo da cama, ao longo do percurso noturno (quarto, corredor, casa de banho).",
+        "Oriente a luz para o chão para iluminar os passos sem encandear a pessoa.",
+        "Apenas para interior; mantenha o transformador e o controlador secos e acessíveis."
+      ],
+      "power": "Transformador incluído · 100–240 V → 24 V CC · 24 W no máximo",
+      "preparation": [
+        "Desenrole toda a fita antes de a ligar à corrente: o manual proíbe alimentá-la enrolada ou na embalagem.",
+        "No Élise OS, escolha «Instalar este sensor» e depois Zigbee; em seguida ligue a fita perto da box.",
+        "Se não emparelhar, reponha-a como mostra o manual da Innr: prima uma vez o botão do controlador e depois mantenha-o premido 5 segundos; a fita pisca duas vezes quando está pronta."
       ]
     },
     "nodon-climate": {
@@ -2521,5 +2553,105 @@
       "title": "Detalhe técnico"
     },
     "title": "Estado da caixa"
+  },
+  "sensorReadings": {
+    "lightBrightness": "Intensidade {{percent}} %",
+    "lightOff": "Apagada",
+    "lightOn": "Acesa"
+  },
+  "nightPath": {
+    "addAnother": "Adicionar outro caminho",
+    "and": "e",
+    "backToPaths": "Todos os caminhos",
+    "brightness": "Intensidade",
+    "brightnessHint": "Uma luz baixa basta para ver onde se pisa sem acordar por completo.",
+    "brightnessLess": "Baixar a intensidade",
+    "brightnessMore": "Aumentar a intensidade",
+    "cancel": "Cancelar",
+    "cardCount_many": "{{count}} caminhos configurados, {{enabled}} ativo(s)",
+    "cardCount_one": "{{count}} caminho configurado, {{enabled}} ativo(s)",
+    "cardCount_other": "{{count}} caminhos configurados, {{enabled}} ativo(s)",
+    "cardEmpty": "Uma luz suave acende-se no percurso quando {{resident}} se levanta durante a noite.",
+    "cardEyebrow": "Conforto noturno",
+    "cardManage": "Configurar o caminho iluminado",
+    "cardView": "Ver os caminhos iluminados",
+    "confirmDelete": "Eliminar este caminho iluminado?",
+    "create": "Criar um caminho iluminado",
+    "defaultName": "Caminho noturno",
+    "defaultNameNumbered": "Caminho noturno {{number}}",
+    "delete": "Eliminar",
+    "deleteError": "Não foi possível eliminar. Tente novamente dentro de momentos.",
+    "disclaimer": "Luz de apoio para se deslocar à noite: não é um dispositivo médico e não substitui a iluminação habitual. Depende da rede Zigbee da casa.",
+    "edit": "Modificar",
+    "editTitle": "Modificar o caminho iluminado",
+    "emptyText": "Escolha onde começa o percurso noturno e as divisões a iluminar, por exemplo o quarto, o corredor e a casa de banho.",
+    "emptyTitle": "Ainda não há caminhos iluminados",
+    "enabled": "Ativo",
+    "endLabel": "Fim da noite",
+    "includeBedExit": "Também quando {{resident}} se levanta da cama",
+    "intro": "Quando {{resident}} se levanta durante a noite, a Élise acende suavemente uma luz quente no percurso e depois apaga-a sozinha.",
+    "keep": "Manter",
+    "lightTitle": "Luz",
+    "lightsHint": "Todas as luzes destas divisões acendem-se, mesmo numa divisão sem detetor (corredor, casa de banho…).",
+    "lightsTitle": "Divisões a iluminar",
+    "litUntil": "Aceso até às {{time}}",
+    "loadError": "Não foi possível carregar os caminhos iluminados.",
+    "loading": "A carregar os caminhos iluminados…",
+    "minutes_many": "{{count}} min",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min",
+    "name": "Nome do caminho",
+    "needsLight": "Adicione uma iluminação nas divisões a iluminar: {{tab}} → a divisão → Iluminação.",
+    "needsSensor": "Adicione um detetor de movimento ou de presença na divisão de partida, por exemplo o quarto.",
+    "newTitle": "Novo caminho iluminado",
+    "offHint": "…sem movimento detetado no percurso.",
+    "offTitle": "Apagar após",
+    "paused": "Em pausa",
+    "problems": {
+      "lights": "Escolha pelo menos uma divisão a iluminar.",
+      "name": "Dê um nome a este caminho.",
+      "trigger": "Escolha pelo menos uma divisão onde começar.",
+      "window": "O início e o fim da noite têm de ser diferentes."
+    },
+    "readOnly": "Apenas o proprietário e os administradores da casa podem modificar os caminhos iluminados.",
+    "requirementsTitle": "Para criar um caminho iluminado",
+    "retry": "Tentar novamente",
+    "roomLights_many": "{{count}} luzes",
+    "roomLights_one": "{{count}} luz",
+    "roomLights_other": "{{count}} luzes",
+    "roomSensors_many": "{{count}} detetores",
+    "roomSensors_one": "{{count}} detetor",
+    "roomSensors_other": "{{count}} detetores",
+    "roomWithoutLight": "Sem iluminação",
+    "roomWithoutSensor": "Sem detetor",
+    "save": "Guardar",
+    "saveError": "Não foi possível guardar. Tente novamente dentro de momentos.",
+    "simpleLightHint": "Uma luz que não regula a intensidade nem o tom simplesmente acende-se.",
+    "startLabel": "Início da noite",
+    "summaryIncomplete": "Escolha pelo menos uma divisão de partida e uma divisão a iluminar.",
+    "summary_many": "À noite, das {{start}} às {{end}}, {{when}}: {{lights}} acendem-se suavemente.",
+    "summary_one": "À noite, das {{start}} às {{end}}, {{when}}: {{lights}} acende-se suavemente.",
+    "summary_other": "À noite, das {{start}} às {{end}}, {{when}}: {{lights}} acendem-se suavemente.",
+    "temperatures": {
+      "2200": "Muito quente",
+      "2700": "Quente",
+      "3000": "Suave"
+    },
+    "test": "Testar",
+    "testError": "Não foi possível iniciar o teste. Tente novamente dentro de momentos.",
+    "testNoLight": "Não há nenhuma luz disponível nestas divisões, ou já está acesa.",
+    "testStarted_many": "{{count}} luzes acendem-se durante {{seconds}} segundos.",
+    "testStarted_one": "{{count}} luz acende-se durante {{seconds}} segundos.",
+    "testStarted_other": "{{count}} luzes acendem-se durante {{seconds}} segundos.",
+    "theResident": "a pessoa",
+    "title": "Caminho iluminado",
+    "toggle": "Ativar ou pausar «{{name}}»",
+    "triggerHint": "Escolha uma ou várias divisões com um detetor de movimento ou de presença.",
+    "triggerTitle": "Quando {{resident}} se mexe em…",
+    "warmth": "Tom",
+    "whenMoves": "quando {{resident}} se mexe {{rooms}}",
+    "whenMovesOrGetsUp": "quando {{resident}} se levanta da cama ou se mexe {{rooms}}",
+    "windowHint": "A passagem da meia-noite é tida em conta. Fora deste horário, nada se acende.",
+    "windowTitle": "Apenas à noite"
   }
 }

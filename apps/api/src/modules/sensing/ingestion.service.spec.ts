@@ -519,3 +519,70 @@ describe('critical alert ingestion', () => {
     });
   });
 });
+
+describe('light observations and real-time listeners', () => {
+  const tx = () => ({
+    sensor: {
+      upsert: vi.fn(() => ({ id: 'sensor-light', roomId: 'hallway', analysisEnabled: true })),
+    },
+    homePlan: { findUnique: vi.fn().mockResolvedValue(null) },
+    observationEvent: {
+      create: vi.fn().mockResolvedValue({ id: 'saved-light' }),
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
+    outboxMessage: { create: vi.fn() },
+    home: { findUnique: vi.fn().mockResolvedValue({ primaryResidentId: null }) },
+  });
+  const event = (capability: string, payload: Record<string, unknown>) => ({
+    schemaVersion: '1.0',
+    eventId: `evt-${capability}`,
+    occurredAt: '2026-12-01T22:30:00.000Z',
+    receivedAt: '2026-12-01T22:30:00.000Z',
+    homeId: 'home-1',
+    source: { platform: 'home-assistant', entityId: `${capability}.hallway` },
+    capability,
+    quality: 'good',
+    payload,
+  });
+
+  it('stores a light state without using it as behaviour or presence evidence', async () => {
+    const client = tx();
+    const prisma = {
+      observationEvent: { findUnique: vi.fn().mockResolvedValue(null) },
+      $transaction: vi.fn((callback: (value: typeof client) => unknown) => callback(client)),
+    };
+    const service = new IngestionService(prisma as never);
+    const listener = vi.fn();
+    service.onIngested(listener);
+
+    await expect(service.ingest(event('light', { active: true }))).resolves.toEqual({
+      accepted: true,
+      id: 'saved-light',
+    });
+    expect(client.observationEvent.create).toHaveBeenCalledOnce();
+    expect(client.outboxMessage.create).not.toHaveBeenCalled();
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({ capability: 'light', roomId: 'hallway', enabled: true }),
+    );
+  });
+
+  it('tells listeners about a committed observation but never about a replay', async () => {
+    const client = tx();
+    const findUnique = vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'old' });
+    const prisma = {
+      observationEvent: { findUnique },
+      $transaction: vi.fn((callback: (value: typeof client) => unknown) => callback(client)),
+    };
+    const service = new IngestionService(prisma as never);
+    const listener = vi.fn(() => {
+      throw new Error('listener failure must not reject the observation');
+    });
+    const unsubscribe = service.onIngested(listener);
+    await expect(service.ingest(event('temperature', { value: 19 }))).resolves.toMatchObject({
+      accepted: true,
+    });
+    await service.ingest(event('temperature', { value: 19 }));
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+});

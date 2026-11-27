@@ -49,6 +49,21 @@ Ce panier couvre les neuf scénarios de simulation d’Élise : matinée normale
 
 Cette option est en plus du total du panier pilote ci-dessus. Vérifier la référence **HS1SA-E** lors de la commande : l’installation Élise utilise directement son réseau Zigbee, sans compte ni concentrateur Heiman.
 
+## Option chemin lumineux — relevée le 27 novembre 2026
+
+Une lumière douce s’allume la nuit sur le trajet de la personne (chambre → couloir → toilettes), puis s’éteint toute seule. Voir [chemin-lumineux.md](chemin-lumineux.md). Ce n’est pas un dispositif médical : c’est une lumière d’appoint.
+
+> **Le ruban Innr FL 230 C est le modèle documenté, mais tout éclairage Zigbee compatible Zigbee2MQTT fonctionne, sans pont du fabricant.** Un éclairage simple marche/arrêt fonctionne aussi, sans réglage d’intensité ni de teinte.
+
+| Quantité | Produit                                                                                                                                                     | Usage prévu                                      |           Prix unitaire constaté | Disponibilité affichée                         |
+| -------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------: | ---------------------------------------------- |
+|      1–2 | [Innr FL 230 C — ruban LED Zigbee 3.0 couleur, 3 m](https://www.domadoo.fr/fr/smart-home-week/8968-innr-ruban-led-zigbee-rgbw-3m-fl230c-8718781556495.html) | Sous le lit et le long du couloir, au ras du sol | 44,64 € TTC (au lieu de 46,99 €) | Réapprovisionnement estimé le 30 novembre 2026 |
+
+- **Autre vendeur** : [Amazon FR](https://www.amazon.fr/dp/B0GFM9M6FT), 37,99 € relevé le 27 novembre 2026. La référence FL 230 C n’est pas affichée sur la fiche : à confirmer avant la commande.
+- **Alternative moins chère** : [IKEA ORMANÄS L2112](https://www.ikea.com/fr/fr/p/ormanaes-bande-led-connecte-sans-fil-a-variateur-dintensite-spectre-couleur-et-blanc-40497395/), bande LED 4 m couleur et blanc, **24,99 €** sur ikea.fr (relevé le 27 novembre 2026). Reconnue par Zigbee2MQTT : [fiche L2112](https://www.zigbee2mqtt.io/devices/L2112.html). Elle n’est pas au catalogue Élise mais fonctionne comme tout éclairage Zigbee2MQTT.
+- Le ruban Innr est livré avec son adaptateur secteur (24 V, 24 W maximum) : prévoir une prise libre près de chaque ruban.
+- Il faut aussi un **détecteur de mouvement** dans la pièce de départ (par exemple le SONOFF SNZB-03P du panier ci-dessus, placé près du lit et orienté vers la descente du lit).
+
 ## Comportement des capteurs dans Élise
 
 ### Bouton SONOFF SNZB-01P avec le rôle « assistance »
