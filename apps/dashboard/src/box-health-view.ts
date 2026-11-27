@@ -14,15 +14,18 @@ export type BoxHealthLevel = BoxHealthCheckLevel;
 export type { BoxHealthReport };
 
 /** Tabs of the settings page, in the order they are shown. */
-export type SettingsTab = 'general' | 'zigbee' | 'health' | 'rules';
+export type SettingsTab = 'general' | 'heatwave' | 'zigbee' | 'health' | 'rules';
 
 /**
  * Tabs a person may open. The Zigbee key and the box health speak about the appliance itself:
- * only people who manage the configuration see them.
+ * only people who manage the configuration see them. Every member reads the « Canicule » tab;
+ * the box decides who may change it (owner and administrators).
  */
 export function visibleSettingsTabs(capabilities: readonly string[]): SettingsTab[] {
   const manager = capabilities.includes('configuration:manage');
-  return manager ? ['general', 'zigbee', 'health', 'rules'] : ['general', 'rules'];
+  return manager
+    ? ['general', 'heatwave', 'zigbee', 'health', 'rules']
+    : ['general', 'heatwave', 'rules'];
 }
 
 /** What the banner says: `unverifiable` when the box could not be asked at all. */

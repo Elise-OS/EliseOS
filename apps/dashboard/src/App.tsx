@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   Sofa,
   Sparkles,
+  ThermometerSun,
   Trash2,
   Tv,
   UsersRound,
@@ -56,7 +57,7 @@ import { GuidedTour, type GuidedTourMode } from './GuidedTour';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import { FlagIcon } from './FlagIcons';
 import { RemoteAccessCard } from './RemoteAccessCard';
-import { HeatwaveCard } from './heatwave/HeatwaveCard';
+import { HeatwavePanel } from './heatwave/HeatwavePanel';
 import { ActivityPage } from './ActivityPage';
 import { UpdateCard } from './UpdateCard';
 import type { UpdateStatus } from '@elise/contracts';
@@ -130,15 +131,23 @@ const navIcons = [
   Tv,
   BookOpen,
 ];
-const settingsTabIcons = { general: Settings, zigbee: Usb, health: HeartPulse, rules: Bell };
+const settingsTabIcons = {
+  general: Settings,
+  heatwave: ThermometerSun,
+  zigbee: Usb,
+  health: HeartPulse,
+  rules: Bell,
+};
 const settingsTabLabel = (tab: SettingsTab) =>
   tab === 'general'
     ? i18nT('app.general')
-    : tab === 'zigbee'
-      ? i18nT('zigbeeKey.tab')
-      : tab === 'health'
-        ? i18nT('boxHealth.tab')
-        : i18nT('app.rules');
+    : tab === 'heatwave'
+      ? i18nT('heatwave.card.settingsTitle')
+      : tab === 'zigbee'
+        ? i18nT('zigbeeKey.tab')
+        : tab === 'health'
+          ? i18nT('boxHealth.tab')
+          : i18nT('app.rules');
 
 export const sidebarHiddenNavIndexes = new Set([4, 5, 6, 9]);
 export const sidebarNavOrder = [0, 1, 2, 11, 9, 10, 3, 7, 8] as const;
@@ -1648,7 +1657,6 @@ export function App() {
                   </div>
                 </details>
               )}
-              {settingsTab === 'general' && <HeatwaveCard />}
               {settingsTab === 'general' &&
                 currentAccess.capabilities.includes('configuration:manage') && (
                   <RemoteAccessCard locale={locale} />
@@ -1667,6 +1675,7 @@ export function App() {
                     onInstall={(version) => void installUpdate(version)}
                   />
                 )}
+              {settingsTab === 'heatwave' && <HeatwavePanel />}
               {settingsTab === 'zigbee' &&
                 currentAccess.capabilities.includes('configuration:manage') && <ZigbeeKeyPanel />}
               {settingsTab === 'health' &&

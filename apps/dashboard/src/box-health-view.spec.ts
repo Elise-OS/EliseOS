@@ -76,7 +76,14 @@ describe('box health access', () => {
   it('shows the tab only to people who manage the configuration', () => {
     expect(visibleSettingsTabs(['configuration:manage'])).toContain('health');
     expect(visibleSettingsTabs(['configuration:read', 'alerts:manage'])).not.toContain('health');
-    expect(visibleSettingsTabs([])).toEqual(['general', 'rules']);
+    expect(visibleSettingsTabs([])).toEqual(['general', 'heatwave', 'rules']);
+    expect(visibleSettingsTabs(['configuration:manage'])).toEqual([
+      'general',
+      'heatwave',
+      'zigbee',
+      'health',
+      'rules',
+    ]);
   });
 });
 

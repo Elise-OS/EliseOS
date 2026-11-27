@@ -1,5 +1,6 @@
 import {
   HEATWAVE_COOL_MARGIN,
+  HEATWAVE_COOL_MINUTES,
   heatwaveForecastLevel,
   heatwaveGauge,
   heatwaveIndoorLevel,
@@ -286,4 +287,162 @@ export function heatwaveToday(status: HeatwaveStatus, now = new Date()) {
       }),
     },
   };
+}
+
+/** The large title of the state banner: « Le mode canicule est activé ». */
+export const heatwaveStateTitle = (status: HeatwaveStatus): string =>
+  ({
+    active: t('heatwave.panel.stateOn'),
+    paused: t('heatwave.panel.statePaused'),
+    idle: t('heatwave.panel.stateOff'),
+  })[heatwaveTone(status)];
+
+/** « Activé aujourd’hui à 10:12 » or « Activé depuis le 14 juillet », only while it is on. */
+export function heatwaveSince(status: HeatwaveStatus, now = new Date()): string | null {
+  if (!status.active || !status.activatedAt) return null;
+  const since = new Date(status.activatedAt);
+  const day = (date: Date) =>
+    date.toLocaleDateString('en-CA', { timeZone: status.timezone, dateStyle: 'short' });
+  if (day(since) === day(now))
+    return t('heatwave.panel.sinceToday', { time: clockTime(status.activatedAt, status.timezone) });
+  return t('heatwave.panel.sinceDate', {
+    date: since.toLocaleDateString(dateLocale(), {
+      day: 'numeric',
+      month: 'long',
+      timeZone: status.timezone,
+    }),
+  });
+}
+
+export type HeatwaveChipKey =
+  'banner' | 'reminders' | 'tips' | 'family' | 'indoor' | 'forecast' | 'manual' | 'rearm';
+
+/** What Élise does right now (when on) or watches for (when standing by), as short chips. */
+export function heatwaveChips(
+  status: HeatwaveStatus,
+): Array<{ key: HeatwaveChipKey; text: string }> {
+  const { settings } = status;
+  const chips: Array<{ key: HeatwaveChipKey; text: string } | null> = status.active
+    ? [
+        { key: 'banner', text: t('heatwave.panel.chipBanner') },
+        settings.reminders.enabled
+          ? {
+              key: 'reminders',
+              text: t('heatwave.panel.chipReminders', { count: settings.reminders.everyHours }),
+            }
+          : null,
+        settings.tips.enabled ? { key: 'tips', text: t('heatwave.panel.chipTips') } : null,
+        settings.alert.enabled
+          ? {
+              key: 'family',
+              text: t('heatwave.panel.chipFamily', { celsius: celsius(settings.alert.celsius) }),
+            }
+          : null,
+      ]
+    : status.manual === 'OFF'
+      ? [
+          {
+            key: 'rearm',
+            text: t('heatwave.panel.chipRearm', {
+              celsius: celsius(settings.indoorTrigger.celsius - HEATWAVE_COOL_MARGIN),
+            }),
+          },
+        ]
+      : [
+          settings.indoorTrigger.enabled
+            ? {
+                key: 'indoor',
+                text: t('heatwave.panel.chipWatchIndoor', {
+                  celsius: celsius(settings.indoorTrigger.celsius),
+                }),
+              }
+            : null,
+          settings.forecastTrigger.enabled
+            ? {
+                key: 'forecast',
+                text: t('heatwave.panel.chipWatchForecast', {
+                  celsius: celsius(settings.forecastTrigger.celsius),
+                }),
+              }
+            : null,
+          !settings.indoorTrigger.enabled && !settings.forecastTrigger.enabled
+            ? { key: 'manual', text: t('heatwave.panel.chipManualOnly') }
+            : null,
+        ];
+  return chips.filter((chip): chip is { key: HeatwaveChipKey; text: string } => chip !== null);
+}
+
+export type HeatwaveThresholdKey = 'indoor' | 'forecast' | 'stop' | 'reminders' | 'tips' | 'alert';
+
+/** The saved settings as short label / value rows, for the « Vos réglages » block. */
+export function heatwaveThresholds(
+  settings: HeatwaveSettings,
+): Array<{ key: HeatwaveThresholdKey; label: string; value: string; off: boolean }> {
+  const { indoorTrigger, forecastTrigger, reminders, tips, alert } = settings;
+  const cool = celsius(indoorTrigger.celsius - HEATWAVE_COOL_MARGIN);
+  const forecast = celsius(forecastTrigger.celsius);
+  const coolFor = duration(HEATWAVE_COOL_MINUTES);
+  return [
+    {
+      key: 'indoor',
+      label: t('heatwave.settings.indoorTitle'),
+      off: !indoorTrigger.enabled,
+      value: indoorTrigger.enabled
+        ? t('heatwave.panel.valueIndoor', {
+            celsius: celsius(indoorTrigger.celsius),
+            duration: duration(indoorTrigger.minutes),
+          })
+        : t('heatwave.panel.noTrigger'),
+    },
+    {
+      key: 'forecast',
+      label: t('heatwave.settings.forecastTitle'),
+      off: !forecastTrigger.enabled,
+      value: forecastTrigger.enabled
+        ? t('heatwave.panel.valueForecast', { celsius: forecast })
+        : t('heatwave.panel.noTrigger'),
+    },
+    {
+      key: 'stop',
+      label: t('heatwave.panel.stopTitle'),
+      off: false,
+      value:
+        indoorTrigger.enabled && forecastTrigger.enabled
+          ? t('heatwave.panel.valueStopBoth', { celsius: cool, duration: coolFor, forecast })
+          : indoorTrigger.enabled
+            ? t('heatwave.panel.valueStop', { celsius: cool, duration: coolFor })
+            : forecastTrigger.enabled
+              ? t('heatwave.panel.valueStopForecast', { forecast })
+              : t('heatwave.panel.valueStopManual'),
+    },
+    {
+      key: 'reminders',
+      label: t('heatwave.settings.remindersTitle'),
+      off: !reminders.enabled,
+      value: reminders.enabled
+        ? t('heatwave.panel.valueReminders', {
+            every: t('heatwave.settings.everyHours', { count: reminders.everyHours }),
+            start: reminders.startHour,
+            end: reminders.endHour,
+          })
+        : t('heatwave.panel.noReminders'),
+    },
+    {
+      key: 'tips',
+      label: t('heatwave.settings.tipsTitle'),
+      off: !tips.enabled,
+      value: tips.enabled ? t('heatwave.panel.valueTips') : t('heatwave.panel.noTips'),
+    },
+    {
+      key: 'alert',
+      label: t('heatwave.settings.alertTitle'),
+      off: !alert.enabled,
+      value: alert.enabled
+        ? t('heatwave.panel.valueAlert', {
+            celsius: celsius(alert.celsius),
+            duration: duration(alert.minutes),
+          })
+        : t('heatwave.panel.noAlert'),
+    },
+  ];
 }

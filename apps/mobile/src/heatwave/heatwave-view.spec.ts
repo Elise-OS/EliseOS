@@ -4,7 +4,10 @@ import { setLanguage } from '../i18n';
 import { mockDemoRequest, resetDemoSession } from '../demo/mock-api';
 import {
   duration,
+  heatwaveChips,
   heatwaveReason,
+  heatwaveStateTitle,
+  heatwaveThresholds,
   heatwaveSteps,
   heatwaveToday,
   heatwaveStateText,
@@ -117,10 +120,59 @@ describe('heatwave view', () => {
     expect(quiet[3]?.text).toContain('Activé à la main');
   });
 
+  it('sums up the state and the saved thresholds for the Canicule tab', () => {
+    setLanguage('fr');
+    resetDemoSession();
+    const idle = mockDemoRequest<HeatwaveStatus>('/heatwave');
+    expect(heatwaveStateTitle(idle)).toBe('Le mode canicule est en veille');
+    expect(heatwaveChips(idle).map(({ text }) => text)).toEqual([
+      'Logement : dès 28 °C',
+      'Météo : dès 33 °C',
+    ]);
+    expect(heatwaveThresholds(idle.settings).map(({ label, value }) => [label, value])).toEqual([
+      ['Chaleur dans le logement', 'Dès 28 °C pendant 30 min'],
+      ['Prévision météo', 'Dès 33 °C annoncés'],
+      ['Arrêt automatique', 'Sous 27 °C pendant 2 h, météo sous 33 °C'],
+      ['Rappels « boire »', 'Toutes les 2 h, de 9 h à 20 h'],
+      ['Conseils', 'Selon le moment de la journée'],
+      ['Alerte forte chaleur', 'Dès 31 °C pendant 1 h'],
+    ]);
+
+    const on = mockDemoRequest<HeatwaveStatus>('/heatwave/manual', {
+      method: 'POST',
+      body: JSON.stringify({ active: true }),
+    });
+    expect(heatwaveStateTitle(on)).toBe('Le mode canicule est activé');
+    expect(heatwaveChips(on).map(({ key }) => key)).toEqual([
+      'banner',
+      'reminders',
+      'tips',
+      'family',
+    ]);
+    const paused = mockDemoRequest<HeatwaveStatus>('/heatwave/manual', {
+      method: 'POST',
+      body: JSON.stringify({ active: false }),
+    });
+    expect(heatwaveStateTitle(paused)).toBe('Le mode canicule est en pause');
+    expect(heatwaveChips(paused).map(({ text }) => text)).toEqual(['Se réarme sous 27 °C']);
+    const quiet = heatwaveThresholds({
+      ...idle.settings,
+      forecastTrigger: { ...idle.settings.forecastTrigger, enabled: false },
+      alert: { ...idle.settings.alert, enabled: false },
+    });
+    expect(quiet.find(({ key }) => key === 'forecast')).toMatchObject({
+      value: 'Ne déclenche pas le mode',
+      off: true,
+    });
+    expect(quiet.find(({ key }) => key === 'stop')?.value).toBe('Sous 27 °C pendant 2 h');
+    expect(quiet.find(({ key }) => key === 'alert')?.value).toBe('Aucune alerte');
+  });
+
   it('speaks the visitor’s language', () => {
     setLanguage('en');
     resetDemoSession();
     const status = mockDemoRequest<HeatwaveStatus>('/heatwave');
     expect(heatwaveStatusLabel(status)).toBe('Standing by');
+    expect(heatwaveStateTitle(status)).toBe('Heatwave mode is standing by');
   });
 });
