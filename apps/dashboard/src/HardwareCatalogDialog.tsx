@@ -29,7 +29,9 @@ const familyLabel = (product: SensorProduct) =>
     ? t('hardwareCatalogDialog.smartPlug')
     : product.kind === 'ENERGY_MONITOR'
       ? t('hardwareCatalogDialog.energyMonitoring')
-      : t('hardwareCatalogDialog.roomSensor');
+      : product.kind === 'LIGHT'
+        ? t('hardwareCatalogDialog.lighting')
+        : t('hardwareCatalogDialog.roomSensor');
 
 export function HardwareCatalogDialog({
   open,

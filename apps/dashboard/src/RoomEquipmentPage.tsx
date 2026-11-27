@@ -2,12 +2,12 @@ import { ProductPhoto, SensorProductCard } from './SensorProductCard';
 import { useEffect, useRef, useState } from 'react';
 import {
   Activity,
-  Camera,
   ArrowLeft,
   ArrowRight,
-  Bell,
-  BedDouble,
   BatteryMedium,
+  BedDouble,
+  Bell,
+  Camera,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -18,6 +18,7 @@ import {
   Grid2X2,
   House,
   Layers,
+  Lightbulb,
   LoaderCircle,
   Plus,
   Radio,
@@ -75,6 +76,7 @@ const categoryIcons = {
   air_quality: Wind,
   illuminance: Sun,
   camera: Camera,
+  light: Lightbulb,
 };
 
 export function DevicePhoto({ device }: { device: SensorUiDevice }) {
@@ -236,7 +238,7 @@ export function roomSensorReading(
   const lastSeenAt = capability?.lastSeenAt ?? device.lastSeenAt;
   const lastSeen = lastSeenAt ? Date.parse(lastSeenAt) : NaN;
   // A value can stay unchanged while another function of the same device reports.
-  const stateful = ['presence', 'motion', 'contact', 'bed'].includes(category);
+  const stateful = ['presence', 'motion', 'contact', 'bed', 'light'].includes(category);
   const deviceSeen = device.lastSeenAt ? Date.parse(device.lastSeenAt) : NaN;
   const freshness = Math.max(
     Number.isFinite(lastSeen) ? lastSeen : -Infinity,
@@ -292,9 +294,15 @@ export function roomSensorReading(
                 ? active
                   ? t('roomEquipmentPage.fallAlert')
                   : t('roomEquipmentPage.noFallReported')
-                : active
-                  ? t('roomEquipmentPage.signalDetected')
-                  : t('roomEquipmentPage.noSignal');
+                : category === 'light'
+                  ? active
+                    ? t('roomEquipmentPage.lightOn')
+                    : t('roomEquipmentPage.lightOff')
+                  : active
+                    ? t('roomEquipmentPage.signalDetected')
+                    : t('roomEquipmentPage.noSignal');
+    if (category === 'light' && active === true && typeof value?.brightnessPercent === 'number')
+      detail = t('roomEquipmentPage.lightBrightness', { percent: value.brightnessPercent });
     else if (typeof value?.action === 'string') reading = t('roomEquipmentPage.lastPressReceived');
   }
   if (category === 'camera') reading = status ?? t('roomEquipmentPage.connected');

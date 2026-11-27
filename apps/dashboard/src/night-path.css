@@ -1,0 +1,504 @@
+/* « Chemin lumineux » — night path lighting. Reuses the equipment dialog tokens:
+   cream / paper, night blue, soft blue and amber for the light itself. */
+.night-path-dialog {
+  padding: 22px 27px 27px;
+}
+.night-path-intro {
+  margin: 0 0 18px;
+  color: #445a6c;
+  font-size: 1rem;
+}
+.night-path-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 26px 0;
+  color: #5e6f7b;
+}
+.night-path-loading svg {
+  width: 20px;
+  height: 20px;
+}
+.night-path-requirements {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.night-path-requirements > svg {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  color: #a86b2b;
+}
+.night-path-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 30px 18px;
+  border: 1px dashed #e0cfb8;
+  border-radius: 20px;
+  background: #fdfbf7;
+  text-align: center;
+}
+.night-path-empty > span,
+.night-path-card-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+  color: #0b2948;
+  background: linear-gradient(145deg, #fbe7cc, #f4d3a6);
+}
+.night-path-empty > span svg,
+.night-path-card-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.night-path-empty strong {
+  color: #12385f;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 1.2rem;
+}
+.night-path-empty p {
+  max-width: 420px;
+  margin: 0 0 8px;
+  color: #5e6f7b;
+}
+.night-path-cards {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.night-path-card {
+  padding: 18px 20px;
+  border: 1px solid #e6ddd0;
+  border-radius: 20px;
+  background: #fdfbf7;
+  box-shadow: 0 9px 30px rgb(29 55 79 / 5%);
+}
+.night-path-card.is-paused {
+  background: #f7f6f3;
+}
+.night-path-card header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.night-path-card header > div {
+  flex: 1;
+  min-width: 0;
+}
+.night-path-card h3 {
+  margin: 0;
+  color: #12385f;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 1.15rem;
+  overflow-wrap: anywhere;
+}
+.night-path-card > p {
+  margin: 12px 0 0;
+  color: #34495b;
+}
+.night-path-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.night-path-status svg {
+  width: 14px;
+  height: 14px;
+}
+.night-path-status.is-on {
+  color: #1e4f6e;
+  background: #e6f0f6;
+}
+.night-path-status.is-off {
+  color: #5e6f7b;
+  background: #eceff1;
+}
+.night-path-status.is-lit {
+  color: #7a4a14;
+  background: #fbe7cc;
+}
+.night-path-switch {
+  position: relative;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #c9d3da;
+  transition: background 160ms ease;
+}
+.night-path-switch span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgb(11 41 72 / 25%);
+  transition: transform 160ms ease;
+}
+.night-path-switch[aria-checked='true'] {
+  background: #12385f;
+}
+.night-path-switch[aria-checked='true'] span {
+  transform: translateX(22px);
+}
+.night-path-switch:focus-visible,
+.night-path-segment button:focus-visible,
+.night-path-room:focus-within,
+.night-path-add:focus-visible {
+  outline: 3px solid #d99a55;
+  outline-offset: 2px;
+}
+.night-path-card-actions,
+.night-path-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.night-path-confirm span {
+  flex: 1 1 180px;
+  color: #34495b;
+  font-weight: 600;
+}
+.night-path-delete {
+  color: #8a5a4f !important;
+}
+.night-path-danger {
+  color: #a34433 !important;
+  border-color: #efcdc4 !important;
+}
+.night-path-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 14px;
+  border: 1px dashed #c8d6e0;
+  border-radius: 16px;
+  color: #244f6c;
+  background: #fff;
+  font-weight: 650;
+}
+.night-path-add svg,
+.night-path-card-actions svg,
+.night-path-confirm svg {
+  width: 17px;
+  height: 17px;
+}
+.night-path-hint {
+  margin: 6px 0 0;
+  color: #687382;
+  font-size: 0.875rem;
+}
+.night-path-disclaimer {
+  margin: 20px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid #ece6dc;
+  color: #7a8794;
+  font-size: 0.8125rem;
+}
+
+/* Editor */
+.night-path-section {
+  margin: 22px 0 0;
+  padding: 18px 18px 16px;
+  border: 1px solid #e6ddd0;
+  border-radius: 18px;
+  background: #fdfbf7;
+}
+.night-path-section legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px;
+  color: #12385f;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.night-path-step {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  color: #0b2948;
+  background: #fbe7cc;
+}
+.night-path-step svg {
+  width: 17px;
+  height: 17px;
+}
+.night-path-rooms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.night-path-room {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 1px solid #d9e2e8;
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+}
+.night-path-room input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.night-path-room-check {
+  display: grid;
+  flex: 0 0 22px;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid #9fb2c0;
+  border-radius: 7px;
+  color: transparent;
+  background: #fff;
+}
+.night-path-room-check svg {
+  width: 15px;
+  height: 15px;
+}
+.night-path-room.is-checked {
+  border-color: #12385f;
+  background: #f1f6fa;
+}
+.night-path-room.is-checked .night-path-room-check {
+  border-color: #12385f;
+  color: #fff;
+  background: #12385f;
+}
+.night-path-room.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+.night-path-room-copy {
+  display: grid;
+  min-width: 0;
+}
+.night-path-room-copy strong {
+  color: #17364f;
+  font-size: 0.9375rem;
+  overflow-wrap: anywhere;
+}
+.night-path-room-copy small {
+  color: #687382;
+  font-size: 0.8125rem;
+}
+.night-path-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  color: #34495b;
+  font-size: 0.9375rem;
+}
+.night-path-checkbox input {
+  width: 20px;
+  height: 20px;
+  accent-color: #12385f;
+}
+.night-path-checkbox svg {
+  width: 18px;
+  height: 18px;
+  color: #376884;
+}
+.night-path-times {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.night-path-times .equipment-field {
+  margin: 12px 0 0;
+}
+.night-path-slider {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.night-path-slider > span {
+  display: flex;
+  justify-content: space-between;
+}
+.night-path-slider strong {
+  color: #12385f;
+}
+.night-path-slider input {
+  width: 100%;
+  min-height: 32px;
+  accent-color: #d99a55;
+}
+.night-path-slider small {
+  color: #687382;
+  font-weight: 400;
+}
+.night-path-segment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 5px;
+  border-radius: 14px;
+  background: #efe9df;
+}
+.night-path-segment button {
+  display: inline-flex;
+  flex: 1 1 90px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  color: #34495b;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.night-path-segment button.is-selected {
+  color: #12385f;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(11 41 72 / 12%);
+}
+.night-path-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgb(0 0 0 / 8%);
+}
+.night-path-swatch.is-2200 {
+  background: #ffb25e;
+}
+.night-path-swatch.is-2700 {
+  background: #ffcf8f;
+}
+.night-path-swatch.is-3000 {
+  background: #ffe2b8;
+}
+.night-path-preview {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-top: 22px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  color: #f8efe2;
+  background: radial-gradient(circle at 12% 20%, rgb(217 154 85 / 35%), transparent 55%), #0b2948;
+}
+.night-path-preview svg {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  color: #f4c58d;
+}
+.night-path-preview p {
+  margin: 0;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+.night-path-test-notice {
+  margin: 14px 0 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  color: #6b4313;
+  background: #fbefdd;
+  font-size: 0.875rem;
+}
+.night-path-footer {
+  position: sticky;
+  bottom: -27px;
+  margin-inline: -27px;
+  margin-bottom: -27px;
+  padding: 16px 27px 20px;
+  background: #fff;
+}
+
+/* Home overview card */
+.night-path-overview-card {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+.night-path-overview-card .night-path-overview-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.night-path-overview-card .night-path-overview-title > svg {
+  width: 28px;
+  height: 28px;
+  padding: 6px;
+  box-sizing: content-box;
+  border-radius: 12px;
+  color: #0b2948;
+  background: #fbe7cc;
+}
+.night-path-overview-card strong {
+  display: block;
+  color: #12385f;
+  font-size: 20px;
+}
+.night-path-overview-card p {
+  margin: 0;
+  color: #5e6f7b;
+  font-size: 0.9375rem;
+}
+.night-path-overview-card .coverage-card-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 640px) {
+  .night-path-dialog {
+    padding: 16px 18px 22px;
+  }
+  .night-path-section {
+    padding: 14px 12px;
+  }
+  .night-path-times {
+    grid-template-columns: 1fr;
+  }
+  .night-path-footer {
+    bottom: -22px;
+    margin-inline: -18px;
+    margin-bottom: -22px;
+    padding: 14px 18px 18px;
+  }
+  .night-path-footer button {
+    flex: 1 1 100%;
+  }
+}

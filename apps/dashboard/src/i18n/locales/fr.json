@@ -1279,7 +1279,8 @@
     "testHardware": "Matériel de test",
     "thisListExactlyMatchesThe": "Cette liste correspond exactement aux références disponibles pour les essais. Une compatibilité documentée ne sera marquée « validée avec Élise » qu’après un test physique complet.",
     "validatedWithElise": "Validé avec Élise",
-    "viewDetails": "Voir la fiche"
+    "viewDetails": "Voir la fiche",
+    "lighting": "Éclairage"
   },
   "homeOverview": {
     "addASensor": "Ajouter un capteur",
@@ -1751,6 +1752,98 @@
     "NEUTRAL": "Neutre",
     "SAD": "Triste"
   },
+  "nightPath": {
+    "title": "Chemin lumineux",
+    "cardEyebrow": "Confort de nuit",
+    "cardEmpty": "Une lumière douce s’allume sur le trajet quand {{resident}} se lève la nuit.",
+    "cardCount_one": "{{count}} chemin configuré, {{enabled}} en service",
+    "cardCount_many": "{{count}} chemins configurés, {{enabled}} en service",
+    "cardCount_other": "{{count}} chemins configurés, {{enabled}} en service",
+    "cardManage": "Configurer le chemin lumineux",
+    "cardView": "Voir les chemins lumineux",
+    "theResident": "la personne",
+    "intro": "Quand {{resident}} se lève la nuit, Élise allume doucement une lumière chaude sur son trajet, puis l’éteint toute seule.",
+    "requirementsTitle": "Pour créer un chemin lumineux",
+    "needsSensor": "Ajoutez un détecteur de mouvement ou de présence dans la pièce de départ, par exemple la chambre.",
+    "needsLight": "Ajoutez un éclairage dans les pièces à éclairer : Mon logement → la pièce → Éclairage.",
+    "emptyTitle": "Aucun chemin lumineux pour l’instant",
+    "emptyText": "Choisissez où commence le trajet de nuit et les pièces à éclairer, par exemple la chambre, le couloir et les toilettes.",
+    "create": "Créer un chemin lumineux",
+    "addAnother": "Ajouter un autre chemin",
+    "enabled": "En service",
+    "paused": "En pause",
+    "litUntil": "Allumé jusqu’à {{time}}",
+    "toggle": "Mettre en service ou en pause « {{name}} »",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "keep": "Conserver",
+    "confirmDelete": "Supprimer ce chemin lumineux ?",
+    "readOnly": "Seuls le propriétaire et les administrateurs du logement peuvent modifier les chemins lumineux.",
+    "disclaimer": "Lumière d’appoint pour se déplacer la nuit : ce n’est pas un dispositif médical et elle ne remplace pas l’éclairage habituel. Elle dépend du réseau Zigbee du logement.",
+    "loading": "Chargement des chemins lumineux…",
+    "loadError": "Les chemins lumineux n’ont pas pu être chargés.",
+    "retry": "Réessayer",
+    "saveError": "L’enregistrement n’a pas abouti. Réessayez dans un instant.",
+    "deleteError": "La suppression n’a pas abouti. Réessayez dans un instant.",
+    "newTitle": "Nouveau chemin lumineux",
+    "editTitle": "Modifier le chemin lumineux",
+    "backToPaths": "Tous les chemins",
+    "name": "Nom du chemin",
+    "defaultName": "Chemin de nuit",
+    "defaultNameNumbered": "Chemin de nuit {{number}}",
+    "triggerTitle": "Quand {{resident}} bouge dans…",
+    "triggerHint": "Choisissez une ou plusieurs pièces équipées d’un détecteur de mouvement ou de présence.",
+    "roomSensors_one": "{{count}} détecteur",
+    "roomSensors_many": "{{count}} détecteurs",
+    "roomSensors_other": "{{count}} détecteurs",
+    "roomWithoutSensor": "Pas de détecteur",
+    "includeBedExit": "Aussi quand {{resident}} se lève du lit",
+    "windowTitle": "La nuit seulement",
+    "from": "De",
+    "to": "À",
+    "windowHint": "Le passage de minuit est pris en compte. En dehors de cette plage, rien ne s’allume.",
+    "lightsTitle": "Pièces à éclairer",
+    "lightsHint": "Toutes les lumières de ces pièces s’allument, même dans une pièce sans détecteur (couloir, toilettes…).",
+    "roomLights_one": "{{count}} éclairage",
+    "roomLights_many": "{{count}} éclairages",
+    "roomLights_other": "{{count}} éclairages",
+    "roomWithoutLight": "Pas d’éclairage",
+    "lightTitle": "Lumière",
+    "brightness": "Intensité",
+    "brightnessHint": "Une lumière basse suffit pour voir où l’on marche sans se réveiller complètement.",
+    "warmth": "Teinte",
+    "temperatures": {
+      "2200": "Très chaude",
+      "2700": "Chaude",
+      "3000": "Douce"
+    },
+    "simpleLightHint": "Un éclairage qui ne règle ni l’intensité ni la teinte s’allume simplement.",
+    "offTitle": "Éteindre après",
+    "minutes_one": "{{count}} min",
+    "minutes_many": "{{count}} min",
+    "minutes_other": "{{count}} min",
+    "offHint": "…sans mouvement détecté sur le trajet.",
+    "summary_one": "La nuit, de {{start}} à {{end}}, {{when}} : {{lights}} s’allume doucement.",
+    "summary_many": "La nuit, de {{start}} à {{end}}, {{when}} : {{lights}} s’allument doucement.",
+    "summary_other": "La nuit, de {{start}} à {{end}}, {{when}} : {{lights}} s’allument doucement.",
+    "whenMoves": "quand {{resident}} bouge dans {{rooms}}",
+    "whenMovesOrGetsUp": "quand {{resident}} se lève du lit ou bouge dans {{rooms}}",
+    "summaryIncomplete": "Choisissez au moins une pièce de départ et une pièce à éclairer.",
+    "problems": {
+      "name": "Donnez un nom à ce chemin.",
+      "trigger": "Choisissez au moins une pièce où démarrer.",
+      "lights": "Choisissez au moins une pièce à éclairer.",
+      "window": "Le début et la fin de la nuit doivent être différents."
+    },
+    "test": "Tester",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "testStarted_one": "{{count}} éclairage s’allume pendant {{seconds}} secondes.",
+    "testStarted_many": "{{count}} éclairages s’allument pendant {{seconds}} secondes.",
+    "testStarted_other": "{{count}} éclairages s’allument pendant {{seconds}} secondes.",
+    "testNoLight": "Aucun éclairage disponible dans ces pièces, ou il est déjà allumé.",
+    "testError": "Le test n’a pas pu démarrer. Réessayez dans un instant."
+  },
   "remoteAccessCard": {
     "actionFailed": "Action impossible.",
     "activeAndPrivate": "Actif et privé",
@@ -1975,7 +2068,10 @@
     "whatIsThisSensorFor": "À quoi sert ce capteur ?",
     "whenTheBedIsOccupied": "Quand le lit est occupé",
     "whereToPlaceIt": "Où le placer",
-    "yourRoom": "Votre pièce"
+    "yourRoom": "Votre pièce",
+    "lightOn": "Allumé",
+    "lightOff": "Éteint",
+    "lightBrightness": "Intensité {{percent}} %"
   },
   "router": {
     "english": "Français",
@@ -2035,9 +2131,12 @@
     "avoidHeatSourcesAndMetal": "Évitez les sources de chaleur et les objets métalliques.",
     "bathroom": "Salle de bains",
     "bathroomHumidity": "Humidité salle de bains",
+    "bathroomStrip": "Ruban salle de bains",
     "batteryToReplaceSoon": "Pile bientôt à remplacer",
     "bedroom": "Chambre",
     "bedroomCoolerThanUsual": "Chambre plus fraîche que d’habitude",
+    "bedroomMotion": "Mouvement chambre",
+    "bedroomStrip": "Ruban sous le lit",
     "bedroomTemperature": "Température chambre",
     "behindMetalFurniture": "Derrière un meuble métallique",
     "bringTheLatestResults": "Apporter les derniers résultats.",
@@ -2106,9 +2205,11 @@
     "kitchenMotion": "Mouvement cuisine",
     "landscapesFromHereAndElsewhere": "Paysages d’ici et d’ailleurs",
     "lesPiedsSurTerre": "Les Pieds sur terre",
+    "lighting": "Éclairage",
     "littleMovementObservedAtThe": "Peu de mouvements observés au début de la journée.",
     "livingRoom": "Séjour",
     "livingRoomMotion": "Mouvement séjour",
+    "livingRoomStrip": "Ruban du séjour",
     "livingRoomTemperature": "Température du séjour",
     "livingRoomTemperature2": "Température séjour",
     "livingRoomTv": "Télévision du séjour",
@@ -2125,6 +2226,7 @@
     "movementInTheBathroom": "Passage dans la salle de bains",
     "movementNoticed": "Passage relevé",
     "newDetector": "Nouveau détecteur",
+    "nightPathName": "Chambre → salle de bains",
     "noMovementHadBeenSeen": "Aucun mouvement n’avait été vu à l’heure habituelle du lever.",
     "noMovementThisMorning": "Pas de mouvement ce matin",
     "noRecentMovement": "Aucun mouvement récent",
@@ -2548,6 +2650,10 @@
     "water_leak": {
       "description": "Les points d’eau à surveiller",
       "label": "Fuite d’eau"
+    },
+    "light": {
+      "description": "Une lumière douce pilotée par Élise, par exemple pour le chemin de nuit",
+      "label": "Éclairage"
     }
   },
   "sensorCoverageRecommendations": {
@@ -2653,6 +2759,28 @@
         "Gardez le détecteur éveillé en appuyant sur son bouton toutes les 2 secondes jusqu’à la fin de l’appairage.",
         "Après l’installation, testez la sirène selon la notice et vérifiez l’état du détecteur et de sa batterie dans Élise. Zigbee2MQTT signale que certains firmwares peuvent envoyer de faux états fumée répétés ; surveillez son comportement après l’appairage.",
         "La sirène locale fonctionne sur le détecteur. Les notifications Élise complètent la vigilance et n’ont pas encore été validées sur un appareil physique."
+      ]
+    },
+    "innr-flex-light-colour-fl230c": {
+      "advice": "Collez-le au ras du sol ou sous le lit, le long du trajet de nuit (chambre, couloir, toilettes). Dirigez la lumière vers le sol pour éclairer les pas sans éblouir la personne. Usage intérieur uniquement ; laissez l’adaptateur et le contrôleur au sec et accessibles.",
+      "name": "Ruban LED Zigbee couleur 3 m",
+      "power": "Adaptateur secteur inclus · 100–240 V → 24 V DC · 24 W maximum",
+      "features": [
+        "Marche / arrêt, intensité réglable de 0,1 à 100 %",
+        "Blanc chaud à froid et couleurs",
+        "Allumage et extinction progressifs",
+        "Ruban de 3 m découpable, dos adhésif",
+        "Connexion directe à la clé Zigbee d’Élise, sans pont Innr"
+      ],
+      "preparation": [
+        "Déroulez entièrement le ruban avant de le brancher : la notice interdit de l’alimenter enroulé ou dans son emballage.",
+        "Dans Élise OS, choisissez « Installer ce capteur » puis Zigbee, puis branchez le ruban près de la box.",
+        "S’il ne s’associe pas, réinitialisez-le comme le montre la notice Innr : un appui sur le bouton du contrôleur puis un appui maintenu 5 secondes ; le ruban clignote deux fois quand il est prêt."
+      ],
+      "placement": [
+        "Collez-le au ras du sol ou sous le lit, le long du trajet de nuit (chambre, couloir, toilettes).",
+        "Dirigez la lumière vers le sol pour éclairer les pas sans éblouir la personne.",
+        "Usage intérieur uniquement ; laissez l’adaptateur et le contrôleur au sec et accessibles."
       ]
     },
     "nodon-climate": {

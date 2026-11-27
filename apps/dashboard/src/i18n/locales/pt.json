@@ -1279,7 +1279,8 @@
     "testHardware": "Equipamento de teste",
     "thisListExactlyMatchesThe": "Esta lista corresponde exatamente às referências disponíveis para os testes. Uma compatibilidade documentada só será marcada como «validada com a Élise» após um teste físico completo.",
     "validatedWithElise": "Validado com a Élise",
-    "viewDetails": "Ver ficha"
+    "viewDetails": "Ver ficha",
+    "lighting": "Iluminação"
   },
   "homeOverview": {
     "addASensor": "Adicionar um sensor",
@@ -1751,6 +1752,98 @@
     "NEUTRAL": "Neutro",
     "SAD": "Triste"
   },
+  "nightPath": {
+    "title": "Caminho iluminado",
+    "cardEyebrow": "Conforto noturno",
+    "cardEmpty": "Uma luz suave acende-se no percurso quando {{resident}} se levanta durante a noite.",
+    "cardCount_one": "{{count}} caminho configurado, {{enabled}} ativo(s)",
+    "cardCount_many": "{{count}} caminhos configurados, {{enabled}} ativo(s)",
+    "cardCount_other": "{{count}} caminhos configurados, {{enabled}} ativo(s)",
+    "cardManage": "Configurar o caminho iluminado",
+    "cardView": "Ver os caminhos iluminados",
+    "theResident": "a pessoa",
+    "intro": "Quando {{resident}} se levanta durante a noite, a Élise acende suavemente uma luz quente no percurso e depois apaga-a sozinha.",
+    "requirementsTitle": "Para criar um caminho iluminado",
+    "needsSensor": "Adicione um detetor de movimento ou de presença na divisão de partida, por exemplo o quarto.",
+    "needsLight": "Adicione uma iluminação nas divisões a iluminar: A minha casa → a divisão → Iluminação.",
+    "emptyTitle": "Ainda não há caminhos iluminados",
+    "emptyText": "Escolha onde começa o percurso noturno e as divisões a iluminar, por exemplo o quarto, o corredor e a casa de banho.",
+    "create": "Criar um caminho iluminado",
+    "addAnother": "Adicionar outro caminho",
+    "enabled": "Ativo",
+    "paused": "Em pausa",
+    "litUntil": "Aceso até às {{time}}",
+    "toggle": "Ativar ou pausar «{{name}}»",
+    "edit": "Modificar",
+    "delete": "Eliminar",
+    "keep": "Manter",
+    "confirmDelete": "Eliminar este caminho iluminado?",
+    "readOnly": "Apenas o proprietário e os administradores da casa podem modificar os caminhos iluminados.",
+    "disclaimer": "Luz de apoio para se deslocar à noite: não é um dispositivo médico e não substitui a iluminação habitual. Depende da rede Zigbee da casa.",
+    "loading": "A carregar os caminhos iluminados…",
+    "loadError": "Não foi possível carregar os caminhos iluminados.",
+    "retry": "Tentar novamente",
+    "saveError": "Não foi possível guardar. Tente novamente dentro de momentos.",
+    "deleteError": "Não foi possível eliminar. Tente novamente dentro de momentos.",
+    "newTitle": "Novo caminho iluminado",
+    "editTitle": "Modificar o caminho iluminado",
+    "backToPaths": "Todos os caminhos",
+    "name": "Nome do caminho",
+    "defaultName": "Caminho noturno",
+    "defaultNameNumbered": "Caminho noturno {{number}}",
+    "triggerTitle": "Quando {{resident}} se mexe em…",
+    "triggerHint": "Escolha uma ou várias divisões com um detetor de movimento ou de presença.",
+    "roomSensors_one": "{{count}} detetor",
+    "roomSensors_many": "{{count}} detetores",
+    "roomSensors_other": "{{count}} detetores",
+    "roomWithoutSensor": "Sem detetor",
+    "includeBedExit": "Também quando {{resident}} se levanta da cama",
+    "windowTitle": "Apenas à noite",
+    "from": "Das",
+    "to": "Às",
+    "windowHint": "A passagem da meia-noite é tida em conta. Fora deste horário, nada se acende.",
+    "lightsTitle": "Divisões a iluminar",
+    "lightsHint": "Todas as luzes destas divisões acendem-se, mesmo numa divisão sem detetor (corredor, casa de banho…).",
+    "roomLights_one": "{{count}} luz",
+    "roomLights_many": "{{count}} luzes",
+    "roomLights_other": "{{count}} luzes",
+    "roomWithoutLight": "Sem iluminação",
+    "lightTitle": "Luz",
+    "brightness": "Intensidade",
+    "brightnessHint": "Uma luz baixa basta para ver onde se pisa sem acordar por completo.",
+    "warmth": "Tom",
+    "temperatures": {
+      "2200": "Muito quente",
+      "2700": "Quente",
+      "3000": "Suave"
+    },
+    "simpleLightHint": "Uma luz que não regula a intensidade nem o tom simplesmente acende-se.",
+    "offTitle": "Apagar após",
+    "minutes_one": "{{count}} min",
+    "minutes_many": "{{count}} min",
+    "minutes_other": "{{count}} min",
+    "offHint": "…sem movimento detetado no percurso.",
+    "summary_one": "À noite, das {{start}} às {{end}}, {{when}}: {{lights}} acende-se suavemente.",
+    "summary_many": "À noite, das {{start}} às {{end}}, {{when}}: {{lights}} acendem-se suavemente.",
+    "summary_other": "À noite, das {{start}} às {{end}}, {{when}}: {{lights}} acendem-se suavemente.",
+    "whenMoves": "quando {{resident}} se mexe em {{rooms}}",
+    "whenMovesOrGetsUp": "quando {{resident}} se levanta da cama ou se mexe em {{rooms}}",
+    "summaryIncomplete": "Escolha pelo menos uma divisão de partida e uma divisão a iluminar.",
+    "problems": {
+      "name": "Dê um nome a este caminho.",
+      "trigger": "Escolha pelo menos uma divisão onde começar.",
+      "lights": "Escolha pelo menos uma divisão a iluminar.",
+      "window": "O início e o fim da noite têm de ser diferentes."
+    },
+    "test": "Testar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "testStarted_one": "{{count}} luz acende-se durante {{seconds}} segundos.",
+    "testStarted_many": "{{count}} luzes acendem-se durante {{seconds}} segundos.",
+    "testStarted_other": "{{count}} luzes acendem-se durante {{seconds}} segundos.",
+    "testNoLight": "Não há nenhuma luz disponível nestas divisões, ou já está acesa.",
+    "testError": "Não foi possível iniciar o teste. Tente novamente dentro de momentos."
+  },
   "remoteAccessCard": {
     "actionFailed": "Não foi possível concluir a ação.",
     "activeAndPrivate": "Ativo e privado",
@@ -1975,7 +2068,10 @@
     "whatIsThisSensorFor": "Para que serve este sensor?",
     "whenTheBedIsOccupied": "Quando a cama está ocupada",
     "whereToPlaceIt": "Onde o colocar",
-    "yourRoom": "A sua divisão"
+    "yourRoom": "A sua divisão",
+    "lightOn": "Acesa",
+    "lightOff": "Apagada",
+    "lightBrightness": "Intensidade {{percent}} %"
   },
   "router": {
     "english": "Português",
@@ -2035,9 +2131,12 @@
     "avoidHeatSourcesAndMetal": "Evite fontes de calor e objetos metálicos.",
     "bathroom": "Casa de banho",
     "bathroomHumidity": "Humidade da casa de banho",
+    "bathroomStrip": "Fita da casa de banho",
     "batteryToReplaceSoon": "Pilha a substituir em breve",
     "bedroom": "Quarto",
     "bedroomCoolerThanUsual": "Quarto mais fresco do que o habitual",
+    "bedroomMotion": "Movimento quarto",
+    "bedroomStrip": "Fita debaixo da cama",
     "bedroomTemperature": "Temperatura do quarto",
     "behindMetalFurniture": "Atrás de um móvel metálico",
     "bringTheLatestResults": "Levar os últimos resultados.",
@@ -2106,9 +2205,11 @@
     "kitchenMotion": "Movimento na cozinha",
     "landscapesFromHereAndElsewhere": "Paisagens daqui e de outros lugares",
     "lesPiedsSurTerre": "Les Pieds sur terre",
+    "lighting": "Iluminação",
     "littleMovementObservedAtThe": "Poucos movimentos observados no início do dia.",
     "livingRoom": "Sala",
     "livingRoomMotion": "Movimento na sala",
+    "livingRoomStrip": "Fita da sala",
     "livingRoomTemperature": "Temperatura da sala",
     "livingRoomTemperature2": "Temperatura da sala",
     "livingRoomTv": "Televisão da sala",
@@ -2125,6 +2226,7 @@
     "movementInTheBathroom": "Passagem pela casa de banho",
     "movementNoticed": "Passagem registada",
     "newDetector": "Novo detetor",
+    "nightPathName": "Quarto → casa de banho",
     "noMovementHadBeenSeen": "Não tinha sido observado nenhum movimento à hora habitual de levantar.",
     "noMovementThisMorning": "Sem movimento esta manhã",
     "noRecentMovement": "Nenhum movimento recente",
@@ -2548,6 +2650,10 @@
     "water_leak": {
       "description": "Os pontos de água a vigiar",
       "label": "Fuga de água"
+    },
+    "light": {
+      "description": "Uma luz suave controlada pela Élise, por exemplo para o caminho noturno",
+      "label": "Iluminação"
     }
   },
   "sensorCoverageRecommendations": {
@@ -2653,6 +2759,28 @@
         "Mantenha o detetor ativo premindo o botão a cada 2 segundos até ao fim do emparelhamento.",
         "Após a instalação, teste a sirene segundo o manual e verifique o estado do detetor e da bateria na Élise. O Zigbee2MQTT indica que alguns firmwares podem enviar falsos estados de fumo repetidos; acompanhe o comportamento do detetor após o emparelhamento.",
         "A sirene local funciona no próprio detetor. As notificações da Élise complementam a vigilância e ainda não foram validadas num aparelho físico."
+      ]
+    },
+    "innr-flex-light-colour-fl230c": {
+      "advice": "Cole-a rente ao chão ou debaixo da cama, ao longo do percurso noturno (quarto, corredor, casa de banho). Oriente a luz para o chão para iluminar os passos sem encandear a pessoa. Apenas para interior; mantenha o transformador e o controlador secos e acessíveis.",
+      "name": "Fita LED Zigbee de cor de 3 m",
+      "power": "Transformador incluído · 100–240 V → 24 V CC · 24 W no máximo",
+      "features": [
+        "Ligar / desligar, intensidade regulável de 0,1 a 100 %",
+        "Branco quente a frio e cores",
+        "Acender e apagar progressivos",
+        "Fita de 3 m recortável, com verso adesivo",
+        "Liga-se diretamente à chave Zigbee da Élise, sem ponte Innr"
+      ],
+      "preparation": [
+        "Desenrole toda a fita antes de a ligar à corrente: o manual proíbe alimentá-la enrolada ou na embalagem.",
+        "No Élise OS, escolha «Instalar este sensor» e depois Zigbee; em seguida ligue a fita perto da box.",
+        "Se não emparelhar, reponha-a como mostra o manual da Innr: prima uma vez o botão do controlador e depois mantenha-o premido 5 segundos; a fita pisca duas vezes quando está pronta."
+      ],
+      "placement": [
+        "Cole-a rente ao chão ou debaixo da cama, ao longo do percurso noturno (quarto, corredor, casa de banho).",
+        "Oriente a luz para o chão para iluminar os passos sem encandear a pessoa.",
+        "Apenas para interior; mantenha o transformador e o controlador secos e acessíveis."
       ]
     },
     "nodon-climate": {

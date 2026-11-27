@@ -29,7 +29,7 @@ export const COVERAGE_FAMILIES: { id: CoverageFamily; types: CoverageType[] }[] 
   },
   {
     id: 'comfort',
-    types: ['temperature', 'humidity', 'shower', 'air_quality', 'illuminance'],
+    types: ['temperature', 'humidity', 'shower', 'air_quality', 'illuminance', 'light'],
   },
   { id: 'openings', types: ['contact'] },
   { id: 'cameras', types: ['camera'] },
@@ -45,7 +45,7 @@ export const coverageProducts = (type: CoverageType, outdoor = false) =>
     (p) =>
       p.compatibility === 'DOCUMENTED' &&
       (type === 'energy'
-        ? p.kind !== 'ROOM_SENSOR'
+        ? p.kind === 'SMART_PLUG' || p.kind === 'ENERGY_MONITOR'
         : p.categories.includes(type === 'shower' ? 'humidity' : type)) &&
       (!outdoor || p.outdoor),
   );
