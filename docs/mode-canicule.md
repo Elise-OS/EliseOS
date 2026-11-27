@@ -32,7 +32,7 @@ Le mode se désactive tout seul quand la chaleur est vraiment retombée : **tout
   - le matin (8 h – 12 h) : « Fermez les volets et les fenêtres pour garder le frais » ;
   - dans la journée (12 h – 20 h 30) : « Rafraîchissez-vous le visage et les bras avec un peu d’eau » ;
   - le soir (20 h 30 – 23 h), seulement s’il fait plus frais dehors que dans le logement : « Vous pouvez ouvrir les fenêtres ».
-- **Un rappel « boire » toutes les 2 heures, de 9 h à 20 h**, avec une petite mélodie, bien plus discrète que la sonnerie d’appel. Un grand bouton **« C’est fait »** se valide avec le bouton de la télécommande (ou OK). Sans réponse, le rappel s’efface tout seul au bout de 10 minutes. Aucun rappel la nuit.
+- **Un rappel « boire » toutes les 2 heures, de 9 h à 20 h**, avec une petite mélodie, bien plus discrète que la sonnerie d’appel. Un grand bouton **« C’est fait »** se valide avec le bouton de la télécommande (ou OK). Sans réponse, le rappel s’efface tout seul au bout de 10 minutes. Aucun rappel en dehors de ces heures.
 
 Pendant un appel ou quand la TV est en veille, ni bandeau ni rappel ne s’affichent.
 
