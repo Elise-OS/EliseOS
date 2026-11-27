@@ -1582,7 +1582,7 @@
         "title": "La casa ofrece referencias."
       },
       "tv": {
-        "body": "Los mensajes, los contenidos y las citas están pensados para una pantalla sencilla. La videollamada y su inicio automático aún deben probarse con el residente, siempre con su consentimiento.",
+        "body": "Los mensajes, los contenidos y las citas están pensados para una pantalla sencilla. La videollamada puede iniciarse sola, con el consentimiento del residente.",
         "call": "Videollamada",
         "eyebrow": "03 / EL VÍNCULO",
         "message": "Un mensaje de la familia",

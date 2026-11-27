@@ -1582,7 +1582,7 @@
         "title": "La casa offre dei riferimenti."
       },
       "tv": {
-        "body": "Messaggi, contenuti multimediali e appuntamenti sono pensati per uno schermo semplice. La videochiamata e il suo avvio automatico devono ancora essere provati con il residente, con il suo consenso.",
+        "body": "Messaggi, contenuti multimediali e appuntamenti sono pensati per uno schermo semplice. La videochiamata può avviarsi da sola, con il consenso del residente.",
         "call": "Videochiamata",
         "eyebrow": "03 / IL LEGAME",
         "message": "Un messaggio dalla famiglia",

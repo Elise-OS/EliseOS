@@ -1589,7 +1589,7 @@
         "title": "La maison donne des repères."
       },
       "tv": {
-        "body": "Messages, médias et rendez-vous sont pensés pour un écran simple. La visio et son lancement automatique doivent encore être éprouvés avec le résident, selon son accord.",
+        "body": "Messages, médias et rendez-vous sont pensés pour un écran simple. La visio peut se lancer toute seule, avec l'accord du résident.",
         "call": "Visio",
         "eyebrow": "03 / LE LIEN",
         "message": "Un message de la famille",

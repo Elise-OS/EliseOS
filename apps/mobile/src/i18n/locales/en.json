@@ -1569,7 +1569,7 @@
         "title": "The home offers useful cues."
       },
       "tv": {
-        "body": "Messages, media and appointments are designed for a simple screen. Video calling and automatic launch still need to be tested with the resident and their consent.",
+        "body": "Messages, media and appointments are designed for a simple screen. Video calls can start on their own, with the resident's consent.",
         "call": "Video call",
         "eyebrow": "03 / STAYING CLOSE",
         "message": "A message from family",

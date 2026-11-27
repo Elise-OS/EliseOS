@@ -2045,7 +2045,7 @@
         "title": "A casa oferece pistas."
       },
       "tv": {
-        "body": "Mensagens, conteúdos e compromissos foram pensados para um ecrã simples. A videochamada e o seu arranque automático ainda têm de ser testados com o residente, com o seu consentimento.",
+        "body": "Mensagens, conteúdos e compromissos foram pensados para um ecrã simples. A videochamada pode arrancar sozinha, com o consentimento do residente.",
         "call": "Videochamada",
         "eyebrow": "03 / A LIGAÇÃO",
         "message": "Uma mensagem da família",
