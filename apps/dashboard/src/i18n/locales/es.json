@@ -1265,7 +1265,7 @@
     "allHardware": "Todo el material",
     "connection": "Conexión",
     "documentationCheckedOn": "Documentación comprobada el",
-    "documentedEliseTestPending": "Documentado · prueba con Élise pendiente",
+    "documentedEliseTestPending": "Documentado",
     "documentedFeatures": "Funciones documentadas",
     "energyMonitoring": "Medición de energía",
     "functionsRecognizedByIntegration": "Funciones reconocidas por la integración",
@@ -1967,7 +1967,7 @@
     "disabled": "Desactivado",
     "documentationCheckedOn": "Documentación comprobada el",
     "documentedCompatibility": "Compatibilidad documentada",
-    "documentedCompatibilityEliseTestPending": "Compatibilidad documentada · prueba de Élise pendiente",
+    "documentedCompatibilityEliseTestPending": "Compatibilidad documentada",
     "documentedFeatures": "Funciones documentadas",
     "documentedProducts": "Productos documentados",
     "empty": "Libre",
@@ -2735,7 +2735,7 @@
         "El vendedor indica la referencia HS2FD-E; Zigbee2MQTT documenta la variante HS2FD-EF1-3.0. Pida que le confirmen la referencia exacta antes de comprarlo.",
         "Conecte el sensor a una alimentación de 5 V / 2 A, cerca del equipo Élise.",
         "En Élise OS, elija «Instalar este sensor» y luego Zigbee. Ponga el sensor en modo de vinculación siguiendo su manual: no se necesita ningún concentrador ni cuenta Heiman.",
-        "Tras la instalación, compruebe que se recibe una alerta de caída con el modo de prueba indicado por el fabricante. Este modelo todavía no se ha probado físicamente con Élise."
+        "Tras la instalación, compruebe que se recibe una alerta de caída con el modo de prueba indicado por el fabricante."
       ]
     },
     "heiman-smoke-detector": {

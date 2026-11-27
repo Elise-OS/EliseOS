@@ -63,7 +63,6 @@ Une lumière douce s’allume la nuit sur le trajet de la personne (chambre → 
 - **Alternative moins chère** : [IKEA ORMANÄS L2112](https://www.ikea.com/fr/fr/p/ormanaes-bande-led-connecte-sans-fil-a-variateur-dintensite-spectre-couleur-et-blanc-40497395/), bande LED 4 m couleur et blanc, **24,99 €** sur ikea.fr (relevé le 27 novembre 2026). Reconnue par Zigbee2MQTT : [fiche L2112](https://www.zigbee2mqtt.io/devices/L2112.html). Elle n’est pas au catalogue Élise mais fonctionne comme tout éclairage Zigbee2MQTT.
 - Le ruban Innr est livré avec son adaptateur secteur (24 V, 24 W maximum) : prévoir une prise libre près de chaque ruban.
 - Il faut aussi un **détecteur de mouvement** dans la pièce de départ (par exemple le SONOFF SNZB-03P du panier ci-dessus, placé près du lit et orienté vers la descente du lit).
-- Le ruban n’a pas encore été testé physiquement avec Élise (compatibilité « documentée »).
 
 ## Comportement des capteurs dans Élise
 

@@ -8,7 +8,7 @@ Quand la personne se lève la nuit, une lumière douce et chaude s’allume auto
 
 > **Le ruban Innr FL 230 C est le modèle documenté, mais tout éclairage Zigbee compatible Zigbee2MQTT fonctionne, sans pont du fabricant.**
 
-- **Modèle documenté** : ruban LED Zigbee 3.0 **Innr FL 230 C** (3 m, couleurs et blanc variable, adaptateur secteur inclus, découpable, dos adhésif, intensité réglable de 0,1 à 100 %). Il s’appaire directement sur la clé Zigbee d’Élise : aucun pont Innr ni application n’est nécessaire. Fiche Zigbee2MQTT : <https://www.zigbee2mqtt.io/devices/FL_230_C.html>. Il figure au catalogue avec la compatibilité « documentée » : il n’a pas encore été testé physiquement avec Élise.
+- **Modèle documenté** : ruban LED Zigbee 3.0 **Innr FL 230 C** (3 m, couleurs et blanc variable, adaptateur secteur inclus, découpable, dos adhésif, intensité réglable de 0,1 à 100 %). Il s’appaire directement sur la clé Zigbee d’Élise : aucun pont Innr ni application n’est nécessaire. Fiche Zigbee2MQTT : <https://www.zigbee2mqtt.io/devices/FL_230_C.html>.
 - **N’importe quel autre éclairage** : ruban, ampoule ou veilleuse Zigbee reconnu par Zigbee2MQTT, et plus largement toute entité `light.*` de Home Assistant. Élise reconnaît les éclairages par leur capacité « éclairage », jamais par leur modèle.
   - Un éclairage qui ne règle ni l’intensité ni la teinte (simple marche/arrêt) s’allume et s’éteint simplement : Élise ne lui envoie ni intensité, ni température de couleur, ni transition.
   - Un éclairage qui règle l’intensité mais pas la teinte reçoit seulement l’intensité.

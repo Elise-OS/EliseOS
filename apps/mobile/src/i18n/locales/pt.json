@@ -1537,7 +1537,7 @@
         "O vendedor indica o produto HS2FD-E; o Zigbee2MQTT documenta a variante HS2FD-EF1-3.0. Peça a confirmação desta referência exata antes da compra.",
         "Ligue o sensor a uma alimentação de 5 V / 2 A, perto da box Élise.",
         "No Élise OS, escolha «Instalar este sensor» e depois Zigbee. Coloque o sensor em modo de emparelhamento seguindo o manual: não é necessário nenhum hub nem conta Heiman.",
-        "Após a instalação, verifique a receção de um alerta de queda com o modo de teste indicado pelo fabricante. Este modelo ainda não foi testado fisicamente com a Élise."
+        "Após a instalação, verifique a receção de um alerta de queda com o modo de teste indicado pelo fabricante."
       ]
     },
     "heiman-smoke-detector": {

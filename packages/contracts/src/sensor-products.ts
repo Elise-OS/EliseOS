@@ -691,13 +691,13 @@ const documentedProducts: SensorProduct[] = [
       'Le vendeur référence le produit HS2FD-E ; Zigbee2MQTT documente la variante HS2FD-EF1-3.0. Faites confirmer cette référence exacte avant l’achat.',
       'Branchez le capteur à une alimentation 5 V / 2 A, près de la box Élise.',
       'Dans Élise OS, choisissez « Installer ce capteur » puis Zigbee. Placez le capteur en mode association en suivant sa notice : aucun hub ni compte Heiman n’est requis.',
-      'Après l’installation, vérifiez la réception d’une alerte de chute avec le mode de test indiqué par le fabricant. Le modèle n’a pas encore été testé physiquement avec Élise.',
+      'Après l’installation, vérifiez la réception d’une alerte de chute avec le mode de test indiqué par le fabricant.',
     ],
     preparationEn: [
       'The retailer lists HS2FD-E; Zigbee2MQTT documents variant HS2FD-EF1-3.0. Ask the seller to confirm the exact reference before buying.',
       'Connect the sensor to a 5 V / 2 A power supply near the Élise hub.',
       'In Élise OS, choose “Install this sensor” and then Zigbee. Put the sensor in pairing mode using its manual; no Heiman hub or account is required.',
-      'After installation, verify a fall alert using the manufacturer’s test mode. This model has not yet been physically tested with Élise.',
+      'After installation, verify a fall alert using the manufacturer’s test mode.',
     ],
     placement: [
       'Installez-le uniquement à l’intérieur et respectez la hauteur et l’orientation indiquées dans la notice.',
