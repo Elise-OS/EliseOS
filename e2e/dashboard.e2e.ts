@@ -38,6 +38,22 @@ test.describe('caregiver space (demo build)', () => {
     expect(errors).toEqual([]);
   });
 
+  test('gives the heatwave mode its own « Canicule » settings tab', async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto(`${DEMO_URL}?canicule=on`);
+    await nav(page, 8).evaluate((button) => (button as HTMLButtonElement).click());
+    // The general tab no longer carries the heatwave card.
+    await expect(page.locator('.settings-page')).toBeVisible();
+    await expect(page.locator('.heatwave-panel')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Canicule', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Le mode canicule est activé' })).toBeVisible();
+    await expect(page.getByText('Comment ça marche')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Vos réglages' })).toBeVisible();
+    await page.getByRole('button', { name: 'Modifier les réglages' }).first().click();
+    await expect(page.getByRole('dialog')).toContainText('Réglages du mode canicule');
+    expect(errors).toEqual([]);
+  });
+
   test('switches the interface language', async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto(DEMO_URL);

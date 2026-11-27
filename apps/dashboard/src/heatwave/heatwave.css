@@ -1,7 +1,9 @@
-/* Heatwave mode: « Canicule » card of the Settings page and its settings window. Palette of the
+/* Heatwave mode: « Canicule » tab of the Settings page and its settings window. Palette of the
    design contract (cream, night blue, sage, amber); amber only signals warmth, never an emergency,
-   and the warmest level is a deep terracotta, never an alarm red. */
-.heatwave-settings-card,
+   and the warmest level is a deep terracotta, never an alarm red. Same family as the « Santé de la
+   box » tab: serif titles, paper cards, a state banner with a coloured edge. Text colours meet
+   WCAG AA (≥ 4.5:1) on their own backgrounds. */
+.heatwave-panel,
 .heatwave-dialog {
   --hw-navy: #12385f;
   --hw-ink: #0b2948;
@@ -11,92 +13,241 @@
   --hw-amber: #d99a55;
   --hw-amber-deep: #8f5519;
   --hw-amber-soft: #fbefdf;
+  --hw-amber-line: #f0d7b2;
   --hw-sage: #3f6f56;
   --hw-sage-soft: #e7f1eb;
   --hw-hot: #9a3f22;
   --hw-hot-soft: #fbe7dc;
   --hw-blue: #376884;
   --hw-blue-soft: #eaf2f6;
+  --hw-ease: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* ---------------------------------------------------------------- card frame */
-.settings-page > .heatwave-settings-card {
-  margin-top: 22px;
-}
-.heatwave-settings-card {
-  position: relative;
-  overflow: hidden;
-  transition:
-    border-color 220ms ease,
-    box-shadow 220ms ease;
-}
-.heatwave-settings-card::before {
-  position: absolute;
-  inset: 0 0 auto;
-  height: 190px;
-  background:
-    radial-gradient(120% 140% at 0% 0%, rgb(251 226 190 / 85%), transparent 62%),
-    linear-gradient(180deg, rgb(253 244 230 / 80%), transparent);
-  content: '';
-  pointer-events: none;
-  opacity: 0.55;
-  transition: opacity 320ms ease;
-}
-.heatwave-settings-card.is-active {
-  border-color: #ecd6b6;
-  box-shadow: 0 14px 40px rgb(154 93 29 / 9%);
-}
-.heatwave-settings-card.is-active::before {
-  opacity: 1;
-}
-.heatwave-settings-card > * {
-  position: relative;
-}
-.heatwave-hero {
-  align-items: center;
-}
-.heatwave-hero__badge {
+/* ---------------------------------------------------------------- tab */
+.heatwave-panel {
   display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  background: linear-gradient(145deg, #fdf0dc, #f6d9ae);
-  color: var(--hw-amber-deep);
-  box-shadow:
-    0 0 0 6px rgb(246 217 174 / 28%),
-    0 10px 24px rgb(154 93 29 / 16%);
+  gap: 22px;
+  margin-top: 4px;
+  color: var(--hw-ink);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  container: heatwave / inline-size;
 }
-.heatwave-settings-card.is-idle .heatwave-hero__badge,
-.heatwave-settings-card.is-paused .heatwave-hero__badge {
-  background: linear-gradient(145deg, #f4f7f8, #e3ecf0);
-  color: var(--hw-blue);
+.heatwave-panel h2,
+.heatwave-panel h3,
+.heatwave-panel h4,
+.heatwave-panel p,
+.heatwave-panel ul,
+.heatwave-panel ol,
+.heatwave-panel dl,
+.heatwave-panel dd,
+.heatwave-panel figure {
+  margin: 0;
+}
+.heatwave-panel ul,
+.heatwave-panel ol {
+  padding: 0;
+  list-style: none;
+}
+.heatwave-panel svg {
+  flex: none;
+}
+
+/* Title block, as in the box health tab. */
+.heatwave-intro {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 4px 2px;
+}
+.heatwave-intro__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border: 1px solid rgb(255 255 255 / 70%);
+  border-radius: 20px;
+  background: linear-gradient(150deg, #e0a764 0%, #b86f2a 100%);
+  color: #fff;
+  box-shadow: 0 12px 26px rgb(154 93 29 / 22%);
+  transform: rotate(3deg);
+}
+.heatwave-intro__icon svg {
+  width: 28px;
+  height: 28px;
+}
+.heatwave-intro .eyebrow {
+  margin-bottom: 4px;
+}
+.heatwave-intro h2 {
+  color: var(--hw-ink);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+.heatwave-intro p {
+  max-width: 640px;
+  margin-top: 6px;
+  color: var(--hw-text);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+/* State banner: amber when on, calm blue when standing by, neutral when paused. */
+.heatwave-verdict {
+  --hw-tone: var(--hw-blue);
+  --hw-tone-soft: var(--hw-blue-soft);
+  --hw-tone-line: #d6e4eb;
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 22px;
+  align-items: start;
+  padding: 28px;
+  overflow: hidden;
+  border: 1px solid var(--hw-tone-line);
+  border-radius: 28px;
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      color-mix(in srgb, var(--hw-tone-soft) 90%, #fff),
+      transparent 46%
+    ),
+    linear-gradient(160deg, var(--hw-tone-soft) 0%, #fff 72%);
+  box-shadow: 0 16px 44px rgb(29 55 79 / 7%);
+  animation: heatwave-rise 260ms var(--hw-ease) both;
+}
+.heatwave-verdict.is-active {
+  --hw-tone: var(--hw-amber-deep);
+  --hw-tone-soft: #fbe6c8;
+  --hw-tone-line: var(--hw-amber-line);
+  background:
+    radial-gradient(circle at 96% -10%, rgb(248 205 145 / 75%), transparent 42%),
+    radial-gradient(circle at 0% 100%, rgb(253 241 223 / 90%), transparent 55%),
+    linear-gradient(160deg, #fdf0dc 0%, #fffaf3 64%, #fff 100%);
+  box-shadow: 0 18px 48px rgb(154 93 29 / 12%);
+}
+.heatwave-verdict.is-paused {
+  --hw-tone: #4a5866;
+  --hw-tone-soft: #eef1f4;
+  --hw-tone-line: #d9dfe5;
+}
+.heatwave-verdict::before {
+  position: absolute;
+  inset: 26px auto 26px 0;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--hw-tone);
+  content: '';
+  opacity: 0.8;
+}
+.heatwave-verdict__icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--hw-tone-line);
+  border-radius: 22px;
+  background: #fff;
+  color: var(--hw-tone);
   box-shadow: 0 8px 20px rgb(29 55 79 / 8%);
 }
-.heatwave-hero__badge svg {
-  width: 26px;
-  height: 26px;
+.heatwave-verdict__icon svg {
+  width: 30px;
+  height: 30px;
 }
-.heatwave-hero__copy {
+.heatwave-verdict.is-active .heatwave-verdict__icon {
+  border-color: transparent;
+  background: radial-gradient(circle at 35% 30%, #fff6e6, #f8d9a8 70%);
+  color: #a35f17;
+  box-shadow:
+    0 0 0 8px rgb(248 214 163 / 32%),
+    0 0 0 18px rgb(248 214 163 / 14%),
+    0 12px 26px rgb(154 93 29 / 20%);
+}
+.heatwave-verdict.is-active .heatwave-verdict__icon svg {
+  animation: heatwave-sun 18s linear infinite;
+}
+.heatwave-verdict__copy {
   min-width: 0;
 }
-.heatwave-hero__title {
+.heatwave-verdict__copy h3 {
+  margin-top: 10px;
+  color: var(--hw-tone);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 27px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+.heatwave-verdict.is-idle .heatwave-verdict__copy h3 {
+  color: var(--hw-navy);
+}
+.heatwave-panel .heatwave-verdict__reason {
+  max-width: 640px;
+  margin-top: 8px;
+  color: var(--hw-ink);
+  font-size: 15.5px;
+  font-weight: 550;
+  line-height: 1.5;
+}
+.heatwave-panel .heatwave-verdict__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--hw-text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.heatwave-verdict__meta svg {
+  width: 14px;
+  height: 14px;
+}
+.heatwave-panel .heatwave-chips {
   display: flex;
   flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.heatwave-chips li {
+  display: inline-flex;
   align-items: center;
-  gap: 6px 12px;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--hw-tone-line);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 86%);
+  color: var(--hw-tone);
+  font-size: 12.5px;
+  font-weight: 700;
 }
-.heatwave-hero__title h2 {
-  margin: 4px 0 2px;
+.heatwave-verdict.is-idle .heatwave-chips li {
+  color: #2b5670;
 }
-.settings-section-heading p.heatwave-hero__reason {
-  margin: 2px 0 0;
-  color: var(--hw-text);
-  font-size: 0.95rem;
-  font-weight: 550;
-  line-height: 1.45;
+.heatwave-chips svg {
+  width: 15px;
+  height: 15px;
 }
+.heatwave-verdict__actions {
+  display: grid;
+  gap: 10px;
+  min-width: 210px;
+}
+.heatwave-verdict--loading {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+.heatwave-verdict--loading .heatwave-verdict__reason {
+  margin-top: 0;
+}
+.heatwave-spin {
+  animation: heatwave-spin 900ms linear infinite;
+}
+
+/* State pill: a breathing amber dot while the mode is on. */
 .heatwave-pill {
   display: inline-flex;
   align-items: center;
@@ -106,7 +257,7 @@
   background: #eef2f4;
   color: #44535f;
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 750;
   white-space: nowrap;
 }
 .heatwave-pill__dot {
@@ -116,8 +267,15 @@
   border-radius: 50%;
   background: #8b98a3;
 }
+.heatwave-pill.is-idle {
+  background: #e3eef4;
+  color: #2b5670;
+}
+.heatwave-pill.is-idle .heatwave-pill__dot {
+  background: var(--hw-blue);
+}
 .heatwave-pill.is-active {
-  background: var(--hw-amber-soft);
+  background: #fff;
   color: var(--hw-amber-deep);
   box-shadow: inset 0 0 0 1px #f0d3a8;
 }
@@ -143,49 +301,38 @@
     opacity: 0;
   }
 }
+@keyframes heatwave-sun {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes heatwave-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
-/* ---------------------------------------------------------------- card body */
-.heatwave-card {
-  display: grid;
-  gap: 16px;
-  color: var(--hw-ink);
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-}
-.heatwave-card.is-loading p {
-  margin: 0;
-  color: var(--hw-text);
-}
-.heatwave-card__heading {
-  margin: 10px 0 -4px;
-  color: var(--hw-navy);
-  font-family: 'Source Serif 4', Georgia, serif;
-  font-size: 1.2rem;
-  font-weight: 650;
-}
-.heatwave-card__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
+/* Buttons */
 .heatwave-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 44px;
+  min-height: 46px;
   padding: 0 18px;
-  border: 1px solid #cfd9df;
-  border-radius: 13px;
+  border: 1px solid #d3dfe6;
+  border-radius: 14px;
   background: #fff;
-  color: var(--hw-navy, #12385f);
+  color: #17456f;
   font: inherit;
-  font-size: 0.92rem;
-  font-weight: 650;
+  font-size: 13.5px;
+  font-weight: 800;
   cursor: pointer;
   transition:
     background 160ms ease,
     border-color 160ms ease,
-    transform 160ms ease;
+    box-shadow 160ms ease,
+    transform 160ms var(--hw-ease, ease);
 }
 .heatwave-button svg {
   width: 17px;
@@ -193,23 +340,30 @@
 }
 .heatwave-button:hover:not(:disabled) {
   border-color: #b9c8d1;
+  box-shadow: 0 6px 16px rgb(29 55 79 / 8%);
   transform: translateY(-1px);
 }
 .heatwave-button--primary {
-  border-color: #12385f;
-  background: #12385f;
+  border-color: #17456f;
+  background: #17456f;
   color: #fff;
+  box-shadow: 0 8px 18px rgb(23 69 111 / 20%);
 }
 .heatwave-button--primary:hover:not(:disabled) {
   background: #0b2948;
 }
 .heatwave-button--quiet {
-  border-color: transparent;
-  background: rgb(255 255 255 / 70%);
+  border-color: #d3dfe6;
+  background: rgb(255 255 255 / 80%);
 }
 .heatwave-button--quiet:hover:not(:disabled) {
-  border-color: #e2dccf;
   background: #fff;
+}
+.heatwave-button--small {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-size: 12.5px;
 }
 .heatwave-button:disabled {
   cursor: default;
@@ -234,22 +388,65 @@
   text-underline-offset: 3px;
   cursor: pointer;
 }
-.heatwave-card__error {
+.heatwave-panel__error {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0;
+  margin: -8px 0 0;
   color: #9b3c3c;
   font-size: 0.9rem;
 }
-.heatwave-card__error svg {
+.heatwave-panel__error svg {
   width: 17px;
   height: 17px;
 }
-.heatwave-card__note {
-  margin: 0;
-  color: var(--hw-muted);
-  font-size: 0.88rem;
+
+/* Box too old to know the mode. */
+.heatwave-empty {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 24px;
+  border: 1px dashed #d6e0e6;
+  border-radius: 22px;
+  background: #fff;
+}
+.heatwave-empty__icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+  background: var(--hw-blue-soft);
+  color: var(--hw-blue);
+}
+.heatwave-empty strong {
+  color: var(--hw-navy);
+}
+.heatwave-empty p {
+  margin-top: 4px;
+  color: var(--hw-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Sections of the tab */
+.heatwave-block {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+.heatwave-block__title {
+  color: var(--hw-navy);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 1.3rem;
+  font-weight: 650;
+}
+.heatwave-panel .heatwave-block__intro {
+  margin-top: -6px;
+  color: var(--hw-text);
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 /* Today's tiles: a calm heat scale relative to the saved thresholds. */
@@ -265,9 +462,9 @@
   align-content: start;
   gap: 6px;
   min-width: 0;
-  padding: 16px 18px;
+  padding: 18px 20px;
   border: 1px solid var(--hw-line);
-  border-radius: 18px;
+  border-radius: 20px;
   background: linear-gradient(160deg, #fff 55%, color-mix(in srgb, var(--tile-soft) 70%, #fff));
   box-shadow: 0 6px 18px rgb(29 55 79 / 4%);
   transition:
@@ -302,27 +499,25 @@
 .heatwave-tile h4 {
   flex: 1 1 auto;
   min-width: 0;
-  margin: 0;
   color: var(--hw-text);
-  font-size: 0.88rem;
-  font-weight: 650;
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 .heatwave-tile__icon {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
   background: var(--tile-soft);
   color: var(--tile-tone);
 }
 .heatwave-tile__icon svg {
-  width: 18px;
-  height: 18px;
+  width: 19px;
+  height: 19px;
 }
 .heatwave-tile p {
-  margin: 0;
   color: var(--hw-muted);
   font-size: 0.88rem;
   line-height: 1.4;
@@ -331,9 +526,10 @@
   display: inline-flex;
   align-items: baseline;
   gap: 3px;
+  margin-top: 4px;
   color: var(--hw-ink);
   font-family: 'Source Serif 4', Georgia, serif;
-  font-size: 2.35rem;
+  font-size: 2.6rem;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   line-height: 1.05;
@@ -350,17 +546,17 @@
 }
 .heatwave-level {
   flex: 0 0 auto;
-  padding: 3px 9px;
+  padding: 3px 10px;
   border-radius: 999px;
   background: var(--tile-soft);
   color: var(--tile-tone);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 750;
 }
 .heatwave-gauge {
   position: relative;
   height: 8px;
-  margin-top: 8px;
+  margin-top: 10px;
   border-radius: 999px;
   background: linear-gradient(90deg, #dcebe2, #f6e3c6 58%, #f4d2c2);
 }
@@ -395,43 +591,50 @@
 }
 .heatwave-tile__next {
   flex: 0 0 auto;
-  padding: 3px 10px;
+  padding: 4px 11px;
   border-radius: 999px;
-  background: var(--hw-blue-soft);
-  color: #2b5670;
+  background: #17456f;
+  color: #fff;
   font-size: 0.8rem;
   font-weight: 700;
 }
 
-/* Reminders of the day: dots on a line, purely informative. */
-.heatwave-timeline {
-  margin: 8px 0 0;
+/* Reminders of the day: dots on a line with their hour, purely informative. */
+.heatwave-panel .heatwave-timeline {
+  margin-top: 8px;
+}
+.heatwave-panel .heatwave-timeline.has-next {
+  margin-top: 22px;
 }
 .heatwave-timeline__track {
   position: relative;
-  height: 34px;
-  margin: 0 8px;
+  height: 40px;
+  margin: 0 14px;
 }
-.heatwave-timeline__line {
+.heatwave-timeline.has-hours .heatwave-timeline__track {
+  height: 58px;
+}
+.heatwave-timeline__line,
+.heatwave-timeline__progress {
   position: absolute;
-  top: 50%;
-  right: 0;
+  top: 20px;
   left: 0;
-  height: 3px;
+  height: 4px;
   border-radius: 999px;
-  background: #e3e9ec;
   transform: translateY(-50%);
 }
-.heatwave-timeline ol {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.heatwave-timeline__line {
+  right: 0;
+  background: #e3e9ec;
+}
+.heatwave-timeline__progress {
+  background: linear-gradient(90deg, #f1cf9f, #d99a55);
 }
 .heatwave-timeline__dot {
   position: absolute;
-  top: 50%;
-  width: 12px;
-  height: 12px;
+  top: 20px;
+  width: 14px;
+  height: 14px;
   border: 2px solid #c6d3da;
   border-radius: 50%;
   background: #fff;
@@ -449,33 +652,55 @@
   background: #eef1f3;
 }
 .heatwave-timeline__dot.is-next {
-  width: 18px;
-  height: 18px;
-  border: 3px solid #12385f;
-  box-shadow: 0 0 0 5px rgb(18 56 95 / 12%);
+  width: 20px;
+  height: 20px;
+  border: 3px solid #17456f;
+  box-shadow: 0 0 0 6px rgb(23 69 111 / 12%);
 }
 .heatwave-timeline__tag {
   position: absolute;
-  bottom: calc(100% + 6px);
+  bottom: calc(100% + 7px);
   left: 50%;
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: 7px;
-  background: #12385f;
+  background: #17456f;
   color: #fff;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 750;
   white-space: nowrap;
   transform: translateX(-50%);
+}
+.heatwave-timeline__hour {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  color: var(--hw-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.heatwave-timeline__dot.is-next .heatwave-timeline__hour {
+  top: calc(100% + 5px);
+  color: #17456f;
+  font-weight: 800;
+}
+.heatwave-timeline__dot.is-shown .heatwave-timeline__hour {
+  color: var(--hw-amber-deep);
 }
 .heatwave-timeline figcaption {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 2px;
+  margin-top: 4px;
   color: var(--hw-muted);
   font-size: 0.8rem;
   font-weight: 600;
+}
+.heatwave-timeline.has-hours figcaption {
+  justify-content: flex-end;
 }
 .heatwave-timeline__legend {
   display: inline-flex;
@@ -486,8 +711,8 @@
   font-weight: 500;
 }
 .heatwave-timeline__legend i {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   margin-left: 8px;
   border: 2px solid #c6d3da;
   border-radius: 50%;
@@ -498,58 +723,75 @@
   background: #d99a55;
 }
 .heatwave-timeline__legend i.is-next {
-  border-color: #12385f;
+  border-color: #17456f;
 }
 
-/* « Comment ça marche » in four steps. */
-.heatwave-steps {
-  position: relative;
+/* How it works (left) beside the saved thresholds and the register (right). */
+.heatwave-columns {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: none;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+.heatwave-side {
+  display: grid;
+  gap: 14px;
+}
+.heatwave-how {
+  padding: 24px;
+  border: 1px solid #e2e7e8;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(29 55 79 / 5%);
+}
+
+/* « Comment ça marche »: four illustrated steps joined by a rail. */
+.heatwave-steps {
+  display: grid;
+  margin-top: 6px;
 }
 .heatwave-step {
   position: relative;
   display: grid;
-  align-content: start;
-  gap: 6px;
-  min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--hw-line);
-  border-radius: 18px;
-  background: #fff;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  padding-bottom: 20px;
+}
+.heatwave-step:last-child {
+  padding-bottom: 0;
 }
 .heatwave-step:not(:last-child)::after {
   position: absolute;
-  top: 38px;
-  right: -12px;
-  width: 12px;
-  height: 2px;
-  background: #ecd6b6;
+  top: 52px;
+  bottom: 6px;
+  left: 23px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ecd6b6, #f3e6d3);
   content: '';
+}
+.heatwave-step:nth-last-child(2)::after {
+  background: linear-gradient(180deg, #ecd6b6, #cfe3d6);
 }
 .heatwave-step__icon {
   position: relative;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  margin-bottom: 4px;
-  border-radius: 14px;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
   background: linear-gradient(145deg, #fdf0dc, #f6dcb4);
   color: var(--hw-amber-deep);
+  box-shadow: 0 6px 14px rgb(154 93 29 / 10%);
 }
 .heatwave-step--stop .heatwave-step__icon {
   background: linear-gradient(145deg, #eef6f1, #d8eadf);
   color: var(--hw-sage);
+  box-shadow: 0 6px 14px rgb(63 111 86 / 10%);
 }
 .heatwave-step__icon svg {
-  width: 21px;
-  height: 21px;
+  width: 22px;
+  height: 22px;
 }
 .heatwave-step__icon b {
   position: absolute;
@@ -557,37 +799,127 @@
   right: -6px;
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 21px;
+  height: 21px;
   border: 2px solid #fff;
   border-radius: 50%;
-  background: #12385f;
+  background: #17456f;
   color: #fff;
   font-size: 0.68rem;
 }
+.heatwave-step > div {
+  padding-top: 3px;
+}
 .heatwave-step strong {
+  display: block;
   color: var(--hw-navy);
-  font-size: 0.96rem;
+  font-size: 1rem;
   line-height: 1.3;
 }
-.heatwave-step p {
-  margin: 0;
+.heatwave-panel .heatwave-step p {
+  margin-top: 4px;
   color: var(--hw-text);
-  font-size: 0.87rem;
-  line-height: 1.5;
+  font-size: 0.9rem;
+  line-height: 1.55;
 }
 
-/* Register and medical callouts. */
-.heatwave-callouts {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  gap: 12px;
+/* « Vos réglages »: the saved thresholds, one per row. */
+.heatwave-thresholds {
+  padding: 20px 22px 14px;
+  border: 1px solid #e2e7e8;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(29 55 79 / 5%);
 }
+.heatwave-thresholds header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.heatwave-thresholds header > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.heatwave-thresholds__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: var(--hw-blue-soft);
+  color: var(--hw-blue);
+}
+.heatwave-thresholds__icon svg {
+  width: 19px;
+  height: 19px;
+}
+.heatwave-thresholds h3 {
+  color: var(--hw-navy);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 650;
+}
+.heatwave-panel .heatwave-thresholds header p {
+  margin-top: 1px;
+  color: var(--hw-muted);
+  font-size: 0.8rem;
+}
+.heatwave-threshold {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+  padding: 11px 0;
+  border-top: 1px solid #eef1f2;
+}
+.heatwave-threshold dt {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  color: var(--hw-text);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.heatwave-threshold dt svg {
+  width: 16px;
+  height: 16px;
+  color: var(--hw-amber-deep);
+}
+.heatwave-threshold--stop dt svg {
+  color: var(--hw-sage);
+}
+.heatwave-threshold dd {
+  color: var(--hw-ink);
+  font-size: 0.86rem;
+  font-weight: 750;
+  text-align: right;
+}
+.heatwave-threshold.is-off dd {
+  color: var(--hw-muted);
+  font-weight: 600;
+}
+.heatwave-threshold.is-off dt svg {
+  color: #8b98a3;
+}
+.heatwave-panel .heatwave-thresholds__note {
+  margin: 4px 0 6px;
+  padding-top: 10px;
+  border-top: 1px solid #eef1f2;
+  color: var(--hw-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+/* Town hall register. */
 .heatwave-callout {
   display: flex;
   gap: 14px;
-  padding: 16px 18px;
-  border-radius: 18px;
+  padding: 18px 20px;
+  border-radius: 22px;
   background: var(--hw-blue-soft);
   color: #23415c;
 }
@@ -595,17 +927,13 @@
   background: linear-gradient(150deg, #fdf3e4, #fbeedd);
   box-shadow: inset 0 0 0 1px #f0d7b2;
 }
-.heatwave-callout--medical {
-  background: #f3f5f6;
-  box-shadow: inset 0 0 0 1px #e3e8eb;
-}
 .heatwave-callout__icon {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
   background: #fff;
   color: var(--hw-blue);
 }
@@ -631,9 +959,9 @@
   font-size: 0.74rem;
   font-weight: 700;
 }
-.heatwave-callout p {
-  margin: 5px 0 0;
-  font-size: 0.88rem;
+.heatwave-panel .heatwave-callout p {
+  margin-top: 5px;
+  font-size: 0.86rem;
   line-height: 1.5;
 }
 .heatwave-callout__actions {
@@ -642,12 +970,14 @@
   align-items: center;
   gap: 8px 18px;
   margin-top: 10px;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
 }
 .heatwave-callout a {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 5px;
+  min-height: 32px;
   color: var(--hw-navy);
   font-weight: 650;
 }
@@ -656,42 +986,85 @@
   height: 15px;
 }
 
-@media (max-width: 1100px) {
-  .heatwave-steps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .heatwave-step:nth-child(2n)::after {
-    display: none;
-  }
+/* Discreet medical notice at the foot of the tab. */
+.heatwave-panel .heatwave-medical {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 4px 0;
+  border-top: 1px solid #e6e2da;
+  color: var(--hw-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
-@media (max-width: 760px) {
-  .heatwave-tiles,
-  .heatwave-steps,
-  .heatwave-callouts {
+.heatwave-medical svg {
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  color: var(--hw-blue);
+}
+.heatwave-medical strong {
+  color: var(--hw-text);
+}
+
+@container heatwave (max-width: 860px) {
+  .heatwave-columns {
     grid-template-columns: 1fr;
   }
-  .heatwave-step:not(:last-child)::after {
-    top: auto;
-    right: auto;
-    bottom: -12px;
-    left: 37px;
-    display: block;
-    width: 2px;
-    height: 12px;
+  .heatwave-verdict {
+    grid-template-columns: auto minmax(0, 1fr);
   }
-  .heatwave-card__actions .heatwave-button {
-    flex: 1 1 140px;
+  .heatwave-verdict__actions {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    min-width: 0;
+  }
+}
+@container heatwave (max-width: 600px) {
+  .heatwave-tiles {
+    grid-template-columns: 1fr;
+  }
+  .heatwave-verdict {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 22px 20px;
+    border-radius: 24px;
+  }
+  .heatwave-verdict__icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 18px;
+  }
+  .heatwave-verdict__copy h3 {
+    font-size: 23px;
+  }
+  .heatwave-intro__icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 17px;
+  }
+  .heatwave-intro h2 {
+    font-size: 24px;
+  }
+  .heatwave-how,
+  .heatwave-thresholds {
+    padding: 18px;
+    border-radius: 20px;
+  }
+  .heatwave-threshold {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+  .heatwave-threshold dd {
+    padding-left: 25px;
+    text-align: left;
   }
   .heatwave-timeline__legend {
     display: none;
   }
-}
-@media (max-width: 480px) {
-  .heatwave-hero__badge {
-    display: none;
-  }
   .heatwave-figure {
-    font-size: 2rem;
+    font-size: 2.2rem;
   }
 }
 
@@ -1028,8 +1401,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .heatwave-settings-card,
-  .heatwave-settings-card::before,
   .heatwave-button,
   .heatwave-tile,
   .heatwave-gauge__fill,
@@ -1040,6 +1411,9 @@
     transition: none;
   }
   .heatwave-pill.is-active .heatwave-pill__dot::after,
+  .heatwave-verdict,
+  .heatwave-verdict.is-active .heatwave-verdict__icon svg,
+  .heatwave-spin,
   .heatwave-dialog-backdrop,
   .heatwave-dialog {
     animation: none;
