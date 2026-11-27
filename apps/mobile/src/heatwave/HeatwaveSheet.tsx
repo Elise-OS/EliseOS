@@ -115,7 +115,7 @@ function HeatwaveSettingsForm({
   const set = <K extends keyof HeatwaveSettings>(key: K, value: Partial<HeatwaveSettings[K]>) =>
     onChange({ ...settings, [key]: { ...settings[key], ...value } });
   const { indoorTrigger, forecastTrigger, reminders, tips, alert } = settings;
-  const degrees = (value: number) => `${celsius(value)} °C`;
+  const degrees = (value: number) => `${celsius(value)}\u00a0°C`;
   const hour = (value: number) => t('heatwave.settings.hour', { hour: value });
   return (
     <View style={styles.stack}>

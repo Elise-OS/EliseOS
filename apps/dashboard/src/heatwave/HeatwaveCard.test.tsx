@@ -66,17 +66,17 @@ describe('HeatwaveCard', () => {
     await flush();
     const text = host.textContent ?? '';
     expect(text).toContain('Canicule');
-    expect(text).toContain('quand une pièce reste à 28 °C ou plus pendant 30 min');
-    expect(text).toContain('33 °C ou plus pour aujourd’hui ou demain à Lyon');
-    expect(text).toContain('toutes les pièces restent sous 27 °C pendant 2 h');
+    expect(text).toContain('quand une pièce reste à 28 °C ou plus pendant 30 min');
+    expect(text).toContain('33 °C ou plus pour aujourd’hui ou demain à Lyon');
+    expect(text).toContain('toutes les pièces restent sous 27 °C pendant 2 h');
     expect(text).toContain('Toutes les 2 h, de 9 h à 20 h');
     expect(text).toContain('La personne n’a rien à appuyer');
-    expect(text).toContain('31 °C ou plus pendant 1 h');
+    expect(text).toContain('31 °C ou plus pendant 1 h');
     expect(text).toContain('appelez le 15 ou le 112');
     expect(text).toContain('Activé');
-    expect(text).toContain('29,4 °C · Chambre');
+    expect(text).toContain('29,4 °C · Chambre');
     expect(text).toContain('Prévision à Lyon');
-    expect(text).toContain('Aujourd’hui 34 °C · demain 35 °C');
+    expect(text).toContain('Aujourd’hui 34 °C · demain 35 °C');
     expect(text).toContain('2 rappels affichés');
     expect(text).not.toMatch(/confirm|sans réponse/);
     expect(text).toContain('pas un dispositif médical');
@@ -197,10 +197,10 @@ describe('HydrationReminderOverlay', () => {
 describe('heatwaveSummary', () => {
   it('tells the default settings in plain words', () => {
     expect(heatwaveSummary(DEFAULT_HEATWAVE_SETTINGS)).toEqual([
-      'Élise active le mode canicule quand une pièce atteint 28 °C pendant 30 min, ou quand la météo annonce 33 °C ou plus pour aujourd’hui ou demain.',
+      'Élise active le mode canicule quand une pièce atteint 28 °C pendant 30 min, ou quand la météo annonce 33 °C ou plus pour aujourd’hui ou demain.',
       'Pendant le mode, la TV propose un verre d’eau toutes les 2 h, de 9 h à 20 h.',
       'Elle donne aussi des conseils selon le moment de la journée.',
-      'La famille est alertée si une pièce reste à 31 °C ou plus pendant 1 h.',
+      'La famille est alertée si une pièce reste à 31 °C ou plus pendant 1 h.',
     ]);
   });
 });

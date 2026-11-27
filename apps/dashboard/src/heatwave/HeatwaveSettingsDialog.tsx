@@ -222,7 +222,7 @@ export function HeatwaveSettingsDialog({
               min={24}
               max={40}
               step={0.5}
-              format={(value) => `${celsius(value)} °C`}
+              format={(value) => `${celsius(value)}\u00a0°C`}
               disabled={!settings.indoorTrigger.enabled}
               onChange={(value) => update((draft) => void (draft.indoorTrigger.celsius = value))}
             />
@@ -252,7 +252,7 @@ export function HeatwaveSettingsDialog({
               min={25}
               max={45}
               step={1}
-              format={(value) => `${celsius(value)} °C`}
+              format={(value) => `${celsius(value)}\u00a0°C`}
               disabled={!settings.forecastTrigger.enabled}
               onChange={(value) => update((draft) => void (draft.forecastTrigger.celsius = value))}
             />
@@ -355,7 +355,7 @@ export function HeatwaveSettingsDialog({
               min={26}
               max={40}
               step={0.5}
-              format={(value) => `${celsius(value)} °C`}
+              format={(value) => `${celsius(value)}\u00a0°C`}
               disabled={!settings.alert.enabled}
               onChange={(value) => update((draft) => void (draft.alert.celsius = value))}
             />
