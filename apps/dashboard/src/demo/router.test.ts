@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import type { HeatwaveScreenView, HeatwaveStatus } from '@elise/contracts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { setLanguage } from '../i18n';
 import { handleDemoRequest, resetDemo } from './router';
@@ -114,6 +115,33 @@ describe('demo router', () => {
     expect(cold.sensor?.capability).toBe('temperature');
     expect(cold.observations.length).toBeGreaterThan(3);
     resetDemo();
+  });
+
+  it('lets the visitor turn the heatwave mode on and answer the drink reminder', () => {
+    const idle = handleDemoRequest('GET', '/heatwave').body as HeatwaveStatus;
+    expect(idle.active).toBe(false);
+    expect(idle.settings.indoorTrigger.celsius).toBe(28);
+    expect(idle.settings.forecastTrigger.celsius).toBe(33);
+    expect(idle.forecast.city).toBe('Lyon');
+
+    const on = handleDemoRequest('POST', '/heatwave/manual', JSON.stringify({ active: true }))
+      .body as HeatwaveStatus;
+    expect(on.active).toBe(true);
+    expect(on.source).toBe('MANUAL');
+
+    const screen = handleDemoRequest('GET', '/heatwave/screen').body as HeatwaveScreenView;
+    expect(screen.active).toBe(true);
+    expect(screen.reminder).not.toBeNull();
+    const answered = handleDemoRequest(
+      'POST',
+      `/heatwave/reminders/${screen.reminder?.id ?? ''}/confirm`,
+    ).body as HeatwaveScreenView;
+    expect(answered.reminder).toBeNull();
+    const after = handleDemoRequest('GET', '/heatwave').body as HeatwaveStatus;
+    expect(after.reminders.confirmed).toBe(1);
+
+    resetDemo();
+    expect((handleDemoRequest('GET', '/heatwave').body as HeatwaveStatus).active).toBe(false);
   });
 
   it('refuses actions that would leave the page', () => {

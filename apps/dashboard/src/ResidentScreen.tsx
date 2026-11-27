@@ -37,6 +37,11 @@ import { useCallSession } from './call/useCallSession';
 import './screen.css';
 import { t } from './i18n';
 import { appointmentPictogramLabel } from './i18n/data';
+import {
+  HeatwaveBanner,
+  HydrationReminderOverlay,
+  useHeatwaveScreen,
+} from './heatwave/HeatwaveScreen';
 const key = 'elise-screen-token';
 export function hasPhysicalMicrophone(devices: MediaDeviceInfo[]): boolean {
   return devices.some((device) => {
@@ -534,6 +539,7 @@ export function ResidentScreen() {
     return () => window.removeEventListener('keydown', listener);
   }, [button]);
   const call = online ? snapshot?.state.call : null;
+  const heatwave = useHeatwaveScreen(token);
   // A kiosk stays open across deployments: fetch the new shell before reloading its assets.
   useEffect(() => {
     if (!token || !online || snapshot?.state.call) return;
@@ -751,8 +757,18 @@ export function ResidentScreen() {
     );
   return (
     <main className={`resident-display ${state?.playback.asleep && !call ? 'resident-sleep' : ''}`}>
+      {!state?.playback.asleep && !call && heatwave.view?.active && (
+        <HeatwaveBanner view={heatwave.view} />
+      )}
       {!state?.playback.asleep && state && !call && (
         <FamilyMessageBanner state={state} now={now.getTime()} />
+      )}
+      {!state?.playback.asleep && !inCall && (
+        <HydrationReminderOverlay
+          reminder={heatwave.view?.active ? heatwave.view.reminder : null}
+          thanked={heatwave.thanked !== null}
+          onConfirm={(id) => void heatwave.confirm(id)}
+        />
       )}
       {callSession && !(call && call.id !== callSession.callId) && (
         <JitsiCall

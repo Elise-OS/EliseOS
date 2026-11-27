@@ -1,0 +1,143 @@
+/* Heatwave mode on the resident's TV: a soft amber band and the drink reminder.
+   Readable from the sofa, never alarming: no red, no blinking. */
+.tv-heatwave-banner {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: clamp(14px, 1.3vw, 26px);
+  padding: clamp(12px, 1.2vw, 22px) clamp(20px, 2.2vw, 42px);
+  border: 1px solid rgba(217, 154, 85, 0.45);
+  border-radius: clamp(18px, 1.6vw, 30px);
+  background: linear-gradient(105deg, #fdeccf, #fff6e8 55%, #fcefd9);
+  box-shadow: 0 12px 30px rgba(154, 93, 29, 0.1);
+  color: #4a2f10;
+}
+.tv-heatwave-banner > svg {
+  flex: 0 0 auto;
+  width: clamp(40px, 3.4vw, 64px);
+  height: clamp(40px, 3.4vw, 64px);
+  color: #b36b22;
+}
+.tv-heatwave-banner div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.tv-heatwave-banner p {
+  margin: 0;
+  font-size: clamp(24px, 2.05vw, 40px);
+  font-weight: 750;
+  line-height: 1.18;
+}
+.tv-heatwave-banner small {
+  color: #6b4a22;
+  font-size: clamp(19px, 1.45vw, 29px);
+  font-weight: 560;
+  line-height: 1.25;
+}
+
+.tv-hydration {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 40;
+  display: grid;
+  justify-items: center;
+  gap: clamp(10px, 1vw, 18px);
+  width: min(860px, 88vw);
+  padding: clamp(30px, 3vw, 56px) clamp(28px, 3vw, 60px);
+  border: 1px solid rgba(55, 104, 132, 0.18);
+  border-radius: clamp(26px, 2.4vw, 44px);
+  background: #fdfbf7;
+  box-shadow:
+    0 0 0 100vmax rgba(11, 41, 72, 0.28),
+    0 40px 90px rgba(11, 41, 72, 0.3);
+  color: #0b2948;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  animation: tv-hydration-in 600ms ease-out;
+}
+.tv-hydration__icon {
+  display: grid;
+  place-items: center;
+  width: clamp(84px, 7vw, 132px);
+  height: clamp(84px, 7vw, 132px);
+  border-radius: 50%;
+  background: #e6f0f5;
+  color: #376884;
+}
+.tv-hydration__icon svg {
+  width: 56%;
+  height: 56%;
+}
+.tv-hydration__eyebrow {
+  margin: 0;
+  color: #5b6877;
+  font-size: clamp(20px, 1.5vw, 30px);
+  font-weight: 600;
+}
+.tv-hydration h1 {
+  margin: 0;
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: clamp(36px, 3.2vw, 64px);
+  font-weight: 650;
+  line-height: 1.12;
+  color: #12385f;
+}
+.tv-hydration button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  margin-top: clamp(6px, 0.6vw, 12px);
+  padding: 0.55em 1.5em;
+  border: 0;
+  border-radius: 999px;
+  background: #12385f;
+  color: #fff;
+  font-size: clamp(30px, 2.5vw, 50px);
+  font-weight: 750;
+  cursor: pointer;
+}
+.tv-hydration button svg {
+  width: 1em;
+  height: 1em;
+}
+.tv-hydration button:focus-visible {
+  outline: 6px solid #d99a55;
+  outline-offset: 6px;
+}
+.tv-hydration__hint {
+  margin: 0;
+  color: #5b6877;
+  font-size: clamp(18px, 1.3vw, 26px);
+}
+.tv-hydration--thanks {
+  box-shadow: 0 40px 90px rgba(11, 41, 72, 0.25);
+}
+.tv-hydration--thanks .tv-hydration__icon {
+  background: #e8f1ea;
+  color: #3f7a57;
+}
+
+@keyframes tv-hydration-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -46%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-hydration {
+    animation: none;
+  }
+}
+
+@media (max-aspect-ratio: 4 / 3), (max-width: 900px) {
+  .tv-heatwave-banner {
+    align-items: flex-start;
+  }
+}
