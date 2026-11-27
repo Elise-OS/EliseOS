@@ -156,6 +156,7 @@
   font-size: 0.9rem;
   line-height: 1.5;
 }
+.heatwave-how__registry,
 .heatwave-how__medical {
   grid-column: 1 / -1;
 }
