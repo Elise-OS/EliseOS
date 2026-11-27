@@ -7,7 +7,11 @@ import {
   createHeatwaveDemo,
   dueHydrationReminder,
   evaluateHeatwave,
+  heatwaveForecastLevel,
+  heatwaveGauge,
+  heatwaveIndoorLevel,
   heatwaveRegistryDue,
+  heatwaveReminderTimeline,
   heatwaveSettingsSchema,
   heatwaveTip,
   hydrationSlots,
@@ -336,6 +340,54 @@ describe('town-hall registry reminder', () => {
       }).due,
       false,
     );
+  });
+});
+
+describe('heatwave card scales', () => {
+  it('colours the indoor and forecast values from the saved thresholds', () => {
+    assert.equal(heatwaveIndoorLevel(settings, 25), 'comfortable');
+    assert.equal(heatwaveIndoorLevel(settings, 28), 'warm');
+    assert.equal(heatwaveIndoorLevel(settings, 31), 'hot');
+    const noAlert = { ...settings, alert: { ...settings.alert, enabled: false } };
+    assert.equal(heatwaveIndoorLevel(noAlert, 30.9), 'warm');
+    assert.equal(heatwaveIndoorLevel(noAlert, 31), 'hot');
+    assert.equal(heatwaveForecastLevel(settings, 29), 'comfortable');
+    assert.equal(heatwaveForecastLevel(settings, 30), 'warm');
+    assert.equal(heatwaveForecastLevel(settings, 33), 'hot');
+  });
+
+  it('places the value and thresholds on the heat gauge', () => {
+    const gauge = heatwaveGauge(settings, 29);
+    assert.equal(gauge.min, 20);
+    assert.equal(gauge.max, 34);
+    assert.equal(gauge.value, 9 / 14);
+    assert.equal(gauge.trigger, 8 / 14);
+    assert.equal(gauge.alert, 11 / 14);
+    assert.equal(heatwaveGauge(settings, 12).value, 0);
+    // A value above the scale stretches it, so the bar never overflows.
+    assert.equal(heatwaveGauge(settings, 40).max, 41);
+    assert.ok(heatwaveGauge(settings, 40).value < 1);
+  });
+
+  it('draws the reminders of the day as a timeline', () => {
+    const states = heatwaveReminderTimeline({
+      settings,
+      shown: 2,
+      next: at('15:00').toISOString(),
+      active: true,
+      now: at('14:20'),
+      timeZone: tz,
+    }).map(({ minute, state }) => `${minute / 60}:${state}`);
+    assert.deepEqual(states, ['9:past', '11:shown', '13:shown', '15:next', '17:later', '19:later']);
+    const off = heatwaveReminderTimeline({
+      settings,
+      shown: 0,
+      next: null,
+      active: false,
+      now: at('08:00'),
+      timeZone: tz,
+    });
+    assert.ok(off.every(({ state }) => state === 'later'));
   });
 });
 

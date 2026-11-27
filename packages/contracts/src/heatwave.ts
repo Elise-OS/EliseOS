@@ -398,3 +398,71 @@ export function heatwaveRegistryDue(input: {
   const season = month >= 6 && month <= 8;
   return { due: input.acknowledgedYear !== year && (season || input.active), year };
 }
+
+/** How warm a value is, relative to the saved thresholds, for the colours of the family card. */
+export type HeatwaveLevel = 'comfortable' | 'warm' | 'hot';
+
+/** Indoor: warm from the indoor trigger, too hot from the family alert (or 3 °C above). */
+export function heatwaveIndoorLevel(settings: HeatwaveSettings, celsius: number): HeatwaveLevel {
+  const hot = settings.alert.enabled ? settings.alert.celsius : settings.indoorTrigger.celsius + 3;
+  if (celsius >= hot) return 'hot';
+  return celsius >= settings.indoorTrigger.celsius ? 'warm' : 'comfortable';
+}
+
+/** Forecast: too hot from the forecast trigger, warm in the 3 °C below it. */
+export function heatwaveForecastLevel(settings: HeatwaveSettings, celsius: number): HeatwaveLevel {
+  if (celsius >= settings.forecastTrigger.celsius) return 'hot';
+  return celsius >= settings.forecastTrigger.celsius - 3 ? 'warm' : 'comfortable';
+}
+
+/**
+ * Small heat gauge under the indoor value: where the value, the indoor trigger and the alert sit
+ * on a scale from 20 °C to a few degrees above the alert. Ratios go from 0 to 1.
+ */
+export function heatwaveGauge(
+  settings: HeatwaveSettings,
+  celsius: number,
+): { value: number; trigger: number; alert: number; min: number; max: number } {
+  const min = 20;
+  const alertAt = settings.alert.enabled
+    ? settings.alert.celsius
+    : settings.indoorTrigger.celsius + 3;
+  const max = Math.max(alertAt + 3, settings.indoorTrigger.celsius + 4, Math.ceil(celsius) + 1);
+  const ratio = (value: number) => Math.min(1, Math.max(0, (value - min) / (max - min)));
+  return {
+    value: ratio(celsius),
+    trigger: ratio(settings.indoorTrigger.celsius),
+    alert: ratio(alertAt),
+    min,
+    max,
+  };
+}
+
+export type HeatwaveTimelineState = 'shown' | 'past' | 'next' | 'later';
+
+/**
+ * Drink reminders of the day as a timeline, for the family card. The last `shown` slots already
+ * passed are the reminders the TV displayed; earlier passed slots came before the mode was on.
+ * Purely informative: nobody answers a reminder.
+ */
+export function heatwaveReminderTimeline(input: {
+  settings: HeatwaveSettings;
+  shown: number;
+  next: string | null;
+  active: boolean;
+  now: Date;
+  timeZone: string;
+}): Array<{ minute: number; state: HeatwaveTimelineState }> {
+  const { settings, shown, next, active, now, timeZone } = input;
+  const slots = hydrationSlots(settings);
+  const { minute: nowMinute } = heatwaveLocalClock(now, timeZone);
+  const nextMinute = active && next ? heatwaveLocalClock(new Date(next), timeZone).minute : null;
+  const passed = slots.filter((slot) => slot <= nowMinute);
+  const shownFrom = passed.length - Math.min(shown, passed.length);
+  return slots.map((minute) => {
+    const index = passed.indexOf(minute);
+    if (index !== -1) return { minute, state: index >= shownFrom ? 'shown' : 'past' };
+    if (minute === nextMinute) return { minute, state: 'next' };
+    return { minute, state: 'later' };
+  });
+}

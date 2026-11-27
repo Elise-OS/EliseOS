@@ -3,6 +3,7 @@ import {
   HYDRATION_REMINDER_MINUTES,
   heatwaveLocalClock,
   heatwaveRegistryDue,
+  hydrationSlots,
   heatwaveSettingsSchema,
   heatwaveTip,
   nextHydrationReminder,
@@ -50,8 +51,12 @@ export function createHeatwaveDemo(
   let deactivatedAt: string | null = null;
   let registryYear: number | null = null;
   let reminder: { id: string; scheduledFor: string; expiresAt: string } | null = null;
-  // Reminders already shown today: the earlier ones of the heat episode, then the current one.
-  let shown = heat ? 1 : 0;
+  // Reminders already shown today: during the heat episode, every reminder hour already passed.
+  let shown = heat
+    ? hydrationSlots(settings).filter(
+        (slot) => slot <= heatwaveLocalClock(new Date(), timeZone).minute,
+      ).length
+    : 0;
 
   const showReminder = () => {
     const at = now();
@@ -60,7 +65,6 @@ export function createHeatwaveDemo(
       scheduledFor: new Date(at.getTime() - 2 * minute).toISOString(),
       expiresAt: new Date(at.getTime() + (HYDRATION_REMINDER_MINUTES - 2) * minute).toISOString(),
     };
-    shown += 1;
   };
   if (heat) showReminder();
 
@@ -140,6 +144,7 @@ export function createHeatwaveDemo(
         if (wanted && !active) {
           activatedAt = now().toISOString();
           showReminder();
+          shown += 1;
         }
         if (!wanted && active) deactivatedAt = now().toISOString();
         active = wanted;
