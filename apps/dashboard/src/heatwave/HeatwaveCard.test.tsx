@@ -47,6 +47,8 @@ describe('HeatwaveCard', () => {
     document.body.append(host);
     root = createRoot(host);
     requests = [];
+    // 10:40 in Paris: the 9 h reminder has been shown, the next one is at 11 h.
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-07-15T08:40:00Z') });
     demo = createHeatwaveDemo({
       heat: true,
       city: 'Lyon',
@@ -58,6 +60,7 @@ describe('HeatwaveCard', () => {
     act(() => root.unmount());
     host.remove();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it('explains how the mode works and shows the figures of the day', async () => {
@@ -66,20 +69,42 @@ describe('HeatwaveCard', () => {
     await flush();
     const text = host.textContent ?? '';
     expect(text).toContain('Canicule');
+    expect(text).toContain('Activé');
+    expect(text).toContain('Forte chaleur annoncée à Lyon : 34 °C');
+    // Today's tiles, on the heat scale of the saved thresholds.
+    expect(host.querySelector('.heatwave-tile--warm')?.textContent).toContain('29,4°C');
+    expect(text).toContain('Max. du jour · Chambre');
+    expect(host.querySelector('.heatwave-tile--hot')?.textContent).toContain('34°C');
+    expect(text).toContain('Demain 35 °C');
+    expect(host.querySelector('.heatwave-gauge')?.getAttribute('aria-label')).toContain(
+      'seuil du mode à 28 °C, alerte à 31 °C',
+    );
+    // Reminders of the day: 9 h shown, 11 h next, the rest later.
+    expect(host.querySelector('.heatwave-tile--reminders .heatwave-figure')?.textContent).toBe('1');
+    expect(text).toContain('rappel affiché aujourd’hui');
+    expect(text).toContain('Prochain à 11:00');
+    const dots = Array.from(host.querySelectorAll('.heatwave-timeline__dot')).map(
+      (dot) => dot.className.split('is-')[1],
+    );
+    expect(dots).toEqual(['shown', 'next', 'later', 'later', 'later', 'later']);
+    // How it works, in four steps from the saved settings.
+    const steps = Array.from(host.querySelectorAll('.heatwave-step strong')).map(
+      (step) => step.textContent,
+    );
+    expect(steps).toEqual([
+      'Élise détecte la chaleur',
+      'La TV rappelle de boire',
+      'La famille est prévenue',
+      'Tout s’arrête seul',
+    ]);
     expect(text).toContain('quand une pièce reste à 28 °C ou plus pendant 30 min');
     expect(text).toContain('33 °C ou plus pour aujourd’hui ou demain à Lyon');
-    expect(text).toContain('toutes les pièces restent sous 27 °C pendant 2 h');
     expect(text).toContain('Toutes les 2 h, de 9 h à 20 h');
-    expect(text).toContain('La personne n’a rien à appuyer');
+    expect(text).toContain('la personne n’a rien à appuyer');
     expect(text).toContain('31 °C ou plus pendant 1 h');
+    expect(text).toContain('toutes les pièces restent sous 27 °C pendant 2 h');
     expect(text).toContain('appelez le 15 ou le 112');
-    expect(text).toContain('Activé');
-    expect(text).toContain('29,4 °C · Chambre');
-    expect(text).toContain('Prévision à Lyon');
-    expect(text).toContain('Aujourd’hui 34 °C · demain 35 °C');
-    expect(text).toContain('2 rappels affichés');
-    expect(text).not.toMatch(/confirm|sans réponse/);
-    expect(text).toContain('pas un dispositif médical');
+    expect(text).not.toMatch(/confirm|sans réponse|télécommande/);
   });
 
   it('lets the family turn the mode off and opens the settings window', async () => {
@@ -94,7 +119,8 @@ describe('HeatwaveCard', () => {
     expect(host.textContent).toContain('En pause');
 
     act(() => button('Réglages')?.click());
-    const dialog = host.querySelector('[role="dialog"]');
+    // The window opens on the page itself, out of the card.
+    const dialog = document.body.querySelector('[role="dialog"]');
     expect(dialog?.textContent).toContain('Réglages du mode canicule');
     expect(dialog?.querySelectorAll('[role="switch"]').length).toBe(5);
     const reminders = dialog?.querySelector<HTMLButtonElement>(
@@ -108,7 +134,7 @@ describe('HeatwaveCard', () => {
     expect(put?.path).toBe('/heatwave/settings');
     const saved = JSON.parse(put?.body ?? '{}') as HeatwaveSettings;
     expect(saved.reminders.enabled).toBe(false);
-    expect(host.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
     expect(host.textContent).toContain('Rappels désactivés');
   });
 

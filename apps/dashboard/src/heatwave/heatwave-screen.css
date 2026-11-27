@@ -1,40 +1,65 @@
 /* Heatwave mode on the resident's TV: a soft amber band and the drink reminder, which only
    shows a message and leaves by itself (the resident never has to press anything).
-   Readable from the sofa, never alarming: no red, no blinking. */
+   Readable from the sofa (3 m), never alarming: no red, no blinking, gentle motion only. */
 .tv-heatwave-banner {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: clamp(14px, 1.3vw, 26px);
-  padding: clamp(12px, 1.2vw, 22px) clamp(20px, 2.2vw, 42px);
-  border: 1px solid rgba(217, 154, 85, 0.45);
-  border-radius: clamp(18px, 1.6vw, 30px);
-  background: linear-gradient(105deg, #fdeccf, #fff6e8 55%, #fcefd9);
-  box-shadow: 0 12px 30px rgba(154, 93, 29, 0.1);
+  gap: clamp(16px, 1.5vw, 30px);
+  padding: clamp(12px, 1.1vw, 22px) clamp(18px, 2vw, 40px) clamp(12px, 1.1vw, 22px)
+    clamp(12px, 1.1vw, 22px);
+  border: 1px solid rgba(217, 154, 85, 0.4);
+  border-radius: clamp(20px, 1.8vw, 34px);
+  background:
+    radial-gradient(90% 160% at 0% 50%, rgba(250, 214, 160, 0.75), transparent 60%),
+    linear-gradient(100deg, #fde9c9, #fff5e6 48%, #fdf0dc);
+  box-shadow:
+    0 14px 34px rgba(154, 93, 29, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
   color: #4a2f10;
+  animation: tv-heatwave-in 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
-.tv-heatwave-banner > svg {
-  flex: 0 0 auto;
-  width: clamp(40px, 3.4vw, 64px);
-  height: clamp(40px, 3.4vw, 64px);
-  color: #b36b22;
-}
-.tv-heatwave-banner div {
+.tv-heatwave-banner__icon {
   display: grid;
-  gap: 4px;
+  flex: 0 0 auto;
+  place-items: center;
+  width: clamp(56px, 4.6vw, 92px);
+  height: clamp(56px, 4.6vw, 92px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff8ec, #f7d7a6);
+  box-shadow:
+    0 0 0 clamp(5px, 0.5vw, 10px) rgba(247, 215, 166, 0.35),
+    0 10px 24px rgba(154, 93, 29, 0.18);
+  color: #a4601b;
+}
+.tv-heatwave-banner__icon svg {
+  width: 58%;
+  height: 58%;
+}
+.tv-heatwave-banner__copy {
+  display: grid;
+  gap: clamp(2px, 0.3vw, 6px);
   min-width: 0;
 }
 .tv-heatwave-banner p {
   margin: 0;
-  font-size: clamp(24px, 2.05vw, 40px);
+  color: #3f2709;
+  font-size: clamp(26px, 2.15vw, 42px);
   font-weight: 750;
-  line-height: 1.18;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
 }
 .tv-heatwave-banner small {
   color: #6b4a22;
-  font-size: clamp(19px, 1.45vw, 29px);
+  font-size: clamp(20px, 1.5vw, 30px);
   font-weight: 560;
   line-height: 1.25;
+}
+@keyframes tv-heatwave-in {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
 }
 
 .tv-hydration {
@@ -44,69 +69,132 @@
   z-index: 40;
   display: grid;
   justify-items: center;
-  gap: clamp(10px, 1vw, 18px);
-  width: min(860px, 88vw);
-  padding: clamp(30px, 3vw, 56px) clamp(28px, 3vw, 60px);
-  border: 1px solid rgba(55, 104, 132, 0.18);
-  border-radius: clamp(26px, 2.4vw, 44px);
-  background: #fdfbf7;
+  gap: clamp(8px, 0.8vw, 16px);
+  width: min(900px, 88vw);
+  padding: clamp(30px, 3vw, 58px) clamp(28px, 3vw, 64px) clamp(26px, 2.6vw, 50px);
+  border: 1px solid rgba(55, 104, 132, 0.16);
+  border-radius: clamp(28px, 2.6vw, 48px);
+  background:
+    radial-gradient(80% 60% at 50% 0%, rgba(214, 236, 246, 0.9), transparent 70%), #fdfbf7;
   box-shadow:
-    0 0 0 100vmax rgba(11, 41, 72, 0.28),
-    0 40px 90px rgba(11, 41, 72, 0.3);
+    0 0 0 100vmax rgba(11, 41, 72, 0.26),
+    0 40px 90px rgba(11, 41, 72, 0.28);
   color: #0b2948;
   text-align: center;
   transform: translate(-50%, -50%);
-  animation: tv-hydration-in 600ms ease-out;
+  animation: tv-hydration-in 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
   /* A message only: it never takes the focus nor catches a click or a key. */
   pointer-events: none;
 }
-.tv-hydration__icon {
+.tv-hydration.is-leaving {
+  animation: tv-hydration-out 700ms ease-in both;
+}
+.tv-hydration__visual {
+  position: relative;
   display: grid;
   place-items: center;
-  width: clamp(84px, 7vw, 132px);
-  height: clamp(84px, 7vw, 132px);
-  border-radius: 50%;
-  background: #e6f0f5;
-  color: #376884;
+  width: clamp(130px, 11vw, 200px);
+  aspect-ratio: 1;
+  margin-bottom: clamp(2px, 0.3vw, 6px);
 }
-.tv-hydration__icon svg {
-  width: 56%;
-  height: 56%;
+.tv-hydration__ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.tv-hydration__ring circle {
+  fill: none;
+  stroke-width: 5;
+}
+.tv-hydration__ring-track {
+  stroke: #e2edf2;
+}
+.tv-hydration__ring-time {
+  stroke: #5aa3c4;
+  stroke-linecap: round;
+  animation-name: tv-hydration-time;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.tv-hydration__glass {
+  width: 58%;
+  height: 58%;
+  filter: drop-shadow(0 8px 14px rgba(55, 104, 132, 0.18));
+}
+.tv-hydration__water {
+  animation: tv-hydration-wave 4s ease-in-out infinite alternate;
 }
 .tv-hydration__eyebrow {
   margin: 0;
-  color: #5b6877;
+  color: #376884;
   font-size: clamp(20px, 1.5vw, 30px);
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 .tv-hydration h1 {
   margin: 0;
   font-family: 'Source Serif 4', Georgia, serif;
-  font-size: clamp(36px, 3.2vw, 64px);
+  font-size: clamp(40px, 3.4vw, 68px);
   font-weight: 650;
-  line-height: 1.12;
+  line-height: 1.1;
   color: #12385f;
 }
 .tv-hydration__text {
   margin: 0;
   color: #3d4f61;
-  font-size: clamp(22px, 1.7vw, 34px);
+  font-size: clamp(24px, 1.8vw, 36px);
   line-height: 1.3;
+}
+.tv-hydration__fades {
+  margin: clamp(4px, 0.5vw, 10px) 0 0;
+  color: #5d6b78;
+  font-size: clamp(18px, 1.25vw, 24px);
 }
 
 @keyframes tv-hydration-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -46%);
+    transform: translate(-50%, -46%) scale(0.98);
+  }
+}
+@keyframes tv-hydration-out {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.98);
+  }
+}
+@keyframes tv-hydration-time {
+  from {
+    stroke-dashoffset: calc(var(--ring-from) * 1px);
   }
   to {
-    opacity: 1;
-    transform: translate(-50%, -50%);
+    stroke-dashoffset: calc(var(--ring-length) * 1px);
+  }
+}
+@keyframes tv-hydration-wave {
+  from {
+    transform: translateX(-10px);
+  }
+  to {
+    transform: translateX(10px);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tv-hydration {
+  .tv-heatwave-banner,
+  .tv-hydration,
+  .tv-hydration.is-leaving,
+  .tv-hydration__water {
+    animation: none;
+  }
+  .tv-hydration.is-leaving {
+    opacity: 0;
+  }
+  /* The ring still says how much time is left, without moving. */
+  .tv-hydration__ring-time {
     animation: none;
   }
 }

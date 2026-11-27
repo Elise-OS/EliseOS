@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { t } from '../i18n';
 import { celsius, duration, heatwaveSummary } from './heatwave-text';
 
@@ -163,7 +164,8 @@ export function HeatwaveSettingsDialog({
   const valid = heatwaveSettingsSchema.safeParse(settings).success;
   const reminders = settings.reminders;
 
-  return (
+  // Rendered on the page itself, so the styles of the card that opens it never leak in.
+  return createPortal(
     <div
       className="heatwave-dialog-backdrop"
       role="presentation"
@@ -403,6 +405,7 @@ export function HeatwaveSettingsDialog({
           </button>
         </footer>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }

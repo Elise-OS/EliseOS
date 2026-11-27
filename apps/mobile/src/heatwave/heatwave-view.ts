@@ -1,5 +1,9 @@
 import {
   HEATWAVE_COOL_MARGIN,
+  heatwaveForecastLevel,
+  heatwaveGauge,
+  heatwaveIndoorLevel,
+  heatwaveReminderTimeline,
   heatwaveSettingsSchema,
   type HeatwaveSettings,
   type HeatwaveStatus,
@@ -115,77 +119,17 @@ export function heatwaveStateText(status: HeatwaveStatus): string {
   return t('heatwave.card.idle');
 }
 
-export interface HeatwaveFact {
-  key: 'indoor' | 'forecast' | 'reminders';
-  label: string;
-  value: string;
-  detail?: string;
-}
-
-/** The three lines of the card: heat of the day, forecast and drink reminders. */
-export function heatwaveFacts(status: HeatwaveStatus): HeatwaveFact[] {
-  const { indoor, forecast, reminders } = status;
-  const indoorValue =
-    indoor.sensors === 0
-      ? t('heatwave.card.indoorNoSensor')
-      : indoor.maxToday === null
-        ? t('heatwave.card.indoorNoData')
-        : indoor.maxTodayRoom
-          ? t('heatwave.card.indoorMaxRoom', {
-              value: celsius(indoor.maxToday),
-              room: indoor.maxTodayRoom,
-            })
-          : t('heatwave.card.indoorMax', { value: celsius(indoor.maxToday) });
-  const forecastParts = [
-    forecast.todayMax !== null
-      ? t('heatwave.card.forecastToday', { value: celsius(forecast.todayMax) })
-      : null,
-    forecast.tomorrowMax !== null
-      ? t('heatwave.card.forecastTomorrow', { value: celsius(forecast.tomorrowMax) })
-      : null,
-  ].filter((part): part is string => part !== null);
-  const forecastValue =
-    forecast.available && forecastParts.length
-      ? forecastParts.join(' · ')
-      : t('heatwave.card.forecastUnavailable');
-  const remindersValue = status.settings.reminders.enabled
-    ? reminders.shown > 0
-      ? t('heatwave.card.remindersShown', { count: reminders.shown })
-      : t('heatwave.card.remindersNone')
-    : t('heatwave.card.remindersOff');
-  const next =
-    status.active && status.settings.reminders.enabled && reminders.next
-      ? t('heatwave.card.nextReminder', { time: clockTime(reminders.next, status.timezone) })
-      : undefined;
-  return [
-    { key: 'indoor', label: t('heatwave.card.indoorLabel'), value: indoorValue },
-    {
-      key: 'forecast',
-      label: forecast.city
-        ? t('heatwave.card.forecastLabelCity', { city: forecast.city })
-        : t('heatwave.card.forecastLabel'),
-      value: forecastValue,
-    },
-    {
-      key: 'reminders',
-      label: t('heatwave.card.remindersLabel'),
-      value: remindersValue,
-      ...(next ? { detail: next } : {}),
-    },
-  ];
-}
-
-export type HeatwaveHowKey = 'on' | 'off' | 'tv' | 'family' | 'registry' | 'medical';
+export type HeatwaveStepKey = 'detect' | 'tv' | 'family' | 'stop';
 
 /**
- * How the mode works, in plain words and with the saved settings: when it starts and stops,
- * what the TV shows, what the family receives, the town hall register and its limits.
+ * « Comment ça marche » in four steps, each in one sentence written from the saved settings:
+ * Élise detects the heat, the TV reminds to drink, the family is told, everything stops alone.
  */
-export function heatwaveHowItWorks(
+export function heatwaveSteps(
   status: Pick<HeatwaveStatus, 'settings' | 'forecast'>,
-): Array<{ key: HeatwaveHowKey; title: string; text: string }> {
+): Array<{ key: HeatwaveStepKey; title: string; text: string }> {
   const { settings, forecast } = status;
-  const { indoorTrigger, forecastTrigger, reminders, tips, alert } = settings;
+  const { indoorTrigger, forecastTrigger, reminders, alert } = settings;
   const triggers = [
     indoorTrigger.enabled
       ? t('heatwave.how.onIndoor', {
@@ -204,39 +148,28 @@ export function heatwaveHowItWorks(
   ].filter((part): part is string => part !== null);
   const cool = celsius(indoorTrigger.celsius - HEATWAVE_COOL_MARGIN);
   const forecastLimit = celsius(forecastTrigger.celsius);
-  const off =
-    indoorTrigger.enabled && forecastTrigger.enabled
-      ? t('heatwave.how.off', { celsius: cool, forecast: forecastLimit })
-      : indoorTrigger.enabled
-        ? t('heatwave.how.offIndoor', { celsius: cool })
-        : forecastTrigger.enabled
-          ? t('heatwave.how.offForecast', { forecast: forecastLimit })
-          : t('heatwave.how.offManual');
-  const tv = [
-    t('heatwave.how.tvBanner'),
-    tips.enabled ? t('heatwave.how.tvTips') : null,
-    reminders.enabled
-      ? t('heatwave.how.tvReminders', {
-          count: reminders.everyHours,
-          start: reminders.startHour,
-          end: reminders.endHour,
-        })
-      : t('heatwave.how.tvNoReminders'),
-    t('heatwave.how.tvNothing'),
-  ].filter((part): part is string => part !== null);
   return [
     {
-      key: 'on',
-      title: t('heatwave.how.onTitle'),
+      key: 'detect',
+      title: t('heatwave.how.stepDetect'),
       text: triggers.length
-        ? t('heatwave.how.on', { triggers: triggers.join(t('heatwave.summary.or')) })
+        ? t('heatwave.how.onShort', { triggers: triggers.join(t('heatwave.summary.or')) })
         : t('heatwave.how.onManualOnly'),
     },
-    { key: 'off', title: t('heatwave.how.offTitle'), text: off },
-    { key: 'tv', title: t('heatwave.how.tvTitle'), text: tv.join(' ') },
+    {
+      key: 'tv',
+      title: t('heatwave.how.stepTv'),
+      text: reminders.enabled
+        ? t('heatwave.how.tvShort', {
+            count: reminders.everyHours,
+            start: reminders.startHour,
+            end: reminders.endHour,
+          })
+        : t('heatwave.how.tvShortNoReminders'),
+    },
     {
       key: 'family',
-      title: t('heatwave.how.familyTitle'),
+      title: t('heatwave.how.stepFamily'),
       text: alert.enabled
         ? t('heatwave.how.family', {
             celsius: celsius(alert.celsius),
@@ -244,7 +177,113 @@ export function heatwaveHowItWorks(
           })
         : t('heatwave.how.familyNoAlert'),
     },
-    { key: 'registry', title: t('heatwave.how.registryTitle'), text: t('heatwave.how.registry') },
-    { key: 'medical', title: t('heatwave.how.medicalTitle'), text: t('heatwave.notMedical') },
+    {
+      key: 'stop',
+      title: t('heatwave.how.stepStop'),
+      text:
+        indoorTrigger.enabled && forecastTrigger.enabled
+          ? t('heatwave.how.off', { celsius: cool, forecast: forecastLimit })
+          : indoorTrigger.enabled
+            ? t('heatwave.how.offIndoor', { celsius: cool })
+            : forecastTrigger.enabled
+              ? t('heatwave.how.offForecast', { forecast: forecastLimit })
+              : t('heatwave.how.offManual'),
+    },
   ];
+}
+
+/** Why the mode is in its state, in one short line under the title of the card. */
+export function heatwaveReason(status: HeatwaveStatus): string {
+  const { forecast, indoor, settings } = status;
+  if (status.active && status.source === 'MANUAL') return t('heatwave.reason.manual');
+  if (status.active && status.source === 'FORECAST') {
+    // Today's heat when it is the one announced, otherwise tomorrow's.
+    const today =
+      forecast.todayMax !== null && forecast.todayMax >= settings.forecastTrigger.celsius;
+    const value = today ? forecast.todayMax : forecast.tomorrowMax;
+    if (value !== null) {
+      const city = forecast.city;
+      if (today)
+        return city
+          ? t('heatwave.reason.forecastCity', { city, value: celsius(value) })
+          : t('heatwave.reason.forecast', { value: celsius(value) });
+      return city
+        ? t('heatwave.reason.forecastTomorrowCity', { city, value: celsius(value) })
+        : t('heatwave.reason.forecastTomorrow', { value: celsius(value) });
+    }
+  }
+  const indoorValue = indoor.current ?? indoor.maxToday;
+  if (status.active && indoorValue !== null)
+    return indoor.maxTodayRoom
+      ? t('heatwave.reason.indoorRoom', { value: celsius(indoorValue), room: indoor.maxTodayRoom })
+      : t('heatwave.reason.indoor', { value: celsius(indoorValue) });
+  if (status.active) return heatwaveStateText(status);
+  if (status.manual === 'OFF') return t('heatwave.reason.paused');
+  if (!settings.indoorTrigger.enabled && !settings.forecastTrigger.enabled)
+    return t('heatwave.reason.manualOnly');
+  return forecast.city
+    ? t('heatwave.reason.watchingCity', { city: forecast.city })
+    : t('heatwave.reason.watching');
+}
+
+/** Figures of the « Aujourd'hui » tiles, with their heat level and the indoor gauge. */
+export function heatwaveToday(status: HeatwaveStatus, now = new Date()) {
+  const { settings, indoor, forecast, reminders } = status;
+  const forecastValue = forecast.available && forecast.todayMax !== null ? forecast.todayMax : null;
+  const forecastLevelOf = Math.max(
+    forecast.todayMax ?? -Infinity,
+    forecast.tomorrowMax ?? -Infinity,
+  );
+  return {
+    indoor: {
+      value: indoor.maxToday,
+      level: indoor.maxToday === null ? null : heatwaveIndoorLevel(settings, indoor.maxToday),
+      gauge: indoor.maxToday === null ? null : heatwaveGauge(settings, indoor.maxToday),
+      caption:
+        indoor.sensors === 0
+          ? t('heatwave.card.indoorNoSensor')
+          : indoor.maxToday === null
+            ? t('heatwave.card.indoorNoData')
+            : indoor.maxTodayRoom
+              ? t('heatwave.today.maxOfDayRoom', { room: indoor.maxTodayRoom })
+              : t('heatwave.today.maxOfDay'),
+    },
+    forecast: {
+      title: forecast.city
+        ? t('heatwave.today.forecastTitleCity', { city: forecast.city })
+        : t('heatwave.today.forecastTitle'),
+      value: forecastValue,
+      level: Number.isFinite(forecastLevelOf)
+        ? heatwaveForecastLevel(settings, forecastLevelOf)
+        : null,
+      caption: !forecast.available
+        ? t('heatwave.card.forecastUnavailable')
+        : forecast.tomorrowMax !== null
+          ? t('heatwave.today.tomorrow', { value: celsius(forecast.tomorrowMax) })
+          : t('heatwave.today.today'),
+    },
+    reminders: {
+      enabled: settings.reminders.enabled,
+      shown: reminders.shown,
+      /** Shown as a large figure next to the caption, when at least one reminder was shown. */
+      figure: settings.reminders.enabled && reminders.shown > 0 ? reminders.shown : null,
+      caption: !settings.reminders.enabled
+        ? t('heatwave.card.remindersOff')
+        : reminders.shown > 0
+          ? t('heatwave.today.shownCaption', { count: reminders.shown })
+          : t('heatwave.card.remindersNone'),
+      next:
+        status.active && settings.reminders.enabled && reminders.next
+          ? t('heatwave.card.nextReminder', { time: clockTime(reminders.next, status.timezone) })
+          : null,
+      timeline: heatwaveReminderTimeline({
+        settings,
+        shown: reminders.shown,
+        next: reminders.next,
+        active: status.active,
+        now,
+        timeZone: status.timezone,
+      }),
+    },
+  };
 }
