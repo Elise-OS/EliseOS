@@ -1,5 +1,7 @@
 import { boxHealthDemoAnswer, boxHealthDemoState } from './box-health';
+import { demoHeatEpisode } from './heat';
 import {
+  createHeatwaveDemo,
   createZigbeeDemo,
   isZigbeeDemoScenario,
   type ZigbeeDemoScenario,
@@ -111,10 +113,22 @@ function zigbeeScenario(): ZigbeeDemoScenario {
 }
 let zigbee = createZigbeeDemo({ scenario: zigbeeScenario() });
 
+/** `?canicule=on` opens the demo during a heat episode; otherwise the family can turn it on. */
+function heatwaveDemo() {
+  return createHeatwaveDemo({
+    heat: demoHeatEpisode(),
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    city: 'Lyon',
+    rooms: { warm: t('heatwave.demo.warmRoom'), mild: t('heatwave.demo.mildRoom') },
+  });
+}
+let heatwave = heatwaveDemo();
+
 export function resetDemo() {
   resetDemoSession();
   web = createWebState();
   zigbee = createZigbeeDemo({ scenario: zigbeeScenario() });
+  heatwave = heatwaveDemo();
 }
 
 function overview() {
@@ -496,6 +510,8 @@ export function handleDemoRequest(method: string, path: string, rawBody?: string
 
   const zigbeeAnswer = zigbee.handle(method, pathname, rawBody);
   if (zigbeeAnswer) return zigbeeAnswer;
+  const heatwaveAnswer = heatwave.handle(method, pathname, rawBody);
+  if (heatwaveAnswer) return heatwaveAnswer;
   // `loading` (a request that never ends) is answered by install.ts before reaching the router.
   const boxHealth = boxHealthDemoAnswer(
     method,

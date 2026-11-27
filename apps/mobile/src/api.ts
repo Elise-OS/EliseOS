@@ -2,6 +2,8 @@ import type {
   AlertRuleSettings,
   BoxHealthReport,
   ContactRole,
+  HeatwaveSettings,
+  HeatwaveStatus,
   RoomSensorCategory,
   CreatePerson,
   CalendarCreate,
@@ -391,6 +393,24 @@ const query = (values: Record<string, string | undefined>) => {
 };
 
 export const mobileApi = {
+  /** Heatwave mode: every member reads it and turns it on or off; owners and admins set it up. */
+  heatwave: (server: SavedServer, token: string) =>
+    request<HeatwaveStatus>(server, '/heatwave', token),
+  updateHeatwaveSettings: (server: SavedServer, token: string, settings: HeatwaveSettings) =>
+    request<HeatwaveStatus>(server, '/heatwave/settings', token, {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
+  setHeatwaveManual: (server: SavedServer, token: string, active: boolean) =>
+    request<HeatwaveStatus>(server, '/heatwave/manual', token, {
+      method: 'POST',
+      body: JSON.stringify({ active }),
+    }),
+  acknowledgeHeatwaveRegistry: (server: SavedServer, token: string, year: number) =>
+    request<HeatwaveStatus>(server, '/heatwave/registry', token, {
+      method: 'POST',
+      body: JSON.stringify({ year }),
+    }),
   zigbeeStatus: (server: SavedServer, token: string) =>
     request<ZigbeeStatus>(server, '/zigbee/adapter', token),
   scanZigbee: (server: SavedServer, token: string, network = false) =>

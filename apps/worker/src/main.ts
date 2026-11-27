@@ -7,6 +7,7 @@ import {
   resolveClearedSecurityAlerts,
 } from './evaluators.js';
 import { beat, trackFailingTasks } from './heartbeat.js';
+import { evaluateHeatwaveModes } from './heatwave.js';
 import { listenForOutbox } from './outbox-listener.js';
 import { processNextMessage } from './outbox.js';
 import {
@@ -31,6 +32,7 @@ const tasks: PeriodicTask[] = [
   { name: 'cleared-security-alerts', everyMs: MINUTE, run: resolveClearedSecurityAlerts },
   { name: 'inactivity', everyMs: MINUTE, run: evaluateInactivity },
   { name: 'medication-doses', everyMs: MINUTE, run: evaluateMedicationDoses },
+  { name: 'heatwave', everyMs: MINUTE, run: evaluateHeatwaveModes },
   {
     name: 'presence-sessions',
     everyMs: MINUTE,

@@ -114,6 +114,12 @@ L’interface est entièrement responsive et disponible en français, anglais, e
 - Une panne de capteur produit une **alerte système explicite**, jamais une fausse conclusion d’inactivité.
 - Notifications push au contenu minimal ; le détail reste derrière l’API authentifiée.
 
+### Mode canicule
+
+- S’active tout seul quand une pièce reste à 28 °C ou plus pendant 30 min (capteurs de température, même sans Internet) ou quand la météo annonce 33 °C ou plus pour aujourd’hui ou demain (Open-Meteo, gratuit, sans compte), ou à la main par la famille ; s’arrête tout seul quand la chaleur retombe.
+- À la TV : un bandeau ambré tout doux, un rappel « boire un verre d’eau » toutes les 2 h de 9 h à 20 h avec une petite mélodie, qui s’efface tout seul, et des conseils selon le moment (volets le matin, visage rafraîchi la journée, fenêtres le soir s’il fait plus frais dehors). La personne n’a rien à appuyer : la TV affiche seulement des rappels.
+- Pour la famille : notification à l’activation, alerte si une pièce reste à 31 °C ou plus pendant 1 h, et une carte **Réglages → Canicule** (web et mobile) qui explique le fonctionnement, montre l’état et les chiffres du jour, permet de l’activer à la main, de régler chaque option, et rappelle chaque année le registre canicule de la mairie. Tout tourne sur la box ; ce n’est pas un dispositif médical. Voir [docs/mode-canicule.md](docs/mode-canicule.md).
+
 ### Chemin lumineux de nuit
 
 - Quand la personne se lève la nuit, une lumière douce et chaude s’allume sur son trajet (chambre → couloir → toilettes), puis s’éteint toute seule après quelques minutes sans mouvement.
@@ -419,6 +425,7 @@ Chaque push exécute `format:check`, `lint`, `typecheck`, `test` et `build` sur 
 | Développement, secrets, sauvegardes | [docs/development.md](docs/development.md)                 |
 | Vie privée et rétention             | [docs/privacy.md](docs/privacy.md)                         |
 | Caméras                             | [docs/cameras.md](docs/cameras.md)                         |
+| Mode canicule                       | [docs/mode-canicule.md](docs/mode-canicule.md)             |
 | Chemin lumineux de nuit             | [docs/chemin-lumineux.md](docs/chemin-lumineux.md)         |
 | Déploiement sur NAS                 | [README-NAS.md](README-NAS.md)                             |
 | Documentation utilisateur complète  | [eliseos.paulbreton.dev](https://eliseos.paulbreton.dev)   |

@@ -1,5 +1,6 @@
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
+  createHeatwaveDemo,
   createZigbeeDemo,
   isZigbeeDemoScenario,
   defaultTvChannels,
@@ -46,6 +47,22 @@ const zigbeeScenario = isZigbeeDemoScenario(process.env.EXPO_PUBLIC_ZIGBEE_DEMO)
   ? process.env.EXPO_PUBLIC_ZIGBEE_DEMO
   : 'ready';
 let zigbeeDemo = createZigbeeDemo({ scenario: zigbeeScenario });
+
+// EXPO_PUBLIC_HEATWAVE_DEMO=on (or ?canicule=on on the web build) opens the demo during a heat
+// episode: hot forecast, warm bedroom, a drink reminder on the TV. Otherwise the mode waits.
+const heatwaveDemoHeat = () => {
+  if (process.env.EXPO_PUBLIC_HEATWAVE_DEMO === 'on') return true;
+  const search = typeof window !== 'undefined' && window.location ? window.location.search : '';
+  return new URLSearchParams(search ?? '').get('canicule') === 'on';
+};
+const createDemoHeatwave = () =>
+  createHeatwaveDemo({
+    heat: heatwaveDemoHeat(),
+    timeZone: 'Europe/Paris',
+    city: 'Lyon',
+    rooms: { warm: t('mockApi.bedroom'), mild: t('mockApi.livingRoom') },
+  });
+let heatwaveDemo = createDemoHeatwave();
 
 // EXPO_PUBLIC_BOX_HEALTH_DEMO=ok|warning|critical|unknown|loading|error|backup (or ?boxHealth= on the
 // web build) forces the state of the box health screen for screenshots; see ./box-health.ts.
@@ -2129,6 +2146,7 @@ let demoNotificationPreferences = { ...DEFAULT_NOTIFICATION_PREFERENCES };
 export function resetDemoSession() {
   demoSession = createDemoSession();
   zigbeeDemo = createZigbeeDemo({ scenario: zigbeeScenario });
+  heatwaveDemo = createDemoHeatwave();
   demoSessionLocale = appLocale();
   demoNotificationPreferences = { ...DEFAULT_NOTIFICATION_PREFERENCES };
 }
@@ -2177,6 +2195,16 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
   }
   // The fictional home is written in one language: switching languages starts it afresh.
   if (demoSessionLocale !== appLocale()) resetDemoSession();
+  const heatwaveAnswer = heatwaveDemo.handle(
+    method,
+    pathname ?? '',
+    typeof init?.body === 'string' ? init.body : undefined,
+  );
+  if (heatwaveAnswer) {
+    if (heatwaveAnswer.status >= 400)
+      throw new MobileApiError('Heatwave error', 'HTTP', heatwaveAnswer.status);
+    return heatwaveAnswer.body as T;
+  }
   const body =
     typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : {};
   const state = demoSession;

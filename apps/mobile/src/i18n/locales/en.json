@@ -1207,11 +1207,8 @@
     "avoidHeatSourcesAndMetal": "Avoid heat sources and metal objects.",
     "bathroom": "Bathroom",
     "bathroomHumidity": "Bathroom humidity",
-    "bathroomStrip": "Bathroom strip",
     "batteryToReplaceSoon": "Battery to replace soon",
     "bedroom": "Bedroom",
-    "bedroomMotion": "Bedroom motion",
-    "bedroomStrip": "Under-bed strip",
     "bedroomTemperature": "Bedroom temperature",
     "behindMetalFurniture": "Behind metal furniture",
     "bringTheLatestResults": "Bring the latest results.",
@@ -1275,11 +1272,9 @@
     "kitchen": "Kitchen",
     "kitchenMotion": "Kitchen motion",
     "lesPiedsSurTerre": "Les Pieds sur terre",
-    "lighting": "Lighting",
     "littleMovementObservedAtThe": "Little movement observed at the start of the day.",
     "livingRoom": "Living room",
     "livingRoomMotion": "Living room motion",
-    "livingRoomStrip": "Living room strip",
     "livingRoomTemperature": "Living room temperature",
     "livingRoomTemperature2": "Living room temperature",
     "livingRoomTv": "Living room TV",
@@ -1294,7 +1289,6 @@
     "movementInTheBathroom": "Movement in the bathroom",
     "movementNoticed": "Movement noticed",
     "newDetector": "New detector",
-    "nightPathName": "Bedroom → bathroom",
     "noRecentMovement": "No recent movement",
     "opening": "Opening",
     "photoShown": "Photo shown",
@@ -1336,7 +1330,13 @@
     "usualMorning": "Usual morning",
     "visit": "Visit",
     "visitFromSophieHomeHelp": "Visit from Sophie, home help",
-    "waterLeakDetector": "Water leak detector"
+    "waterLeakDetector": "Water leak detector",
+    "bathroomStrip": "Bathroom strip",
+    "bedroomMotion": "Bedroom motion",
+    "bedroomStrip": "Under-bed strip",
+    "lighting": "Lighting",
+    "livingRoomStrip": "Living room strip",
+    "nightPathName": "Bedroom → bathroom"
   },
   "moods": {
     "GOOD": "Good",
@@ -1783,28 +1783,6 @@
         "The detector has its own local siren. Élise notifications provide additional awareness and have not yet been validated on physical hardware."
       ]
     },
-    "innr-flex-light-colour-fl230c": {
-      "advice": "Stick it close to the floor or under the bed, along the night-time route (bedroom, hallway, toilet). Point the light towards the floor to light the way without dazzling the person. Indoor use only; keep the adaptor and controller dry and within reach.",
-      "features": [
-        "On / off, dimmable from 0.1 to 100%",
-        "Warm to cool white and colours",
-        "Gradual fade in and fade out",
-        "3 m strip that can be cut, adhesive backing",
-        "Connects directly to the Élise Zigbee key, no Innr bridge needed"
-      ],
-      "name": "Zigbee colour LED strip, 3 m",
-      "placement": [
-        "Stick it close to the floor or under the bed, along the night-time route (bedroom, hallway, toilet).",
-        "Point the light towards the floor to light the way without dazzling the person.",
-        "Indoor use only; keep the adaptor and controller dry and within reach."
-      ],
-      "power": "Mains adaptor included · 100–240 V → 24 V DC · 24 W maximum",
-      "preparation": [
-        "Unroll the whole strip before plugging it in: the manual forbids powering it while rolled up or in its packaging.",
-        "In Élise OS, choose “Install this sensor” and then Zigbee, then plug the strip in near the hub.",
-        "If it does not pair, reset it as shown in the Innr manual: press the controller button once, then press and hold it for 5 seconds; the strip blinks twice when it is ready."
-      ]
-    },
     "nodon-climate": {
       "advice": "Place it in an area representative of the room. Aim its cell toward ambient light and avoid direct heat or moisture sources.",
       "features": [
@@ -2019,6 +1997,28 @@
       "preparation": [
         "Start Zigbee pairing from Élise OS, then enable pairing mode on the sensor as described in its manual. The Zigbee2MQTT-recognized model needs no Smart Life/Tuya account or Tuya hub.",
         "When detected, verify the model is “TS0601_bed_presence_sensor” (Tuya) and an occupancy function appears. ManoMano does not state the Zigbee model code for this listing; if another model appears, do not assign it to a bed until checked."
+      ]
+    },
+    "innr-flex-light-colour-fl230c": {
+      "advice": "Stick it close to the floor or under the bed, along the night-time route (bedroom, hallway, toilet). Point the light towards the floor to light the way without dazzling the person. Indoor use only; keep the adaptor and controller dry and within reach.",
+      "features": [
+        "On / off, dimmable from 0.1 to 100%",
+        "Warm to cool white and colours",
+        "Gradual fade in and fade out",
+        "3 m strip that can be cut, adhesive backing",
+        "Connects directly to the Élise Zigbee key, no Innr bridge needed"
+      ],
+      "name": "Zigbee colour LED strip, 3 m",
+      "placement": [
+        "Stick it close to the floor or under the bed, along the night-time route (bedroom, hallway, toilet).",
+        "Point the light towards the floor to light the way without dazzling the person.",
+        "Indoor use only; keep the adaptor and controller dry and within reach."
+      ],
+      "power": "Mains adaptor included · 100–240 V → 24 V DC · 24 W maximum",
+      "preparation": [
+        "Unroll the whole strip before plugging it in: the manual forbids powering it while rolled up or in its packaging.",
+        "In Élise OS, choose “Install this sensor” and then Zigbee, then plug the strip in near the hub.",
+        "If it does not pair, reset it as shown in the Innr manual: press the controller button once, then press and hold it for 5 seconds; the strip blinks twice when it is ready."
       ]
     }
   },
@@ -2506,6 +2506,158 @@
       "title": "Technical details"
     },
     "title": "Box health"
+  },
+  "heatwave": {
+    "notMedical": "Heatwave mode helps everyone remember the right habits. It is not a medical device: if someone feels unwell, call the emergency services (112).",
+    "units": {
+      "minutes": "{{value}} min",
+      "hours": "{{hours}} h",
+      "hoursMinutes": "{{hours}} h {{minutes}}"
+    },
+    "summary": {
+      "triggers": "Élise turns the heatwave mode on {{triggers}}.",
+      "indoor": "when a room reaches {{celsius}} °C for {{duration}}",
+      "forecast": "when the forecast announces {{celsius}} °C or more for today or tomorrow",
+      "or": ", or ",
+      "manualOnly": "The heatwave mode only turns on by hand, from the home page card.",
+      "reminders": "While it is on, the TV suggests a glass of water every {{every}} h, from {{start}}:00 to {{end}}:00.",
+      "noReminders": "No “drink” reminder on the TV.",
+      "tips": "It also gives advice suited to the time of day.",
+      "noTips": "No advice on the TV.",
+      "alert": "The family gets an alert if a room stays at {{celsius}} °C or more for {{duration}}.",
+      "noAlert": "No heat alert for the family."
+    },
+    "card": {
+      "statusOn": "On",
+      "statusOff": "Standing by",
+      "statusPaused": "Paused",
+      "sourceIndoor": "Turned on automatically: it is hot in the home. The TV reminds to drink and gives advice.",
+      "sourceForecast": "Turned on automatically: strong heat is forecast. The TV reminds to drink and gives advice.",
+      "sourceForecastCity": "Turned on automatically: strong heat is forecast in {{city}}. The TV reminds to drink and gives advice.",
+      "sourceManual": "Turned on by the family. It stays on until you turn it off.",
+      "paused": "Turned off by the family. It will re-arm on its own once the heat is over (rooms below {{celsius}} °C for 2 h).",
+      "idle": "Élise will turn it on if heat sets in at home or if the forecast announces it.",
+      "idleManualOnly": "The automatic triggers are off: you can turn it on by hand.",
+      "loading": "Loading the heatwave mode…",
+      "error": "The heatwave mode is unavailable for the moment.",
+      "retry": "Try again",
+      "actionError": "The change could not be saved. Please try again in a moment.",
+      "indoorNoSensor": "No temperature sensor",
+      "indoorNoData": "No reading yet today",
+      "forecastUnavailable": "Unavailable (TV city or Internet)",
+      "remindersNone": "No reminder shown yet",
+      "remindersOff": "Reminders turned off",
+      "nextReminder": "Next at {{time}}",
+      "activate": "Turn on now",
+      "deactivate": "Turn off",
+      "settings": "Settings",
+      "readOnly": "Only the owner and administrators can change these settings.",
+      "settingsEyebrow": "Hot weather",
+      "settingsTitle": "Heatwave",
+      "settingsIntro": "During hot weather, the TV reminds your loved one to drink and gives advice, and the family is told.",
+      "todayTitle": "Today"
+    },
+    "registry": {
+      "title": "Town hall heatwave register",
+      "text": "French town halls keep a register of older, isolated or frail people who wish to be called during heatwaves. Registration is free and optional, and a relative can ask for it: contact the town hall or its social services (CCAS).",
+      "link": "Learn more on service-public.gouv.fr (in French)",
+      "done": "Hide until next year"
+    },
+    "settings": {
+      "title": "Heatwave mode settings",
+      "intro": "Choose when Élise turns it on and what the TV offers during strong heat.",
+      "less": "{{label}}: decrease",
+      "more": "{{label}}: increase",
+      "triggersHeading": "When to turn it on",
+      "indoorTitle": "Heat in the home",
+      "indoorHint": "At least one room with a sensor stays above the threshold. Works even without Internet.",
+      "threshold": "Threshold",
+      "during": "For",
+      "forecastTitle": "Weather forecast",
+      "forecastHint": "Maximum forecast today or tomorrow in the city chosen for the TV (needs Internet).",
+      "forecastThreshold": "Forecast maximum",
+      "offNote": "The mode turns off on its own once every room stays below {{celsius}} °C for 2 h and the forecast falls below the threshold. The family can also turn it on or off from the card.",
+      "tvHeading": "On the TV",
+      "remindersTitle": "“Drink” reminders",
+      "remindersHint": "A quiet chime and a message on the screen. The reminder goes away by itself after 10 minutes: your loved one has nothing to do.",
+      "frequency": "Frequency",
+      "everyHours_one": "Every hour",
+      "everyHours_other": "Every {{count}} h",
+      "from": "From",
+      "to": "Until",
+      "hour": "{{hour}}:00",
+      "tipsTitle": "Advice",
+      "tipsHint": "Morning: close the shutters. Daytime: cool down. Evening: open the windows if it is cooler outside.",
+      "familyHeading": "For the family",
+      "alertTitle": "Strong heat alert",
+      "alertHint": "An alert opens if a room stays very hot for too long.",
+      "summaryTitle": "In short",
+      "error": "The settings could not be saved. Please try again in a moment.",
+      "saving": "Saving…",
+      "save": "Save"
+    },
+    "how": {
+      "title": "How it works",
+      "onIndoor": "when a room stays at {{celsius}} °C or more for {{duration}} (this works even without Internet)",
+      "onForecast": "when the forecast announces {{celsius}} °C or more for today or tomorrow in the TV’s city (needs Internet)",
+      "onForecastCity": "when the forecast announces {{celsius}} °C or more for today or tomorrow in {{city}} (needs Internet)",
+      "onManualOnly": "Automatic start is switched off: only the family turns it on, by hand.",
+      "off": "When every room stays below {{celsius}} °C for 2 h and the forecast drops below {{forecast}} °C.",
+      "offIndoor": "When every room stays below {{celsius}} °C for 2 h.",
+      "offForecast": "When the forecast drops below {{forecast}} °C for today and tomorrow.",
+      "offManual": "Turned on by hand, it stays on until the family turns it off.",
+      "family": "A notification when the mode turns on, and an alert if a room stays at {{celsius}} °C or more for {{duration}}.",
+      "familyNoAlert": "A notification when the mode turns on. The high heat alert is switched off.",
+      "medicalTitle": "Not a medical device",
+      "stepDetect": "Élise detects the heat",
+      "stepTv": "The TV reminds to drink",
+      "stepFamily": "The family is told",
+      "stepStop": "Everything stops by itself",
+      "onShort": "The mode turns on {{triggers}}.",
+      "tvShort_one": "Every hour, from {{start}}:00 to {{end}}:00, a reminder appears with a quiet chime and then goes away by itself: your loved one has nothing to press.",
+      "tvShort_other": "Every {{count}} hours, from {{start}}:00 to {{end}}:00, a reminder appears with a quiet chime and then goes away by itself: your loved one has nothing to press.",
+      "tvShortNoReminders": "An amber banner and advice are shown, without “drink” reminders: your loved one has nothing to press."
+    },
+    "reason": {
+      "forecastCity": "High heat announced in {{city}}: {{value}} °C",
+      "forecast": "High heat announced: {{value}} °C",
+      "indoorRoom": "It is hot in the home: {{value}} °C ({{room}})",
+      "indoor": "It is hot in the home: {{value}} °C",
+      "manual": "Turned on by hand by the family",
+      "paused": "Paused until the heat drops",
+      "watchingCity": "Élise watches the heat in the home and the weather in {{city}}",
+      "watching": "Élise watches the heat in the home and the weather",
+      "manualOnly": "Turns on by hand only",
+      "forecastTomorrowCity": "High heat announced tomorrow in {{city}}: {{value}} °C",
+      "forecastTomorrow": "High heat announced tomorrow: {{value}} °C"
+    },
+    "level": {
+      "comfortable": "Comfortable",
+      "warm": "Warm",
+      "hot": "Very hot"
+    },
+    "today": {
+      "indoorTitle": "Home",
+      "forecastTitle": "Weather",
+      "forecastTitleCity": "Weather in {{city}}",
+      "remindersTitle": "“Drink” reminders",
+      "maxOfDay": "Highest today",
+      "maxOfDayRoom": "Highest today · {{room}}",
+      "today": "Today",
+      "tomorrow": "Tomorrow {{value}} °C",
+      "gauge": "From {{min}} to {{max}} °C: mode threshold at {{trigger}} °C, alert at {{alert}} °C",
+      "timeline": "Reminders of the day, from {{start}}:00 to {{end}}:00",
+      "shown": "Shown",
+      "next": "Next",
+      "later": "Later",
+      "past": "Before the mode was on",
+      "hour": "{{hour}}:00",
+      "shownCaption_one": "reminder shown today",
+      "shownCaption_other": "reminders shown today"
+    },
+    "callout": {
+      "registryDue": "To consider this year"
+    }
   },
   "sensorReadings": {
     "lightBrightness": "Brightness {{percent}}%",

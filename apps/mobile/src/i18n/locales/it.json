@@ -1220,11 +1220,8 @@
     "avoidHeatSourcesAndMetal": "Eviti le fonti di calore e gli oggetti metallici.",
     "bathroom": "Bagno",
     "bathroomHumidity": "Umidità bagno",
-    "bathroomStrip": "Striscia del bagno",
     "batteryToReplaceSoon": "Batteria da sostituire a breve",
     "bedroom": "Camera",
-    "bedroomMotion": "Movimento camera",
-    "bedroomStrip": "Striscia sotto il letto",
     "bedroomTemperature": "Temperatura camera",
     "behindMetalFurniture": "Dietro un mobile metallico",
     "bringTheLatestResults": "Portare gli ultimi risultati.",
@@ -1288,11 +1285,9 @@
     "kitchen": "Cucina",
     "kitchenMotion": "Movimento cucina",
     "lesPiedsSurTerre": "Les Pieds sur terre",
-    "lighting": "Illuminazione",
     "littleMovementObservedAtThe": "Pochi movimenti osservati all’inizio della giornata.",
     "livingRoom": "Soggiorno",
     "livingRoomMotion": "Movimento soggiorno",
-    "livingRoomStrip": "Striscia del soggiorno",
     "livingRoomTemperature": "Temperatura del soggiorno",
     "livingRoomTemperature2": "Temperatura soggiorno",
     "livingRoomTv": "Televisione del soggiorno",
@@ -1307,7 +1302,6 @@
     "movementInTheBathroom": "Passaggio in bagno",
     "movementNoticed": "Passaggio rilevato",
     "newDetector": "Nuovo sensore",
-    "nightPathName": "Camera → bagno",
     "noRecentMovement": "Nessun movimento recente",
     "opening": "Apertura",
     "photoShown": "Foto visualizzata",
@@ -1349,7 +1343,13 @@
     "usualMorning": "Mattinata abituale",
     "visit": "Visita",
     "visitFromSophieHomeHelp": "Visita di Sophie, assistente domiciliare",
-    "waterLeakDetector": "Rilevatore di perdite d’acqua"
+    "waterLeakDetector": "Rilevatore di perdite d’acqua",
+    "bathroomStrip": "Striscia del bagno",
+    "bedroomMotion": "Movimento camera",
+    "bedroomStrip": "Striscia sotto il letto",
+    "lighting": "Illuminazione",
+    "livingRoomStrip": "Striscia del soggiorno",
+    "nightPathName": "Camera → bagno"
   },
   "moods": {
     "GOOD": "Bene",
@@ -1799,28 +1799,6 @@
         "La sirena locale funziona sul rilevatore stesso. Le notifiche di Élise affiancano la vigilanza e non sono ancora state validate su un dispositivo fisico."
       ]
     },
-    "innr-flex-light-colour-fl230c": {
-      "advice": "Incollatela vicino al pavimento o sotto il letto, lungo il percorso notturno (camera, corridoio, bagno). Orientate la luce verso il pavimento per illuminare i passi senza abbagliare la persona. Solo per interni; tenete l’alimentatore e il controller all’asciutto e a portata di mano.",
-      "features": [
-        "Accensione / spegnimento, intensità regolabile dallo 0,1 al 100%",
-        "Bianco da caldo a freddo e colori",
-        "Accensione e spegnimento graduali",
-        "Striscia da 3 m tagliabile, retro adesivo",
-        "Si collega direttamente alla chiavetta Zigbee di Élise, senza bridge Innr"
-      ],
-      "name": "Striscia LED Zigbee a colori da 3 m",
-      "placement": [
-        "Incollatela vicino al pavimento o sotto il letto, lungo il percorso notturno (camera, corridoio, bagno).",
-        "Orientate la luce verso il pavimento per illuminare i passi senza abbagliare la persona.",
-        "Solo per interni; tenete l’alimentatore e il controller all’asciutto e a portata di mano."
-      ],
-      "power": "Alimentatore incluso · 100–240 V → 24 V CC · 24 W massimo",
-      "preparation": [
-        "Srotolate completamente la striscia prima di collegarla: il manuale vieta di alimentarla arrotolata o nella confezione.",
-        "In Élise OS, scegliete «Installa questo sensore» e poi Zigbee, quindi collegate la striscia vicino al box.",
-        "Se non si associa, ripristinatela come mostra il manuale Innr: premete una volta il pulsante del controller, poi tenetelo premuto per 5 secondi; la striscia lampeggia due volte quando è pronta."
-      ]
-    },
     "nodon-climate": {
       "advice": "Lo posizioni in una zona rappresentativa della stanza. Orienti la sua cella verso una fonte di luce ambiente ed eviti fonti di calore o umidità diretta.",
       "features": [
@@ -2047,6 +2025,28 @@
       "preparation": [
         "Avvii l’abbinamento Zigbee da Élise OS, poi attivi la modalità di abbinamento del sensore come indicato nelle istruzioni. Per il modello riconosciuto da Zigbee2MQTT non servono né un account Smart Life/Tuya né un hub Tuya.",
         "Al rilevamento, verifichi che il modello sia «TS0601_bed_presence_sensor» (Tuya) e che compaia una funzione di occupazione. ManoMano non indica il codice Zigbee di questo articolo; se compare un altro modello, non lo associ al letto prima di averlo verificato."
+      ]
+    },
+    "innr-flex-light-colour-fl230c": {
+      "advice": "Incollatela vicino al pavimento o sotto il letto, lungo il percorso notturno (camera, corridoio, bagno). Orientate la luce verso il pavimento per illuminare i passi senza abbagliare la persona. Solo per interni; tenete l’alimentatore e il controller all’asciutto e a portata di mano.",
+      "features": [
+        "Accensione / spegnimento, intensità regolabile dallo 0,1 al 100%",
+        "Bianco da caldo a freddo e colori",
+        "Accensione e spegnimento graduali",
+        "Striscia da 3 m tagliabile, retro adesivo",
+        "Si collega direttamente alla chiavetta Zigbee di Élise, senza bridge Innr"
+      ],
+      "name": "Striscia LED Zigbee a colori da 3 m",
+      "placement": [
+        "Incollatela vicino al pavimento o sotto il letto, lungo il percorso notturno (camera, corridoio, bagno).",
+        "Orientate la luce verso il pavimento per illuminare i passi senza abbagliare la persona.",
+        "Solo per interni; tenete l’alimentatore e il controller all’asciutto e a portata di mano."
+      ],
+      "power": "Alimentatore incluso · 100–240 V → 24 V CC · 24 W massimo",
+      "preparation": [
+        "Srotolate completamente la striscia prima di collegarla: il manuale vieta di alimentarla arrotolata o nella confezione.",
+        "In Élise OS, scegliete «Installa questo sensore» e poi Zigbee, quindi collegate la striscia vicino al box.",
+        "Se non si associa, ripristinatela come mostra il manuale Innr: premete una volta il pulsante del controller, poi tenetelo premuto per 5 secondi; la striscia lampeggia due volte quando è pronta."
       ]
     }
   },
@@ -2555,6 +2555,161 @@
       "title": "Dettaglio tecnico"
     },
     "title": "Stato del box"
+  },
+  "heatwave": {
+    "notMedical": "La modalità caldo aiuta a ricordare i gesti giusti. Non è un dispositivo medico: in caso di malore, chiamate i soccorsi (112).",
+    "units": {
+      "minutes": "{{value}} min",
+      "hours": "{{hours}} h",
+      "hoursMinutes": "{{hours}} h {{minutes}}"
+    },
+    "summary": {
+      "triggers": "Élise attiva la modalità caldo {{triggers}}.",
+      "indoor": "quando una stanza raggiunge {{celsius}} °C per {{duration}}",
+      "forecast": "quando le previsioni annunciano {{celsius}} °C o più per oggi o domani",
+      "or": ", oppure ",
+      "manualOnly": "La modalità caldo si attiva solo a mano, dalla scheda della home.",
+      "reminders": "Quando è attiva, la TV propone un bicchiere d’acqua ogni {{every}} h, dalle {{start}} alle {{end}}.",
+      "noReminders": "Nessun promemoria «bere» sulla TV.",
+      "tips": "Dà anche consigli adatti al momento della giornata.",
+      "noTips": "Nessun consiglio sulla TV.",
+      "alert": "La famiglia riceve un avviso se una stanza resta a {{celsius}} °C o più per {{duration}}.",
+      "noAlert": "Nessun avviso di caldo per la famiglia."
+    },
+    "card": {
+      "statusOn": "Attiva",
+      "statusOff": "In attesa",
+      "statusPaused": "In pausa",
+      "sourceIndoor": "Attivata automaticamente: in casa fa caldo. La TV ricorda di bere e dà consigli.",
+      "sourceForecast": "Attivata automaticamente: è previsto molto caldo. La TV ricorda di bere e dà consigli.",
+      "sourceForecastCity": "Attivata automaticamente: è previsto molto caldo a {{city}}. La TV ricorda di bere e dà consigli.",
+      "sourceManual": "Attivata dalla famiglia. Resta attiva finché non la disattivate.",
+      "paused": "Disattivata dalla famiglia. Si riarmerà da sola quando il caldo sarà calato (stanze sotto {{celsius}} °C per 2 h).",
+      "idle": "Élise la attiverà se il caldo si installa in casa o se le previsioni lo annunciano.",
+      "idleManualOnly": "Gli attivatori automatici sono spenti: potete attivarla a mano.",
+      "loading": "Caricamento della modalità caldo…",
+      "error": "La modalità caldo non è disponibile al momento.",
+      "retry": "Riprova",
+      "actionError": "Non è stato possibile salvare la modifica. Riprovate tra un momento.",
+      "indoorNoSensor": "Nessun sensore di temperatura",
+      "indoorNoData": "Ancora nessuna lettura oggi",
+      "forecastUnavailable": "Non disponibili (città della TV o Internet)",
+      "remindersNone": "Nessun promemoria mostrato per ora",
+      "remindersOff": "Promemoria disattivati",
+      "nextReminder": "Prossimo alle {{time}}",
+      "activate": "Attiva ora",
+      "deactivate": "Disattiva",
+      "settings": "Impostazioni",
+      "readOnly": "Solo il proprietario e gli amministratori possono modificare queste impostazioni.",
+      "settingsEyebrow": "Caldo intenso",
+      "settingsTitle": "Caldo",
+      "settingsIntro": "Durante il caldo intenso, la TV ricorda di bere e dà consigli, e la famiglia viene avvisata.",
+      "todayTitle": "Oggi"
+    },
+    "registry": {
+      "title": "Registro canicola del comune",
+      "text": "In Francia i comuni tengono un registro delle persone anziane, isolate o fragili che desiderano essere chiamate durante le ondate di calore. L’iscrizione è gratuita e facoltativa, e può chiederla un familiare: informatevi presso il comune o il suo CCAS.",
+      "link": "Maggiori informazioni su service-public.gouv.fr (in francese)",
+      "done": "Non mostrare più quest’anno"
+    },
+    "settings": {
+      "title": "Impostazioni della modalità caldo",
+      "intro": "Scegliete quando Élise la attiva e cosa propone la TV durante il caldo intenso.",
+      "less": "{{label}}: diminuisci",
+      "more": "{{label}}: aumenta",
+      "triggersHeading": "Quando attivarla",
+      "indoorTitle": "Caldo in casa",
+      "indoorHint": "Almeno una stanza con un sensore resta sopra la soglia. Funziona anche senza Internet.",
+      "threshold": "Soglia",
+      "during": "Per",
+      "forecastTitle": "Previsioni meteo",
+      "forecastHint": "Massima prevista oggi o domani nella città scelta per la TV (serve Internet).",
+      "forecastThreshold": "Massima prevista",
+      "offNote": "La modalità si disattiva da sola quando tutte le stanze restano sotto {{celsius}} °C per 2 h e le previsioni scendono sotto la soglia. La famiglia può anche attivarla o disattivarla dalla scheda.",
+      "tvHeading": "Sulla TV",
+      "remindersTitle": "Promemoria «bere»",
+      "remindersHint": "Una melodia discreta e un messaggio sullo schermo. Il promemoria sparisce da solo dopo 10 minuti: la persona non deve fare nulla.",
+      "frequency": "Frequenza",
+      "everyHours_one": "Ogni ora",
+      "everyHours_many": "Ogni {{count}} h",
+      "everyHours_other": "Ogni {{count}} h",
+      "from": "Dalle",
+      "to": "Fino alle",
+      "hour": "{{hour}}:00",
+      "tipsTitle": "Consigli",
+      "tipsHint": "Al mattino: chiudere le persiane. Di giorno: rinfrescarsi. La sera: aprire le finestre se fuori è più fresco.",
+      "familyHeading": "Per la famiglia",
+      "alertTitle": "Avviso caldo intenso",
+      "alertHint": "Si apre un avviso se una stanza resta molto calda troppo a lungo.",
+      "summaryTitle": "In breve",
+      "error": "Non è stato possibile salvare le impostazioni. Riprovate tra un momento.",
+      "saving": "Salvataggio…",
+      "save": "Salva"
+    },
+    "how": {
+      "title": "Come funziona",
+      "onIndoor": "quando una stanza resta a {{celsius}} °C o più per {{duration}} (funziona anche senza Internet)",
+      "onForecast": "quando le previsioni annunciano {{celsius}} °C o più per oggi o domani nella città della TV (serve Internet)",
+      "onForecastCity": "quando le previsioni annunciano {{celsius}} °C o più per oggi o domani a {{city}} (serve Internet)",
+      "onManualOnly": "L’attivazione automatica è spenta: solo la famiglia la attiva, a mano.",
+      "off": "Quando tutte le stanze restano sotto i {{celsius}} °C per 2 ore e le previsioni scendono sotto i {{forecast}} °C.",
+      "offIndoor": "Quando tutte le stanze restano sotto i {{celsius}} °C per 2 ore.",
+      "offForecast": "Quando le previsioni scendono sotto i {{forecast}} °C per oggi e domani.",
+      "offManual": "Attivata a mano, resta attiva finché la famiglia non la disattiva.",
+      "family": "Una notifica quando la modalità si attiva, e un avviso se una stanza resta a {{celsius}} °C o più per {{duration}}.",
+      "familyNoAlert": "Una notifica quando la modalità si attiva. L’avviso caldo intenso è spento.",
+      "medicalTitle": "Non è un dispositivo medico",
+      "stepDetect": "Élise rileva il caldo",
+      "stepTv": "La TV ricorda di bere",
+      "stepFamily": "La famiglia viene avvisata",
+      "stepStop": "Tutto si ferma da solo",
+      "onShort": "La modalità si attiva {{triggers}}.",
+      "tvShort_one": "Ogni ora, dalle {{start}} alle {{end}}, appare un promemoria con una melodia discreta che poi sparisce da solo: la persona non deve premere nulla.",
+      "tvShort_many": "Ogni {{count}} ore, dalle {{start}} alle {{end}}, appare un promemoria con una melodia discreta che poi sparisce da solo: la persona non deve premere nulla.",
+      "tvShort_other": "Ogni {{count}} ore, dalle {{start}} alle {{end}}, appare un promemoria con una melodia discreta che poi sparisce da solo: la persona non deve premere nulla.",
+      "tvShortNoReminders": "Compaiono una fascia ambra e dei consigli, senza promemoria «bere»: la persona non deve premere nulla."
+    },
+    "reason": {
+      "forecastCity": "Caldo intenso annunciato a {{city}}: {{value}} °C",
+      "forecast": "Caldo intenso annunciato: {{value}} °C",
+      "indoorRoom": "Fa caldo in casa: {{value}} °C ({{room}})",
+      "indoor": "Fa caldo in casa: {{value}} °C",
+      "manual": "Attivata a mano dalla famiglia",
+      "paused": "In pausa finché il caldo non cala",
+      "watchingCity": "Élise sorveglia il caldo in casa e il meteo di {{city}}",
+      "watching": "Élise sorveglia il caldo in casa e il meteo",
+      "manualOnly": "Si attiva solo a mano",
+      "forecastTomorrowCity": "Caldo intenso annunciato domani a {{city}}: {{value}} °C",
+      "forecastTomorrow": "Caldo intenso annunciato domani: {{value}} °C"
+    },
+    "level": {
+      "comfortable": "Gradevole",
+      "warm": "Caldo",
+      "hot": "Molto caldo"
+    },
+    "today": {
+      "indoorTitle": "Casa",
+      "forecastTitle": "Meteo",
+      "forecastTitleCity": "Meteo a {{city}}",
+      "remindersTitle": "Promemoria «bere»",
+      "maxOfDay": "Massima del giorno",
+      "maxOfDayRoom": "Massima del giorno · {{room}}",
+      "today": "Oggi",
+      "tomorrow": "Domani {{value}} °C",
+      "gauge": "Da {{min}} a {{max}} °C: soglia della modalità a {{trigger}} °C, avviso a {{alert}} °C",
+      "timeline": "Promemoria della giornata, dalle {{start}} alle {{end}}",
+      "shown": "Mostrato",
+      "next": "Prossimo",
+      "later": "Più tardi",
+      "past": "Prima dell’attivazione",
+      "hour": "{{hour}}:00",
+      "shownCaption_one": "promemoria mostrato oggi",
+      "shownCaption_many": "promemoria mostrati oggi",
+      "shownCaption_other": "promemoria mostrati oggi"
+    },
+    "callout": {
+      "registryDue": "Da valutare quest’anno"
+    }
   },
   "sensorReadings": {
     "lightBrightness": "Intensità {{percent}}%",

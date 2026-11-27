@@ -114,6 +114,12 @@ A interface adapta-se por completo a qualquer ecrã e está disponível em franc
 - A avaria de um sensor gera um **alerta de sistema explícito**, nunca uma falsa conclusão de inatividade.
 - Notificações push com conteúdo mínimo; os detalhes ficam atrás da API autenticada.
 
+### Modo onda de calor
+
+- Ativa-se sozinho quando uma divisão fica a 28 °C ou mais durante 30 min (sensores de temperatura, mesmo sem Internet) ou quando a previsão anuncia 33 °C ou mais para hoje ou amanhã (Open-Meteo, gratuito, sem conta), ou à mão pela família; desliga-se sozinho quando o calor baixa.
+- Na TV: uma faixa âmbar suave, um lembrete «beber um copo de água» a cada 2 h das 9h às 20h com uma melodia discreta, que desaparece sozinho, e conselhos conforme o momento (persianas de manhã, refrescar o rosto durante o dia, janelas à noite se lá fora estiver mais fresco). A pessoa não tem nada para carregar: a TV mostra apenas lembretes.
+- Para a família: notificação na ativação, alerta se uma divisão ficar a 31 °C ou mais durante 1 h, e um cartão **Definições → Onda de calor** (web e móvel) que explica o funcionamento, mostra o estado e os números do dia, permite ativá-lo à mão, ajustar cada opção e lembra todos os anos o registo de onda de calor da câmara municipal. Tudo funciona na caixa; não é um dispositivo médico. Ver [docs/mode-canicule.md](docs/mode-canicule.md) (em francês).
+
 ### Caminho iluminado noturno
 
 - Quando a pessoa se levanta durante a noite, uma luz suave e quente acende-se no percurso (quarto → corredor → casa de banho) e apaga-se sozinha após alguns minutos sem movimento.
@@ -419,6 +425,7 @@ Cada push executa `format:check`, `lint`, `typecheck`, `test` e `build` em todo 
 | Desenvolvimento, segredos, cópias de segurança (em inglês) | [docs/development.md](docs/development.md)                      |
 | Privacidade e conservação (em inglês)                      | [docs/privacy.md](docs/privacy.md)                              |
 | Câmaras (em inglês)                                        | [docs/cameras.md](docs/cameras.md)                              |
+| Modo onda de calor (em francês)                            | [docs/mode-canicule.md](docs/mode-canicule.md)                  |
 | Caminho iluminado noturno (em francês)                     | [docs/chemin-lumineux.md](docs/chemin-lumineux.md)              |
 | Deploy no NAS (em francês)                                 | [README-NAS.md](README-NAS.md)                                  |
 | Documentação completa do utilizador                        | [eliseos.paulbreton.dev/pt](https://eliseos.paulbreton.dev/pt/) |

@@ -252,6 +252,8 @@ model Home {
   auditLogs                  AuditLog[]
   outboxMessages             OutboxMessage[]
   medications                Medication[]
+  heatwaveMode               HeatwaveMode?
+  hydrationReminders         HydrationReminder[]
   equipmentSync              EquipmentSyncState?
   cameras                    Camera[]
   cameraSnapshots            CameraSnapshot[]
@@ -1241,4 +1243,38 @@ model LiaisonEntry {
   completedBy User? @relation("LiaisonCompleter", fields: [completedById], references: [id], onDelete: SetNull)
   @@index([homeId, createdAt, id])
   @@index([homeId, kind, completedAt])
+}
+
+/// Heatwave mode of a home: family settings, current state and last weather forecast.
+model HeatwaveMode {
+  id                       String    @id @default(cuid())
+  homeId                   String    @unique
+  settings                 Json      @default("{}")
+  active                   Boolean   @default(false)
+  /// INDOOR, FORECAST or MANUAL while active.
+  source                   String?
+  /// ON: turned on by the family. OFF: turned off by the family until the heat is over.
+  manual                   String?
+  activatedAt              DateTime?
+  deactivatedAt            DateTime?
+  /// Last Open-Meteo forecast written by the API: { date, todayMax, tomorrowMax, outdoorNow, city, fetchedAt }.
+  forecast                 Json?
+  registryAcknowledgedYear Int?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+  home                     Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
+}
+
+/// "Drink a glass of water" reminder shown on the TV while the heatwave mode is on. Shown only:
+/// it leaves the screen by itself at `expiresAt`, the resident never has to answer it.
+model HydrationReminder {
+  id           String   @id @default(cuid())
+  homeId       String
+  scheduledFor DateTime
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  home         Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@unique([homeId, scheduledFor])
 }

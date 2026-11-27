@@ -114,6 +114,12 @@ L'interfaccia è completamente adattabile a qualsiasi schermo ed è disponibile 
 - Il guasto di un sensore genera un **avviso di sistema esplicito**, mai una falsa conclusione di inattività.
 - Notifiche push con contenuto minimo; i dettagli restano dietro l'API autenticata.
 
+### Modalità caldo
+
+- Si attiva da sola quando una stanza resta a 28 °C o più per 30 min (sensori di temperatura, anche senza Internet) o quando le previsioni annunciano 33 °C o più per oggi o domani (Open-Meteo, gratuito, senza account), oppure a mano dalla famiglia; si spegne da sola quando il caldo cala.
+- Sulla TV: una fascia ambra delicata, un promemoria «bere un bicchiere d’acqua» ogni 2 ore dalle 9 alle 20 con una melodia discreta, che sparisce da solo, e consigli secondo il momento (persiane al mattino, rinfrescarsi il viso di giorno, finestre la sera se fuori è più fresco). La persona non deve premere nulla: la TV mostra soltanto promemoria.
+- Per la famiglia: notifica all’attivazione, avviso se una stanza resta a 31 °C o più per 1 ora, e una scheda **Impostazioni → Caldo** (web e mobile) che spiega il funzionamento, mostra lo stato e i dati del giorno, permette di attivarla a mano, di regolare ogni opzione e ricorda ogni anno il registro canicola del comune. Tutto funziona sul box; non è un dispositivo medico. Vedi [docs/mode-canicule.md](docs/mode-canicule.md) (in francese).
+
 ### Percorso luminoso notturno
 
 - Quando la persona si alza di notte, una luce soffusa e calda si accende lungo il tragitto (camera → corridoio → bagno), poi si spegne da sola dopo qualche minuto senza movimento.
@@ -419,6 +425,7 @@ Ogni push esegue `format:check`, `lint`, `typecheck`, `test` e `build` sull'inte
 | Sviluppo, segreti, backup (in inglese)               | [docs/development.md](docs/development.md)                      |
 | Privacy e conservazione (in inglese)                 | [docs/privacy.md](docs/privacy.md)                              |
 | Telecamere (in inglese)                              | [docs/cameras.md](docs/cameras.md)                              |
+| Modalità caldo (in francese)                         | [docs/mode-canicule.md](docs/mode-canicule.md)                  |
 | Percorso luminoso notturno (in francese)             | [docs/chemin-lumineux.md](docs/chemin-lumineux.md)              |
 | Deploy su NAS (in francese)                          | [README-NAS.md](README-NAS.md)                                  |
 | Documentazione utente completa                       | [eliseos.paulbreton.dev/it](https://eliseos.paulbreton.dev/it/) |
