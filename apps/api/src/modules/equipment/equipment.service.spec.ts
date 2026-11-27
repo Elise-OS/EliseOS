@@ -309,6 +309,54 @@ describe('sensorInventoryOnly', () => {
   });
 });
 
+describe('lights in the inventory', () => {
+  it('keeps any Home Assistant light as a room equipment, whatever its model', () => {
+    const filtered = sensorInventoryOnly({
+      schemaVersion: '1.0',
+      homeId: 'home-1',
+      generatedAt: '2026-11-27T12:00:00.000Z',
+      full: true,
+      devices: [
+        { deviceId: 'strip', name: 'Ruban couloir', manufacturer: 'Innr', model: 'FL 230 C' },
+        { deviceId: 'bulb', name: 'Veilleuse', manufacturer: 'Any vendor', model: 'Bulb 1' },
+      ],
+      entities: [
+        {
+          entityId: 'light.ruban_couloir',
+          deviceId: 'strip',
+          name: 'Ruban couloir',
+          domain: 'light',
+          integration: 'mqtt',
+          protocol: 'zigbee',
+          available: true,
+          actions: [],
+          capability: 'light',
+          compatibility: 'RECOGNIZED',
+          lightFeatures: { brightness: true, colorTemperature: true, transition: true },
+        },
+        {
+          entityId: 'light.veilleuse',
+          deviceId: 'bulb',
+          name: 'Veilleuse',
+          domain: 'light',
+          integration: 'mqtt',
+          protocol: 'zigbee',
+          available: true,
+          actions: [],
+          capability: 'light',
+          compatibility: 'RECOGNIZED',
+          lightFeatures: { brightness: false, colorTemperature: false, transition: false },
+        },
+      ],
+    });
+    expect(filtered.entities.map(({ entityId }) => entityId)).toEqual([
+      'light.ruban_couloir',
+      'light.veilleuse',
+    ]);
+    expect(filtered.devices).toHaveLength(2);
+  });
+});
+
 describe('EquipmentService universal actions', () => {
   it('only forwards the action and fields advertised by Home Assistant', async () => {
     const prisma = {

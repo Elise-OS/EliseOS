@@ -92,6 +92,7 @@ describe('equipment coverage', () => {
       '3RTHS0224Z',
       '3RWS18BZ',
       '3RSPE01044BZ',
+      'FL 230 C',
       '3RSB22BZ',
       'SDO-4-1-00',
       'STPH-4-1-00',

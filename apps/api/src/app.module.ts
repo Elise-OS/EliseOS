@@ -56,6 +56,8 @@ import { ZigbeeAgentClient } from './modules/zigbee/zigbee-agent.client';
 import { BoxHealthController } from './modules/box-health/box-health.controller';
 import { BoxHealthService } from './modules/box-health/box-health.service';
 import { HealthAgentClient } from './modules/box-health/health-agent.client';
+import { NightPathController } from './modules/night-path/night-path.controller';
+import { NightPathService } from './modules/night-path/night-path.service';
 
 @Module({
   controllers: [
@@ -84,6 +86,7 @@ import { HealthAgentClient } from './modules/box-health/health-agent.client';
     CalendarController,
     ZigbeeController,
     BoxHealthController,
+    NightPathController,
   ],
   providers: [
     LiaisonService,
@@ -117,6 +120,7 @@ import { HealthAgentClient } from './modules/box-health/health-agent.client';
     WorkerWatchdogService,
     BoxHealthService,
     HealthAgentClient,
+    NightPathService,
   ],
 })
 export class AppModule {}

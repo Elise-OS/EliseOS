@@ -376,7 +376,7 @@ export class MqttIngestionService implements OnModuleInit, OnModuleDestroy {
   public executeHomeAssistantCommand(command: {
     domain: string;
     service: string;
-    target: { entity_id: string };
+    target: { entity_id: string | string[] };
     data?: Record<string, unknown>;
   }): void {
     const commandId = randomUUID();
