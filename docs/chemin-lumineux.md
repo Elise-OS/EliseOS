@@ -30,7 +30,7 @@ Placement conseillé : au ras du sol, sous le lit ou le long du couloir, **lumi�
 
 ## Réglages
 
-Dans l’espace aidant, **Mon logement → carte « Chemin lumineux »** ouvre la fenêtre de réglage (lecture pour tous les membres, modification par le propriétaire et les administrateurs, comme les règles d’alerte). Sur l’application mobile, voir la section correspondante de l’application.
+Dans l’espace aidant, **Mon logement → carte « Chemin lumineux »** ouvre la fenêtre de réglage (lecture pour tous les membres, modification par le propriétaire et les administrateurs, comme les règles d’alerte). Sur l’application mobile, la même carte se trouve dans l’onglet **Logement**, sous le plan.
 
 Pour chaque chemin :
 
@@ -74,4 +74,4 @@ Le bouton **Tester** allume les pièces choisies pendant 20 secondes, à n’imp
 - Contrats : `packages/contracts/src/night-path.ts` (schémas, plage horaire, données envoyées à la lumière).
 - API : `apps/api/src/modules/night-path/` (`GET/POST /api/v1/night-paths`, `PATCH/DELETE /api/v1/night-paths/:id`, `POST /api/v1/night-paths/test`), tables Prisma `NightLightPath` et `NightLightActivation`, colonne `DeviceEntity.lightFeatures`.
 - Pont Home Assistant : `docker/homeassistant/custom_components/elise_bridge/mapping.py` (`light_payload`, `light_features`).
-- Interface : `apps/dashboard/src/NightPathDialog.tsx` et la carte « Chemin lumineux » de `HomeOverview`.
+- Interface : `apps/dashboard/src/NightPathDialog.tsx` et la carte « Chemin lumineux » de `HomeOverview` ; mobile : `apps/mobile/src/nightPath/`.
