@@ -160,10 +160,9 @@ export function HeatwaveCard() {
           : t('heatwave.card.indoorMax', { value: celsius(indoor.maxToday) });
   const remindersText = !status.settings.reminders.enabled
     ? t('heatwave.card.remindersOff')
-    : [
-        t('heatwave.card.remindersConfirmed', { count: reminders.confirmed }),
-        t('heatwave.card.remindersMissed', { count: reminders.missed }),
-      ].join(' · ');
+    : reminders.shown > 0
+      ? t('heatwave.card.remindersShown', { count: reminders.shown })
+      : t('heatwave.card.remindersNone');
 
   return (
     <section

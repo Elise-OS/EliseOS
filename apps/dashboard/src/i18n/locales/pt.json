@@ -1328,12 +1328,10 @@
       "forecastTomorrow": "amanhã {{value}} °C",
       "forecastUnavailable": "Indisponível (cidade da TV ou Internet)",
       "remindersLabel": "Lembretes «beber» de hoje",
-      "remindersConfirmed_one": "{{count}} confirmado",
-      "remindersConfirmed_many": "{{count}} confirmados",
-      "remindersConfirmed_other": "{{count}} confirmados",
-      "remindersMissed_one": "{{count}} sem resposta",
-      "remindersMissed_many": "{{count}} sem resposta",
-      "remindersMissed_other": "{{count}} sem resposta",
+      "remindersShown_one": "{{count}} lembrete mostrado",
+      "remindersShown_many": "{{count}} lembretes mostrados",
+      "remindersShown_other": "{{count}} lembretes mostrados",
+      "remindersNone": "Nenhum lembrete mostrado por agora",
       "remindersOff": "Lembretes desativados",
       "nextReminder": "Próximo às {{time}}",
       "activate": "Ativar agora",
@@ -1344,7 +1342,7 @@
       "title": "Registo de onda de calor da câmara municipal",
       "text": "Em França, as câmaras municipais mantêm um registo das pessoas idosas, isoladas ou frágeis que desejam ser contactadas durante as ondas de calor. A inscrição é gratuita e facultativa, e um familiar pode pedi-la: informe-se junto da câmara municipal ou do seu CCAS.",
       "link": "Saber mais em service-public.gouv.fr (em francês)",
-      "done": "Feito, não mostrar mais este ano"
+      "done": "Não mostrar mais este ano"
     },
     "settings": {
       "title": "Definições do modo onda de calor",
@@ -1363,7 +1361,7 @@
       "offNote": "O modo desativa-se sozinho quando todas as divisões ficam abaixo de {{celsius}} °C durante 2 h e a previsão desce abaixo do limiar. A família também o pode ativar ou desativar a partir do cartão.",
       "tvHeading": "Na TV",
       "remindersTitle": "Lembretes «beber»",
-      "remindersHint": "Uma melodia suave e um botão «Feito» para o comando. O lembrete desaparece sozinho após 10 minutos.",
+      "remindersHint": "Uma melodia discreta e uma mensagem no ecrã. O lembrete desaparece sozinho ao fim de 10 minutos: a pessoa não tem nada a fazer.",
       "frequency": "Frequência",
       "everyHours_one": "De hora a hora",
       "everyHours_many": "A cada {{count}} h",
@@ -1391,9 +1389,7 @@
       },
       "reminderEyebrow": "Um pequeno lembrete",
       "reminderTitle": "Está na hora de beber um copo de água",
-      "reminderDone": "Feito",
-      "reminderHint": "Carregue no botão do comando",
-      "thanks": "Obrigado, até já!"
+      "reminderText": "Bastam alguns goles, mesmo sem sede."
     },
     "demo": {
       "warmRoom": "Quarto",

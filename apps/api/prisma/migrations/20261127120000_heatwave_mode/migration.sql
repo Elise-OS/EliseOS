@@ -1,8 +1,5 @@
 -- Heatwave mode ("mode canicule"): family settings and state per home, and the drink
--- reminders shown on the TV. See docs/mode-canicule.md.
-
--- CreateEnum
-CREATE TYPE "HydrationReminderStatus" AS ENUM ('PENDING', 'CONFIRMED', 'MISSED');
+-- reminders shown on the TV (shown only: the resident never has to answer them). See docs/mode-canicule.md.
 
 -- CreateTable
 CREATE TABLE "HeatwaveMode" (
@@ -28,8 +25,6 @@ CREATE TABLE "HydrationReminder" (
     "homeId" TEXT NOT NULL,
     "scheduledFor" TIMESTAMP(3) NOT NULL,
     "expiresAt" TIMESTAMP(3) NOT NULL,
-    "status" "HydrationReminderStatus" NOT NULL DEFAULT 'PENDING',
-    "confirmedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -38,9 +33,6 @@ CREATE TABLE "HydrationReminder" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "HeatwaveMode_homeId_key" ON "HeatwaveMode"("homeId");
-
--- CreateIndex
-CREATE INDEX "HydrationReminder_homeId_status_idx" ON "HydrationReminder"("homeId", "status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "HydrationReminder_homeId_scheduledFor_key" ON "HydrationReminder"("homeId", "scheduledFor");
@@ -52,7 +44,7 @@ ALTER TABLE "HeatwaveMode" ADD CONSTRAINT "HeatwaveMode_homeId_fkey" FOREIGN KEY
 ALTER TABLE "HydrationReminder" ADD CONSTRAINT "HydrationReminder_homeId_fkey" FOREIGN KEY ("homeId") REFERENCES "Home"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 
--- The caregiver screens refresh the heatwave card as soon as its state or a reminder changes.
+-- The caregiver screens refresh the heatwave card as soon as its state changes or a reminder shows.
 CREATE OR REPLACE FUNCTION elise_notify_heatwave() RETURNS trigger AS $$
 BEGIN
   PERFORM pg_notify(
@@ -68,5 +60,5 @@ AFTER INSERT OR UPDATE OF active, manual, settings, "registryAcknowledgedYear" O
 FOR EACH ROW EXECUTE FUNCTION elise_notify_heatwave();
 
 CREATE TRIGGER elise_hydration_reminder_notify
-AFTER INSERT OR UPDATE OF status ON "HydrationReminder"
+AFTER INSERT ON "HydrationReminder"
 FOR EACH ROW EXECUTE FUNCTION elise_notify_heatwave();

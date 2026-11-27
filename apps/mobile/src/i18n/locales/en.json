@@ -2522,10 +2522,9 @@
       "forecastTomorrow": "tomorrow {{value}} °C",
       "forecastUnavailable": "Unavailable (TV city or Internet)",
       "remindersLabel": "“Drink” reminders today",
-      "remindersConfirmed_one": "{{count}} confirmed",
-      "remindersConfirmed_other": "{{count}} confirmed",
-      "remindersMissed_one": "{{count}} unanswered",
-      "remindersMissed_other": "{{count}} unanswered",
+      "remindersShown_one": "{{count}} reminder shown",
+      "remindersShown_other": "{{count}} reminders shown",
+      "remindersNone": "No reminder shown yet",
       "remindersOff": "Reminders turned off",
       "nextReminder": "Next at {{time}}",
       "activate": "Turn on now",
@@ -2541,7 +2540,7 @@
       "title": "Town hall heatwave register",
       "text": "French town halls keep a register of older, isolated or frail people who wish to be called during heatwaves. Registration is free and optional, and a relative can ask for it: contact the town hall or its social services (CCAS).",
       "link": "Learn more on service-public.gouv.fr (in French)",
-      "done": "Done, hide until next year"
+      "done": "Hide until next year"
     },
     "settings": {
       "title": "Heatwave mode settings",
@@ -2559,7 +2558,7 @@
       "offNote": "The mode turns off on its own once every room stays below {{celsius}} °C for 2 h and the forecast falls below the threshold. The family can also turn it on or off from the card.",
       "tvHeading": "On the TV",
       "remindersTitle": "“Drink” reminders",
-      "remindersHint": "A short melody and a “Done” button for the remote. The reminder leaves on its own after 10 minutes.",
+      "remindersHint": "A quiet chime and a message on the screen. The reminder goes away by itself after 10 minutes: your loved one has nothing to do.",
       "frequency": "Frequency",
       "everyHours_one": "Every hour",
       "everyHours_other": "Every {{count}} h",

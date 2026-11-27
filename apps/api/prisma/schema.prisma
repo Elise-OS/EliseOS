@@ -1203,12 +1203,6 @@ model LiaisonEntry {
   @@index([homeId, kind, completedAt])
 }
 
-enum HydrationReminderStatus {
-  PENDING
-  CONFIRMED
-  MISSED
-}
-
 /// Heatwave mode of a home: family settings, current state and last weather forecast.
 model HeatwaveMode {
   id                       String    @id @default(cuid())
@@ -1229,18 +1223,16 @@ model HeatwaveMode {
   home                     Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
 }
 
-/// "Drink a glass of water" reminder shown on the TV while the heatwave mode is on.
+/// "Drink a glass of water" reminder shown on the TV while the heatwave mode is on. Shown only:
+/// it leaves the screen by itself at `expiresAt`, the resident never has to answer it.
 model HydrationReminder {
-  id           String                  @id @default(cuid())
+  id           String   @id @default(cuid())
   homeId       String
   scheduledFor DateTime
   expiresAt    DateTime
-  status       HydrationReminderStatus @default(PENDING)
-  confirmedAt  DateTime?
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
-  home         Home                    @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  home         Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
 
   @@unique([homeId, scheduledFor])
-  @@index([homeId, status])
 }

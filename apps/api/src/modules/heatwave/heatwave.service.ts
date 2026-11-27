@@ -19,7 +19,6 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
-  NotFoundException,
   OnModuleDestroy,
   OnModuleInit,
   UnauthorizedException,
@@ -149,13 +148,10 @@ export class HeatwaveService implements OnModuleInit, OnModuleDestroy {
       this.indoor(home.id, dayStart, now),
       this.prisma.hydrationReminder.findMany({
         where: { homeId: home.id, scheduledFor: { gte: dayStart, lt: nextDayStart } },
-        select: { status: true, expiresAt: true },
+        select: { scheduledFor: true },
       }),
     ]);
     const active = row?.active ?? false;
-    const pending = reminders.filter(
-      (reminder) => reminder.status === 'PENDING' && reminder.expiresAt > now,
-    ).length;
     return {
       settings,
       active,
@@ -174,13 +170,7 @@ export class HeatwaveService implements OnModuleInit, OnModuleDestroy {
         fetchedAt: forecast?.fetchedAt ?? null,
       },
       reminders: {
-        confirmed: reminders.filter((reminder) => reminder.status === 'CONFIRMED').length,
-        missed: reminders.filter(
-          (reminder) =>
-            reminder.status === 'MISSED' ||
-            (reminder.status === 'PENDING' && reminder.expiresAt <= now),
-        ).length,
-        pending,
+        shown: reminders.filter((reminder) => reminder.scheduledFor <= now).length,
         next: active
           ? (nextHydrationReminder(settings, now, home.timezone)?.toISOString() ?? null)
           : null,
@@ -305,32 +295,6 @@ export class HeatwaveService implements OnModuleInit, OnModuleDestroy {
     return this.screenView(await this.homeFor(userId), now);
   }
 
-  public async confirmForToken(token: string, reminderId: string, now = new Date()) {
-    const home = await this.homeForToken(token);
-    await this.confirm(home, reminderId, now);
-    return this.screenView(home, now);
-  }
-
-  public async confirmForUser(userId: string, reminderId: string, now = new Date()) {
-    const home = await this.homeFor(userId);
-    await this.confirm(home, reminderId, now);
-    return this.screenView(home, now);
-  }
-
-  private async confirm(home: { id: string }, reminderId: string, now: Date) {
-    const changed = await this.prisma.hydrationReminder.updateMany({
-      where: { id: reminderId, homeId: home.id, status: 'PENDING' },
-      data: { status: 'CONFIRMED', confirmedAt: now },
-    });
-    if (changed.count === 0) {
-      const existing = await this.prisma.hydrationReminder.findFirst({
-        where: { id: reminderId, homeId: home.id },
-        select: { id: true },
-      });
-      if (!existing) throw new NotFoundException('Reminder not found');
-    }
-  }
-
   private async screenView(
     home: { id: string; timezone: string },
     now: Date,
@@ -343,7 +307,6 @@ export class HeatwaveService implements OnModuleInit, OnModuleDestroy {
       this.prisma.hydrationReminder.findFirst({
         where: {
           homeId: home.id,
-          status: 'PENDING',
           scheduledFor: { lte: now },
           expiresAt: { gt: now },
         },

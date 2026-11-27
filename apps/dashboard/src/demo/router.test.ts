@@ -117,7 +117,7 @@ describe('demo router', () => {
     resetDemo();
   });
 
-  it('lets the visitor turn the heatwave mode on and answer the drink reminder', () => {
+  it('lets the visitor turn the heatwave mode on and shows a drink reminder', () => {
     const idle = handleDemoRequest('GET', '/heatwave').body as HeatwaveStatus;
     expect(idle.active).toBe(false);
     expect(idle.settings.indoorTrigger.celsius).toBe(28);
@@ -132,13 +132,9 @@ describe('demo router', () => {
     const screen = handleDemoRequest('GET', '/heatwave/screen').body as HeatwaveScreenView;
     expect(screen.active).toBe(true);
     expect(screen.reminder).not.toBeNull();
-    const answered = handleDemoRequest(
-      'POST',
-      `/heatwave/reminders/${screen.reminder?.id ?? ''}/confirm`,
-    ).body as HeatwaveScreenView;
-    expect(answered.reminder).toBeNull();
     const after = handleDemoRequest('GET', '/heatwave').body as HeatwaveStatus;
-    expect(after.reminders.confirmed).toBe(1);
+    expect(after.reminders.shown).toBe(1);
+    expect(after.reminders).not.toHaveProperty('confirmed');
 
     resetDemo();
     expect((handleDemoRequest('GET', '/heatwave').body as HeatwaveStatus).active).toBe(false);

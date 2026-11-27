@@ -149,10 +149,9 @@ export function heatwaveFacts(status: HeatwaveStatus): HeatwaveFact[] {
       ? forecastParts.join(' · ')
       : t('heatwave.card.forecastUnavailable');
   const remindersValue = status.settings.reminders.enabled
-    ? [
-        t('heatwave.card.remindersConfirmed', { count: reminders.confirmed }),
-        t('heatwave.card.remindersMissed', { count: reminders.missed }),
-      ].join(' · ')
+    ? reminders.shown > 0
+      ? t('heatwave.card.remindersShown', { count: reminders.shown })
+      : t('heatwave.card.remindersNone')
     : t('heatwave.card.remindersOff');
   const next =
     status.active && status.settings.reminders.enabled && reminders.next

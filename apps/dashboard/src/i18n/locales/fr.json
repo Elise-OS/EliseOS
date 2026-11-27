@@ -1328,12 +1328,10 @@
       "forecastTomorrow": "demain {{value}} °C",
       "forecastUnavailable": "Indisponible (ville de la TV ou Internet)",
       "remindersLabel": "Rappels « boire » aujourd’hui",
-      "remindersConfirmed_one": "{{count}} confirmé",
-      "remindersConfirmed_many": "{{count}} confirmés",
-      "remindersConfirmed_other": "{{count}} confirmés",
-      "remindersMissed_one": "{{count}} sans réponse",
-      "remindersMissed_many": "{{count}} sans réponse",
-      "remindersMissed_other": "{{count}} sans réponse",
+      "remindersShown_one": "{{count}} rappel affiché",
+      "remindersShown_many": "{{count}} rappels affichés",
+      "remindersShown_other": "{{count}} rappels affichés",
+      "remindersNone": "Aucun rappel affiché pour l’instant",
       "remindersOff": "Rappels désactivés",
       "nextReminder": "Prochain à {{time}}",
       "activate": "Activer maintenant",
@@ -1344,7 +1342,7 @@
       "title": "Registre canicule de la mairie",
       "text": "Les mairies tiennent un registre des personnes âgées, isolées ou fragiles qui souhaitent être appelées pendant les fortes chaleurs. L’inscription est gratuite, facultative, et un proche peut la demander : renseignez-vous auprès de la mairie ou du CCAS.",
       "link": "En savoir plus sur service-public.gouv.fr",
-      "done": "C’est fait, ne plus afficher cette année"
+      "done": "Ne plus afficher cette année"
     },
     "settings": {
       "title": "Réglages du mode canicule",
@@ -1363,7 +1361,7 @@
       "offNote": "Le mode se désactive seul quand toutes les pièces restent sous {{celsius}} °C pendant 2 h et que la prévision redescend sous le seuil. La famille peut aussi l’activer ou le désactiver depuis la carte.",
       "tvHeading": "Sur la TV",
       "remindersTitle": "Rappels « boire »",
-      "remindersHint": "Une petite mélodie et un bouton « C’est fait » pour la télécommande. Le rappel s’efface seul après 10 minutes.",
+      "remindersHint": "Une petite mélodie et un message à l’écran. Le rappel s’efface tout seul après 10 minutes : la personne n’a rien à faire.",
       "frequency": "Fréquence",
       "everyHours_one": "Chaque heure",
       "everyHours_many": "Toutes les {{count}} h",
@@ -1391,9 +1389,7 @@
       },
       "reminderEyebrow": "Petit rappel",
       "reminderTitle": "C’est le moment de boire un verre d’eau",
-      "reminderDone": "C’est fait",
-      "reminderHint": "Appuyez sur le bouton de la télécommande",
-      "thanks": "Merci, à tout à l’heure !"
+      "reminderText": "Quelques gorgées suffisent, même sans avoir soif."
     },
     "demo": {
       "warmRoom": "Chambre",

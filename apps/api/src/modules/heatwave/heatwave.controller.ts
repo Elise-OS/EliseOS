@@ -3,14 +3,11 @@ import {
   heatwaveRegistrySchema,
   heatwaveSettingsSchema,
 } from '@elise/contracts';
-import { Body, Controller, Get, Headers, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
-import { z } from 'zod';
+import { Body, Controller, Get, Headers, Post, Put, Req, UseGuards } from '@nestjs/common';
 import { parseRequest } from '../../platform/zod-validation';
 import type { AuthenticatedRequest } from '../auth/authenticated-request';
 import { SessionGuard } from '../auth/session.guard';
 import { HeatwaveService } from './heatwave.service';
-
-const reminderId = z.string().trim().min(1).max(100);
 
 /** Heatwave mode for the family: card, settings (owner/administrator), on/off and registry. */
 @Controller('heatwave')
@@ -46,14 +43,10 @@ export class HeatwaveController {
   public screen(@Req() request: AuthenticatedRequest) {
     return this.heatwave.screenForUser(request.userId);
   }
-
-  @Post('reminders/:id/confirm')
-  public confirm(@Req() request: AuthenticatedRequest, @Param('id') id: string) {
-    return this.heatwave.confirmForUser(request.userId, parseRequest(reminderId, id));
-  }
 }
 
-/** The paired TV of the resident, authenticated by its screen token. */
+/** The paired TV of the resident, authenticated by its screen token. It only reads: the TV shows
+ * reminders and never asks the resident for anything. */
 @Controller('screen-device/heatwave')
 export class HeatwaveScreenDeviceController {
   public constructor(private readonly heatwave: HeatwaveService) {}
@@ -61,10 +54,5 @@ export class HeatwaveScreenDeviceController {
   @Get()
   public screen(@Headers('x-screen-token') token: string) {
     return this.heatwave.screenForToken(token);
-  }
-
-  @Post('reminders/:id/confirm')
-  public confirm(@Headers('x-screen-token') token: string, @Param('id') id: string) {
-    return this.heatwave.confirmForToken(token, parseRequest(reminderId, id));
   }
 }

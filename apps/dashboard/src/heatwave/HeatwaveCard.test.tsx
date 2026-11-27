@@ -70,7 +70,8 @@ describe('HeatwaveCard', () => {
     expect(text).toContain('29,4 °C · Chambre');
     expect(text).toContain('Prévision à Lyon');
     expect(text).toContain('Aujourd’hui 34 °C · demain 35 °C');
-    expect(text).toContain('1 confirmé · 0 sans réponse');
+    expect(text).toContain('2 rappels affichés');
+    expect(text).not.toMatch(/confirm|sans réponse/);
     expect(text).toContain('pas un dispositif médical');
   });
 
@@ -127,24 +128,37 @@ describe('HydrationReminderOverlay', () => {
     host.remove();
   });
 
-  it('answers « C’est fait » with the remote button', () => {
-    const onConfirm = vi.fn();
+  it('only shows the reminder: no button, no key handled, nothing takes the focus', () => {
+    const listen = vi.spyOn(window, 'addEventListener');
     const reminder = {
       id: 'hydration-1',
       scheduledFor: new Date(Date.now() - 60_000).toISOString(),
       expiresAt: new Date(Date.now() + 9 * 60_000).toISOString(),
     };
-    act(() =>
-      root.render(
-        <HydrationReminderOverlay reminder={reminder} thanked={false} onConfirm={onConfirm} />,
-      ),
-    );
+    act(() => root.render(<HydrationReminderOverlay reminder={reminder} />));
     expect(host.textContent).toContain('C’est le moment de boire un verre d’eau');
-    expect(host.textContent).toContain('C’est fait');
+    expect(host.textContent).toContain('Quelques gorgées suffisent');
+    expect(host.querySelector('button, a, input, [tabindex]')).toBeNull();
+    expect(host.textContent).not.toMatch(/C’est fait|télécommande/);
+    expect(listen.mock.calls.filter(([type]) => String(type).startsWith('key'))).toEqual([]);
+    expect(document.activeElement).toBe(document.body);
+    listen.mockRestore();
+  });
+
+  it('leaves the screen by itself when its time is over', () => {
+    vi.useFakeTimers();
+    const reminder = {
+      id: 'hydration-3',
+      scheduledFor: new Date(Date.now() - 60_000).toISOString(),
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    };
+    act(() => root.render(<HydrationReminderOverlay reminder={reminder} />));
+    expect(host.textContent).toContain('C’est le moment de boire un verre d’eau');
     act(() => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'F13' }));
+      vi.advanceTimersByTime(61_000);
     });
-    expect(onConfirm).toHaveBeenCalledWith('hydration-1');
+    expect(host.textContent).toBe('');
+    vi.useRealTimers();
   });
 
   it('does not show a reminder whose time is over', () => {
@@ -153,11 +167,7 @@ describe('HydrationReminderOverlay', () => {
       scheduledFor: new Date(Date.now() - 20 * 60_000).toISOString(),
       expiresAt: new Date(Date.now() - 10 * 60_000).toISOString(),
     };
-    act(() =>
-      root.render(
-        <HydrationReminderOverlay reminder={reminder} thanked={false} onConfirm={vi.fn()} />,
-      ),
-    );
+    act(() => root.render(<HydrationReminderOverlay reminder={reminder} />));
     expect(host.textContent).toBe('');
   });
 });

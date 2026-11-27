@@ -71,7 +71,7 @@ export const HEATWAVE_COOL_MARGIN = 1;
 export const HEATWAVE_COOL_MINUTES = 120;
 /** A temperature reading older than this no longer describes the room. */
 export const HEATWAVE_FRESH_MINUTES = 90;
-/** How long a drink reminder stays on the TV when nobody confirms it. */
+/** How long a drink reminder stays on the TV before it leaves by itself. */
 export const HYDRATION_REMINDER_MINUTES = 10;
 /** Official page about the heatwave registers kept by town halls (checked on 27 November 2026). */
 export const HEATWAVE_REGISTRY_URL =
@@ -127,9 +127,8 @@ export interface HeatwaveStatus {
     fetchedAt: string | null;
   };
   reminders: {
-    confirmed: number;
-    missed: number;
-    pending: number;
+    /** Drink reminders already shown on the TV today. The resident never has to answer them. */
+    shown: number;
     /** Next reminder of today, if the mode stays on. */
     next: string | null;
   };

@@ -61,7 +61,7 @@ describe('heatwave view', () => {
     const facts = heatwaveFacts(on);
     expect(facts.map(({ key }) => key)).toEqual(['indoor', 'forecast', 'reminders']);
     expect(facts[1]?.label).toBe('Prévision à Lyon');
-    expect(facts[2]?.value).toBe('0 confirmé · 0 sans réponse');
+    expect(facts[2]?.value).toBe('1 rappel affiché');
 
     const saved = mockDemoRequest<HeatwaveStatus>('/heatwave/settings', {
       method: 'PUT',

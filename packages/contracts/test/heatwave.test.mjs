@@ -340,16 +340,19 @@ describe('town-hall registry reminder', () => {
 });
 
 describe('heatwave demo', () => {
-  it('turns on by hand, shows a reminder and counts its confirmation', () => {
+  it('turns on by hand and shows a reminder that nobody has to answer', () => {
     const demo = createHeatwaveDemo();
     assert.equal(demo.handle('GET', '/heatwave').body.active, false);
     demo.handle('POST', '/heatwave/manual', JSON.stringify({ active: true }));
     const screen = demo.handle('GET', '/heatwave/screen').body;
     assert.equal(screen.active, true);
     assert.ok(screen.reminder);
-    demo.handle('POST', `/heatwave/reminders/${screen.reminder.id}/confirm`);
-    assert.equal(demo.handle('GET', '/heatwave').body.reminders.confirmed, 1);
-    assert.equal(demo.handle('GET', '/heatwave/screen').body.reminder, null);
+    assert.equal(demo.handle('GET', '/heatwave').body.reminders.shown, 1);
+    assert.equal(
+      demo.handle('POST', `/heatwave/reminders/${screen.reminder.id}/confirm`).status,
+      404,
+    );
+    assert.equal(demo.handle('GET', '/heatwave/screen').body.reminder.id, screen.reminder.id);
     assert.equal(demo.handle('GET', '/alerts'), null);
   });
 });

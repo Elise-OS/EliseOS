@@ -1,5 +1,5 @@
 import { DEFAULT_HEATWAVE_SETTINGS, initialScreenState } from '@elise/contracts';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fetchCityForecast } from '../screen/screen.service';
 import { HeatwaveService, heatwaveForecastFrom, storedForecast } from './heatwave.service';
@@ -38,7 +38,6 @@ function prismaFor(role = 'OWNER', row: Record<string, unknown> | null = null) {
     hydrationReminder: {
       findMany: vi.fn().mockResolvedValue([]),
       findFirst: vi.fn().mockResolvedValue(null),
-      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     residentScreen: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn() },
     $queryRaw: vi.fn().mockResolvedValue([]),
@@ -165,27 +164,13 @@ describe('HeatwaveService', () => {
     await expect(service.setManual('user-1', true)).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('confirms a reminder of the home and refuses one of another home', async () => {
-    const { prisma } = prismaFor('OWNER', { active: false });
-    const service = new HeatwaveService(prisma as never);
-    await service.confirmForUser('user-1', 'reminder-1');
-    expect(prisma.hydrationReminder.updateMany).toHaveBeenCalledWith({
-      where: { id: 'reminder-1', homeId: 'home-1', status: 'PENDING' },
-      data: { status: 'CONFIRMED', confirmedAt: expect.any(Date) as Date },
-    });
-    prisma.hydrationReminder.updateMany.mockResolvedValue({ count: 0 });
-    await expect(service.confirmForUser('user-1', 'elsewhere')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
-  });
-
   it('shows nothing on the TV while the mode is off', async () => {
     const { prisma } = prismaFor('OWNER', { active: false });
     const view = await new HeatwaveService(prisma as never).screenForUser('user-1');
     expect(view).toEqual({ active: false, tip: null, reminder: null });
   });
 
-  it('shows the pending reminder and the advice of the moment while the mode is on', async () => {
+  it('shows the current reminder and the advice of the moment while the mode is on', async () => {
     const now = new Date('2026-07-15T08:05:00Z'); // 10:05 in Paris
     const { prisma } = prismaFor('OWNER', {
       active: true,
@@ -198,6 +183,11 @@ describe('HeatwaveService', () => {
       expiresAt: new Date('2026-07-15T08:10:00Z'),
     });
     const view = await new HeatwaveService(prisma as never).screenForUser('user-1', now);
+    expect(prisma.hydrationReminder.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { homeId: 'home-1', scheduledFor: { lte: now }, expiresAt: { gt: now } },
+      }),
+    );
     expect(view).toEqual({
       active: true,
       tip: 'closeShutters',
@@ -209,7 +199,7 @@ describe('HeatwaveService', () => {
     });
   });
 
-  it('counts confirmed and unconfirmed reminders of the day for the card', async () => {
+  it('counts the reminders already shown today for the card', async () => {
     const now = new Date('2026-07-15T12:00:00Z');
     const { prisma } = prismaFor('OWNER', {
       active: true,
@@ -226,15 +216,13 @@ describe('HeatwaveService', () => {
       registryAcknowledgedYear: 2026,
     });
     prisma.hydrationReminder.findMany.mockResolvedValue([
-      { status: 'CONFIRMED', expiresAt: new Date('2026-07-15T07:10:00Z') },
-      { status: 'MISSED', expiresAt: new Date('2026-07-15T09:10:00Z') },
-      { status: 'PENDING', expiresAt: new Date('2026-07-15T11:10:00Z') },
+      { scheduledFor: new Date('2026-07-15T07:00:00Z') },
+      { scheduledFor: new Date('2026-07-15T09:00:00Z') },
+      { scheduledFor: new Date('2026-07-15T11:00:00Z') },
     ]);
     const status = await new HeatwaveService(prisma as never).status('user-1', now);
     expect(status.reminders).toEqual({
-      confirmed: 1,
-      missed: 2,
-      pending: 0,
+      shown: 3,
       next: '2026-07-15T13:00:00.000Z',
     });
     expect(status.forecast).toMatchObject({ available: true, todayMax: 34, tomorrowMax: 35 });

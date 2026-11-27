@@ -219,21 +219,16 @@ export async function evaluateHeatwaveModes(): Promise<void> {
       const due = active ? dueHydrationReminder(settings, now, home.timezone) : null;
       if (due)
         await client.query(
-          `INSERT INTO "HydrationReminder" (id, "homeId", "scheduledFor", "expiresAt", status, "createdAt", "updatedAt")
-           VALUES (concat('hydration_', gen_random_uuid()), $1, $2, $3, 'PENDING', NOW(), NOW())
+          `INSERT INTO "HydrationReminder" (id, "homeId", "scheduledFor", "expiresAt", "createdAt", "updatedAt")
+           VALUES (concat('hydration_', gen_random_uuid()), $1, $2, $3, NOW(), NOW())
            ON CONFLICT ("homeId", "scheduledFor") DO NOTHING`,
           [home.homeId, due.scheduledFor, due.expiresAt],
         );
-      // Not confirmed in time: the reminder leaves the TV and counts as not confirmed.
-      await client.query(
-        `UPDATE "HydrationReminder" SET status = 'MISSED', "updatedAt" = NOW()
-         WHERE "homeId" = $1 AND status = 'PENDING' AND "expiresAt" <= NOW()`,
-        [home.homeId],
-      );
-      // The mode went off: a reminder still on screen is withdrawn, not counted as missed.
+      // The mode went off: a reminder still on screen leaves the TV now.
       if (!active)
         await client.query(
-          `DELETE FROM "HydrationReminder" WHERE "homeId" = $1 AND status = 'PENDING'`,
+          `UPDATE "HydrationReminder" SET "expiresAt" = NOW(), "updatedAt" = NOW()
+           WHERE "homeId" = $1 AND "expiresAt" > NOW()`,
           [home.homeId],
         );
       await client.query('COMMIT');

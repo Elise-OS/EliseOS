@@ -757,18 +757,12 @@ export function ResidentScreen() {
     );
   return (
     <main className={`resident-display ${state?.playback.asleep && !call ? 'resident-sleep' : ''}`}>
-      {!state?.playback.asleep && !call && heatwave.view?.active && (
-        <HeatwaveBanner view={heatwave.view} />
-      )}
+      {!state?.playback.asleep && !call && heatwave?.active && <HeatwaveBanner view={heatwave} />}
       {!state?.playback.asleep && state && !call && (
         <FamilyMessageBanner state={state} now={now.getTime()} />
       )}
       {!state?.playback.asleep && !inCall && (
-        <HydrationReminderOverlay
-          reminder={heatwave.view?.active ? heatwave.view.reminder : null}
-          thanked={heatwave.thanked !== null}
-          onConfirm={(id) => void heatwave.confirm(id)}
-        />
+        <HydrationReminderOverlay reminder={heatwave?.active ? heatwave.reminder : null} />
       )}
       {callSession && !(call && call.id !== callSession.callId) && (
         <JitsiCall
