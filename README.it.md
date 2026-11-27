@@ -114,6 +114,12 @@ L'interfaccia è completamente adattabile a qualsiasi schermo ed è disponibile 
 - Il guasto di un sensore genera un **avviso di sistema esplicito**, mai una falsa conclusione di inattività.
 - Notifiche push con contenuto minimo; i dettagli restano dietro l'API autenticata.
 
+### Modalità caldo
+
+- Si attiva da sola quando una stanza resta a 28 °C o più per 30 min (sensori di temperatura) o quando le previsioni annunciano 33 °C o più per oggi o domani (Open-Meteo, gratuito, senza account), oppure a mano dalla famiglia; si spegne da sola quando il caldo cala.
+- Sulla TV: una fascia ambra delicata, un promemoria «bere un bicchiere d’acqua» ogni 2 ore dalle 9 alle 20 con una melodia discreta e un pulsante «Fatto» per il telecomando, e consigli secondo il momento (persiane al mattino, rinfrescarsi il viso di giorno, finestre la sera se fuori è più fresco).
+- Per la famiglia: notifica all’attivazione, avviso se una stanza resta a 31 °C o più per 1 ora, scheda «Modalità caldo» nella home (web e mobile), impostazioni di ogni opzione e promemoria annuale del registro canicola del comune. Tutto funziona sul box; non è un dispositivo medico. Vedi [docs/mode-canicule.md](docs/mode-canicule.md) (in francese).
+
 ### Coordinamento dei caregiver
 
 - Diario di assistenza condiviso, calendario delle visite e degli appuntamenti, monitoraggio delle terapie.
@@ -412,6 +418,7 @@ Ogni push esegue `format:check`, `lint`, `typecheck`, `test` e `build` sull'inte
 | Sviluppo, segreti, backup (in inglese)               | [docs/development.md](docs/development.md)                      |
 | Privacy e conservazione (in inglese)                 | [docs/privacy.md](docs/privacy.md)                              |
 | Telecamere (in inglese)                              | [docs/cameras.md](docs/cameras.md)                              |
+| Modalità caldo (in francese)                         | [docs/mode-canicule.md](docs/mode-canicule.md)                  |
 | Deploy su NAS (in francese)                          | [README-NAS.md](README-NAS.md)                                  |
 | Documentazione utente completa                       | [eliseos.paulbreton.dev/it](https://eliseos.paulbreton.dev/it/) |
 

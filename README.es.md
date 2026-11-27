@@ -114,6 +114,12 @@ La interfaz es totalmente adaptable a cualquier pantalla y está disponible en f
 - Una avería de un sensor genera una **alerta de sistema explícita**, nunca una falsa conclusión de inactividad.
 - Notificaciones push con un contenido mínimo; los detalles permanecen tras la API autenticada.
 
+### Modo ola de calor
+
+- Se activa solo cuando una habitación se queda a 28 °C o más durante 30 min (sensores de temperatura) o cuando la previsión anuncia 33 °C o más para hoy o mañana (Open-Meteo, gratuito, sin cuenta), o a mano por la familia; se desactiva solo cuando baja el calor.
+- En la TV: una franja ámbar suave, un recordatorio «beber un vaso de agua» cada 2 h de 9:00 a 20:00 con una melodía discreta y un botón «Hecho» para el mando, y consejos según el momento (persianas por la mañana, refrescarse la cara durante el día, ventanas por la noche si fuera hace más fresco).
+- Para la familia: notificación al activarse, alerta si una habitación se queda a 31 °C o más durante 1 h, tarjeta «Modo ola de calor» en la página de inicio (web y móvil), ajustes de cada opción y recordatorio anual del registro de ola de calor del ayuntamiento. Todo funciona en la caja; no es un dispositivo médico. Véase [docs/mode-canicule.md](docs/mode-canicule.md) (en francés).
+
 ### Coordinación de los cuidadores
 
 - Cuaderno de seguimiento compartido, calendario de visitas y citas, seguimiento de los tratamientos.
@@ -412,6 +418,7 @@ Cada push ejecuta `format:check`, `lint`, `typecheck`, `test` y `build` en todo 
 | Desarrollo, secretos, copias de seguridad (en inglés) | [docs/development.md](docs/development.md)                      |
 | Privacidad y conservación (en inglés)                 | [docs/privacy.md](docs/privacy.md)                              |
 | Cámaras (en inglés)                                   | [docs/cameras.md](docs/cameras.md)                              |
+| Modo ola de calor (en francés)                        | [docs/mode-canicule.md](docs/mode-canicule.md)                  |
 | Despliegue en NAS (en francés)                        | [README-NAS.md](README-NAS.md)                                  |
 | Documentación de usuario completa                     | [eliseos.paulbreton.dev/es](https://eliseos.paulbreton.dev/es/) |
 
