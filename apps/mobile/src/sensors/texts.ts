@@ -37,3 +37,18 @@ export function productTexts(product: SensorProduct): ProductTexts {
     return own;
   }
 }
+
+/**
+ * « Allumé · Intensité 25 % » or « Éteint »: what a light reports, as its `light` capability
+ * value `{ active, brightnessPercent? }`. Null when the value says nothing about the light.
+ */
+export function lightReading(value: Record<string, unknown> | null | undefined): string | null {
+  if (typeof value?.active !== 'boolean') return null;
+  if (!value.active) return t('sensorReadings.lightOff');
+  const brightness = value.brightnessPercent;
+  return typeof brightness === 'number' && Number.isFinite(brightness)
+    ? `${t('sensorReadings.lightOn')} · ${t('sensorReadings.lightBrightness', {
+        percent: Math.round(brightness),
+      })}`
+    : t('sensorReadings.lightOn');
+}

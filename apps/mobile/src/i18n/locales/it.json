@@ -1220,8 +1220,11 @@
     "avoidHeatSourcesAndMetal": "Eviti le fonti di calore e gli oggetti metallici.",
     "bathroom": "Bagno",
     "bathroomHumidity": "Umidità bagno",
+    "bathroomStrip": "Striscia del bagno",
     "batteryToReplaceSoon": "Batteria da sostituire a breve",
     "bedroom": "Camera",
+    "bedroomMotion": "Movimento camera",
+    "bedroomStrip": "Striscia sotto il letto",
     "bedroomTemperature": "Temperatura camera",
     "behindMetalFurniture": "Dietro un mobile metallico",
     "bringTheLatestResults": "Portare gli ultimi risultati.",
@@ -1285,9 +1288,11 @@
     "kitchen": "Cucina",
     "kitchenMotion": "Movimento cucina",
     "lesPiedsSurTerre": "Les Pieds sur terre",
+    "lighting": "Illuminazione",
     "littleMovementObservedAtThe": "Pochi movimenti osservati all’inizio della giornata.",
     "livingRoom": "Soggiorno",
     "livingRoomMotion": "Movimento soggiorno",
+    "livingRoomStrip": "Striscia del soggiorno",
     "livingRoomTemperature": "Temperatura del soggiorno",
     "livingRoomTemperature2": "Temperatura soggiorno",
     "livingRoomTv": "Televisione del soggiorno",
@@ -1302,6 +1307,7 @@
     "movementInTheBathroom": "Passaggio in bagno",
     "movementNoticed": "Passaggio rilevato",
     "newDetector": "Nuovo sensore",
+    "nightPathName": "Camera → bagno",
     "noRecentMovement": "Nessun movimento recente",
     "opening": "Apertura",
     "photoShown": "Foto visualizzata",
@@ -1482,6 +1488,10 @@
     "water_leak": {
       "description": "I punti d’acqua da tenere d’occhio",
       "label": "Perdita d’acqua"
+    },
+    "light": {
+      "description": "Una luce soffusa gestita da Élise, ad esempio per il percorso notturno",
+      "label": "Illuminazione"
     }
   },
   "service": {
@@ -1787,6 +1797,28 @@
         "Tenga il rilevatore attivo premendo il suo pulsante ogni 2 secondi fino al termine dell’associazione.",
         "Dopo l’installazione, provi la sirena seguendo il manuale e controlli in Élise lo stato del rilevatore e della sua batteria. Zigbee2MQTT segnala che alcuni firmware possono inviare ripetutamente falsi stati di fumo: osservi il suo comportamento dopo l’associazione.",
         "La sirena locale funziona sul rilevatore stesso. Le notifiche di Élise affiancano la vigilanza e non sono ancora state validate su un dispositivo fisico."
+      ]
+    },
+    "innr-flex-light-colour-fl230c": {
+      "advice": "Incollatela vicino al pavimento o sotto il letto, lungo il percorso notturno (camera, corridoio, bagno). Orientate la luce verso il pavimento per illuminare i passi senza abbagliare la persona. Solo per interni; tenete l’alimentatore e il controller all’asciutto e a portata di mano.",
+      "features": [
+        "Accensione / spegnimento, intensità regolabile dallo 0,1 al 100%",
+        "Bianco da caldo a freddo e colori",
+        "Accensione e spegnimento graduali",
+        "Striscia da 3 m tagliabile, retro adesivo",
+        "Si collega direttamente alla chiavetta Zigbee di Élise, senza bridge Innr"
+      ],
+      "name": "Striscia LED Zigbee a colori da 3 m",
+      "placement": [
+        "Incollatela vicino al pavimento o sotto il letto, lungo il percorso notturno (camera, corridoio, bagno).",
+        "Orientate la luce verso il pavimento per illuminare i passi senza abbagliare la persona.",
+        "Solo per interni; tenete l’alimentatore e il controller all’asciutto e a portata di mano."
+      ],
+      "power": "Alimentatore incluso · 100–240 V → 24 V CC · 24 W massimo",
+      "preparation": [
+        "Srotolate completamente la striscia prima di collegarla: il manuale vieta di alimentarla arrotolata o nella confezione.",
+        "In Élise OS, scegliete «Installa questo sensore» e poi Zigbee, quindi collegate la striscia vicino al box.",
+        "Se non si associa, ripristinatela come mostra il manuale Innr: premete una volta il pulsante del controller, poi tenetelo premuto per 5 secondi; la striscia lampeggia due volte quando è pronta."
       ]
     },
     "nodon-climate": {
@@ -2523,5 +2555,105 @@
       "title": "Dettaglio tecnico"
     },
     "title": "Stato del box"
+  },
+  "sensorReadings": {
+    "lightBrightness": "Intensità {{percent}}%",
+    "lightOff": "Spenta",
+    "lightOn": "Accesa"
+  },
+  "nightPath": {
+    "addAnother": "Aggiungi un altro percorso",
+    "and": "e",
+    "backToPaths": "Tutti i percorsi",
+    "brightness": "Intensità",
+    "brightnessHint": "Una luce bassa basta per vedere dove si cammina senza svegliarsi del tutto.",
+    "brightnessLess": "Abbassare l’intensità",
+    "brightnessMore": "Aumentare l’intensità",
+    "cancel": "Annulla",
+    "cardCount_many": "{{count}} percorsi configurati, {{enabled}} attivo/i",
+    "cardCount_one": "{{count}} percorso configurato, {{enabled}} attivo/i",
+    "cardCount_other": "{{count}} percorsi configurati, {{enabled}} attivo/i",
+    "cardEmpty": "Una luce soffusa si accende lungo il tragitto quando {{resident}} si alza di notte.",
+    "cardEyebrow": "Comfort notturno",
+    "cardManage": "Configura il percorso luminoso",
+    "cardView": "Vedi i percorsi luminosi",
+    "confirmDelete": "Eliminare questo percorso luminoso?",
+    "create": "Crea un percorso luminoso",
+    "defaultName": "Percorso notturno",
+    "defaultNameNumbered": "Percorso notturno {{number}}",
+    "delete": "Elimina",
+    "deleteError": "L’eliminazione non è riuscita. Riprovate tra un istante.",
+    "disclaimer": "Luce di supporto per spostarsi di notte: non è un dispositivo medico e non sostituisce l’illuminazione abituale. Dipende dalla rete Zigbee della casa.",
+    "edit": "Modifica",
+    "editTitle": "Modifica il percorso luminoso",
+    "emptyText": "Scegliete dove inizia il tragitto notturno e quali stanze illuminare, ad esempio la camera, il corridoio e il bagno.",
+    "emptyTitle": "Ancora nessun percorso luminoso",
+    "enabled": "Attivo",
+    "endLabel": "Fine della notte",
+    "includeBedExit": "Anche quando {{resident}} si alza dal letto",
+    "intro": "Quando {{resident}} si alza di notte, Élise accende dolcemente una luce calda lungo il tragitto, poi la spegne da sola.",
+    "keep": "Mantieni",
+    "lightTitle": "Luce",
+    "lightsHint": "Si accendono tutte le luci di queste stanze, anche in una stanza senza sensore (corridoio, bagno…).",
+    "lightsTitle": "Stanze da illuminare",
+    "litUntil": "Acceso fino alle {{time}}",
+    "loadError": "Impossibile caricare i percorsi luminosi.",
+    "loading": "Caricamento dei percorsi luminosi…",
+    "minutes_many": "{{count}} min",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min",
+    "name": "Nome del percorso",
+    "needsLight": "Aggiungete un’illuminazione nelle stanze da illuminare: {{tab}} → la stanza → Illuminazione.",
+    "needsSensor": "Aggiungete un sensore di movimento o di presenza nella stanza di partenza, ad esempio la camera.",
+    "newTitle": "Nuovo percorso luminoso",
+    "offHint": "…senza movimento rilevato lungo il tragitto.",
+    "offTitle": "Spegni dopo",
+    "paused": "In pausa",
+    "problems": {
+      "lights": "Scegliete almeno una stanza da illuminare.",
+      "name": "Date un nome a questo percorso.",
+      "trigger": "Scegliete almeno una stanza da cui partire.",
+      "window": "L’inizio e la fine della notte devono essere diversi."
+    },
+    "readOnly": "Solo il proprietario e gli amministratori della casa possono modificare i percorsi luminosi.",
+    "requirementsTitle": "Per creare un percorso luminoso",
+    "retry": "Riprova",
+    "roomLights_many": "{{count}} luci",
+    "roomLights_one": "{{count}} luce",
+    "roomLights_other": "{{count}} luci",
+    "roomSensors_many": "{{count}} sensori",
+    "roomSensors_one": "{{count}} sensore",
+    "roomSensors_other": "{{count}} sensori",
+    "roomWithoutLight": "Nessuna illuminazione",
+    "roomWithoutSensor": "Nessun sensore",
+    "save": "Salva",
+    "saveError": "Il salvataggio non è riuscito. Riprovate tra un istante.",
+    "simpleLightHint": "Una luce che non regola né l’intensità né la tonalità si accende semplicemente.",
+    "startLabel": "Inizio della notte",
+    "summaryIncomplete": "Scegliete almeno una stanza di partenza e una stanza da illuminare.",
+    "summary_many": "Di notte, dalle {{start}} alle {{end}}, {{when}}: {{lights}} si accendono dolcemente.",
+    "summary_one": "Di notte, dalle {{start}} alle {{end}}, {{when}}: {{lights}} si accende dolcemente.",
+    "summary_other": "Di notte, dalle {{start}} alle {{end}}, {{when}}: {{lights}} si accendono dolcemente.",
+    "temperatures": {
+      "2200": "Molto calda",
+      "2700": "Calda",
+      "3000": "Morbida"
+    },
+    "test": "Prova",
+    "testError": "Impossibile avviare la prova. Riprovate tra un istante.",
+    "testNoLight": "Nessuna luce disponibile in queste stanze, oppure è già accesa.",
+    "testStarted_many": "{{count}} luci si accendono per {{seconds}} secondi.",
+    "testStarted_one": "{{count}} luce si accende per {{seconds}} secondi.",
+    "testStarted_other": "{{count}} luci si accendono per {{seconds}} secondi.",
+    "theResident": "la persona",
+    "title": "Percorso luminoso",
+    "toggle": "Attiva o metti in pausa «{{name}}»",
+    "triggerHint": "Scegliete una o più stanze dotate di un sensore di movimento o di presenza.",
+    "triggerTitle": "Quando {{resident}} si muove in…",
+    "warmth": "Tonalità",
+    "whenMoves": "quando {{resident}} si muove in {{rooms}}",
+    "whenMovesOrGetsUp": "quando {{resident}} si alza dal letto o si muove in {{rooms}}",
+    "windowHint": "Il passaggio della mezzanotte è gestito. Fuori da questa fascia oraria non si accende nulla.",
+    "windowTitle": "Solo di notte"
   }
 }

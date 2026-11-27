@@ -6,6 +6,7 @@ import image3RSB22BZ from '../../assets/sensor-products/3RSB22BZ.png';
 import image3RSPE01044BZ from '../../assets/sensor-products/3RSPE01044BZ.png';
 import image3RTHS0224Z from '../../assets/sensor-products/3RTHS0224Z.png';
 import image3RWS18BZ from '../../assets/sensor-products/3RWS18BZ.png';
+import imageFL230C from '../../assets/sensor-products/FL_230_C.png';
 import imageHS1SAE from '../../assets/sensor-products/HS1SA-E.png';
 import imageHS2FDE from '../../assets/sensor-products/HS2FD-E.png';
 import imageSDC4100 from '../../assets/sensor-products/SDC-4-1-00.png';
@@ -24,6 +25,7 @@ const bundled: Record<string, ImageSourcePropType> = {
   '3RSPE01044BZ': image3RSPE01044BZ,
   '3RTHS0224Z': image3RTHS0224Z,
   '3RWS18BZ': image3RWS18BZ,
+  FL_230_C: imageFL230C,
   'HS1SA-E': imageHS1SAE,
   'HS2FD-E': imageHS2FDE,
   'SDC-4-1-00': imageSDC4100,
