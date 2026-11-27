@@ -1,277 +1,107 @@
-import {
-  HEATWAVE_COOL_MARGIN,
-  HEATWAVE_REGISTRY_URL,
-  type HeatwaveSettings,
-  type HeatwaveStatus,
-} from '@elise/contracts';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { HEATWAVE_COOL_MARGIN, type HeatwaveSettings } from '@elise/contracts';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Bell,
   CloudSun,
-  ExternalLink,
   GlassWater,
   House,
-  Landmark,
   Lightbulb,
   Minus,
   Plus,
-  Power,
-  SlidersHorizontal,
-  ThermometerSun,
   type LucideIcon,
 } from 'lucide-react-native';
 import { useState, type ReactNode } from 'react';
-import {
-  ActivityIndicator,
-  Linking,
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { mobileApi } from '../api';
 import type { SavedServer } from '../discovery/types';
 import { t } from '../i18n';
 import {
   PrimaryButton,
-  SecondaryButton,
   SetupNotice,
   SetupPage,
   SetupSheet,
   ss,
-  useSetupStep,
   useSheetControls,
 } from '../sensors/ui';
 import {
   celsius,
   duration,
-  heatwaveFacts,
-  heatwaveStateText,
-  heatwaveStatusLabel,
   heatwaveSummary,
-  heatwaveTone,
   settingsValid,
   stepValue,
   withEndHour,
   withStartHour,
 } from './heatwave-view';
 
-/** Same cache entry as the card of the home tab, so both always agree. */
+/** Same cache entry as the « Canicule » card of the Settings tab, so both always agree. */
 export const heatwaveQueryKey = (server: SavedServer) => ['elise', server.id, 'heatwave'];
 
 const AMBER = '#9a5d1d';
-const factIcons: Record<string, LucideIcon> = {
-  indoor: House,
-  forecast: CloudSun,
-  reminders: GlassWater,
-};
 
-/** « Mode canicule » sheet: what the mode does now, and its settings for owners and admins. */
-export function HeatwaveSheet(props: { server: SavedServer; token: string; onClose: () => void }) {
+/**
+ * Settings sheet of the heatwave mode, opened from the « Canicule » card of the Settings tab
+ * (owners and administrators only).
+ */
+export function HeatwaveSheet(props: {
+  server: SavedServer;
+  token: string;
+  settings: HeatwaveSettings;
+  onClose: () => void;
+}) {
   return (
     <SetupSheet onClose={props.onClose}>
-      <HeatwaveFlow {...props} />
+      <HeatwaveSettingsPage {...props} />
     </SetupSheet>
   );
 }
 
-function HeatwaveFlow({ server, token, onClose }: Parameters<typeof HeatwaveSheet>[0]) {
+function HeatwaveSettingsPage({
+  server,
+  token,
+  settings,
+  onClose,
+}: Parameters<typeof HeatwaveSheet>[0]) {
   const queryClient = useQueryClient();
-  const queryKey = heatwaveQueryKey(server);
-  const status = useQuery({ queryKey, queryFn: () => mobileApi.heatwave(server, token) });
-  const { step, direction, go, back } = useSetupStep<'STATUS' | 'SETTINGS'>('STATUS');
-  const [draft, setDraft] = useState<HeatwaveSettings | null>(null);
+  const [draft, setDraft] = useState<HeatwaveSettings>(() => structuredClone(settings));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useSheetControls({ busy, onClose });
 
-  const run = async (work: () => Promise<HeatwaveStatus>, failure: string) => {
-    if (busy) return false;
+  const save = async () => {
+    if (busy || !settingsValid(draft)) return;
     setBusy(true);
     setError('');
     try {
-      queryClient.setQueryData(queryKey, await work());
-      return true;
+      queryClient.setQueryData(
+        heatwaveQueryKey(server),
+        await mobileApi.updateHeatwaveSettings(server, token, draft),
+      );
+      onClose();
     } catch {
-      setError(failure);
-      return false;
+      setError(t('heatwave.settings.error'));
     } finally {
       setBusy(false);
     }
   };
 
-  const data = status.data;
-
-  if (step === 'SETTINGS' && draft)
-    return (
-      <SetupPage
-        pageKey="heatwave-settings"
-        direction={direction}
-        eyebrow={t('heatwave.card.title')}
-        title={t('heatwave.settings.title')}
-        subtitle={t('heatwave.settings.intro')}
-        onBack={() => {
-          if (busy) return;
-          setError('');
-          back('STATUS');
-        }}
-        backLabel={t('heatwave.settings.back')}
-        footer={
-          <PrimaryButton
-            label={busy ? t('heatwave.settings.saving') : t('heatwave.settings.save')}
-            busy={busy}
-            disabled={!settingsValid(draft)}
-            onPress={() =>
-              void run(
-                () => mobileApi.updateHeatwaveSettings(server, token, draft),
-                t('heatwave.settings.error'),
-              ).then((saved) => saved && back('STATUS'))
-            }
-          />
-        }
-      >
-        <HeatwaveSettingsForm settings={draft} onChange={setDraft} />
-        {error ? <SetupNotice tone="danger">{error}</SetupNotice> : null}
-      </SetupPage>
-    );
-
   return (
     <SetupPage
-      pageKey="heatwave-status"
-      direction={direction}
-      eyebrow={t('heatwave.card.cardEyebrow')}
-      title={t('heatwave.card.title')}
-      subtitle={t('heatwave.card.detailSubtitle')}
+      pageKey="heatwave-settings"
+      eyebrow={t('heatwave.card.settingsTitle')}
+      title={t('heatwave.settings.title')}
+      subtitle={t('heatwave.settings.intro')}
       footer={
-        data?.canToggle ? (
-          <PrimaryButton
-            label={data.active ? t('heatwave.card.deactivate') : t('heatwave.card.activate')}
-            icon={<Power size={20} color="#fff" strokeWidth={2.4} />}
-            busy={busy}
-            onPress={() =>
-              void run(
-                () => mobileApi.setHeatwaveManual(server, token, !data.active),
-                t('heatwave.card.actionError'),
-              )
-            }
-          />
-        ) : undefined
+        <PrimaryButton
+          label={busy ? t('heatwave.settings.saving') : t('heatwave.settings.save')}
+          busy={busy}
+          disabled={!settingsValid(draft)}
+          onPress={() => void save()}
+        />
       }
     >
-      {status.isPending ? (
-        <View style={styles.loading} accessibilityRole="progressbar">
-          <ActivityIndicator color={ss.accent} />
-          <Text style={styles.muted}>{t('heatwave.card.loading')}</Text>
-        </View>
-      ) : !data ? (
-        <View style={styles.stack}>
-          <SetupNotice tone="danger">{t('heatwave.card.error')}</SetupNotice>
-          <SecondaryButton label={t('heatwave.card.retry')} onPress={() => void status.refetch()} />
-        </View>
-      ) : (
-        <HeatwaveStatusView
-          status={data}
-          busy={busy}
-          onSettings={() => {
-            setDraft(structuredClone(data.settings));
-            setError('');
-            go('SETTINGS');
-          }}
-          onRegistryDone={() =>
-            void run(
-              () => mobileApi.acknowledgeHeatwaveRegistry(server, token, data.registry.year),
-              t('heatwave.card.actionError'),
-            )
-          }
-        />
-      )}
-      {error && step === 'STATUS' ? <SetupNotice tone="danger">{error}</SetupNotice> : null}
+      <HeatwaveSettingsForm settings={draft} onChange={setDraft} />
+      {error ? <SetupNotice tone="danger">{error}</SetupNotice> : null}
     </SetupPage>
-  );
-}
-
-function HeatwaveStatusView({
-  status,
-  busy,
-  onSettings,
-  onRegistryDone,
-}: {
-  status: HeatwaveStatus;
-  busy: boolean;
-  onSettings: () => void;
-  onRegistryDone: () => void;
-}) {
-  const tone = heatwaveTone(status);
-  return (
-    <View style={styles.stack}>
-      <View style={[styles.hero, tone === 'active' && styles.heroActive]}>
-        <View style={[styles.heroIcon, tone === 'active' && styles.heroIconActive]}>
-          <ThermometerSun size={26} color={tone === 'active' ? AMBER : ss.accent} />
-        </View>
-        <View style={styles.flex}>
-          <Text style={styles.heroLabel} accessibilityLiveRegion="polite">
-            {heatwaveStatusLabel(status)}
-          </Text>
-          <Text style={styles.heroText}>{heatwaveStateText(status)}</Text>
-        </View>
-      </View>
-
-      <View style={styles.facts}>
-        {heatwaveFacts(status).map((fact, index) => {
-          const Icon = factIcons[fact.key] ?? House;
-          return (
-            <View key={fact.key} style={[styles.fact, index > 0 && styles.factDivider]}>
-              <View style={styles.factIcon}>
-                <Icon size={19} color={ss.accent} />
-              </View>
-              <View style={styles.flex}>
-                <Text style={styles.factLabel}>{fact.label}</Text>
-                <Text style={styles.factValue}>{fact.value}</Text>
-                {fact.detail ? <Text style={styles.muted}>{fact.detail}</Text> : null}
-              </View>
-            </View>
-          );
-        })}
-      </View>
-
-      {status.registry.due ? (
-        <View style={styles.registry} accessible accessibilityLabel={t('heatwave.registry.title')}>
-          <View style={styles.registryHeader}>
-            <Landmark size={20} color={AMBER} />
-            <Text style={styles.registryTitle}>{t('heatwave.registry.title')}</Text>
-          </View>
-          <Text style={styles.registryText}>{t('heatwave.registry.text')}</Text>
-          <Pressable
-            accessibilityRole="link"
-            onPress={() => void Linking.openURL(HEATWAVE_REGISTRY_URL)}
-            style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}
-          >
-            <Text style={styles.link}>{t('heatwave.registry.link')}</Text>
-            <ExternalLink size={16} color={ss.accent} />
-          </Pressable>
-          {status.canToggle ? (
-            <SecondaryButton
-              label={t('heatwave.registry.done')}
-              disabled={busy}
-              onPress={onRegistryDone}
-            />
-          ) : null}
-        </View>
-      ) : null}
-
-      {status.canManage ? (
-        <SecondaryButton
-          label={t('heatwave.card.settings')}
-          icon={<SlidersHorizontal size={19} color={ss.ink} />}
-          disabled={busy}
-          onPress={onSettings}
-        />
-      ) : (
-        <SetupNotice>{t('heatwave.card.readOnly')}</SetupNotice>
-      )}
-      <Text style={styles.disclaimer}>{t('heatwave.notMedical')}</Text>
-    </View>
   );
 }
 

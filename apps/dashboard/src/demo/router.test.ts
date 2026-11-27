@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { HeatwaveScreenView, HeatwaveStatus } from '@elise/contracts';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLanguage } from '../i18n';
 import { handleDemoRequest, resetDemo } from './router';
 
@@ -138,6 +138,26 @@ describe('demo router', () => {
 
     resetDemo();
     expect((handleDemoRequest('GET', '/heatwave').body as HeatwaveStatus).active).toBe(false);
+  });
+
+  it('shows a hot day on the TV during the demo heat episode, as the heatwave card says', () => {
+    vi.stubGlobal('window', { location: { search: '?canicule=on' } });
+    try {
+      resetDemo();
+      const status = handleDemoRequest('GET', '/heatwave').body as HeatwaveStatus;
+      const screen = handleDemoRequest('GET', '/screen').body as {
+        weather: { city: string; temperature: number; maximum: number };
+      };
+      expect(status.active).toBe(true);
+      expect(status.forecast.todayMax).toBe(34);
+      expect(screen.weather).toMatchObject({ city: 'Lyon', maximum: 34 });
+      expect(screen.weather.temperature).toBeGreaterThanOrEqual(25);
+    } finally {
+      vi.unstubAllGlobals();
+      resetDemo();
+    }
+    const calm = handleDemoRequest('GET', '/screen').body as { weather: { maximum: number } };
+    expect(calm.weather.maximum).toBe(22);
   });
 
   it('refuses actions that would leave the page', () => {

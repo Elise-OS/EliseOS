@@ -50,7 +50,6 @@ import {
 import { roomIconKey } from './home-visuals';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import { TvChannelLogo } from './TvChannelLogo';
-import { HeatwaveCard } from './heatwave/HeatwaveCard';
 
 type WeatherCity = {
   name: string;
@@ -1260,7 +1259,6 @@ export function WelcomePage({
           <button onClick={() => setRetry((n) => n + 1)}>{t('welcomePage.tryAgain')}</button>
         </div>
       )}
-      <HeatwaveCard />
       <div className="welcome-main-grid">
         <article className="welcome-card welcome-now">
           <header className="welcome-card-heading">

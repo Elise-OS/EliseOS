@@ -60,12 +60,19 @@ describe('HeatwaveCard', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shows the heat of the day, the reminders and the not-medical notice', async () => {
+  it('explains how the mode works and shows the figures of the day', async () => {
     serve();
     act(() => root.render(<HeatwaveCard />));
     await flush();
     const text = host.textContent ?? '';
-    expect(text).toContain('Mode canicule');
+    expect(text).toContain('Canicule');
+    expect(text).toContain('quand une pièce reste à 28 °C ou plus pendant 30 min');
+    expect(text).toContain('33 °C ou plus pour aujourd’hui ou demain à Lyon');
+    expect(text).toContain('toutes les pièces restent sous 27 °C pendant 2 h');
+    expect(text).toContain('Toutes les 2 h, de 9 h à 20 h');
+    expect(text).toContain('La personne n’a rien à appuyer');
+    expect(text).toContain('31 °C ou plus pendant 1 h');
+    expect(text).toContain('appelez le 15 ou le 112');
     expect(text).toContain('Activé');
     expect(text).toContain('29,4 °C · Chambre');
     expect(text).toContain('Prévision à Lyon');
@@ -103,6 +110,21 @@ describe('HeatwaveCard', () => {
     expect(saved.reminders.enabled).toBe(false);
     expect(host.querySelector('[role="dialog"]')).toBeNull();
     expect(host.textContent).toContain('Rappels désactivés');
+  });
+
+  it('lets a viewer read the card without changing anything', async () => {
+    serve((path) => {
+      if (path !== '/heatwave') return null;
+      const status = demo.handle('GET', '/heatwave')?.body as Record<string, unknown>;
+      return new Response(JSON.stringify({ ...status, canManage: false, canToggle: false }));
+    });
+    act(() => root.render(<HeatwaveCard />));
+    await flush();
+    expect(host.textContent).toContain('Comment ça marche');
+    expect(host.textContent).toContain('Seuls le propriétaire et les administrateurs');
+    const labels = Array.from(host.querySelectorAll('button')).map((b) => b.textContent);
+    expect(labels).not.toContain('Désactiver');
+    expect(labels.some((label) => label?.includes('Réglages'))).toBe(false);
   });
 
   it('stays hidden on a box that does not know the heatwave mode', async () => {

@@ -30,6 +30,7 @@ import { MobilePartnerRibbon } from './MobilePartnerRibbon';
 import { MobileWeatherCard } from './MobileWeatherCard';
 import { MobileZigbeeKeyPanel } from './MobileZigbeeKeyPanel';
 import { MobileBoxHealthPanel, type BoxHealthPlace } from './MobileBoxHealthPanel';
+import { HeatwaveCard } from '../heatwave/HeatwaveCard';
 import { canManageBox } from './box-health-view';
 import { dateLocale, type Language, t } from '../i18n';
 import { LanguageList } from '../i18n/LanguagePicker';
@@ -408,6 +409,7 @@ export function MobileSettingsPanel({
                 </View>
               ) : null}
             </View>
+            <HeatwaveCard server={server} token={token} />
             {canManage ? (
               <Pressable
                 accessibilityRole="button"

@@ -2540,7 +2540,6 @@
       "noAlert": "Sin aviso de calor para la familia."
     },
     "card": {
-      "title": "Modo ola de calor",
       "statusOn": "Activado",
       "statusOff": "En espera",
       "statusPaused": "En pausa",
@@ -2575,11 +2574,11 @@
       "activate": "Activar ahora",
       "deactivate": "Desactivar",
       "settings": "Ajustes",
-      "cardEyebrow": "Calor intenso",
-      "cardOpen": "Ver el detalle",
-      "cardManage": "Ver el detalle y los ajustes",
-      "detailSubtitle": "Lo que hace Élise durante el calor intenso, de un vistazo.",
-      "readOnly": "Solo el propietario y los administradores pueden cambiar estos ajustes."
+      "readOnly": "Solo el propietario y los administradores pueden cambiar estos ajustes.",
+      "settingsEyebrow": "Calor intenso",
+      "settingsTitle": "Ola de calor",
+      "settingsIntro": "Durante el calor intenso, la TV recuerda beber y da consejos, y la familia queda avisada.",
+      "todayTitle": "Hoy"
     },
     "registry": {
       "title": "Registro de ola de calor del ayuntamiento",
@@ -2619,8 +2618,35 @@
       "summaryTitle": "En resumen",
       "error": "No se pudieron guardar los ajustes. Inténtelo de nuevo en un momento.",
       "saving": "Guardando…",
-      "save": "Guardar",
-      "back": "Volver"
+      "save": "Guardar"
+    },
+    "how": {
+      "title": "Cómo funciona",
+      "onTitle": "Se activa solo",
+      "on": "Élise lo activa {{triggers}}. La familia también puede activarlo o desactivarlo a mano.",
+      "onIndoor": "cuando una habitación se mantiene a {{celsius}} °C o más durante {{duration}} (funciona incluso sin Internet)",
+      "onForecast": "cuando la previsión anuncia {{celsius}} °C o más para hoy o mañana en la ciudad de la TV (necesita Internet)",
+      "onForecastCity": "cuando la previsión anuncia {{celsius}} °C o más para hoy o mañana en {{city}} (necesita Internet)",
+      "onManualOnly": "La activación automática está desactivada: solo la familia lo activa, a mano.",
+      "offTitle": "Se desactiva solo",
+      "off": "Cuando todas las habitaciones se mantienen por debajo de {{celsius}} °C durante 2 h y la previsión baja de {{forecast}} °C.",
+      "offIndoor": "Cuando todas las habitaciones se mantienen por debajo de {{celsius}} °C durante 2 h.",
+      "offForecast": "Cuando la previsión baja de {{forecast}} °C para hoy y mañana.",
+      "offManual": "Activado a mano, sigue activo hasta que la familia lo desactiva.",
+      "tvTitle": "En el televisor",
+      "tvBanner": "Una franja ámbar suave en la parte superior de la pantalla.",
+      "tvTips": "Un consejo según el momento: cerrar las persianas por la mañana, refrescarse la cara durante el día, abrir las ventanas por la noche si fuera hace más fresco.",
+      "tvReminders_one": "Cada hora, de {{start}}:00 a {{end}}:00, un recordatorio «beber un vaso de agua» con una melodía discreta, que desaparece solo a los 10 minutos.",
+      "tvReminders_many": "Cada {{count}} horas, de {{start}}:00 a {{end}}:00, un recordatorio «beber un vaso de agua» con una melodía discreta, que desaparece solo a los 10 minutos.",
+      "tvReminders_other": "Cada {{count}} horas, de {{start}}:00 a {{end}}:00, un recordatorio «beber un vaso de agua» con una melodía discreta, que desaparece solo a los 10 minutos.",
+      "tvNoReminders": "Los recordatorios «beber» están desactivados.",
+      "tvNothing": "La persona no tiene nada que pulsar: la TV solo muestra recordatorios.",
+      "familyTitle": "Para la familia",
+      "family": "Una notificación cuando se activa el modo, y una alerta si una habitación se mantiene a {{celsius}} °C o más durante {{duration}}.",
+      "familyNoAlert": "Una notificación cuando se activa el modo. La alerta de calor intenso está desactivada.",
+      "registryTitle": "Registro de ola de calor",
+      "registry": "Cada verano, Élise recuerda que se puede inscribir a la persona en el registro de ola de calor del ayuntamiento (Francia): el ayuntamiento la llama entonces durante las olas de calor.",
+      "medicalTitle": "No es un dispositivo médico"
     }
   }
 }

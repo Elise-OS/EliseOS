@@ -5,6 +5,7 @@ import { mockDemoRequest, resetDemoSession } from '../demo/mock-api';
 import {
   duration,
   heatwaveFacts,
+  heatwaveHowItWorks,
   heatwaveStateText,
   heatwaveStatusLabel,
   heatwaveSummary,
@@ -74,6 +75,36 @@ describe('heatwave view', () => {
     expect(() =>
       mockDemoRequest('/heatwave/settings', { method: 'PUT', body: JSON.stringify({}) }),
     ).toThrow();
+  });
+
+  it('explains how the mode works with the saved settings, with nothing to press on the TV', () => {
+    setLanguage('fr');
+    resetDemoSession();
+    const status = mockDemoRequest<HeatwaveStatus>('/heatwave');
+    const how = Object.fromEntries(heatwaveHowItWorks(status).map((item) => [item.key, item.text]));
+    expect(how.on).toBe(
+      'Élise l’active quand une pièce reste à 28 °C ou plus pendant 30 min (cela marche même sans Internet), ou quand la météo annonce 33 °C ou plus pour aujourd’hui ou demain à Lyon (il faut Internet). La famille peut aussi l’activer ou le désactiver à la main.',
+    );
+    expect(how.off).toBe(
+      'Quand toutes les pièces restent sous 27 °C pendant 2 h et que la météo repasse sous 33 °C.',
+    );
+    expect(how.tv).toContain('Toutes les 2 h, de 9 h à 20 h');
+    expect(how.tv).toContain('La personne n’a rien à appuyer');
+    expect(how.tv).not.toMatch(/télécommande|C’est fait/);
+    expect(how.family).toContain('31 °C ou plus pendant 1 h');
+    expect(how.medical).toContain('appelez le 15 ou le 112');
+
+    const quiet = heatwaveHowItWorks({
+      ...status,
+      settings: {
+        ...status.settings,
+        indoorTrigger: { ...status.settings.indoorTrigger, enabled: false },
+        forecastTrigger: { ...status.settings.forecastTrigger, enabled: false },
+        reminders: { ...status.settings.reminders, everyHours: 1, enabled: true },
+      },
+    });
+    expect(quiet[0]?.text).toContain('seule la famille l’active');
+    expect(quiet[2]?.text).toContain('Chaque heure, de 9 h à 20 h');
   });
 
   it('speaks the visitor’s language', () => {

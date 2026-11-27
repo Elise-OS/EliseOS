@@ -1270,7 +1270,6 @@
       "noAlert": "No heat alert for the family."
     },
     "card": {
-      "title": "Heatwave mode",
       "statusOn": "On",
       "statusOff": "Standing by",
       "statusPaused": "Paused",
@@ -1303,7 +1302,11 @@
       "nextReminder": "Next at {{time}}",
       "activate": "Turn on now",
       "deactivate": "Turn off",
-      "settings": "Settings"
+      "settings": "Settings",
+      "settingsEyebrow": "Hot weather",
+      "settingsTitle": "Heatwave",
+      "settingsIntro": "During hot weather, the TV reminds your loved one to drink and gives advice, and the family is told.",
+      "todayTitle": "Today"
     },
     "registry": {
       "title": "Town hall heatwave register",
@@ -1360,6 +1363,34 @@
     "demo": {
       "warmRoom": "Bedroom",
       "mildRoom": "Living room"
+    },
+    "how": {
+      "title": "How it works",
+      "onTitle": "It turns on by itself",
+      "on": "Élise turns it on {{triggers}}. The family can also turn it on or off by hand.",
+      "onIndoor": "when a room stays at {{celsius}} °C or more for {{duration}} (this works even without Internet)",
+      "onForecast": "when the forecast announces {{celsius}} °C or more for today or tomorrow in the TV’s city (needs Internet)",
+      "onForecastCity": "when the forecast announces {{celsius}} °C or more for today or tomorrow in {{city}} (needs Internet)",
+      "onManualOnly": "Automatic start is switched off: only the family turns it on, by hand.",
+      "offTitle": "It turns off by itself",
+      "off": "When every room stays below {{celsius}} °C for 2 h and the forecast drops below {{forecast}} °C.",
+      "offIndoor": "When every room stays below {{celsius}} °C for 2 h.",
+      "offForecast": "When the forecast drops below {{forecast}} °C for today and tomorrow.",
+      "offManual": "Turned on by hand, it stays on until the family turns it off.",
+      "tvTitle": "On the TV",
+      "tvBanner": "A soft amber banner at the top of the screen.",
+      "tvTips": "Advice for the time of day: close the shutters in the morning, cool the face during the day, open the windows in the evening when it is cooler outside.",
+      "tvReminders_one": "Every hour, from {{start}}:00 to {{end}}:00, a “drink a glass of water” reminder with a quiet chime, which goes away by itself after 10 minutes.",
+      "tvReminders_other": "Every {{count}} hours, from {{start}}:00 to {{end}}:00, a “drink a glass of water” reminder with a quiet chime, which goes away by itself after 10 minutes.",
+      "tvNoReminders": "“Drink” reminders are switched off.",
+      "tvNothing": "Your loved one has nothing to press: the TV only shows reminders.",
+      "familyTitle": "For the family",
+      "family": "A notification when the mode turns on, and an alert if a room stays at {{celsius}} °C or more for {{duration}}.",
+      "familyNoAlert": "A notification when the mode turns on. The high heat alert is switched off.",
+      "registryTitle": "Heatwave register",
+      "registry": "Each summer, Élise reminds you that your loved one can be registered on the town hall heatwave register (France): the town hall then calls them during heatwaves.",
+      "medicalTitle": "Not a medical device",
+      "readOnly": "Only the owner and administrators can change these settings."
     }
   },
   "homeOverview": {

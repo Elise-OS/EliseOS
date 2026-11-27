@@ -2544,7 +2544,6 @@
       "noAlert": "Pas d’alerte à la famille pour la chaleur."
     },
     "card": {
-      "title": "Mode canicule",
       "statusOn": "Activé",
       "statusOff": "En veille",
       "statusPaused": "En pause",
@@ -2579,11 +2578,11 @@
       "activate": "Activer maintenant",
       "deactivate": "Désactiver",
       "settings": "Réglages",
-      "cardEyebrow": "Fortes chaleurs",
-      "cardOpen": "Voir le détail",
-      "cardManage": "Voir le détail et les réglages",
-      "detailSubtitle": "Ce que fait Élise pendant les fortes chaleurs, en un coup d’œil.",
-      "readOnly": "Seuls le propriétaire et les administrateurs peuvent modifier ces réglages."
+      "readOnly": "Seuls le propriétaire et les administrateurs peuvent modifier ces réglages.",
+      "settingsEyebrow": "Fortes chaleurs",
+      "settingsTitle": "Canicule",
+      "settingsIntro": "Pendant les fortes chaleurs, la TV rappelle de boire et donne des conseils, et la famille est prévenue.",
+      "todayTitle": "Aujourd’hui"
     },
     "registry": {
       "title": "Registre canicule de la mairie",
@@ -2623,8 +2622,35 @@
       "summaryTitle": "En résumé",
       "error": "Les réglages n’ont pas pu être enregistrés. Réessayez dans un instant.",
       "saving": "Enregistrement…",
-      "save": "Enregistrer",
-      "back": "Retour"
+      "save": "Enregistrer"
+    },
+    "how": {
+      "title": "Comment ça marche",
+      "onTitle": "Il s’active tout seul",
+      "on": "Élise l’active {{triggers}}. La famille peut aussi l’activer ou le désactiver à la main.",
+      "onIndoor": "quand une pièce reste à {{celsius}} °C ou plus pendant {{duration}} (cela marche même sans Internet)",
+      "onForecast": "quand la météo annonce {{celsius}} °C ou plus pour aujourd’hui ou demain dans la ville de la TV (il faut Internet)",
+      "onForecastCity": "quand la météo annonce {{celsius}} °C ou plus pour aujourd’hui ou demain à {{city}} (il faut Internet)",
+      "onManualOnly": "Le déclenchement automatique est coupé : seule la famille l’active, à la main.",
+      "offTitle": "Il s’arrête tout seul",
+      "off": "Quand toutes les pièces restent sous {{celsius}} °C pendant 2 h et que la météo repasse sous {{forecast}} °C.",
+      "offIndoor": "Quand toutes les pièces restent sous {{celsius}} °C pendant 2 h.",
+      "offForecast": "Quand la météo repasse sous {{forecast}} °C pour aujourd’hui et demain.",
+      "offManual": "Activé à la main, il reste actif jusqu’à ce que la famille le désactive.",
+      "tvTitle": "À la télévision",
+      "tvBanner": "Un bandeau ambré tout doux en haut de l’écran.",
+      "tvTips": "Un conseil selon le moment : fermer les volets le matin, se rafraîchir le visage dans la journée, ouvrir les fenêtres le soir s’il fait plus frais dehors.",
+      "tvReminders_one": "Chaque heure, de {{start}} h à {{end}} h, un rappel « boire un verre d’eau » avec une petite mélodie, qui s’efface tout seul après 10 minutes.",
+      "tvReminders_many": "Toutes les {{count}} h, de {{start}} h à {{end}} h, un rappel « boire un verre d’eau » avec une petite mélodie, qui s’efface tout seul après 10 minutes.",
+      "tvReminders_other": "Toutes les {{count}} h, de {{start}} h à {{end}} h, un rappel « boire un verre d’eau » avec une petite mélodie, qui s’efface tout seul après 10 minutes.",
+      "tvNoReminders": "Les rappels « boire » sont coupés.",
+      "tvNothing": "La personne n’a rien à appuyer : la TV affiche seulement des rappels.",
+      "familyTitle": "Pour la famille",
+      "family": "Une notification quand le mode s’active, et une alerte si une pièce reste à {{celsius}} °C ou plus pendant {{duration}}.",
+      "familyNoAlert": "Une notification quand le mode s’active. L’alerte forte chaleur est coupée.",
+      "registryTitle": "Registre canicule",
+      "registry": "Chaque été, Élise rappelle qu’on peut inscrire la personne au registre canicule de la mairie : la mairie l’appelle alors pendant les fortes chaleurs.",
+      "medicalTitle": "Pas un dispositif médical"
     }
   }
 }

@@ -68,3 +68,77 @@ export function heatwaveStateText(status: HeatwaveStatus): string {
     return t('heatwave.card.idleManualOnly');
   return t('heatwave.card.idle');
 }
+
+export type HeatwaveHowKey = 'on' | 'off' | 'tv' | 'family' | 'registry' | 'medical';
+
+/**
+ * How the mode works, in plain words and with the saved settings: when it starts and stops,
+ * what the TV shows, what the family receives, the town hall register and its limits.
+ */
+export function heatwaveHowItWorks(
+  status: Pick<HeatwaveStatus, 'settings' | 'forecast'>,
+): Array<{ key: HeatwaveHowKey; title: string; text: string }> {
+  const { settings, forecast } = status;
+  const { indoorTrigger, forecastTrigger, reminders, tips, alert } = settings;
+  const triggers = [
+    indoorTrigger.enabled
+      ? t('heatwave.how.onIndoor', {
+          celsius: celsius(indoorTrigger.celsius),
+          duration: duration(indoorTrigger.minutes),
+        })
+      : null,
+    forecastTrigger.enabled
+      ? forecast.city
+        ? t('heatwave.how.onForecastCity', {
+            celsius: celsius(forecastTrigger.celsius),
+            city: forecast.city,
+          })
+        : t('heatwave.how.onForecast', { celsius: celsius(forecastTrigger.celsius) })
+      : null,
+  ].filter((part): part is string => part !== null);
+  const cool = celsius(indoorTrigger.celsius - HEATWAVE_COOL_MARGIN);
+  const forecastLimit = celsius(forecastTrigger.celsius);
+  const off =
+    indoorTrigger.enabled && forecastTrigger.enabled
+      ? t('heatwave.how.off', { celsius: cool, forecast: forecastLimit })
+      : indoorTrigger.enabled
+        ? t('heatwave.how.offIndoor', { celsius: cool })
+        : forecastTrigger.enabled
+          ? t('heatwave.how.offForecast', { forecast: forecastLimit })
+          : t('heatwave.how.offManual');
+  const tv = [
+    t('heatwave.how.tvBanner'),
+    tips.enabled ? t('heatwave.how.tvTips') : null,
+    reminders.enabled
+      ? t('heatwave.how.tvReminders', {
+          count: reminders.everyHours,
+          start: reminders.startHour,
+          end: reminders.endHour,
+        })
+      : t('heatwave.how.tvNoReminders'),
+    t('heatwave.how.tvNothing'),
+  ].filter((part): part is string => part !== null);
+  return [
+    {
+      key: 'on',
+      title: t('heatwave.how.onTitle'),
+      text: triggers.length
+        ? t('heatwave.how.on', { triggers: triggers.join(t('heatwave.summary.or')) })
+        : t('heatwave.how.onManualOnly'),
+    },
+    { key: 'off', title: t('heatwave.how.offTitle'), text: off },
+    { key: 'tv', title: t('heatwave.how.tvTitle'), text: tv.join(' ') },
+    {
+      key: 'family',
+      title: t('heatwave.how.familyTitle'),
+      text: alert.enabled
+        ? t('heatwave.how.family', {
+            celsius: celsius(alert.celsius),
+            duration: duration(alert.minutes),
+          })
+        : t('heatwave.how.familyNoAlert'),
+    },
+    { key: 'registry', title: t('heatwave.how.registryTitle'), text: t('heatwave.how.registry') },
+    { key: 'medical', title: t('heatwave.how.medicalTitle'), text: t('heatwave.notMedical') },
+  ];
+}

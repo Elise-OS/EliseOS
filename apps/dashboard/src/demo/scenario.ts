@@ -1,5 +1,6 @@
 // The “Maison Martin” scenario, ported from the mobile app demo (apps/mobile/src/demo/mock-api.ts)
 // so the web demo shows the same home, people and day. Keep both in step when the scenario changes.
+import { demoHeatEpisode, HEAT_EPISODE_WEATHER } from './heat';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   defaultTvChannels,
@@ -2037,6 +2038,8 @@ function createScreenSnapshot(): ScreenSnapshot {
       minimum: 13,
       maximum: 22,
       weatherCode: 2,
+      // The heat episode of the demo (?canicule=on) shows the hot day of the heatwave card.
+      ...(demoHeatEpisode() ? HEAT_EPISODE_WEATHER : {}),
       observedAt: iso(-10 * MINUTE),
     },
     members: [

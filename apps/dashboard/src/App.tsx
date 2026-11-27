@@ -56,6 +56,7 @@ import { GuidedTour, type GuidedTourMode } from './GuidedTour';
 import { DataLoadingScreen } from './DataLoadingScreen';
 import { FlagIcon } from './FlagIcons';
 import { RemoteAccessCard } from './RemoteAccessCard';
+import { HeatwaveCard } from './heatwave/HeatwaveCard';
 import { ActivityPage } from './ActivityPage';
 import { UpdateCard } from './UpdateCard';
 import type { UpdateStatus } from '@elise/contracts';
@@ -1646,6 +1647,7 @@ export function App() {
                   </div>
                 </details>
               )}
+              {settingsTab === 'general' && <HeatwaveCard />}
               {settingsTab === 'general' &&
                 currentAccess.capabilities.includes('configuration:manage') && (
                   <RemoteAccessCard locale={locale} />

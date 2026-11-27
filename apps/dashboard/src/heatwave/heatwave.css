@@ -1,6 +1,6 @@
-/* Heatwave mode: home card and settings window. Palette of the design contract (cream, night
-   blue, amber); amber only signals warmth, never an emergency. */
-.heatwave-card {
+/* Heatwave mode: « Canicule » card of the Settings page and settings window. Palette of the
+   design contract (cream, night blue, amber); amber only signals warmth, never an emergency. */
+.heatwave-settings-card {
   --hw-navy: #12385f;
   --hw-ink: #0b2948;
   --hw-muted: #687382;
@@ -8,98 +8,74 @@
   --hw-amber-deep: #9a5d1d;
   --hw-amber-soft: #fbefdf;
   --hw-line: #ded8ce;
+}
+.settings-page > .heatwave-settings-card {
+  margin-top: 22px;
+}
+.heatwave-settings-card > summary .heatwave-pill {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-left: auto;
+}
+.heatwave-settings-card > summary .heatwave-pill + .settings-disclosure-chevron {
+  margin-left: 0;
+}
+.heatwave-card {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    'icon lead actions'
-    'facts facts facts'
-    'error error error'
-    'registry registry registry'
-    'disclaimer disclaimer disclaimer';
-  align-items: center;
-  gap: 14px 16px;
-  padding: 18px 20px;
-  border: 1px solid var(--hw-line);
-  border-radius: 18px;
-  background: linear-gradient(110deg, #fdfbf7, #fff 58%, #f7f3ec);
-  box-shadow: 0 7px 22px rgb(29 55 79 / 5%);
+  gap: 14px;
   color: var(--hw-ink);
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
 }
-.heatwave-card.is-active {
+.heatwave-card__lead {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid #ebe5da;
+  border-radius: 14px;
+  background: #f8f6f1;
+}
+.heatwave-card.is-active .heatwave-card__lead {
   border-color: #ecd2ad;
   background: linear-gradient(110deg, #fff8ee, #fffdf9 60%, #fbf1e2);
 }
-.heatwave-card.is-loading {
-  grid-template-areas: 'icon lead';
-  grid-template-columns: auto minmax(0, 1fr);
-}
-.heatwave-card__icon {
-  grid-area: icon;
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  background: #eef3f6;
-  color: #376884;
-}
-.heatwave-card.is-active .heatwave-card__icon {
-  background: var(--hw-amber-soft);
-  color: var(--hw-amber-deep);
-}
-.heatwave-card__icon svg {
-  width: 24px;
-  height: 24px;
-}
-.heatwave-card__lead {
-  grid-area: lead;
-  min-width: 0;
-}
-.heatwave-card__title-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-}
-.heatwave-card h3 {
+.heatwave-card__lead p,
+.heatwave-card.is-loading p {
   margin: 0;
-  font-family: 'Source Serif 4', Georgia, serif;
-  font-size: 1.2rem;
-  font-weight: 650;
-  color: var(--hw-navy);
-}
-.heatwave-card__lead p {
-  margin: 4px 0 0;
   color: #3d4f61;
-  font-size: 0.94rem;
-  line-height: 1.45;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+.heatwave-card__heading {
+  margin: 8px 0 0;
+  color: var(--hw-navy);
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 650;
 }
 .heatwave-pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 10px;
+  padding: 4px 11px;
   border-radius: 999px;
   background: #eef3f6;
   color: #376884;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 650;
+  white-space: nowrap;
 }
 .heatwave-pill svg {
   width: 13px;
   height: 13px;
 }
-.heatwave-card.is-active .heatwave-pill {
+.heatwave-pill--is-active {
   background: var(--hw-amber-soft);
   color: var(--hw-amber-deep);
 }
-.heatwave-card.is-paused .heatwave-pill {
+.heatwave-pill--is-paused {
   background: #f1eee8;
   color: var(--hw-muted);
 }
 .heatwave-card__facts {
-  grid-area: facts;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
@@ -110,7 +86,7 @@
   padding: 11px 13px;
   border: 1px solid #ebe5da;
   border-radius: 13px;
-  background: rgb(255 255 255 / 72%);
+  background: #fff;
 }
 .heatwave-card__facts dt {
   display: flex;
@@ -139,11 +115,62 @@
   font-size: 0.8rem;
   font-weight: 500;
 }
+.heatwave-how {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.heatwave-how li {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+  padding: 13px 15px;
+  border: 1px solid #ebe5da;
+  border-radius: 14px;
+  background: #fff;
+}
+.heatwave-how__icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--hw-amber-soft);
+  color: var(--hw-amber-deep);
+}
+.heatwave-how__icon svg {
+  width: 18px;
+  height: 18px;
+}
+.heatwave-how strong {
+  color: var(--hw-navy);
+  font-size: 0.95rem;
+}
+.heatwave-how p {
+  margin: 3px 0 0;
+  color: #3d4f61;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.heatwave-how__medical {
+  grid-column: 1 / -1;
+}
+.heatwave-how__medical .heatwave-how__icon {
+  background: #eef3f6;
+  color: #376884;
+}
+.heatwave-card__note {
+  margin: 0;
+  color: var(--hw-muted);
+  font-size: 0.88rem;
+}
 .heatwave-card__actions {
-  grid-area: actions;
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
   gap: 8px;
 }
 .heatwave-button {
@@ -205,7 +232,6 @@
   cursor: pointer;
 }
 .heatwave-card__error {
-  grid-area: error;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -217,15 +243,7 @@
   width: 17px;
   height: 17px;
 }
-.heatwave-card__disclaimer {
-  grid-area: disclaimer;
-  margin: 0;
-  color: #5d6b78;
-  font-size: 0.82rem;
-  line-height: 1.4;
-}
 .heatwave-registry {
-  grid-area: registry;
   display: flex;
   gap: 12px;
   padding: 13px 15px;
@@ -517,18 +535,8 @@
 }
 
 @media (max-width: 760px) {
-  .heatwave-card {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-areas:
-      'icon lead'
-      'facts facts'
-      'actions actions'
-      'error error'
-      'registry registry'
-      'disclaimer disclaimer';
-    padding: 16px;
-  }
-  .heatwave-card__facts {
+  .heatwave-card__facts,
+  .heatwave-how {
     grid-template-columns: 1fr;
   }
   .heatwave-card__actions {
@@ -540,9 +548,8 @@
 }
 
 @media (max-width: 480px) {
-  .heatwave-card__icon {
-    width: 40px;
-    height: 40px;
+  .heatwave-settings-card > summary .heatwave-pill {
+    display: none;
   }
   .heatwave-dialog-backdrop {
     place-items: end stretch;

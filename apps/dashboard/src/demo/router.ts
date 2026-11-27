@@ -1,4 +1,5 @@
 import { boxHealthDemoAnswer, boxHealthDemoState } from './box-health';
+import { demoHeatEpisode } from './heat';
 import {
   createHeatwaveDemo,
   createZigbeeDemo,
@@ -114,11 +115,8 @@ let zigbee = createZigbeeDemo({ scenario: zigbeeScenario() });
 
 /** `?canicule=on` opens the demo during a heat episode; otherwise the family can turn it on. */
 function heatwaveDemo() {
-  const heat =
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('canicule') === 'on';
   return createHeatwaveDemo({
-    heat,
+    heat: demoHeatEpisode(),
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     city: 'Lyon',
     rooms: { warm: t('heatwave.demo.warmRoom'), mild: t('heatwave.demo.mildRoom') },

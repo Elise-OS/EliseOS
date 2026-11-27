@@ -16,7 +16,6 @@ import type { SavedServer } from '../discovery/types';
 import { caregiverPresenceCopy } from './presence-copy';
 import { friendlyValue, relativeTime, roomOf } from './formatters';
 import { dateKeyInZone, shiftDate } from './homeDates';
-import { HeatwaveCard } from '../heatwave/HeatwaveCard';
 import { dateLocale, type Language, t } from '../i18n';
 import { useTabBarPadding } from './tabBarSpace';
 
@@ -757,8 +756,6 @@ export function MobileWelcomePanel({
             <Text style={s.body}>{t('mobileWelcomePanel.homeInformationIsUnavailable')}</Text>
           </View>
         )}
-
-        <HeatwaveCard server={server} token={token} />
 
         <View style={s.card}>
           <View style={s.cardHeader}>
