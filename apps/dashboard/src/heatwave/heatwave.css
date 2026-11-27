@@ -502,12 +502,18 @@
   color: #9b3c3c;
   font-size: 0.9rem;
 }
+/* The app styles every <footer> as its page footer: the window's own footer opts out. */
 .heatwave-dialog__footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
+  min-height: 0;
+  margin: 0;
   padding: 14px 22px 18px;
   border-top: 1px solid #ebe5da;
+  color: inherit;
+  font-size: 1rem;
 }
 
 @media (max-width: 760px) {
