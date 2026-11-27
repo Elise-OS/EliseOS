@@ -84,7 +84,7 @@ Chaque changement (réglages, activation ou désactivation à la main, registre)
 ## Pour les développeurs
 
 - Contrats : `packages/contracts/src/heatwave.ts` (schéma des réglages, règles d’activation et d’arrêt, rappels, conseils, registre) et `heatwave-demo.ts` (démos web et mobile).
-- API : `apps/api/src/modules/heatwave/` — `GET /api/v1/heatwave`, `PUT /api/v1/heatwave/settings`, `POST /api/v1/heatwave/manual`, `POST /api/v1/heatwave/registry`, `GET /api/v1/heatwave/screen`, et pour la TV appairée `GET /api/v1/screen-device/heatwave` (lecture seule : la TV n’envoie rien). Migration Prisma `20261127120000_heatwave_mode`.
+- API : `apps/api/src/modules/heatwave/` — `GET /api/v1/heatwave`, `PUT /api/v1/heatwave/settings`, `POST /api/v1/heatwave/manual`, `POST /api/v1/heatwave/registry`, `GET /api/v1/heatwave/screen`, et pour la TV appairée `GET /api/v1/screen-device/heatwave` (lecture seule : la TV n’envoie rien). Migration Prisma `20261127130000_heatwave_mode`.
 - Worker : `apps/worker/src/heatwave.ts` évalue chaque minute, à partir de la base seule, l’état du mode, les rappels (affichés puis effacés à leur heure de fin) et l’alerte `heatwave-indoor`.
 - Interface : `apps/dashboard/src/heatwave/` (carte « Canicule » des Réglages, fenêtre de réglages, bandeau et rappel TV) ; mobile : `apps/mobile/src/heatwave/` (carte de l’onglet Réglages et fiche de réglages).
 - Démo : `?canicule=on` ouvre la démo web pendant un épisode de chaleur, avec la météo de la TV assortie (34 °C annoncés à Lyon) ; `EXPO_PUBLIC_HEATWAVE_DEMO=on` (ou `?canicule=on` sur la version web) fait de même pour l’application mobile. Sinon, le visiteur peut activer le mode depuis la carte.
