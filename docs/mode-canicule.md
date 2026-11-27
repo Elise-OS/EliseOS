@@ -8,12 +8,15 @@ Quand il fait très chaud, Élise passe en **mode canicule** : la TV rappelle do
 
 ## Où le trouver
 
-Dans l’espace aidant, **Réglages → Canicule** (onglet Général). Sur l’application mobile, la carte « Canicule » se trouve dans l’onglet **Réglages**. La carte explique en quelques phrases comment le mode fonctionne, avec les seuils enregistrés, et montre :
+Dans l’espace aidant, **Réglages → onglet Canicule**, à côté des onglets Général, Clé Zigbee, Santé de la box et Règles. Sur l’application mobile, **Réglages → Canicule** : une ligne de la liste des réglages (avec l’état du mode) ouvre un écran dédié, avec un bouton de retour. L’onglet montre, de haut en bas :
 
-- si le mode est activé, en veille ou en pause, et pourquoi ;
-- les boutons **Activer maintenant** / **Désactiver** et **Réglages** ;
-- les chiffres du jour : température maximale dans le logement et pièce la plus chaude, prévision d’aujourd’hui et de demain pour la ville de la TV, nombre de rappels « boire » déjà affichés à la TV et heure du prochain ;
-- le rappel annuel du registre canicule de la mairie, quand c’est la saison.
+- **l’état du mode**, en grand : activé (en ambre), en veille (bleu calme) ou en pause, avec la raison en clair (« Forte chaleur annoncée à Lyon : 34 °C »), l’heure ou le jour d’activation, et ce que fait Élise en ce moment (bandeau ambré à la TV, un verre d’eau toutes les 2 h, conseils selon l’heure, famille alertée dès 31 °C) ou ce qu’elle surveille (logement dès 28 °C, météo dès 33 °C) ;
+- les boutons **Activer maintenant** / **Désactiver** et **Modifier les réglages** ;
+- **Aujourd’hui** : température maximale dans le logement et pièce la plus chaude, prévision d’aujourd’hui et de demain pour la ville de la TV, et la frise des rappels « boire » de la journée (déjà affichés, prochain, à venir) ;
+- **Vos réglages** : les seuils enregistrés résumés en une ligne chacun (déclenchement, arrêt automatique, rappels, conseils, alerte), avec un bouton **Modifier** ;
+- **Comment ça marche**, en quatre étapes illustrées écrites à partir des réglages enregistrés : Élise détecte la chaleur, la TV rappelle de boire, la famille est prévenue, tout s’arrête seul ;
+- le rappel annuel du **registre canicule de la mairie**, quand c’est la saison ;
+- en pied de page, la mention « pas un dispositif médical » (en cas de malaise, le 15 ou le 112).
 
 ## Quand le mode s’active
 
@@ -23,7 +26,7 @@ Le mode canicule s’active dès que l’une de ces conditions est remplie :
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------ |
 | Chaleur dans le logement  | Au moins une pièce équipée d’un capteur de température reste au-dessus du seuil pendant la durée choisie.        | 28 °C pendant 30 minutes |
 | Prévision météo           | La température maximale annoncée pour aujourd’hui ou demain, dans la ville choisie pour la TV, atteint le seuil. | 33 °C                    |
-| À la main, par la famille | Bouton **Activer maintenant** de la carte « Canicule » des Réglages (web ou application mobile).                 | —                        |
+| À la main, par la famille | Bouton **Activer maintenant** de l’onglet Canicule des Réglages (web ou application mobile).                     | —                        |
 
 - **Capteurs** : Élise utilise les capteurs de température déjà installés dans les pièces (par exemple les capteurs température/humidité Zigbee). Un relevé de plus d’1 h 30 n’est plus pris en compte.
 - **Météo** : la prévision vient de la même source que la météo affichée à la TV, **Open-Meteo**, gratuite et sans compte. La ville est celle des réglages météo de la TV. Élise la relève tous les quarts d’heure ; sans Internet, elle garde la dernière prévision reçue (la prévision « demain » de la veille sert encore pour aujourd’hui).
@@ -51,12 +54,12 @@ La personne n’a rien à faire : aucun bouton, aucune question, rien n’attend
 
 - **Une notification** quand le mode s’active (contenu minimal : « Élise · Mode canicule activé ») ; le détail reste dans l’application.
 - **Une alerte « Forte chaleur »** si une pièce reste à **31 °C ou plus pendant 1 heure** (réglable). Elle apparaît dans la page Alertes comme les autres, avec la pièce et la température, et se prend en charge de la même façon.
-- **La carte « Canicule » des Réglages** (espace aidant web et application mobile), décrite plus haut.
-- **Le registre canicule de la mairie** : chaque année, de juin à août ou à la première activation du mode, la carte rappelle que les mairies tiennent un registre des personnes âgées, isolées ou fragiles qui souhaitent être appelées pendant les fortes chaleurs. L’inscription est gratuite et facultative, et un proche peut la demander auprès de la mairie ou du CCAS. Un lien mène à la page officielle de service-public.gouv.fr ; le bouton « Ne plus afficher cette année » masque ce rappel jusqu’à l’année suivante.
+- **L’onglet Canicule des Réglages** (espace aidant web et application mobile), décrit plus haut.
+- **Le registre canicule de la mairie** : chaque année, de juin à août ou à la première activation du mode, l’onglet rappelle que les mairies tiennent un registre des personnes âgées, isolées ou fragiles qui souhaitent être appelées pendant les fortes chaleurs. L’inscription est gratuite et facultative, et un proche peut la demander auprès de la mairie ou du CCAS. Un lien mène à la page officielle de service-public.gouv.fr ; le bouton « Ne plus afficher cette année » masque ce rappel jusqu’à l’année suivante.
 
 ## Réglages
 
-Le bouton **Réglages** de la carte « Canicule » ouvre une fenêtre (web) ou une fiche (application mobile) qui permet de régler chaque option et de la couper séparément. Un résumé en phrases simples se met à jour pendant les réglages.
+Le bouton **Modifier les réglages** (ou **Modifier**, dans « Vos réglages ») de l’onglet Canicule ouvre une fenêtre (web) ou une fiche (application mobile) qui permet de régler chaque option et de la couper séparément. Un résumé en phrases simples se met à jour pendant les réglages.
 
 | Option                   | Ce qu’on règle                                      | Par défaut              |
 | ------------------------ | --------------------------------------------------- | ----------------------- |
@@ -68,7 +71,7 @@ Le bouton **Réglages** de la carte « Canicule » ouvre une fenêtre (web) ou u
 
 Qui peut faire quoi :
 
-- tous les membres de la famille voient la carte et ses explications ;
+- tous les membres de la famille voient l’onglet Canicule et ses explications ;
 - le propriétaire, les administrateurs et les aidants peuvent activer ou désactiver le mode à la main ;
 - seuls le propriétaire et les administrateurs modifient les réglages.
 
@@ -77,7 +80,7 @@ Chaque changement (réglages, activation ou désactivation à la main, registre)
 ## Limites
 
 - **Pas un dispositif médical.** Le mode canicule ne remplace ni un avis médical, ni les consignes officielles, ni une présence humaine. Il rappelle de boire, mais ne sait pas si la personne a bu.
-- **Dépend des capteurs** : sans capteur de température, seul le déclencheur météo et l’activation à la main fonctionnent, et la carte n’affiche pas de température intérieure. Un capteur placé au soleil ou près d’une source de chaleur fausse les relevés.
+- **Dépend des capteurs** : sans capteur de température, seul le déclencheur météo et l’activation à la main fonctionnent, et l’onglet n’affiche pas de température intérieure. Un capteur placé au soleil ou près d’une source de chaleur fausse les relevés.
 - **Dépend du réseau** : la prévision météo a besoin d’Internet et d’une ville renseignée dans les réglages météo de la TV ; les notifications sur téléphone ont besoin d’une connexion. Sans liaison avec la box (coupure de courant ou réseau), la TV garde le dernier état connu et les rappels ne sont plus envoyés.
 - **Vigilance Météo-France** : les niveaux officiels de vigilance canicule ne sont pas encore repris ; ils sont prévus pour une étape suivante.
 
@@ -86,5 +89,5 @@ Chaque changement (réglages, activation ou désactivation à la main, registre)
 - Contrats : `packages/contracts/src/heatwave.ts` (schéma des réglages, règles d’activation et d’arrêt, rappels, conseils, registre) et `heatwave-demo.ts` (démos web et mobile).
 - API : `apps/api/src/modules/heatwave/` — `GET /api/v1/heatwave`, `PUT /api/v1/heatwave/settings`, `POST /api/v1/heatwave/manual`, `POST /api/v1/heatwave/registry`, `GET /api/v1/heatwave/screen`, et pour la TV appairée `GET /api/v1/screen-device/heatwave` (lecture seule : la TV n’envoie rien). Migration Prisma `20261127130000_heatwave_mode`.
 - Worker : `apps/worker/src/heatwave.ts` évalue chaque minute, à partir de la base seule, l’état du mode, les rappels (affichés puis effacés à leur heure de fin) et l’alerte `heatwave-indoor`.
-- Interface : `apps/dashboard/src/heatwave/` (carte « Canicule » des Réglages, fenêtre de réglages, bandeau et rappel TV) ; mobile : `apps/mobile/src/heatwave/` (carte de l’onglet Réglages et fiche de réglages).
-- Démo : `?canicule=on` ouvre la démo web pendant un épisode de chaleur, avec la météo de la TV assortie (34 °C annoncés à Lyon) ; `EXPO_PUBLIC_HEATWAVE_DEMO=on` (ou `?canicule=on` sur la version web) fait de même pour l’application mobile. Sinon, le visiteur peut activer le mode depuis la carte.
+- Interface : `apps/dashboard/src/heatwave/` (`HeatwavePanel.tsx` : onglet « Canicule » des Réglages ; fenêtre de réglages, bandeau et rappel TV) ; mobile : `apps/mobile/src/heatwave/` (`HeatwavePanel.tsx` : ligne de la liste des Réglages et écran Canicule ; fiche de réglages).
+- Démo : `?canicule=on` ouvre la démo web pendant un épisode de chaleur, avec la météo de la TV assortie (34 °C annoncés à Lyon) ; `EXPO_PUBLIC_HEATWAVE_DEMO=on` (ou `?canicule=on` sur la version web) fait de même pour l’application mobile. Sinon, le visiteur peut activer le mode depuis l’onglet Canicule.
