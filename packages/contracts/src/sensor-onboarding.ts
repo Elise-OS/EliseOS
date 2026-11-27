@@ -34,7 +34,7 @@ export const SENSOR_CATEGORY_GROUPS: Array<{
   { id: 'safety', categories: ['smoke', 'carbon_monoxide', 'water_leak'] },
   {
     id: 'comfort',
-    categories: ['temperature', 'humidity', 'shower', 'air_quality', 'illuminance'],
+    categories: ['temperature', 'humidity', 'shower', 'air_quality', 'illuminance', 'light'],
   },
 ];
 
