@@ -11,6 +11,7 @@ import {
   localMinuteOfDay,
   minuteInNightWindow,
   nightPathInputSchema,
+  nightPathRoomPhrase,
   nightPathTestSchema,
   nightPathTurnOffData,
   nightPathTurnOnData,
@@ -208,5 +209,19 @@ describe('lighting as a room equipment', () => {
 describe('nightPathUpdateSchema', () => {
   it('never fills defaults into a partial update', () => {
     assert.deepEqual(nightPathUpdateSchema.parse({ enabled: false }), { enabled: false });
+  });
+});
+
+describe('nightPathRoomPhrase', () => {
+  it('reads naturally in every language', () => {
+    assert.equal(nightPathRoomPhrase('fr', 'BEDROOM', 'Chambre'), 'la chambre');
+    assert.equal(nightPathRoomPhrase('fr', 'ENTRANCE', 'Entrée'), 'l’entrée');
+    assert.equal(nightPathRoomPhrase('fr', 'TOILET', 'Toilettes'), 'les toilettes');
+    assert.equal(nightPathRoomPhrase('fr', 'OTHER', 'Bureau'), 'bureau');
+    assert.equal(nightPathRoomPhrase('en', 'BEDROOM', 'Bedroom'), 'the bedroom');
+    assert.equal(nightPathRoomPhrase('es', 'KITCHEN', 'Cocina'), 'la cocina');
+    assert.equal(nightPathRoomPhrase('it', 'BEDROOM', 'Camera'), 'camera');
+    assert.equal(nightPathRoomPhrase('pt-PT', 'BEDROOM', 'Quarto'), 'no quarto');
+    assert.equal(nightPathRoomPhrase('pt', 'OTHER', 'Escritório'), 'em escritório');
   });
 });

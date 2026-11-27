@@ -71,7 +71,7 @@ const noop = () => undefined;
 describe('night path summary', () => {
   it('reads like a sentence for the family', () => {
     expect(nightPathSummary(path, rooms, 'Jeanne')).toBe(
-      'La nuit, de 22 h à 7 h, quand Jeanne bouge dans chambre : chambre, couloir et toilettes s’allument doucement.',
+      'La nuit, de 22 h à 7 h, quand Jeanne bouge dans la chambre : chambre, couloir et toilettes s’allument doucement.',
     );
   });
 
@@ -85,9 +85,12 @@ describe('night path summary', () => {
     expect(nightPathSummary(path, withBed, 'Jeanne')).toContain('se lève du lit ou bouge');
   });
 
-  it('is translated', () => {
+  it('is translated, with the right articles', () => {
+    expect(inLanguage('pt', () => nightPathSummary(path, rooms, 'Jeanne'))).toContain(
+      'quando Jeanne se mexe no chambre:',
+    );
     const english = inLanguage('en', () => nightPathSummary(path, rooms, 'Jeanne'));
-    expect(english).toMatch(/^At night, from .+ to .+, when Jeanne moves in chambre: /);
+    expect(english).toMatch(/^At night, from .+ to .+, when Jeanne moves in the chambre: /);
     expect(english).toMatch(/chambre, couloir,? and toilettes softly turn on\.$/);
   });
 

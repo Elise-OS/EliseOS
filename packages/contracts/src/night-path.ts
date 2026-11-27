@@ -209,3 +209,70 @@ export function nightPathTurnOnData(
 export function nightPathTurnOffData(features: LightFeatures | null | undefined) {
   return !features || features.transition ? { transition: NIGHT_PATH_TRANSITION_SECONDS } : {};
 }
+
+type ArticleLanguage = 'fr' | 'en' | 'es' | 'it' | 'pt';
+// Articles by room kind, so that the summary reads « dans la chambre » rather than
+// « dans chambre ». Room names are free text: unknown kinds keep the bare name.
+const ROOM_ARTICLES: Record<Exclude<ArticleLanguage, 'en' | 'it'>, Record<string, string>> = {
+  fr: {
+    LIVING_ROOM: 'le',
+    BEDROOM: 'la',
+    KITCHEN: 'la',
+    BATHROOM: 'la',
+    TOILET: 'les',
+    ENTRANCE: 'la',
+    HALLWAY: 'le',
+    DINING_ROOM: 'la',
+    GARAGE: 'le',
+    GARDEN: 'le',
+    TERRACE: 'la',
+  },
+  es: {
+    LIVING_ROOM: 'el',
+    BEDROOM: 'el',
+    KITCHEN: 'la',
+    BATHROOM: 'el',
+    TOILET: 'el',
+    ENTRANCE: 'la',
+    HALLWAY: 'el',
+    DINING_ROOM: 'el',
+    GARAGE: 'el',
+    GARDEN: 'el',
+    TERRACE: 'la',
+  },
+  // Portuguese contracts the preposition: em + o = no, em + a = na.
+  pt: {
+    LIVING_ROOM: 'na',
+    BEDROOM: 'no',
+    KITCHEN: 'na',
+    BATHROOM: 'na',
+    TOILET: 'na',
+    ENTRANCE: 'na',
+    HALLWAY: 'no',
+    DINING_ROOM: 'na',
+    GARAGE: 'na',
+    GARDEN: 'no',
+    TERRACE: 'no',
+  },
+};
+
+/**
+ * A room as it appears after « quand Jeanne bouge dans … » in each language:
+ * « la chambre », « l’entrée », "the bedroom", « el dormitorio », « camera », « no quarto ».
+ * Portuguese includes its preposition (no / na / em), so its sentence has none.
+ */
+export function nightPathRoomPhrase(language: string, kind: string, name: string) {
+  const lang = language.slice(0, 2).toLowerCase() as ArticleLanguage;
+  const lower = name ? `${name.charAt(0).toLocaleLowerCase(lang)}${name.slice(1)}` : name;
+  if (lang === 'en') return kind === 'OTHER' ? lower : `the ${lower}`;
+  if (lang === 'it') return lower;
+  if (lang === 'pt') {
+    const article = ROOM_ARTICLES.pt[kind];
+    return article ? `${article} ${lower}` : `em ${lower}`;
+  }
+  const article = lang === 'fr' || lang === 'es' ? ROOM_ARTICLES[lang][kind] : undefined;
+  if (!article) return lower;
+  if (lang === 'fr' && article !== 'les' && /^[aeiouyhàâéèêëîïôûù]/i.test(lower))
+    return `l’${lower}`;
+  return `${article} ${lower}`;
+}

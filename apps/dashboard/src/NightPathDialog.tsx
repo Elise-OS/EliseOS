@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import {
   ArrowLeft,
   BedDouble,
@@ -239,6 +239,11 @@ export function NightPathEditor({
             max={100}
             step={5}
             value={draft.brightnessPercent}
+            style={
+              {
+                '--night-path-fill': `${((draft.brightnessPercent - 5) / 95) * 100}%`,
+              } as CSSProperties
+            }
             aria-valuetext={`${draft.brightnessPercent} %`}
             onChange={(event) =>
               onChange({ ...draft, brightnessPercent: Number(event.target.value) })

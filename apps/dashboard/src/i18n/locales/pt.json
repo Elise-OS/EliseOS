@@ -1826,8 +1826,8 @@
     "summary_one": "À noite, das {{start}} às {{end}}, {{when}}: {{lights}} acende-se suavemente.",
     "summary_many": "À noite, das {{start}} às {{end}}, {{when}}: {{lights}} acendem-se suavemente.",
     "summary_other": "À noite, das {{start}} às {{end}}, {{when}}: {{lights}} acendem-se suavemente.",
-    "whenMoves": "quando {{resident}} se mexe em {{rooms}}",
-    "whenMovesOrGetsUp": "quando {{resident}} se levanta da cama ou se mexe em {{rooms}}",
+    "whenMoves": "quando {{resident}} se mexe {{rooms}}",
+    "whenMovesOrGetsUp": "quando {{resident}} se levanta da cama ou se mexe {{rooms}}",
     "summaryIncomplete": "Escolha pelo menos uma divisão de partida e uma divisão a iluminar.",
     "problems": {
       "name": "Dê um nome a este caminho.",

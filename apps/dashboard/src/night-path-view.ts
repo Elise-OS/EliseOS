@@ -1,5 +1,6 @@
 import {
   DEFAULT_NIGHT_PATH,
+  nightPathRoomPhrase,
   type NightPath,
   type NightPathInput,
   type NightPathRoom,
@@ -49,15 +50,18 @@ export function nightPathSummary(
     NightPath,
     'triggerRoomIds' | 'lightRoomIds' | 'startMinute' | 'endMinute' | 'includeBedExit'
   >,
-  rooms: Pick<NightPathRoom, 'id' | 'name' | 'bedSensors'>[],
+  rooms: Pick<NightPathRoom, 'id' | 'name' | 'kind' | 'bedSensors'>[],
   resident: string,
 ) {
-  const names = (ids: string[]) =>
+  const known = (ids: string[]) =>
     ids.flatMap((id) => {
       const room = rooms.find((item) => item.id === id);
-      return room ? [inSentence(room.name)] : [];
+      return room ? [room] : [];
     });
-  const triggers = names(path.triggerRoomIds);
+  const triggers = known(path.triggerRoomIds).map(({ kind, name }) =>
+    nightPathRoomPhrase(dateLocale(), kind, name),
+  );
+  const names = (ids: string[]) => known(ids).map(({ name }) => inSentence(name));
   const lights = names(path.lightRoomIds);
   if (!triggers.length || !lights.length) return t('nightPath.summaryIncomplete');
   const bed =
