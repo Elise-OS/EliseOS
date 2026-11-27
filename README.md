@@ -120,6 +120,12 @@ L’interface est entièrement responsive et disponible en français, anglais, e
 - À la TV : un bandeau ambré tout doux, un rappel « boire un verre d’eau » toutes les 2 h de 9 h à 20 h avec une petite mélodie, qui s’efface tout seul, et des conseils selon le moment (volets le matin, visage rafraîchi la journée, fenêtres le soir s’il fait plus frais dehors). La personne n’a rien à appuyer : la TV affiche seulement des rappels.
 - Pour la famille : notification à l’activation, alerte si une pièce reste à 31 °C ou plus pendant 1 h, et une carte **Réglages → Canicule** (web et mobile) qui explique le fonctionnement, montre l’état et les chiffres du jour, permet de l’activer à la main, de régler chaque option, et rappelle chaque année le registre canicule de la mairie. Tout tourne sur la box ; ce n’est pas un dispositif médical. Voir [docs/mode-canicule.md](docs/mode-canicule.md).
 
+### Chemin lumineux de nuit
+
+- Quand la personne se lève la nuit, une lumière douce et chaude s’allume sur son trajet (chambre → couloir → toilettes), puis s’éteint toute seule après quelques minutes sans mouvement.
+- Une ou plusieurs pièces de départ (mouvement, présence ou sortie du lit), plage horaire avec passage de minuit, pièces à éclairer même sans détecteur, intensité, teinte chaude, délai d’extinction, bouton « Tester ».
+- Le ruban Innr FL 230 C est le modèle documenté, mais tout éclairage Zigbee compatible Zigbee2MQTT fonctionne, sans pont du fabricant. Lumière d’appoint : ce n’est pas un dispositif médical. Voir [docs/chemin-lumineux.md](docs/chemin-lumineux.md).
+
 ### Coordination des aidants
 
 - Carnet de liaison partagé, calendrier des visites et rendez-vous, suivi des traitements.
@@ -220,14 +226,15 @@ Détails : [docs/privacy.md](docs/privacy.md). Cette politique soutient la prote
 
 ## Matériel
 
-| Élément  | Recommandation                                                                                                     |
-| -------- | ------------------------------------------------------------------------------------------------------------------ |
-| Boîtier  | **Raspberry Pi 4 avec 8 Go de RAM** (conseillé), ou Pi 5 8 Go, **ou** serveur Ubuntu 24.04 AMD64 / ARM64 avec 8 Go |
-| Stockage | 32 Go minimum ; SSD USB ou NVMe (Pi 5) recommandé                                                                  |
-| Radio    | Clé Zigbee USB (Sonoff, SMLIGHT, ConBee, ZiGate…) — facultative                                                    |
-| Capteurs | Mouvement, ouverture, température/humidité, fuite d’eau, fumée, prise connectée, bouton SOS…                       |
-| Écran    | Toute TV en HDMI ou DisplayPort ; webcam USB avec micro pour les appels dans les deux sens                         |
-| Caméras  | Facultatives : toute caméra locale RTSP / ONVIF                                                                    |
+| Élément   | Recommandation                                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------------------------------ |
+| Boîtier   | **Raspberry Pi 4 avec 8 Go de RAM** (conseillé), ou Pi 5 8 Go, **ou** serveur Ubuntu 24.04 AMD64 / ARM64 avec 8 Go |
+| Stockage  | 32 Go minimum ; SSD USB ou NVMe (Pi 5) recommandé                                                                  |
+| Radio     | Clé Zigbee USB (Sonoff, SMLIGHT, ConBee, ZiGate…) — facultative                                                    |
+| Capteurs  | Mouvement, ouverture, température/humidité, fuite d’eau, fumée, prise connectée, bouton SOS…                       |
+| Éclairage | Facultatif : ruban ou ampoule Zigbee pour le chemin lumineux de nuit (Innr FL 230 C documenté)                     |
+| Écran     | Toute TV en HDMI ou DisplayPort ; webcam USB avec micro pour les appels dans les deux sens                         |
+| Caméras   | Facultatives : toute caméra locale RTSP / ONVIF                                                                    |
 
 Une liste d’achat indicative est disponible dans [docs/liste-achat-domadoo.md](docs/liste-achat-domadoo.md).
 
@@ -419,6 +426,7 @@ Chaque push exécute `format:check`, `lint`, `typecheck`, `test` et `build` sur 
 | Vie privée et rétention             | [docs/privacy.md](docs/privacy.md)                         |
 | Caméras                             | [docs/cameras.md](docs/cameras.md)                         |
 | Mode canicule                       | [docs/mode-canicule.md](docs/mode-canicule.md)             |
+| Chemin lumineux de nuit             | [docs/chemin-lumineux.md](docs/chemin-lumineux.md)         |
 | Déploiement sur NAS                 | [README-NAS.md](README-NAS.md)                             |
 | Documentation utilisateur complète  | [eliseos.paulbreton.dev](https://eliseos.paulbreton.dev)   |
 

@@ -21,6 +21,7 @@ const LABELS: Record<string, string> = {
   vibration: 'Vibration',
   fall_detection: 'Chute non visuelle',
   signal_strength: 'Qualité radio',
+  light: 'Éclairage',
 };
 
 export const capabilityLabel = (capability: string): string =>
@@ -160,6 +161,22 @@ export function placementGuide(capabilities: string[], roomKind = 'OTHER', usage
       ],
       testInstruction: 'Attendez la réception d’une nouvelle mesure.',
       safetyNote: null,
+    };
+  }
+  if (primary === 'light') {
+    return {
+      title: 'Éclairer le trajet sans éblouir',
+      summary:
+        'Placez la lumière au ras du sol ou sous le lit, le long du trajet de nuit, dirigée vers le sol.',
+      steps: [
+        'Affectez l’éclairage à la pièce qu’il éclaire.',
+        'Fixez-le bas, sous le lit ou le long du couloir, lumière tournée vers le sol.',
+        'Utilisez « Tester » dans le chemin lumineux pour vérifier qu’il s’allume doucement.',
+      ],
+      avoid: ['Lumière dirigée vers les yeux ou le lit', 'Câble ou adaptateur sur le passage'],
+      testInstruction: 'Lancez un test du chemin lumineux et vérifiez que la lumière s’allume.',
+      safetyNote:
+        'Une lumière d’appoint ne remplace pas l’éclairage normal du logement et n’est pas un dispositif médical.',
     };
   }
   if (primary === 'button') {

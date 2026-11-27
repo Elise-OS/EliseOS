@@ -21,6 +21,7 @@ import {
   DoorOpen,
   Droplets,
   Flame,
+  Lightbulb,
   Plug,
   Radio,
   ScanSearch,
@@ -80,6 +81,7 @@ const categoryIcons: Record<RoomSensorCategory, typeof Thermometer> = {
   air_quality: Wind,
   illuminance: Sun,
   camera: Camera,
+  light: Lightbulb,
 };
 
 type Step = 'ROOM' | 'CATEGORY' | 'CATALOG' | 'PRODUCT' | 'ASSIGN' | 'PAIR' | 'DONE';

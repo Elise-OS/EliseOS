@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { contactRoleSchema, roomSensorPreferencesSchema } from './room-equipment.js';
 import { calendarRecurrenceSchema } from './calendar.js';
+import { lightFeaturesSchema } from './night-path.js';
 
 function containsControlCharacters(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
@@ -16,6 +17,7 @@ export * from './call-quality.js';
 export * from './call-runtime.js';
 export * from './call-ui.js';
 export * from './box-health.js';
+export * from './night-path.js';
 export * from './notifications.js';
 export * from './room-equipment.js';
 export * from './retire-furniture.js';
@@ -52,6 +54,7 @@ export const capabilitySchema = z.enum([
   'fall_detection',
   'camera',
   'signal_strength',
+  'light',
 ]);
 
 export const sensorInstallationStatusSchema = z.enum([
@@ -207,6 +210,8 @@ export const homeAssistantEntitySchema = z.object({
   actions: z.array(equipmentActionSchema).default([]),
   capability: capabilitySchema.nullish(),
   compatibility: compatibilitySchema,
+  /** Only for `light.*` entities: what the light accepts (brightness, colour temperature…). */
+  lightFeatures: lightFeaturesSchema.nullish(),
 });
 
 export const homeAssistantInventorySchema = z.object({
@@ -1168,6 +1173,7 @@ export const detectedSensorTypeSchema = z.enum([
   'SAFETY',
   'SMART_PLUG',
   'BUTTON',
+  'LIGHT',
   'UNKNOWN',
 ]);
 

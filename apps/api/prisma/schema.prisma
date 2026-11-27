@@ -270,6 +270,8 @@ model Home {
   residentScreen             ResidentScreen?
   youtubeConnection           YouTubeConnection?
   googleIntegration           GoogleIntegration?
+  nightLightPaths            NightLightPath[]
+  nightLightActivations      NightLightActivation[]
 
   @@index([organizationId])
 }
@@ -511,6 +513,8 @@ model DeviceEntity {
   available      Boolean  @default(true)
   state          Json?
   actions        Json
+  /// light.* only: brightness, colour temperature and transition support reported by the bridge.
+  lightFeatures  Json?
   lastSeenAt     DateTime?
   removedAt      DateTime?
   createdAt      DateTime @default(now())
@@ -520,6 +524,44 @@ model DeviceEntity {
 
   @@unique([homeId, entityId])
   @@index([deviceId])
+}
+
+/// Night path lighting: soft light on the resident's way when they get up at night.
+model NightLightPath {
+  id                     String   @id @default(cuid())
+  homeId                 String
+  name                   String
+  enabled                Boolean  @default(true)
+  triggerRoomIds         String[]
+  includeBedExit         Boolean  @default(true)
+  lightRoomIds           String[]
+  startMinute            Int
+  endMinute              Int
+  brightnessPercent      Int
+  colorTemperatureKelvin Int
+  offDelayMinutes        Int
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  home                   Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@index([homeId])
+}
+
+/// A light that Élise turned on for a night path and must turn off at `offAt`. Persisted so
+/// that a restart of the API still turns the light off. A light that was already on before
+/// the path started is never recorded here, so Élise never turns it off.
+model NightLightActivation {
+  id        String   @id @default(cuid())
+  homeId    String
+  entityId  String
+  pathId    String?
+  offAt     DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  home      Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@unique([homeId, entityId])
+  @@index([offAt])
 }
 
 model EquipmentDiscovery {

@@ -120,6 +120,12 @@ L'interfaccia è completamente adattabile a qualsiasi schermo ed è disponibile 
 - Sulla TV: una fascia ambra delicata, un promemoria «bere un bicchiere d’acqua» ogni 2 ore dalle 9 alle 20 con una melodia discreta, che sparisce da solo, e consigli secondo il momento (persiane al mattino, rinfrescarsi il viso di giorno, finestre la sera se fuori è più fresco). La persona non deve premere nulla: la TV mostra soltanto promemoria.
 - Per la famiglia: notifica all’attivazione, avviso se una stanza resta a 31 °C o più per 1 ora, e una scheda **Impostazioni → Caldo** (web e mobile) che spiega il funzionamento, mostra lo stato e i dati del giorno, permette di attivarla a mano, di regolare ogni opzione e ricorda ogni anno il registro canicola del comune. Tutto funziona sul box; non è un dispositivo medico. Vedi [docs/mode-canicule.md](docs/mode-canicule.md) (in francese).
 
+### Percorso luminoso notturno
+
+- Quando la persona si alza di notte, una luce soffusa e calda si accende lungo il tragitto (camera → corridoio → bagno), poi si spegne da sola dopo qualche minuto senza movimento.
+- Una o più stanze di partenza (movimento, presenza o uscita dal letto), fascia notturna che attraversa la mezzanotte, stanze da illuminare anche senza sensore, intensità, bianco caldo, ritardo di spegnimento e pulsante «Prova».
+- La striscia Innr FL 230 C è il modello documentato, ma funziona qualsiasi luce Zigbee compatibile con Zigbee2MQTT, senza il bridge del produttore. Luce di supporto: non è un dispositivo medico. Vedi [docs/chemin-lumineux.md](docs/chemin-lumineux.md) (in francese).
+
 ### Coordinamento dei caregiver
 
 - Diario di assistenza condiviso, calendario delle visite e degli appuntamenti, monitoraggio delle terapie.
@@ -226,6 +232,7 @@ Dettagli: [docs/privacy.md](docs/privacy.md) (in inglese). Questa politica favor
 | Archiviazione | Almeno 32 GB; si consiglia un SSD USB o NVMe (Pi 5)                                                                          |
 | Radio         | Adattatore Zigbee USB (Sonoff, SMLIGHT, ConBee, ZiGate…) — facoltativo                                                       |
 | Sensori       | Movimento, apertura, temperatura/umidità, perdita d'acqua, fumo, presa smart, pulsante SOS…                                  |
+| Illuminazione | Facoltativa: striscia o lampadina Zigbee per il percorso luminoso notturno (Innr FL 230 C documentata)                       |
 | Schermo       | Qualsiasi televisore tramite HDMI o DisplayPort; webcam USB con microfono per le chiamate nei due sensi                      |
 | Telecamere    | Facoltative: qualsiasi telecamera locale RTSP / ONVIF                                                                        |
 
@@ -419,6 +426,7 @@ Ogni push esegue `format:check`, `lint`, `typecheck`, `test` e `build` sull'inte
 | Privacy e conservazione (in inglese)                 | [docs/privacy.md](docs/privacy.md)                              |
 | Telecamere (in inglese)                              | [docs/cameras.md](docs/cameras.md)                              |
 | Modalità caldo (in francese)                         | [docs/mode-canicule.md](docs/mode-canicule.md)                  |
+| Percorso luminoso notturno (in francese)             | [docs/chemin-lumineux.md](docs/chemin-lumineux.md)              |
 | Deploy su NAS (in francese)                          | [README-NAS.md](README-NAS.md)                                  |
 | Documentazione utente completa                       | [eliseos.paulbreton.dev/it](https://eliseos.paulbreton.dev/it/) |
 

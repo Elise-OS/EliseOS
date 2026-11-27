@@ -118,6 +118,12 @@ A calm screen, readable from the sofa: message of the day, clock, weather, appoi
 - On the TV: a soft amber banner, a "drink a glass of water" reminder every 2 h from 9:00 to 20:00 with a quiet chime, which goes away by itself, and advice for the time of day (shutters in the morning, a fresh face during the day, windows in the evening when it is cooler outside). Your loved one has nothing to press: the TV only shows reminders.
 - For the family: a notification when it turns on, an alert if a room stays at 31 °C or more for 1 h, and a **Settings → Heatwave** card (web and mobile) that explains how it works, shows its state and today's figures, turns it on by hand, sets each option and reminds you each year about the town hall heatwave register. Everything runs on the box; it is not a medical device. See [docs/mode-canicule.md](docs/mode-canicule.md) (in French).
 
+### Night path lighting
+
+- When the resident gets up at night, a soft warm light turns on along their way (bedroom → hallway → toilet), then turns itself off after a few minutes without movement.
+- One or more starting rooms (motion, presence or getting out of bed), night hours across midnight, rooms to light even without a sensor, brightness, warm white, switch-off delay and a “Test” button.
+- The Innr FL 230 C strip is the documented model, but any Zigbee light supported by Zigbee2MQTT works, without the manufacturer’s bridge. A supplementary light, not a medical device. See [docs/chemin-lumineux.md](docs/chemin-lumineux.md) (FR).
+
 ### Caregiver coordination
 
 - Shared notebook, visit and appointment calendar, medication tracking.
@@ -218,14 +224,15 @@ Details: [docs/privacy.md](docs/privacy.md). This engineering policy supports pr
 
 ## Hardware
 
-| Item    | Recommendation                                                                                                   |
-| ------- | ---------------------------------------------------------------------------------------------------------------- |
-| Hub     | **Raspberry Pi 4 with 8 GB RAM** (recommended), or Pi 5 8 GB, **or** Ubuntu 24.04 AMD64 / ARM64 server with 8 GB |
-| Storage | 32 GB minimum; USB SSD or NVMe (Pi 5) recommended                                                                |
-| Radio   | USB Zigbee adapter (Sonoff, SMLIGHT, ConBee, ZiGate…) — optional                                                 |
-| Sensors | Motion, contact, temperature/humidity, water leak, smoke, smart plug, SOS button…                                |
-| Screen  | Any TV over HDMI or DisplayPort; USB webcam with microphone for two-way calls                                    |
-| Cameras | Optional: any local RTSP / ONVIF camera                                                                          |
+| Item     | Recommendation                                                                                                   |
+| -------- | ---------------------------------------------------------------------------------------------------------------- |
+| Hub      | **Raspberry Pi 4 with 8 GB RAM** (recommended), or Pi 5 8 GB, **or** Ubuntu 24.04 AMD64 / ARM64 server with 8 GB |
+| Storage  | 32 GB minimum; USB SSD or NVMe (Pi 5) recommended                                                                |
+| Radio    | USB Zigbee adapter (Sonoff, SMLIGHT, ConBee, ZiGate…) — optional                                                 |
+| Sensors  | Motion, contact, temperature/humidity, water leak, smoke, smart plug, SOS button…                                |
+| Lighting | Optional: Zigbee strip or bulb for the night path (Innr FL 230 C documented)                                     |
+| Screen   | Any TV over HDMI or DisplayPort; USB webcam with microphone for two-way calls                                    |
+| Cameras  | Optional: any local RTSP / ONVIF camera                                                                          |
 
 ---
 
@@ -415,6 +422,7 @@ Every push runs `format:check`, `lint`, `typecheck`, `test` and `build` across t
 | Privacy and retention                     | [docs/privacy.md](docs/privacy.md)                              |
 | Cameras                                   | [docs/cameras.md](docs/cameras.md)                              |
 | Heatwave mode (in French)                 | [docs/mode-canicule.md](docs/mode-canicule.md)                  |
+| Night path lighting (FR)                  | [docs/chemin-lumineux.md](docs/chemin-lumineux.md)              |
 | NAS deployment (FR)                       | [README-NAS.md](README-NAS.md)                                  |
 | Full user documentation                   | [eliseos.paulbreton.dev/en](https://eliseos.paulbreton.dev/en/) |
 

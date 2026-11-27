@@ -25,6 +25,7 @@ import {
   Flame,
   Footprints,
   Home,
+  Lightbulb,
   Plus,
   ShieldAlert,
   Sofa,
@@ -45,6 +46,7 @@ import image3RSB22BZ from '../../assets/sensor-products/3RSB22BZ.png';
 import image3RSPE01044BZ from '../../assets/sensor-products/3RSPE01044BZ.png';
 import image3RTHS0224Z from '../../assets/sensor-products/3RTHS0224Z.png';
 import image3RWS18BZ from '../../assets/sensor-products/3RWS18BZ.png';
+import imageFL230C from '../../assets/sensor-products/FL_230_C.png';
 import imageHS2FDE from '../../assets/sensor-products/HS2FD-E.png';
 import imageHS1SAE from '../../assets/sensor-products/HS1SA-E.png';
 import imageSDC4100 from '../../assets/sensor-products/SDC-4-1-00.png';
@@ -65,6 +67,7 @@ import {
 import type { ImageSourcePropType } from 'react-native';
 import type { CameraItem } from '../api';
 import { dateLocale, type Language, t } from '../i18n';
+import { lightReading } from '../sensors/texts';
 
 type Locale = Language;
 type IconComponent = typeof Home;
@@ -99,6 +102,7 @@ const categoryIcons: Record<RoomSensorCategory, IconComponent> = {
   air_quality: Wind,
   illuminance: Sun,
   camera: Camera,
+  light: Lightbulb,
 };
 
 const categoryColors: Record<RoomSensorCategory, { foreground: string; background: string }> = {
@@ -117,6 +121,7 @@ const categoryColors: Record<RoomSensorCategory, { foreground: string; backgroun
   air_quality: { foreground: '#3d719f', background: '#edf3f9' },
   illuminance: { foreground: '#957115', background: '#fff7d9' },
   camera: { foreground: '#3d719f', background: '#edf3f9' },
+  light: { foreground: '#9a6410', background: '#fdf2df' },
 };
 
 const sensorPhotoModels = [
@@ -131,6 +136,7 @@ const sensorPhotoModels = [
   { brand: 'THIRDREALITY', model: '3RWS18BZ', aliases: [] },
   { brand: 'THIRDREALITY', model: '3RSPE01044BZ', aliases: [] },
   { brand: 'THIRDREALITY', model: '3RSB22BZ', aliases: [] },
+  { brand: 'INNR', model: 'FL_230_C', aliases: [] },
   { brand: 'HEIMAN', model: 'HS2FD-EF1-3.0', aliases: [] },
   { brand: 'HEIMAN', model: 'HS1SA-E', aliases: [] },
   { brand: 'SONOFF', model: 'SNZB-02P', aliases: [] },
@@ -153,6 +159,7 @@ const sensorPhotoAssets: Record<string, ImageSourcePropType> = {
   '3RWS18BZ': image3RWS18BZ,
   '3RSPE01044BZ': image3RSPE01044BZ,
   '3RSB22BZ': image3RSB22BZ,
+  FL_230_C: imageFL230C,
   'HS2FD-EF1-3.0': imageHS2FDE,
   'HS1SA-E': imageHS1SAE,
   'SNZB-02P': imageSNZB02P,
@@ -397,6 +404,7 @@ function deviceReading(device: SensorDevice, category: RoomSensorCategory) {
       return active ? t('mobileHomePlanPanel.open') : t('mobileHomePlanPanel.closed');
     if (category === 'bed' && capability.capability === 'occupancy')
       return active ? t('mobileHomePlanPanel.occupied') : t('mobileHomePlanPanel.unoccupied');
+    if (category === 'light') return lightReading(value) ?? deviceStatus(device);
     return active ? t('mobileHomePlanPanel.detected') : '—';
   }
   return deviceStatus(device);

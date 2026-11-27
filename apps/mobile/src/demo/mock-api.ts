@@ -11,6 +11,9 @@ import {
   type HomePlan,
   type HomeSummary,
   type LiaisonPage,
+  type NightPath,
+  type NightPathOverview,
+  NIGHT_PATH_TEST_SECONDS,
   type DetectedSensorDevice,
   type RoomSensorCategory,
   type ScreenSnapshot,
@@ -1002,7 +1005,55 @@ function createDemoSession() {
       'DEMO-WATER',
       t('mockApi.demo'),
     ),
+    // Night path: a motion sensor by the bed starts it; Innr strips light the way to the
+    // bathroom, which has no motion sensor of its own (same home as the web demo).
+    sensor(
+      'sensor-bedroom-motion',
+      t('mockApi.bedroomMotion'),
+      t('mockApi.bedroom'),
+      'motion',
+      'ONLINE',
+      83,
+      -9 * 60,
+      '3RMS16BZ',
+      'Third Reality',
+    ),
+    sensor(
+      'sensor-bedroom-strip',
+      t('mockApi.bedroomStrip'),
+      t('mockApi.bedroom'),
+      'light',
+      'ONLINE',
+      null,
+      -9 * 60,
+      'FL 230 C',
+      'Innr',
+    ),
+    sensor(
+      'sensor-living-strip',
+      t('mockApi.livingRoomStrip'),
+      t('mockApi.livingRoom'),
+      'light',
+      'ONLINE',
+      null,
+      -9 * 60,
+      'FL 230 C',
+      'Innr',
+    ),
+    sensor(
+      'sensor-bathroom-strip',
+      t('mockApi.bathroomStrip'),
+      t('mockApi.bathroom'),
+      'light',
+      'ONLINE',
+      null,
+      -9 * 60,
+      'FL 230 C',
+      'Innr',
+    ),
   ];
+
+  const nightPaths = createNightPaths(sensorDevices);
 
   const homePlan: HomePlan = {
     schemaVersion: 4,
@@ -1522,6 +1573,7 @@ function createDemoSession() {
     alerts,
     cameras,
     sensorDevices,
+    nightPaths,
     homePlan,
     schedule,
     journal,
@@ -1533,6 +1585,53 @@ function createDemoSession() {
     onboardingSession: null as SensorOnboardingSession | null,
     onboardingStartedAt: 0,
     onboardingModel: undefined as string | undefined,
+  };
+}
+
+/** One night path, bedroom → living room → bathroom, as a family would set it up. */
+function createNightPaths(devices: SensorDevice[]): NightPathOverview {
+  const count = (roomId: string, test: (capability: string) => boolean) =>
+    devices.filter(
+      (device) =>
+        device.room?.id === roomId &&
+        device.capabilities.some(({ capability }) => test(capability)),
+    ).length;
+  const rooms = [
+    { id: ROOM_IDS.bedroom, name: t('mockApi.bedroom'), kind: 'BEDROOM' },
+    { id: ROOM_IDS.living, name: t('mockApi.livingRoom'), kind: 'LIVING_ROOM' },
+    { id: ROOM_IDS.bathroom, name: t('mockApi.bathroom'), kind: 'BATHROOM' },
+    { id: ROOM_IDS.entry, name: t('mockApi.entrance'), kind: 'ENTRANCE' },
+    { id: ROOM_IDS.kitchen, name: t('mockApi.kitchen'), kind: 'KITCHEN' },
+  ].map((room) => ({
+    ...room,
+    floorName: t('mockApi.groundFloor'),
+    presenceSensors: count(room.id, (capability) =>
+      ['motion', 'occupancy', 'person_presence'].includes(capability),
+    ),
+    bedSensors: 0,
+    lights: count(room.id, (capability) => capability === 'light'),
+  }));
+  return {
+    timezone: 'Europe/Paris',
+    rooms,
+    paths: [
+      {
+        id: 'night-path-bedroom-bathroom',
+        name: t('mockApi.nightPathName'),
+        enabled: true,
+        triggerRoomIds: [ROOM_IDS.bedroom],
+        includeBedExit: true,
+        lightRoomIds: [ROOM_IDS.bedroom, ROOM_IDS.living, ROOM_IDS.bathroom],
+        startMinute: 22 * 60,
+        endMinute: 7 * 60,
+        brightnessPercent: 25,
+        colorTemperatureKelvin: 2_200,
+        offDelayMinutes: 3,
+        createdAt: iso(-12 * DAY),
+        updatedAt: iso(-12 * DAY),
+        activeUntil: null,
+      },
+    ],
   };
 }
 
@@ -1569,7 +1668,7 @@ function sensor(
   roomName: string,
   capability: string,
   state: string,
-  batteryPercent: number,
+  batteryPercent: number | null,
   minutesAgo: number,
   model: string,
   manufacturer = 'SONOFF',
@@ -1605,12 +1704,17 @@ function sensor(
     capabilities: [
       {
         sensorId: `${id}-capability`,
-        entityId: `binary_sensor.${id}`,
+        entityId: capability === 'light' ? `light.${id}` : `binary_sensor.${id}`,
         capability,
         label: capabilityLabel(capability),
         primary: true,
         status,
-        value: capability === 'temperature' ? { value: 21.4 } : { state: 'on' },
+        value:
+          capability === 'temperature'
+            ? { value: 21.4 }
+            : capability === 'light'
+              ? { active: false }
+              : { state: 'on' },
         unit: capability === 'temperature' ? '°C' : null,
         lastSeenAt: iso(minutesAgo * MINUTE),
         classification: {
@@ -1689,6 +1793,7 @@ const DEMO_CAPABILITIES: Partial<Record<RoomSensorCategory, string>> = {
   fall_detection: 'fall_detection',
   illuminance: 'illuminance',
   air_quality: 'air_quality',
+  light: 'light',
 };
 
 /** The sensor the demo hub "finds": the one chosen in the catalogue, else a motion detector. */
@@ -1742,7 +1847,9 @@ function demoDetectedDevice(model: string | undefined): DetectedSensorDevice {
     installationStatus: 'NEEDS_PLACEMENT',
     placementConfirmedAt: null,
     placementNote: null,
-    batteryPercent: product.power.toLowerCase().includes('usb') ? null : 96,
+    // Mains-powered devices (USB sensors, lights) report no battery.
+    batteryPercent:
+      product.power.toLowerCase().includes('usb') || product.kind === 'LIGHT' ? null : 96,
     capabilities: [
       { ...template, label: first.label },
       ...others.map((item, index) => ({
@@ -1753,7 +1860,11 @@ function demoDetectedDevice(model: string | undefined): DetectedSensorDevice {
         label: item.label,
       })),
     ],
-    detectedType: product.categories.includes('contact') ? 'CONTACT' : 'UNKNOWN',
+    detectedType: product.categories.includes('contact')
+      ? 'CONTACT'
+      : product.kind === 'LIGHT'
+        ? 'LIGHT'
+        : 'UNKNOWN',
   };
 }
 
@@ -1767,6 +1878,7 @@ function capabilityLabel(capability: string) {
         humidity: t('mockApi.humidity'),
         power: t('mockApi.power'),
         occupancy: t('mockApi.presence'),
+        light: t('mockApi.lighting'),
       } as Record<string, string>
     )[capability] ?? capability
   );
@@ -2492,6 +2604,40 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
   if (pathname === '/alerts/rules') {
     if (method === 'PATCH') Object.assign(state.rules, body);
     return state.rules as T;
+  }
+  if (pathname === '/night-paths' && method === 'POST') {
+    const now = iso();
+    const path: NightPath = {
+      ...(body as Omit<NightPath, 'id' | 'createdAt' | 'updatedAt' | 'activeUntil'>),
+      id: `night-path-${state.nightPaths.paths.length + 1}-${Date.now()}`,
+      createdAt: now,
+      updatedAt: now,
+      activeUntil: null,
+    };
+    state.nightPaths.paths.push(path);
+    return path as T;
+  }
+  if (pathname === '/night-paths') return state.nightPaths as T;
+  if (pathname === '/night-paths/test' && method === 'POST') {
+    const roomIds = Array.isArray(body.lightRoomIds) ? body.lightRoomIds : [];
+    const lights = state.nightPaths.rooms
+      .filter(({ id }) => roomIds.includes(id))
+      .reduce((total, item) => total + item.lights, 0);
+    return { lights, seconds: NIGHT_PATH_TEST_SECONDS } as T;
+  }
+  if (pathname.startsWith('/night-paths/')) {
+    const id = pathname.split('/')[2];
+    const index = state.nightPaths.paths.findIndex((path) => path.id === id);
+    if (index < 0) throw new MobileApiError('HTTP 404', 'HTTP', 404);
+    if (method === 'DELETE') {
+      state.nightPaths.paths.splice(index, 1);
+      return undefined as T;
+    }
+    if (method === 'PATCH') {
+      const path = state.nightPaths.paths[index];
+      Object.assign(path, body, { updatedAt: iso() });
+      return path as T;
+    }
   }
   if (pathname === '/simulation/scenarios') return DEMO_SCENARIOS() as T;
   if (pathname.startsWith('/simulation/scenarios/')) {

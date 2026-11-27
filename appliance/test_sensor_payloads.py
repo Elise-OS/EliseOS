@@ -140,3 +140,55 @@ class DeviceModelTests(unittest.TestCase):
         self.assertEqual(mapping.device_model("Zigbee PIR sensor", "SNZB-03P"), "SNZB-03P")
         self.assertEqual(mapping.device_model("Zigbee occupancy sensor", "SNZB-06P"), "SNZB-06P")
         self.assertEqual(mapping.device_model("Generic plug", None), "Generic plug")
+
+
+class LightTests(unittest.TestCase):
+    """Any Home Assistant light is recognised; nothing depends on a particular model."""
+
+    def test_any_light_entity_is_a_light(self):
+        self.assertEqual(mapping.capability("light.ruban_couloir", None), "light")
+        self.assertEqual(mapping.capability("light.0x00158d0001abcdef", None), "light")
+
+    def test_colour_strip_state_and_brightness(self):
+        # Zigbee2MQTT colour strip (for example Innr FL 230 C): brightness 0–255 in HA.
+        self.assertEqual(
+            mapping.payload("light", "on", {"brightness": 64}),
+            {"active": True, "brightnessPercent": 25},
+        )
+        self.assertEqual(mapping.payload("light", "off", {"brightness": None}), {"active": False})
+
+    def test_colour_strip_features(self):
+        attributes = {
+            "supported_color_modes": ["color_temp", "xy"],
+            "supported_features": 44,  # effect + flash + transition
+            "min_color_temp_kelvin": 1800,
+            "max_color_temp_kelvin": 6500,
+        }
+        self.assertEqual(
+            mapping.light_features(attributes),
+            {
+                "brightness": True,
+                "colorTemperature": True,
+                "transition": True,
+                "minKelvin": 1800,
+                "maxKelvin": 6500,
+            },
+        )
+
+    def test_on_off_only_light_gets_no_brightness_or_colour(self):
+        self.assertEqual(
+            mapping.light_features({"supported_color_modes": ["onoff"], "supported_features": 0}),
+            {
+                "brightness": False,
+                "colorTemperature": False,
+                "transition": False,
+                "minKelvin": None,
+                "maxKelvin": None,
+            },
+        )
+
+    def test_dimmable_white_light_without_colour_temperature(self):
+        features = mapping.light_features({"supported_color_modes": ["brightness"], "supported_features": 32})
+        self.assertTrue(features["brightness"])
+        self.assertFalse(features["colorTemperature"])
+        self.assertTrue(features["transition"])

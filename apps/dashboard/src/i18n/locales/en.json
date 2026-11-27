@@ -1233,7 +1233,7 @@
     "allHardware": "All hardware",
     "connection": "Connection",
     "documentationCheckedOn": "Documentation checked on",
-    "documentedEliseTestPending": "Documented · Élise test pending",
+    "documentedEliseTestPending": "Documented",
     "documentedFeatures": "Documented features",
     "energyMonitoring": "Energy monitoring",
     "functionsRecognizedByIntegration": "Functions recognized by integration",
@@ -1247,7 +1247,8 @@
     "testHardware": "Test hardware",
     "thisListExactlyMatchesThe": "This list exactly matches the hardware available for testing. Documented compatibility is only marked as validated with Élise after a full physical test.",
     "validatedWithElise": "Validated with Élise",
-    "viewDetails": "View details"
+    "viewDetails": "View details",
+    "lighting": "Lighting"
   },
   "heatwave": {
     "notMedical": "Heatwave mode helps everyone remember the right habits. It is not a medical device: if someone feels unwell, call the emergency services (112).",
@@ -1880,6 +1881,92 @@
     "NEUTRAL": "Neutral",
     "SAD": "Sad"
   },
+  "nightPath": {
+    "title": "Night path",
+    "cardEyebrow": "Night comfort",
+    "cardEmpty": "A soft light turns on along the way when {{resident}} gets up at night.",
+    "cardCount_one": "{{count}} path set up, {{enabled}} active",
+    "cardCount_other": "{{count}} paths set up, {{enabled}} active",
+    "cardManage": "Set up the night path",
+    "cardView": "See the night paths",
+    "theResident": "the resident",
+    "intro": "When {{resident}} gets up at night, Élise softly turns on a warm light along the way, then turns it off on its own.",
+    "requirementsTitle": "To create a night path",
+    "needsSensor": "Add a motion or presence sensor in the starting room, for example the bedroom.",
+    "needsLight": "Add a light in the rooms to light up: My home → the room → Lighting.",
+    "emptyTitle": "No night path yet",
+    "emptyText": "Choose where the night-time route starts and which rooms to light, for example the bedroom, the hallway and the toilet.",
+    "create": "Create a night path",
+    "addAnother": "Add another path",
+    "enabled": "Active",
+    "paused": "Paused",
+    "litUntil": "On until {{time}}",
+    "toggle": "Turn “{{name}}” on or pause it",
+    "edit": "Edit",
+    "delete": "Delete",
+    "keep": "Keep",
+    "confirmDelete": "Delete this night path?",
+    "readOnly": "Only the owner and the administrators of the home can change night paths.",
+    "disclaimer": "A supplementary light for moving around at night: it is not a medical device and does not replace the usual lighting. It depends on the home’s Zigbee network.",
+    "loading": "Loading night paths…",
+    "loadError": "Night paths could not be loaded.",
+    "retry": "Try again",
+    "saveError": "Saving did not work. Please try again in a moment.",
+    "deleteError": "Deleting did not work. Please try again in a moment.",
+    "newTitle": "New night path",
+    "editTitle": "Edit night path",
+    "backToPaths": "All paths",
+    "name": "Path name",
+    "defaultName": "Night path",
+    "defaultNameNumbered": "Night path {{number}}",
+    "triggerTitle": "When {{resident}} moves in…",
+    "triggerHint": "Choose one or more rooms with a motion or presence sensor.",
+    "roomSensors_one": "{{count}} sensor",
+    "roomSensors_other": "{{count}} sensors",
+    "roomWithoutSensor": "No sensor",
+    "includeBedExit": "Also when {{resident}} gets out of bed",
+    "windowTitle": "At night only",
+    "from": "From",
+    "to": "To",
+    "windowHint": "Midnight is handled. Outside these hours, nothing turns on.",
+    "lightsTitle": "Rooms to light",
+    "lightsHint": "Every light in these rooms turns on, even in a room without a sensor (hallway, toilet…).",
+    "roomLights_one": "{{count}} light",
+    "roomLights_other": "{{count}} lights",
+    "roomWithoutLight": "No light",
+    "lightTitle": "Light",
+    "brightness": "Brightness",
+    "brightnessHint": "A low light is enough to see where you walk without fully waking up.",
+    "warmth": "Warmth",
+    "temperatures": {
+      "2200": "Very warm",
+      "2700": "Warm",
+      "3000": "Soft"
+    },
+    "simpleLightHint": "A light that cannot dim or change its warmth simply turns on.",
+    "offTitle": "Turn off after",
+    "minutes_one": "{{count}} min",
+    "minutes_other": "{{count}} min",
+    "offHint": "…without movement detected along the way.",
+    "summary_one": "At night, from {{start}} to {{end}}, {{when}}: {{lights}} softly turns on.",
+    "summary_other": "At night, from {{start}} to {{end}}, {{when}}: {{lights}} softly turn on.",
+    "whenMoves": "when {{resident}} moves in {{rooms}}",
+    "whenMovesOrGetsUp": "when {{resident}} gets out of bed or moves in {{rooms}}",
+    "summaryIncomplete": "Choose at least one starting room and one room to light.",
+    "problems": {
+      "name": "Give this path a name.",
+      "trigger": "Choose at least one room where it starts.",
+      "lights": "Choose at least one room to light.",
+      "window": "The start and the end of the night must be different."
+    },
+    "test": "Test",
+    "cancel": "Cancel",
+    "save": "Save",
+    "testStarted_one": "{{count}} light turns on for {{seconds}} seconds.",
+    "testStarted_other": "{{count}} lights turn on for {{seconds}} seconds.",
+    "testNoLight": "No light is available in these rooms, or it is already on.",
+    "testError": "The test could not start. Please try again in a moment."
+  },
   "remoteAccessCard": {
     "actionFailed": "Action failed.",
     "activeAndPrivate": "Active and private",
@@ -2002,7 +2089,7 @@
     "disabled": "Disabled",
     "documentationCheckedOn": "Documentation checked on",
     "documentedCompatibility": "Documented compatibility",
-    "documentedCompatibilityEliseTestPending": "Documented compatibility · Élise test pending",
+    "documentedCompatibilityEliseTestPending": "Documented compatibility",
     "documentedFeatures": "Documented features",
     "documentedProducts": "Documented products",
     "empty": "Empty",
@@ -2102,7 +2189,10 @@
     "whatIsThisSensorFor": "What is this sensor for?",
     "whenTheBedIsOccupied": "When the bed is occupied",
     "whereToPlaceIt": "Where to place it",
-    "yourRoom": "Your room"
+    "yourRoom": "Your room",
+    "lightOn": "On",
+    "lightOff": "Off",
+    "lightBrightness": "Brightness {{percent}}%"
   },
   "router": {
     "english": "English",
@@ -2162,9 +2252,12 @@
     "avoidHeatSourcesAndMetal": "Avoid heat sources and metal objects.",
     "bathroom": "Bathroom",
     "bathroomHumidity": "Bathroom humidity",
+    "bathroomStrip": "Bathroom strip",
     "batteryToReplaceSoon": "Battery to replace soon",
     "bedroom": "Bedroom",
     "bedroomCoolerThanUsual": "Bedroom cooler than usual",
+    "bedroomMotion": "Bedroom motion",
+    "bedroomStrip": "Under-bed strip",
     "bedroomTemperature": "Bedroom temperature",
     "behindMetalFurniture": "Behind metal furniture",
     "bringTheLatestResults": "Bring the latest results.",
@@ -2233,9 +2326,11 @@
     "kitchenMotion": "Kitchen motion",
     "landscapesFromHereAndElsewhere": "Landscapes near and far",
     "lesPiedsSurTerre": "Les Pieds sur terre",
+    "lighting": "Lighting",
     "littleMovementObservedAtThe": "Little movement observed at the start of the day.",
     "livingRoom": "Living room",
     "livingRoomMotion": "Living room motion",
+    "livingRoomStrip": "Living room strip",
     "livingRoomTemperature": "Living room temperature",
     "livingRoomTemperature2": "Living room temperature",
     "livingRoomTv": "Living room TV",
@@ -2252,6 +2347,7 @@
     "movementInTheBathroom": "Movement in the bathroom",
     "movementNoticed": "Movement noticed",
     "newDetector": "New detector",
+    "nightPathName": "Bedroom → bathroom",
     "noMovementHadBeenSeen": "No movement had been seen at the usual wake-up time.",
     "noMovementThisMorning": "No movement this morning",
     "noRecentMovement": "No recent movement",
@@ -2673,6 +2769,10 @@
     "water_leak": {
       "description": "Water points to monitor",
       "label": "Water leak"
+    },
+    "light": {
+      "description": "A soft light controlled by Élise, for example for the night path",
+      "label": "Lighting"
     }
   },
   "sensorCoverageRecommendations": {
@@ -2753,7 +2853,7 @@
         "The retailer lists HS2FD-E; Zigbee2MQTT documents variant HS2FD-EF1-3.0. Ask the seller to confirm the exact reference before buying.",
         "Connect the sensor to a 5 V / 2 A power supply near the Élise hub.",
         "In Élise OS, choose “Install this sensor” and then Zigbee. Put the sensor in pairing mode using its manual; no Heiman hub or account is required.",
-        "After installation, verify a fall alert using the manufacturer’s test mode. This model has not yet been physically tested with Élise."
+        "After installation, verify a fall alert using the manufacturer’s test mode."
       ]
     },
     "heiman-smoke-detector": {
@@ -2777,6 +2877,28 @@
         "Keep the detector awake by pressing its button every 2 seconds until pairing is complete.",
         "After installation, test the siren as described in the manual and check the detector and battery status in Élise. Zigbee2MQTT reports that some firmware versions can send repeated false smoke states; monitor it after pairing.",
         "The detector has its own local siren. Élise notifications provide additional awareness and have not yet been validated on physical hardware."
+      ]
+    },
+    "innr-flex-light-colour-fl230c": {
+      "advice": "Stick it close to the floor or under the bed, along the night-time route (bedroom, hallway, toilet). Point the light towards the floor to light the way without dazzling the person. Indoor use only; keep the adaptor and controller dry and within reach.",
+      "name": "Zigbee colour LED strip, 3 m",
+      "power": "Mains adaptor included · 100–240 V → 24 V DC · 24 W maximum",
+      "features": [
+        "On / off, dimmable from 0.1 to 100%",
+        "Warm to cool white and colours",
+        "Gradual fade in and fade out",
+        "3 m strip that can be cut, adhesive backing",
+        "Connects directly to the Élise Zigbee key, no Innr bridge needed"
+      ],
+      "preparation": [
+        "Unroll the whole strip before plugging it in: the manual forbids powering it while rolled up or in its packaging.",
+        "In Élise OS, choose “Install this sensor” and then Zigbee, then plug the strip in near the hub.",
+        "If it does not pair, reset it as shown in the Innr manual: press the controller button once, then press and hold it for 5 seconds; the strip blinks twice when it is ready."
+      ],
+      "placement": [
+        "Stick it close to the floor or under the bed, along the night-time route (bedroom, hallway, toilet).",
+        "Point the light towards the floor to light the way without dazzling the person.",
+        "Indoor use only; keep the adaptor and controller dry and within reach."
       ]
     },
     "nodon-climate": {

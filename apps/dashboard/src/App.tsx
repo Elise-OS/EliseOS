@@ -1151,6 +1151,7 @@ export function App() {
                 initialSensorCategory={homeSensorCategory}
                 onSensorCategoryOpened={clearHomeSensorCategory}
                 canManage={currentAccess.role === 'OWNER' || currentAccess.role === 'ADMINISTRATOR'}
+                residentName={residentName}
                 onManage={(roomId) => {
                   setHomeEditorRoomId(roomId ?? null);
                   setHomeEditorStairId(null);

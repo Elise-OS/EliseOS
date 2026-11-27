@@ -13,6 +13,12 @@ import type {
   LiaisonFilter,
   LiaisonPage,
   MembershipRole,
+  NightPath,
+  NightPathInput,
+  NightPathOverview,
+  NightPathTest,
+  NightPathTestResult,
+  NightPathUpdate,
   NotificationPreferences,
   ScreenCommand,
   ScreenJoin,
@@ -547,6 +553,31 @@ export const mobileApi = {
       '/sensor-devices/protocols',
       token,
     ),
+  /** Night path lighting: every member reads it, only the owner and administrators change it. */
+  nightPaths: (server: SavedServer, token: string) =>
+    request<NightPathOverview>(server, '/night-paths', token),
+  createNightPath: (server: SavedServer, token: string, input: NightPathInput) =>
+    request<NightPath>(server, '/night-paths', token, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  updateNightPath: (server: SavedServer, token: string, id: string, input: NightPathUpdate) =>
+    request<NightPath>(server, `/night-paths/${encodeURIComponent(id)}`, token, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+  deleteNightPath: (server: SavedServer, token: string, id: string) =>
+    request<void>(server, `/night-paths/${encodeURIComponent(id)}`, token, { method: 'DELETE' }),
+  /** Lights the chosen rooms for a few seconds, with the chosen brightness and warmth. */
+  testNightPath: (
+    server: SavedServer,
+    token: string,
+    input: Pick<NightPathTest, 'lightRoomIds' | 'brightnessPercent' | 'colorTemperatureKelvin'>,
+  ) =>
+    request<NightPathTestResult>(server, '/night-paths/test', token, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
   startSensorOnboarding: (
     server: SavedServer,
     token: string,

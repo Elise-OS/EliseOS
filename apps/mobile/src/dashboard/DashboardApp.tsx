@@ -5,6 +5,8 @@ import { MobileWelcomePanel } from './MobileWelcomePanel';
 import { MobilePeoplePanel } from './MobilePeoplePanel';
 import { MobileSettingsPanel } from './MobileSettingsPanel';
 import { MobileHomePlanPanel } from './MobileHomePlanPanel';
+import { NightPathCard } from '../nightPath/NightPathCard';
+import { canManageNightPaths, residentFirstName } from '../nightPath/night-path-view';
 import { AddSensorSheet } from '../sensors/AddSensorFlow';
 import { sensorFlowApiFor } from '../sensors/pairingApi';
 import { AppleLiquidGlassBackground } from './AppleLiquidGlassBackground';
@@ -97,6 +99,7 @@ const capabilityMeta: Record<string, { label: () => string; icon: IconName }> = 
   power: { label: () => t('dashboardApp.capability.power'), icon: 'flash-outline' },
   energy: { label: () => t('dashboardApp.capability.energy'), icon: 'battery-charging-outline' },
   battery: { label: () => t('dashboardApp.capability.battery'), icon: 'battery-half-outline' },
+  light: { label: () => t('sensorCategories.light.label'), icon: 'bulb-outline' },
 };
 const capabilityLabel = (capability: string) => capabilityMeta[capability]?.label() ?? capability;
 
@@ -742,6 +745,10 @@ export function DashboardApp({
               canAddSensor={
                 currentUser.data?.capabilities.includes('configuration:manage') ?? false
               }
+              residentFirstName={residentFirstName(
+                homeSummary.data?.residentName || overview.data?.home?.resident,
+              )}
+              canManageNightPaths={canManageNightPaths(currentUser.data?.role)}
               onSensorsChanged={invalidateAll}
               locale={locale}
               refreshing={
@@ -2299,6 +2306,8 @@ function HouseTab({
   server,
   token,
   canAddSensor,
+  residentFirstName: resident,
+  canManageNightPaths: canManageNight,
   onSensorsChanged,
   locale,
   refreshing,
@@ -2307,6 +2316,8 @@ function HouseTab({
   server: SavedServer;
   token: string;
   canAddSensor: boolean;
+  residentFirstName: string;
+  canManageNightPaths: boolean;
   onSensorsChanged: () => void;
   cameras: CameraItem[];
   sensorDevices: SensorDevice[] | undefined;
@@ -2363,6 +2374,14 @@ function HouseTab({
       ) : null}
       {!roomDetailOpen && !canAddSensor && homePlan ? (
         <Text style={styles.addSensorHint}>{t('mobileSensors.adminOnly')}</Text>
+      ) : null}
+      {!roomDetailOpen && homePlan ? (
+        <NightPathCard
+          server={server}
+          token={token}
+          resident={resident}
+          canManage={canManageNight}
+        />
       ) : null}
       {!roomDetailOpen && (
         <View style={styles.card}>

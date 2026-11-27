@@ -61,6 +61,8 @@ import {
   HeatwaveScreenDeviceController,
 } from './modules/heatwave/heatwave.controller';
 import { HeatwaveService } from './modules/heatwave/heatwave.service';
+import { NightPathController } from './modules/night-path/night-path.controller';
+import { NightPathService } from './modules/night-path/night-path.service';
 
 @Module({
   controllers: [
@@ -91,6 +93,7 @@ import { HeatwaveService } from './modules/heatwave/heatwave.service';
     BoxHealthController,
     HeatwaveController,
     HeatwaveScreenDeviceController,
+    NightPathController,
   ],
   providers: [
     LiaisonService,
@@ -125,6 +128,7 @@ import { HeatwaveService } from './modules/heatwave/heatwave.service';
     BoxHealthService,
     HealthAgentClient,
     HeatwaveService,
+    NightPathService,
   ],
 })
 export class AppModule {}

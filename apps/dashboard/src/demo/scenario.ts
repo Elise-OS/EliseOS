@@ -11,6 +11,8 @@ import {
   type HomePlan,
   type HomeSummary,
   type LiaisonPage,
+  type NightPath,
+  type NightPathOverview,
   type ScreenSnapshot,
   type SensorDevice,
   type SensorOnboardingSession,
@@ -1072,7 +1074,55 @@ function createDemoSession() {
       '3RWS18BZ',
       'Third Reality',
     ),
+    // Night path: a motion sensor by the bed starts it; Innr strips light the way to the
+    // bathroom, which has no motion sensor of its own.
+    sensor(
+      'sensor-bedroom-motion',
+      t('scenario.bedroomMotion'),
+      t('scenario.bedroom'),
+      'motion',
+      'ONLINE',
+      83,
+      -9 * 60,
+      '3RMS16BZ',
+      'Third Reality',
+    ),
+    sensor(
+      'sensor-bedroom-strip',
+      t('scenario.bedroomStrip'),
+      t('scenario.bedroom'),
+      'light',
+      'ONLINE',
+      null,
+      -9 * 60,
+      'FL 230 C',
+      'Innr',
+    ),
+    sensor(
+      'sensor-living-strip',
+      t('scenario.livingRoomStrip'),
+      t('scenario.livingRoom'),
+      'light',
+      'ONLINE',
+      null,
+      -9 * 60,
+      'FL 230 C',
+      'Innr',
+    ),
+    sensor(
+      'sensor-bathroom-strip',
+      t('scenario.bathroomStrip'),
+      t('scenario.bathroom'),
+      'light',
+      'ONLINE',
+      null,
+      -9 * 60,
+      'FL 230 C',
+      'Innr',
+    ),
   ];
+
+  const nightPaths = createNightPaths(sensorDevices);
 
   const homePlan: HomePlan = {
     schemaVersion: 4,
@@ -1606,7 +1656,55 @@ function createDemoSession() {
     rules,
     calendar,
     screen,
+    nightPaths,
     onboardingSession: null as SensorOnboardingSession | null,
+  };
+}
+
+/** One night path, bedroom → living room → bathroom, as a family would set it up. */
+function createNightPaths(devices: SensorDevice[]): NightPathOverview {
+  const count = (roomId: string, test: (capability: string) => boolean) =>
+    devices.filter(
+      (device) =>
+        device.room?.id === roomId &&
+        device.capabilities.some(({ capability }) => test(capability)),
+    ).length;
+  const rooms = [
+    { id: ROOM_IDS.bedroom, name: t('scenario.bedroom'), kind: 'BEDROOM' },
+    { id: ROOM_IDS.living, name: t('scenario.livingRoom'), kind: 'LIVING_ROOM' },
+    { id: ROOM_IDS.bathroom, name: t('scenario.bathroom'), kind: 'BATHROOM' },
+    { id: ROOM_IDS.entry, name: t('scenario.entrance'), kind: 'ENTRANCE' },
+    { id: ROOM_IDS.kitchen, name: t('scenario.kitchen'), kind: 'KITCHEN' },
+  ].map((room) => ({
+    ...room,
+    floorName: t('scenario.groundFloor'),
+    presenceSensors: count(room.id, (capability) =>
+      ['motion', 'occupancy', 'person_presence'].includes(capability),
+    ),
+    bedSensors: 0,
+    lights: count(room.id, (capability) => capability === 'light'),
+  }));
+  return {
+    timezone: 'Europe/Paris',
+    rooms,
+    paths: [
+      {
+        id: 'night-path-bedroom-bathroom',
+        name: t('scenario.nightPathName'),
+        enabled: true,
+        triggerRoomIds: [ROOM_IDS.bedroom],
+        includeBedExit: true,
+        lightRoomIds: [ROOM_IDS.bedroom, ROOM_IDS.living, ROOM_IDS.bathroom],
+        startMinute: 22 * 60,
+        endMinute: 7 * 60,
+        brightnessPercent: 25,
+        colorTemperatureKelvin: 2_200,
+        offDelayMinutes: 3,
+        createdAt: iso(-12 * DAY),
+        updatedAt: iso(-12 * DAY),
+        activeUntil: null,
+      },
+    ],
   };
 }
 
@@ -1643,7 +1741,7 @@ function sensor(
   roomName: string,
   capability: string,
   state: string,
-  batteryPercent: number,
+  batteryPercent: number | null,
   minutesAgo: number,
   model: string,
   manufacturer = 'SONOFF',
@@ -1684,7 +1782,12 @@ function sensor(
         label: capabilityLabel(capability),
         primary: true,
         status,
-        value: capability === 'temperature' ? { value: 21.4 } : { state: 'on' },
+        value:
+          capability === 'temperature'
+            ? { value: 21.4 }
+            : capability === 'light'
+              ? { active: false }
+              : { state: 'on' },
         unit: capability === 'temperature' ? '°C' : null,
         lastSeenAt: iso(minutesAgo * MINUTE),
         classification: {
@@ -1845,6 +1948,7 @@ function capabilityLabel(capability: string) {
         power: t('scenario.power'),
         occupancy: t('scenario.presence'),
         button: t('scenario.callForHelp'),
+        light: t('scenario.lighting'),
       } as Record<string, string>
     )[capability] ?? capability
   );
@@ -2536,6 +2640,40 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
   if (pathname === '/alerts/rules') {
     if (method === 'PATCH') Object.assign(state.rules, body);
     return state.rules as T;
+  }
+  if (pathname === '/night-paths' && method === 'POST') {
+    const now = iso();
+    const path = {
+      ...(body as Omit<NightPath, 'id' | 'createdAt' | 'updatedAt' | 'activeUntil'>),
+      id: `night-path-${state.nightPaths.paths.length + 1}-${Date.now()}`,
+      createdAt: now,
+      updatedAt: now,
+      activeUntil: null,
+    };
+    state.nightPaths.paths.push(path);
+    return path as T;
+  }
+  if (pathname === '/night-paths') return state.nightPaths as T;
+  if (pathname === '/night-paths/test' && method === 'POST') {
+    const roomIds = (body as { lightRoomIds?: string[] } | undefined)?.lightRoomIds ?? [];
+    const lights = state.nightPaths.rooms
+      .filter(({ id }) => roomIds.includes(id))
+      .reduce((total, room) => total + room.lights, 0);
+    return { lights, seconds: 20 } as T;
+  }
+  if (pathname.startsWith('/night-paths/')) {
+    const id = pathname.split('/')[2];
+    const index = state.nightPaths.paths.findIndex((path) => path.id === id);
+    if (index < 0) throw new DemoRouteNotFound(method, pathname);
+    if (method === 'DELETE') {
+      state.nightPaths.paths.splice(index, 1);
+      return { deleted: true, id } as T;
+    }
+    if (method === 'PATCH') {
+      const path = state.nightPaths.paths[index]!;
+      Object.assign(path, body, { updatedAt: iso() });
+      return path as T;
+    }
   }
   if (pathname === '/simulation/scenarios') return DEMO_SCENARIOS as T;
   if (pathname.startsWith('/simulation/scenarios/')) {

@@ -1265,7 +1265,7 @@
     "allHardware": "Todo el material",
     "connection": "Conexión",
     "documentationCheckedOn": "Documentación comprobada el",
-    "documentedEliseTestPending": "Documentado · prueba con Élise pendiente",
+    "documentedEliseTestPending": "Documentado",
     "documentedFeatures": "Funciones documentadas",
     "energyMonitoring": "Medición de energía",
     "functionsRecognizedByIntegration": "Funciones reconocidas por la integración",
@@ -1279,7 +1279,8 @@
     "testHardware": "Material de prueba",
     "thisListExactlyMatchesThe": "Esta lista corresponde exactamente a las referencias disponibles para las pruebas. Una compatibilidad documentada solo se marcará como «validada con Élise» tras una prueba física completa.",
     "validatedWithElise": "Validado con Élise",
-    "viewDetails": "Ver la ficha"
+    "viewDetails": "Ver la ficha",
+    "lighting": "Iluminación"
   },
   "heatwave": {
     "notMedical": "El modo ola de calor ayuda a recordar los buenos hábitos. No es un dispositivo médico: si alguien se encuentra mal, llame a emergencias (112).",
@@ -1924,6 +1925,98 @@
     "NEUTRAL": "Neutro",
     "SAD": "Triste"
   },
+  "nightPath": {
+    "title": "Camino iluminado",
+    "cardEyebrow": "Confort nocturno",
+    "cardEmpty": "Una luz suave se enciende en el trayecto cuando {{resident}} se levanta por la noche.",
+    "cardCount_one": "{{count}} camino configurado, {{enabled}} activo(s)",
+    "cardCount_many": "{{count}} caminos configurados, {{enabled}} activo(s)",
+    "cardCount_other": "{{count}} caminos configurados, {{enabled}} activo(s)",
+    "cardManage": "Configurar el camino iluminado",
+    "cardView": "Ver los caminos iluminados",
+    "theResident": "la persona",
+    "intro": "Cuando {{resident}} se levanta por la noche, Élise enciende suavemente una luz cálida en su trayecto y luego la apaga sola.",
+    "requirementsTitle": "Para crear un camino iluminado",
+    "needsSensor": "Añada un detector de movimiento o de presencia en la habitación de salida, por ejemplo el dormitorio.",
+    "needsLight": "Añada una iluminación en las habitaciones que se deben iluminar: Mi hogar → la habitación → Iluminación.",
+    "emptyTitle": "Todavía no hay ningún camino iluminado",
+    "emptyText": "Elija dónde empieza el trayecto nocturno y qué habitaciones iluminar, por ejemplo el dormitorio, el pasillo y el aseo.",
+    "create": "Crear un camino iluminado",
+    "addAnother": "Añadir otro camino",
+    "enabled": "Activo",
+    "paused": "En pausa",
+    "litUntil": "Encendido hasta las {{time}}",
+    "toggle": "Activar o pausar «{{name}}»",
+    "edit": "Modificar",
+    "delete": "Eliminar",
+    "keep": "Conservar",
+    "confirmDelete": "¿Eliminar este camino iluminado?",
+    "readOnly": "Solo el propietario y los administradores del hogar pueden modificar los caminos iluminados.",
+    "disclaimer": "Luz de apoyo para desplazarse de noche: no es un dispositivo médico y no sustituye la iluminación habitual. Depende de la red Zigbee del hogar.",
+    "loading": "Cargando los caminos iluminados…",
+    "loadError": "No se han podido cargar los caminos iluminados.",
+    "retry": "Reintentar",
+    "saveError": "No se ha podido guardar. Vuelva a intentarlo en un momento.",
+    "deleteError": "No se ha podido eliminar. Vuelva a intentarlo en un momento.",
+    "newTitle": "Nuevo camino iluminado",
+    "editTitle": "Modificar el camino iluminado",
+    "backToPaths": "Todos los caminos",
+    "name": "Nombre del camino",
+    "defaultName": "Camino de noche",
+    "defaultNameNumbered": "Camino de noche {{number}}",
+    "triggerTitle": "Cuando {{resident}} se mueve en…",
+    "triggerHint": "Elija una o varias habitaciones con un detector de movimiento o de presencia.",
+    "roomSensors_one": "{{count}} detector",
+    "roomSensors_many": "{{count}} detectores",
+    "roomSensors_other": "{{count}} detectores",
+    "roomWithoutSensor": "Sin detector",
+    "includeBedExit": "También cuando {{resident}} se levanta de la cama",
+    "windowTitle": "Solo por la noche",
+    "from": "De",
+    "to": "A",
+    "windowHint": "Se tiene en cuenta el paso de la medianoche. Fuera de este horario, no se enciende nada.",
+    "lightsTitle": "Habitaciones que iluminar",
+    "lightsHint": "Se encienden todas las luces de estas habitaciones, incluso en una habitación sin detector (pasillo, aseo…).",
+    "roomLights_one": "{{count}} luz",
+    "roomLights_many": "{{count}} luces",
+    "roomLights_other": "{{count}} luces",
+    "roomWithoutLight": "Sin iluminación",
+    "lightTitle": "Luz",
+    "brightness": "Intensidad",
+    "brightnessHint": "Una luz baja basta para ver dónde se pisa sin despertarse del todo.",
+    "warmth": "Tono",
+    "temperatures": {
+      "2200": "Muy cálida",
+      "2700": "Cálida",
+      "3000": "Suave"
+    },
+    "simpleLightHint": "Una luz que no regula ni la intensidad ni el tono simplemente se enciende.",
+    "offTitle": "Apagar después de",
+    "minutes_one": "{{count}} min",
+    "minutes_many": "{{count}} min",
+    "minutes_other": "{{count}} min",
+    "offHint": "…sin movimiento detectado en el trayecto.",
+    "summary_one": "Por la noche, de {{start}} a {{end}}, {{when}}: {{lights}} se enciende suavemente.",
+    "summary_many": "Por la noche, de {{start}} a {{end}}, {{when}}: {{lights}} se encienden suavemente.",
+    "summary_other": "Por la noche, de {{start}} a {{end}}, {{when}}: {{lights}} se encienden suavemente.",
+    "whenMoves": "cuando {{resident}} se mueve en {{rooms}}",
+    "whenMovesOrGetsUp": "cuando {{resident}} se levanta de la cama o se mueve en {{rooms}}",
+    "summaryIncomplete": "Elija al menos una habitación de salida y una habitación que iluminar.",
+    "problems": {
+      "name": "Dé un nombre a este camino.",
+      "trigger": "Elija al menos una habitación donde empezar.",
+      "lights": "Elija al menos una habitación que iluminar.",
+      "window": "El inicio y el final de la noche deben ser distintos."
+    },
+    "test": "Probar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "testStarted_one": "{{count}} luz se enciende durante {{seconds}} segundos.",
+    "testStarted_many": "{{count}} luces se encienden durante {{seconds}} segundos.",
+    "testStarted_other": "{{count}} luces se encienden durante {{seconds}} segundos.",
+    "testNoLight": "No hay ninguna luz disponible en estas habitaciones, o ya está encendida.",
+    "testError": "No se ha podido iniciar la prueba. Vuelva a intentarlo en un momento."
+  },
   "remoteAccessCard": {
     "actionFailed": "No se ha podido realizar la acción.",
     "activeAndPrivate": "Activo y privado",
@@ -2047,7 +2140,7 @@
     "disabled": "Desactivado",
     "documentationCheckedOn": "Documentación comprobada el",
     "documentedCompatibility": "Compatibilidad documentada",
-    "documentedCompatibilityEliseTestPending": "Compatibilidad documentada · prueba de Élise pendiente",
+    "documentedCompatibilityEliseTestPending": "Compatibilidad documentada",
     "documentedFeatures": "Funciones documentadas",
     "documentedProducts": "Productos documentados",
     "empty": "Libre",
@@ -2148,7 +2241,10 @@
     "whatIsThisSensorFor": "¿Para qué sirve este sensor?",
     "whenTheBedIsOccupied": "Cuando la cama está ocupada",
     "whereToPlaceIt": "Dónde colocarlo",
-    "yourRoom": "Su estancia"
+    "yourRoom": "Su estancia",
+    "lightOn": "Encendida",
+    "lightOff": "Apagada",
+    "lightBrightness": "Intensidad {{percent}} %"
   },
   "router": {
     "english": "Español",
@@ -2208,9 +2304,12 @@
     "avoidHeatSourcesAndMetal": "Evite las fuentes de calor y los objetos metálicos.",
     "bathroom": "Baño",
     "bathroomHumidity": "Humedad del baño",
+    "bathroomStrip": "Tira del baño",
     "batteryToReplaceSoon": "Pila que cambiar pronto",
     "bedroom": "Dormitorio",
     "bedroomCoolerThanUsual": "Dormitorio más fresco de lo habitual",
+    "bedroomMotion": "Movimiento dormitorio",
+    "bedroomStrip": "Tira bajo la cama",
     "bedroomTemperature": "Temperatura del dormitorio",
     "behindMetalFurniture": "Detrás de un mueble metálico",
     "bringTheLatestResults": "Llevar los últimos resultados.",
@@ -2279,9 +2378,11 @@
     "kitchenMotion": "Movimiento en la cocina",
     "landscapesFromHereAndElsewhere": "Paisajes de aquí y de allá",
     "lesPiedsSurTerre": "Les Pieds sur terre",
+    "lighting": "Iluminación",
     "littleMovementObservedAtThe": "Pocos movimientos observados al principio del día.",
     "livingRoom": "Salón",
     "livingRoomMotion": "Movimiento en el salón",
+    "livingRoomStrip": "Tira del salón",
     "livingRoomTemperature": "Temperatura del salón",
     "livingRoomTemperature2": "Temperatura salón",
     "livingRoomTv": "Televisor del salón",
@@ -2298,6 +2399,7 @@
     "movementInTheBathroom": "Paso por el baño",
     "movementNoticed": "Paso registrado",
     "newDetector": "Nuevo detector",
+    "nightPathName": "Dormitorio → baño",
     "noMovementHadBeenSeen": "No se había observado ningún movimiento a la hora habitual de levantarse.",
     "noMovementThisMorning": "Sin movimiento esta mañana",
     "noRecentMovement": "Ningún movimiento reciente",
@@ -2721,6 +2823,10 @@
     "water_leak": {
       "description": "Los puntos de agua que conviene vigilar",
       "label": "Fuga de agua"
+    },
+    "light": {
+      "description": "Una luz suave controlada por Élise, por ejemplo para el camino de noche",
+      "label": "Iluminación"
     }
   },
   "sensorCoverageRecommendations": {
@@ -2802,7 +2908,7 @@
         "El vendedor indica la referencia HS2FD-E; Zigbee2MQTT documenta la variante HS2FD-EF1-3.0. Pida que le confirmen la referencia exacta antes de comprarlo.",
         "Conecte el sensor a una alimentación de 5 V / 2 A, cerca del equipo Élise.",
         "En Élise OS, elija «Instalar este sensor» y luego Zigbee. Ponga el sensor en modo de vinculación siguiendo su manual: no se necesita ningún concentrador ni cuenta Heiman.",
-        "Tras la instalación, compruebe que se recibe una alerta de caída con el modo de prueba indicado por el fabricante. Este modelo todavía no se ha probado físicamente con Élise."
+        "Tras la instalación, compruebe que se recibe una alerta de caída con el modo de prueba indicado por el fabricante."
       ]
     },
     "heiman-smoke-detector": {
@@ -2826,6 +2932,28 @@
         "Mantenga el detector activo pulsando su botón cada 2 segundos hasta que termine la vinculación.",
         "Tras la instalación, pruebe la sirena según el manual y compruebe el estado del detector y de su batería en Élise. Zigbee2MQTT advierte de que algunos firmwares pueden enviar falsos estados de humo repetidos; vigile su comportamiento tras la vinculación.",
         "La sirena local funciona en el propio detector. Las notificaciones de Élise complementan la atención y todavía no se han validado en un dispositivo físico."
+      ]
+    },
+    "innr-flex-light-colour-fl230c": {
+      "advice": "Péguela a ras del suelo o bajo la cama, a lo largo del trayecto nocturno (dormitorio, pasillo, aseo). Dirija la luz hacia el suelo para iluminar los pasos sin deslumbrar a la persona. Solo para interiores; mantenga el adaptador y el controlador secos y accesibles.",
+      "name": "Tira LED Zigbee de color de 3 m",
+      "power": "Adaptador de corriente incluido · 100–240 V → 24 V CC · 24 W como máximo",
+      "features": [
+        "Encendido / apagado, intensidad regulable del 0,1 al 100 %",
+        "Blanco cálido a frío y colores",
+        "Encendido y apagado progresivos",
+        "Tira de 3 m recortable, con dorso adhesivo",
+        "Se conecta directamente a la llave Zigbee de Élise, sin puente Innr"
+      ],
+      "preparation": [
+        "Desenrolle toda la tira antes de enchufarla: el manual prohíbe alimentarla enrollada o dentro de su embalaje.",
+        "En Élise OS, elija «Instalar este sensor» y luego Zigbee; después enchufe la tira cerca del equipo.",
+        "Si no se vincula, restablézcala como muestra el manual de Innr: pulse una vez el botón del controlador y luego manténgalo pulsado 5 segundos; la tira parpadea dos veces cuando está lista."
+      ],
+      "placement": [
+        "Péguela a ras del suelo o bajo la cama, a lo largo del trayecto nocturno (dormitorio, pasillo, aseo).",
+        "Dirija la luz hacia el suelo para iluminar los pasos sin deslumbrar a la persona.",
+        "Solo para interiores; mantenga el adaptador y el controlador secos y accesibles."
       ]
     },
     "nodon-climate": {

@@ -100,6 +100,9 @@ const confirmationSchema = z.object({
 const commandSchema = z.object({
   state: z.enum(['ON', 'OFF']),
   confirmed: z.literal(true),
+  /** Lights only: brightness and colour temperature, ignored by plugs. */
+  brightnessPercent: z.number().int().min(1).max(100).optional(),
+  colorTemperatureKelvin: z.number().int().min(1_000).max(10_000).optional(),
 });
 
 @Injectable()
@@ -203,14 +206,31 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
     const home = await this.homeFor(userId);
     const device = await this.prisma.device.findFirst({
       where: { id, homeId: home.id },
-      include: { sensors: { where: { capability: 'switch', removedAt: null } } },
+      include: {
+        sensors: { where: { capability: { in: ['switch', 'light'] }, removedAt: null } },
+      },
     });
-    const entity = device?.sensors[0];
+    // A light is driven as a light (brightness, colour temperature); a plug as a switch.
+    const entity =
+      device?.sensors.find(({ capability }) => capability === 'light') ?? device?.sensors[0];
     if (!device || !entity) throw new NotFoundException('Commande indisponible pour cet appareil.');
+    const domain = entity.capability === 'light' ? 'light' : 'switch';
+    const lightData =
+      domain === 'light' && input.state === 'ON'
+        ? {
+            ...(input.brightnessPercent !== undefined
+              ? { brightness_pct: input.brightnessPercent }
+              : {}),
+            ...(input.colorTemperatureKelvin !== undefined
+              ? { color_temp_kelvin: input.colorTemperatureKelvin }
+              : {}),
+          }
+        : {};
     this.mqtt.executeHomeAssistantCommand({
-      domain: 'switch',
+      domain,
       service: input.state === 'ON' ? 'turn_on' : 'turn_off',
       target: { entity_id: entity.entityId },
+      ...(Object.keys(lightData).length > 0 ? { data: lightData } : {}),
     });
     return { accepted: true, deviceId: device.id, requestedState: input.state };
   }
@@ -1235,6 +1255,7 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
     if (values.has('occupancy') && isPirMotionModel(model)) return 'MOTION';
     if (values.has('person_presence') || values.has('occupancy')) return 'PRESENCE';
     if (values.has('motion') || values.has('vibration')) return 'MOTION';
+    if (values.has('light')) return 'LIGHT';
     if (values.has('power') || values.has('energy') || values.has('switch')) return 'SMART_PLUG';
     if (values.has('button')) return 'BUTTON';
     return 'UNKNOWN';
@@ -1362,7 +1383,9 @@ export class SensorsService implements OnModuleInit, OnModuleDestroy {
                 ? 'Détecteur d’ouverture'
                 : capabilityNames.has('water_leak')
                   ? 'Détecteur de fuite d’eau'
-                  : device.name;
+                  : capabilityNames.has('light')
+                    ? 'Éclairage'
+                    : device.name;
     const status = !device.enabled
       ? 'DISABLED'
       : networkDisconnected || sensorUnavailable
