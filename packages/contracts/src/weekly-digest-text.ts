@@ -548,7 +548,7 @@ const en: WeeklyDigestTexts = {
 
 const es: WeeklyDigestTexts = {
   title: 'Resumen de la semana',
-  eyebrow: 'Cuaderno de enlace',
+  eyebrow: 'Cuaderno de seguimiento',
   period: 'Del {{from}} al {{to}}',
   generatedOn: 'Generado el {{date}} a las {{time}}',
   disclaimer: 'Estimaciones obtenidas de sensores, no es un dispositivo médico.',
@@ -744,7 +744,7 @@ const es: WeeklyDigestTexts = {
     },
   },
   pdf: {
-    subtitle: 'Cuaderno de enlace Élise',
+    subtitle: 'Cuaderno de seguimiento de Élise',
     audience: 'Documento para compartir con el médico o la enfermera',
     page: 'Página {{page}} de {{pages}}',
     comparison: {
