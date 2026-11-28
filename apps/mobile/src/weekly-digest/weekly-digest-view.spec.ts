@@ -49,12 +49,12 @@ describe('weekly digest in the mobile notebook', () => {
 
   it('describes each theme with the usual, its facts and how it is measured', () => {
     const [nights, meals, outings, visits] = digestThemesView(latest(), 'fr');
-    expect(nights.stats[1]).toMatchObject({ label: 'Lever', usual: 'D’habitude : 07:18' });
+    expect(nights.stats[1]).toMatchObject({ label: 'Lever', usual: 'D’habitude\u00a0: 07:18' });
     expect(nights.method).toBe('Mesuré par le capteur du lit.');
     expect(meals.facts[0].text).toBe(
       '3 repas semblent manqués\u00a0: Jeu midi, Ven matin, Sam midi',
     );
-    expect(outings.stats[0]).toMatchObject({ value: '3', usual: 'D’habitude : 7' });
+    expect(outings.stats[0]).toMatchObject({ value: '3', usual: 'D’habitude\u00a0: 7' });
     expect(visits.method).toBe(
       'Élise ne reconnaît pas les personnes : les visites viennent du calendrier.',
     );

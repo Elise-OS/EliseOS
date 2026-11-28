@@ -140,7 +140,7 @@ const fr: WeeklyDigestTexts = {
   generatedOn: 'Généré le {{date}} à {{time}}',
   disclaimer: 'Estimations issues de capteurs, pas un dispositif médical.',
   advice: 'En cas d’inquiétude, parlez-en au médecin ou à l’infirmière.',
-  usual: 'D’habitude : {{value}}',
+  usual: 'D’habitude\u00a0: {{value}}',
   thisWeek: 'Cette semaine',
   noData: 'Pas de données',
   readySoon: 'Le bilan de cette semaine sera prêt dimanche soir.',
