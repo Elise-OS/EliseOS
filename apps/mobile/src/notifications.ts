@@ -20,7 +20,11 @@ function handleNotificationResponse(response: Notifications.NotificationResponse
   const data = response.notification.request.content.data;
   if (!data) return;
   const destination =
-    data.kind === 'liaison' ? 'journal' : data.kind === 'alert' || data.alertId ? 'alerts' : null;
+    data.kind === 'liaison' || data.kind === 'weekly_digest'
+      ? 'journal'
+      : data.kind === 'alert' || data.alertId
+        ? 'alerts'
+        : null;
   if (!destination) return;
   if (navigationListeners.size === 0) pendingDestination = destination;
   else navigationListeners.forEach((listener) => listener(destination));

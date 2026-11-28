@@ -53,7 +53,7 @@ import type {
   ZigbeeProbeResult,
   ZigbeeStatus,
 } from '@elise/contracts';
-import type { Installation } from '@elise/contracts';
+import type { Installation, WeeklyDigest } from '@elise/contracts';
 import { ZIGBEE_DEMO_SEARCH_MS } from '@elise/contracts';
 import type { SavedServer } from './discovery/types';
 import { preferredServerUrls, rememberActiveServerUrl } from './discovery/helpers';
@@ -438,6 +438,9 @@ export const mobileApi = {
       method: 'POST',
       body: '{}',
     }),
+  /** Weekly digest of the notebook: the latest ready week, or the week holding `week`. */
+  weeklyDigest: (server: SavedServer, token: string, week?: string) =>
+    request<WeeklyDigest>(server, `/weekly-digest${query({ week })}`, token),
   liaison: (server: SavedServer, token: string, filter: LiaisonFilter, cursor?: string) =>
     request<LiaisonPage>(server, `/liaison${query({ filter, cursor })}`, token),
   createLiaison: (server: SavedServer, token: string, input: LiaisonCreate) =>

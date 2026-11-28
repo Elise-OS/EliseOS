@@ -2843,5 +2843,26 @@
     "whenMovesOrGetsUp": "cuando {{resident}} se levanta de la cama o se mueve en {{rooms}}",
     "windowHint": "Se tiene en cuenta el paso de la medianoche. Fuera de este horario, no se enciende nada.",
     "windowTitle": "Solo por la noche"
+  },
+  "weeklyDigest": {
+    "loading": "Preparando el resumen de la semana…",
+    "unavailable": "El resumen de la semana no está disponible por el momento. Compruebe la conexión con la caja.",
+    "open": "Ver el resumen",
+    "close": "Cerrar el resumen",
+    "previousWeek": "Ver la semana anterior",
+    "nextWeek": "Ver la semana siguiente",
+    "exportPdf": "Exportar en PDF",
+    "exporting": "Preparando el PDF…",
+    "exportFailed": "No se pudo preparar el PDF. Inténtelo de nuevo en un momento.",
+    "demo": {
+      "alertMorning": "Ningún movimiento esta mañana en la cocina",
+      "alertBattery": "Batería baja del detector del cuarto de baño",
+      "sensorName": "Detector de movimiento",
+      "sensorRoom": "Cuarto de baño"
+    },
+    "downloaded": "El PDF se ha guardado en sus descargas.",
+    "shareTitle": "Compartir el resumen de la semana",
+    "previousShort": "Anterior",
+    "nextShort": "Siguiente"
   }
 }
