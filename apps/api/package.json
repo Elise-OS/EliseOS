@@ -27,6 +27,7 @@
     "@xmldom/xmldom": "^0.9.12",
     "cookie-parser": "^1.4.7",
     "helmet": "^8.1.0",
+    "jspdf": "^4.2.1",
     "mqtt": "^5.13.3",
     "pg": "^8.22.0",
     "prisma": "^6.19.0",
