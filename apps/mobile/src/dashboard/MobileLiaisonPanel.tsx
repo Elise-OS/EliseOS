@@ -26,6 +26,7 @@ import type { SavedServer } from '../discovery/types';
 import { dateLocale } from '../locale';
 import { t } from '../i18n';
 import { useTabBarPadding } from './tabBarSpace';
+import { MobileWeeklyDigestCard } from '../weekly-digest/MobileWeeklyDigest';
 
 const MOODS = [
   {
@@ -277,6 +278,7 @@ export function MobileLiaisonPanel({
           {notice}
         </Text>
       ) : null}
+      <MobileWeeklyDigestCard server={server} token={token} />
       {query.isPending && <Text>{t('mobileLiaisonPanel.loadingTheNotebook')}</Text>}
       {data && !data.canWrite && (
         <Text style={s.muted}>{t('mobileLiaisonPanel.youCanReadTheNotebook')}</Text>

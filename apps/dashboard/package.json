@@ -21,6 +21,7 @@
     "@radix-ui/react-progress": "^1.1.7",
     "hls.js": "^1.7.3",
     "i18next": "^25.10.10",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.536.0",
     "qrcode": "^1.5.4",
     "react": "19.1.0",

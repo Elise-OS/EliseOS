@@ -3920,5 +3920,26 @@
     "useKey": "Use this key",
     "useKeyInstead": "Use this key instead",
     "watching": "A key that is plugged in or switched on shows up by itself while this screen is open."
+  },
+  "weeklyDigest": {
+    "loading": "Preparing the weekly summary…",
+    "unavailable": "The weekly summary is not available right now. Check the connection to the box.",
+    "open": "See the summary",
+    "close": "Close the summary",
+    "weeks": "Weeks",
+    "previous": "Previous week",
+    "next": "Next week",
+    "previousWeek": "See the previous week",
+    "nextWeek": "See the next week",
+    "exportPdf": "Export as PDF",
+    "exporting": "Preparing the PDF…",
+    "exported": "The PDF is saved in your downloads.",
+    "exportFailed": "The PDF could not be prepared. Try again in a moment.",
+    "demo": {
+      "alertMorning": "No movement in the kitchen this morning",
+      "alertBattery": "Low battery for the bathroom sensor",
+      "sensorName": "Motion sensor",
+      "sensorRoom": "Bathroom"
+    }
   }
 }

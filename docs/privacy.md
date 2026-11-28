@@ -5,6 +5,7 @@
 - Detailed observations: 90 days.
 - Completed delivery jobs and technical operational records: 30 days.
 - Journal summaries: up to two years by default.
+- Weekly summary figures of the notebook (nights, meals, outings, calls per day, no raw event): two years, so earlier weekly summaries stay readable.
 - Account and audit records: until account or household deletion, subject to integrity requirements.
 - Alert snapshots: 24 hours, stored locally and excluded from normal backups.
 

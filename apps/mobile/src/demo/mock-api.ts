@@ -1,6 +1,7 @@
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   createHeatwaveDemo,
+  createWeeklyDigestDemo,
   createZigbeeDemo,
   isZigbeeDemoScenario,
   defaultTvChannels,
@@ -63,6 +64,27 @@ const createDemoHeatwave = () =>
     rooms: { warm: t('mockApi.bedroom'), mild: t('mockApi.livingRoom') },
   });
 let heatwaveDemo = createDemoHeatwave();
+
+// The notebook's weekly digest: a believable week for Jeanne, with a notable change.
+const createDemoWeeklyDigest = () =>
+  createWeeklyDigestDemo({
+    timeZone: 'Europe/Paris',
+    residentName: 'Jeanne',
+    labels: {
+      visitors: { help: 'Sophie Bernard', son: 'Luc Martin', daughter: 'Claire Martin' },
+      appointment: 'Dr Bernard',
+      alertMorning: t('weeklyDigest.demo.alertMorning'),
+      alertBattery: t('weeklyDigest.demo.alertBattery'),
+      sensorName: t('weeklyDigest.demo.sensorName'),
+      sensorRoom: t('weeklyDigest.demo.sensorRoom'),
+    },
+  });
+let weeklyDigestDemo = createDemoWeeklyDigest();
+
+/** The demo digest of a week, for the PDF drawn on the phone in the demo. */
+export function demoWeeklyDigest(week?: string | null) {
+  return weeklyDigestDemo.digest(week);
+}
 
 // EXPO_PUBLIC_BOX_HEALTH_DEMO=ok|warning|critical|unknown|loading|error|backup (or ?boxHealth= on the
 // web build) forces the state of the box health screen for screenshots; see ./box-health.ts.
@@ -2147,6 +2169,7 @@ export function resetDemoSession() {
   demoSession = createDemoSession();
   zigbeeDemo = createZigbeeDemo({ scenario: zigbeeScenario });
   heatwaveDemo = createDemoHeatwave();
+  weeklyDigestDemo = createDemoWeeklyDigest();
   demoSessionLocale = appLocale();
   demoNotificationPreferences = { ...DEFAULT_NOTIFICATION_PREFERENCES };
 }
@@ -2204,6 +2227,12 @@ export function mockDemoRequest<T>(path: string, init?: RequestInit): T {
     if (heatwaveAnswer.status >= 400)
       throw new MobileApiError('Heatwave error', 'HTTP', heatwaveAnswer.status);
     return heatwaveAnswer.body as T;
+  }
+  const digestAnswer = weeklyDigestDemo.handle(method, pathname ?? '', search);
+  if (digestAnswer) {
+    if (digestAnswer.status >= 400)
+      throw new MobileApiError('Weekly digest not found', 'HTTP', digestAnswer.status);
+    return digestAnswer.body as T;
   }
   const body =
     typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : {};

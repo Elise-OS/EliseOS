@@ -23,4 +23,8 @@ export async function applyRetention(): Promise<void> {
   await pool.query(
     `DELETE FROM "RoomDailyPresenceAggregate" WHERE "localDate" < NOW() - INTERVAL '2 years'`,
   );
+  // Weekly digests stay readable two years, like the daily summaries of the journal.
+  await pool.query(
+    `DELETE FROM "WeeklyDigestSnapshot" WHERE "createdAt" < NOW() - INTERVAL '2 years'`,
+  );
 }

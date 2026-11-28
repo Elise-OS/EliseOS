@@ -2846,5 +2846,26 @@
     "whenMovesOrGetsUp": "quando {{resident}} se levanta da cama ou se mexe {{rooms}}",
     "windowHint": "A passagem da meia-noite é tida em conta. Fora deste horário, nada se acende.",
     "windowTitle": "Apenas à noite"
+  },
+  "weeklyDigest": {
+    "loading": "A preparar o resumo da semana…",
+    "unavailable": "O resumo da semana não está disponível de momento. Verifique a ligação à caixa.",
+    "open": "Ver o resumo",
+    "close": "Fechar o resumo",
+    "previousWeek": "Ver a semana anterior",
+    "nextWeek": "Ver a semana seguinte",
+    "exportPdf": "Exportar em PDF",
+    "exporting": "A preparar o PDF…",
+    "exportFailed": "Não foi possível preparar o PDF. Tente novamente dentro de momentos.",
+    "demo": {
+      "alertMorning": "Nenhum movimento esta manhã na cozinha",
+      "alertBattery": "Bateria fraca do sensor da casa de banho",
+      "sensorName": "Sensor de movimento",
+      "sensorRoom": "Casa de banho"
+    },
+    "downloaded": "O PDF foi guardado nas suas transferências.",
+    "shareTitle": "Partilhar o resumo da semana",
+    "previousShort": "Anterior",
+    "nextShort": "Seguinte"
   }
 }

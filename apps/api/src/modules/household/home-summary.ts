@@ -277,7 +277,7 @@ function nextLocalDate(value: string) {
   return next.toISOString().slice(0, 10);
 }
 
-function localSleepTime(value: Date, timezone: string) {
+export function localSleepTime(value: Date, timezone: string) {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone: timezone,
     year: 'numeric',
@@ -294,17 +294,20 @@ function localSleepTime(value: Date, timezone: string) {
   };
 }
 
-/** A wired pressure contact reports occupancy, not sleep itself. Keep only sustained
- * overnight episodes and confirm departures before showing daily landmarks. */
-export function buildSleepSummary(
+export type BedEpisode = { start: Date; end: Date | null };
+export type BedSensorChoice = {
+  roomId: string | null;
+  sensor: HomeSensor | undefined;
+  occupiedWhen: 'OPEN' | 'CLOSED';
+  configured: boolean;
+};
+
+/** The bed sensor bound in the plan (a pressure contact or a bed occupancy sensor), if any. */
+export function findBedSensor(
   sensors: HomeSensor[],
-  events: HomeEvent[],
-  priorStates: HomeEvent[],
   plan: HomePlan | null,
   rooms: Room[],
-  timezone: string,
-  now: Date,
-): NonNullable<HomeSummary['sleep']> {
+): BedSensorChoice {
   const bedrooms = rooms.filter(({ kind }) => kind === 'BEDROOM');
   const bindings = (plan?.placements ?? [])
     .filter((placement) => placement.kind === 'SENSOR')
@@ -331,42 +334,36 @@ export function buildSleepSummary(
       };
     })
     .find(({ room, sensor }) => room && sensor);
-  const result: NonNullable<HomeSummary['sleep']> = {
+  return {
     roomId: selected?.room?.id ?? bedrooms[0]?.id ?? null,
+    sensor: selected?.sensor,
+    occupiedWhen: selected?.occupiedWhen ?? 'CLOSED',
     configured: Boolean(selected),
-    available: false,
-    occupied: null,
-    bedtimeAt: null,
-    wakeAt: null,
   };
-  if (!selected?.sensor) return result;
-  const { sensor, occupiedWhen } = selected;
-  const currentEvent = sensor.events[0];
-  const currentOpen = currentEvent ? observedState(currentEvent) : null;
-  result.available = Boolean(
-    sensor.available &&
-    sensor.status === 'ONLINE' &&
-    currentEvent?.quality === 'good' &&
-    currentOpen !== null,
-  );
-  if (result.available && currentOpen !== null)
-    result.occupied = currentOpen === (occupiedWhen === 'OPEN');
+}
 
+/** Sustained bed occupancy episodes: a departure counts once the bed stayed empty 30 min. */
+export function bedEpisodes(
+  sensorId: string,
+  occupiedWhen: 'OPEN' | 'CLOSED',
+  events: HomeEvent[],
+  priorStates: HomeEvent[],
+  now: Date,
+): BedEpisode[] {
   const series = events
     .filter(
-      ({ sensorId, quality, occurredAt }) =>
-        sensorId === sensor.id && quality === 'good' && occurredAt <= now,
+      (event) => event.sensorId === sensorId && event.quality === 'good' && event.occurredAt <= now,
     )
     .sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
   const prior = priorStates.find(
-    ({ sensorId, quality }) => sensorId === sensor.id && quality === 'good',
+    (event) => event.sensorId === sensorId && event.quality === 'good',
   );
   const priorOpen = prior ? observedState(prior) : null;
   let occupied: boolean | null =
     priorOpen === null ? null : priorOpen === (occupiedWhen === 'OPEN');
   let startedAt: Date | null = null;
   let emptySince: Date | null = null;
-  const episodes: Array<{ start: Date; end: Date | null }> = [];
+  const episodes: BedEpisode[] = [];
   for (const event of series) {
     const open = observedState(event);
     if (open === null) continue;
@@ -392,22 +389,22 @@ export function buildSleepSummary(
       emptySince && now.getTime() - emptySince.getTime() >= BED_EXIT_CONFIRM_MS ? emptySince : null;
     episodes.push({ start: startedAt, end });
   }
-  const today = localSleepTime(now, timezone).date;
-  const byNight = new Map<string, typeof episodes>();
+  return episodes;
+}
+
+/** Bedtime, getting up and time in bed of the night that ends on the morning of `night`. */
+export function bedNight(
+  episodes: BedEpisode[],
+  night: string,
+  timezone: string,
+  now: Date,
+): { bedtimeAt: Date; wakeAt: Date | null; inBedMs: number } | null {
+  const chains: BedEpisode[][] = [];
   for (const episode of episodes) {
     const localStart = localSleepTime(episode.start, timezone);
     if (localStart.minute >= 12 * 60 && localStart.minute < 18 * 60) continue;
-    const night = localStart.minute >= 18 * 60 ? nextLocalDate(localStart.date) : localStart.date;
-    const group = byNight.get(night) ?? [];
-    group.push(episode);
-    byNight.set(night, group);
-  }
-  // The daily cards describe the night that ended today. Ignore a new bedtime
-  // from this evening, whose night key is tomorrow.
-  const night = byNight.has(today) ? today : null;
-  if (!night) return result;
-  const chains: Array<typeof episodes> = [];
-  for (const episode of byNight.get(night)!) {
+    const key = localStart.minute >= 18 * 60 ? nextLocalDate(localStart.date) : localStart.date;
+    if (key !== night) continue;
     const lastChain = chains.at(-1);
     const previous = lastChain?.at(-1);
     if (
@@ -417,7 +414,7 @@ export function buildSleepSummary(
       chains.push([episode]);
     else lastChain!.push(episode);
   }
-  const occupiedDuration = (chain: typeof episodes) =>
+  const occupiedDuration = (chain: BedEpisode[]) =>
     chain.reduce(
       (sum, episode) => sum + (episode.end ?? now).getTime() - episode.start.getTime(),
       0,
@@ -430,14 +427,61 @@ export function buildSleepSummary(
       );
     })
     .sort((left, right) => occupiedDuration(right) - occupiedDuration(left))[0];
-  if (!selectedChain) return result;
-  result.bedtimeAt = selectedChain[0]!.start.toISOString();
+  if (!selectedChain) return null;
   const last = selectedChain.at(-1)!;
+  let wakeAt: Date | null = null;
   if (last.end && occupiedDuration(selectedChain) >= OVERNIGHT_MIN_MS) {
     const localEnd = localSleepTime(last.end, timezone);
-    if (localEnd.date === today && localEnd.minute >= 4 * 60 && localEnd.minute < 12 * 60)
-      result.wakeAt = last.end.toISOString();
+    if (localEnd.date === night && localEnd.minute >= 4 * 60 && localEnd.minute < 12 * 60)
+      wakeAt = last.end;
   }
+  return { bedtimeAt: selectedChain[0]!.start, wakeAt, inBedMs: occupiedDuration(selectedChain) };
+}
+
+/** A wired pressure contact reports occupancy, not sleep itself. Keep only sustained
+ * overnight episodes and confirm departures before showing daily landmarks. */
+export function buildSleepSummary(
+  sensors: HomeSensor[],
+  events: HomeEvent[],
+  priorStates: HomeEvent[],
+  plan: HomePlan | null,
+  rooms: Room[],
+  timezone: string,
+  now: Date,
+): NonNullable<HomeSummary['sleep']> {
+  const selected = findBedSensor(sensors, plan, rooms);
+  const result: NonNullable<HomeSummary['sleep']> = {
+    roomId: selected.roomId,
+    configured: selected.configured,
+    available: false,
+    occupied: null,
+    bedtimeAt: null,
+    wakeAt: null,
+  };
+  if (!selected.sensor) return result;
+  const { sensor, occupiedWhen } = selected;
+  const currentEvent = sensor.events[0];
+  const currentOpen = currentEvent ? observedState(currentEvent) : null;
+  result.available = Boolean(
+    sensor.available &&
+    sensor.status === 'ONLINE' &&
+    currentEvent?.quality === 'good' &&
+    currentOpen !== null,
+  );
+  if (result.available && currentOpen !== null)
+    result.occupied = currentOpen === (occupiedWhen === 'OPEN');
+  // The daily cards describe the night that ended today. Ignore a new bedtime
+  // from this evening, whose night key is tomorrow.
+  const today = localSleepTime(now, timezone).date;
+  const night = bedNight(
+    bedEpisodes(sensor.id, occupiedWhen, events, priorStates, now),
+    today,
+    timezone,
+    now,
+  );
+  if (!night) return result;
+  result.bedtimeAt = night.bedtimeAt.toISOString();
+  result.wakeAt = night.wakeAt?.toISOString() ?? null;
   return result;
 }
 

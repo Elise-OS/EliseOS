@@ -43,6 +43,17 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     boxHealthDemoState(window.location.search) === 'loading'
   )
     return new Promise<Response>(() => undefined);
+  // The PDF of the weekly digest is drawn here, in the browser, as the box would draw it.
+  if (url.pathname === `${API_PREFIX}/weekly-digest/pdf`) {
+    const { demoWeeklyDigestPdf } = await import('./weekly-digest-pdf');
+    const bytes = await demoWeeklyDigestPdf(
+      url.searchParams.get('week'),
+      url.searchParams.get('lang'),
+    );
+    return bytes
+      ? new Response(bytes, { status: 200, headers: { 'content-type': 'application/pdf' } })
+      : new Response(JSON.stringify({ message: 'Weekly digest not found' }), { status: 404 });
+  }
   const answer = handleDemoRequest(
     method,
     path,

@@ -1522,3 +1522,7 @@ export * from './liaison.js';
 export * from './update.js';
 export * from './sensor-products.js';
 export * from './sensor-onboarding.js';
+export * from './weekly-digest.js';
+export * from './weekly-digest-text.js';
+export * from './weekly-digest-demo.js';
+export * from './weekly-digest-pdf.js';

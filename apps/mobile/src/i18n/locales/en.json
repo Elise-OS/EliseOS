@@ -2789,5 +2789,26 @@
     "whenMovesOrGetsUp": "when {{resident}} gets out of bed or moves in {{rooms}}",
     "windowHint": "Midnight is handled. Outside these hours, nothing turns on.",
     "windowTitle": "At night only"
+  },
+  "weeklyDigest": {
+    "loading": "Preparing the weekly summary…",
+    "unavailable": "The weekly summary is not available right now. Check the connection to the box.",
+    "open": "See the summary",
+    "close": "Close the summary",
+    "previousWeek": "See the previous week",
+    "nextWeek": "See the next week",
+    "exportPdf": "Export as PDF",
+    "exporting": "Preparing the PDF…",
+    "exportFailed": "The PDF could not be prepared. Try again in a moment.",
+    "demo": {
+      "alertMorning": "No movement in the kitchen this morning",
+      "alertBattery": "Low battery for the bathroom sensor",
+      "sensorName": "Motion sensor",
+      "sensorRoom": "Bathroom"
+    },
+    "downloaded": "The PDF is saved in your downloads.",
+    "shareTitle": "Share the weekly summary",
+    "previousShort": "Previous",
+    "nextShort": "Next"
   }
 }

@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { HeatwaveScreenView, HeatwaveStatus } from '@elise/contracts';
+import type { HeatwaveScreenView, HeatwaveStatus, WeeklyDigest } from '@elise/contracts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setLanguage } from '../i18n';
 import { handleDemoRequest, resetDemo } from './router';
@@ -158,6 +158,17 @@ describe('demo router', () => {
     }
     const calm = handleDemoRequest('GET', '/screen').body as { weather: { maximum: number } };
     expect(calm.weather.maximum).toBe(22);
+  });
+
+  it('shows a week of Jeanne in the weekly digest, with a notable change', () => {
+    const answer = handleDemoRequest('GET', '/weekly-digest');
+    expect(answer.status).toBe(200);
+    const digest = answer.body as WeeklyDigest;
+    expect(digest.residentName).toBe('Jeanne');
+    expect(digest.changes.map((item) => item.key)).toContain('wakeLater');
+    expect(digest.alerts.length).toBeGreaterThan(0);
+    const earlier = handleDemoRequest('GET', `/weekly-digest?week=${digest.previousWeek}`);
+    expect((earlier.body as WeeklyDigest).nextWeek).toBe(digest.weekStart);
   });
 
   it('refuses actions that would leave the page', () => {

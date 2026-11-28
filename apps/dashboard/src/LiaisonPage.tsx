@@ -35,6 +35,12 @@ import { DataLoadingScreen } from './DataLoadingScreen';
 import './liaison.css';
 import { moodLabel } from './i18n/data';
 import { subscribeRealtime } from './realtime';
+import {
+  WeeklyDigestCard,
+  WeeklyDigestDialog,
+  fetchWeeklyDigest,
+  type DigestAnswer,
+} from './weekly-digest/WeeklyDigest';
 
 interface PendingMedication {
   name: string;
@@ -134,6 +140,8 @@ export function LiaisonPage({
   const [entryDraft, setEntryDraft] = useState('');
   const [deletingEntry, setDeletingEntry] = useState<LiaisonEntry | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [digestAnswer, setDigestAnswer] = useState<DigestAnswer | null>(null);
+  const [digestOpen, setDigestOpen] = useState(false);
   const sequence = useRef(0);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const moodTriggerRef = useRef<HTMLButtonElement>(null);
@@ -188,6 +196,17 @@ export function LiaisonPage({
       window.clearInterval(clockTimer);
     };
   }, [load]);
+
+  // The weekly digest of the notebook: the latest week ready (Sunday evening).
+  useEffect(() => {
+    let current = true;
+    void fetchWeeklyDigest().then((answer) => {
+      if (current) setDigestAnswer(answer);
+    });
+    return () => {
+      current = false;
+    };
+  }, [locale]);
 
   async function mutate(path: string, method: string, input: unknown, success: string) {
     if (busy) return false;
@@ -442,6 +461,11 @@ export function LiaisonPage({
         <p role="status" className="liaison-notice">
           <Check aria-hidden="true" /> {notice}
         </p>
+      )}
+
+      <WeeklyDigestCard answer={digestAnswer} onOpen={() => setDigestOpen(true)} />
+      {digestOpen && digestAnswer && 'digest' in digestAnswer && (
+        <WeeklyDigestDialog initial={digestAnswer.digest} onClose={() => setDigestOpen(false)} />
       )}
 
       <div className="liaison-layout">

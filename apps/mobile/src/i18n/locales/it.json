@@ -2848,5 +2848,26 @@
     "whenMovesOrGetsUp": "quando {{resident}} si alza dal letto o si muove in {{rooms}}",
     "windowHint": "Il passaggio della mezzanotte è gestito. Fuori da questa fascia oraria non si accende nulla.",
     "windowTitle": "Solo di notte"
+  },
+  "weeklyDigest": {
+    "loading": "Preparazione del resoconto della settimana…",
+    "unavailable": "Il resoconto della settimana non è disponibile al momento. Verificate la connessione al box.",
+    "open": "Vedi il resoconto",
+    "close": "Chiudi il resoconto",
+    "previousWeek": "Vedi la settimana precedente",
+    "nextWeek": "Vedi la settimana successiva",
+    "exportPdf": "Esporta in PDF",
+    "exporting": "Preparazione del PDF…",
+    "exportFailed": "Non è stato possibile preparare il PDF. Riprovate tra un momento.",
+    "demo": {
+      "alertMorning": "Nessun movimento in cucina stamattina",
+      "alertBattery": "Batteria scarica per il sensore del bagno",
+      "sensorName": "Sensore di movimento",
+      "sensorRoom": "Bagno"
+    },
+    "downloaded": "Il PDF è stato salvato nei download.",
+    "shareTitle": "Condividi il resoconto della settimana",
+    "previousShort": "Precedente",
+    "nextShort": "Successiva"
   }
 }

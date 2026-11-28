@@ -2,6 +2,7 @@ import { boxHealthDemoAnswer, boxHealthDemoState } from './box-health';
 import { demoHeatEpisode } from './heat';
 import {
   createHeatwaveDemo,
+  createWeeklyDigestDemo,
   createZigbeeDemo,
   isZigbeeDemoScenario,
   type ZigbeeDemoScenario,
@@ -124,11 +125,34 @@ function heatwaveDemo() {
 }
 let heatwave = heatwaveDemo();
 
+/** A believable week for Jeanne in the notebook's weekly digest, with a notable change. */
+function weeklyDigestDemo() {
+  return createWeeklyDigestDemo({
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    residentName: 'Jeanne',
+    labels: {
+      visitors: { help: 'Sophie Bernard', son: 'Luc Martin', daughter: 'Claire Martin' },
+      appointment: 'Dr Bernard',
+      alertMorning: t('weeklyDigest.demo.alertMorning'),
+      alertBattery: t('weeklyDigest.demo.alertBattery'),
+      sensorName: t('weeklyDigest.demo.sensorName'),
+      sensorRoom: t('weeklyDigest.demo.sensorRoom'),
+    },
+  });
+}
+let weeklyDigest = weeklyDigestDemo();
+
+/** The demo digest of a week (the latest one without `week`), for the demo PDF. */
+export function demoWeeklyDigest(week?: string | null) {
+  return weeklyDigest.digest(week);
+}
+
 export function resetDemo() {
   resetDemoSession();
   web = createWebState();
   zigbee = createZigbeeDemo({ scenario: zigbeeScenario() });
   heatwave = heatwaveDemo();
+  weeklyDigest = weeklyDigestDemo();
 }
 
 function overview() {
@@ -512,6 +536,8 @@ export function handleDemoRequest(method: string, path: string, rawBody?: string
   if (zigbeeAnswer) return zigbeeAnswer;
   const heatwaveAnswer = heatwave.handle(method, pathname, rawBody);
   if (heatwaveAnswer) return heatwaveAnswer;
+  const digestAnswer = weeklyDigest.handle(method, pathname, query);
+  if (digestAnswer) return digestAnswer;
   // `loading` (a request that never ends) is answered by install.ts before reaching the router.
   const boxHealth = boxHealthDemoAnswer(
     method,

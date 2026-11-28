@@ -126,6 +126,13 @@ L’interface est entièrement responsive et disponible en français, anglais, e
 - Une ou plusieurs pièces de départ (mouvement, présence ou sortie du lit), plage horaire avec passage de minuit, pièces à éclairer même sans détecteur, intensité, teinte chaude, délai d’extinction, bouton « Tester ».
 - Le ruban Innr FL 230 C est le modèle documenté, mais tout éclairage Zigbee compatible Zigbee2MQTT fonctionne, sans pont du fabricant. Lumière d’appoint : ce n’est pas un dispositif médical. Voir [docs/chemin-lumineux.md](docs/chemin-lumineux.md).
 
+### Bilan de la semaine
+
+- Chaque dimanche soir, le carnet de liaison propose un bilan de la semaine pour la famille : heures de coucher et de lever, levers la nuit, repas qui semblent manqués, sorties, visites du calendrier et appels vidéo, alertes, capteurs en panne et jours sans données.
+- En tête, **ce qui a changé** par rapport aux semaines précédentes, en 3 à 5 phrases claires (« Lever en moyenne 40 min plus tard que d’habitude »), puis une tuile par thème avec un petit graphique sur 7 jours. On peut relire les semaines précédentes.
+- **Exporter en PDF** (une page A4, fabriquée sur la box, sans service extérieur) pour le médecin ou l’infirmière : téléchargement sur le web, feuille de partage sur le téléphone. Une notification prévient la famille le dimanche à 21 h.
+- Tout est calculé sur la box, sans Internet. Ce sont des estimations issues de capteurs, pas un dispositif médical ; le bilan n’apparaît jamais sur la télé. Voir [docs/bilan-de-la-semaine.md](docs/bilan-de-la-semaine.md).
+
 ### Coordination des aidants
 
 - Carnet de liaison partagé, calendrier des visites et rendez-vous, suivi des traitements.
@@ -216,6 +223,7 @@ Tout le traitement est **local**. Aucun service cloud n’est requis pour foncti
 | Observations détaillées des capteurs      | 90 jours                                  |
 | Tâches de livraison et données techniques | 30 jours                                  |
 | Résumés du journal                        | jusqu’à 2 ans (par défaut)                |
+| Chiffres des bilans de la semaine         | 2 ans                                     |
 | Comptes et journal d’audit                | jusqu’à suppression du compte ou du foyer |
 | Instantanés d’alerte caméra               | 24 heures, exclus des sauvegardes         |
 | Visio et audio                            | jamais enregistrés                        |
@@ -426,6 +434,7 @@ Chaque push exécute `format:check`, `lint`, `typecheck`, `test` et `build` sur 
 | Vie privée et rétention             | [docs/privacy.md](docs/privacy.md)                         |
 | Caméras                             | [docs/cameras.md](docs/cameras.md)                         |
 | Mode canicule                       | [docs/mode-canicule.md](docs/mode-canicule.md)             |
+| Bilan de la semaine                 | [docs/bilan-de-la-semaine.md](docs/bilan-de-la-semaine.md) |
 | Chemin lumineux de nuit             | [docs/chemin-lumineux.md](docs/chemin-lumineux.md)         |
 | Déploiement sur NAS                 | [README-NAS.md](README-NAS.md)                             |
 | Documentation utilisateur complète  | [eliseos.paulbreton.dev](https://eliseos.paulbreton.dev)   |
