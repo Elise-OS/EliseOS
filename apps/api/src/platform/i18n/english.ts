@@ -3,6 +3,9 @@
 // out. Room, people and device names typed by the family are never in this list.
 
 const EXACT: Record<string, string> = {
+  // Weekly digest of the notebook
+  'Ce bilan sera prêt dimanche soir.': 'This summary will be ready on Sunday evening.',
+  'Aucun bilan pour cette semaine.': 'No summary for this week.',
   // Sign-in
   'Trop de tentatives de connexion. Réessayez dans quelques minutes.':
     'Too many sign-in attempts. Try again in a few minutes.',

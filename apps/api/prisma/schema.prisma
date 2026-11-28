@@ -272,6 +272,7 @@ model Home {
   googleIntegration           GoogleIntegration?
   nightLightPaths            NightLightPath[]
   nightLightActivations      NightLightActivation[]
+  weeklyDigests              WeeklyDigestSnapshot[]
 
   @@index([organizationId])
 }
@@ -1277,4 +1278,20 @@ model HydrationReminder {
   home         Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
 
   @@unique([homeId, scheduledFor])
+}
+
+/// Measures of a finished week for the weekly digest of the notebook (nights, meals, outings,
+/// calls, moments with two rooms at once), kept once the week is over so earlier digests stay
+/// readable after the raw events are deleted (90 days). See docs/bilan-de-la-semaine.md.
+model WeeklyDigestSnapshot {
+  id        String   @id @default(cuid())
+  homeId    String
+  /// Monday of the week, in the home's time zone (YYYY-MM-DD).
+  weekStart String
+  metrics   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  home      Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+
+  @@unique([homeId, weekStart])
 }

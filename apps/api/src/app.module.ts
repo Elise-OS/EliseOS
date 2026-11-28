@@ -62,6 +62,8 @@ import {
 } from './modules/heatwave/heatwave.controller';
 import { HeatwaveService } from './modules/heatwave/heatwave.service';
 import { NightPathController } from './modules/night-path/night-path.controller';
+import { WeeklyDigestController } from './modules/weekly-digest/weekly-digest.controller';
+import { WeeklyDigestService } from './modules/weekly-digest/weekly-digest.service';
 import { NightPathService } from './modules/night-path/night-path.service';
 
 @Module({
@@ -94,6 +96,7 @@ import { NightPathService } from './modules/night-path/night-path.service';
     HeatwaveController,
     HeatwaveScreenDeviceController,
     NightPathController,
+    WeeklyDigestController,
   ],
   providers: [
     LiaisonService,
@@ -129,6 +132,7 @@ import { NightPathService } from './modules/night-path/night-path.service';
     HealthAgentClient,
     HeatwaveService,
     NightPathService,
+    WeeklyDigestService,
   ],
 })
 export class AppModule {}
