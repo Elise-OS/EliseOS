@@ -462,10 +462,11 @@ export function buildWeeklyDigest(
     ? Math.round(median(callWeeks.map((week) => week.total)) ?? 0)
     : null;
 
+  // A restless night: at least 3 risings, and 2 more than the usual night.
   const restlessLimit = Math.max(
     3,
     usualNights?.risingsPerNight !== null && usualNights?.risingsPerNight !== undefined
-      ? Math.ceil(usualNights.risingsPerNight + 2)
+      ? Math.round(usualNights.risingsPerNight + 2)
       : 3,
   );
   const restlessNights = metrics.nights.days
@@ -627,7 +628,8 @@ export function buildWeeklyDigest(
   const urgent = context.alerts.filter((alert) => alert.severity === 'URGENT').length;
   const measuredAnything =
     nights.measured > 0 || meals.measuredDays > 0 || outings.measured > 0 || calls.measured > 0;
-  const changeCount = ranked.length;
+  // The summary counts the changes the family will read, not those left out for room.
+  const changeCount = Math.min(ranked.length, room);
   const summary = !measuredAnything
     ? statement('summaryNoData', 'general', 'warning')
     : urgent > 0
