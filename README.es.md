@@ -126,6 +126,13 @@ La interfaz es totalmente adaptable a cualquier pantalla y está disponible en f
 - Una o varias habitaciones de salida (movimiento, presencia o salida de la cama), horario nocturno que cruza la medianoche, habitaciones que iluminar incluso sin detector, intensidad, blanco cálido, retardo de apagado y botón «Probar».
 - La tira Innr FL 230 C es el modelo documentado, pero funciona cualquier luz Zigbee compatible con Zigbee2MQTT, sin el puente del fabricante. Luz de apoyo: no es un dispositivo médico. Véase [docs/chemin-lumineux.md](docs/chemin-lumineux.md) (en francés).
 
+### Resumen de la semana
+
+- Cada domingo por la noche, el cuaderno de seguimiento ofrece un resumen de la semana para la familia: horas de acostarse y de levantarse, levantadas por la noche, comidas que parecen saltadas, salidas, visitas del calendario y videollamadas, alertas, sensores averiados y días sin datos.
+- Primero, **lo que ha cambiado** respecto a las semanas anteriores, en 3 a 5 frases claras («Se levanta de media 40 min más tarde de lo habitual»), y luego una ficha por tema con un pequeño gráfico de 7 días. Se pueden volver a leer las semanas anteriores.
+- **Exportar en PDF** (una página A4, generada en la caja, sin ningún servicio externo) para el médico o la enfermera: descarga en la web, menú de compartir en el teléfono. Una notificación avisa a la familia el domingo a las 20:00.
+- Todo se calcula en la caja, sin Internet. Son estimaciones obtenidas de sensores, no un dispositivo médico; el resumen nunca aparece en la tele. Véase [docs/bilan-de-la-semaine.md](docs/bilan-de-la-semaine.md) (en francés).
+
 ### Coordinación de los cuidadores
 
 - Cuaderno de seguimiento compartido, calendario de visitas y citas, seguimiento de los tratamientos.
@@ -216,6 +223,7 @@ Todo el procesamiento es **local**. No se necesita ningún servicio en la nube p
 | Observaciones detalladas de los sensores | 90 días                                        |
 | Tareas de entrega y datos técnicos       | 30 días                                        |
 | Resúmenes del diario                     | hasta 2 años (por defecto)                     |
+| Cifras de los resúmenes de la semana     | 2 años                                         |
 | Cuentas y registro de auditoría          | hasta que se elimine la cuenta o el hogar      |
 | Imágenes de alerta de las cámaras        | 24 horas, excluidas de las copias de seguridad |
 | Videollamadas y audio                    | nunca se graban                                |
@@ -426,6 +434,7 @@ Cada push ejecuta `format:check`, `lint`, `typecheck`, `test` y `build` en todo 
 | Privacidad y conservación (en inglés)                 | [docs/privacy.md](docs/privacy.md)                              |
 | Cámaras (en inglés)                                   | [docs/cameras.md](docs/cameras.md)                              |
 | Modo ola de calor (en francés)                        | [docs/mode-canicule.md](docs/mode-canicule.md)                  |
+| Resumen de la semana (en francés)                     | [docs/bilan-de-la-semaine.md](docs/bilan-de-la-semaine.md)      |
 | Camino iluminado nocturno (en francés)                | [docs/chemin-lumineux.md](docs/chemin-lumineux.md)              |
 | Despliegue en NAS (en francés)                        | [README-NAS.md](README-NAS.md)                                  |
 | Documentación de usuario completa                     | [eliseos.paulbreton.dev/es](https://eliseos.paulbreton.dev/es/) |

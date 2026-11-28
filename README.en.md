@@ -124,6 +124,13 @@ A calm screen, readable from the sofa: message of the day, clock, weather, appoi
 - One or more starting rooms (motion, presence or getting out of bed), night hours across midnight, rooms to light even without a sensor, brightness, warm white, switch-off delay and a “Test” button.
 - The Innr FL 230 C strip is the documented model, but any Zigbee light supported by Zigbee2MQTT works, without the manufacturer’s bridge. A supplementary light, not a medical device. See [docs/chemin-lumineux.md](docs/chemin-lumineux.md) (FR).
 
+### Weekly summary
+
+- Every Sunday evening, the notebook offers a weekly summary for the family: bedtime and getting-up times, getting up at night, meals that seem missed, outings, calendar visits and video calls, alerts, sensors out of order and days without data.
+- First, **what changed** compared with the previous weeks, in 3 to 5 plain sentences ("Getting up 40 min later than usual on average"), then one tile per theme with a small 7-day chart. Earlier weeks can be read again.
+- **Export as PDF** (one A4 page, made on the box, without any outside service) for the doctor or the nurse: a download on the web, the share sheet on the phone. A notification tells the family on Sunday at 20:00.
+- Everything is computed on the box, without Internet. These are estimates from sensors, not a medical device; the summary never shows on the TV. See [docs/bilan-de-la-semaine.md](docs/bilan-de-la-semaine.md) (in French).
+
 ### Caregiver coordination
 
 - Shared notebook, visit and appointment calendar, medication tracking.
@@ -214,6 +221,7 @@ All processing is **local**. No cloud service is required to run.
 | Detailed sensor observations        | 90 days                             |
 | Delivery jobs and technical records | 30 days                             |
 | Journal summaries                   | up to 2 years (default)             |
+| Weekly summary figures              | 2 years                             |
 | Accounts and audit log              | until account or household deletion |
 | Camera alert snapshots              | 24 hours, excluded from backups     |
 | Video calls and audio               | never recorded                      |
@@ -422,6 +430,7 @@ Every push runs `format:check`, `lint`, `typecheck`, `test` and `build` across t
 | Privacy and retention                     | [docs/privacy.md](docs/privacy.md)                              |
 | Cameras                                   | [docs/cameras.md](docs/cameras.md)                              |
 | Heatwave mode (in French)                 | [docs/mode-canicule.md](docs/mode-canicule.md)                  |
+| Weekly summary (in French)                | [docs/bilan-de-la-semaine.md](docs/bilan-de-la-semaine.md)      |
 | Night path lighting (FR)                  | [docs/chemin-lumineux.md](docs/chemin-lumineux.md)              |
 | NAS deployment (FR)                       | [README-NAS.md](README-NAS.md)                                  |
 | Full user documentation                   | [eliseos.paulbreton.dev/en](https://eliseos.paulbreton.dev/en/) |

@@ -126,6 +126,13 @@ L'interfaccia è completamente adattabile a qualsiasi schermo ed è disponibile 
 - Una o più stanze di partenza (movimento, presenza o uscita dal letto), fascia notturna che attraversa la mezzanotte, stanze da illuminare anche senza sensore, intensità, bianco caldo, ritardo di spegnimento e pulsante «Prova».
 - La striscia Innr FL 230 C è il modello documentato, ma funziona qualsiasi luce Zigbee compatibile con Zigbee2MQTT, senza il bridge del produttore. Luce di supporto: non è un dispositivo medico. Vedi [docs/chemin-lumineux.md](docs/chemin-lumineux.md) (in francese).
 
+### Resoconto della settimana
+
+- Ogni domenica sera, il quaderno di collegamento propone un resoconto della settimana per la famiglia: orari in cui si corica e si alza, alzate notturne, pasti che sembrano saltati, uscite, visite del calendario e videochiamate, avvisi, sensori guasti e giorni senza dati.
+- Prima di tutto, **cosa è cambiato** rispetto alle settimane precedenti, in 3-5 frasi chiare («Si alza in media 40 min più tardi del solito»), poi una scheda per tema con un piccolo grafico di 7 giorni. Si possono rileggere le settimane precedenti.
+- **Esporta in PDF** (una pagina A4, creata sul box, senza servizi esterni) per il medico o l’infermiera: download sul web, menu di condivisione sul telefono. Una notifica avvisa la famiglia la domenica alle 20:00.
+- Tutto è calcolato sul box, senza Internet. Sono stime ricavate dai sensori, non un dispositivo medico; il resoconto non compare mai sulla TV. Vedi [docs/bilan-de-la-semaine.md](docs/bilan-de-la-semaine.md) (in francese).
+
 ### Coordinamento dei caregiver
 
 - Diario di assistenza condiviso, calendario delle visite e degli appuntamenti, monitoraggio delle terapie.
@@ -216,6 +223,7 @@ Tutta l'elaborazione è **locale**. Per funzionare non occorre alcun servizio cl
 | Osservazioni dettagliate dei sensori | 90 giorni                                       |
 | Attività di consegna e dati tecnici  | 30 giorni                                       |
 | Riepiloghi del diario                | fino a 2 anni (per impostazione predefinita)    |
+| Cifre dei resoconti settimanali      | 2 anni                                          |
 | Account e registro di audit          | fino all'eliminazione dell'account o della casa |
 | Immagini di avviso delle telecamere  | 24 ore, escluse dai backup                      |
 | Videochiamate e audio                | mai registrati                                  |
@@ -426,6 +434,7 @@ Ogni push esegue `format:check`, `lint`, `typecheck`, `test` e `build` sull'inte
 | Privacy e conservazione (in inglese)                 | [docs/privacy.md](docs/privacy.md)                              |
 | Telecamere (in inglese)                              | [docs/cameras.md](docs/cameras.md)                              |
 | Modalità caldo (in francese)                         | [docs/mode-canicule.md](docs/mode-canicule.md)                  |
+| Resoconto della settimana (in francese)              | [docs/bilan-de-la-semaine.md](docs/bilan-de-la-semaine.md)      |
 | Percorso luminoso notturno (in francese)             | [docs/chemin-lumineux.md](docs/chemin-lumineux.md)              |
 | Deploy su NAS (in francese)                          | [README-NAS.md](README-NAS.md)                                  |
 | Documentazione utente completa                       | [eliseos.paulbreton.dev/it](https://eliseos.paulbreton.dev/it/) |
