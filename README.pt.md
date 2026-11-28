@@ -130,7 +130,7 @@ A interface adapta-se por completo a qualquer ecrã e está disponível em franc
 
 - Todos os domingos à noite, o caderno de ligação propõe um resumo da semana para a família: horas de deitar e de levantar, levantes à noite, refeições que parecem falhadas, saídas, visitas do calendário e videochamadas, alertas, sensores avariados e dias sem dados.
 - Primeiro, **o que mudou** em relação às semanas anteriores, em 3 a 5 frases claras («Levanta-se em média 40 min mais tarde do que o habitual»), depois um cartão por tema com um pequeno gráfico de 7 dias. É possível reler as semanas anteriores.
-- **Exportar em PDF** (uma página A4, gerada na caixa, sem nenhum serviço externo) para o médico ou a enfermeira: transferência na web, menu de partilha no telemóvel. Uma notificação avisa a família ao domingo às 20:00.
+- **Exportar em PDF** (uma página A4, gerada na caixa, sem nenhum serviço externo) para o médico ou a enfermeira: transferência na web, menu de partilha no telemóvel. Uma notificação avisa a família ao domingo às 21:00.
 - Tudo é calculado na caixa, sem Internet. São estimativas obtidas por sensores, não um dispositivo médico; o resumo nunca aparece na televisão. Ver [docs/bilan-de-la-semaine.md](docs/bilan-de-la-semaine.md) (em francês).
 
 ### Coordenação dos cuidadores

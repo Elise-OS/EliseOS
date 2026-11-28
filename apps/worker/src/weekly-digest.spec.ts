@@ -13,10 +13,10 @@ describe('weekly digest push', () => {
     pool.query.mockResolvedValue({ rows: [{ homeId: 'home-1', timezone: 'Europe/Paris' }] });
   });
 
-  it('is due on Sunday from 20:00, local time, for the week that ends', () => {
+  it('is due on Sunday from 21:00, local time, for the week that ends', () => {
     // Paris is UTC+1 on 22 November 2026.
-    expect(weeklyDigestDue(new Date('2026-11-22T18:59:00Z'), 'Europe/Paris')).toBeNull();
-    expect(weeklyDigestDue(new Date('2026-11-22T19:00:00Z'), 'Europe/Paris')).toBe('2026-11-16');
+    expect(weeklyDigestDue(new Date('2026-11-22T19:59:00Z'), 'Europe/Paris')).toBeNull();
+    expect(weeklyDigestDue(new Date('2026-11-22T20:00:00Z'), 'Europe/Paris')).toBe('2026-11-16');
     expect(weeklyDigestDue(new Date('2026-11-22T22:59:00Z'), 'Europe/Paris')).toBe('2026-11-16');
     expect(weeklyDigestDue(new Date('2026-11-23T08:00:00Z'), 'Europe/Paris')).toBeNull();
     expect(weeklyDigestDue(new Date('2026-11-21T20:00:00Z'), 'Europe/Paris')).toBeNull();
@@ -28,7 +28,7 @@ describe('weekly digest push', () => {
         sql.includes('FROM "AuditLog"') ? { rowCount: 0, rows: [] } : { rowCount: 1, rows: [] },
       ),
     );
-    expect(await notifyWeeklyDigests(new Date('2026-11-22T19:05:00Z'))).toBe(1);
+    expect(await notifyWeeklyDigests(new Date('2026-11-22T20:05:00Z'))).toBe(1);
     const insert = client.query.mock.calls.find(([sql]) => String(sql).includes('"OutboxMessage"'));
     expect(insert?.[1]).toEqual([
       'home-1',
@@ -49,7 +49,7 @@ describe('weekly digest push', () => {
         sql.includes('FROM "AuditLog"') ? { rowCount: 1, rows: [{}] } : { rowCount: 1, rows: [] },
       ),
     );
-    expect(await notifyWeeklyDigests(new Date('2026-11-22T19:30:00Z'))).toBe(0);
+    expect(await notifyWeeklyDigests(new Date('2026-11-22T20:30:00Z'))).toBe(0);
     expect(client.query.mock.calls.some(([sql]) => String(sql).includes('"OutboxMessage"'))).toBe(
       false,
     );

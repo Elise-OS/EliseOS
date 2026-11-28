@@ -19,7 +19,7 @@ export function weeklyDigestDue(now: Date, timeZone: string): string | null {
   return sunday && minute >= WEEKLY_DIGEST_READY_MINUTE ? digestWeekStart(dateKey) : null;
 }
 
-/** Every few minutes: one push per home and per week, on Sunday from 20:00 until midnight. */
+/** Every few minutes: one push per home and per week, on Sunday from 21:00 until midnight. */
 export async function notifyWeeklyDigests(now = new Date()): Promise<number> {
   const homes = await pool.query<{ homeId: string; timezone: string }>(
     `SELECT id AS "homeId", timezone FROM "Home"`,

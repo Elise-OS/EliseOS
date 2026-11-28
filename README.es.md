@@ -130,7 +130,7 @@ La interfaz es totalmente adaptable a cualquier pantalla y está disponible en f
 
 - Cada domingo por la noche, el cuaderno de seguimiento ofrece un resumen de la semana para la familia: horas de acostarse y de levantarse, levantadas por la noche, comidas que parecen saltadas, salidas, visitas del calendario y videollamadas, alertas, sensores averiados y días sin datos.
 - Primero, **lo que ha cambiado** respecto a las semanas anteriores, en 3 a 5 frases claras («Se levanta de media 40 min más tarde de lo habitual»), y luego una ficha por tema con un pequeño gráfico de 7 días. Se pueden volver a leer las semanas anteriores.
-- **Exportar en PDF** (una página A4, generada en la caja, sin ningún servicio externo) para el médico o la enfermera: descarga en la web, menú de compartir en el teléfono. Una notificación avisa a la familia el domingo a las 20:00.
+- **Exportar en PDF** (una página A4, generada en la caja, sin ningún servicio externo) para el médico o la enfermera: descarga en la web, menú de compartir en el teléfono. Una notificación avisa a la familia el domingo a las 21:00.
 - Todo se calcula en la caja, sin Internet. Son estimaciones obtenidas de sensores, no un dispositivo médico; el resumen nunca aparece en la tele. Véase [docs/bilan-de-la-semaine.md](docs/bilan-de-la-semaine.md) (en francés).
 
 ### Coordinación de los cuidadores

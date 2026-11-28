@@ -25,9 +25,9 @@ Les flèches **Semaine précédente** / **Semaine suivante** permettent de relir
 
 ## Quand il est prêt
 
-Le bilan couvre la semaine **du lundi au dimanche**. Il est prêt le **dimanche à 20 h** (heure du logement). Avant cette heure, le carnet montre le bilan de la semaine d’avant.
+Le bilan couvre la semaine **du lundi au dimanche**. Il est prêt le **dimanche à 21 h** (heure du logement). Avant cette heure, le carnet montre le bilan de la semaine d’avant.
 
-Le dimanche à 20 h, la famille reçoit une notification « Le bilan de la semaine est prêt », par le même chemin que les autres notifications d’Élise. Elle ne contient aucun détail de la semaine. Elle suit le réglage **Carnet de liaison → Nouveau message** des notifications de l’application : le couper coupe aussi celle du bilan.
+Le dimanche à 21 h, la famille reçoit une notification « Le bilan de la semaine est prêt », par le même chemin que les autres notifications d’Élise. Elle ne contient aucun détail de la semaine. Elle suit le réglage **Carnet de liaison → Nouveau message** des notifications de l’application : le couper coupe aussi celle du bilan.
 
 ## Ce que contient le bilan
 
@@ -107,5 +107,5 @@ La démo de l’espace aidant (`/demo/`) montre une semaine de Jeanne avec des c
 - Calcul : `packages/contracts/src/weekly-digest.ts` (comparaison, phrases), `apps/api/src/modules/weekly-digest/week-metrics.ts` (mesures à partir des événements).
 - API : `GET /api/v1/weekly-digest?week=AAAA-MM-JJ` et `GET /api/v1/weekly-digest/pdf?week=…&lang=fr`.
 - Textes des 5 langues : `packages/contracts/src/weekly-digest-text.ts` ; PDF : `packages/contracts/src/weekly-digest-pdf.ts`.
-- Notification du dimanche : `apps/worker/src/weekly-digest.ts`. L’heure est `WEEKLY_DIGEST_READY_MINUTE` (20 h).
+- Notification du dimanche : `apps/worker/src/weekly-digest.ts`. L’heure est `WEEKLY_DIGEST_READY_MINUTE` (21 h).
 - Chiffres gardés : table `WeeklyDigestSnapshot`.

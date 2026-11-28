@@ -130,7 +130,7 @@ L'interfaccia è completamente adattabile a qualsiasi schermo ed è disponibile 
 
 - Ogni domenica sera, il quaderno di collegamento propone un resoconto della settimana per la famiglia: orari in cui si corica e si alza, alzate notturne, pasti che sembrano saltati, uscite, visite del calendario e videochiamate, avvisi, sensori guasti e giorni senza dati.
 - Prima di tutto, **cosa è cambiato** rispetto alle settimane precedenti, in 3-5 frasi chiare («Si alza in media 40 min più tardi del solito»), poi una scheda per tema con un piccolo grafico di 7 giorni. Si possono rileggere le settimane precedenti.
-- **Esporta in PDF** (una pagina A4, creata sul box, senza servizi esterni) per il medico o l’infermiera: download sul web, menu di condivisione sul telefono. Una notifica avvisa la famiglia la domenica alle 20:00.
+- **Esporta in PDF** (una pagina A4, creata sul box, senza servizi esterni) per il medico o l’infermiera: download sul web, menu di condivisione sul telefono. Una notifica avvisa la famiglia la domenica alle 21:00.
 - Tutto è calcolato sul box, senza Internet. Sono stime ricavate dai sensori, non un dispositivo medico; il resoconto non compare mai sulla TV. Vedi [docs/bilan-de-la-semaine.md](docs/bilan-de-la-semaine.md) (in francese).
 
 ### Coordinamento dei caregiver

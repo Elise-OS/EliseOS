@@ -9,7 +9,7 @@ import { liaisonDateSchema } from './liaison.js';
  */
 
 /** The digest of a week is ready on Sunday at this local time (minutes after midnight). */
-export const WEEKLY_DIGEST_READY_MINUTE = 20 * 60;
+export const WEEKLY_DIGEST_READY_MINUTE = 21 * 60;
 /** Earlier weeks compared with the digest week to describe "the usual". */
 export const WEEKLY_DIGEST_BASELINE_WEEKS = 4;
 /** Weeks needed, with enough measured days, before Élise compares a theme with the usual. */

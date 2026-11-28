@@ -128,7 +128,7 @@ A calm screen, readable from the sofa: message of the day, clock, weather, appoi
 
 - Every Sunday evening, the notebook offers a weekly summary for the family: bedtime and getting-up times, getting up at night, meals that seem missed, outings, calendar visits and video calls, alerts, sensors out of order and days without data.
 - First, **what changed** compared with the previous weeks, in 3 to 5 plain sentences ("Getting up 40 min later than usual on average"), then one tile per theme with a small 7-day chart. Earlier weeks can be read again.
-- **Export as PDF** (one A4 page, made on the box, without any outside service) for the doctor or the nurse: a download on the web, the share sheet on the phone. A notification tells the family on Sunday at 20:00.
+- **Export as PDF** (one A4 page, made on the box, without any outside service) for the doctor or the nurse: a download on the web, the share sheet on the phone. A notification tells the family on Sunday at 21:00.
 - Everything is computed on the box, without Internet. These are estimates from sensors, not a medical device; the summary never shows on the TV. See [docs/bilan-de-la-semaine.md](docs/bilan-de-la-semaine.md) (in French).
 
 ### Caregiver coordination

@@ -111,14 +111,14 @@ describe('weekly digest calendar', () => {
     assert.equal(digestWeekStart('2026-11-18'), '2026-11-16');
   });
 
-  it('makes the digest of the week ready on Sunday at 20:00, local time', () => {
-    // Sunday 22 November 2026, 19:59 and 20:00 in Paris (UTC+1).
-    assert.equal(latestDigestWeek(new Date('2026-11-22T18:59:00Z'), tz), '2026-11-09');
-    assert.equal(latestDigestWeek(new Date('2026-11-22T19:00:00Z'), tz), '2026-11-16');
+  it('makes the digest of the week ready on Sunday at 21:00, local time', () => {
+    // Sunday 22 November 2026, 20:59 and 21:00 in Paris (UTC+1).
+    assert.equal(latestDigestWeek(new Date('2026-11-22T19:59:00Z'), tz), '2026-11-09');
+    assert.equal(latestDigestWeek(new Date('2026-11-22T20:00:00Z'), tz), '2026-11-16');
     assert.equal(latestDigestWeek(new Date('2026-11-25T10:00:00Z'), tz), '2026-11-16');
-    assert.equal(digestReadyAt('2026-11-16', tz).toISOString(), '2026-11-22T19:00:00.000Z');
-    // Summer time: Sunday 28 June 2026 at 20:00 is 18:00 UTC.
-    assert.equal(digestReadyAt('2026-06-22', tz).toISOString(), '2026-06-28T18:00:00.000Z');
+    assert.equal(digestReadyAt('2026-11-16', tz).toISOString(), '2026-11-22T20:00:00.000Z');
+    // Summer time: Sunday 28 June 2026 at 21:00 is 19:00 UTC.
+    assert.equal(digestReadyAt('2026-06-22', tz).toISOString(), '2026-06-28T19:00:00.000Z');
   });
 
   it('closes a week only once its Sunday night is over', () => {

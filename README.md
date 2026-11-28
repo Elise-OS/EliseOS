@@ -130,7 +130,7 @@ L’interface est entièrement responsive et disponible en français, anglais, e
 
 - Chaque dimanche soir, le carnet de liaison propose un bilan de la semaine pour la famille : heures de coucher et de lever, levers la nuit, repas qui semblent manqués, sorties, visites du calendrier et appels vidéo, alertes, capteurs en panne et jours sans données.
 - En tête, **ce qui a changé** par rapport aux semaines précédentes, en 3 à 5 phrases claires (« Lever en moyenne 40 min plus tard que d’habitude »), puis une tuile par thème avec un petit graphique sur 7 jours. On peut relire les semaines précédentes.
-- **Exporter en PDF** (une page A4, fabriquée sur la box, sans service extérieur) pour le médecin ou l’infirmière : téléchargement sur le web, feuille de partage sur le téléphone. Une notification prévient la famille le dimanche à 20 h.
+- **Exporter en PDF** (une page A4, fabriquée sur la box, sans service extérieur) pour le médecin ou l’infirmière : téléchargement sur le web, feuille de partage sur le téléphone. Une notification prévient la famille le dimanche à 21 h.
 - Tout est calculé sur la box, sans Internet. Ce sont des estimations issues de capteurs, pas un dispositif médical ; le bilan n’apparaît jamais sur la télé. Voir [docs/bilan-de-la-semaine.md](docs/bilan-de-la-semaine.md).
 
 ### Coordination des aidants
