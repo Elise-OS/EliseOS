@@ -149,6 +149,9 @@ export async function handlePush(row: OutboxRow): Promise<void> {
         ? 'Élise · Attention requise'
         : 'Élise · Nouvelle information';
     body = 'Une situation a été détectée au domicile. Ouvrez Élise pour les détails.';
+  } else if (row.payload.kind === 'weekly_digest') {
+    // The weekly digest is part of the notebook: same preference as its messages.
+    preferenceColumn = 'liaisonMessages';
   } else if (liaisonId) {
     const preference = row.payload.preference;
     if (preference !== 'liaisonMessages' && preference !== 'liaisonMoods') return;
@@ -204,6 +207,9 @@ export async function handlePush(row: OutboxRow): Promise<void> {
           kind: alertId ? 'alert' : (row.payload.kind ?? 'system'),
           ...(alertId ? { alertId } : {}),
           ...(liaisonId ? { liaisonId } : {}),
+          ...(typeof row.payload.weekStart === 'string'
+            ? { weekStart: row.payload.weekStart }
+            : {}),
           severity,
         },
       })),

@@ -8,6 +8,7 @@ import {
 } from './evaluators.js';
 import { beat, trackFailingTasks } from './heartbeat.js';
 import { evaluateHeatwaveModes } from './heatwave.js';
+import { notifyWeeklyDigests } from './weekly-digest.js';
 import { listenForOutbox } from './outbox-listener.js';
 import { processNextMessage } from './outbox.js';
 import {
@@ -33,6 +34,13 @@ const tasks: PeriodicTask[] = [
   { name: 'inactivity', everyMs: MINUTE, run: evaluateInactivity },
   { name: 'medication-doses', everyMs: MINUTE, run: evaluateMedicationDoses },
   { name: 'heatwave', everyMs: MINUTE, run: evaluateHeatwaveModes },
+  {
+    name: 'weekly-digest',
+    everyMs: 5 * MINUTE,
+    run: async () => {
+      await notifyWeeklyDigests();
+    },
+  },
   {
     name: 'presence-sessions',
     everyMs: MINUTE,
