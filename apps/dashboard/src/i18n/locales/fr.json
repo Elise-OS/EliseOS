@@ -3991,5 +3991,26 @@
     "useKey": "Utiliser cette clé",
     "useKeyInstead": "Utiliser cette clé à la place",
     "watching": "Une clé branchée ou allumée apparaît toute seule tant que cet écran est ouvert."
+  },
+  "weeklyDigest": {
+    "loading": "Préparation du bilan de la semaine…",
+    "unavailable": "Le bilan de la semaine n’est pas disponible pour le moment. Vérifiez la connexion à la box.",
+    "open": "Voir le bilan",
+    "close": "Fermer le bilan",
+    "weeks": "Semaines",
+    "previous": "Semaine précédente",
+    "next": "Semaine suivante",
+    "previousWeek": "Voir la semaine précédente",
+    "nextWeek": "Voir la semaine suivante",
+    "exportPdf": "Exporter en PDF",
+    "exporting": "Préparation du PDF…",
+    "exported": "Le PDF est enregistré dans vos téléchargements.",
+    "exportFailed": "Le PDF n’a pas pu être préparé. Réessayez dans un instant.",
+    "demo": {
+      "alertMorning": "Aucun mouvement ce matin dans la cuisine",
+      "alertBattery": "Batterie faible pour le détecteur de la salle de bain",
+      "sensorName": "Détecteur de mouvement",
+      "sensorRoom": "Salle de bain"
+    }
   }
 }

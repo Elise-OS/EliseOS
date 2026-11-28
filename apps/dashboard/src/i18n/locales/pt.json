@@ -3997,5 +3997,26 @@
     "useKey": "Utilizar este adaptador",
     "useKeyInstead": "Utilizar antes este adaptador",
     "watching": "Um adaptador ligado aparece automaticamente enquanto este ecrã estiver aberto."
+  },
+  "weeklyDigest": {
+    "loading": "A preparar o resumo da semana…",
+    "unavailable": "O resumo da semana não está disponível de momento. Verifique a ligação à caixa.",
+    "open": "Ver o resumo",
+    "close": "Fechar o resumo",
+    "weeks": "Semanas",
+    "previous": "Semana anterior",
+    "next": "Semana seguinte",
+    "previousWeek": "Ver a semana anterior",
+    "nextWeek": "Ver a semana seguinte",
+    "exportPdf": "Exportar em PDF",
+    "exporting": "A preparar o PDF…",
+    "exported": "O PDF foi guardado nas suas transferências.",
+    "exportFailed": "Não foi possível preparar o PDF. Tente novamente dentro de momentos.",
+    "demo": {
+      "alertMorning": "Nenhum movimento esta manhã na cozinha",
+      "alertBattery": "Bateria fraca do sensor da casa de banho",
+      "sensorName": "Sensor de movimento",
+      "sensorRoom": "Casa de banho"
+    }
   }
 }
