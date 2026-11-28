@@ -1,4 +1,5 @@
 import type {
+  WeeklyDigest,
   WeeklyDigestLanguage,
   WeeklyDigestMeal,
   WeeklyDigestStatement,
@@ -39,6 +40,7 @@ export interface WeeklyDigestTexts {
     less: string;
     similar: string;
     noHistory: string;
+    watch: string;
   };
   nights: {
     bedtime: string;
@@ -68,6 +70,10 @@ export interface WeeklyDigestTexts {
     missed: Plural;
     noneMissed: string;
     fridge: string;
+    seenLabel: string;
+    missedLabel: string;
+    fridgeLabel: string;
+    perDay: string;
     method: string;
     notEquipped: string;
     noData: string;
@@ -75,6 +81,8 @@ export interface WeeklyDigestTexts {
   outings: {
     label: string;
     count: Plural;
+    timeLabel: string;
+    daysWithoutLabel: string;
     duration: string;
     daysWithout: Plural;
     everyDay: string;
@@ -87,6 +95,9 @@ export interface WeeklyDigestTexts {
     planned: Plural;
     confirmed: Plural;
     nonePlanned: string;
+    plannedLabel: string;
+    callsLabel: string;
+    presenceLabel: string;
     calls: Plural;
     callsDuration: string;
     callsUnknown: string;
@@ -151,6 +162,7 @@ const fr: WeeklyDigestTexts = {
     less: 'Moins que d’habitude',
     similar: 'Comme d’habitude',
     noHistory: 'Habitude pas encore connue',
+    watch: 'À regarder',
   },
   nights: {
     bedtime: 'Coucher',
@@ -186,6 +198,10 @@ const fr: WeeklyDigestTexts = {
     missed: { one: '{{count}} repas semble manqué', other: '{{count}} repas semblent manqués' },
     noneMissed: 'Aucun repas ne semble manqué.',
     fridge: 'Réfrigérateur ouvert {{count}} fois par jour en moyenne',
+    seenLabel: 'Repas avec activité',
+    missedLabel: 'Semblent manqués',
+    fridgeLabel: 'Réfrigérateur',
+    perDay: '{{count}} / jour',
     method: 'Activité en cuisine et au réfrigérateur aux heures des repas.',
     notEquipped: 'Aucun capteur dans la cuisine ni sur le réfrigérateur.',
     noData: 'Pas de données sur les repas cette semaine.',
@@ -193,6 +209,8 @@ const fr: WeeklyDigestTexts = {
   outings: {
     label: 'Sorties probables',
     count: { one: '{{count}} sortie', other: '{{count}} sorties' },
+    timeLabel: 'Temps dehors',
+    daysWithoutLabel: 'Jours sans sortie',
     duration: '{{duration}} dehors au total',
     daysWithout: { one: '{{count}} jour sans sortie', other: '{{count}} jours sans sortie' },
     everyDay: 'Au moins une sortie chaque jour.',
@@ -211,6 +229,9 @@ const fr: WeeklyDigestTexts = {
       other: 'dont {{count}} confirmées dans le carnet',
     },
     nonePlanned: 'Aucune visite prévue au calendrier.',
+    plannedLabel: 'Visites au calendrier',
+    callsLabel: 'Appels vidéo',
+    presenceLabel: 'Deux pièces à la fois',
     calls: {
       one: '{{count}} appel vidéo sur la télé',
       other: '{{count}} appels vidéo sur la télé',
@@ -348,6 +369,7 @@ const en: WeeklyDigestTexts = {
     less: 'Less than usual',
     similar: 'As usual',
     noHistory: 'Usual pattern not known yet',
+    watch: 'Worth a look',
   },
   nights: {
     bedtime: 'Bedtime',
@@ -383,6 +405,10 @@ const en: WeeklyDigestTexts = {
     missed: { one: '{{count}} meal seems missed', other: '{{count}} meals seem missed' },
     noneMissed: 'No meal seems missed.',
     fridge: 'Fridge opened {{count}} times a day on average',
+    seenLabel: 'Meals with activity',
+    missedLabel: 'Seem missed',
+    fridgeLabel: 'Fridge',
+    perDay: '{{count}} / day',
     method: 'Activity in the kitchen and at the fridge at meal times.',
     notEquipped: 'No sensor in the kitchen or on the fridge.',
     noData: 'No data about meals this week.',
@@ -390,6 +416,8 @@ const en: WeeklyDigestTexts = {
   outings: {
     label: 'Probable outings',
     count: { one: '{{count}} outing', other: '{{count}} outings' },
+    timeLabel: 'Time outside',
+    daysWithoutLabel: 'Days without going out',
     duration: '{{duration}} outside in total',
     daysWithout: {
       one: '{{count}} day without going out',
@@ -411,6 +439,9 @@ const en: WeeklyDigestTexts = {
       other: 'including {{count}} confirmed in the notebook',
     },
     nonePlanned: 'No visit planned in the calendar.',
+    plannedLabel: 'Visits in the calendar',
+    callsLabel: 'Video calls',
+    presenceLabel: 'Two rooms at once',
     calls: { one: '{{count}} video call on the TV', other: '{{count}} video calls on the TV' },
     callsDuration: '{{duration}} in total',
     callsUnknown: 'This week’s video calls are not known.',
@@ -544,6 +575,7 @@ const es: WeeklyDigestTexts = {
     less: 'Menos de lo habitual',
     similar: 'Como de costumbre',
     noHistory: 'Costumbre aún desconocida',
+    watch: 'A revisar',
   },
   nights: {
     bedtime: 'Acostarse',
@@ -582,6 +614,10 @@ const es: WeeklyDigestTexts = {
     },
     noneMissed: 'Ninguna comida parece saltada.',
     fridge: 'Nevera abierta {{count}} veces al día de media',
+    seenLabel: 'Comidas con actividad',
+    missedLabel: 'Parecen saltadas',
+    fridgeLabel: 'Nevera',
+    perDay: '{{count}} / día',
     method: 'Actividad en la cocina y en la nevera a las horas de las comidas.',
     notEquipped: 'No hay sensor en la cocina ni en la nevera.',
     noData: 'No hay datos sobre las comidas esta semana.',
@@ -589,6 +625,8 @@ const es: WeeklyDigestTexts = {
   outings: {
     label: 'Salidas probables',
     count: { one: '{{count}} salida', other: '{{count}} salidas' },
+    timeLabel: 'Tiempo fuera',
+    daysWithoutLabel: 'Días sin salir',
     duration: '{{duration}} fuera en total',
     daysWithout: { one: '{{count}} día sin salir', other: '{{count}} días sin salir' },
     everyDay: 'Al menos una salida cada día.',
@@ -607,6 +645,9 @@ const es: WeeklyDigestTexts = {
       other: 'de ellas {{count}} confirmadas en el cuaderno',
     },
     nonePlanned: 'Ninguna visita prevista en el calendario.',
+    plannedLabel: 'Visitas en el calendario',
+    callsLabel: 'Videollamadas',
+    presenceLabel: 'Dos habitaciones a la vez',
     calls: {
       one: '{{count}} videollamada en la tele',
       other: '{{count}} videollamadas en la tele',
@@ -743,6 +784,7 @@ const it: WeeklyDigestTexts = {
     less: 'Meno del solito',
     similar: 'Come al solito',
     noHistory: 'Abitudine non ancora nota',
+    watch: 'Da guardare',
   },
   nights: {
     bedtime: 'Coricarsi',
@@ -778,6 +820,10 @@ const it: WeeklyDigestTexts = {
     missed: { one: '{{count}} pasto sembra saltato', other: '{{count}} pasti sembrano saltati' },
     noneMissed: 'Nessun pasto sembra saltato.',
     fridge: 'Frigorifero aperto {{count}} volte al giorno in media',
+    seenLabel: 'Pasti con attività',
+    missedLabel: 'Sembrano saltati',
+    fridgeLabel: 'Frigorifero',
+    perDay: '{{count}} / giorno',
     method: 'Attività in cucina e al frigorifero all’ora dei pasti.',
     notEquipped: 'Nessun sensore in cucina né sul frigorifero.',
     noData: 'Nessun dato sui pasti questa settimana.',
@@ -785,6 +831,8 @@ const it: WeeklyDigestTexts = {
   outings: {
     label: 'Uscite probabili',
     count: { one: '{{count}} uscita', other: '{{count}} uscite' },
+    timeLabel: 'Tempo fuori',
+    daysWithoutLabel: 'Giorni senza uscire',
     duration: '{{duration}} fuori in totale',
     daysWithout: { one: '{{count}} giorno senza uscire', other: '{{count}} giorni senza uscire' },
     everyDay: 'Almeno un’uscita ogni giorno.',
@@ -803,6 +851,9 @@ const it: WeeklyDigestTexts = {
       other: 'di cui {{count}} confermate nel quaderno',
     },
     nonePlanned: 'Nessuna visita prevista nel calendario.',
+    plannedLabel: 'Visite nel calendario',
+    callsLabel: 'Videochiamate',
+    presenceLabel: 'Due stanze insieme',
     calls: {
       one: '{{count}} videochiamata sulla TV',
       other: '{{count}} videochiamate sulla TV',
@@ -938,6 +989,7 @@ const pt: WeeklyDigestTexts = {
     less: 'Menos do que o habitual',
     similar: 'Como habitualmente',
     noHistory: 'Hábito ainda desconhecido',
+    watch: 'A ver',
   },
   nights: {
     bedtime: 'Deitar',
@@ -976,6 +1028,10 @@ const pt: WeeklyDigestTexts = {
     },
     noneMissed: 'Nenhuma refeição parece falhada.',
     fridge: 'Frigorífico aberto {{count}} vezes por dia em média',
+    seenLabel: 'Refeições com atividade',
+    missedLabel: 'Parecem falhadas',
+    fridgeLabel: 'Frigorífico',
+    perDay: '{{count}} / dia',
     method: 'Atividade na cozinha e no frigorífico às horas das refeições.',
     notEquipped: 'Nenhum sensor na cozinha nem no frigorífico.',
     noData: 'Sem dados sobre as refeições esta semana.',
@@ -983,6 +1039,8 @@ const pt: WeeklyDigestTexts = {
   outings: {
     label: 'Saídas prováveis',
     count: { one: '{{count}} saída', other: '{{count}} saídas' },
+    timeLabel: 'Tempo fora',
+    daysWithoutLabel: 'Dias sem sair',
     duration: '{{duration}} fora no total',
     daysWithout: { one: '{{count}} dia sem sair', other: '{{count}} dias sem sair' },
     everyDay: 'Pelo menos uma saída por dia.',
@@ -1001,6 +1059,9 @@ const pt: WeeklyDigestTexts = {
       other: 'das quais {{count}} confirmadas no caderno',
     },
     nonePlanned: 'Nenhuma visita prevista no calendário.',
+    plannedLabel: 'Visitas no calendário',
+    callsLabel: 'Videochamadas',
+    presenceLabel: 'Duas divisões ao mesmo tempo',
     calls: {
       one: '{{count}} videochamada na televisão',
       other: '{{count}} videochamadas na televisão',
@@ -1228,4 +1289,54 @@ export function digestStatementText(
   if (item.values.percent !== undefined)
     values.percent = digestNumber(item.values.percent, language);
   return digestPlural(entry, item.values.count ?? 1, language, values);
+}
+
+export interface WeeklyDigestTrend {
+  tone: 'change' | 'stable' | 'none';
+  label: string;
+}
+
+/** The short label of a theme compared with the usual ("40 min plus tard", "Comme d’habitude"). */
+export function digestThemeTrend(
+  digest: WeeklyDigest,
+  theme: 'nights' | 'meals' | 'outings' | 'visits',
+  language: WeeklyDigestLanguage,
+): WeeklyDigestTrend {
+  const text = weeklyDigestTexts(language).trend;
+  const change = (key: WeeklyDigestStatementKey) =>
+    digest.changes.find((item) => item.key === key && item.tone === 'change');
+  const usual =
+    theme === 'nights'
+      ? digest.nights.usual
+      : theme === 'meals'
+        ? digest.meals.usual
+        : theme === 'outings'
+          ? digest.outings.usual
+          : digest.visitSummary.calls.usual;
+  const later = change('wakeLater') ?? change('bedtimeLater');
+  const earlier = change('wakeEarlier') ?? change('bedtimeEarlier');
+  if (theme === 'nights' && (later || earlier))
+    return {
+      tone: 'change',
+      label: fillDigestText(later ? text.later : text.earlier, {
+        duration: digestDuration((later ?? earlier)!.values.minutes ?? 0),
+      }),
+    };
+  if (theme === 'nights' && (change('inBedShorter') || change('inBedLonger')))
+    return {
+      tone: 'change',
+      label: fillDigestText(change('inBedShorter') ? text.shorter : text.longer, {
+        duration: digestDuration(
+          (change('inBedShorter') ?? change('inBedLonger'))!.values.minutes ?? 0,
+        ),
+      }),
+    };
+  if (theme === 'outings' && (change('fewerOutings') || change('moreOutings')))
+    return { tone: 'change', label: change('fewerOutings') ? text.less : text.more };
+  if (theme === 'visits' && (change('fewerCalls') || change('moreCalls')))
+    return { tone: 'change', label: change('fewerCalls') ? text.less : text.more };
+  if (digest.changes.some((item) => item.theme === theme && item.tone === 'change'))
+    return { tone: 'change', label: text.watch };
+  if (usual === null || usual === undefined) return { tone: 'none', label: text.noHistory };
+  return { tone: 'stable', label: text.similar };
 }

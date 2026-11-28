@@ -498,7 +498,7 @@ export function buildWeeklyDigest(
           score: Math.abs(shift) / 20,
           statement: statement(shift > 0 ? 'wakeLater' : 'wakeEarlier', 'nights', 'change', {
             minutes: roundTo(Math.abs(shift), 5),
-            clock: roundTo(nights.wake, 5),
+            clock: Math.round(nights.wake),
           }),
         });
     }
@@ -509,7 +509,7 @@ export function buildWeeklyDigest(
           score: Math.abs(shift) / SIGNIFICANT.clockMinutes,
           statement: statement(shift > 0 ? 'bedtimeLater' : 'bedtimeEarlier', 'nights', 'change', {
             minutes: roundTo(Math.abs(shift), 5),
-            clock: roundTo(nights.bedtime, 5) % 1440,
+            clock: Math.round(nights.bedtime) % 1440,
           }),
         });
     }

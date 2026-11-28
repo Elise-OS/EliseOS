@@ -98,6 +98,7 @@ const TONE_COLOR: Record<WeeklyDigestStatement['tone'], string> = {
 };
 
 /** Standard PDF fonts cover Latin-1: narrow spaces become plain spaces. */
+const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 const clean = (value: string) => value.replace(/[\u202f\u2009]/g, ' ');
 
 export interface DigestPdfOptions {
@@ -411,7 +412,7 @@ export function buildWeeklyDigestPdf(
     nightCard.legend = [
       { label: text.nights.legendBar, draw: square(COLOR.blue) },
       {
-        label: text.nights.restless.other.replace(/\{\{count\}\}\s*/, ''),
+        label: capitalize(text.nights.restless.other.replace(/\{\{count\}\}\s*/, '')),
         draw: square(COLOR.amber),
       },
       {
